@@ -39,7 +39,7 @@ import {
   type State,
 } from './sim';
 
-/** ?test=2 で開いたとき（工房の ?test=2 から来る）。テスト用の札を出す */
+/** ?test=2 で開いたとき（?test=2&mode=free で来る）。テスト用の札を出す */
 const TEST = new URLSearchParams(location.search).get('test') === '2';
 const SAVE = 'mycryptoisland.save.v1';
 const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
@@ -506,7 +506,7 @@ function openMenu() {
         ]),
     ],
     [isEn ? '日本語' : 'English', () => setLang(isEn ? 'ja' : 'en')], // i18n-ja
-    [t('工房へ戻る', 'Back to the Workshop'), () => location.assign(`${import.meta.env.BASE_URL}index.html`)],
+    [t('フェーズ 1 へ', 'Back to Phase 1'), () => location.assign(`${import.meta.env.BASE_URL}?test=2`)],
   ]);
 }
 

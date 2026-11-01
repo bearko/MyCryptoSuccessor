@@ -3028,7 +3028,6 @@ function openSaveMenu() {
           [t('やめる', 'Cancel'), () => undefined],
         ]),
     ],
-    [t('工房へ戻る', 'Back to the Workshop'), () => location.assign(`${import.meta.env.BASE_URL}index.html`)],
   ]);
 }
 
@@ -3057,7 +3056,7 @@ function openTest() {
     ],
     [t('1 か月進める', 'Advance a month'), () => advance(daysToClose(s))],
     [t('最初から', 'Start over'), () => restart()],
-    [t('自由建築モードへ', 'Free-build mode'), () => location.assign(`${import.meta.env.BASE_URL}island.html?test=2&mode=free`)],
+    [t('自由建築モードへ', 'Free-build mode'), () => location.assign(`${import.meta.env.BASE_URL}?test=2&mode=free`)],
   ]);
 }
 

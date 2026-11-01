@@ -1,7 +1,7 @@
 {
-  "name": "mycryptoworkshop",
-  "version": "1.0.2",
-  "description": "My Crypto Heroes の世界でエクステンションをクラフトして売るインクリメンタルゲーム",
+  "name": "mycryptosuccessor",
+  "version": "0.1.0",
+  "description": "My Crypto Heroes の世界のランド「Lime」で、工房と店を営み、荒れ地を発掘して町を復興させる経営シミュレーション（非公式二次創作）",
   "scripts": {
     "sync-assets": "node scripts/sync-assets.mjs",
     "predev": "node scripts/sync-assets.mjs",
@@ -12,25 +12,21 @@
     "pretest": "node scripts/sync-assets.mjs",
     "test": "vitest run",
     "typecheck": "tsc",
-    "balance": "node scripts/sync-assets.mjs && node scripts/balance.mjs",
-    "sim:empire": "node scripts/empire-sim.mjs",
     "island:sim": "vitest run tests/island-p1-sim.test.ts --silent=false --reporter=verbose",
     "island:audit": "vitest run tests/island-p1-audit.test.ts --silent=false --reporter=verbose",
     "i18n:check": "node scripts/i18n-check.mjs",
-    "design:tokens": "node scripts/design-tokens.mjs",
-    "pixel:lint": "node scripts/pixel-lint.mjs",
-    "package": "npm run build && node scripts/package.mjs"
+    "pixel:lint": "node scripts/pixel-lint.mjs"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bearko/MyCryptoWorkshop.git"
+    "url": "git+https://github.com/bearko/MyCryptoSuccessor.git"
   },
   "author": "",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/bearko/MyCryptoWorkshop/issues"
+    "url": "https://github.com/bearko/MyCryptoSuccessor/issues"
   },
-  "homepage": "https://github.com/bearko/MyCryptoWorkshop#readme",
+  "homepage": "https://github.com/bearko/MyCryptoSuccessor#readme",
   "devDependencies": {
     "@types/node": "^22.20.4",
     "pngjs": "^7.0.0",

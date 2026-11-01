@@ -24,7 +24,7 @@
 | 拡大縮小は整数倍だけ。画像とキャンバスには `image-rendering: pixelated` | `scale` |
 | 地図の 1 マスは 64px。MCH の 64×64 素材を原寸で置く | — |
 
-`scale` は撮影のとき（`scripts/shots.mjs`）に、経営画面のすべての `img` と `canvas` について「表示の大きさ ÷ 元の大きさ」が整数かを確かめる。
+`scale` は、画面のすべての `img` と `canvas` について「表示の大きさ ÷ 元の大きさ」が整数かを撮影のときに確かめる（前は撮影のスクリプトで見ていた。いまは人が見て確かめる）。
 
 ### 色
 
@@ -76,4 +76,4 @@
 | `bg-contrast` | 背景の絵で、明るさの幅（上位 5% と下位 5% の差）が 45% を超える |
 | `seam` | タイルを 2×2 に並べたとき、つなぎ目に孤立ドットやバンディングが新しく出る |
 
-検査は `public/empire/` に作られた絵すべてに走り、CI でも回る。絵ごとの種類（前面・背景・タイル）は `scripts/pixel/manifest.mjs` に書く。
+検査は `scripts/pixel/` が描く絵すべて（`scripts/pixel/build.mjs` の `pixelArt` がその場で作る。ファイルには書かず、`dist/` にも入らない）に走り、CI でも回る。絵ごとの種類（前面・背景・タイル）は `scripts/pixel/sprites.mjs` の各絵の `kind` に書く。

@@ -1,23 +1,20 @@
 import { audioFiles } from './game/catalog';
 import { assetUrl } from './render/images';
 
-export type Se = 'craft' | 'rare' | 'sale' | 'unlock' | 'build' | 'fail' | 'hit' | 'buff' | 'debuff' | 'win' | 'helper' | 'clean' | 'zap';
-export type Bgm = 'bgmShop' | 'bgmTree' | 'bgmRaid' | 'bgmCompany' | 'bgmCraft' | 'bgmDig';
+/** BGM のキー（scripts/sync-assets.mjs の audio）。効果音は src/island/p1/sfx.ts */
+export type Bgm = 'bgmCraft' | 'bgmDig';
 
-/** Loudness of each sound at the 100% setting (the final volume is this × the setting). */
-const SE_VOLUME: Partial<Record<Se, number>> = { craft: 0.25, sale: 0.35, hit: 0.6, fail: 0.5, clean: 0.4, zap: 0.5 };
+/** Loudness of the BGM at the 100% setting (the final volume is this × the setting). */
 const BGM_VOLUME = 0.35;
 
 const clamp01 = (v: number): number => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1);
 
-/** Minimal sound manager: looping BGM plus a small pool of one-shot SE players. */
+/** Minimal sound manager for the looping BGM. */
 export class Sound {
-  /** Volume settings, 0 (off) to 1 (the sounds' own loudness). */
+  /** Volume setting, 0 (off) to 1 (the track's own loudness). */
   private bgmLevel = 1;
-  private seLevel = 1;
   private bgm: HTMLAudioElement | null = null;
   private bgmKey: Bgm | null = null;
-  private lastPlayed = new Map<Se, number>();
   private unlocked = false;
 
   /**
@@ -98,9 +95,11 @@ export class Sound {
     void this.bgm.play().catch(() => undefined);
   }
 
-  /** Applies the volume settings (0..1). The playing BGM follows at once: 0 pauses it, raising it from 0 resumes it. */
-  setVolumes({ bgm, se }: { bgm?: number; se?: number }): void {
-    if (se !== undefined) this.seLevel = clamp01(se);
+  /**
+   * Applies the BGM volume (0..1; `se` is the island's sound effects, set on IslandSfx). The playing BGM
+   * follows at once: 0 pauses it, raising it from 0 resumes it.
+   */
+  setVolumes({ bgm }: { bgm?: number; se?: number }): void {
     if (bgm === undefined) return;
     this.bgmLevel = clamp01(bgm);
     if (!this.bgm) {
@@ -113,17 +112,5 @@ export class Sound {
     }
     this.bgm.volume = BGM_VOLUME * this.bgmLevel;
     if (this.bgm.paused && this.unlocked) void this.bgm.play().catch(() => undefined);
-  }
-
-  /** gain: その場だけの音量（1 が標準） */
-  play(key: Se, gain = 1): void {
-    if (this.seLevel <= 0 || !this.unlocked) return;
-    // Throttle rapid repeats of the same effect.
-    const now = performance.now();
-    if (now - (this.lastPlayed.get(key) ?? 0) < 70) return;
-    this.lastPlayed.set(key, now);
-    const a = new Audio(assetUrl(audioFiles[key]));
-    a.volume = clamp01((SE_VOLUME[key] ?? 0.45) * this.seLevel * gain);
-    void a.play().catch(() => undefined);
   }
 }

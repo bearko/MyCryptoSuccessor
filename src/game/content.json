@@ -1,5 +1,5 @@
 {
-  "$comment": "What the game currently uses from the asset database. Read by scripts/sync-assets.mjs (to pack these sprites into the first atlas sheet) and by src/game/catalog.ts.",
+  "$comment": "What the game uses from the asset database. Read by scripts/sync-assets.mjs (to pack the active series first in the extension atlas) and by src/game/catalog.ts.",
   "families": {
     "arcane": {
       "name": "魔導具",
@@ -711,364 +711,46 @@
       "family": "beast"
     }
   ],
-  "thiefIds": [
-    2003,
-    3013,
-    4036,
-    3032,
-    3036,
-    3049,
-    3007,
-    4046,
-    4006
-  ],
-  "pestIds": [
-    101,
-    111,
-    121,
-    131,
-    102,
-    112,
-    122,
-    132
-  ],
-  "staff": {
-    "$comment": "Heroes hired as shop staff: the first hire, and the 'ace' hero who replaces them (see src/game/staff.ts).",
-    "stocker": {
-      "hero": 1008,
-      "ace": 3018
-    },
-    "host": {
-      "hero": 2030,
-      "ace": 3035
-    },
-    "promoter": {
-      "hero": 2005,
-      "ace": 3030
-    },
-    "consultant": {
-      "hero": 2034,
-      "ace": 4011
-    },
-    "guard": {
-      "hero": 2011,
-      "ace": 4027
-    },
-    "accountant": {
-      "hero": 2041,
-      "ace": 5004
-    },
-    "exterminator": {
-      "hero": 1004,
-      "ace": 4044
-    },
-    "appraiser": {
-      "hero": 2006,
-      "ace": 5005
-    },
-    "delivery": {
-      "hero": 2001,
-      "ace": 4008
-    },
-    "researcher": {
-      "hero": 1006,
-      "ace": 5010
-    },
-    "peddler": {
-      "hero": 3016,
-      "ace": 3037
-    },
-    "cleaner": {
-      "hero": 1007,
-      "ace": 4002
-    },
-    "charity": {
-      "hero": 2007,
-      "ace": 4033
-    }
-  },
-  "storePestIds": [
-    103,
-    104,
-    105,
-    106
-  ],
-  "merchantIds": [
-    3015,
-    2038,
-    5003
-  ],
-  "favorites": {
-    "$comment": "ゆかりの品: which series heroes with each attribute ask for in orders (see src/game/orders.ts).",
-    "長柄武器": [
-      "Cross Spear",
-      "Halberd",
-      "Javelin"
-    ],
-    "銃火器": [
-      "Musket",
-      "Revolver",
-      "Arquebus",
-      "Hand cannon",
-      "Raygun"
-    ],
-    "弓": [
-      "Yumi",
-      "Bow Gun"
-    ],
-    "斧": [
-      "Axe"
-    ],
-    "決闘": [
-      "Rapier",
-      "Katana",
-      "Twin Blade",
-      "Knife"
-    ],
-    "戦国": [
-      "Katana",
-      "Kabuto",
-      "Yoroi",
-      "Gunbai",
-      "Saihai"
-    ],
-    "平安鎌倉": [
-      "Yumi",
-      "Katana",
-      "Sensu"
-    ],
-    "江戸": [
-      "Sensu",
-      "Japanese dolls",
-      "Haori"
-    ],
-    "幕末": [
-      "Katana",
-      "Revolver",
-      "Haori"
-    ],
-    "新撰組": [
-      "Katana",
-      "Haori"
-    ],
-    "三国志": [
-      "Halberd",
-      "Cross Spear",
-      "Gunbai",
-      "Orb"
-    ],
-    "蜀": [
-      "Halberd",
-      "Cross Spear"
-    ],
-    "魏": [
-      "Orb",
-      "Gunbai"
-    ],
-    "呉": [
-      "Ship",
-      "Gunbai"
-    ],
-    "中国": [
-      "Orb",
-      "Erhu",
-      "Sickle"
-    ],
-    "秦": [
-      "Orb",
-      "Crown"
-    ],
-    "文系学問": [
-      "Book",
-      "Quill",
-      "Scrolls"
-    ],
-    "理系学問": [
-      "Astronomical Model",
-      "Glasses",
-      "Monocle",
-      "Compass"
-    ],
-    "政治": [
-      "Crown",
-      "Scrolls",
-      "Oriflamme"
-    ],
-    "指導者": [
-      "Crown",
-      "Oriflamme",
-      "Saihai",
-      "Mantle"
-    ],
-    "女性": [
-      "Ring",
-      "Necklace",
-      "Ribbon",
-      "Mirror",
-      "Parasol"
-    ],
-    "美術": [
-      "Brush & pallete",
-      "Lithography"
-    ],
-    "音楽": [
-      "Flute",
-      "Harp",
-      "Violin",
-      "Horn",
-      "Clavia",
-      "Drum",
-      "Music Box"
-    ],
-    "芸能": [
-      "Pierrot",
-      "Sensu",
-      "Maracas"
-    ],
-    "海": [
-      "Ship",
-      "Steering Wheel",
-      "Raft",
-      "Swan boats"
-    ],
-    "旅": [
-      "Boots",
-      "Compass",
-      "Mantle"
-    ],
-    "信仰": [
-      "Talisman",
-      "Goblet",
-      "Wand"
-    ],
-    "オカルト": [
-      "Skull",
-      "Wand",
-      "Magic Card",
-      "Summon Board"
-    ],
-    "伝承": [
-      "Dragon",
-      "Fairy",
-      "Pegasus",
-      "Mandragora"
-    ],
-    "動物": [
-      "Horse",
-      "Tiger",
-      "Dog",
-      "Lion",
-      "Monkey",
-      "Elephant"
-    ],
-    "機械": [
-      "Combined Robots",
-      "Imperial Magic Armor",
-      "Panda Machine"
-    ],
-    "宇宙": [
-      "Spaceship",
-      "Raygun",
-      "Astronomical Model"
-    ],
-    "隠密": [
-      "Shuriken",
-      "Knife",
-      "Claw"
-    ],
-    "ウェスタン": [
-      "Revolver",
-      "Whip",
-      "Boots"
-    ],
-    "アメリカ大陸": [
-      "Revolver",
-      "Hat",
-      "Belt"
-    ],
-    "イギリス": [
-      "Hat",
-      "Rapier",
-      "Goblet"
-    ],
-    "フランス": [
-      "Rapier",
-      "Mantle"
-    ],
-    "ドイツ": [
-      "Hammer",
-      "Gauntlet"
-    ],
-    "イタリア": [
-      "Brush & pallete",
-      "Goblet"
-    ],
-    "ロシア": [
-      "Crown"
-    ],
-    "ギリシャ": [
-      "Shield",
-      "Harp"
-    ],
-    "ローマ": [
-      "Shield",
-      "Armor"
-    ],
-    "ケルト": [
-      "Harp",
-      "Mace"
-    ],
-    "地中海": [
-      "Ship",
-      "Shield"
-    ],
-    "ヨーロッパ": [
-      "Armor",
-      "Shield",
-      "Blade"
-    ],
-    "日本": [
-      "Katana",
-      "Japanese dolls",
-      "Bonsai",
-      "Sushi"
-    ],
-    "アジア": [
-      "Erhu",
-      "Sitar"
-    ],
-    "格闘": [
-      "Knuckle Duster",
-      "Gauntlet",
-      "Claw"
-    ],
-    "戦術": [
-      "Gunbai",
-      "Saihai",
-      "Oriflamme"
-    ],
-    "革命": [
-      "Oriflamme",
-      "Musket"
-    ],
-    "童話": [
-      "Pierrot",
-      "Dollhouse",
-      "Sweets"
-    ],
-    "謎": [
-      "Mirror",
-      "Moai"
-    ]
-  },
-  "$excluded": "Characters the game never shows, even though the asset database has them (copyrighted by a third party). scripts/sync-assets.mjs leaves them out of the catalog and the sprite sheets. Which ones and why: CHANGELOG.md 1.0.1.",
-  "excludedHeroIds": [2035, 12035],
-  "excludedEnemyIds": [715, 745],
-  "pirateIds": [
-    4036,
-    3032,
-    3029
+  "$excluded": "Characters the game never shows, even though the asset database has them (copyrighted by a third party): hero 2035 and its replica 12035. scripts/sync-assets.mjs leaves them out of the catalog and the sprite sheets.",
+  "excludedHeroIds": [
+    2035,
+    12035
   ],
   "$facesRight": "Heroes whose sprite faces right (most MCH hero sprites face left). Color variants share the pose of their original.",
-  "facesRightIds": [1008, 2003, 2024, 2027, 2043, 3003, 3019, 3020, 3022, 3036, 4002, 4003, 4012, 4022, 4030, 5019, 5031, 10005, 12003, 12024, 12027, 12043, 13003, 13019, 13020, 13022, 13036, 14002, 14003, 14012, 14022, 14030, 15019, 15031]
+  "facesRightIds": [
+    1008,
+    2003,
+    2024,
+    2027,
+    2043,
+    3003,
+    3019,
+    3020,
+    3022,
+    3036,
+    4002,
+    4003,
+    4012,
+    4022,
+    4030,
+    5019,
+    5031,
+    10005,
+    12003,
+    12024,
+    12027,
+    12043,
+    13003,
+    13019,
+    13020,
+    13022,
+    13036,
+    14002,
+    14003,
+    14012,
+    14022,
+    14030,
+    15019,
+    15031
+  ]
 }

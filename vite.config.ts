@@ -2,16 +2,15 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
-import { createHandler, memoryStore } from './api/leaderboard';
 
 /** Files the service worker caches at install: the app shell. The rest is cached on first use. */
-const SHELL = [/^index\.html$/, /^assets\//, /^mch-atlas\//, /^icons\//, /^manifest\.webmanifest$/, /^mch\/Image\/(Icons|Characters|Cryptids|BattleIcons|Materials)\//, /^mch\/Image\/CraftBackgrounds\/Base\/100\./];
+const SHELL = [/^index\.html$/, /^assets\//, /^mch-atlas\//, /^icons\//, /^manifest\.webmanifest$/, /^mch\/Image\/(Icons|Characters|LandSectors)\//];
 
 /** Writes dist/sw.js from scripts/sw-template.js with the precache list and a content hash. */
 function pwa(): Plugin {
   let outDir = 'dist';
   return {
-    name: 'mcw-pwa',
+    name: 'mcs-pwa',
     apply: 'build',
     configResolved(config) {
       outDir = config.build.outDir;
@@ -35,61 +34,25 @@ function pwa(): Plugin {
 }
 
 /**
- * Dev server only: serves /api/leaderboard from an in-memory store (the Cloudflare Worker runs the real one).
- * GOOGLE_CLIENT_ID in the environment turns on Google sign-in (add http://localhost:5173 to the
- * client's authorized origins).
- */
-function devLeaderboard(): Plugin {
-  const store = memoryStore();
-  const handler = createHandler(() => store, { adminToken: 'dev', googleClientId: process.env.GOOGLE_CLIENT_ID });
-  return {
-    name: 'mcw-dev-leaderboard',
-    apply: 'serve',
-    configureServer(server) {
-      server.middlewares.use('/api/leaderboard', (req, res) => {
-        const chunks: Buffer[] = [];
-        req.on('data', (c: Buffer) => chunks.push(c));
-        req.on('end', async () => {
-          const body = chunks.length && req.method !== 'GET' ? Buffer.concat(chunks) : undefined;
-          const headers = Object.entries(req.headers).flatMap(([k, v]) => (typeof v === 'string' ? [[k, v] as [string, string]] : []));
-          const response = await handler(new Request(`http://localhost/api/leaderboard${req.url ?? ''}`, { method: req.method, headers, body }));
-          res.statusCode = response.status;
-          response.headers.forEach((v, k) => res.setHeader(k, v));
-          res.end(Buffer.from(await response.arrayBuffer()));
-        });
-      });
-    },
-  };
-}
-
-/**
  * The site's address for link previews (og:image and og:url must be absolute): SITE_URL if set,
  * else the Cloudflare domain when built on Workers Builds (WORKERS_CI), else relative paths.
  */
-const CLOUDFLARE_SITE_URL = 'https://workshop.bearko.games';
+const CLOUDFLARE_SITE_URL = 'https://successor.bearko.games';
 
 function siteUrl(): Plugin {
-  const domain =
-    process.env.SITE_URL ||
-    (process.env.WORKERS_CI ? CLOUDFLARE_SITE_URL : '');
+  const domain = process.env.SITE_URL || (process.env.WORKERS_CI ? CLOUDFLARE_SITE_URL : '');
   const base = domain ? `${domain.replace(/\/+$/, '')}/` : './';
   return {
-    name: 'mcw-site-url',
+    name: 'mcs-site-url',
     transformIndexHtml: (html) => html.replaceAll('__SITE_URL__', base),
   };
 }
 
-/** The game's version (package.json), shown on the home screen and sent to bearko.games. */
-const APP_VERSION = (JSON.parse(readFileSync('package.json', 'utf8')) as { version: string }).version;
-
 export default defineConfig({
-  define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
-  // Relative base so the build works from any sub-path (itch.io, static hosting).
+  // Relative base so the build works from any sub-path (static hosting).
   base: './',
   build: {
     assetsInlineLimit: 0,
-    // 島づくり（試作）は別のページ（island.html）。工房の画面とは読み込むものを分ける
-    rollupOptions: { input: { main: 'index.html', island: 'island.html' } },
   },
-  plugins: [pwa(), devLeaderboard(), siteUrl()],
+  plugins: [pwa(), siteUrl()],
 });
