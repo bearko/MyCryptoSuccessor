@@ -50,7 +50,7 @@ export interface TutStep {
   say: (s: P1State) => string;
   /** 吹き出しのボタン（段の途中で変わるものは関数で） */
   act?: [string, TutGo] | ((s: P1State) => [string, TutGo]);
-  /** 光らせる場所：下の帯のタブ（'plan'）・小メニュー（'plan:build'）・⏩（'speed'） */
+  /** 光らせる場所：下の帯の部門のタブ（'strategy'）・小メニュー（'strategy:build'）・⏩（'speed'） */
   hl?: string | ((s: P1State) => string);
   /** この段に入るときに、カメラを寄せて見せる建物（できたもの・売れるところ） */
   focus?: 'workshop' | 'shop';
@@ -105,7 +105,7 @@ export const TUT: TutStep[] = [
     },
     say: () => t('[[工房]]は、エクステを作る場所。光っている工房を選んで、地図の「ここに建ててみて！」の場所に建てよう！', 'The [[workshop]] is where Extensions are made. Pick the glowing one and build it on the “Build here!” spot!'),
     act: [t('建築を開く', 'Open Build'), 'build'],
-    hl: 'plan:build',
+    hl: 'strategy:build',
     card: 'workshop',
     done: (s) => s.buildings.some((b) => b.owner === 'me' && b.id === 'workshop'),
   },
@@ -154,7 +154,7 @@ export const TUT: TutStep[] = [
         { text: t('これで[[工房]]の設定は完了！', 'The [[workshop]] is all set!') },
         { text: t('[[自動製造]]にチェックが入っていると、素材があるかぎり、エクステを作り続けてくれるよ！', 'With [[Auto]] checked, it keeps making Extensions as long as there are materials!'), focus: '.isl-plan-auto' },
         { text: t('でも、今ある[[素材]]がなくなると、製造が止まっちゃうんだ。', 'But when the [[materials]] run out, crafting stops.') },
-        { text: t('次は[[素材]]の調達。画面の下の「[[SCM]]」タブから開こう！', 'Next, [[materials]]. Open them from the [[SCM]] tab at the bottom!') },
+        { text: t('次は[[素材]]の調達。画面の下の「[[物流]]」タブから開こう！', 'Next, [[materials]]. Open them from the [[Logistics]] tab at the bottom!') },
       ],
       ok: t('わかった', 'Got it'),
     },
@@ -164,10 +164,10 @@ export const TUT: TutStep[] = [
     id: 'mats',
     goal: (_s) => t('卸問屋に素材を注文する', 'Order materials from the wholesaler'),
     praise: t('これで当分、作り続けられるね！', 'That keeps the bench busy for a while!'),
-    // 会話は前の段（工房の設定）の最後の枚。ここでは「SCM」タブ → 「調達」サブタブを自分で押してもらう
+    // 会話は前の段（工房の設定）の最後の枚。ここでは「物流」タブ → 「調達」サブタブを自分で押してもらう
     lesson: true,
-    say: () => t('[[素材]]が切れると、工房は止まってしまう。「SCM」→「調達」で注文しよう！', 'Without [[materials]], the workshop stops. Order under SCM → Buy!'),
-    hl: 'scm:buy',
+    say: () => t('[[素材]]が切れると、工房は止まってしまう。「物流」→「調達」で注文しよう！', 'Without [[materials]], the workshop stops. Order under Logistics → Buy!'),
+    hl: 'logistics:buy',
     tips: {
       buy: (s) =>
         s.proc.bought > 0
@@ -185,7 +185,7 @@ export const TUT: TutStep[] = [
     praise: t('お店の工事が始まったよ！', 'Shop construction has started!'),
     say: () => t('作ったエクステは、[[お店]]で売るよ。光っている「よろず屋」を、工房から少し離れた「ここに建ててみて！」の場所に建てよう！', 'Extensions are sold in a [[shop]]. Build the glowing General store on the “Build here!” spot, a little away from the workshop!'),
     act: [t('建築を開く', 'Open Build'), 'build'],
-    hl: 'plan:build',
+    hl: 'strategy:build',
     card: 'general_store',
     tips: {
       place: () => t('お客さんは近いお店に来るよ。[[家の多い所]]で、工房から近い場所がおすすめ。置く前に出る「見込み」を見比べてね！', 'Customers go to nearby shops. A spot with [[many homes]], close to the workshop, is best. Compare the forecast before you build!'),
@@ -270,9 +270,9 @@ export const TUT: TutStep[] = [
       ],
       ok: t('見てみる', 'Take a look'),
     },
-    say: () => t('どこが詰まっているかは、ダッシュボードでひと目で分かるよ。「SCM」→「サプライチェーン」を開こう！', 'The dashboard shows at a glance where things jam. Open SCM → Supply chain!'),
+    say: () => t('どこが詰まっているかは、ダッシュボードでひと目で分かるよ。「物流」→「サプライチェーン」を開こう！', 'The dashboard shows at a glance where things jam. Open Logistics → Supply chain!'),
     act: [t('ダッシュボードを開く', 'Open the dashboard'), 'scm'],
-    hl: 'scm:flow',
+    hl: 'logistics:flow',
     closeOn: ['scm'],
     tips: {
       scm: () => t('赤いところがいちばんの詰まり。見終わったら [[✕]] で閉じて次へ！', 'The red part is the biggest jam. When you’re done, close with [[✕]] to move on!'),
@@ -297,9 +297,9 @@ export const TUT: TutStep[] = [
         ? t('研究できた！ スキルツリーの ✕ で、元の画面に戻ろう。', 'Researched! Close the skill tree with ✕.')
         : hqOpen(s)
           ? t('光っている[[人材の募集]]を押して、「研究する 30 RP」で開こう！', 'Tap the glowing [[Recruiting]] panel and press Research 30 RP!')
-          : t('真ん中の「スキルツリー」を開いて、まずは[[本社]]を開放しよう。', 'Open the Skill tree and unlock [[HQ]] first.'),
+          : t('真ん中の「経営企画」から「スキルツリー」を開いて、まずは[[本社]]を開放しよう。', 'Open the Skill tree from Strategy in the middle and unlock [[HQ]] first.'),
     act: [t('スキルツリーを開く', 'Open skills'), 'skills'],
-    hl: 'skill',
+    hl: 'strategy',
     checks: [
       [t('スキルツリーを開く', 'Open the skill tree'), (s, seen) => seen.has('skills') || hqOpen(s)],
       [t('真ん中の本社を開放する', 'Unlock HQ in the middle'), (s) => hqOpen(s)],
@@ -347,7 +347,7 @@ export const TUT: TutStep[] = [
     say: () => t('あとは月末まで [[⏩]] で見守ろう。詰まったら、ダッシュボードで直してね。', 'Now watch with [[⏩]] until the month ends. If something jams, fix it on the dashboard.'),
     act: [t('ダッシュボード', 'Dashboard'), 'scm'],
     hl: 'speed',
-    open: ['scm', 'hr'],
+    open: ['logistics', 'hr'],
     done: (s) => s.reports.length > 0,
   },
   {
@@ -363,7 +363,7 @@ export const TUT: TutStep[] = [
     },
     say: () => t('「マーケティング」→「企業ランキング」を見てみよう。', 'Check Marketing → Ranking.'),
     act: [t('ランキングを見る', 'See the ranking'), 'ranking'],
-    hl: 'mkt:ranking',
+    hl: 'marketing:ranking',
     tips: {
       ranking: () => t('上にいる会社が、いまのライバル。ひとつずつ抜いていこう！', 'The companies above you are your rivals. Pass them one by one!'),
     },

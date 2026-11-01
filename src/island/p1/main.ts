@@ -12,7 +12,8 @@ import { icon } from '../../ui/dom';
 import { DEF, artId } from '../defs';
 import { effectDone, image, loading, pick, waterFrame, type Camera, type Effect } from '../render';
 import { cells, type Dir } from '../sim';
-import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, skuParts, STORE, type Mat, type Tier } from './data';
+import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, skuParts, STORE, DEPT, type DeptGroup, type DeptId, type Mat, type Tier } from './data';
+import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
 import {
   allowedDirs,
   digSite,
@@ -85,6 +86,7 @@ import {
   openRelics,
   DUNGEON,
   revivedSites,
+  museumOpen,
 } from './model';
 import { openMuseum } from './museumui';
 import { along, newAnim, type Walker } from './anim';
@@ -481,42 +483,50 @@ function renderHud() {
 
 // ---------------------------------------------------------------- 下の帯：事業別メニュー
 
-type Menu = 'plan' | 'hr' | 'scm' | 'skill' | 'mkt' | 'sys';
+/**
+ * 下の帯は部門のメニュー（段 B：部門の土台。docs/ISLAND_PHASE1.md「部門」）。開いた部門（開くランクに達し、中身ができた部門）だけが並ぶ。
+ * 経営企画は真ん中の大きいボタン（1 つ目の小メニューがスキルツリー）。7 つ以上になったらグループの引き出し（dept.ts の menuLayout）
+ */
+type Menu = DeptId;
 interface Sub {
   key: string;
   name: string;
   note: string;
   go: () => void;
-  needs?: 'workshop' | 'land' | 'hire';
+  needs?: 'workshop' | 'land' | 'hire' | 'tree' | 'museum';
 }
-const SUBS: Record<Exclude<Menu, 'skill'>, Sub[]> = {
-  plan: [
+const SUBS: Partial<Record<Menu, Sub[]>> = {
+  logistics: [
+    { key: 'flow', name: t('サプライチェーン', 'Supply chain'), note: t('流れと詰まり', 'Flow and bottlenecks'), go: () => openSupply(ctx) },
+    { key: 'bom', name: 'BOM', note: t('素材 → 商品', 'Materials → products'), go: () => openBom(ctx) },
+    { key: 'buy', name: t('調達', 'Buy'), note: t('素材を買う・開拓', 'Buy and scout'), go: () => openBuy(ctx) },
+    { key: 'sales', name: t('販売管理', 'Sales'), note: t('お店の一覧・一括で変える', 'Shops at a glance, bulk changes'), go: () => openSales(ctx) },
+  ],
+  strategy: [
+    { key: 'tree', name: t('スキルツリー', 'Skill tree'), note: t('全社の方針・パネル', 'Company policy, panels'), go: () => openSkills(ctx), needs: 'tree' },
     { key: 'build', name: t('建築', 'Build'), note: t('工房・お店・倉庫', 'Workshop, shops, storage'), go: () => openBuildSheet() },
-    { key: 'dev', name: t('商品開発', 'Products'), note: t('アンコモンを開発', 'Develop Uncommons'), go: () => openDev(ctx), needs: 'workshop' },
-    { key: 'side', name: t('他店でバイト', 'Part-time'), note: t('資金が足りないとき', 'When funds run low'), go: () => openSide(ctx) },
     { key: 'land', name: t('ランドマップ', 'Land map'), note: t('関所の先のセクタ', 'Sectors beyond the gate'), go: () => openLand(ctx), needs: 'land' },
     { key: 'books', name: t('決算書', 'Statements'), note: t('四半期の P/L・B/S', 'Quarterly P/L, B/S'), go: () => openBooks(ctx) },
-    { key: 'notes', name: t('研究ノート', 'Notebook'), note: t('出土品・石板', 'Finds and tablets'), go: () => openNotes(ctx) },
     { key: 'ma', name: 'M&A', note: t('買収・提携（準備中）', 'Deals (coming soon)'), go: () => openMA(ctx) },
   ],
   hr: [
     { key: 'staff', name: t('ヒーローの配置', 'Assign heroes'), note: t('4 つの仕事に置く', 'Four jobs'), go: () => openStaff(ctx) },
     { key: 'hire', name: t('人材登用', 'Recruiting'), note: t('ヒーローを雇う', 'Hire heroes'), go: () => openHire(ctx), needs: 'hire' },
     { key: 'pay', name: t('給与・労務', 'Pay & welfare'), note: t('給料・賞与・休み', 'Wages, bonuses, rest'), go: () => openPayroll(ctx) },
+    { key: 'side', name: t('他店でバイト', 'Part-time'), note: t('資金が足りないとき', 'When funds run low'), go: () => openSide(ctx) },
   ],
-  scm: [
-    { key: 'flow', name: t('サプライチェーン', 'Supply chain'), note: t('流れと詰まり', 'Flow and bottlenecks'), go: () => openSupply(ctx) },
-    { key: 'bom', name: 'BOM', note: t('素材 → 商品', 'Materials → products'), go: () => openBom(ctx) },
-    { key: 'buy', name: t('調達', 'Buy'), note: t('素材を買う・開拓', 'Buy and scout'), go: () => openBuy(ctx) },
-    { key: 'sales', name: t('販売管理', 'Sales'), note: t('お店の一覧・一括で変える', 'Shops at a glance, bulk changes'), go: () => openSales(ctx) },
+  rnd: [
+    { key: 'notes', name: t('研究ノート', 'Notebook'), note: t('出土品・石板', 'Finds and tablets'), go: () => openNotes(ctx) },
+    { key: 'dev', name: t('商品開発', 'Products'), note: t('アンコモンを開発', 'Develop Uncommons'), go: () => openDev(ctx), needs: 'workshop' },
+    { key: 'museum', name: t('遺物の展示館', 'Relic museum'), note: t('展示と来館', 'Exhibits, visitors'), go: () => openMuseum(ctx), needs: 'museum' },
   ],
-  mkt: [
+  marketing: [
     { key: 'ads', name: t('宣伝広報', 'Advertising'), note: t('売り場を強くする', 'Boost your shops'), go: () => openAds(ctx), needs: 'workshop' },
     { key: 'missions', name: t('依頼', 'Requests'), note: t('受ける・報酬', 'Accept, rewards'), go: () => openMissions(ctx) },
     { key: 'data', name: t('市場調査データ', 'Market data'), note: t('売れ筋・ニーズ', 'Demand and sellers'), go: () => openData(ctx) },
     { key: 'ranking', name: t('企業ランキング', 'Ranking'), note: t('エリア・ランド・世界', 'Area, land, world'), go: () => openRanking(ctx) },
   ],
-  sys: [
+  systems: [
     { key: 'invest', name: t('設備投資', 'Investment'), note: t('建物ごとの設備', 'Per-building upgrades'), go: () => openInvest(ctx), needs: 'workshop' },
     { key: 'pace', name: t('進行速度', 'Game speed'), note: t('標準・1.5 倍・2 倍', 'Normal, 1.5×, 2×'), go: () => openPace() },
     { key: 'settings', name: t('設定', 'Settings'), note: t('言語・案内・音・人通り', 'Language, guide, sound, crowd'), go: () => openSettings() },
@@ -524,44 +534,75 @@ const SUBS: Record<Exclude<Menu, 'skill'>, Sub[]> = {
     ...(TEST ? [{ key: 'test', name: t('テスト', 'Test'), note: '?test=2', go: () => openTest() }] : []),
   ],
 };
-const MENU_NAME: Record<Menu, string> = {
-  plan: t('営業企画', 'Planning'),
-  hr: t('人事', 'HR'),
-  scm: 'SCM',
-  skill: t('スキルツリー', 'Skill tree'),
-  mkt: t('マーケティング', 'Marketing'),
-  sys: t('システム', 'System'),
-};
-/** スマホの幅では短い名前 */
-const MENU_SHORT: Record<Menu, string> = { plan: t('営業企画', 'Plan'), hr: t('人事', 'HR'), scm: 'SCM', skill: t('スキル', 'Skills'), mkt: t('マーケ', 'Mktg'), sys: t('システム', 'System') };
-const MENU_ICON: Record<Menu, string> = { plan: '🏗', hr: '👥', scm: '🚚', skill: '✦', mkt: '📣', sys: '⚙' };
+const subsOf = (m: Menu) => SUBS[m] ?? [];
+/** 部門の名前（タブ・マインちゃんの案内の「「物流」タブ」） */
+const MENU_NAME = (m: Menu) => DEPT[m].name;
 
 let menu: Menu | null = null;
 let sub: string | null = null;
 
 const foot = h('div', 'isl-foot');
 const panel = h('div', 'isl-panel');
+/** 部門の画面の上の共通の帯：部門のアイコンと名前・理解度・次の節目（準備中）・担当（準備中）・「この部門のパネルを見る」 */
+const deptBand = h('div', 'isl-dband');
 const subRow = h('div', 'isl-subs');
 const cards = h('div', 'isl-cards');
-panel.append(subRow, cards);
+panel.append(deptBand, subRow, cards);
 const tabbar = h('nav', 'isl-tabbar');
-const tabBtns = {} as Record<Menu, HTMLButtonElement>;
-const leftG = h('div', 'isl-tabgroup');
-const rightG = h('div', 'isl-tabgroup');
-for (const m of ['plan', 'hr', 'scm', 'skill', 'mkt', 'sys'] as Menu[]) {
-  const b = h('button', `isl-tab ${m === 'skill' ? 'is-center' : ''}`);
-  b.type = 'button';
-  b.append(h('i', '', MENU_ICON[m]), h('span', 'is-full', MENU_NAME[m]), h('span', 'is-short', MENU_SHORT[m]));
-  b.addEventListener('click', () => pickMenu(m));
-  tabBtns[m] = b;
-  if (m === 'skill') continue;
-  (m === 'plan' || m === 'hr' || m === 'scm' ? leftG : rightG).append(b);
+let tabBtns = {} as Partial<Record<Menu, HTMLButtonElement>>;
+/** グループの引き出し（部門が 7 つ以上のとき。いまは器だけ） */
+let drawer: DeptGroup | null = null;
+const drawerEl = h('div', 'isl-drawer');
+drawerEl.hidden = true;
+let tabKey = '';
+/** 下の帯のタブを、開いている部門で作り直す（開く部門が変わったときだけ） */
+function buildTabs() {
+  const ids = menuDepts(s);
+  const key = ids.join(',');
+  if (key === tabKey) return;
+  tabKey = key;
+  tabBtns = {};
+  const lay = menuLayout(ids);
+  const tab = (m: Menu) => {
+    const d = DEPT[m];
+    const b = h('button', `isl-tab ${m === lay.center ? 'is-center' : ''}`);
+    b.type = 'button';
+    b.dataset.dept = m;
+    b.append(h('i', '', d.icon), h('span', 'is-full', d.name), h('span', 'is-short', d.short));
+    b.addEventListener('click', () => pickMenu(m));
+    tabBtns[m] = b;
+    return b;
+  };
+  const leftG = h('div', 'isl-tabgroup');
+  const rightG = h('div', 'isl-tabgroup');
+  const center = lay.center ? tab(lay.center) : h('span');
+  if (lay.kind === 'flat') {
+    leftG.append(...lay.left.map(tab));
+    rightG.append(...lay.right.map(tab));
+  } else {
+    // グループのボタン（押すと、そのグループの部門の引き出し）
+    lay.groups.forEach((g, k) => {
+      const b = h('button', 'isl-tab is-group');
+      b.type = 'button';
+      b.dataset.group = g.id;
+      b.append(h('i', '', g.icon), h('span', 'is-full', g.name), h('span', 'is-short', g.name));
+      b.addEventListener('click', () => {
+        drawer = drawer === g.id ? null : g.id;
+        drawerEl.replaceChildren(...g.depts.map((m) => tab(m)));
+        drawerEl.hidden = !drawer;
+        renderFoot();
+      });
+      for (const m of g.depts) tab(m);
+      (k < Math.ceil(lay.groups.length / 2) ? leftG : rightG).append(b);
+    });
+  }
+  tabbar.replaceChildren(leftG, center, rightG);
 }
-tabbar.append(leftG, tabBtns.skill, rightG);
-foot.append(panel, tabbar);
+foot.append(drawerEl, panel, tabbar);
 
 /** サブタブがまだ使えない（工房が無い・関所を開いていない） */
-const needsOff = (x: Sub) => (x.needs === 'workshop' && !myWorkshop(s)) || (x.needs === 'land' && !s.land) || (x.needs === 'hire' && (!s.skills.includes('hire') || hireUnlocking));
+const needsOff = (x: Sub) =>
+  (x.needs === 'workshop' && !myWorkshop(s)) || (x.needs === 'land' && !s.land) || (x.needs === 'hire' && (!s.skills.includes('hire') || hireUnlocking)) || (x.needs === 'tree' && !myWorkshop(s) && !s.land) || (x.needs === 'museum' && !museumOpen(s));
 const needWs = () => {
   toast(t('まずは工房を建てましょう', 'Build the workshop first'));
 };
@@ -596,8 +637,8 @@ function pickMenu(m: Menu) {
   if (s.digRun) return busyDig();
   const ws = !!myWorkshop(s);
   if (menuLocked(m)) return lockedNote();
-  // ほかのセクタに来たばかり（工房がまだ）でも、会社ぜんたいのスキルと人事は開ける
-  if (m !== 'plan' && m !== 'mkt' && m !== 'sys' && !ws && !(s.land && (m === 'skill' || m === 'hr'))) return needWs();
+  // 工房がまだ：物流は開けない。人事はほかのセクタに来たばかりなら開ける（会社ぜんたいのスキルは経営企画 → スキルツリー）
+  if (!ws && (m === 'logistics' || (m === 'hr' && !s.land))) return needWs();
   closePop();
   if (menu === m) return closeMenu();
   if (placing && !placing.move) placing = null;
@@ -609,16 +650,11 @@ function pickMenu(m: Menu) {
     unlockHire();
     return;
   }
-  if (m === 'skill') {
-    closeSheet();
-    openSkills(ctx);
-    renderAll();
-    return;
-  }
+  drawer = null;
   // チュートリアル中は、いま開いてほしい小メニューから開く
   const ts = tutStep();
   const [hm, hk] = (ts ? hlOf(ts, s) : '').split(':');
-  const target = hm === m && hk ? SUBS[m].find((x) => x.key === hk) : undefined;
+  const target = hm === m && hk ? subsOf(m).find((x) => x.key === hk) : undefined;
   // 自分で押してもらう段：サブタブを出すだけ（光っているサブタブを押してもらう）
   if (ts?.lesson && target) {
     closeSheet();
@@ -626,15 +662,17 @@ function pickMenu(m: Menu) {
     renderAll();
     return;
   }
-  const first = target ?? SUBS[m].find((x) => !needsOff(x) && !subLocked(m, x.key)) ?? SUBS[m][0];
+  const first = target ?? subsOf(m).find((x) => !needsOff(x) && !subLocked(m, x.key)) ?? subsOf(m)[0];
   openSub(first);
 }
 
 /** サブタブ：画面を切り替える（下の帯は出したまま） */
 function openSub(x: Sub) {
-  if (menu && menu !== 'skill' && subLocked(menu, x.key)) return lockedNote();
+  if (menu && subLocked(menu, x.key)) return lockedNote();
   if (x.needs === 'workshop' && !myWorkshop(s)) return needWs();
   if (x.needs === 'land' && !s.land) return toast(t('ランドのふちの関所を開くと使えます', 'Open the gate at the edge of the land first'));
+  if (x.needs === 'tree' && !myWorkshop(s) && !s.land) return needWs();
+  if (x.needs === 'museum' && !museumOpen(s)) return toast(t('遺物の展示館を建てると開けます（復興した土地に。経営企画 → 建築）', 'Build the relic museum first (on revived land: Strategy → Build)'));
   if (x.needs === 'hire' && !s.skills.includes('hire')) {
     sfx.play('error');
     return toast(t('スキルツリーの「人材の募集」を研究すると使えます', 'Research Recruiting in the skill tree first'));
@@ -656,27 +694,31 @@ function closeMenu() {
 }
 
 function renderFoot() {
-  for (const m of Object.keys(tabBtns) as Menu[]) tabBtns[m].classList.toggle('is-on', menu === m);
+  buildTabs();
+  const tb = (m: Menu) => tabBtns[m];
+  for (const m of Object.keys(tabBtns) as Menu[]) tb(m)!.classList.toggle('is-on', menu === m);
   const ws = !!myWorkshop(s);
-  tabBtns.hr.classList.toggle('is-off', !ws);
-  tabBtns.scm.classList.toggle('is-off', !ws);
-  tabBtns.skill.classList.toggle('is-off', !ws);
+  tb('hr')?.classList.toggle('is-off', !ws);
+  tb('logistics')?.classList.toggle('is-off', !ws);
   const ready = MISSIONS.some((m) => s.missions[m.id] === 'done');
-  tabBtns.mkt.classList.toggle('has-dot', ready);
-  panel.hidden = !menu || menu === 'skill' || !!placing?.move;
+  tb('marketing')?.classList.toggle('has-dot', ready);
+  // スマホでスキルツリーを開いているあいだは、木を広く見せる（上の帯と小メニューは、ツリーを閉じると出る）
+  panel.hidden = !menu || !!placing?.move || (menu === 'strategy' && sub === 'tree' && sheetOpen() && innerWidth < 600);
   // チュートリアル：次に押すところを光らせる
   const tk = tutOf(s);
   const step = tk < TUT_DONE ? TUT[tk] : undefined;
-  // 発掘との出会いの最後：スキルタブを光らせる（研究パネルを開いてもらう）
-  const [hm, hk] = (step && !introPending() ? hlOf(step, s) : !step && s.flags.digMeet === 'skill' && !root.querySelector('.isl-modal') ? 'skill' : '').split(':');
+  // 発掘との出会いの最後：経営企画のタブを光らせる（スキルツリーで研究パネルを開いてもらう）
+  const [hm, hk] = (step && !introPending() ? hlOf(step, s) : !step && s.flags.digMeet === 'skill' && !root.querySelector('.isl-modal') ? 'strategy' : '').split(':');
   for (const m of Object.keys(tabBtns) as Menu[]) {
-    tabBtns[m].classList.toggle('is-guide', !placing && hm === m && (menu !== m || (m === 'skill' && !sheetOpen())));
-    tabBtns[m].classList.toggle('is-lock', menuLocked(m));
+    tb(m)!.classList.toggle('is-guide', !placing && hm === m && (menu !== m || (!hk && !sheetOpen())));
+    tb(m)!.classList.toggle('is-lock', menuLocked(m));
   }
+  for (const g of tabbar.querySelectorAll<HTMLElement>('.isl-tab.is-group')) g.classList.toggle('is-on', drawer === g.dataset.group);
   speedBtns[2].classList.toggle('is-guide', hm === 'speed' && speed !== 4);
-  if (!menu || menu === 'skill') return;
+  if (!menu) return;
+  renderBand(menu);
   subRow.replaceChildren(
-    ...SUBS[menu as Exclude<Menu, 'skill'>].map((x) => {
+    ...subsOf(menu).map((x) => {
       const b = h('button', `isl-sub ${sub === x.key ? 'is-on' : ''} ${needsOff(x) ? 'is-off' : ''} ${hm === menu && hk === x.key && sub !== x.key ? 'is-guide' : ''} ${subLocked(menu as Menu, x.key) ? 'is-lock' : ''}`);
       b.type = 'button';
       b.append(h('b', '', x.name), h('small', '', x.note));
@@ -701,6 +743,43 @@ function renderFoot() {
   );
   cards.hidden = true;
   subRow.hidden = !!placing;
+  deptBand.hidden = !!placing;
+}
+
+/** 部門の画面の上の帯（どの部門も同じ形）。節目と担当は準備中（任せ方の 4 段は後の段） */
+let bandKey = '';
+function renderBand(m: Menu) {
+  const d = DEPT[m];
+  const lv = deptLevel(s, m);
+  const nx = nextMark(lv);
+  const key = `${m}:${lv}:${isEn}`;
+  if (key === bandKey) return;
+  bandKey = key;
+  deptBand.style.setProperty('--br', d.color);
+  const go = h('button', 'isl-dband-go');
+  go.type = 'button';
+  go.addEventListener('click', () => {
+    if (tutStep()) return lockedNote();
+    menu = 'strategy';
+    sub = 'tree';
+    closeSheet();
+    openSkills(ctx, m);
+    renderAll();
+  });
+  // スマホは 1 行に収める（短い言い方）
+  const two = (long: string, short: string) => [h('span', 'is-long', long), h('span', 'is-short', short)];
+  go.replaceChildren(...two(t('この部門のパネルを見る', 'See this department’s panels'), t('パネル ›', 'Panels ›')));
+  const next = h('small', 'isl-dband-next');
+  next.append(...(nx ? two(t(`次の節目：${nx.name}まで あと ${nx.left}（準備中）`, `Next: ${nx.name} in ${nx.left} (coming soon)`), t(`次：${nx.name} あと ${nx.left}`, `Next: ${nx.name} in ${nx.left}`)) : two(t('節目はすべて到達（準備中）', 'All milestones reached (coming soon)'), t('節目はすべて到達', 'All milestones reached'))));
+  const lead = h('small', 'isl-dband-lead');
+  lead.append(...two(t('チームリーダー：準備中', 'Team leader: coming soon'), t('担当：準備中', 'Lead: soon')));
+  deptBand.replaceChildren(
+    h('span', 'isl-dband-name', `${d.icon} ${d.name}`),
+    h('span', 'isl-dband-lv', t(`理解度 ${lv}`, `Understanding ${lv}`)),
+    next,
+    lead,
+    go,
+  );
 }
 
 // ---------------------------------------------------------------- 建てる
@@ -1896,7 +1975,7 @@ function renderNext() {
 }
 
 function openBuildTab() {
-  goSub('plan', 'build');
+  goSub('strategy', 'build');
 }
 
 // ---------------------------------------------------------------- チュートリアル中のロック
@@ -1909,7 +1988,7 @@ const tutStep = (): TutStep | undefined => {
 /** チュートリアル中、いまの段で使わないメニューはロック（システムはいつでも開ける） */
 function menuLocked(m: Menu): boolean {
   const st = tutStep();
-  if (!st || m === 'sys') return false;
+  if (!st || m === 'systems') return false;
   const [hm] = hlOf(st, s).split(':');
   return hm !== m && !(st.open ?? []).includes(m);
 }
@@ -1917,8 +1996,10 @@ function menuLocked(m: Menu): boolean {
 /** 光らせている小メニューがあれば、同じメニューのほかの小メニューはロック */
 function subLocked(m: Menu, key: string): boolean {
   const st = tutStep();
-  if (!st || m === 'sys') return false;
-  const [hm, hk] = hlOf(st, s).split(':');
+  if (!st || m === 'systems') return false;
+  const [hm, hk0] = hlOf(st, s).split(':');
+  // 経営企画のタブだけを光らせる段（スキルツリーを開く）は、スキルツリーのほかの小メニューはロック
+  const hk = hm === 'strategy' && !hk0 ? 'tree' : hk0;
   if (hm === m) return !!hk && hk !== key;
   return menuLocked(m);
 }
@@ -2036,8 +2117,8 @@ function praise(text: string) {
 }
 
 /** 下の帯の小メニューをコードから開く（チュートリアルの吹き出し・撮影スクリプト用） */
-function goSub(m: Exclude<Menu, 'skill'>, key: string) {
-  const x = SUBS[m].find((y) => y.key === key);
+function goSub(m: Menu, key: string) {
+  const x = subsOf(m).find((y) => y.key === key);
   if (!x) return;
   menu = m;
   openSub(x);
@@ -2096,10 +2177,10 @@ function tutGo(go: TutGo) {
   } else if (go === 'staff') goSub('hr', 'staff');
   else if (go === 'hire') goSub('hr', 'hire');
   else if (go === 'hr') pickMenu('hr');
-  else if (go === 'ranking') goSub('mkt', 'ranking');
-  else if (go === 'buy') goSub('scm', 'buy');
-  else if (go === 'scm') goSub('scm', 'flow');
-  else if (go === 'skills') pickMenu('skill');
+  else if (go === 'ranking') goSub('marketing', 'ranking');
+  else if (go === 'buy') goSub('logistics', 'buy');
+  else if (go === 'scm') goSub('logistics', 'flow');
+  else if (go === 'skills') pickMenu('strategy');
   renderAll();
 }
 
@@ -2225,10 +2306,10 @@ function sideIntro() {
     [
       { text: t('資金が少なくなってきたね……。このままだと、素材もお給料も払えなくなっちゃう。', 'Funds are getting low… At this rate we can’t pay for materials or wages.') },
       { text: t('そんなときは、ヒーローに[[他店でバイト]]してもらおう！ 日給がもらえて、腕が上がることもあるよ。', 'When that happens, send heroes to [[work part-time]] at other stores! They earn a daily wage and might even improve.') },
-      { text: t('「営業企画」→「他店でバイト」か、地図の他社のお店から頼めるよ。', 'Use Planning → Part-time, or tap a rival store on the map.') },
+      { text: t('「人事」→「他店でバイト」か、地図の他社のお店から頼めるよ。', 'Use HR → Part-time, or tap a rival store on the map.') },
     ],
     t('バイトを探す', 'Find work'),
-    () => goSub('plan', 'side'),
+    () => goSub('hr', 'side'),
   );
 }
 
@@ -2695,9 +2776,9 @@ function researchTip(): { text: string; action?: [string, () => void] } | null {
   const name = PRODUCT[rec].name;
   const tr = need?.kind === 'tech' ? trainingOf(s, need.skill) : null;
   if (tr) return { text: t(`${heroName(tr.hero)}が[[${SKILL[tr.id].name}]]を修行中だよ（あと ${tr.left} 日）。身につけたら「${name}」を作れるよ。それまでに素材とお店の準備をしよう！`, `${heroName(tr.hero)} is training in [[${SKILL[tr.id].name}]] (${tr.left} d left). Then you can make ${name}. Get materials and shops ready meanwhile!`), action: [t('スキルツリーを開く', 'Open skills'), () => openSkills(ctx, tr.id)] };
-  if (need?.kind === 'tech') return { text: t(`「${name}」が売れそう。まずは[[${SKILL[need.skill].name}]]を研究しよう（スキルツリーの技の枝）。`, `${name} looks promising. First research [[${SKILL[need.skill].name}]] (Crafts branch of the skill tree).`), action: [t('スキルツリーを開く', 'Open skills'), () => openSkills(ctx, need.skill)] };
+  if (need?.kind === 'tech') return { text: t(`「${name}」が売れそう。まずは[[${SKILL[need.skill].name}]]を研究しよう（スキルツリーの物流の枝の技）。`, `${name} looks promising. First research [[${SKILL[need.skill].name}]] (Crafts in the skill tree’s Logistics branch).`), action: [t('スキルツリーを開く', 'Open skills'), () => openSkills(ctx, need.skill)] };
   if (need?.kind === 'route') return { text: t(`「${name}」には[[${MATS[need.mat].name}]]が要るよ。スキルツリーで[[${SKILL[need.skill].name}]]を研究しよう。`, `${name} needs [[${MATS[need.mat].name}]]. Research [[${SKILL[need.skill].name}]] in the skill tree.`), action: [t('スキルツリーを開く', 'Open skills'), () => openSkills(ctx, need.skill)] };
-  if (need?.kind === 'dev' && s.dev.length && !s.lab) return { text: t(`「${name}」を[[商品開発]]でアンコモンにしよう（営業企画 → 商品開発）。`, `Develop ${name} into an Uncommon in [[Product development]] (Planning → Products).`), action: [t('商品開発を開く', 'Open products'), () => openDev(ctx)] };
+  if (need?.kind === 'dev' && s.dev.length && !s.lab) return { text: t(`「${name}」を[[商品開発]]でアンコモンにしよう（R&D → 商品開発）。`, `Develop ${name} into an Uncommon in [[Product development]] (R&D → Products).`), action: [t('商品開発を開く', 'Open products'), () => openDev(ctx)] };
   return null;
 }
 
@@ -2708,8 +2789,8 @@ function tutorial(): { text: string; action?: [string, () => void] } {
     // 下の帯のタブ → サブタブを自分で押してもらう段：いま押すところを 1 つずつ
     if (st.lesson) {
       const [hm, hk] = hlOf(st, s).split(':') as [Menu, string];
-      const subName = hk ? SUBS[hm as Exclude<Menu, 'skill'>]?.find((x) => x.key === hk)?.name : undefined;
-      if (menu !== hm) return { text: t(`画面の下の「[[${MENU_NAME[hm]}]]」タブを押そう！`, `Tap the [[${MENU_NAME[hm]}]] tab at the bottom!`) };
+      const subName = hk ? subsOf(hm)?.find((x) => x.key === hk)?.name : undefined;
+      if (menu !== hm) return { text: t(`画面の下の「[[${MENU_NAME(hm)}]]」タブを押そう！`, `Tap the [[${MENU_NAME(hm)}]] tab at the bottom!`) };
       if (subName && sub !== hk) return { text: t(`タブの上に出てきた「[[${subName}]]」を押そう！`, `Now tap [[${subName}]] above the tabs!`) };
       return { text: st.say(s) };
     }
@@ -2744,8 +2825,8 @@ function tutorial(): { text: string; action?: [string, () => void] } {
       action: [t('廃墟を見る', 'See the ruins'), () => openPop(first.i, first.j)],
     };
   }
-  if (!ws && s.land && s.land.mine.length > 1 && s.sector !== s.land.mine[0]) return { text: t('このセクタにも[[工房]]を建てましょう。建物はセクタごとです。「営業企画」→「建築」から、道路に面した空き地へ。', 'Build a [[workshop]] in this sector too — buildings belong to each sector. Planning → Build, then a lot facing a road.'), action: [t('建築を開く', 'Open Build'), openBuildTab] };
-  if (!ws) return { text: t('新天地へようこそ！まずは先代から引き継いだ「工房」を建てましょう。下の「営業企画」→「建築」から工房を選び、道路に面した空き地へ。入口は道路の方にしか向けられません。', 'Welcome to the new land! First, build the workshop you inherited from your predecessor: Planning → Build, then place it on a lot facing a road — the entrance can only face the road.'), action: [t('建築を開く', 'Open Build'), openBuildTab] };
+  if (!ws && s.land && s.land.mine.length > 1 && s.sector !== s.land.mine[0]) return { text: t('このセクタにも[[工房]]を建てましょう。建物はセクタごとです。「経営企画」→「建築」から、道路に面した空き地へ。', 'Build a [[workshop]] in this sector too — buildings belong to each sector. Strategy → Build, then a lot facing a road.'), action: [t('建築を開く', 'Open Build'), openBuildTab] };
+  if (!ws) return { text: t('新天地へようこそ！まずは先代から引き継いだ「工房」を建てましょう。下の「経営企画」→「建築」から工房を選び、道路に面した空き地へ。入口は道路の方にしか向けられません。', 'Welcome to the new land! First, build the workshop you inherited from your predecessor: Strategy → Build, then place it on a lot facing a road — the entrance can only face the road.'), action: [t('建築を開く', 'Open Build'), openBuildTab] };
   if (ws.left > 0) return { text: t('工房の工事中です。⏩ で時間を早められます。地図のマスを押すと、建物の詳しい情報が見られます。', 'The workshop is under construction. ⏩ speeds things up. Tap any tile on the map for details.') };
   // 他社の巻き返し（Uncommon のセール中）：2 位の会社が伸びてくるので、ほかの助言より先に（ランキングで差を見る）
   const sale = saleTip();
@@ -2758,8 +2839,8 @@ function tutorial(): { text: string; action?: [string, () => void] } {
   if (unknown) return { text: t(`新しい商品はまだ知られていないよ（「${unknown.p.name}」の認知 ${Math.round(unknown.known * 100)}%）。[[宣伝]]で早く広めよう！`, `New items aren’t known yet (${unknown.p.name}: ${Math.round(unknown.known * 100)}% known). Spread the word with [[ads]]!`), action: [t('宣伝を開く', 'Open ads'), () => openAds(ctx)] };
   // Uncommon のセクタ：Common の商品は売れにくいので、まずアンコモンを開発
   if ((s.tier ?? 'C') !== 'C' && !s.dev.length && !s.lab) {
-    if (!has(s, 'pot')) return { text: t('ここではアンコモンが要るよ。スキルツリーの[[魔法の釜]]を先に開放しよう（工房の枝）。', 'Uncommons are needed here. Unlock the [[Magic pot]] in the skill tree first (Workshop branch).'), action: [t('スキルツリーを開く', 'Open skills'), () => openSkills(ctx, 'craft')] };
-    return { text: t('[[商品開発]]でアンコモンを作ろう（営業企画 → 商品開発）。', 'Make an Uncommon in [[Product development]] (Planning → Products).'), action: [t('商品開発を開く', 'Open products'), () => openDev(ctx)] };
+    if (!has(s, 'pot')) return { text: t('ここではアンコモンが要るよ。スキルツリーの[[魔法の釜]]を先に開放しよう（物流の枝の ② 製造）。', 'Uncommons are needed here. Unlock the [[Magic pot]] in the skill tree first (Logistics branch, ② Craft).'), action: [t('スキルツリーを開く', 'Open skills'), () => openSkills(ctx, 'craft')] };
+    return { text: t('[[商品開発]]でアンコモンを作ろう（R&D → 商品開発）。', 'Make an Uncommon in [[Product development]] (R&D → Products).'), action: [t('商品開発を開く', 'Open products'), () => openDev(ctx)] };
   }
   if (!s.flags.data) return { text: t('[[市場データ]]で、売れ筋と、まだ誰も売っていない商品が分かるよ（「マーケティング」→「市場調査データ」）。', 'The [[market data]] shows what sells and what nobody sells yet (Marketing → Market data).'), action: [t('データを見る', 'Open data'), () => openData(ctx)] };
   if (!shops.length) return { text: t(`データによると「${rec}」がよさそう！次はお店（よろず屋）を建てましょう。道路に面した場所に。`, `The data says ${rec} looks promising! Next, build a shop (General store) facing a road.`), action: [t('建築を開く', 'Open Build'), openBuildTab] };
@@ -2778,13 +2859,13 @@ function tutorial(): { text: string; action?: [string, () => void] } {
   if (digHigh) return digHigh;
   if (MISSIONS.some((m) => s.missions[m.id] === 'done')) return { text: t('依頼を達成しました！「マーケティング」→「依頼」で報酬を受け取りましょう。', 'You completed a request! Claim the reward under Marketing → Requests.'), action: [t('依頼を開く', 'Open requests'), () => openMissions(ctx)] };
   if (s.money <= SIDE.rescue && !s.staff.some((x) => x.task === 'side'))
-    return { text: t('資金が少なくなってきたね。ヒーローに[[他店でバイト]]してもらえば、日給でお金を稼げるよ。腕が上がることもあるんだ！', 'Funds are running low. Send a hero to [[work part-time]] at another store for a daily wage. They might even improve!'), action: [t('バイトを探す', 'Find work'), () => goSub('plan', 'side')] };
+    return { text: t('資金が少なくなってきたね。ヒーローに[[他店でバイト]]してもらえば、日給でお金を稼げるよ。腕が上がることもあるんだ！', 'Funds are running low. Send a hero to [[work part-time]] at another store for a daily wage. They might even improve!'), action: [t('バイトを探す', 'Find work'), () => goSub('hr', 'side')] };
   if (!activeMissions(s).length && !MISSIONS.some((m) => s.missions[m.id] === 'claimed')) return { text: t('町の人から[[依頼]]が届いているよ。「マーケティング」→「依頼」で受けてみよう！', 'People in town sent you [[requests]]. Accept one under Marketing → Requests!'), action: [t('依頼を開く', 'Open requests'), () => openMissions(ctx)] };
-  if (!s.reports.length) return { text: t('準備ができました！お店を開いた日から 1 か月ごとに売上を締めます。流れが詰まっていないかは「SCM」→「サプライチェーン」で確かめられます。', 'All set! Sales close every month from the day your shop opened. Check for bottlenecks under SCM → Supply chain.'), action: [t('サプライチェーンを見る', 'Open supply chain'), () => openSupply(ctx)] };
+  if (!s.reports.length) return { text: t('準備ができました！お店を開いた日から 1 か月ごとに売上を締めます。流れが詰まっていないかは「物流」→「サプライチェーン」で確かめられます。', 'All set! Sales close every month from the day your shop opened. Check for bottlenecks under Logistics → Supply chain.'), action: [t('サプライチェーンを見る', 'Open supply chain'), () => openSupply(ctx)] };
   // 1 か月たってから
   const low = (Object.keys(MATS) as (keyof typeof MATS)[]).find((m) => s.slots.some((sl) => sl.sku && PRODUCT[skuParts(sl.sku)[0]].recipe[skuParts(sl.sku)[1]][m] && (s.mats[m] ?? 0) < 10));
   const buyer = s.staff.some((x) => x.task === 'buy');
-  if (low && !buyer) return { text: t(`${MATS[low].name}が残り少なくなっています。「SCM」→「調達」で調達係を決めると、月の量を毎日自動で買い付けてくれます。`, `${MATS[low].name} is running low. Assign a buyer under SCM → Buy to purchase the monthly amounts automatically.`), action: [t('調達を開く', 'Open buy'), () => openBuy(ctx)] };
+  if (low && !buyer) return { text: t(`${MATS[low].name}が残り少なくなっています。「物流」→「調達」で調達係を決めると、月の量を毎日自動で買い付けてくれます。`, `${MATS[low].name} is running low. Assign a buyer under Logistics → Buy to purchase the monthly amounts automatically.`), action: [t('調達を開く', 'Open buy'), () => openBuy(ctx)] };
   if (low) return { text: t(`${MATS[low].name}が残り少なくなっています。「調達」で月の量を増やすか、いますぐ買い足しましょう（月の上限に注意）。`, `${MATS[low].name} is running low. Raise its monthly amount under Buy or buy some now (mind the monthly limit).`), action: [t('調達を開く', 'Open buy'), () => openBuy(ctx)] };
   if (s.staff.some((x) => x.resting)) return { text: t('休んでいる従業員がいます。「人事」→「給与・労務」の賞与ですぐ元気にできます。人手が足りないときは「人材登用」で雇えます。', 'Someone is resting. A bonus (HR → Pay & welfare) refreshes them at once; hire more under Recruiting.'), action: [t('給与・労務を開く', 'Open pay'), () => openPayroll(ctx)] };
   const digMid = digAt('mid');
@@ -3426,6 +3507,14 @@ function renderAll() {
   renderNext();
   layout();
   sectorChecks();
+  deptChecks();
+}
+/** 部門のお知らせ（新しく開いた部門・理解度の節目。1 回だけ。docs/ISLAND_PHASE1.md「部門」） */
+function deptChecks() {
+  const news = deptNews(s);
+  if (!news.length) return;
+  for (const n of news) toast(n);
+  save();
 }
 root.append(worldUi, meetEl, chiefEl, hud, sectorPill, zoomBox, pointEl, missionBox, tourEl, toasts, advisor, nextBtn, placeBox, popEl, foot, selBox, ghostUi);
 resize();
@@ -3844,7 +3933,7 @@ function companyNews(c: NonNullable<ReturnType<typeof step>['company']>) {
   }
   if (c.quarter) {
     sfx.play('report');
-    toast(t(`第 ${c.quarter} 四半期の決算が出ました（営業企画 → 決算書）`, `Q${c.quarter} statements are ready (Planning → Statements)`));
+    toast(t(`第 ${c.quarter} 四半期の決算が出ました（経営企画 → 決算書）`, `Q${c.quarter} statements are ready (Strategy → Statements)`));
     quarterNew = c.quarter;
   }
 }

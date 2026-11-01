@@ -54,7 +54,7 @@ import {
 } from '../src/island/p1/model';
 import { cellView, digRec, digSpec, lockedLayer, nextLvText, noteEntries, standing } from '../src/island/p1/digview';
 import { BRANCH_TIP, digTips } from '../src/island/p1/digmeet';
-import { BR_CAP, HUBPOS, LAYOUT, POS, UNPLACED } from '../src/island/p1/treelayout';
+import { DEPT_LAYOUT, HUBPOS, POS, UNPLACED, groupOf } from '../src/island/p1/treelayout';
 import { specOf } from '../scripts/island/audit';
 
 const T = DIG_BALANCE.tree;
@@ -144,18 +144,16 @@ describe('データ：9 本目の枝「発掘」', () => {
     expect([SKILL.host.cost, SKILL.jig.cost, SKILL.hire.cost]).toEqual([4000, 4000, 3000]);
   });
 
-  it('配置：どのパネルも置かれていて、パネルどうし 1.05 より離れ、根もととも重ならない。発掘の枝は物流とシステムのあいだ（外周は 1 段 3 枚）', () => {
+  it('配置：どのパネルも置かれていて、パネルどうし 1.05 より離れ、根もととも重ならない。発掘の枝は R&D の部門の枝（段 B：システムの隣）', () => {
     expect(UNPLACED).toEqual([]);
     const ps = [...POS.entries()];
     for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) expect(Math.hypot(ps[i][1].x - ps[j][1].x, ps[i][1].y - ps[j][1].y), `${ps[i][0]}–${ps[j][0]}`).toBeGreaterThan(1.05);
     for (const [, p] of HUBPOS) for (const [id, q] of ps) expect(Math.hypot(p.x - q.x, p.y - q.y), id).toBeGreaterThan(0.9);
-    expect(LAYOUT.dig.angle).toBeGreaterThan(LAYOUT.logi.angle);
-    expect(LAYOUT.dig.angle).toBeLessThan(LAYOUT.sys.angle);
-    expect(LAYOUT.dig.rows.flat().sort()).toEqual(DIG_PANELS.filter((id) => !SKILL[id].tier).sort());
-    expect(BR_CAP.dig).toBe(3);
-    // もとの 8 本は大きく動かさない（回すのは 12° まで）
-    const OLD = { buy: 180, tech: -135, craft: -90, logi: -45, sys: 0, shop: 45, ops: 90, people: 135 } as const;
-    for (const [br, a] of Object.entries(OLD)) expect(Math.abs(LAYOUT[br as keyof typeof OLD].angle - a), br).toBeLessThan(12);
+    // 発掘の枝のパネルはすべて R&D の枝（1 つの束）
+    for (const id of DIG_PANELS) expect(groupOf(id)?.key, id).toBe('rnd');
+    expect(DEPT_LAYOUT.rnd.groups).toHaveLength(1);
+    // システムの隣（もとの「物流とシステムのあいだ」の流れ）
+    expect(Math.abs(DEPT_LAYOUT.rnd.angle - DEPT_LAYOUT.systems.angle)).toBeLessThan(45);
   });
 
   it('出会いの前は枝ごと雲の中：研究も開放もできない（hidden）。「上げられる」にも入らない。出会いのあとは取れる', () => {
@@ -738,7 +736,7 @@ describe('セーブ：版 3 → 4', () => {
 
   it('ツルハシの新調 1 段 → ツルハシの鍛え直し Lv1、2 段 → Lv3／ランタン → 発掘のランタン Lv1／発破の道具 → 発破 Lv1（払ったお金は戻さない）。設備投資からは外す', () => {
     const a = v3({ pick: 1 });
-    expect(a.v).toBe(10);
+    expect(a.v).toBe(11);
     expect(lvOf(a, 'dig_power')).toBe(1);
     expect(digPower(a)).toBe(2);
     const b = v3({ pick: 2, lantern: 1, blast: 1, tools: 2 });
@@ -777,6 +775,6 @@ describe('セーブ：版 3 → 4', () => {
     expect([researchCap(n), deepLayers(n, 'C')]).toEqual([3, 2]);
     // 版 4 を読み直しても変わらない
     const back = deserializeP1(serializeP1(s))!;
-    expect([back.v, researchCap(back), deepLayers(back, 'C'), lvOf(back, 'dig_power')]).toEqual([10, 5, 3, 0]);
+    expect([back.v, researchCap(back), deepLayers(back, 'C'), lvOf(back, 'dig_power')]).toEqual([11, 5, 3, 0]);
   });
 });

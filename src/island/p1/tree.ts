@@ -14,11 +14,12 @@ import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { icon } from '../../ui/dom';
 import { TIER_NAME } from './company';
-import { BRANCHES, DIG_BALANCE, SKILL, SKILLS, TIERS, anyOfMet, isResearch, maxLv, rpCost, shownOf, shownText, type Branch, type FxKind, type Mat, type Skill, type Sku, type Tier } from './data';
+import { DEPT, DEPTS, DIG_BALANCE, SKILL, SKILLS, TIERS, anyOfMet, deptOf, isResearch, maxLv, rpCost, shownOf, shownText, type DeptId, type FxKind, type Mat, type Skill, type Sku, type Tier } from './data';
+import { deptLevel, deptLockText, deptOpen } from './dept';
 import { affordableSkills, bestSkillMove, digBranchOpen, donate, donateLock, donations, has, hqOpen, infAt, learn, LEARNABLE, levelLock, levelUp, lvOf, nextDonateCost, nextLevelCost, nextLevelRp, openHQ, openRing, ringOpen, ringsDue, skillLock, skillTier, trainDays, trainingOf, trainees, type P1State } from './model';
 import { after, mineTip, open, type Ctx } from './screens';
 import { pickHero } from './heroui';
-import { BOUNDS, EDGES, HUBPOS, LABEL_A, LAYOUT, OUTER, PANEL, POS, R0, RING_EDGE, RING_OUT, STEP, UNIT, curveAt, edgeBends, edgeEnd, polar, type TreeEdge } from './treelayout';
+import { BOUNDS, DEPT_LAYOUT, EDGES, GROUP_STAGE, HUBPOS, KNOTPOS, LABEL_A, OUTER, PANEL, POS, R0, RING_EDGE, RING_OUT, STEP, UNIT, curveAt, deptAngle, edgeBends, edgeEnd, groupOfBranch, polar, type Group, type TreeEdge } from './treelayout';
 import { bar, btn, h, heroIcon, heroName, matIcon, money, plain, rich, skuIcon } from './ui';
 
 /** ランドセクタの絵（はじまりの国 Lime） */
@@ -193,7 +194,7 @@ const BURST_MS = 2600;
 let digReveal = 0;
 const DIG_REVEAL_MS = 2200;
 /** 発掘の枝の雲の真ん中（木の上の位置）と、雲のかたまりを置く半径 */
-const digCloudAt = () => polar((LAYOUT.dig.angle * Math.PI) / 180, R0 + STEP * 1.5);
+const digCloudAt = () => polar(deptAngle('rnd'), R0 + STEP * 1.5);
 const DIG_PUFFS = [3.3, 4.4, 5.6, 6.8, 7.9, 9.4, 10.7];
 /** 外周が開く演出（ランク・始めた時刻・マインちゃんの一言まで進んだか） */
 let ringFx: { tier: Tier; t0: number; talk: boolean } | null = null;
@@ -356,7 +357,9 @@ const anyNeed = (s: P1State, k: Skill) => {
 /** 見えている名前（外周が閉じていれば「？」、封印は「???」） */
 const shownName = (s: P1State, k: Skill) => (k.sealed ? '???' : !ringOpen(s, skillTier(k)) && !isGoalTier(k) ? '?' : k.name);
 /** 枝の名前のラベル（詳細カードの名前の左に「（物流）」） */
-const branchName = (k: Skill) => LAYOUT[k.branch].stage?.replace(/^[①②③④]\s*/, '') ?? BRANCHES.find((b) => b.key === k.branch)?.name ?? '';
+const branchName = (k: Skill) => (deptOf(k) === 'logistics' && GROUP_STAGE[k.branch] ? t(`${DEPT.logistics.name}・${GROUP_STAGE[k.branch]}`, `${DEPT.logistics.name} · ${GROUP_STAGE[k.branch]}`) : DEPT[deptOf(k)].name);
+/** 部門の色（枝・研究パネルの枠） */
+const colorOf = (k: Skill) => DEPT_LAYOUT[deptOf(k)].color;
 function titleEl(s: P1State, k: Skill): HTMLElement {
   const b = h('b', 'isl-tree-title');
   b.append(h('small', 'isl-tree-brname', t(`（${branchName(k)}）`, `(${branchName(k)}) `)), document.createTextNode(shownName(s, k)));
@@ -399,7 +402,7 @@ const levelShort = (s: P1State, k: Skill) => (k.inf ? t(`あと ${(nextLevelRp(s
 const donateLabel = (s: P1State) => t(`寄付する ${money(nextDonateCost(s))} → +${DIG_BALANCE.buyRp.rp} RP`, `Donate ${money(nextDonateCost(s))} → +${DIG_BALANCE.buyRp.rp} RP`);
 const DONATE_NEED = () => t('Uncommon の調査依頼状を持っているか、Common のセクタを 1 つ制覇すると開く', 'Opens once you hold the Uncommon survey request or have conquered a Common sector');
 
-const HQ_NOTE = t('会社のすべての事業の中心。開放すると、① 調達・② 製造・③ 物流・④ 販売・人材・経営・システム・技の強化の枝が広がり、資金でスキルを習得できるようになります。', 'The heart of every business. Unlock it and upgrade branches spread out for Buying, Crafting, Hauling, Selling, People, Operations, Systems and Crafts.');
+const HQ_NOTE = t('会社のすべての部門の中心。開放すると、物流・マーケ・経営企画・人事・システムなど 11 の部門の枝が広がり、パネルを取れるようになります（取るほど、その部門の理解度が上がる）。', 'The heart of every department. Unlock it and branches for 11 departments — Logistics, Marketing, Strategy, HR, Systems and more — spread out. Each panel you take raises that department’s understanding.');
 
 /** 広がる演出：本社からの向きと遅れ */
 function setBurst(el: HTMLElement, p: { x: number; y: number }, extra = 0) {
@@ -436,9 +439,8 @@ function infoLines(s: P1State, k: Skill, st: State): HTMLElement[] {
 /** マウスを乗せたときの説明（PC） */
 function skillCard(s: P1State, k: Skill, tut = false): HTMLElement {
   const st = stateOf(s, k);
-  const L = LAYOUT[k.branch];
   const c = h('div', 'isl-tree-hcard');
-  c.style.setProperty('--br', isResearch(k) ? L.color : 'var(--isl-gold)');
+  c.style.setProperty('--br', isResearch(k) ? colorOf(k) : 'var(--isl-gold)');
   const top = h('div', 'isl-row');
   top.append(iconOf(k.id, 36), titleEl(s, k));
   c.append(top);
@@ -492,11 +494,12 @@ function currencyBar(s: P1State): HTMLElement {
   return bar0;
 }
 
-/** 枝の真ん中（内側の段の真ん中）。チップ・SCM ダッシュボードから飛ぶ先 */
-function branchCenter(br: Branch) {
-  const L = LAYOUT[br];
-  return polar((L.angle * Math.PI) / 180, R0 + (STEP * (L.rows.length - 1)) / 2);
+/** 部門の枝の真ん中（内側の段の真ん中）。チップ・部門の画面の「この部門のパネルを見る」から飛ぶ先 */
+function deptCenter(d: DeptId) {
+  return polar(deptAngle(d), DEPT_LAYOUT[d].groups.length ? R0 + STEP * 1.5 : DEPT_LAYOUT[d].hubR);
 }
+/** もとの枝（束）の真ん中。SCM ダッシュボードの「スキルツリーで見る」から飛ぶ先 */
+const groupCenter = (g: Group) => polar(g.a, R0 + STEP * 1.5);
 
 /** スキルツリーを開く。focus：その枝を真ん中に（SCM ダッシュボード・チュートリアルから） */
 export function openSkills(ctx: Ctx, focus?: string) {
@@ -508,10 +511,16 @@ export function openSkills(ctx: Ctx, focus?: string) {
     view.sel = focus;
     // 下の詳細カードに隠れないよう、描いたあとで少し上へ（place()）
     liftOnce = true;
-  } else if (focus && LAYOUT[focus as Branch]) {
-    const c = branchCenter(focus as Branch);
+  } else if (focus && DEPT[focus as DeptId]) {
+    const c = deptCenter(focus as DeptId);
     view.x = c.x;
     view.y = c.y;
+    view.sel = null;
+  } else if (focus && groupOfBranch(focus)) {
+    const c = groupCenter(groupOfBranch(focus)!);
+    view.x = c.x;
+    view.y = c.y;
+    view.sel = null;
   }
   open(ctx, t('スキルツリー', 'Skill tree'), (body) => {
     const s = ctx.s();
@@ -546,7 +555,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       setTimeout(() => ctx.sfx?.('levelup'), 500);
     }
     const revealing = digOn && performance.now() - digReveal < DIG_REVEAL_MS;
-    const hidden = (br: Branch) => br === 'dig' && !digOn;
+    const hidden = (d: DeptId) => d === 'rnd' && !digOn;
     if (sealed) {
       view.x = 0;
       view.y = 0;
@@ -559,24 +568,25 @@ export function openSkills(ctx: Ctx, focus?: string) {
     const top = h('div', 'isl-tree-top');
     const cur = currencyBar(s);
     const chips = h('div', 'isl-tree-chips');
-    const chipEls = new Map<Branch, HTMLElement>();
-    for (const br of BRANCHES) {
-      if (hidden(br.key)) continue;
-      const L = LAYOUT[br.key];
-      const c = h('button', 'isl-tree-chip');
+    const chipEls = new Map<DeptId, HTMLElement>();
+    for (const d of DEPTS) {
+      if (hidden(d.id)) continue;
+      const L = DEPT_LAYOUT[d.id];
+      const c = h('button', `isl-tree-chip ${L.groups.length ? '' : 'is-lock'}`);
       c.type = 'button';
       c.style.setProperty('--br', L.color);
-      // 数えるのは開いているエリアのパネル（閉じた外周は目標なので数えない）
-      const mine = SKILLS.filter((k) => k.branch === br.key && !k.sealed && !k.soon && !k.donate && ringOpen(s, skillTier(k)));
+      // 数えるのは開いているエリアのパネル（閉じた外周は目標なので数えない）。パネルの無い部門は鍵の札
+      const mine = SKILLS.filter((k) => deptOf(k) === d.id && !k.sealed && !k.soon && !k.donate && ringOpen(s, skillTier(k)));
       const got = mine.filter((k) => has(s, k.id)).length;
-      c.append(h('b', '', br.name), h('small', '', L.stage ? `${L.stage} ${got}/${mine.length}` : `${got}/${mine.length}`));
+      c.append(h('b', '', `${d.icon} ${d.short}`), h('small', '', L.groups.length ? t(`理解度 ${deptLevel(s, d.id)}・${got}/${mine.length}`, `Lv ${deptLevel(s, d.id)} · ${got}/${mine.length}`) : `🔒 ${deptLockText(d.id)}`));
+      c.title = d.name;
       c.addEventListener('click', () => {
-        const p = branchCenter(br.key);
+        const p = deptCenter(d.id);
         view.x = p.x;
         view.y = p.y;
         place();
       });
-      chipEls.set(br.key, c);
+      chipEls.set(d.id, c);
       chips.append(c);
     }
     // 通貨の帯の右：「上げられる：N」（いまの RP と資金で取れる研究パネルの開放＋お金パネルの開放・レベル上げ）。押すと、いちばん見込みの大きいものへカメラを寄せる
@@ -705,7 +715,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       view.zoom = -1; // 描き直したあと、全体が見える大きさに
       ctx.sfx?.('clear');
       setTimeout(() => ctx.sfx?.('levelup'), 700);
-      ctx.toast(t('本社を開放しました！ 強化の枝が広がります', 'HQ unlocked! Upgrade branches spread out'));
+      ctx.toast(t('本社を開放しました！ 部門の枝が広がります', 'HQ unlocked! Department branches spread out'));
       ctx.save();
       after(ctx);
     };
@@ -792,8 +802,8 @@ export function openSkills(ctx: Ctx, focus?: string) {
     };
     const drawEdge = (e: TreeEdge, color: string, cls: string) => {
       if (sealed) return;
-      const a = edgeEnd(e.from, e.br);
-      const b = edgeEnd(e.to, e.br);
+      const a = edgeEnd(e.from, e.g);
+      const b = edgeEnd(e.to, e.g);
       const bend = bends.get(e) ?? 0;
       // 根もと（ハブ）の側は札の下から（札が上に重なる）
       const t0 = e.from ? exitT(a, b, bend, a, false) : 0;
@@ -825,31 +835,34 @@ export function openSkills(ctx: Ctx, focus?: string) {
       svg.append(l);
       edgeEls.push({ e, el: l });
     };
-    // 本社 → 枝の根もと（ハブ）
-    const trunk = (b: { x: number; y: number }, color: string) => {
+    // 本社 → 部門の枝の根もと（ハブ）。束が複数ある部門（物流）は、ハブ → 束の節。パネルの無い部門は細い点線の枝
+    const trunk = (a: { x: number; y: number }, b: { x: number; y: number }, color: string, cls = '') => {
       if (sealed) return;
-      const A = px({ x: 0, y: 0 });
+      const A = px(a);
       const B = px(b);
       const l = document.createElementNS(NS, 'path');
       l.setAttribute('style', `--len:${Math.hypot(B.x - A.x, B.y - A.y).toFixed(0)};--d:0s`);
       l.setAttribute('d', `M${A.x} ${A.y}L${B.x} ${B.y}`);
       l.setAttribute('stroke', color);
-      l.setAttribute('class', 'isl-tree-edge is-trunk');
+      l.setAttribute('class', `isl-tree-edge is-trunk ${cls}`);
       svg.append(l);
     };
-    for (const br of BRANCHES) {
-      if (hidden(br.key)) continue;
-      trunk(HUBPOS.get(br.key)!, LAYOUT[br.key].color);
+    for (const d of DEPTS) {
+      if (hidden(d.id)) continue;
+      const L = DEPT_LAYOUT[d.id];
+      const hp = HUBPOS.get(d.id)!;
+      trunk({ x: 0, y: 0 }, hp, L.color, L.groups.length ? '' : 'is-thin');
+      for (const g of L.groups) if (KNOTPOS.has(g.key)) trunk(hp, KNOTPOS.get(g.key)!, L.color, 'is-knot');
     }
     // 枝の根もと → スキル（先に要るスキル → スキル）
     for (const e of EDGES) {
-      if (hidden(e.br)) continue;
+      if (hidden(e.br) || (e.from && hidden(deptOf(SKILL[e.from])))) continue;
       const k = SKILL[e.to];
       const closed = !ringOpen(s, skillTier(k)) || !!k.sealed;
       const up = e.from ? has(s, e.from) : true;
       const got = has(s, k.id) || (!!k.donate && donations(s) > 0);
       const cls = closed ? 'is-closed' : up && got ? 'is-done' : up ? 'is-open' : 'is-lock';
-      drawEdge(e, LAYOUT[e.br].color, cls);
+      drawEdge(e, DEPT_LAYOUT[e.br].color, cls);
     }
     /** つながりの強調：そのパネルの「先に要る」パネルまでの線（根もとまで）と、そのパネルから先へ伸びる線。ほかの線は少し暗く */
     const nodeEls = new Map<string, HTMLElement>();
@@ -917,7 +930,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
     }
     // 発掘の枝の雲（出会いの前。雲から出てくるあいだは、薄れて消える）
     if (!sealed && (!digOn || revealing)) {
-      const a = (LAYOUT.dig.angle * Math.PI) / 180;
+      const a = deptAngle('rnd');
       DIG_PUFFS.forEach((r, k) => {
         const q = px(polar(a + (k % 2 ? 0.07 : -0.06), r));
         const puff = h('i', `isl-tree-cloud ${digOn ? 'is-leaving' : ''}`);
@@ -935,25 +948,43 @@ export function openSkills(ctx: Ctx, focus?: string) {
       world.append(q);
     }
     if (!sealed)
-      for (const br of BRANCHES) {
-        if (hidden(br.key)) continue;
-        const L = LAYOUT[br.key];
-        const p = px(HUBPOS.get(br.key)!);
-        const hub = h('div', 'isl-tree-hub');
+      for (const d of DEPTS) {
+        if (hidden(d.id)) continue;
+        const L = DEPT_LAYOUT[d.id];
+        const p = px(HUBPOS.get(d.id)!);
+        // 部門の札：部門の名前と理解度（「物流 12」）。パネルの無い部門は鍵の札（「経理（Uncommon で開く・準備中）」）。
+        // 開くランクに達していない部門（総務など）は、パネルは取れるが、札に開く時期を添える
+        const empty = !L.groups.length;
+        const hub = h('div', `isl-tree-hub ${empty ? 'is-lock' : ''}`);
         hub.style.left = `${p.x}px`;
         hub.style.top = `${p.y}px`;
         hub.style.setProperty('--br', L.color);
-        setBurst(hub, HUBPOS.get(br.key)!);
-        hub.append(h('b', '', br.name));
-        if (L.stage) hub.append(h('small', '', L.stage));
+        setBurst(hub, HUBPOS.get(d.id)!);
+        if (empty) hub.append(h('b', '', `🔒 ${d.name}`), h('small', '', deptLockText(d.id)));
+        else {
+          hub.append(h('b', '', `${d.short} ${deptLevel(s, d.id)}`));
+          if (!deptOpen(s, d.id)) hub.append(h('small', '', `🔒 ${deptLockText(d.id)}`));
+        }
+        hub.title = empty ? t(`${d.name}（${deptLockText(d.id)}）`, `${d.name} (${deptLockText(d.id)})`) : t(`${d.name}：理解度 ${deptLevel(s, d.id)}`, `${d.name}: understanding ${deptLevel(s, d.id)}`);
         world.append(hub);
+      }
+      // 束の根もとの節（物流の ① 調達 … ④ 販売・技）
+      for (const [key, q] of KNOTPOS) {
+        const p = px(q);
+        const kn = h('i', 'isl-tree-knot');
+        kn.style.left = `${p.x}px`;
+        kn.style.top = `${p.y}px`;
+        kn.style.setProperty('--br', DEPT_LAYOUT.logistics.color);
+        const g = key.split(':')[1] as keyof typeof GROUP_STAGE;
+        kn.title = GROUP_STAGE[g] ?? '';
+        setBurst(kn, q);
+        world.append(kn);
       }
     // 外周の演出：開くランクのパネルを、枝の順に本社から飛び出させる
     const fxOrder = fx ? SKILLS.filter((k) => skillTier(k) === fx.tier) : [];
     if (!sealed)
       for (const k of SKILLS) {
-        if (hidden(k.branch)) continue;
-        const L = LAYOUT[k.branch];
+        if (hidden(deptOf(k))) continue;
         const p = px(POS.get(k.id)!);
         const st = stateOf(s, k);
         const tier = skillTier(k);
@@ -963,7 +994,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
         n.type = 'button';
         n.style.left = `${p.x}px`;
         n.style.top = `${p.y}px`;
-        n.style.setProperty('--br', L.color);
+        n.style.setProperty('--br', colorOf(k));
         n.style.setProperty('--tc', TIERS[tier].color);
         // 文字は出さないので、読み上げ用に名前を
         n.setAttribute('aria-label', st === 'ring' && !isGoalTier(k) ? '?' : shownName(s, k));
@@ -1064,10 +1095,9 @@ export function openSkills(ctx: Ctx, focus?: string) {
       if (sealed) detail.append(btn(t('本社を開放する', 'Unlock HQ'), () => unlockHQ(), 'is-on'));
     } else if (sel) {
       const st = stateOf(s, sel);
-      const L = LAYOUT[sel.branch];
       const top2 = h('div', 'isl-tree-dtop');
       const ic = h('div', `isl-tree-dicon ${isResearch(sel) ? 'is-research' : 'is-money'} ${sel.big ? 'is-dust' : ''}`);
-      ic.style.setProperty('--br', L.color);
+      ic.style.setProperty('--br', colorOf(sel));
       if (st === 'ring' && !isGoalTier(sel)) ic.append(h('span', 'isl-tree-q', '?'));
       else ic.append(iconOf(sel.id, 32));
       const txt = h('div');
@@ -1126,7 +1156,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       if (st === 'open') top2.append(h('small', 'isl-dim', isResearch(sel) ? t('パネルをダブルタップしても研究できます', 'Double-tap a panel to research it too') : t('パネルをダブルタップしても開放できます', 'Double-tap a panel to unlock it too')));
       detail.append(top2, b);
       }
-    } else if (sealed) detail.append(h('p', 'isl-dim', t('真ん中の本社を押して、開放しましょう。開放すると、事業ごとの強化の枝が広がります。', 'Tap HQ in the middle to unlock it. Upgrade branches for each business will spread out.')));
+    } else if (sealed) detail.append(h('p', 'isl-dim', t('真ん中の本社を押して、開放しましょう。開放すると、11 の部門の枝が広がります。', 'Tap HQ in the middle to unlock it. Branches for the 11 departments will spread out.')));
     else detail.append(h('p', 'isl-dim', t('枝の色の枠は研究パネル（研究ポイントで開く・レベルなし）、金の二重の枠はお金パネル（資金で開く・Lv5 まで上げられる）。パネルを押すと名前と説明が出ます（ダブルタップでも開く）。', 'Branch-coloured frames are research panels (RP, no levels); gold double frames are money panels (funds, up to Lv5). Tap a panel for its name and details (or double-tap to unlock).')));
     // ズーム
     const zoom = h('div', 'isl-tree-zoom');
@@ -1253,18 +1283,20 @@ export function openSkills(ctx: Ctx, focus?: string) {
       view.y = -(topH - botH) / 2 / (UNIT * view.zoom);
     }
     /** いま見ている枝のチップを光らせる（スマホでは横スクロールの帯の中で見える所へ） */
-    let curBr: Branch | null = null;
+    let curBr: DeptId | null = null;
     const markChip = () => {
       const r = Math.hypot(view.x, view.y);
-      let best: Branch | null = null;
+      let best: DeptId | null = null;
       if (r > 1.2) {
+        // いま見ている向きが入っている部門の枝（幅で判定）
         const a = Math.atan2(view.y, view.x);
         let bd = Infinity;
-        for (const br of BRANCHES) {
-          const d = Math.abs(Math.atan2(Math.sin(a - (LAYOUT[br.key].angle * Math.PI) / 180), Math.cos(a - (LAYOUT[br.key].angle * Math.PI) / 180)));
-          if (d < bd) {
-            bd = d;
-            best = br.key;
+        for (const dd of DEPTS) {
+          if (hidden(dd.id)) continue;
+          const da = Math.abs(Math.atan2(Math.sin(a - deptAngle(dd.id)), Math.cos(a - deptAngle(dd.id)))) / Math.max(0.1, DEPT_LAYOUT[dd.id].w);
+          if (da < bd) {
+            bd = da;
+            best = dd.id;
           }
         }
       }

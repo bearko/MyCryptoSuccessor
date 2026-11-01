@@ -50,7 +50,7 @@ export function meetTip(s: Pick<P1State, 'flags' | 'dig' | 'digRun'>): string | 
   if ((ph === 'tap' || ph === 'open') && !s.dig) return null;
   if (ph === 'tap') return t('光っている[[荒れ地]]をタップして、「⛏ 発掘する」を押そう！', 'Tap the glowing [[wasteland]], then press “⛏ Dig”!');
   if (ph === 'open') return s.digRun ? MEET_WALL() : t('光っている[[荒れ地]]をタップして、「⛏ 発掘する」を押そう！', 'Tap the glowing [[wasteland]], then press “⛏ Dig”!');
-  if (ph === 'skill') return t('光っている「[[スキル]]」タブから、[[研究パネル]]を開いてみよう！', 'Open the glowing [[Skills]] tab and try a [[research panel]]!');
+  if (ph === 'skill') return t('光っている「[[経営企画]]」タブの[[スキルツリー]]から、[[研究パネル]]を開いてみよう！', 'Open the [[skill tree]] from the glowing [[Strategy]] tab and try a [[research panel]]!');
   return null;
 }
 
