@@ -15,7 +15,7 @@ import { PRODUCT, TOP_STREAK, sku } from './data';
 import { jamOf, myShops, whatIf, type P1State, type Report, type Stage } from './model';
 import { moveUp } from './scm';
 import { closeSheet, open, type Ctx } from './screens';
-import { btn, h, money, rich, select, skuIcon } from './ui';
+import { btn, h, heroName, money, rich, select, skuIcon } from './ui';
 
 const STAGE_NAME: Record<Stage, string> = { buy: t('① 調達', '① Buy'), craft: t('② 製造', '② Craft'), haul: t('③ 物流', '③ Haul'), sell: t('④ 販売', '④ Sell') };
 const STAGE_ICON: Record<Stage, string> = { buy: '🧱', craft: '🔨', haul: '🛒', sell: '🏪' };
@@ -39,12 +39,28 @@ const STAGE_BRANCH: Record<Stage, string> = { buy: 'buy', craft: 'craft', haul: 
 /** ゴールの順位（いまはエリア 1 位で固定。セクタのランクで変える余地）。制覇はこれを TOP_STREAK か月続ける */
 const GOAL_RANK = 1;
 
+/** 「今月のレベルアップ」の文（長い・短い）。無ければ null。多いときは Lv の上がった数の大きい 2 人と「ほか N 人」 */
+export function levelUpText(r: Report): [string, string] | null {
+  const ups = [...(r.levelUps ?? [])].sort((a, b) => b.to - b.from - (a.to - a.from) || b.to - a.to);
+  const items = Object.entries(r.items ?? {}).reduce((a, [, n]) => a + (n ?? 0), 0);
+  if (!ups.length && !items) return null;
+  const one = (x: { hero: number; from: number; to: number }) => t(`${heroName(x.hero)} Lv ${x.from}→${x.to}`, `${heroName(x.hero)} Lv ${x.from}→${x.to}`);
+  const head = ups.slice(0, 2).map(one).join(t('・', ', '));
+  const more = ups.length > 2 ? t(`・ほか ${ups.length - 2} 人`, ` +${ups.length - 2} more`) : '';
+  const it = items ? t(`${ups.length ? '・' : ''}強化アイテム +${items}`, `${ups.length ? ' · ' : ''}promotion items +${items}`) : '';
+  const long = head + more + it;
+  const short = (ups.length ? t(`${ups.length} 人`, `${ups.length} heroes`) : '') + it;
+  return [long, short];
+}
+
 export interface ReportHooks {
   openSkills: (branch?: string) => void;
   openSupply: () => void;
   openRanking: () => void;
   /** 研究ノート（「今月の出土品」の導線） */
   openNotes?: () => void;
+  /** ヒーローの育成（「今月のレベルアップ」の導線。段 E1） */
+  openGrowth?: () => void;
   /** 効果音 */
   sfx?: (k: 'sale' | 'win' | 'levelup' | 'check' | 'report' | 'drum' | 'error') => void;
 }
@@ -591,6 +607,17 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
           line.append(txt);
           c4.append(line);
         }
+      }
+      // 今月のレベルアップ・強化アイテム（ヒーローの育成。段 E1）：1 行にまとめる（スマホで 1 画面に収まるように）
+      const lt = levelUpText(r);
+      if (lt) {
+        const line = h('div', 'isl-rp-dig isl-rp-lv');
+        const txt = h('span', 'isl-rp-dig-text');
+        txt.append(h('b', '', t('⭐ 今月のレベルアップ', '⭐ Level-ups this month')), h('span', 'is-long', lt[0]), h('span', 'is-short', lt[1]));
+        line.append(txt);
+        if (hooks.openGrowth) line.append(btn(t('育成', 'Growth'), () => hooks.openGrowth?.(), 'isl-rp-go'));
+        c4.append(line);
+        body.classList.add('has-lv');
       }
       cards.push(c4);
 

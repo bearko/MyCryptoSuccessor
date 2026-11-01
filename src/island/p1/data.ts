@@ -2525,3 +2525,89 @@ export const procNeed = (lv: number) => PROC.expBase + PROC.expPerLv * lv;
 export const DAY_BASE_MS = 1200;
 /** 進行速度（システム → 進行速度）。1.5 倍・2 倍はスキルで選べるようになる */
 export const PACES: { v: number; skill?: string }[] = [{ v: 1 }, { v: 1.5, skill: 'pace1' }, { v: 2, skill: 'pace2' }];
+
+// ---------------------------------------------------------------- ヒーローの育成（段 E1。docs/ISLAND_PHASE1.md「ヒーローの育成」）
+
+/** ヒーローのレアリティ（育成の段）。N＝Novice（MCH の novice。レアリティ無し）・LL＝Limited Legendary（もとから Legendary のヒーローだけ） */
+export type HeroRarity = 'N' | 'C' | 'U' | 'R' | 'E' | 'L' | 'LL';
+export const HERO_RARITIES: HeroRarity[] = ['N', 'C', 'U', 'R', 'E', 'L', 'LL'];
+/** 強化アイテム（昇格の証）：昇格したあとのレアリティで呼ぶ（'C' は Novice → Common に使う） */
+export type PromoItem = Exclude<HeroRarity, 'N'>;
+export const PROMO_ITEMS: PromoItem[] = ['C', 'U', 'R', 'E', 'L', 'LL'];
+/** パッシブスキルの種類（部門と結び付ける。効き目は model.ts の speed・drainOf・gainXp・closeCompanyMonth） */
+export type PassiveKind = 'craft' | 'haul' | 'sell' | 'scout' | 'dig' | 'mentor' | 'manage' | 'system';
+
+/**
+ * ヒーローの育成の数字（1 か所）。
+ * - cap：レアリティの上限 Lv（ユーザー決定）。
+ * - mul：能力値の倍率。Lv1 は ×1（いまの能力値）。もとのレアリティの上限 Lv で ×(1 + atCap)。そこから先は 1 Lv ごとに +beyond、
+ *   Limited Legendary（Lv101〜120）は 1 Lv ごとに +limited。昇格 1 回ごとに +promo（その場の上乗せ）。
+ *   能力値ごとの伸び（lo〜hi）は MCH の Lv1 → 最大 Lv の伸び方の比（3 つの平均を 1 に）。HP（スタミナ）は伸ばさない。
+ * - curve：Lv L に届くまでの経験値の合計 ＝ k ×（L − 1）^p。
+ * - xp：働いた日の経験値（仕事ごと）× いるセクタのランクの倍率（tier）。マネージャー・復興の担当は会社の月の締めで 30 日ぶん。
+ *   OJT：担当のある人の経験値 +ojt × Lv の倍率。社内研修：技の修行中の経験値 +training × Lv の倍率。
+ * - passiveAt：パッシブが開く Lv（6 つ）。passiveStep：昇格で段が 1 つ上がるごとの効き目の上乗せ（段 1 の v に対して）。
+ * - items：強化アイテムの入り方（町のランクごとにもらうアイテム）。dungeon：ダンジョンの layer 枚目より奥をはがしたマスごとに odds の確率、
+ *   deep 枚目より奥は 1 つ上のアイテム（Legendary の町の奥の限定の王冠は、その ll 倍の確率）。
+ */
+export const HERO_GROWTH = {
+  cap: { N: 40, C: 60, U: 70, R: 80, E: 90, L: 100, LL: 120 } as Record<HeroRarity, number>,
+  mul: { atCap: 0.35, beyond: 0.002, limited: 0.0175, promo: 0.05, lo: 0.7, hi: 1.3 },
+  curve: { k: 60, p: 1.4 },
+  xp: {
+    day: { craft: 10, transport: 10, buy: 10, shop: 10, explore: 10, intel: 10, dig: 12, train: 12, side: 6, manager: 20 } as Record<Task, number>,
+    revive: 25,
+    tier: { C: 1, U: 2, R: 4, E: 8, L: 12 } as Record<Tier, number>,
+    ojt: 0.2,
+    training: 0.3,
+    /** 人事のパッシブ（仲間の経験値）を合わせた上限 */
+    mentorMax: 0.3,
+  },
+  passiveAt: [10, 30, 50, 70, 90, 110],
+  passiveStep: 0.25,
+  items: {
+    present: { C: 'C', U: 'U', R: 'R', E: 'E', L: 'L' } as Record<Tier, PromoItem>,
+    clear: { C: 'C', U: 'U', R: 'R', E: 'E', L: 'LL' } as Record<Tier, PromoItem>,
+    mission: { C: 'C', U: 'C', R: 'U', E: 'R', L: 'E' } as Record<Tier, PromoItem>,
+    dungeon: { layer: 3, deep: 5, odds: 0.02, ll: 0.25 },
+  },
+  /** 古いセーブ（版 11 まで）の雇用中のヒーロー：会社の月数 × days 日ぶん働いたとして Lv を決める（創業の 3 人は × 1、雇った人は × half） */
+  migrate: { days: 12, half: 0.5 },
+};
+/** 上限 Lv */
+export const capLv = (r: HeroRarity) => HERO_GROWTH.cap[r];
+/** レアリティの名前・色（Novice は銅、Limited Legendary は特別な色） */
+export const HERO_RARITY: Record<HeroRarity, { name: string; short: string; color: string }> = {
+  N: { name: t('ノービス', 'Novice'), short: 'N', color: '#a08a6a' },
+  C: { name: t('コモン', 'Common'), short: 'C', color: '#b9b9b9' },
+  U: { name: t('アンコモン', 'Uncommon'), short: 'U', color: '#63d471' },
+  R: { name: t('レア', 'Rare'), short: 'R', color: '#4fa8ff' },
+  E: { name: t('エピック', 'Epic'), short: 'E', color: '#c77dff' },
+  L: { name: t('レジェンド', 'Legendary'), short: 'L', color: '#ffb627' },
+  LL: { name: t('リミテッド・レジェンド', 'Limited Legendary'), short: 'LL', color: '#ff5fc8' },
+};
+/** 強化アイテムの名前 */
+export const PROMO_ITEM: Record<PromoItem, { name: string; note: string }> = {
+  C: { name: t('銅の昇格の証', 'Bronze Promotion Seal'), note: t('ノービス → コモン', 'Novice → Common') },
+  U: { name: t('翠の昇格の証', 'Jade Promotion Seal'), note: t('コモン → アンコモン', 'Common → Uncommon') },
+  R: { name: t('蒼の昇格の証', 'Azure Promotion Seal'), note: t('アンコモン → レア', 'Uncommon → Rare') },
+  E: { name: t('紫の昇格の証', 'Violet Promotion Seal'), note: t('レア → エピック', 'Rare → Epic') },
+  L: { name: t('金の昇格の証', 'Golden Promotion Seal'), note: t('エピック → レジェンド', 'Epic → Legendary') },
+  LL: { name: t('限定の王冠', 'Limited Crown'), note: t('レジェンド → リミテッド・レジェンド（もとから Legendary のヒーローだけ）', 'Legendary → Limited Legendary (born-Legendary heroes only)') },
+};
+/**
+ * パッシブスキル（部門と結び付ける）。v：段 1 の効き目（+4〜6%）。tasks：その仕事をしているときに速さ（speed）に効く。
+ * mentor は仲間の経験値、manage はマネージャーのときのセクタの売上、system はスタミナの減り（自分の仕事の手間が減る）
+ */
+export const PASSIVES: Record<PassiveKind, { dept: DeptId; v: number; name: string; note: (pct: number) => string; tasks?: Task[] }> = {
+  craft: { dept: 'logistics', v: 0.05, tasks: ['craft', 'train'], name: t('職人の勘', 'Maker’s instinct'), note: (p) => t(`製造の速さ +${p}%（作業台・修行のとき）`, `Crafting speed +${p}% (at a bench or training)`) },
+  haul: { dept: 'logistics', v: 0.05, tasks: ['transport', 'buy'], name: t('段取り上手', 'Good planner'), note: (p) => t(`運搬・調達の速さ +${p}%（運搬係・調達係のとき）`, `Hauling and buying speed +${p}% (as hauler or buyer)`) },
+  sell: { dept: 'marketing', v: 0.04, tasks: ['shop', 'side'], name: t('看板の笑顔', 'Shop’s smile'), note: (p) => t(`担当のお店の売り場の強さ・品出し +${p}%（店員のとき）`, `Pull and shelving at their shop +${p}% (as clerk)`) },
+  scout: { dept: 'marketing', v: 0.06, tasks: ['explore', 'intel'], name: t('聞き込み', 'Legwork'), note: (p) => t(`開拓・調査の速さ +${p}%`, `Scouting and research speed +${p}%`) },
+  dig: { dept: 'rnd', v: 0.06, tasks: ['dig'], name: t('掘り当て', 'Lucky strike'), note: (p) => t(`発掘隊の掘る速さ +${p}%（発掘隊のとき）`, `Dig crew speed +${p}% (on the dig crew)`) },
+  mentor: { dept: 'hr', v: 0.05, name: t('面倒見', 'Mentor'), note: (p) => t(`この人が働いた日、仲間の経験値 +${p}%（合わせて +${Math.round(HERO_GROWTH.xp.mentorMax * 100)}% まで）`, `Teammates gain +${p}% XP on days this hero works (up to +${Math.round(HERO_GROWTH.xp.mentorMax * 100)}% in all)`) },
+  manage: { dept: 'strategy', v: 0.04, name: t('采配', 'Command'), note: (p) => t(`セクタマネージャーのとき、そのセクタの売上 +${p}%`, `Sector sales +${p}% as sector manager`) },
+  system: { dept: 'systems', v: 0.06, name: t('手順の自動化', 'Automated routine'), note: (p) => t(`働くときのスタミナの減り −${p}%`, `Stamina drain while working −${p}%`) },
+};
+/** 陣営 → パッシブ（ヒーローごとの並びの 2 つ目。1 つ目はいちばん向いている仕事） */
+export const FACTION_PASSIVE: Record<string, PassiveKind> = { 玄武: 'dig', 朱雀: 'sell', 青龍: 'craft', 白虎: 'haul', 黄竜: 'manage' };

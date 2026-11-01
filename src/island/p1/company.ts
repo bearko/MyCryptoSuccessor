@@ -255,13 +255,15 @@ export const repairOrder = <T extends RuinLike>(xs: T[]): T[] => [...xs].sort((a
 /**
  * 復興の担当のひと月の伸び：能力値（PHY・INT・AGI）の低い順に RESET.grow.stats 個を +lo〜hi（上限 100）。上がった能力と数
  */
-export function growHero(st: { stats: Stats }, rnd: () => number): Partial<Record<'phy' | 'int' | 'agi', number>> {
+export function growHero(st: { stats: Stats; lvGain?: Partial<Record<'phy' | 'int' | 'agi', number>> }, rnd: () => number): Partial<Record<'phy' | 'int' | 'agi', number>> {
   const G = RESET.grow;
-  const keys = (['phy', 'int', 'agi'] as const).filter((k) => st.stats[k] < 100).sort((a, b) => st.stats[a] - st.stats[b]).slice(0, G.stats);
+  // 上限 100 は Lv1 のときの能力値で見る（ヒーローの育成で Lv で上がったぶんは数えない。上がったぶんは呼んだ側が syncGrowth でそろえる）
+  const pre = (k: 'phy' | 'int' | 'agi') => st.stats[k] - (st.lvGain?.[k] ?? 0);
+  const keys = (['phy', 'int', 'agi'] as const).filter((k) => pre(k) < 100).sort((a, b) => pre(a) - pre(b)).slice(0, G.stats);
   const out: Partial<Record<'phy' | 'int' | 'agi', number>> = {};
   const next = { ...st.stats };
   for (const k of keys) {
-    const d = Math.min(100 - next[k], G.lo + Math.floor(rnd() * (G.hi - G.lo + 1)));
+    const d = Math.min(100 - pre(k), G.lo + Math.floor(rnd() * (G.hi - G.lo + 1)));
     if (d <= 0) continue;
     next[k] += d;
     out[k] = d;

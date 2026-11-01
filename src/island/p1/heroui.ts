@@ -21,6 +21,8 @@ export type Rank = (typeof RANKS)[number];
 /** F・E・D・C・B・A・S になる適性の下限 */
 export const RANK_AT = [30, 42, 55, 62, 69, 77, 85];
 export const aptN = (apt: number) => Math.max(0, Math.min(100, Math.round(apt)));
+/** 見せる数（ヒーローの育成で 100 を超えることがある。ランクは S のまま、数はそのまま。図の上では 100 で頭打ち） */
+export const aptShow = (apt: number) => Math.max(0, Math.round(apt));
 export function rankOf(apt: number): Rank {
   const n = aptN(apt);
   for (let k = RANKS.length - 1; k > 0; k--) if (n >= RANK_AT[k - 1]) return RANKS[k];
@@ -30,7 +32,7 @@ export function rankOf(apt: number): Rank {
 export function rankEl(apt: number): HTMLElement {
   const r = rankOf(apt);
   const e = h('span', `isl-rankv is-${r.toLowerCase()}`);
-  e.append(h('b', '', r), h('small', '', `${aptN(apt)}`));
+  e.append(h('b', '', r), h('small', '', `${aptShow(apt)}`));
   return e;
 }
 
@@ -77,7 +79,7 @@ export function radar(stats: Parameters<typeof aptitude>[0], size = 210): SVGSVG
     const rk = svg('tspan', { class: 'isl-radar-rank' });
     rk.textContent = r;
     const n = svg('tspan', { dx: 3 });
-    n.textContent = `${aptN(vals[k])}`;
+    n.textContent = `${aptShow(vals[k])}`;
     val.append(rk, n);
     root.append(name, val);
   });
@@ -133,6 +135,8 @@ export function slot(s: P1State, o: { label: string; task: Task; hero: number | 
   if (st) {
     const apt = Math.round(aptitude(st.stats, o.task));
     b.append(heroIcon(st.hero, 52), h('b', 'isl-slot-name', heroName(st.hero)), rankEl(apt), stamina(st));
+    // ヒーローの育成（段 E1）：Lv（小さく）
+    if ((st.level ?? 1) > 1) b.append(h('small', 'isl-slot-lv', `Lv ${st.level}`));
     if (st.resting) b.append(h('span', 'isl-slot-tag', t('休憩中', 'Resting')));
     if (o.onRemove) {
       const x = h('span', 'isl-slot-x', '×');

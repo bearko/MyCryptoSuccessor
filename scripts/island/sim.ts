@@ -5,12 +5,13 @@
  * ゲームの数値（data.ts・式）は変えない。ここは計測だけ。
  */
 import { writeFileSync } from 'node:fs';
-import { aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier } from '../../src/island/p1/data';
+import { HERO_GROWTH, HERO_RARITIES, aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier } from '../../src/island/p1/data';
 import { managerApt, RUIN, sectorDef, type RuinLike } from '../../src/island/p1/company';
 import { crowned, moveFee, moveTo } from '../../src/island/p1/land';
 import { delegate, rankUpTier, repairAll, reviveView } from '../../src/island/p1/reset';
 import { MEET_IDLE_DAYS } from '../../src/island/p1/digmeet';
 import {
+  promote,
   accept,
   allowedDirs,
   assign,
@@ -212,6 +213,8 @@ export interface SectorRun {
   comeback: number;
   /** v14：100% の再発掘の周回（被災した Common の町に戻って、荒れ地を掘り直す。表の「1 町の平均」には入れない） */
   revisit?: boolean;
+  /** v17（段 E1：ヒーローの育成）：離れたときのヒーローの Lv（全員） */
+  lv?: number[];
 }
 
 export interface DigRec {
@@ -278,6 +281,11 @@ export interface RunResult {
    * 2 回目のあと任せた町（うち Uncommon の町）・研究待ちの月（Rare）・巻き返しの回数（Rare）
    */
   v16: { levy: number; grant: number; preDonate: number; lost: number; hitC: number; hitU: number; delegated: number; delegatedU: number; resWaitR: number; comebackR: number };
+  /**
+   * v17（段 E1：ヒーローの育成）：昇格の回数・最後に開いていたパッシブの数・手に入れた強化アイテム（合計）・最後の Lv・レアリティ（全員）・
+   * ランクの終わり（そのランクの最後のセクタを離れたとき）の Lv
+   */
+  v17: { promos: number; passives: number; items: number; lvEnd: number[]; rarEnd: string[]; byTier: Partial<Record<Tier, number[]>> };
 }
 
 /**
@@ -685,6 +693,15 @@ export function policy(s: P1State, c: Ctx): Action[] {
   for (let k = 0; k < nHaul; k++) want.push({ task: 'transport', target: null, apt: 'transport', cur: haulers[k] ?? null });
   const buyer = crew(s).find((x) => x.task === 'buy')?.hero ?? null;
   if (!buyFirst && (has(s, 'hire') || crew(s).length > 3)) want.push({ task: 'buy', target: null, apt: 'buy', cur: buyer });
+  // v17：人が足りない（ランクアップの災害のあと、借金で雇えず、ほとんどがマネージャーに出ている）ときは、作業台 1 つ → 運搬 → お店 → 残りの作業台の順。
+  // 2 つ目からの作業台の職人は、運搬・お店に回してよい（作業台が埋まって運ぶ人がいないまま売上 0 で止まる、を防ぐ。
+  // ヒーローの育成でマネージャーに選ばれる人が変わり、100% の 3 シードとも Uncommon の 1 つ目でこの形になって止まった）
+  const short = people.length < want.length && !!s.resets?.length;
+  if (short) {
+    const crafts = want.filter((w) => w.task === 'craft');
+    const rest = want.filter((w) => w.task !== 'craft');
+    want.splice(0, want.length, ...crafts.slice(0, 1), ...rest.filter((w) => w.task === 'transport'), ...rest.filter((w) => w.task !== 'transport'), ...crafts.slice(1));
+  }
   let hired = false;
   for (const w of want) {
     let hero: number | null = null;
@@ -694,7 +711,7 @@ export function policy(s: P1State, c: Ctx): Action[] {
       // ほかの担当からは引き抜かない（いま担当のない人だけ）。アンコモンの職人だけは引き抜く
       // （運搬係・調達係が 1 人しかいないときは引き抜かない。抜くと ③ 物流・① 調達が止まり、売上が 0 になって雇い直せなくなる）
       const only = (task: Task) => crew(s).filter((y) => y.task === task).length <= 1;
-      const idle = free.filter((x) => x.task == null || (x.task === 'side' && !rescue) || (w.min && x.task !== 'craft' && !((x.task === 'transport' || x.task === 'buy') && only(x.task))));
+      const idle = free.filter((x) => x.task == null || (x.task === 'side' && !rescue) || (w.min && x.task !== 'craft' && !((x.task === 'transport' || x.task === 'buy') && only(x.task))) || (short && w.task !== 'craft' && x.task === 'craft'));
       hero = idle[0]?.hero ?? null;
       // v14：作業台に人がいないのに、雇える候補がもういない（候補を雇いきった）：アルバイトのいるお店の店員を職人に回す（お店はアルバイトで開いている）。
       // ランクアップの災害のあと、少ない支度金で立ち上げた順番によっては、店員だけが増えて作業台が空いたまま止まる（候補が尽きて雇い直せない）
@@ -764,6 +781,17 @@ export function policy(s: P1State, c: Ctx): Action[] {
     if (lot && budget > P1B.warehouse.cost + reserve) {
       spend(P1B.warehouse.cost);
       acts.push({ kind: 'build', run: () => build(s, 'warehouse', ...lot) });
+    }
+  }
+  // v17：倉庫が 2 棟とも満杯（使わなくなった素材で埋まり、要る素材が買えない）なら、倉庫の高い棚・工房の物置の整理で置き場所を足す
+  // （ヒーローの育成で流れが変わり、通常のシード 3 で置き場所が 0 のまま止まった。人なら気づいて足す手）
+  if (whs >= 2 && poolFree(s) < poolCap(s) * 0.05) {
+    for (const b of s.buildings.filter((x) => x.owner === 'me' && x.left <= 0 && (x.id === 'warehouse' || P1B[x.id]?.kind === 'workshop'))) {
+      const id = b.id === 'warehouse' ? 'rack' : 'stockroom';
+      const cost = investCost(b, id);
+      if (cost == null || budget < cost + reserve) continue;
+      spend(cost);
+      acts.push({ kind: 'invest', run: () => invest(s, b.uid, id) });
     }
   }
 
@@ -1413,7 +1441,7 @@ export interface RunOpts {
 export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   const s = newP1(seed);
   const c: Ctx = { policy: p, route: routeOf(p), at: 0, lineup: [], lineupDirty: true, shopsThisMonth: 0, monthEnd: null, lastBn: null, ban: new Set(o.ban ?? []), onlyFirst: !!o.onlyFirst, dayInMonth: 0, handCarry: 0, rpMoves: 0, runLeft: 0, runsMonth: 0, divesMonth: 0 };
-  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 } };
+  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} } };
   /** v14：任せた町の担当（能力値の伸びを数える） */
   const growHeroes = new Set<number>();
   const R = SIM_RESET[p];
@@ -1461,6 +1489,16 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       if (res.research.allC == null && cResearch.every((id) => has(s, id))) res.research.allC = c.at + 1;
       skillsSeen = s.skills.length;
       c.lineupDirty = true;
+    }
+    // v17（段 E1）：強化アイテムが手に入ったら、能力値の高い順に昇格させる（通常・100%。最短は昇格しない）
+    if (p !== 'rta' && s.heroItems && Object.values(s.heroItems).some((v) => (v ?? 0) > 0)) {
+      const sum = (x: P1State['staff'][number]) => x.stats.phy + x.stats.int + x.stats.agi;
+      for (const st of [...s.staff].sort((a, b) => sum(b) - sum(a))) {
+        if (typeof promote(s, st.hero) !== 'object') continue;
+        res.v17.promos++;
+        res.actions.promote = (res.actions.promote ?? 0) + 1;
+        cur.act++;
+      }
     }
     // 設備投資（効き目の比較で外せるように「@id」で記録。作業台・棚が増えたら作るものを決め直す）
     for (const a of acts) if (a.kind === 'invest') c.lineupDirty = true;
@@ -1866,6 +1904,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       res.actions.move = (res.actions.move ?? 0) + 1;
       cur.act++;
       cur.left = s.day;
+      cur.lv = s.staff.map((x) => x.level ?? 1);
       c.at++;
       cur = newRun(next);
       if (c.revisit?.has(next)) {
@@ -1889,9 +1928,16 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   if (!res.done && !res.stop) res.stop = '日数の上限';
   if (cur.left == null) {
     cur.left = s.day;
+    cur.lv = s.staff.map((x) => x.level ?? 1);
     cur.dig.left = digLeft(s);
   }
   res.days = s.day;
+  // v17：育成の記録（ランクの終わりの Lv は、そのランクの最後に離れたセクタ）
+  res.v17.passives = s.staff.reduce((a, x) => a + (x.passives?.length ?? 0), 0);
+  res.v17.lvEnd = s.staff.map((x) => x.level ?? 1);
+  res.v17.items = res.v17.promos + Object.values(s.heroItems ?? {}).reduce<number>((a, v) => a + (v ?? 0), 0);
+  res.v17.rarEnd = s.staff.map((x) => x.rarity ?? 'C');
+  for (const r of res.sectors) if (r.lv && !r.revisit) res.v17.byTier[r.tier] = r.lv;
   res.spend.end = Math.round(s.money);
   res.recipes = Object.keys(s.recipes ?? {}).length;
   // v14a：最後に残った RP も、100% は無限の強化パネルへ
@@ -1968,6 +2014,8 @@ export interface Report2 {
   ablation: { skill: string; base: number; without: number; n: number }[];
   /** 技を 1 つも取らない「通常」（gap の商品を立ち上げず、基礎の商品だけで戦う）。新しい商材が要るかの確かめ */
   noTech?: RunResult[];
+  /** v17：ヒーローの育成なし（経験値 0）の 3 方針 × 3 シード */
+  noGrowth?: RunResult[];
   ms: number;
 }
 
@@ -2133,6 +2181,37 @@ export function tables(rep: Report2): string {
     }
     out.push(
       `| ${POLICY_NAME[p]} | ${fmtH(mean(runs.map(totalSec)))} | ${fmtH(byTier('C'))} | ${fmtH(byTier('U'))} | ${fmtH(byTier('R'))} | ${fmtMin(mean(rs.map((r) => secOf(p, r, 'left') ?? 0)))} | ${rMonths.length ? `${mean(rMonths).toFixed(1)}（${range(rMonths)}）` : '制覇できない'}${rMonths.length < rs.length ? `（制覇 ${rMonths.length}/${rs.length}）` : ''} | ${mr((x) => x.levy, 0, fmtG)} | ${mr((x) => x.grant, 0, fmtG)} | ${mr((x) => x.preDonate)} 回 | ${mr((x) => x.hitC)}・${mr((x) => x.hitU)} | ${mr((x) => x.delegated)}（${mr((x) => x.delegatedU)}） | ${mr((x) => x.resWaitR)} | ${mr((x) => x.comebackR)} |`,
+    );
+  }
+  out.push('');
+  // v17：ヒーローの育成（段 E1）
+  out.push('### 表 10：ヒーローの育成（v17。段 E1）');
+  out.push('');
+  out.push(`3 シードの平均（最小〜最大）。「育成なし」は同じ方針・シードを経験値 0（いつも Lv1）で回した合計（\`withoutGrowth\`）。「ランクの終わりの Lv」は、そのランクの最後のセクタを離れたとき（最後のセクタは終わったとき）の全員の Lv の 最小／中央／最大（3 シードの平均）。昇格は通常・100% だけ（強化アイテムが手に入ったら能力値の高い順）。上限 Lv：${HERO_RARITIES.map((r) => `${r} ${HERO_GROWTH.cap[r]}`).join('・')}。`);
+  out.push('');
+  out.push('| 方針 | 合計（育成あり） | 育成なし | 短くなったぶん | うち C（あり／なし） | うち U（あり／なし） | うち R（あり／なし） | C の終わりの Lv | U の終わりの Lv | R の終わりの Lv | 昇格の回数 | 開いたパッシブ（最後） | 手に入れた強化アイテム | 最後のレアリティ | 詰まって止まるシード（あり／なし） |');
+  out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  for (const p of pols) {
+    const runs = rep.runs.filter((r) => r.policy === p);
+    const off = (rep.noGrowth ?? []).filter((r) => r.policy === p);
+    const tot = mean(runs.map(totalSec));
+    const tot0 = off.length ? mean(off.map(totalSec)) : NaN;
+    const byTier = (rs: RunResult[], tier: Tier) => (rs.length ? mean(rs.map((x) => x.sectors.filter((r) => r.tier === tier && !r.revisit).reduce((a, r) => a + (secOf(p, r, 'left') ?? 0), 0) + (tier === 'C' ? SIM_TIME[p].tutorial : 0))) : NaN);
+    const tierCell = (tier: Tier) => (runs.some((x) => x.sectors.some((r) => r.tier === tier)) ? `${fmtH(byTier(runs, tier))}／${off.length ? fmtH(byTier(off, tier)) : '—'}` : '—');
+    const lvCell = (tier: Tier) => {
+      const xs = runs.map((x) => x.v17.byTier[tier]).filter((v): v is number[] => !!v?.length);
+      if (!xs.length) return '—';
+      const q = (v: number[], f: number) => [...v].sort((a, b) => a - b)[Math.min(v.length - 1, Math.floor(v.length * f))];
+      return `${Math.round(mean(xs.map((v) => q(v, 0))))}／${Math.round(mean(xs.map((v) => q(v, 0.5))))}／${Math.round(mean(xs.map((v) => q(v, 1))))}`;
+    };
+    const rar = runs.flatMap((x) => x.v17.rarEnd);
+    const rarTxt = HERO_RARITIES.filter((r) => rar.includes(r)).map((r) => `${r} ${(rar.filter((x) => x === r).length / runs.length).toFixed(1)}`).join('・');
+    const stuck = runs.filter((r) => !r.done).length;
+    const stuck0 = off.filter((r) => !r.done).length;
+    const v = (f: (x: RunResult['v17']) => number) => runs.map((r) => f(r.v17));
+    const mr = (f: (x: RunResult['v17']) => number) => `${mean(v(f)).toFixed(1)}（${range(v(f))}）`;
+    out.push(
+      `| ${POLICY_NAME[p]} | ${fmtH(tot)} | ${off.length ? fmtH(tot0) : '—'} | ${off.length ? `${Math.round((tot0 - tot) / 60)} 分（${(((tot0 - tot) / tot0) * 100).toFixed(1)}%）` : '—'} | ${tierCell('C')} | ${tierCell('U')} | ${tierCell('R')} | ${lvCell('C')} | ${lvCell('U')} | ${lvCell('R')} | ${mr((x) => x.promos)} | ${mr((x) => x.passives)} | ${mr((x) => x.items)} | ${rarTxt} | ${stuck}／${off.length ? stuck0 : '—'} |`,
     );
   }
   out.push('');
@@ -2320,6 +2399,17 @@ export function digObservations(rep: Report2): string {
 // ---------------------------------------------------------------- まとめて回す
 
 export const SEEDS = [1, 2, 3];
+/** v17：ヒーローの育成を止めて回す（経験値のランクの倍率を 0 に。比べるためだけ。終わったら戻す） */
+export function withoutGrowth<T>(f: () => T): T {
+  const tier = HERO_GROWTH.xp.tier as Record<string, number>;
+  const saved = { ...tier };
+  for (const k of Object.keys(tier)) tier[k] = 0;
+  try {
+    return f();
+  } finally {
+    Object.assign(tier, saved);
+  }
+}
 /** 技の枝のスキル（技なしの比較で外す） */
 export const TECH_SKILLS = SKILLS.filter((k) => k.branch === 'tech').map((k) => k.id);
 
@@ -2340,7 +2430,9 @@ export function runAll(seeds = SEEDS, opts: { ablation?: boolean } = {}): Report
     ablation.sort((a, b) => a.without - a.base - (b.without - b.base));
   }
   const noTech = opts.ablation ? seeds.map((seed) => runOnce('normal', seed, { ban: TECH_SKILLS })) : undefined;
-  return { runs, ablation, noTech, ms: performance.now() - t0 };
+  // v17：ヒーローの育成なし（経験値 0＝いつも Lv1）で同じ 3 方針 × 3 シード。育成で短くなったぶんを比べる
+  const noGrowth = opts.ablation ? (['rta', 'normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutGrowth(() => runOnce(p, seed)))) : undefined;
+  return { runs, ablation, noTech, noGrowth, ms: performance.now() - t0 };
 }
 
 /** docs/ISLAND_BALANCE.md の「自動で書く」部分を差し替える（前後の手書きの文はそのまま） */

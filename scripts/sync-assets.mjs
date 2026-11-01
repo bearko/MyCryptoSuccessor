@@ -188,6 +188,8 @@ const heroes = heroSource
     attributes: (h.attributes ?? []).map((a) => a.name.ja),
     // 島づくりの従業員の適性（HP はスタミナ）。最大レベルの値
     stats: h.max_level_stats ? { hp: h.max_level_stats.hp, phy: h.max_level_stats.phy, int: h.max_level_stats.int, agi: h.max_level_stats.agi } : null,
+    // ヒーローの育成（段 E1）：Lv1 の値。最大 Lv との比で、どの能力値がよく伸びるか（伸びの個性）を決める
+    initial: h.initial_stats ? { hp: h.initial_stats.hp, phy: h.initial_stats.phy, int: h.initial_stats.int, agi: h.initial_stats.agi } : null,
     image: sprite('hero', h.image_file_path),
     cx: bodyCenterX(h.image_file_path),
   }));
