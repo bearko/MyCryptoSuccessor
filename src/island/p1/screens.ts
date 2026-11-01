@@ -20,7 +20,6 @@ import {
   MARKET,
   MISSIONS,
   rewardText,
-  PAY,
   MAT_KEYS,
   MATS,
   P1B,
@@ -60,8 +59,6 @@ import {
   rivalAreaMul,
   edgeMul,
   assign,
-  bonus,
-  bonusCost,
   claim,
   devCost,
   develop,
@@ -74,8 +71,6 @@ import {
   MISSION_MAX,
   missionProgress,
   offeredMissions,
-  raise,
-  raiseStep,
   runAd,
   adCost,
   setDustShop,
@@ -110,7 +105,6 @@ import {
   makeSku,
   tierOk,
   setPart,
-  setRest,
   setShelf,
   speed,
   staffOf,
@@ -130,6 +124,7 @@ import { UNSELLABLE_TEXT, seriesTag } from './digview';
 import { bar, btn, extImage, fmt, h, heroIcon, heroName, matIcon, money, sheet, skuIcon, skuName, rich } from './ui';
 import { bomRow, extCard, extSlot, jobLabel, knownBar, lotsFromStock, needText, pickExt, pickHero, profitPerDay, radar, rankEl, slot, techNeed } from './heroui';
 import { rolesCard } from './delegui';
+import { charismaCard, charismaNeeds, openPayroll as openPayrollHr } from './hrui';
 
 export interface Ctx {
   s: () => P1State;
@@ -1391,6 +1386,11 @@ export function openHire(ctx: Ctx) {
         body.append(go);
       }
       body.append(h('p', 'isl-dim', t('雇えるヒーローは毎月入れ替わります。グラフは仕事ごとの向き不向き（G〜S のランクと 100 までの数）です。', 'Candidates change every month. The chart shows aptitude per job (rank G–S and a number up to 100).')));
+      // 経営者のカリスマ度（段 E2）：雇えるレアリティ（チュートリアルの 1 か月目は出さない）
+      if (s.reports.length || (s.sector ?? 'c1') !== 'c1') {
+        body.append(charismaCard(s));
+        for (const x of charismaNeeds(s)) body.append(h('p', 'isl-warn', x));
+      }
       // チュートリアル（調達係を雇う段）：調達にいちばん向いている人に印
       const recBuy = ctx.step?.() === 'hire' && !s.staff.some((x) => ![10001, 10002, 10003].includes(x.hero)) ? [...s.hirePool].sort((a, b) => aptitude(heroStats(b), 'buy') - aptitude(heroStats(a), 'buy'))[0] : null;
       const grid = h('div', 'isl-hire-grid');
@@ -1706,46 +1706,8 @@ export function openReport(ctx: Ctx, r: Report, then?: () => void) {
 
 // ---------------------------------------------------------------- 給与・労務
 
-export function openPayroll(ctx: Ctx) {
-  open(ctx, t('給与・労務', 'Pay & welfare'), (body) => {
-    const s = ctx.s();
-    const total = s.staff.reduce((a, st) => a + st.wage, 0);
-    const head = h('div', 'isl-card2');
-    head.append(h('h3', '', t('月の給料の合計', 'Monthly payroll')), h('p', 'isl-big', money(total)), h('p', 'isl-dim', t('給料は月の締めに払います。最初からいる 3 人は創業メンバーなので、昇給するまでは 0 G です。', 'Wages are paid at each month’s close. The three founders earn 0 G until you give them a raise.')));
-    body.append(head);
-    for (const st of s.staff) {
-      const card = h('div', 'isl-hero-card');
-      const top = h('div', 'isl-row');
-      const name = h('div');
-      const lv = st.lv ?? 0;
-      name.append(h('b', '', heroName(st.hero)), h('div', 'isl-dim', t(`月給 ${money(st.wage)}・昇給 ${lv}/${PAY.raiseMax}（作業の速さ +${Math.round(lv * PAY.raiseSpeed * 100)}%）`, `Wage ${money(st.wage)}, raises ${lv}/${PAY.raiseMax} (work +${Math.round(lv * PAY.raiseSpeed * 100)}%)`)));
-      top.append(heroIcon(st.hero, 48), name);
-      const sta = h('div', 'isl-field');
-      sta.append(h('span', '', t('スタミナ', 'Stamina')), bar(st.stamina / st.stats.hp, st.stamina / st.stats.hp > 0.3 ? 'var(--isl-good)' : 'var(--isl-bad)'), h('span', 'isl-dim', st.resting ? t('休憩中', 'Resting') : `${Math.round(st.stamina)}/${st.stats.hp}`));
-      const row = h('div', 'isl-row');
-      const b1 = btn(t(`賞与 ${money(bonusCost(st))}（スタミナ満タン）`, `Bonus ${money(bonusCost(st))} (full stamina)`), () => {
-        if (bonus(s, st.hero)) ctx.toast(t('資金が足りません', 'Not enough funds'));
-        else ctx.toast(t(`${heroName(st.hero)}が元気になりました`, `${heroName(st.hero)} is refreshed`));
-        after(ctx);
-      });
-      b1.disabled = s.money < bonusCost(st) || st.stamina >= st.stats.hp;
-      const b2 = btn(lv >= PAY.raiseMax ? t('昇給（上限）', 'Raise (max)') : t(`昇給（月給 +${money(raiseStep(st.hero))}）`, `Raise (+${money(raiseStep(st.hero))}/mo)`), () => {
-        raise(s, st.hero);
-        ctx.toast(t(`${heroName(st.hero)}を昇給しました`, `Gave ${heroName(st.hero)} a raise`));
-        after(ctx);
-      });
-      b2.disabled = lv >= PAY.raiseMax;
-      const b3 = btn(st.resting ? t('休憩をやめる', 'Stop resting') : t('休ませる', 'Rest'), () => {
-        setRest(s, st.hero, !st.resting);
-        after(ctx);
-      });
-      row.append(b1, b2, b3);
-      card.append(top, sta, row);
-      body.append(card);
-    }
-    body.append(h('p', 'isl-dim', has(s, 'lounge') ? t('休憩室があるので、スタミナの戻りが 1.5 倍です。', 'The lounge makes stamina recover 1.5× faster.') : t('スキル「休憩室」（人材）で、スタミナの戻りが速くなります。', 'The Lounge skill (People) speeds up stamina recovery.')));
-  });
-}
+/** 給与・労務（段 E2 で士気と給与の画面に。hrui.ts） */
+export const openPayroll = (ctx: Ctx) => openPayrollHr(ctx);
 
 // ---------------------------------------------------------------- SCM
 

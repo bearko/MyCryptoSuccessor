@@ -15,10 +15,12 @@ export interface BrandEv {
 }
 
 /** ブランド力を上げ下げする（0〜BRAND.max）。履歴は新しい順に BRAND.log 件 */
-export function brandAdd(s: { brand?: number; brandLog?: BrandEv[]; day: number }, d: number, why: string) {
+export function brandAdd(s: { brand?: number; brandLog?: BrandEv[]; day: number; brandPeak?: number }, d: number, why: string) {
   if (!d) return;
   const before = s.brand ?? 0;
   s.brand = Math.max(0, Math.min(BRAND.max, before + d));
+  // いちばん高かった値（カリスマ度のブランドの分。段 E2。下がっても減らない）
+  s.brandPeak = Math.max(s.brandPeak ?? 0, s.brand);
   const real = s.brand - before;
   if (!real) return;
   s.brandLog = [{ day: s.day, d: real, why }, ...(s.brandLog ?? [])].slice(0, BRAND.log);

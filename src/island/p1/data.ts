@@ -1809,6 +1809,22 @@ export const SALES_SKILLS: Skill[] = [
 /** 営業のお金パネル（Lv1〜5） */
 export const SALES_MONEY = ['sa_local', 'sa_road', 'sa_nego', 'sa_edge'];
 SKILLS.push(...SALES_SKILLS);
+/**
+ * 人事のパネル（段 E2。人材の枝＝人事の部門。docs/ISLAND_PHASE1.md「士気と給与」「カリスマ度」）。効き目は hr.ts（士気・給与・カリスマ度）。
+ * 研究パネル 2 枚（面談・採用ブランド）・お金パネル 2 枚（HR_MONEY。Lv1〜5：キャリアの道すじ・給与テーブル）。
+ * 研究パネルの RP は決め打ち（HR_RP）：ほかの人材の枝の研究パネルの値段を動かさない（段 E2 の前と同じ値段）
+ */
+export const HR_SKILLS: Skill[] = [
+  { id: 'hr_talk', branch: 'people', name: t('面談', 'One-on-ones'), note: t('「辞めたい」の予告が 30 → 45 日に・引き止めの面談で上がる士気 +15 → +25', '“Wants to quit” notice 30 → 45 days; a stay talk lifts morale +15 → +25'), cost: 0, requires: ['ojt'] },
+  { id: 'hr_career', branch: 'people', name: t('キャリアの道すじ', 'Career paths'), note: t('昇進・昇格・レベルアップで上がる士気 +50%', 'Morale from promotions, rank-ups and level-ups +50%'), cost: 4500, requires: ['incentive'], show: [{ label: t('昇進・昇格・レベルアップの士気', 'Morale from promotions and level-ups'), v: 0.5, unit: '%' }] },
+  { id: 'hr_brand', branch: 'people', tier: 'U', name: t('採用ブランド', 'Employer brand'), note: t('カリスマ度 +5（良いヒーローが来る会社として知られる。雇えるレアリティが上がる）', 'Charisma +5 (known as a great place to work; higher rarities can be hired)'), cost: 0, requires: ['b_scout'] },
+  { id: 'hr_paytable', branch: 'people', tier: 'U', name: t('給与テーブル', 'Pay scale'), note: t('給与が相場どおりか上の人の士気の目標 +4（Lv ごとに +25%）', 'Morale target +4 for heroes paid at or above market (+25% per Lv)'), cost: 18000, requires: ['mgr'], show: [{ label: t('相場どおりか上の人の士気', 'Morale at or above market'), v: 4, unit: '' }] },
+];
+/** 人事のお金パネル（Lv1〜5） */
+export const HR_MONEY = ['hr_career', 'hr_paytable'];
+/** 人事の研究パネルの RP（決め打ち） */
+export const HR_RP: Record<string, number> = { hr_talk: 45, hr_brand: 130 };
+SKILLS.push(...HR_SKILLS);
 SKILLS.push(...INF_SKILLS, DONATE);
 /** 無限の強化パネルの id */
 export const INF_PANELS = INF_SKILLS.map((k) => k.id);
@@ -1841,7 +1857,7 @@ export const START_RP = 30;
 export const RP_PER_DUST = 40;
 const RP_FIXED: Record<string, number> = { hire: START_RP };
 {
-  const money = new Set([...Object.values(MONEY_PANELS).flatMap((x) => Object.values(x)), ...DIG_PANELS, DONATE.id, ...SALES_MONEY]);
+  const money = new Set([...Object.values(MONEY_PANELS).flatMap((x) => Object.values(x)), ...DIG_PANELS, DONATE.id, ...SALES_MONEY, ...HR_MONEY]);
   const byId = new Map(SKILLS.map((k) => [k.id, k]));
   const tierOf = (k: Skill) => k.tier ?? 'C';
   // 同じランクの中の深さ（先に要るパネルのうち、同じランクのものをたどった最長の数）
@@ -1863,14 +1879,14 @@ const RP_FIXED: Record<string, number> = { hire: START_RP };
     const P = RP_PRICE[tier];
     const round = (v: number) => Math.max(P.step, Math.round(v / P.step) * P.step);
     for (const b of new Set(SKILLS.map((k) => k.branch))) {
-      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
+      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
       list.forEach((k, i) => (k.rp = round(P.lo + ((P.hi - P.lo) * (list.length > 1 ? i : 0)) / Math.max(1, list.length - 1))));
       // 1 枚だけの枝は真ん中の値段
       if (list.length === 1) list[0].rp = round((P.lo + P.hi) / 2);
     }
     for (const k of SKILLS) if (tierOf(k) === tier && k.big) k.rp = P.big;
   }
-  for (const [id, v] of Object.entries(RP_FIXED)) if (byId.get(id)) byId.get(id)!.rp = v;
+  for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP })) if (byId.get(id)) byId.get(id)!.rp = v;
   // 無限の強化パネル：Lv1 の値段（Lv2 からは infCost）
   for (const k of INF_SKILLS) k.rp = infCost(1);
   // 研究パネルはレベルなし（効き目は Lv1 の値）：Lv2 からの効き目は持たない
@@ -2739,3 +2755,59 @@ export const PASSIVES: Record<PassiveKind, { dept: DeptId; v: number; name: stri
 };
 /** 陣営 → パッシブ（ヒーローごとの並びの 2 つ目。1 つ目はいちばん向いている仕事） */
 export const FACTION_PASSIVE: Record<string, PassiveKind> = { 玄武: 'dig', 朱雀: 'sell', 青龍: 'craft', 白虎: 'haul', 黄竜: 'manage' };
+
+// ---------------------------------------------------------------- 人事：カリスマ度・士気・給与（段 E2。docs/ISLAND_PHASE1.md「カリスマ度」「士気と給与」。計算は hr.ts）
+
+/**
+ * 経営者のカリスマ度（0〜max。会社の格。ランクアップの災害でも失わない）。記録からいつでも数え直す（古いセーブもさかのぼって同じ数）：
+ * - clear：町を制覇したとき（町のランクごと）
+ * - present：研究成果を発表したとき（その荒れ地のランクごと）
+ * - brand：ブランド力のいちばん高かった値 per ごとに +1（brandMax まで）
+ * - panel：人事のパネル「採用ブランド」
+ * - cap：雇えるレアリティのしきい値（これ以上で、そのレアリティまで雇える。Novice・Common はいつでも）
+ */
+export const CHARISMA = {
+  max: 100,
+  clear: { C: 3, U: 6, R: 10, E: 15, L: 20 } as Record<Tier, number>,
+  present: { C: 1, U: 2, R: 3, E: 3, L: 3 } as Record<Tier, number>,
+  brand: { per: 40, max: 10 },
+  panel: 5,
+  cap: { U: 10, R: 35, E: 60, L: 85 } as Partial<Record<HeroRarity, number>>,
+};
+/** 雇えるレアリティの段（しきい値の順） */
+export const HIRE_RARITIES: HeroRarity[] = ['C', 'U', 'R', 'E', 'L'];
+
+/**
+ * 給与（段 E2）。月給 ＝（もとの月給 ＋ 給与の段 × 1 段の額）× 給料の倍率（パネル）。もとの月給はいままでどおり（MCH の能力値の合計 × WAGE_PER_STAT。創業の 3 人は 0）、
+ * 1 段の額は PAY.raiseWage（もとの月給の 15%、最低 100 G）。給与の段は min〜PAY.raiseMax（上げた段だけ作業の速さ +PAY.raiseSpeed）。
+ * 相場の段：Lv がもとのレアリティの上限に届くと atCap、昇格 1 回ごとに promo、上限より先は beyond 段 / Lv（0〜PAY.raiseMax）
+ */
+export const SALARY = { min: -2, market: { atCap: 1, promo: 0.5, beyond: 1 / 40 } };
+
+/**
+ * 士気（ヒーローごと 0〜100）。毎日、目標（target）へ rate ずつ寄る。出来事で上下する（ev）。
+ * - target ＝ base ＋ 給与（相場との差。上 up / 下 down 点 / 段、lo〜hi に収める。下げた段はさらに cut 点 / 段）＋ 総務の職場の環境のパネル env 点 / 枚（envMax まで）
+ *   ＋ 役目（リーダー・部長・セクター長）role ＋ 給与テーブル − 同じ仕事の続きすぎ（same.after 日を過ぎたら same.per 日ごとに −1、same.max まで）
+ * - 働きの速さ：band.lo〜band.hi は ×1（ふつう）。hi から 100 で ×top。lo から floor で ×low へ、floor 未満は ×low
+ * - 辞める：quit.below 未満が quit.days 日続くと「辞めたい」（予告 quit.notice 日。面談のパネルで noticeTalk 日）。予告のあいだに quit.safe 以上に戻れば思いとどまる。
+ *   引き止めの面談（予告 1 回に 1 度）で +quit.talk（面談のパネルで +quit.talkPanel）。ヒーローが quit.keep 人以下のときは辞めない
+ */
+export const MORALE = {
+  start: 70,
+  base: 55,
+  rate: 0.04,
+  band: { lo: 40, hi: 70, floor: 20, top: 1.1, low: 0.9 },
+  pay: { up: 8, down: 10, lo: -20, hi: 16, cut: 8 },
+  env: 2,
+  envMax: 12,
+  role: 6,
+  paytable: 4,
+  same: { after: 60, per: 10, max: 10 },
+  /** 出来事（その場で）：休んだ日・待機中の日・スタミナが尽きて休んだ（働きすぎ）・レベルアップ 1 つ・昇進（役目が上がった）・昇格・昇給・給与を下げた・賞与 */
+  ev: { rest: 0.8, idle: 0.3, tired: -3, level: 1, role: 10, promo: 12, raise: 4, cut: -8, bonus: 8 },
+  /** キャリアの道すじ（パネル）：昇進・昇格・レベルアップの士気 ×(1 + career × Lv の倍率) */
+  career: 0.5,
+  quit: { below: 20, days: 20, notice: 30, noticeTalk: 45, safe: 35, talk: 15, talkPanel: 25, keep: 3 },
+  /** 「士気が低い」の札（画面）・自動プレイが休ませる目安 */
+  warn: 35,
+};

@@ -64,6 +64,7 @@ import {
   MISSIONS,
   MOVE,
   PAY,
+  MORALE,
   MATS,
   P1B,
   PRODUCT,
@@ -111,6 +112,7 @@ import {
 } from './data';
 import { addXp, baseStats, initGrowth, levelForXp, passiveMul, passiveSum, promoteStaff, syncGrowth, type LevelUp, type PromoErr } from './hero';
 import { delegDay, delegMonth, headFx, roleXp, sectorApprove, type DelegReport, type DelegState } from './deleg';
+import { canHireRarity, charismaOf, hireCap, initMorale, moraleAdd, moraleAvg, moraleDay, moraleMul, newHrMonth, syncCharisma, wantsToQuit, type HrDay, type HrMonth } from './hr';
 
 export type Ground = 'grass' | 'road';
 export type Owner = 'me' | 'town' | string;
@@ -153,6 +155,17 @@ export interface Staff {
   baseRarity?: HeroRarity;
   passives?: { k: PassiveKind; tier: number }[];
   lvGain?: Partial<Record<'phy' | 'int' | 'agi', number>>;
+  /**
+   * 人事（段 E2。hr.ts）：士気（0〜100）・同じ仕事が続いた日と、その仕事・士気が低い日の続き・辞めたいの予告（辞める日）・引き止めの面談をしたか・
+   * 昇進（役目の段）・昇格（レアリティの段）・Lv の「見た」値（上がったら士気 +）。昇給の段 lv は給与の段（下げると −）
+   */
+  morale?: number;
+  same?: number;
+  sameOf?: string;
+  low?: number;
+  quit?: number;
+  talked?: boolean;
+  seen?: { lv: number; rar: number; role: number };
 }
 
 export interface Slot {
@@ -292,6 +305,8 @@ export interface Report {
   /** 今月のレベルアップ（ヒーロー・前の Lv・あとの Lv。会社ぜんたい）・今月手に入れた強化アイテム（段 E1） */
   levelUps?: { hero: number; from: number; to: number }[];
   items?: Partial<Record<PromoItem, number>>;
+  /** 人事（段 E2）：月の締めの士気の平均・辞めたい（予告中）の人数・今月の辞めたいの予告・思いとどまった・辞めた人・今月上がったカリスマ度・いまのカリスマ度 */
+  hr?: { avg: number | null; want: number; wantNew: number[]; stay: number[]; quit: number[]; charisma: number; ch: number };
   /** 月次 PDCA：来月の見込み（売上・利益） */
   forecast?: { sales: number; profit: number };
   /** 今月の出土品：新発見・研究 Lv が上がった数・入った RP（発掘場のあるセクタ） */
@@ -387,7 +402,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15;
   kind: 'p1';
   seed: number;
   n: number;
@@ -550,6 +565,15 @@ export interface P1State {
   resets?: ResetRec[];
   /** 任せ方の 4 段（段 D・版 14）：業務の見直しの日・今月の記録・部長の提案の受け箱・承認した提案・交代。役目そのものは Staff（task 'lead'）に。無ければまだ任せていない */
   deleg?: DelegState;
+  /**
+   * 人事（段 E2・版 15。hr.ts）：ブランド力のいちばん高かった値（カリスマ度のブランドの分）・お知らせ済みのカリスマ度・
+   * テストの札と監査で足すカリスマ度（ふつうのゲームでは無し）・今月の人事の記録（月次報告）・辞めた人の記録。どれも会社のもの（災害でも残る）
+   */
+  brandPeak?: number;
+  charisma?: number;
+  charismaBonus?: number;
+  hrMonth?: HrMonth;
+  quits?: { hero: number; day: number }[];
 }
 
 /** ランクアップの災害 1 回の記録（演出・自動プレイの計測） */
@@ -690,7 +714,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 14,
+    v: 15,
     kind: 'p1',
     seed,
     n,
@@ -891,6 +915,8 @@ function newStaff(hero: number, wage: number): Staff {
   const st: Staff = { hero, stats, stamina: stats.hp, task: null, target: null, resting: false, wage, explore: 0 };
   // ヒーローの育成：Lv1・経験値 0・もとのレアリティ（Lv1 の能力値はいまのまま）
   initGrowth(st);
+  // 人事（段 E2）：初めの士気（ふつうの帯なので働きの速さは ×1）
+  initMorale(st);
   return st;
 }
 
@@ -907,20 +933,42 @@ const uncommonHeroes = () =>
 
 /** 雇える候補の数：3 人（採用枠の拡大で 4・憧れの職場で 5） */
 export const hireSlots = (s: P1State) => (has(s, 'b_scout') ? 5 : has(s, 'slots') ? 4 : 3);
-function pickHires(s: P1State): number[] {
+/**
+ * 雇える候補（毎月入れ替わる）。人事（段 E2）：カリスマ度で雇えるレアリティまで（憧れの職場のアンコモンは 15・ヘッドハンティングのレアは 35 から）。
+ * カリスマ度が Epic・Legendary のしきい値に届くと、いちばん上のレアリティのヒーローが 1 人来る（格の候補）。
+ * 乱数はいままでと同じ順に引く（カリスマ度が足りて候補が同じなら、同じ人が来る）
+ */
+export function pickHires(s: P1State): number[] {
   const r = rng(s.seed + s.reports.length * 7919 + (s.books?.months.length ?? 0) * 31);
-  const scout = has(s, 'b_scout');
+  const v = charismaOf(s);
+  const scout = has(s, 'b_scout') && canHireRarity(s, 'U', v);
   const free = (id: number) => heroById.has(id) && !s.staff.some((x) => x.hero === id);
   const pool = [...HIRE_POOL, ...(scout ? uncommonHeroes() : [])].filter(free);
   const out: number[] = [];
-  // ヘッドハンティング：レアのヒーローを 1 人
-  if (has(s, 'headhunt')) {
+  // ヘッドハンティング：レアのヒーローを 1 人（カリスマ度 35 から）
+  if (has(s, 'headhunt') && canHireRarity(s, 'R', v)) {
     const rp = rareHeroes().filter(free);
     if (rp.length) out.push(rp[Math.floor(r() * rp.length)]);
   }
   while (out.length < hireSlots(s) && pool.length) out.push(pool.splice(Math.floor(r() * pool.length), 1)[0]);
+  // 格の候補（カリスマ度で Epic・Legendary まで雇えるとき）：いちばん上のレアリティから 1 人
+  const top = hireCap(s, v);
+  if (has(s, 'hire') && (top === 'E' || top === 'L')) {
+    const xs = topHeroes(top === 'L' ? 'Legendary' : 'Epic').filter(free);
+    if (xs.length) out.push(xs[Math.floor(r() * xs.length)]);
+  }
   return out;
 }
+/** そのレアリティのヒーロー（オリジナル。格の候補） */
+const topCache = new Map<string, number[]>();
+const topHeroes = (rarity: 'Epic' | 'Legendary') => {
+  let hit = topCache.get(rarity);
+  if (!hit) {
+    hit = ([...(heroById.values() as Iterable<unknown>)] as { id: number; rarity?: string; stats?: unknown }[]).filter((h) => h.rarity === rarity && h.stats).map((h) => h.id);
+    topCache.set(rarity, hit);
+  }
+  return hit;
+};
 
 export const has = (s: Pick<P1State, 'skills'>, skill: string) => s.skills.includes(skill);
 /** パネルのレベル（未取得 0。取ったものは最低 1） */
@@ -964,7 +1012,8 @@ export const aptOf = (s: P1State | undefined, st: Pick<Staff, 'stats'>, task: Ta
 /** 作業の速さ。s を渡すとスキルの適性（マニュアル整備・名工の作業台）も入る */
 /** 仕事の部門（事業部長の補正。段 D）：製造・運搬・調達・販売は物流、発掘は R&D、開拓・調査はマーケ */
 const TASK_DEPT: Partial<Record<Task, DeptId>> = { craft: 'logistics', transport: 'logistics', buy: 'logistics', shop: 'logistics', dig: 'rnd', explore: 'marketing', intel: 'marketing' };
-export const speed = (st: Staff, task: Task, s?: P1State) => speedOf(aptOf(s, st, task)) * (1 + PAY.raiseSpeed * (st.lv ?? 0)) * passiveMul(st, task) * (s && TASK_DEPT[task] ? 1 + headFx(s, TASK_DEPT[task]!) : 1);
+/** 作業の速さ：適性 × 昇給（上げた段だけ。下げた段は速さでなく士気に出る）× パッシブ × 部長の補正 × 士気（段 E2。ふつうの帯は ×1） */
+export const speed = (st: Staff, task: Task, s?: P1State) => speedOf(aptOf(s, st, task)) * (1 + PAY.raiseSpeed * Math.max(0, st.lv ?? 0)) * passiveMul(st, task) * (s && TASK_DEPT[task] ? 1 + headFx(s, TASK_DEPT[task]!) : 1) * moraleMul(st);
 /** 休むと 1 日に戻るスタミナ（休憩室・福利厚生で +50% ずつ） */
 export const restRateOf = (s: P1State) => STAMINA.rest * (1 + 0.5 * lvMul(s, 'lounge') + 0.5 * lvMul(s, 'welfare') + fxSum(s, 'rest'));
 /**
@@ -2137,7 +2186,7 @@ export function claim(s: P1State, id: string): string | null {
 }
 
 export const bonusCost = (st: Staff) => Math.round(PAY.bonusBase + st.wage * PAY.bonusRate);
-/** 賞与：スタミナが満タンになり、休みから戻る */
+/** 賞与：スタミナが満タンになり、休みから戻る。士気 +8（段 E2） */
 export function bonus(s: P1State, hero: number): string | null {
   const st = staffOf(s, hero);
   if (!st) return 'no-staff';
@@ -2147,16 +2196,18 @@ export function bonus(s: P1State, hero: number): string | null {
   spend(s, 'wages', cost);
   st.stamina = st.stats.hp;
   st.resting = false;
+  moraleAdd(s, st, MORALE.ev.bonus);
   return null;
 }
 export const raiseStep = (hero: number) => Math.max(100, Math.round(wageOf(hero) * PAY.raiseWage));
-/** 昇給：作業が 5% 速くなる（3 段まで）。月給が上がる */
+/** 昇給：作業が 5% 速くなる（3 段まで。下げた段を戻すときは速さは変わらない）。月給が上がる。士気 +4（段 E2。相場との差でも目標が変わる） */
 export function raise(s: P1State, hero: number): string | null {
   const st = staffOf(s, hero);
   if (!st) return 'no-staff';
   if ((st.lv ?? 0) >= PAY.raiseMax) return 'max';
   st.lv = (st.lv ?? 0) + 1;
   st.wage += raiseStep(hero);
+  moraleAdd(s, st, MORALE.ev.raise);
   return null;
 }
 
@@ -2846,6 +2897,8 @@ export interface DayResult {
   dug?: DigHit[];
   /** ヒーローの育成（段 E1）：今日 Lv が上がった人 */
   leveled?: LevelUp[];
+  /** 人事（段 E2）：辞めたいの予告・思いとどまった・辞めた人と、カリスマ度が上がった */
+  hr?: HrDay;
 }
 
 // ---------------------------------------------------------------- ヒーローの育成（段 E1。hero.ts・docs/ISLAND_PHASE1.md「ヒーローの育成」）
@@ -3247,6 +3300,8 @@ export function step(s: P1State): DayResult {
 
   // スタミナ（休憩室・福利厚生で回復 +50% ずつ。減り方は drainOf。SCM の数字の稼働率 uptime と同じ式）
   const restRate = restRateOf(s);
+  /** 今日スタミナが尽きて休みに入った人（働きすぎ。士気が下がる。段 E2） */
+  const tired = new Set<number>();
   for (const st of s.staff) {
     if (st.resting) {
       st.stamina = Math.min(st.stats.hp, st.stamina + restRate);
@@ -3255,10 +3310,14 @@ export function step(s: P1State): DayResult {
       st.stamina = Math.max(0, st.stamina - drainOf(s, st));
       // 調達係・運搬係は、出ている途中では休まず、帰ってから休む（調達係は休むあいだのぶんを、出るときに先に買ってある）
       const onTrip = (st.task === 'buy' && s.buyTrip?.hero === st.hero) || (st.task === 'transport' && s.trips.some((t) => t.hauler === st.hero));
-      if (st.stamina <= st.stats.hp * STAMINA.tired && !onTrip) st.resting = true;
+      if (st.stamina <= st.stats.hp * STAMINA.tired && !onTrip) {
+        st.resting = true;
+        tired.add(st.hero);
+      }
     } else if (st.stamina <= st.stats.hp * STAMINA.tired) {
       // 疲れて帰ってきた（運搬係・調達係）：ここから休む
       st.resting = true;
+      tired.add(st.hero);
       st.stamina = Math.min(st.stats.hp, st.stamina + restRate);
     } else st.stamina = Math.min(st.stats.hp, st.stamina + restRate / 2);
   }
@@ -3285,6 +3344,12 @@ export function step(s: P1State): DayResult {
       if (up) (res.leveled ??= []).push(up);
     });
   }
+
+  // 人事（段 E2）：士気（目標へ寄る・休み・働きすぎ・昇進・昇格・レベルアップ）と、辞めたいの予告・思いとどまり・辞める。カリスマ度が上がったか
+  const hrd = moraleDay(s, tired);
+  if (hrd) res.hr = hrd;
+  const ch = syncCharisma(s);
+  if (ch) (res.hr ??= { want: [], stay: [], quit: [] }).charisma = ch;
 
   // 宣伝の残り日数
   for (const k of Object.keys(s.ads)) s.ads[k] = Math.max(0, (s.ads[k] ?? 0) - 1);
@@ -3494,6 +3559,12 @@ export function endMonth(s: P1State): Report {
   if (won) s.cleared = true;
   // OJT：担当のある人の、担当に効く能力が +1（上限 100）
   if (has(s, 'ojt')) report.ojt = ojtMonth(s);
+  // 人事（段 E2）：士気の平均・辞めたい・思いとどまった・辞めた・カリスマ度（チュートリアルの 1 か月目は出さない）
+  if (growthOn(s)) {
+    const hm = s.hrMonth ?? newHrMonth();
+    report.hr = { avg: moraleAvg(s), want: wantsToQuit(s).length, wantNew: hm.want, stay: hm.stay, quit: hm.quit, charisma: hm.charisma, ch: charismaOf(s) };
+  }
+  s.hrMonth = newHrMonth();
   // 今月のレベルアップ・手に入れた強化アイテム（会社ぜんたい。段 E1）
   if (s.lvMonth?.length) report.levelUps = s.lvMonth;
   s.lvMonth = [];
@@ -3891,7 +3962,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -3945,7 +4016,10 @@ export function deserializeP1(json: string): P1State | null {
     // 空き店舗・撤退の数えは 0 から。ほかのセクタの写しの Rare の町は、戻ったときに作り直す（step）
     // 版 13 → 14（段 D：任せ方の 4 段）：役目は Staff の task 'lead'（古いセーブには無い＝役目なし）・提案の受け箱（s.deleg）は無し（はじめて任せたときに作る）。
     // ほかのセクタのマネージャー（task 'manager'）は、そのままセクター長として続く（数字は変えない。任命の条件は新しく任命するときだけ）
-    s.v = 14;
+    // 版 14 → 15（段 E2：カリスマ度・士気・給与）：士気は 70 から（ふつうの帯）・給与はいまの月給と昇給の段のまま（合計はいまの人件費と同じ）・
+    // カリスマ度は記録（制覇・発表・ブランド力）からさかのぼって数える（hr.ts。ブランド力のいちばん高かった値は、いまのブランド力から）。
+    // お知らせ済みのカリスマ度はいまの値に（読み込んだとたんにトーストを出さない）
+    s.v = 15;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);
@@ -3957,6 +4031,7 @@ export function deserializeP1(json: string): P1State | null {
     // 版 11 → 12（段 E1：ヒーローの育成）：雇用中のヒーローに Lv（会社の月数から無理のない Lv。上げすぎない）・経験値 0・強化アイテム 0
     // （版 12 のセーブは、全員 Lv を持っているので何もしない）
     migrateGrowth(s);
+    migrateHr(s);
     // 以前のセーブ：自分でスキルを取っていれば、本社は開放済み（チュートリアルでもらう「人材の募集」は数えない）
     if (s.flags.hq === undefined && s.skills.some((k) => k !== 'hire')) s.flags.hq = true;
     // 以前のセーブ：チュートリアルが済んでいて人材の募集があれば、アンロックの演出は見たことに
@@ -4010,6 +4085,14 @@ export function migrateGrowth(s: P1State) {
   s.heroItems ??= {};
   s.lvMonth ??= [];
   s.itemMonth ??= {};
+}
+
+/** 版 14 → 15（段 E2）：士気（70）・昇進／昇格／Lv の「見た」印・ブランド力のいちばん高かった値・お知らせ済みのカリスマ度（版 15 のセーブは何もしない） */
+export function migrateHr(s: P1State) {
+  for (const st of s.staff) initMorale(st);
+  s.brandPeak = Math.max(s.brandPeak ?? 0, s.brand ?? 0);
+  s.charisma ??= charismaOf(s);
+  s.hrMonth ??= newHrMonth();
 }
 
 /**

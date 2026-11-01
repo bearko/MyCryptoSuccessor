@@ -8,6 +8,7 @@
  * スマホ（390×844）では、折りたたみを閉じた状態でスクロールせずに 1 画面に収める。
  * docs/ISLAND_PHASE1.md「月の売上報告」。
  */
+import { hrReportText } from './hrui';
 import { delegReportText } from './delegui';
 import { clearCondText, digMet, digReportLine, digReportText, presentNeedText, presentReady, rebuildText, reviveReportText, type DigSummary } from './digmeet';
 import { t } from '../../i18n';
@@ -66,6 +67,8 @@ export interface ReportHooks {
   openTrade?: () => void;
   /** 部長の提案（「担当の報告」の導線。段 D） */
   openProps?: () => void;
+  /** 給与・労務（「士気と給与」の導線。段 E2） */
+  openPay?: () => void;
   /** 効果音 */
   sfx?: (k: 'sale' | 'win' | 'levelup' | 'check' | 'report' | 'drum' | 'error') => void;
 }
@@ -648,6 +651,21 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
         if (hooks.openProps) line.append(btn(t('担当', 'Leads'), () => hooks.openProps?.(), 'isl-rp-go'));
         c4.append(line);
         body.classList.add('has-deleg');
+      }
+      // 士気と給与（人事。段 E2）：士気の平均・辞めたい・辞めた・カリスマ度（1 行にまとめる）
+      const ht = hrReportText(r);
+      if (ht) {
+        const line = h('div', 'isl-rp-dig isl-rp-hr');
+        const txt = h('span', 'isl-rp-dig-text');
+        txt.append(h('b', '', t('👥 士気と給与', '👥 Morale & pay')), h('span', 'is-long', ht[0]), h('span', 'is-short', ht[1]));
+        line.append(txt);
+        if (hooks.openPay) line.append(btn(t('給与', 'Pay'), () => hooks.openPay?.(), 'isl-rp-go'));
+        if (r.hr && (r.hr.want || r.hr.quit.length)) line.classList.add('is-warn');
+        // スマホ：辞めたい・辞めた・カリスマ度が上がった月だけ出す（報告を 1 画面に収める。ふつうの月は PC だけ）
+        const notable = !!r.hr && (r.hr.want > 0 || r.hr.quit.length > 0 || r.hr.charisma > 0);
+        if (!notable) line.classList.add('is-quiet');
+        c4.append(line);
+        if (notable) body.classList.add('has-hr');
       }
       cards.push(c4);
 
