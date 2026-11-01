@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MANAGER, RESET, TIERS, rivalDef } from '../src/island/p1/data';
+import { MANAGER, RESET, TIERS, UNCOMMON_RIVAL, rivalDef } from '../src/island/p1/data';
 import { managerRate, pl, quarters, runSector, sectorState, type SectorRec } from '../src/island/p1/company';
 import { moveTo, recOf } from '../src/island/p1/land';
 import { allowedDirs, assign, build, deserializeP1, gateToll, heroStats, monthRevenue, newP1, openGate, serializeP1, setShelf, startCraft, step, type P1State } from '../src/island/p1/model';
@@ -152,7 +152,8 @@ describe('関所の先：ランドセクタ', () => {
     const lamp0 = rivalDef(s.rivals[0].id)!.base;
     expect(s.n).toBe(TIERS.U.n);
     expect(s.ground).toHaveLength(TIERS.U.n * TIERS.U.n);
-    expect(s.rivals[0].base).toBeCloseTo(lamp0 * TIERS.U.rival, 5);
+    // 発掘 v2 の 8 段目：Uncommon の他社はさらに UNCOMMON_RIVAL.base（ウメコタウンは町の倍率なし）
+    expect(s.rivals[0].base).toBeCloseTo(lamp0 * TIERS.U.rival * UNCOMMON_RIVAL.base, 5);
     expect(s.tier).toBe('U');
     // セーブして読み直しても広さはそのまま
     const back = deserializeP1(serializeP1(s))!;

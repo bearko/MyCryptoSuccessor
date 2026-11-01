@@ -49,6 +49,8 @@ export const SECTOR_KEYS = [
   'known',
   'topStreak',
   'rally',
+  // 他社の巻き返し（Uncommon のセール。版 9）
+  'comeback',
   'dustShop',
   'yday',
   // 発掘場（荒れ地 4 か所の進み具合と発掘許可。docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」）
@@ -163,6 +165,7 @@ export function moveTo(s: P1State, target: string, manager: number | null): Move
     // 以前の写し：制覇の月数・反撃は無い（もう 1 位なら制覇のまま）
     s.topStreak = snap.topStreak ?? (snap.cleared ? TOP_STREAK : 0);
     s.rally = snap.rally ?? 0;
+    s.comeback = snap.comeback ?? null;
     // マネージャーが投資したぶん、お客さんが増えている
     if (back.base && back.capital > 0) {
       const grow = Math.min(2, 1 + (back.capital * MANAGER.roi) / back.base.rev);

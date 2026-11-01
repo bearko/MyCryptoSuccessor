@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MATS, MISSIONS, PRODUCT, RIVALS, SECTORS, TIERS, rivalDef } from '../src/island/p1/data';
+import { MATS, MISSIONS, PRODUCT, RIVALS, SECTORS, TIERS, UNCOMMON_RIVAL, rivalDef } from '../src/island/p1/data';
 import { sectorProfile } from '../src/island/p1/company';
 import { crowned, landCleared, lastRank, moveTo, playable } from '../src/island/p1/land';
 import { accept, adBoost, areaRanking, legDays, matPrice, newP1, offeredMissions, openGate, runAd, step } from '../src/island/p1/model';
@@ -34,7 +34,8 @@ describe('セクタの個性', () => {
     const s = newP1(12, 'U', 'u1');
     const def = rivalDef('ship')!;
     const st = s.rivals.find((r) => r.id === 'ship')!;
-    expect(st.base).toBeCloseTo(def.base * TIERS.U.rival);
+    // 発掘 v2 の 8 段目：エクステ以外の売上はさらに UNCOMMON_RIVAL.base（売り場の強さはランクの倍率のまま）
+    expect(st.base).toBeCloseTo(def.base * TIERS.U.rival * UNCOMMON_RIVAL.base);
     expect(st.sells.Lantern).toBeCloseTo(1.4 * TIERS.U.rival);
     expect([...s.routes].sort()).toEqual(Object.keys(MATS).sort());
     // ほかのセクタは紙・布・宝石がまだ
@@ -88,7 +89,7 @@ describe('セクタの個性', () => {
     const c8 = newP1(23, 'C', 'c8');
     expect(c8.rivals[0].base).toBeCloseTo(rivalDef(c8.rivals[0].id)!.base * 1.15);
     const u5 = newP1(23, 'U', 'u5');
-    expect(u5.rivals[0].base).toBeCloseTo(rivalDef(u5.rivals[0].id)!.base * TIERS.U.rival * 1.2);
+    expect(u5.rivals[0].base).toBeCloseTo(rivalDef(u5.rivals[0].id)!.base * TIERS.U.rival * 1.2 * UNCOMMON_RIVAL.base * UNCOMMON_RIVAL.town.u5);
     // 特産：ジラ・カントリーは木材、ヤツカノタウンは鉄
     expect(matPrice(newP1(24, 'C', 'c6'), 'wood')).toBe(Math.round(MATS.wood.price * 0.8));
     expect(matPrice(newP1(24, 'U', 'u2'), 'iron')).toBe(Math.round(MATS.iron.price * 0.8));

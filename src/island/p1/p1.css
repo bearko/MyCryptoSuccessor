@@ -5452,6 +5452,28 @@ button.isl-mis {
   font-weight: 700;
   line-height: 1.4 !important;
 }
+/* 他社の巻き返し（Uncommon のセール。月次報告の順位の行の下） */
+.isl-rp-sale {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 !important;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.isl-rp-sale .isl-tag {
+  flex: none;
+  white-space: nowrap;
+}
+.isl-rp-sale .is-short {
+  display: none;
+}
+.isl-sale-tag {
+  margin-left: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
 /* 他社の反撃中（市場データ・ランキング） */
 .isl-invest-card.is-flash {
   outline: 2px solid var(--isl-gold);
@@ -5857,6 +5879,22 @@ button.isl-mis {
   /* 一言のぶん、推移のグラフを少し低く */
   .is-report.has-say .isl-rp-chart {
     max-height: 104px;
+  }
+  .isl-rp-sale {
+    font-size: 11px;
+    gap: 4px;
+  }
+  .isl-rp-sale .is-long {
+    display: none;
+  }
+  .isl-rp-sale .is-short {
+    display: inline;
+  }
+  .isl-rp-sale .isl-tag {
+    font-size: 10px;
+  }
+  .is-report.has-sale .isl-rp-chart {
+    max-height: 96px;
   }
   .isl-rp-say .isl-rp-mine {
     width: 20px;

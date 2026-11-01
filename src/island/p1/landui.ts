@@ -4,7 +4,7 @@
  */
 import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
-import { BRAND, DIG_SITES, MANAGER, RESET, SECTORS, SKILLS, TIERS, aptitude, type SectorDef } from './data';
+import { BRAND, DIG_SITES, MANAGER, RESET, SECTORS, SKILLS, TIERS, UNCOMMON_RIVAL, aptitude, type SectorDef } from './data';
 import { CAPITAL, TIER_NAME, brandPull, delegateCostOf, emptyLedger, managerRate, pl, quarters, revivePerMonth, RUIN, sectorDef, sectorState, sumLedger, tierLabel, type Balance, type Ledger, type RuinLike, type SectorState } from './company';
 import { crowned, letterLock, hasBusiness, lastRank, letterLocked, moveTo, recOf, type MoveErr } from './land';
 import { delegate, delegateLock, fundShort, rankUpTier, reviveView } from './reset';
@@ -41,7 +41,7 @@ export const sectorIcon = (tier: SectorDef['tier']) => assetUrl(`mch/Image/LandS
 
 const TIER_NOTE: Record<SectorDef['tier'], string> = {
   C: t('いまと同じくらいの広さと商売敵。出店許可申請の費用も軽い。', 'About the same size and rivals as now. The permit is cheap.'),
-  U: t('地図が広く、商売敵の規模が大きい。Common の商品は相手にされにくいので、エクステのランクアップが鍵（SCM の強化を楽しむセクタ）。', 'A wider map with bigger rivals. Common goods barely sell here, so ranking up your extensions is key.'),
+  U: t('地図が広く、商売敵の規模が大きい。1 位を取ると、他社がセールで巻き返してくる。Common の商品は相手にされにくいので、エクステのランクアップが鍵（SCM の強化を楽しむセクタ）。', 'A wider map with bigger rivals who strike back with sales when you take #1. Common goods barely sell here, so ranking up your extensions is key.'),
   R: t('他社のお店が乱立する、栄えた市場。他店から客を奪う出店計画としのぎの削り合い（準備中）。', 'A crowded, thriving market where you win customers from rivals (coming soon).'),
   E: t('他社を M&A で買収できるセクタ（準備中）。', 'Acquire rivals through M&A (coming soon).'),
   L: t('ブランド力で売る総力戦。街そのものを作り変える（準備中）。', 'A brand-power showdown where you reshape the city (coming soon).'),
@@ -438,7 +438,9 @@ function detail(ctx: Ctx, s: P1State, id: string): HTMLElement {
     grid.append(c);
   };
   stat(t('地図', 'Map'), t(`${T.n}×${T.n} マス`, `${T.n}×${T.n}`));
-  stat(t('商売敵の規模', 'Rivals'), `×${T.rival}`);
+  // Uncommon（発掘 v2 の 8 段目）：エクステ以外の売上はさらに大きい（町の倍率も）。巻き返し（セール）もある
+  const rb = d.tier === 'U' ? Math.round(T.rival * UNCOMMON_RIVAL.base * (UNCOMMON_RIVAL.town[id] ?? 1) * 10) / 10 : null;
+  stat(t('商売敵の規模', 'Rivals'), rb ? t(`×${T.rival}（売上 ×${rb}）`, `×${T.rival} (sales ×${rb})`) : `×${T.rival}`);
   stat(t('お客さん', 'Customers'), `×${T.demand}`);
   stat(t('Common の売れやすさ', 'Common goods'), `×${T.commonPull}`);
   box.append(grid);

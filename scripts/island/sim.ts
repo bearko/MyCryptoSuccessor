@@ -5,7 +5,7 @@
  * ゲームの数値（data.ts・式）は変えない。ここは計測だけ。
  */
 import { writeFileSync } from 'node:fs';
-import { aptitude, anyOfMet, ADS, RESET, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier } from '../../src/island/p1/data';
+import { aptitude, anyOfMet, ADS, RESET, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier } from '../../src/island/p1/data';
 import { managerApt, RUIN, sectorDef, type RuinLike } from '../../src/island/p1/company';
 import { crowned, moveFee, moveTo } from '../../src/island/p1/land';
 import { delegate, rankUpTier, repairAll, reviveView } from '../../src/island/p1/reset';
@@ -205,6 +205,8 @@ export interface SectorRun {
   /** 月ごとの締め（順位・売上・資金・ボトルネック） */
   /** bn：ゲームの bottleneck()（月の締め）、read：人が読むボトルネック（readBn） */
   log: { m: number; rank: number; rev: number; top: number; money: number; bn: Stage | undefined; read: Stage }[];
+  /** v15：他社の巻き返し（Uncommon のセール）が始まった回数 */
+  comeback: number;
   /** v14：100% の再発掘の周回（被災した Common の町に戻って、荒れ地を掘り直す。表の「1 町の平均」には入れない） */
   revisit?: boolean;
 }
@@ -310,6 +312,12 @@ const RTA_SKILLS = [
   // v5（スキルツリー v2）：売り場を強くする工夫 → ✨ 名物店主 → Uncommon の外周 → 製造・物流・調達の工夫
   'vmd', 'golden', 'pos', 'point', 'set', 'd_shop', 'order', 'fair', 'flow', 'dyn', 'five_s', 'kaizen', 'lot', 'night', 'mold', 'timetable', 'route_opt', 'joint', 'abc', 'auto_order', 'inventory', 'erp', 'manual', 'incentive',
 ];
+
+/**
+ * v15：Uncommon で決まった順を取り終えたあとの人の手（他社が強くなり、雇える候補を雇いきって店員・調達係が足りずに止まるシードが出た）。
+ * 候補を 4 人・5 人（アンコモンも来る）に増やす
+ */
+const RTA_MORE_U = ['slots', 'b_scout'];
 
 /**
  * v10：発掘の枝のパネルの次の一手（未取得なら開放、取得済みなら次の Lv）と値段。いま取れなければ null（資金だけが足りないときは値段を返す）
@@ -654,12 +662,16 @@ export function policy(s: P1State, c: Ctx): Action[] {
   });
   // アンコモンの台を先に（適性の条件があるので）
   want.sort((a, b) => (b.min ?? 0) - (a.min ?? 0));
+  // v15：調達係がいないのに雇える候補がもういないときは、お店の店員より先に調達係を決める（アルバイトのいるお店の店員を回す。下の v14 の手）
+  const buyer0 = crew(s).find((x) => x.task === 'buy')?.hero ?? null;
+  const buyFirst = buyer0 == null && !s.hirePool.length && has(s, 'hire');
+  if (buyFirst) want.push({ task: 'buy', target: null, apt: 'buy', cur: null });
   for (const b of myShops(s)) want.push({ task: 'shop', target: b.uid, apt: 'shop', cur: s.shops[b.uid]?.staff ?? null });
   const haulers = crew(s).filter((x) => x.task === 'transport').map((x) => x.hero);
   const nHaul = Math.max(1, Math.min(3, c.policy === 'rta' ? (myShops(s).length >= 3 ? 2 : 1) : haulers.length || 1));
   for (let k = 0; k < nHaul; k++) want.push({ task: 'transport', target: null, apt: 'transport', cur: haulers[k] ?? null });
   const buyer = crew(s).find((x) => x.task === 'buy')?.hero ?? null;
-  if (has(s, 'hire') || crew(s).length > 3) want.push({ task: 'buy', target: null, apt: 'buy', cur: buyer });
+  if (!buyFirst && (has(s, 'hire') || crew(s).length > 3)) want.push({ task: 'buy', target: null, apt: 'buy', cur: buyer });
   let hired = false;
   for (const w of want) {
     let hero: number | null = null;
@@ -673,7 +685,8 @@ export function policy(s: P1State, c: Ctx): Action[] {
       hero = idle[0]?.hero ?? null;
       // v14：作業台に人がいないのに、雇える候補がもういない（候補を雇いきった）：アルバイトのいるお店の店員を職人に回す（お店はアルバイトで開いている）。
       // ランクアップの災害のあと、少ない支度金で立ち上げた順番によっては、店員だけが増えて作業台が空いたまま止まる（候補が尽きて雇い直せない）
-      if (hero == null && w.task === 'craft' && !s.hirePool.some((id) => (w.min ? aptitude(heroStatsOf(id), 'craft') >= w.min : true))) {
+      // v15：調達係も同じ（Uncommon の他社が強くなり、調達係がいないまま手で買う量で売上が頭打ちになって、資金だけが増えて止まるシードが出た）
+      if (hero == null && (w.task === 'craft' || w.task === 'buy') && !s.hirePool.some((id) => (w.min ? aptitude(heroStatsOf(id), 'craft') >= w.min : true))) {
         const clerk = free.find((x) => x.task === 'shop' && (Object.values(s.shops).find((sh) => sh.staff === x.hero)?.part ?? 0) > 0);
         hero = clerk?.hero ?? null;
       }
@@ -879,7 +892,7 @@ export function policy(s: P1State, c: Ctx): Action[] {
         acts.push({ kind: 'ad', run: () => runAd(s, id) });
         return 'skip';
       };
-      const queue: Step[] = [sk('hire'), shopUpTo(2, false), sk('@shelves:1'), sk('@bench:1'), sk('pot'), sk('route_cloth'), sk('route_paper'), dev1, sk('@shelves:1'), sk('host'), shopUpTo(5, true), sk('loading'), sk('@carts:1'), sk('stock1'), ad('poster'), sk('jig'), sk('bulk'), sk('@stockroom:1'), sk('b_sign'), sk('shop2'), sk('route_gem'), devMore, signs, ...RTA_SKILLS.map(sk), ad('flyer')];
+      const queue: Step[] = [sk('hire'), shopUpTo(2, false), sk('@shelves:1'), sk('@bench:1'), sk('pot'), sk('route_cloth'), sk('route_paper'), dev1, sk('@shelves:1'), sk('host'), shopUpTo(5, true), sk('loading'), sk('@carts:1'), sk('stock1'), ad('poster'), sk('jig'), sk('bulk'), sk('@stockroom:1'), sk('b_sign'), sk('shop2'), sk('route_gem'), devMore, signs, ...RTA_SKILLS.map(sk), ad('flyer'), ...RTA_MORE_U.filter(() => s.tier === 'U').map(sk)];
       let waited = false;
       for (const q of queue)
         if (q() === 'wait') {
@@ -901,6 +914,8 @@ export function policy(s: P1State, c: Ctx): Action[] {
       develops();
       if (has(s, 'pot') && uCrafters(s).length === 0 && !hired) hireU(s, acts, () => (hired = true));
     } else if (has(s, 'pot')) develops();
+    // v15：Uncommon で雇える候補を雇いきったら（他社が強くなって長くいる町で、店員・職人が足りずに頭打ちになる）、候補を増やすパネル
+    if (r && !saving && (s.tier ?? 'C') === 'U' && !s.hirePool.length) for (const id of RTA_MORE_U) if (take(id, reserve)) break;
     // マインちゃんの助言（タオックスの前半）：作業台が 1 台なら、2 台にすると作る数が倍（工房 → 設備投資）
     if (r && !saving && (s.sector ?? 'c1') === 'c1' && !s.cleared) take('@bench:1', reserve / 2);
     if (r && !saving) {
@@ -1388,7 +1403,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   const R = SIM_RESET[p];
   /** v12：復興した荒れ地（セクタを離れるときに足す） */
   let revivedDone = 0;
-  const newRun = (id: string): SectorRun => ({ id, tier: sectorDef(id).tier, arrived: s.day, open: null, topDay: null, left: null, months: null, first: null, rev: 0, money: 0, skills: 0, actTop: 0, pauseTop: 0, act: 0, pause: 0, allRev: 0, relicRev: 0, dig: newDigRec(), log: [] });
+  const newRun = (id: string): SectorRun => ({ id, tier: sectorDef(id).tier, arrived: s.day, open: null, topDay: null, left: null, months: null, first: null, rev: 0, money: 0, skills: 0, actTop: 0, pauseTop: 0, act: 0, pause: 0, allRev: 0, relicRev: 0, comeback: 0, dig: newDigRec(), log: [] });
   const D = SIM_DIG[p];
   const cResearch = SKILLS.filter((k) => skillTier(k) === 'C' && isResearch(k) && !skillSoon(k)).map((k) => k.id);
   /** v13：いま取れる C・U の研究パネル（全部開けたあとに入る RP は、使い道の無い余り） */
@@ -1701,6 +1716,8 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       }
       if (cur.topDay == null && clearWaiting(s)) cur.dig.waitPresent++;
       if (presentLock(s) === 'research') cur.dig.resWait++;
+      // v15：他社の巻き返し（Uncommon のセール）が始まった月
+      if (r.comeback) cur.comeback++;
       cur.log.push({ m: r.month, rank: r.rank, rev: r.revenue, top: Math.max(...r.area.filter((x) => !x.me).map((x) => x.sales)), money: Math.round(s.money), bn: r.bottleneck, read: readBn(s) });
       o.onMonth?.(s, cur.id, r.month);
       c.monthEnd = r;
@@ -2032,6 +2049,31 @@ export function tables(rep: Report2): string {
     out.push(
       `| ${POLICY_NAME[p]} | ${mr((x) => x.levy, 0, fmtG)} | ${mr((x) => x.grant, 0, fmtG)} | ${mr((x) => x.preDonate)} 回 | ${mr((x) => x.lost)} 枚 | ${mr((x) => x.delegated)} | ${dm.length ? `${mean(dm).toFixed(1)} か月（${range(dm)}）` : '—'} | ${mr((x) => x.undone)} | ${mr((x) => x.funds, 0, fmtG)} | +${mr((x) => x.grow, 0, num)}・${mr((x) => x.growHeroes)} 人 | ${mr((x) => x.redigRp, 0, num)} | ${mr((x) => x.resWaitU)} |`,
     );
+  }
+  out.push('');
+  // v15：Uncommon の他社の強さと巻き返し（発掘 v2 の 8 段目）
+  out.push('### 表 8：Uncommon の他社と巻き返し（v15。発掘 v2 の 8 段目）');
+  out.push('');
+  out.push(`3 シードの平均（最小〜最大）。Uncommon の他社のエクステ以外の月の売上は ×${UNCOMMON_RIVAL.base}（町の倍率：${Object.entries(UNCOMMON_RIVAL.town).map(([k, v]) => `${sectorDef(k).name} ×${v}`).join('・') || 'なし'}）。「1 位の他社」は着いた最初の月の締めの、1 位の他社の売上。「初の 1 位 → 制覇」は初めて 1 位になった月から制覇の月まで。巻き返しは自社が 1 位の月の締めで、まだセールをしていない会社がセール（1 つの町で ${UNCOMMON_RIVAL.sale.max} 社まで・${UNCOMMON_RIVAL.sale.months} か月・自社の売上 ×${UNCOMMON_RIVAL.sale.target} を目指す）。`);
+  out.push('');
+  out.push('| 方針 | セクタ | 1 位の他社（最初の月） | 制覇までの月数 | 初の 1 位 | 初の 1 位 → 制覇 | 巻き返しの回数 | 実時間 |');
+  out.push('|---|---|---|---|---|---|---|---|');
+  for (const p of pols) {
+    const runs = rep.runs.filter((r) => r.policy === p);
+    for (const id of routeOf(p).filter((x) => sectorDef(x).tier === 'U')) {
+      const rs = runs.flatMap((x) => x.sectors.filter((r) => r.id === id && !r.revisit));
+      if (!rs.length) continue;
+      const done = rs.filter((r) => r.months != null);
+      const months = done.map((r) => r.months!);
+      const firsts = done.map((r) => r.first ?? r.months!);
+      const gap = done.map((r) => r.months! - (r.first ?? r.months!));
+      const top0 = rs.map((r) => r.log[0]?.top ?? 0);
+      const cb = rs.map((r) => r.comeback);
+      const secs = rs.map((r) => secOf(p, r, 'left') ?? 0);
+      out.push(
+        `| ${POLICY_NAME[p]} | ${sectorName(id)} | ${fmtG(mean(top0))} | ${months.length ? `${mean(months).toFixed(1)}（${range(months)}）` : '制覇できない'}${done.length < rs.length ? `（制覇 ${done.length}/${rs.length}）` : ''} | ${firsts.length ? mean(firsts).toFixed(1) : '—'} | ${gap.length ? `${mean(gap).toFixed(1)}（${range(gap)}）` : '—'} | ${mean(cb).toFixed(1)}（${range(cb)}） | ${fmtMin(mean(secs))} |`,
+      );
+    }
   }
   out.push('');
   // v10c：復刻品（研究 Lv3 で開く新商品）の売上の割合
