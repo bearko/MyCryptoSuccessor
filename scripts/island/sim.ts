@@ -5,7 +5,7 @@
  * ゲームの数値（data.ts・式）は変えない。ここは計測だけ。
  */
 import { writeFileSync } from 'node:fs';
-import { aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier } from '../../src/island/p1/data';
+import { aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier } from '../../src/island/p1/data';
 import { managerApt, RUIN, sectorDef, type RuinLike } from '../../src/island/p1/company';
 import { crowned, moveFee, moveTo } from '../../src/island/p1/land';
 import { delegate, rankUpTier, repairAll, reviveView } from '../../src/island/p1/reset';
@@ -201,6 +201,8 @@ export interface SectorRun {
   /** v10c：着いてから離れるまでの売上の合計・うち復刻品 */
   allRev: number;
   relicRev: number;
+  /** v16b：うち Rare の復刻品（売れるシリーズ） */
+  relicRRev: number;
   /** v9：発掘（打った数：手・自動（発掘隊）・発破、作業の回数・許可の数、入った RP、研究パネルを開けた枚数、RP が足りなくて止まった月） */
   dig: DigRec;
   /** 月ごとの締め（順位・売上・資金・ボトルネック） */
@@ -469,6 +471,8 @@ function chooseLineup(s: P1State, c: Ctx): Sku[] {
   // v10c：通常・100% は、開いた復刻品も並べる候補に（遺物のランクだけ。技・魔法の釜・商品開発は要らない）
   for (const p of c.policy === 'rta' ? PRODUCTS : productsOf(s)) {
     if (!techOk(s, p.key) || !tierOk(p, tier)) continue;
+    // v16b：この町で売れない復刻品（売れるシリーズに無い。Rare の町のダンジョン由来の Rare の復刻品）は並べない
+    if (!relicSells(p, tier)) continue;
     for (const r of p.relic ? [p.relic.rank] : (['C', 'U'] as const)) {
       // 売れる見込み：飽和（他店で供給が足りている）を入れた見込み
       const est = Math.max(r === 'U' ? 4 : 1, sellEstimate(s, p.key, r));
@@ -1415,7 +1419,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   const R = SIM_RESET[p];
   /** v12：復興した荒れ地（セクタを離れるときに足す） */
   let revivedDone = 0;
-  const newRun = (id: string): SectorRun => ({ id, tier: sectorDef(id).tier, arrived: s.day, open: null, topDay: null, left: null, months: null, first: null, rev: 0, money: 0, skills: 0, actTop: 0, pauseTop: 0, act: 0, pause: 0, allRev: 0, relicRev: 0, comeback: 0, dig: newDigRec(), log: [] });
+  const newRun = (id: string): SectorRun => ({ id, tier: sectorDef(id).tier, arrived: s.day, open: null, topDay: null, left: null, months: null, first: null, rev: 0, money: 0, skills: 0, actTop: 0, pauseTop: 0, act: 0, pause: 0, allRev: 0, relicRev: 0, relicRRev: 0, comeback: 0, dig: newDigRec(), log: [] });
   const D = SIM_DIG[p];
   const cResearch = SKILLS.filter((k) => skillTier(k) === 'C' && isResearch(k) && !skillSoon(k)).map((k) => k.id);
   /** v13：いま取れる C・U の研究パネル（全部開けたあとに入る RP は、使い道の無い余り） */
@@ -1723,6 +1727,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       if (cur.topDay == null) cur.pauseTop++;
       cur.allRev += r.revenue;
       cur.relicRev += r.relic ?? 0;
+      cur.relicRRev += Object.entries(r.bySeries ?? {}).reduce<number>((a, [k, v]) => a + (PRODUCT[k]?.relic?.rare ? (v ?? 0) : 0), 0);
       // v8：月の締め。RP が足りなくて止まった月＝詰まりの段に効く研究パネルがあるのに、どれも RP が足りない
       c.dayInMonth = 0;
       c.runsMonth = 0;
@@ -2136,8 +2141,8 @@ export function tables(rep: Report2): string {
   out.push('');
   out.push('開いたレシピの数（最後）と、売上の合計（着いてから離れるまで）のうち復刻品の割合。最短は復刻品を並べない（いままでどおり）。');
   out.push('');
-  out.push('| 方針 | 開いたレシピ | 復刻品の売上（合計） | 売上の合計 | 復刻品の割合 | うち Common | うち Uncommon | うち Rare（v16） |');
-  out.push('|---|---|---|---|---|---|---|---|');
+  out.push('| 方針 | 開いたレシピ | 復刻品の売上（合計） | 売上の合計 | 復刻品の割合 | うち Common | うち Uncommon | うち Rare（v16） | Rare の町の売上のうち Rare の復刻品（v16b） |');
+  out.push('|---|---|---|---|---|---|---|---|---|');
   for (const p of pols) {
     const runs = rep.runs.filter((r) => r.policy === p);
     const sum = (f: (r: SectorRun) => number, tier?: Tier) => mean(runs.map((x) => x.sectors.filter((r) => !tier || r.tier === tier).reduce((a, r) => a + f(r), 0)));
@@ -2145,7 +2150,9 @@ export function tables(rep: Report2): string {
       const all = sum((r) => r.allRev, tier);
       return all > 0 ? `${((sum((r) => r.relicRev, tier) / all) * 100).toFixed(1)}%` : '—';
     };
-    out.push(`| ${POLICY_NAME[p]} | ${mean(runs.map((x) => x.recipes)).toFixed(1)}（${range(runs.map((x) => x.recipes))}） | ${fmtG(sum((r) => r.relicRev))} | ${fmtG(sum((r) => r.allRev))} | ${pct()} | ${pct('C')} | ${pct('U')} | ${pct('R')} |`);
+    const allR = sum((r) => r.allRev, 'R');
+    const pctRR = allR > 0 ? `${((sum((r) => r.relicRRev, 'R') / allR) * 100).toFixed(1)}%` : '—';
+    out.push(`| ${POLICY_NAME[p]} | ${mean(runs.map((x) => x.recipes)).toFixed(1)}（${range(runs.map((x) => x.recipes))}） | ${fmtG(sum((r) => r.relicRev))} | ${fmtG(sum((r) => r.allRev))} | ${pct()} | ${pct('C')} | ${pct('U')} | ${pct('R')} | ${pctRR} |`);
   }
   out.push('');
   // v12：復興・ダンジョン・遺物の展示館

@@ -8624,6 +8624,26 @@ button.isl-mis {
   color: var(--isl-gold);
   font-weight: 700;
 }
+/* 売れるシリーズの札（MARKET_SERIES）：研究ノートのカード・商品の選択・発掘の演出 */
+small.isl-note-series {
+  display: block;
+  font-size: 10px;
+  line-height: 1.25;
+}
+small.isl-note-series.is-good {
+  color: var(--isl-good);
+}
+small.isl-note-series.is-bad {
+  color: #e8a0a0;
+}
+.isl-dig-epicval {
+  color: #d6b8ff;
+  font-weight: 700;
+}
+.isl-ext-card.is-off {
+  opacity: 0.55;
+  filter: grayscale(0.8);
+}
 .isl-rp-relic {
   display: block;
   color: var(--isl-gold);

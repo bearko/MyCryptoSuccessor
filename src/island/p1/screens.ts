@@ -78,6 +78,7 @@ import {
   adCost,
   setDustShop,
   unitCost,
+  unsellableHere,
   type PBuilding,
   batchOf,
   order as placeOrder,
@@ -123,6 +124,7 @@ import {
   relicMinCraft,
 } from './model';
 import { sectorDef, sectorProfile } from './company';
+import { UNSELLABLE_TEXT, seriesTag } from './digview';
 import { bar, btn, extImage, fmt, h, heroIcon, heroName, matIcon, money, sheet, skuIcon, skuName, rich } from './ui';
 import { bomRow, extCard, extSlot, jobLabel, knownBar, lotsFromStock, needText, pickExt, pickHero, profitPerDay, radar, rankEl, slot, techNeed } from './heroui';
 
@@ -628,6 +630,9 @@ export function pickShelf(ctx: Ctx, uid: number, k: number, done: () => void, mo
       return m ? { x: m, text: t('工房で作っている', 'Being crafted') } : null;
     })(),
     note: t('工房で作っているエクステを並べましょう。他社が少なく需要の大きいものほど売れます。', 'Shelve what your workshop makes. Items with high demand and few rivals sell best.'),
+    // この町で売れない商品（売れるシリーズに無い復刻品）：灰色にして、押すと止める
+    blocked: (x) => unsellableHere(s, skuParts(x)[0]),
+    onBlocked: (x) => ctx.toast(t(`${skuName(x)}：${UNSELLABLE_TEXT()}`, `${skuName(x)}: ${UNSELLABLE_TEXT()}`)),
     onPick: (v) => {
       changeShelf(s, uid, k, v, moved);
       done();
@@ -1544,6 +1549,9 @@ function relicSection(ctx: Ctx, s: P1State): HTMLElement | null {
     top.append(skuIcon(r.x, 40), nm);
     const tags = h('div', 'isl-relic-tags');
     tags.append(h('span', 'isl-tag isl-relic-tag', t('復刻', 'Revival')), relicBadge(r));
+    // 売れるシリーズの札（Rare の復刻品）
+    const sg = seriesTag(r.p.relic!.ext, s.tier);
+    if (sg) tags.append(h('span', `isl-tag ${sg[1] ? 'is-good' : 'is-bad'}`, sg[0]));
     c.append(top, tags);
     const d = h('div', 'isl-col');
     d.append(bar(r.demand / maxD, 'var(--isl-gold)'), h('small', '', t(`ニーズ ${r.demand} 個／月`, `Demand ${r.demand} / mo`)));

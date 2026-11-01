@@ -18,7 +18,7 @@ import { icon } from '../../ui/dom';
 import { PRODUCT, TABLET, type Mat } from './data';
 import { RARITY_JA } from '../../game/catalog';
 import { assign, blast, blastCost, blastSize, dig, digRepeatMs, digSite, drill, drillLen, DRILL_FUEL, extName, extRank, extRarity, hasBlast, hasDrill, layersOf, rareRelicsOpen, sessionSec, type DigErr, type DigHit, type DigItem, type DigLayout, type RunEnd } from './model';
-import { DEEP_LOCK, DUNGEON_TAB, RARE_RELIC_NOTE, anyPeek, autoDiggers, biggestFx, cellView, crewCount, digBlock, digErrText, digRec, digSpec, digSpecText, digStatus, dungeonNotes, findLabel, fxOf, gotLines, lockedLayer, nextLvText, noteEntries, noteTablets, noteTabs, noteTotals, relicLine, runBar, stars, type CellView } from './digview';
+import { DEEP_LOCK, DUNGEON_TAB, EPIC_VALUE_TEXT, RARE_RELIC_NOTE, seriesTag, anyPeek, autoDiggers, biggestFx, cellView, crewCount, digBlock, digErrText, digRec, digSpec, digSpecText, digStatus, dungeonNotes, findLabel, fxOf, gotLines, lockedLayer, nextLvText, noteEntries, noteTablets, noteTabs, noteTotals, relicLine, runBar, stars, type CellView } from './digview';
 import { AGAIN_TIP, DEEP_TIP, MEET_WALL, PEEK_TIP } from './digmeet';
 import { pickHero } from './heroui';
 import { open, refreshSheet, sheetOpen, type Ctx } from './screens';
@@ -901,6 +901,9 @@ export function recipeCards(keys: string[], make: (key: string) => void): HTMLEl
     const row = h('div', 'isl-dig-recipe-row');
     const txt = h('div', 'isl-col');
     txt.append(h('b', '', prod.name), h('small', '', t(`「${prod.name}」を工房で作れるようになった`, `You can now make ${prod.name} in the workshop`)));
+    // 売れるシリーズの札（Rare の復刻品：Rare の町で売れる／売れない）
+    const sg = seriesTag(prod.relic.ext, P?.ctx.s().tier);
+    if (sg) txt.append(h('small', `isl-note-series ${sg[1] ? 'is-good' : 'is-bad'}`, sg[0]));
     row.append(extIcon(prod.relic.ext, 64), txt, btn(t('工房で作る', 'Make it'), () => make(key), 'is-on'));
     box.append(row);
   }
@@ -928,6 +931,9 @@ function rareFind(c: HTMLElement, id: number, hit: DigHit) {
   p.el.querySelector('.isl-dig-rare')?.remove();
   const w = h('div', 'isl-dig-rare');
   w.append(h('i', 'isl-dig-rare-rays'), h('span', 'isl-dig-rare-tag', t(`${RARITY_JA.Rare}の遺物！`, 'A Rare relic!')), extIcon(id, 96), h('b', '', extName(id)), h('small', '', `${findLabel(hit)}${hit.rp ? t(`・研究 +${hit.rp}`, ` · RP +${hit.rp}`) : ''}`));
+  // 売れるシリーズ：ダンジョン由来（Rare の町の市場に無い）なら「Epic の町で価値が出る」
+  const tag = seriesTag(id);
+  if (tag && !tag[1]) w.append(h('small', 'isl-dig-epicval', EPIC_VALUE_TEXT()));
   p.el.append(w);
   window.setTimeout(() => {
     w.remove();
@@ -951,6 +957,8 @@ function bigFind(id: number, rp: number, topic: boolean, hit: DigHit) {
   box.append(rays, h('span', 'isl-dig-big-tag', tag), extIcon(id, 128), h('b', 'isl-dig-big-name', extName(id)), h('span', 'isl-dig-big-rp', sub));
   if (topic && st) box.append(h('small', 'isl-dig-big-prog', st.topics[0] >= st.topics[1] ? t(`お題 ${st.topics[0]} / ${st.topics[1]}：全部そろった！ 町の長に発表しよう`, `Targets ${st.topics[0]} / ${st.topics[1]}: all found! Present to the town head`) : t(`お題 ${st.topics[0]} / ${st.topics[1]}`, `Targets ${st.topics[0]} / ${st.topics[1]}`)));
   if (!topic) box.append(h('small', 'isl-dig-big-prog', t(`4 マスぶんの大きな遺物（${rname}）。本来このセクタでは手に入らない！`, `A 4-cell ${rname} relic — not normally found here!`)));
+  // ダンジョンの Rare 以上：Epic の町の骨董の需要（準備中）
+  if (!topic) box.append(h('small', 'isl-dig-big-prog isl-dig-epicval', EPIC_VALUE_TEXT()));
   box.append(h('small', 'isl-dig-big-tap', t('▶ タップで閉じる', '▶ Tap to close')));
   w.append(box);
   const close = () => w.remove();
@@ -1103,6 +1111,9 @@ function noteCard(e: ReturnType<typeof noteEntries>[number], tier?: string, rare
   // 復刻品：研究 Lv3 でレシピ（見つけたものだけ）
   const rl = e.n ? relicLine(e, rareOpen) : null;
   if (rl) c.append(h('small', `isl-note-relic ${rl[1] ? 'is-on' : ''}`, rl[0]));
+  // 売れるシリーズの札（Rare の復刻品のあるエクステ。見つけたものだけ）
+  const sg = e.n ? seriesTag(e.id) : null;
+  if (sg) c.append(h('small', `isl-note-series ${sg[1] ? 'is-good' : 'is-bad'}`, sg[0]));
   if (e.n) c.title = t(`研究 Lv${e.lv}（掘った数 ${e.n}）`, `Research Lv${e.lv} (dug ${e.n})`);
   return c;
 }

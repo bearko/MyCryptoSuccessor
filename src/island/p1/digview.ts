@@ -3,7 +3,7 @@
  * 画面は digui.ts。仕様は docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」の「15 秒の発掘」「発掘場の画面」「研究ノート」。
  */
 import { t } from '../../i18n';
-import { DIG, DIG_AUTO, DIG_BALANCE, DIG_PANELS, DIG_SITES, DUNGEON_FINDS, relicOf, RESEARCH_NEED, SKILL, TABLETS, levelCost, maxLv, type Skill, type Tablet, type Tier } from './data';
+import { DIG, DIG_AUTO, DIG_BALANCE, DIG_PANELS, DIG_SITES, DUNGEON_FINDS, relicOf, relicSells, RESEARCH_NEED, SKILL, TABLETS, levelCost, maxLv, type Skill, type Tablet, type Tier } from './data';
 import { sectorDef } from './company';
 import {
   autoRate,
@@ -389,8 +389,8 @@ export function dungeonNotes(s: P1State): { sector: string; name: string; here: 
 /** ダンジョンの上のランクの遺物の注記（研究ノート）：Rare の復刻品は Rare の町に進出してから（Rare の町 ①）。Epic 以上はまだ */
 export const RARE_RELIC_NOTE = (rareOpen = false) =>
   rareOpen
-    ? t('Rare の遺物は研究 Lv3 で Rare の復刻品のレシピに（アンコモンの復刻品より高く売れる）。Epic 以上の復刻は、Epic の町が開いてから。', 'Rare relics give Rare revival recipes at research Lv3 (they sell for more than Uncommon revivals). Epic-and-up revivals come once the Epic towns open.')
-    : t('Rare の復刻は、Rare の町に進出してから。Epic 以上はまだ先。いまは遺物の展示館で飾ると価値が大きい。', 'Rare revivals come once you expand into a Rare town; Epic and up come later. For now they are worth a lot in the relic museum.');
+    ? t('ダンジョンの Rare の遺物も研究 Lv3 で復刻品のレシピになるが、Rare の町では売れない（Epic の町で骨董として人気に・準備中）。作って倉庫に貯めたり、遺物の展示館で飾ったりできる。Epic 以上の復刻は、Epic の町が開いてから。', 'Dungeon Rare relics also give revival recipes at research Lv3, but they do not sell in Rare towns (antique demand in Epic towns · coming soon). You can make and store them, or show them in the relic museum. Epic-and-up revivals come once the Epic towns open.')
+    : t('Rare の復刻は、Rare の町に進出してから。ダンジョンの Rare 以上は Rare の町では売れず、Epic の町で骨董として価値が出る（準備中）。いまは遺物の展示館で飾ると価値が大きい。', 'Rare revivals come once you expand into a Rare town. Dungeon Rare-and-up relics do not sell in Rare towns; they gain value as antiques in Epic towns (coming soon). For now they are worth a lot in the relic museum.');
 
 /** 研究ノートの 1 行（エクステ） */
 export interface NoteEntry {
@@ -421,6 +421,23 @@ export function relicLine(e: Pick<NoteEntry, 'id' | 'lv'>, rareOpen = false): [s
   if (!relicOf(e.id)) return rk === 'R' ? [t('復刻品は無い', 'No revival'), false] : null;
   return e.lv >= DIG_BALANCE.relic.openLv ? [t('復刻品：作れる', 'Revival: can make'), true] : [t(`Lv${DIG_BALANCE.relic.openLv} で復刻品のレシピ`, `Revival recipe at Lv${DIG_BALANCE.relic.openLv}`), false];
 }
+/**
+ * 売れるシリーズの札（MARKET_SERIES。Rare の復刻品があるエクステだけ）：[文, 売れる]。
+ * tier が Rare の町なら「この町では売れない」、ほかの町・研究ノートでは「Rare の町では売れない」
+ */
+export function seriesTag(ext: number, tier?: Tier): [string, boolean] | null {
+  const p = relicOf(ext);
+  if (!p?.relic?.rare) return null;
+  if (relicSells(p, 'R')) return [t('Rare の町で売れる', 'Sells in Rare towns'), true];
+  return tier === 'R'
+    ? [t('この町では売れない（Epic の町で骨董として人気に・準備中）', 'Does not sell in this town (antique demand in Epic towns · coming soon)'), false]
+    : [t('Rare の町では売れない（Epic の町で骨董として人気に・準備中）', 'Does not sell in Rare towns (antique demand in Epic towns · coming soon)'), false];
+}
+/** 棚に並べようとして止めたときの文（この町で売れない） */
+export const UNSELLABLE_TEXT = () => t('この町では売れない（Epic の町で骨董として人気に・準備中）。作って倉庫に貯めておけます。', 'Does not sell in this town (antique demand in Epic towns · coming soon). You can still make it and keep it in storage.');
+/** ダンジョンで Rare 以上を見つけた演出の 1 行 */
+export const EPIC_VALUE_TEXT = () => t('Epic の町で価値が出る', 'Gains value in Epic towns');
+
 /** 「次のレベルまで」の文 */
 export function nextLvText(e: NoteEntry): string {
   if (!e.n) return t('まだ見つけていない', 'Not found yet');
