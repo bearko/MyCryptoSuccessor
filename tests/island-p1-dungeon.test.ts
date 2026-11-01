@@ -123,11 +123,11 @@ describe('復興（掘りきった荒れ地）', () => {
     expect(typeof b).toBe('object');
   });
 
-  it('13 セクタとも、復興した土地へ小道が通る（町の建物で塞がれない）', () => {
+  it('17 セクタとも（Rare の町 ①：Rare の 4 つも）、復興した土地へ小道が通る（町の建物で塞がれない）', () => {
     for (const id of Object.keys(DIG_SITES)) {
-      const s = newP1(7, id.startsWith('u') ? 'U' : 'C', id);
+      const s = newP1(7, id.startsWith('r') ? 'R' : id.startsWith('u') ? 'U' : 'C', id);
       s.money = 1e8;
-      setLevel(s, 'dig_deep', 3);
+      setLevel(s, 'dig_deep', 4);
       setLevel(s, 'dig_power', 5);
       setLevel(s, 'u_dig_power2', 5);
       s.tut = 99;
@@ -413,7 +413,7 @@ describe('セーブの引き継ぎ（版 5 → 6）', () => {
   }
   it('掘りきった荒れ地は復興済みに（家・需要・小道）', () => {
     const s = v5([0, 2]);
-    expect(s.v).toBe(9);
+    expect(s.v).toBe(10);
     expect(s.dig!.sites.map((x) => !!x.revived)).toEqual([true, false, true, false]);
     expect(s.dig!.dungeon).toBeFalsy();
     for (const [x, y] of s.dig!.sites[0].path!) expect(isRoad(s, x, y)).toBe(true);

@@ -12,7 +12,7 @@ import { icon } from '../../ui/dom';
 import { DEF, artId } from '../defs';
 import { effectDone, image, loading, pick, waterFrame, type Camera, type Effect } from '../render';
 import { cells, type Dir } from '../sim';
-import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, skuParts, STORE, type Mat, type Tier } from './data';
+import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, skuParts, STORE, type Mat, type Tier } from './data';
 import {
   allowedDirs,
   digSite,
@@ -130,10 +130,10 @@ import { BRANCH_TIP, MEET_FOUND, MEET_LINES, canPresent, clearWaitTip, chiefHome
 import { openBooks, openBrand, openLand, openRankUp, startMove } from './landui';
 import { pendingReset, rankUpTier, repairAllCost, ruinsOf } from './reset';
 import { playDisaster } from './disaster';
-import { brandAdd, sectorDef, sectorState, tierLabel } from './company';
+import { brandAdd, sectorDef, sectorState, tierLabel, TIER_NAME } from './company';
 import { camShift, enteredSector, gridDelta, layerOf, needLine, sectorBadges, switchSector, type SectorBadge } from './world';
 import { STRIP, corners, overviewScale, worldOf } from './worldrender';
-import { landCleared, letterLock, letterLocked, playable } from './land';
+import { landCleared, letterLockOf, letterLocked, playable } from './land';
 import { actOf, hlOf, pointOf, TUT, TUT_DONE, TUT_END, tutFix, tutOf, type TutGo, type TutPage, type TutStep } from './tut';
 import { btn, h, heroIcon, heroName, matIcon, money, plain, rich, skuIcon } from './ui';
 
@@ -1605,13 +1605,14 @@ function showLetter(rp: number, letter: Tier | null, chief: number | null, left 
     card.append(crown);
   }
   if (letter) {
-    // 調査依頼状の仮の絵：MCH のエクステ「スクロール」（Uncommon）・「エリートスクロール」（Rare）。docs/ISLAND_ART_TODO.md
-    card.append(extIcon(letter === 'U' ? 1016 : 2016, 128), h('b', 'isl-letter-name', t(`${letter === 'U' ? 'Uncommon' : 'Rare'} の調査依頼状`, `${letter === 'U' ? 'Uncommon' : 'Rare'} survey request`)));
+    // 調査依頼状の仮の絵：MCH のエクステ「スクロール」（Uncommon）・「エリートスクロール」（Rare）・「ウィズダムスクロール」（Epic）。docs/ISLAND_ART_TODO.md
+    const icon = letter === 'U' ? 1016 : letter === 'R' ? 2016 : 3016;
+    card.append(extIcon(icon, 128), h('b', 'isl-letter-name', t(`${TIER_NAME[letter]} の調査依頼状`, `${TIER_NAME[letter]} survey request`)));
     if (chief != null) card.append(h('small', 'isl-dim', t(`町の長 ${heroName(chief)}より`, `From town head ${heroName(chief)}`)));
   }
   card.append(h('span', 'isl-letter-rp', t(`研究ポイント +${rp}`, `Research points +${rp}`)));
   const say = h('p', 'isl-letter-say');
-  say.append(rich(presentAfter(letter, left, conquered)));
+  say.append(rich(presentAfter(letter, left, conquered, sectorDef(s.sector ?? 'c1').tier)));
   body.append(card, say);
   // 制覇したら、閉じたあとに初めての制覇のお祝い（フェーズ 1 クリア！）
   const then = (f: () => void) => () => {
@@ -1621,7 +1622,7 @@ function showLetter(rp: number, letter: Tier | null, chief: number | null, left 
   modal(
     conquered ? t('👑 研究成果を発表して制覇！', '👑 Findings presented — sector conquered!') : letter ? t('📜 調査依頼状を受け取った！', '📜 Survey request received!') : t('研究成果を発表した！', 'Findings presented!'),
     body,
-    letter === 'U' ? [[t('ランドマップを見る', 'Open land map'), then(() => openLand(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]] : [[t('スキルツリーを開く', 'Open skills'), then(() => openSkills(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]],
+    letter === 'U' || letter === 'R' ? [[t('ランドマップを見る', 'Open land map'), then(() => openLand(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]] : [[t('スキルツリーを開く', 'Open skills'), then(() => openSkills(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]],
     true,
   );
   root.querySelector('.isl-modal:last-of-type')?.classList.add('is-letter');
@@ -1692,6 +1693,8 @@ function afterMove(target: string, fresh: boolean, manager: number | null) {
 function arrive(target: string, fresh: boolean, manager: number | null, reset: boolean) {
   const d = sectorDef(target);
   const resetPage: TutPage[] = reset ? [{ text: t('ここからまた一から！ でも[[研究ポイント]]とヒーローはそのまま。被災した町は、ヒーローに[[復興]]を任せることもできるよ。', 'Starting over from here! But your [[research points]] and heroes are still with you. You can leave the ruined towns’ [[recovery]] to a hero.') }] : [];
+  // Rare の町 ①：Rare の町に初めて着いたとき、次の更新（他店から客を奪う出店）の予告を 1 枚
+  if (fresh && d.tier === 'R') resetPage.push({ text: RARE_TEASER() });
   // 被災した町に初めて戻ったとき（1 回だけ）
   const ruinPage: TutPage[] = !fresh && ruinsOf(s).length && !s.flags.ruinTalk ? [{ text: t('[[廃墟]]をタップすると修繕できるよ。手で直すほうが安上がり！', 'Tap a [[ruin]] to repair it. Fixing it by hand is cheaper!') }] : [];
   if (ruinPage.length) s.flags.ruinTalk = true;
@@ -1779,9 +1782,10 @@ function sectorChecks() {
     showIntro(introPages());
     return;
   }
-  const lands: [Tier, 'landCommon' | 'landUncommon', string, string][] = [
+  const lands: [Tier, 'landCommon' | 'landUncommon' | 'landRare', string, string][] = [
     ['C', 'landCommon', t('Common ランド制覇！', 'Common lands conquered!'), t(`Common の ${playable('C').length} つのセクタすべてで 1 位になったよ！ 次は Uncommon のセクタで、アンコモンを並べて 1 位を目指そう。`, `You were #1 in all ${playable('C').length} Common sectors! Next, aim for #1 in the Uncommon sectors with Uncommon goods.`)],
-    ['U', 'landUncommon', t('Uncommon ランド制覇！', 'Uncommon lands conquered!'), t(`Uncommon の ${playable('U').length} つのセクタすべてで 1 位になったよ！ Rare のセクタへの道も開いているはず。`, `You were #1 in all ${playable('U').length} Uncommon sectors! The roads to the Rare sectors should be open too.`)],
+    ['U', 'landUncommon', t('Uncommon ランド制覇！', 'Uncommon lands conquered!'), t(`Uncommon の ${playable('U').length} つのセクタすべてで 1 位になったよ！ 次は Rare のセクタで、アンコモンと Rare の復刻品で 1 位を目指そう。`, `You were #1 in all ${playable('U').length} Uncommon sectors! Next, aim for #1 in the Rare sectors with Uncommons and Rare revivals.`)],
+    ['R', 'landRare', t('Rare ランド制覇！', 'Rare lands conquered!'), t(`Rare の ${playable('R').length} つのセクタすべてで 1 位になったよ！ Epic の町は、まだ雲の向こう。`, `You were #1 in all ${playable('R').length} Rare sectors! The Epic towns are still beyond the clouds.`)],
   ];
   for (const [tier, flag, title, body] of lands) {
     if (s.flags[flag] || !landCleared(s, tier)) continue;
@@ -3251,7 +3255,7 @@ function sectorPop(id: string): { title: string; body: HTMLElement } {
     row.append(btn(t(`${d.name}へ移動`, `Go to ${d.name}`), () => goSector(id), 'is-on'));
   } else if (st === 'open') {
     row.append(advanceBtn(id));
-    if (letterLocked(s, id)) body.append(h('p', 'isl-warn', letterLock(s)));
+    if (letterLocked(s, id)) body.append(h('p', 'isl-warn', letterLockOf(s, id)));
   } else body.append(h('p', 'isl-warn', `🔒 ${needLine(s, d) ?? ''}`));
   if (row.childElementCount) body.append(row);
   return { title: st === 'cloud' ? '???' : d.name, body };
@@ -3262,7 +3266,7 @@ function advanceBtn(id: string): HTMLButtonElement {
   const d = sectorDef(id);
   // 調査依頼状が無い（Uncommon 以上）：押せず、理由はボタンの下（edgeEl・sectorPop）
   if (letterLocked(s, id)) {
-    const b = btn(t(`このセクタに進出（入国料 ${money(d.fee)}）`, `Expand here (permit ${money(d.fee)})`), () => toast(letterLock(s)));
+    const b = btn(t(`このセクタに進出（入国料 ${money(d.fee)}）`, `Expand here (permit ${money(d.fee)})`), () => toast(letterLockOf(s, id)));
     b.disabled = true;
     return b;
   }
@@ -3300,14 +3304,14 @@ function badgeEl(b: SectorBadge, mini: boolean): HTMLElement {
     for (const x of b.items.slice(0, mini ? 1 : 3)) row.append(skuIcon(x, sz));
     if (b.state === 'here') row.append(h('span', 'isl-wbadge-here', mini ? '📍' : t('📍 いまここ', '📍 Here')));
     else if (b.manager != null) row.append(heroIcon(b.manager, sz));
-  } else if (b.state === 'open' && letterLocked(s, b.id)) row.append(h('span', 'isl-wbadge-note', mini ? '🔒' : letterLock(s)));
+  } else if (b.state === 'open' && letterLocked(s, b.id)) row.append(h('span', 'isl-wbadge-note', mini ? '🔒' : letterLockOf(s, b.id)));
   else if (b.state === 'open') row.append(h('span', 'isl-wbadge-note', mini ? t('未進出', 'New') : t(`未進出・入国料 ${money(b.fee)}`, `Not yet · permit ${money(b.fee)}`)));
   else row.append(h('span', 'isl-wbadge-note', mini ? '🔒' : `🔒 ${needLine(s, sectorDef(b.id)) ?? ''}`));
   el.append(row);
   if (!mini && b.lastRev != null && !gray) el.append(h('small', 'isl-wbadge-rev', t(`先月 ${money(b.lastRev)}`, `Last month ${money(b.lastRev)}`)));
   el.addEventListener('click', () => {
     if (b.state === 'mine') goSector(b.id);
-    else if (b.state === 'open' && letterLocked(s, b.id)) toast(letterLock(s));
+    else if (b.state === 'open' && letterLocked(s, b.id)) toast(letterLockOf(s, b.id));
     else if (b.state === 'open') (rankUpTier(s, b.id) ? openRankUp(ctx, b.id) : startMove(ctx, b.id));
     else if (b.state === 'here') {
       const c = (s.n - 1) / 2;
@@ -3328,7 +3332,7 @@ function edgeEl(id: string): HTMLElement {
   el.append(head);
   if (st === 'open') {
     el.append(advanceBtn(id));
-    if (letterLocked(s, id)) el.append(h('small', 'isl-wedge-need', letterLock(s)));
+    if (letterLocked(s, id)) el.append(h('small', 'isl-wedge-need', letterLockOf(s, id)));
   } else if (st === 'mine') el.append(btn(t(`${d.name}へ移動 ▶`, `Go to ${d.name} ▶`), () => goSector(id)));
   else el.append(h('small', 'isl-wedge-need', `🔒 ${needLine(s, d) ?? ''}`));
   return el;

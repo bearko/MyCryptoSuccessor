@@ -176,16 +176,17 @@ describe('はじまりの国 Lime：21 セクタ', () => {
     expect(SECTORS.map((x) => x.name).slice(0, 8)).toEqual(['タオックス', 'ユーホタウン', 'リデル・ヒルズ', 'キッチョムシティ', 'オマツリタウン', 'ジラ・カントリー', 'サクラコシティ', 'ペストタウン']);
     expect(SECTORS.filter((x) => x.tier === 'C').map((x) => x.fee)).toEqual([0, 5000, 6000, 8000, 8000, 7000, 10000, 12000]);
     expect(SECTORS.filter((x) => x.tier === 'U').map((x) => x.fee)).toEqual([150000, 180000, 220000, 260000, 300000]);
-    // Rare は U×2 で開放・準備中、Epic・Legendary は雲
-    for (const d of SECTORS.filter((x) => x.tier === 'R')) expect([d.need?.n, d.soon]).toEqual([2, true]);
+    // Rare の町 ①：Rare は遊べる（開放の条件・準備中は無し。出店には Rare の調査依頼状）。入国料はいまのまま。Epic・Legendary は雲
+    for (const d of SECTORS.filter((x) => x.tier === 'R')) expect([d.need, d.soon, d.cloud]).toEqual([undefined, undefined, undefined]);
+    expect(SECTORS.filter((x) => x.tier === 'R').map((x) => x.fee)).toEqual([600000, 700000, 800000, 900000]);
     for (const d of SECTORS.filter((x) => x.tier === 'E' || x.tier === 'L')) expect(d.cloud).toBe(true);
   });
 
-  it('他社の名前も id もセクタをまたいで重ならない。Common・Uncommon はみな 4 社の個性を持つ', () => {
+  it('他社の名前も id もセクタをまたいで重ならない。Common・Uncommon・Rare はみな 4 社の個性を持つ', () => {
     const all = [...RIVALS, ...SECTORS.flatMap((x) => x.profile.rivals ?? [])];
     expect(new Set(all.map((r) => r.id)).size).toBe(all.length);
     expect(new Set(all.map((r) => r.name)).size).toBe(all.length);
-    for (const d of SECTORS.filter((x) => (x.tier === 'C' || x.tier === 'U') && x.id !== 'c1')) {
+    for (const d of SECTORS.filter((x) => (x.tier === 'C' || x.tier === 'U' || x.tier === 'R') && x.id !== 'c1')) {
       expect(d.profile.rivals).toHaveLength(4);
       expect(d.profile.intro).toHaveLength(3);
       expect(d.profile.intro[0]).toContain(d.name);

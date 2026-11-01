@@ -4,8 +4,8 @@
  */
 import { t } from '../../i18n';
 import { DEF } from '../defs';
-import { MATS, PRODUCT, rivalDef, SECTORS, SKILL, TASKS, UNCOMMON, aptitude, skuParts, skuPrice, techSkill, type Mat, type Sku, type Task } from './data';
-import { assign, canSwap, DAYS, releaseForSwap, restDaysLeft, swapStops, sellEstimate, batchOf, craftCheck, craftDays, has, knownOf, monopolyLeft, recipeOf, saturated, staffOf, trainingOf, unitCost, type Need, type P1State, type Staff } from './model';
+import { MATS, PRODUCT, rivalDef, SECTORS, SKILL, TASKS, aptitude, skuParts, skuPrice, techSkill, type Mat, type Sku, type Task } from './data';
+import { assign, canSwap, DAYS, relicMinCraft, releaseForSwap, restDaysLeft, swapStops, sellEstimate, batchOf, craftCheck, craftDays, has, knownOf, monopolyLeft, recipeOf, saturated, staffOf, trainingOf, unitCost, type Need, type P1State, type Staff } from './model';
 import { bar, btn, h, heroIcon, heroName, matIcon, money, skuIcon, skuName } from './ui';
 
 export const TASK_NAME: Record<Task, string> = { ...(Object.fromEntries(TASKS.map((x) => [x.key, x.name])) as Record<Task, string>), side: t('バイト', 'Part-time'), manager: t('セクタマネージャー', 'Sector manager'), train: t('修行', 'Training'), dig: t('発掘', 'Digging') };
@@ -467,7 +467,7 @@ export function extCard(s: P1State, x: Sku, o: { worker?: number | null; on?: bo
   }
   const err = craftCheck(s, x, o.worker ?? null);
   if (err === 'tech') tags.append(h('span', 'isl-tag is-bad', techNeed(k, s) ?? ''));
-  if (r === 'U' && err === 'skill') tags.append(h('span', 'isl-tag is-bad', t(`製造の適性 ${UNCOMMON.minCraft} 以上が要る`, `Needs aptitude ${UNCOMMON.minCraft}+`)));
+  if (r === 'U' && err === 'skill') tags.append(h('span', 'isl-tag is-bad', t(`製造の適性 ${relicMinCraft(k)} 以上が要る`, `Needs aptitude ${relicMinCraft(k)}+`)));
   if (tags.childElementCount) left.append(tags);
   // 1 ロットの素材（保有数）→ できる数
   const recipe = recipeOf(x);
