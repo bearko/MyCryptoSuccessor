@@ -1,6 +1,6 @@
 // ランドの背景（MCH の Image/Backgrounds/2105〜2905、1000×1500 の塗りの絵）をドット絵の背景にする。
 // 地平線の帯を切り出す → 1/3 に縮小 → 平均色へ 45% 寄せてコントラストを下げる →
-// 12 色に減色（ディザなし）→ 1 ドットの点を消す。320×256 を 2 倍で表示する（docs/design.md 4 章）。
+// 12 色に減色（ディザなし）→ 1 ドットの点を消す。320×256 を 2 倍で表示する（docs/pixel-rules.md）。
 import { Canvas } from './core.mjs';
 
 export const LAND_BACKGROUNDS = { Ocean: 2105, Strawberry: 2205, Tangerine: 2301, Lime: 2405, Graphite: 2505, Grape: 2605, Sage: 2705, Blueberry: 2805, Ruby: 2905 };

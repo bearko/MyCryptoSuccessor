@@ -1,10 +1,10 @@
 // Service worker for offline play (generated into dist/sw.js by the pwa plugin in vite.config.ts).
 // - The app shell (index.html, the bundle, sprite sheets, icons) is cached at install.
-// - Other game assets (sounds, large backgrounds) are cached the first time they are used.
+// - Other game assets (the island's art, sounds, large backgrounds) are cached the first time they are used.
 // - Pages are fetched from the network first so updates arrive; the cache is the fallback offline.
 const VERSION = '__VERSION__';
-const SHELL = `mcw-shell-${VERSION}`;
-const ASSETS = 'mcw-assets';
+const SHELL = `mcs-shell-${VERSION}`;
+const ASSETS = 'mcs-assets';
 const PRECACHE = __PRECACHE__;
 
 self.addEventListener('install', (event) => {
@@ -21,7 +21,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('mcw-shell-') && k !== SHELL).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('mcs-shell-') && k !== SHELL).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
@@ -29,10 +29,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
-  // The leaderboard API is always live, never cached.
-  if (req.method !== 'GET' || url.origin !== self.location.origin || url.pathname.includes('/api/')) return;
+  if (req.method !== 'GET' || url.origin !== self.location.origin) return;
   if (req.mode === 'navigate' && !/(\/|index\.html)$/.test(url.pathname)) {
-    // Other pages (island.html): network only, so they never replace the cached shell below.
+    // Other pages (island.html, which only forwards to ./): network only, so they never replace the cached shell below.
     return;
   }
   if (req.mode === 'navigate') {

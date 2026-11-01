@@ -1,12 +1,12 @@
 # 島づくり（試作）
 
-工房とは別のページ（`island.html`）で遊ぶ、島の町づくりシミュレーションの試作です。PixelLab で生成した建物の絵を、斜め上から見た地図に並べて島を育てます。工房のセーブとは別に、このブラウザに保存されます（`mycryptoisland.save.v1`）。
+フェーズ 1 より前に作った、島の町づくりシミュレーションの試作（自由建築モード）です。PixelLab で生成した建物の絵を、斜め上から見た地図に並べて島を育てます。フェーズ 1 のセーブとは別に、このブラウザに保存されます（`mycryptoisland.save.v1`）。
 
-> いまの `?test=2` はフェーズ 1「新天地で実績を上げろ」（[ISLAND_PHASE1.md](ISLAND_PHASE1.md)）を開きます。この自由建築モードはテスト用に `island.html?test=2&mode=free` で開けます（フェーズ 1 のメニュー「テスト」からも行けます）。
+> サイト（`https://successor.bearko.games/`）を開くとフェーズ 1「新天地で実績を上げろ」（[ISLAND_PHASE1.md](ISLAND_PHASE1.md)）が始まります。この自由建築モードはテスト用に `./?test=2&mode=free` で開けます（`?test=2` のときに出るフェーズ 1 のメニュー「テスト」からも行けます）。
 
 ## 開き方
 
-- `https://workshop.bearko.games/?test=2` で直接開く（工房の読み込みより先に `island.html?test=2` へ移る）
+- `https://successor.bearko.games/?test=2&mode=free` で開く
 - `?test=2` のときは右上に「テスト」が出る：資金 +50,000・工事をすべて終える・1 か月進める・すべての建物を解放
 
 ## 遊び方

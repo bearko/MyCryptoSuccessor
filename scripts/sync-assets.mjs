@@ -5,15 +5,15 @@
 //   node scripts/sync-assets.mjs
 //
 // Source directory: $MCH_ASSETS_DIR, else vendor/mycryptoheroes (git submodule).
-// Outputs: public/mch/** (copied assets), public/mch-atlas/*.png (sprite sheets) and
-// src/generated/catalog.json.
+// Outputs: public/mch/** (copied assets), public/mch-atlas/*.png (sprite sheets),
+// public/icons/*.png (app icons) and src/generated/catalog.json.
+// Only what the island (src/island/) shows is copied; the rest of the database stays out of dist/.
 
 import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pngjs from 'pngjs';
-import { buildEmpireAssets } from './pixel/build.mjs';
 
 const { PNG } = pngjs;
 
@@ -48,11 +48,10 @@ rmSync(outPublic, { recursive: true, force: true });
 rmSync(outAtlas, { recursive: true, force: true });
 
 // ---------------------------------------------------------------- sprite atlases
-// 64×64 pixel-art sprites (extensions, heroes, enemies) are packed into sheets of 16×16 cells
-// (8×8 for enemies, of which only a few are used at a time). A sprite is referenced as
-// "#<sheet>/<cell>", e.g. "#ext-0/37".
+// 64×64 pixel-art sprites (extensions, heroes) are packed into sheets of 16×16 cells.
+// A sprite is referenced as "#<sheet>/<cell>", e.g. "#ext-0/37".
 const CELL = 64;
-const SHEET_COLS = { ext: 16, hero: 16, enemy: 8 };
+const SHEET_COLS = { ext: 16, hero: 16 };
 const atlasQueues = {};
 const spriteRefs = new Map();
 /** Queues a 64×64 sprite for an atlas and returns its reference (or a plain file for odd sizes). */
@@ -106,7 +105,6 @@ function writeAtlases() {
   return sheets;
 }
 
-const RARITIES = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
 
 // What the game uses right now is packed first, so the first sheet of each atlas covers it.
 const content = JSON.parse(readFileSync(join(root, 'src', 'game', 'content.json'), 'utf8'));
@@ -170,11 +168,10 @@ function bodyCenterX(relPath) {
 }
 
 // ---------------------------------------------------------------- heroes (all usable)
-// Original, novice and replica heroes. Customers and thieves are chosen in src/game/catalog.ts.
-// Characters in content.json's excludedHeroIds / excludedEnemyIds (third-party copyrights) are never
-// written to the catalog or the sprite sheets.
+// Original, novice and replica heroes (staff and visitors on the island).
+// Characters in content.json's excludedHeroIds (third-party copyrights) are never written to the
+// catalog or the sprite sheets.
 const excludedHeroes = new Set(content.excludedHeroIds);
-const excludedEnemies = new Set(content.excludedEnemyIds);
 const heroSource = readJson('Data/Heroes/heroes.json').filter((h) => !excludedHeroes.has(h.id));
 const heroes = heroSource
   .filter((h) => ['original', 'novice', 'replica'].includes(h.category))
@@ -195,21 +192,8 @@ const heroes = heroSource
     cx: bodyCenterX(h.image_file_path),
   }));
 
-// English labels for hero attributes and factions (the game keys them by their Japanese names).
-const heroLabels = { attributes: {}, factions: {} };
-for (const h of heroSource) {
-  for (const a of h.attributes ?? []) heroLabels.attributes[a.name.ja] = en(a.name.en);
-  if (h.faction?.name) heroLabels.factions[h.faction.name.ja] = h.faction.name.en;
-}
-
-// ---------------------------------------------------------------- enemies (all with 64px art)
-const enemies = readJson('Data/Enemies/enemies.json')
-  .filter((e) => e.image_exists && !excludedEnemies.has(e.id))
-  .sort(firstBy((e) => content.pestIds.includes(e.id) || content.storePestIds.includes(e.id)))
-  .map((e) => ({ id: e.id, name: e.name.ja, nameEn: en(e.name.en), image: sprite('enemy', e.image_file_path) }));
-
 // ---------------------------------------------------------------- window views
-// Battle backgrounds are 1000×1500; the storefront window only shows a 2:1 strip, so a small
+// Battle backgrounds are 1000×1500; the shop screen's window only shows a 2:1 strip, so a small
 // box-filtered crop is written instead of shipping the full image.
 const WINDOW_W = 320;
 const WINDOW_H = 160;
@@ -238,113 +222,42 @@ function windowCrop(relPath, key) {
   return writeHashed(`window-${key}`, PNG.sync.write(out, { deflateLevel: 9 }));
 }
 
-// Workshop background and facility overlays.
-const craftBgs = readJson('Data/CraftBackgrounds/craft_backgrounds.json');
-const workshop = Object.fromEntries(craftBgs.map((b) => [b.key, use(b.image_file_path)]));
-// Scenery seen through the storefront window.
+// Scenery seen through the shop screen's window.
 const windowView = windowCrop('Image/Backgrounds/1056.png', 'default');
 
-// Lands (guilds of MCH): the window view on a land's day, and its guardian cryptid.
-const backgrounds = readJson('Data/Backgrounds/backgrounds.json');
-const cryptids = readJson('Data/Cryptids/cryptids.json');
-const lands = backgrounds
-  .filter((b) => b.node_type === 'land')
-  .map((b) => ({
-    key: b.node_name_en,
-    name: b.node_name_ja,
-    view: windowCrop(b.image_file_path, b.node_name_en.toLowerCase()),
-    cryptid: use(cryptids.find((c) => c.image_file_path === b.cryptid_ref).image_file_path),
-  }));
+// Files the island refers to by path (src/island/): the guide's portraits, the workshop screen's
+// background, the GUM coin and emblem, the land sector art of Lime, and sounds.
+const FILES = [
+  'Image/Characters/navi_ain_speak_00_talk.png',
+  'Image/Characters/navi_ain_cross_01_smile.png',
+  'Image/CraftBackgrounds/Base/100.webp',
+  'Image/CraftBackgrounds/Base/200.gif',
+  'Image/CraftBackgrounds/Stages/201.gif',
+  'Image/Icons/gum.png',
+  'Image/Icons/emblem.webp',
+  ...['1_Common', '2_Uncommon', '3_Rare', '4_Epic', '5_Legendary'].map((r) => `Image/LandSectors/04_Lime_${r}.png`),
+  // src/island/p1/sfx.ts
+  'Audio/SE/Actions/open_treasure.mp3',
+  'Audio/SE/Actions/cp-mining-complete.mp3',
+];
+for (const f of FILES) use(f);
 
-// Staff (original characters, free to use).
-const chars = readJson('Data/Characters/characters.json');
-const frames = {};
-for (const c of chars) {
-  for (const set of c.sprite_sets) {
-    for (const anim of set.animations) {
-      if (!anim.id.endsWith('_loop')) continue;
-      frames[anim.id] = anim.frames.map((f) => ({ image: use(f.image_file_path), ms: f.duration_ms }));
-    }
-  }
-}
-const staffPose = (file) => use(`Image/Characters/${file}`);
-
-const icons = readJson('Data/Icons/icons.json');
-const icon = (key) => use(icons.find((i) => i.key === key).image_file_path);
-const gems = readJson('Data/Materials/gemstones.json');
-const battleIcons = readJson('Data/BattleIcons/battle_icons.json');
-const bicon = (key) => use(battleIcons.find((i) => i.key === key).image_file_path);
-
+// BGM played through src/audio.ts.
 const audio = {
-  bgmShop: use('Audio/BGM/pve.mp3'),
-  bgmTree: use('Audio/BGM/land.mp3'),
-  bgmRaid: use('Audio/BGM/raid.mp3'),
-  bgmCompany: use('Audio/BGM/pvp.mp3'),
-  // アイランド（工房の会社づくり）の BGM。SE の棚にあるが 1 分 48 秒の曲
+  // The island's main theme (a 1:48 track filed under SE in the database)
   bgmCraft: use('Audio/SE/Actions/craft.mp3'),
-  // アイランドの発掘作業のあいだの BGM（MCH の land）
+  // While digging
   bgmDig: use('Audio/BGM/land.mp3'),
-  craft: use('Audio/SE/Actions/production.mp3'),
-  rare: use('Audio/SE/Actions/open_treasure.mp3'),
-  sale: use('Audio/SE/Actions/cp-mining-complete.mp3'),
-  unlock: use('Audio/SE/Actions/insp.mp3'),
-  build: use('Audio/SE/Actions/tooldev.mp3'),
-  fail: use('Audio/SE/Actions/crash.mp3'),
-  hit: use('Audio/SE/Battle/1_single_damage.mp3'),
-  buff: use('Audio/SE/Battle/4_buff.mp3'),
-  debuff: use('Audio/SE/Battle/5_debuff_status_effect.mp3'),
-  win: use('Audio/SE/Jingles/win.mp3'),
-  helper: use('Audio/SE/Jingles/knight.mp3'),
-  clean: use('Audio/SE/Battle/3_heal_resurrection.mp3'),
-  zap: use('Audio/SE/Battle/2_area_damage.mp3'),
 };
 
 const atlases = writeAtlases();
-
-// ---------------------------------------------------------------- 経営モードの絵（scripts/pixel/）
-// エクステンションにない物（地形・駅・物流センター・車）と、ドット絵にしたランドの背景
-const empire = buildEmpireAssets({ root, src, use });
-// 新しく取ってきた作業コピーには src/generated/ がまだ無い（目録より先に書くので、ここで作る）
-mkdirSync(join(root, 'src', 'generated'), { recursive: true });
-writeFileSync(join(root, 'src', 'generated', 'empire.json'), JSON.stringify(empire, null, 1));
-
 
 const catalog = {
   generatedFrom: 'https://github.com/bearko/mycryptoheroes',
   atlases,
   series,
   heroes,
-  enemies,
-  heroLabels,
-  workshop,
   windowView,
-  lands,
-  staff: {
-    chris: frames.chris_loop,
-    chrisCheer: staffPose('chris_03_cheer.png'),
-    mine: frames.navi_ain_loop,
-    maycri: frames.maycri_loop,
-  },
-  icons: {
-    gum: icon('gum'),
-    dust: icon('gold_dust'),
-    emblem: icon('emblem'),
-    mch: icon('mch_icon'),
-    logo: icon('mch_logo_horizontal'),
-    ce: icon('ce'),
-    cp: icon('cp'),
-    gems: Object.fromEntries(gems.map((g) => [g.element, use(g.image_file_path)])),
-    hp: bicon('hp'),
-    phy: bicon('phy'),
-    int: bicon('int'),
-    bufAgi: bicon('buf_agi'),
-    bufPhy: bicon('buf_phy'),
-    bufInt: bicon('buf_int'),
-    sleep: bicon('sleep'),
-    fear: bicon('fear'),
-    decoy: bicon('decoy'),
-    mai: icon('mai_sd'),
-  },
   audio,
 };
 
@@ -352,7 +265,7 @@ mkdirSync(dirname(outCatalog), { recursive: true });
 writeFileSync(outCatalog, JSON.stringify(catalog, null, 1));
 
 // ---------------------------------------------------------------- app icons (PWA / home screen)
-// The GUM coin (64px pixel art) scaled up without smoothing onto the game's dark brown. The
+// The GUM coin (64px pixel art) scaled up without smoothing onto the island's night blue (theme-color). The
 // coin stays inside the central 80% so the same file works as a maskable icon.
 const outIcons = join(root, 'public', 'icons');
 mkdirSync(outIcons, { recursive: true });
@@ -361,7 +274,7 @@ for (const size of [192, 512]) {
   const scale = Math.floor((size * 0.72) / coin.width);
   const offset = Math.floor((size - coin.width * scale) / 2);
   const out = new PNG({ width: size, height: size });
-  for (let i = 0; i < size * size; i++) out.data.set([0x2b, 0x1d, 0x14, 0xff], i * 4);
+  for (let i = 0; i < size * size; i++) out.data.set([0x1d, 0x2a, 0x44, 0xff], i * 4);
   for (let y = 0; y < coin.height * scale; y++) {
     for (let x = 0; x < coin.width * scale; x++) {
       const si = (Math.floor(y / scale) * coin.width + Math.floor(x / scale)) * 4;
@@ -374,5 +287,5 @@ for (const size of [192, 512]) {
 }
 console.log(
   `[sync-assets] ${series.length} series / ${extensions.length} extensions, ${heroes.length} heroes, ` +
-    `${enemies.length} enemies, ${Object.keys(atlases).length} atlas sheets, ${copied.size} other files`,
+    `${Object.keys(atlases).length} atlas sheets, ${copied.size} other files`,
 );

@@ -2,40 +2,35 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <!-- ?test=2 は島づくり（試作）を直接開く（docs/ISLAND_MVP.md）。工房の読み込みより先に移る -->
-    <script>
-      if (/[?&]test=2(&|$)/.test(location.search)) location.replace('island.html' + location.search);
-    </script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>My Crypto Workshop</title>
-    <meta name="description" content="My Crypto Heroes の世界でエクステンションをクラフトして売る工房インクリメンタルゲーム（非公式二次創作）" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <title>My Crypto Successor</title>
+    <meta name="description" content="My Crypto Heroes の世界のランド「Lime」で、工房と店を営み、荒れ地を発掘して町を復興させる経営シミュレーション。ブラウザで無料プレイ（非公式二次創作）" />
     <link rel="icon" href="mch/Image/Icons/gum.png" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="icons/icon-192.png" />
-    <meta name="theme-color" content="#2b1d14" />
+    <meta name="theme-color" content="#1d2a44" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <!-- Link previews (OGP / X). __SITE_URL__ becomes the site's address at build time (vite.config.ts). -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="My Crypto Workshop" />
-    <meta property="og:title" content="My Crypto Workshop｜マイクリ クラフト工房" />
-    <meta property="og:description" content="エクステンションをクラフトして、来店するヒーローに売ろう！My Crypto Heroes の世界の工房経営インクリメンタルゲーム。ブラウザで無料プレイ（非公式二次創作）" />
+    <meta property="og:site_name" content="My Crypto Successor" />
+    <meta property="og:title" content="My Crypto Successor" />
+    <meta property="og:description" content="ランド「Lime」で工房と店を営み、荒れ地を発掘して町を復興させよう。My Crypto Heroes の世界の経営シミュレーション。ブラウザで無料プレイ（非公式二次創作）" />
     <meta property="og:url" content="__SITE_URL__" />
     <meta property="og:image" content="__SITE_URL__og-image.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="My Crypto Workshop（マイクリ クラフト工房）のゲーム画面" />
+    <meta property="og:image:alt" content="My Crypto Successor のゲーム画面" />
     <meta property="og:locale" content="ja_JP" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="My Crypto Workshop｜マイクリ クラフト工房" />
-    <meta name="twitter:description" content="エクステンションをクラフトして、来店するヒーローに売ろう！ブラウザで無料プレイ（非公式二次創作）" />
+    <meta name="twitter:title" content="My Crypto Successor" />
+    <meta name="twitter:description" content="ランド「Lime」で工房と店を営み、荒れ地を発掘して町を復興させよう。ブラウザで無料プレイ（非公式二次創作）" />
     <meta name="twitter:image" content="__SITE_URL__og-image.jpg" />
-      <!-- bearko.games 共通基盤（総合スコア）。読めなくてもゲームは遊べる。ゲーム本体（Vite が head に入れる module）より先に読む -->
-    <script defer src="https://bearko.games/sdk/v1.js"></script>
   </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
+  <body class="isl">
+    <canvas id="isl-map"></canvas>
+    <div id="isl-ui"></div>
+    <script type="module" src="/src/island/main.ts"></script>
   </body>
 </html>

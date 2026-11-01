@@ -1,26 +1,19 @@
 #!/usr/bin/env node
 // 生成したドット絵の自動検査（docs/pixel-rules.md「検査のしきい値」）。
-//   npm run pixel:lint          # public/empire/ の絵（npm run sync-assets で作る）
+//   npm run pixel:lint          # scripts/pixel/ が描く絵（その場で作る。素材は vendor/mycryptoheroes か $MCH_ASSETS_DIR）
 // 1 つでも失敗があれば終了コード 1。
-import { readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import pngjs from 'pngjs';
 import { Canvas, key } from './pixel/core.mjs';
 import { OUTLINE, PALETTE } from './pixel/palette.mjs';
+import { pixelArt } from './pixel/build.mjs';
 
-const { PNG } = pngjs;
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const lum = (c) => (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255;
 const same = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
 const OUT = key(OUTLINE);
-
-function crop(src, x, y, w, h) {
-  const c = new Canvas(w, h);
-  for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) c.put(xx, yy, src.get(x + xx, y + yy));
-  return c;
-}
 
 const opaque = (c, x, y) => x >= 0 && y >= 0 && x < c.w && y < c.h && c.alpha(x, y) > 0;
 
@@ -215,18 +208,12 @@ export function lint(c, kind) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  let manifest;
-  try {
-    manifest = JSON.parse(readFileSync(join(root, 'src/generated/empire.json'), 'utf8'));
-  } catch {
-    console.error('src/generated/empire.json がありません。先に npm run sync-assets を実行してください');
+  const src = resolve(root, process.env.MCH_ASSETS_DIR ?? 'vendor/mycryptoheroes');
+  if (!existsSync(join(src, 'Image', 'Backgrounds'))) {
+    console.error(`[pixel-lint] MCH の素材がありません（${src}）。git submodule update --init を実行してください`);
     process.exit(1);
   }
-  const load = (url) => Canvas.fromPNG(PNG.sync.read(readFileSync(join(root, 'public', url))));
-  const sheet = load(manifest.sheet);
-  const rows = [];
-  for (const [name, s] of Object.entries(manifest.sprites)) rows.push([name, s.kind, lint(crop(sheet, s.x, s.y, s.w, s.h), s.kind)]);
-  for (const [land, url] of Object.entries(manifest.backgrounds)) rows.push([`bg-${land}`, 'bg', lint(load(url), 'bg')]);
+  const rows = pixelArt({ src }).map((a) => [a.name, a.kind, lint(a.canvas, a.kind)]);
   let failed = 0;
   for (const [name, kind, fails] of rows) {
     if (fails.length) failed++;

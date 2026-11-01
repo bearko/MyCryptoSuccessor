@@ -1,233 +1,96 @@
-# My Crypto Workshop（マイクリ クラフト工房）
+# My Crypto Successor
 
-My Crypto Heroes の世界でエクステンション（装備品）をクラフトして売る、お店経営インクリメンタルゲームです。
-モデルケースは [参考作]()。
+My Crypto Heroes の世界のランド「はじまりの国 Lime」で、工房と店を営み、荒れ地を発掘して町を復興させる経営シミュレーションです。
+ブラウザで遊べて、進み具合はこのブラウザに自動で保存されます。
 
-- 魔法の壺・鍛冶炉・具現化カプセルの 3 ラインでエクステンションをクラフト → 陳列棚に並べる → 来店したヒーローが購入 → GUM を獲得
-- 鑑定済み〜黄金のエディション、Legendary の上をいく「真」。あふれた安物は分解炉でゴールドダストと魔石に
-- 泥棒（ヴィラン寄りのヒーロー）や工房荒らし（エネミー）をクリックで撃退
-- ヒーローをスタッフとして雇い（品出し・警備・行商・清掃など 12 職）、店に設備を置いて、手を離しても回る店へ
-- 奥の壁の棚 3 台・ショーケース・通路手前の陳列台 4 台（最大 28 枠＋ショーケース 4 枠）。コレクター客のためのコレクター優先・取り寄せ・品揃えの評判（在庫のシリーズを探しに来る）・特注受付（工房が作って直接手渡す）・代わりの品のご提案（帰らずに別の品を買う）
-- 客足を伸ばす店舗拡張（最大 48 人）・繁盛店、エネミーや泥で客が帰らなくなる安心の店内。強化するほど帰る客が 0 に近づき、店が回る
-- 英雄の酒場: 38 人のヒーローをスカウト（Lv 1〜5）。後半のシリーズのレシピはヒーローが教えてくれる。開店前に最大 5 人をパーティに編成すると、工房のバルコニーでそれぞれのスキル（売上・集客・生産・目利き・退治・会計・足止め・来店・お目当て・補充・研究）を発動。同じ属性・陣営のシナジーあり。パーティに入れていないヒーローも、スキルの種類に応じたサポート効果（Lv ごとに強くなる）が常に働く
-- 雨・霧・市場の日・ランドの日で変わる営業日。宝箱、店のエネミー、商人や MAI の来店など毎日の判断
-- 全 173 シリーズ約 900 種のエクステンション図鑑とヒーロー図鑑、ゆかりの品の注文、実績とデイリー依頼
-- 「黄金のエクステンション」（5,000億 GUM）を作るとクリア（1 周目は約 2.5〜3.5 時間）
-- クリア後は **ランド移転** で 2 周目へ。移転先のクリプタイドの加護が重なり、Cp で「移転」の特典を習得。寄付係の名声、黒髭海賊団のレイド、番頭の自動習得、周回の統計
-- エンドコンテンツの **称号**: 9 つのランドごとにコマンダー → ナイトコマンダー → ナイト → G5 → マエストロ → キング。移転先のランドでクリアした後、GUM で獲得（移転しても消えない）。そのランドのクリプタイドを強化（加護が強くなり、ランドの日に来ると売上ボーナス）。ランキングで名前の横に最高の称号が付く。3 つのランドで G5 以上を取ると、GUM・研究ポイント・ゴールドダスト・エンブレムを大量に使う最後のパネル **MCH Verse Pass** が開く
-- 閉店後に、五勢力（朱雀・青龍・黄竜・白虎・玄武）＋店舗・研究・シリーズ・名誉・移転の枝をもつスキルツリーで工房を強化
-- マインちゃんのチュートリアル、日本語 / English、オフラインで遊べる PWA（ホーム画面に追加）、色覚サポート・動きを減らす・効果音オフ時の画面通知・低スペック向け画質
+**プレイ:** https://successor.bearko.games
 
-ゲームデザインは [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)、本格開発のロードマップは [docs/ROADMAP.md](docs/ROADMAP.md)、変更履歴は [CHANGELOG.md](CHANGELOG.md) を参照してください。
+## ゲームの概要
 
-**プレイ:** https://workshop.bearko.games （v1.0.0）
+最初の目標（フェーズ 1「新天地で実績を上げろ」）は、同じランドセクタで物販をしている同業他社 4 社を月の売上で抜いてエリア 1 位になり、2 か月続けて守る（制覇）ことです。
 
-## 遊び方
+- **工房と店**：素材を調達 → 工房でヒーローの職人がクラフト → 工房の倉庫からお店へ運搬 → 棚に陳列 → お客さんが購入、というサプライチェーンを一通り回します。商品は MCH のエクステンション 17 シリーズ。建物は道路に面した空き地に、入口を道路へ向けて建てます
+- **従業員**：MCH のヒーローを雇い、HP・PHY・INT・AGI の適性を見てクラフト・運搬・販売に配置します
+- **スキルツリー**：本社から 9 本の枝（調達・技・製造・物流・発掘・システム・販売・経営・人材）がのびる研究パネル。効き目はすべて数字で、詰まっている所に合わせて選びます。内側が Common、外周が Uncommon から上のパネルです
+- **発掘**：国から発掘許可をもらって荒れ地を掘ると、栄えていた頃の Lime の遺物（エクステンション）が出ます。研究ポイント・研究ノート・復刻品（新商品）・研究成果の発表、掘りきった荒れ地の復興とダンジョン、遺物の展示館
+- **ランドセクタへの進出**：関所を開けてとなりのセクタへ。Common の 2 つの町で発表すると Uncommon の調査依頼状がもらえ、Common → Uncommon とランクが上がります
+- **災害と復興**：ランクアップのときの災害で町が被災します。手で直すか、ヒーローに任せて復興させます
+- マインちゃんの会話つきチュートリアル、日本語 / English、オフラインで遊べる PWA（ホーム画面に追加）
 
-| 操作 | 効果 |
-| --- | --- |
-| ホーム画面 | 起動するとホーム画面。「プレイする」「設定」「ランキング」「終了する」、左下の「リセット」（セーブデータを消して Day 1 から。設定とランキングの参加情報は残る） |
-| 生産ライン（魔法の壺・鍛冶炉・カプセル、または進捗リング）をクリック | クラフトが進む |
-| 生産ラインを長押し | オーバークロック（×3 速）。熱ゲージが満タンになると数秒止まる |
-| レジ（クリスくん）をクリック | 先頭の客の会計が進む |
-| 赤く光るヒーローをクリック | 泥棒を捕まえて懸賞金を得る。盗まれた品も戻る。入口・天井・窓・煙など、ヒーローごとに現れ方が違い、何回かタップが必要な泥棒もいる |
-| 工房を跳ね回るエネミーをクリック | 追い払う（いる間はクラフト速度が落ちる。日が進むと同時に複数出る） |
-| 店のエネミー・宝箱・泥・コインをクリック | 退治する / 開ける / 掃除する / 拾う |
-| 商人・MAI・改心した泥棒 | 店内に吹き出し付きで現れる（営業は続く）。タップすると話を聞いて選択肢から選べる（その間は営業が止まる。「あとで決める」も可）。20 秒放っておくと既定の返事をして帰る |
-| レイド（2 周目から） | オレンジに光る黒髭海賊団を 2 回ずつタップ。全員捕まえるとエンブレム |
-| ランド移転（クリア後） | スキルツリーの「ランド移転」ボタンまたはメニューから。移転先を選んで 2 回押す |
-| キーボード（営業中） | Space で壺をタップ（押し続けるとオーバークロック）、Enter でレジ、Esc でメニュー |
-| 右下の「💬 チャットを表示する / 非表示にする」 | bearko.games の全体チャット（SDK が読めたときだけ）。PC など横長の画面では店の下にタイムライン、スマホでは 💬。非表示にすると店が右の列いっぱいに |
-| 右下の「スキルツリー」/「ショップへ」 | ショップとスキルツリーをいつでも行き来（営業中にスキルツリーを開くと時間が止まり、習得したスキルは戻るとすぐ反映） |
-| 開店前のショップの「開店する」 | その日の営業を始める（閉店後の結果画面からショップに戻ると表示）。カードにはその日の天気、注文、デイリー依頼が並ぶ |
-| ⏱ RTA で始める（ホーム） | bearko.games の RTA「Workshop 黄金のエクステンション」。セーブを消して Day 1 から、開店で計測が始まり、黄金のエクステンションでゴール（区切りは Epic・Legendary）。bearko.games の SDK が読めたときだけ出る |
-| 🏆 ランキング（メニュー・一時停止・スキルツリー） | ニックネームで参加すると、営業日が終わるたびに成績が送られ、世界のプレイヤーと順位を競える（部門は下記） |
-| スキルツリー | ノードを選んで習得（GUM・ゴールドダスト・研究ポイント・エンブレム・Cp）。「安い順にまとめて習得」はチェックを外したポイントを使わない。ドラッグで移動、ホイールまたはピンチで拡大縮小（⤢ でツリー全体を表示）。金の枠に宝石が付いたノードはスタッフ・アイテム・設備など新しい要素を加えるもの。下端のバーはまだ強化できるノードの進み具合、金色の「MAX」は最大まで強化済み。魔石の投入先もここで選ぶ |
-
-営業中は画面全体が工房と店舗になり、所持GUM・残り時間・本日の売上は右上に重ねて表示されます。スマホなど縦長の画面では上に工房・下に店舗、PC など横長の画面（幅が高さの 1.3 倍以上）では左に工房・右に店舗を並べて画面いっぱいに表示します。
-左上の歯車アイコンで一時停止し、BGM / 効果音の音量（0〜100%、5% 刻みの 20 段階。0 で OFF）、本日の成績、デイリー依頼と注文、できごとの履歴、図鑑を確認できます。「ホームへ」でホーム画面に戻ります（営業は止まったまま、「プレイする」で続きから）。
-
-### ランキング
-
-参加は任意です。ニックネームを登録するまでは何も送信されません（「参加をやめる」で記録はサーバーから削除）。
-
-| 部門 | 順位の決め方 |
-| --- | --- |
-| 最速クリア | 1 周目、Day 1 から黄金のエクステンションまでの営業時間（短いほど上位） |
-| 最速クリア（周回込み） | ランド移転後の周回も含めた、1 周のクリアまでの最短営業時間 |
-| 序盤ダッシュ | 1 周目の Day 30 終了までの累計売上 |
-| 累計売上 | 全周回の累計売上（長く遊ぶほど伸びる） |
-| 最高日商 | 1 日の売上の自己ベスト |
-| 今日の日商 / 今週の日商 | その日（UTC）・その週（UTC、月曜始まり）に遊んだ営業日の 1 日の売上の最高 |
-
-Google でログインすると（任意・サーバーで設定した場合）、別の端末でも同じ記録を続けられ、名前に ✓ が付きます。
-その記録はログインした端末からしか更新できなくなります。サーバーに保存するのは Google のアカウント番号だけで、
-メールアドレスや本名は送られません。
-
-各部門は自分のベスト記録で並びます（悪い記録を送っても上書きされません）。営業時間は営業中の時間で、スキルツリーやメニューを開いている間は数えません。
-
-進行は `localStorage` に自動保存されます。メニューからセーブコードやファイル（`.mcwsave`）で別の端末に引き継げます。
-
-メニューでは言語（日本語 / English）、画質（自動 / 高 / 低）、色覚サポート（レア度を見分けやすい色と C/U/R/E/L の文字）、
-動きを減らす（紙吹雪やアニメーションを止める。OS の設定に追従）、できごとの画面表示（効果音オフ時は常に表示）を切り替えられます。
+ゲームの仕様は [docs/ISLAND_PHASE1.md](docs/ISLAND_PHASE1.md)、変更履歴は [CHANGELOG.md](CHANGELOG.md) にあります。
 
 ## 開発
 
 素材は [bearko/mycryptoheroes](https://github.com/bearko/mycryptoheroes) を Git サブモジュールとして参照しています。
 
 ```bash
-git clone --recurse-submodules https://github.com/bearko/MyCryptoWorkshop.git
-cd MyCryptoWorkshop
-npm install
+git clone https://github.com/bearko/MyCryptoSuccessor.git
+cd MyCryptoSuccessor
+git submodule update --init
+npm ci
 npm run dev      # http://localhost:5173
 ```
 
-既存のクローンでは `git submodule update --init` を実行してください。
-素材DBを別の場所に置いている場合は `MCH_ASSETS_DIR=/path/to/mycryptoheroes npm run dev` で指定できます。
+素材 DB を別の場所に置いている場合は `MCH_ASSETS_DIR=/path/to/mycryptoheroes npm run dev` で指定できます。
 
 | コマンド | 内容 |
 | --- | --- |
 | `npm run dev` | 開発サーバー（起動前に素材を同期） |
 | `npm run build` | 型チェック＋本番ビルド（`dist/`） |
-| `npm test` | ロジックのテストとバランスのスモークテスト |
+| `npm run preview` | ビルドした `dist/` を手元で開く |
+| `npm test` | テスト（Vitest） |
+| `npm run typecheck` | 型チェックだけ |
+| `npm run i18n:check` | 英訳のない日本語の文字列を検出（画面の文字は `t(ja, en)`） |
+| `npm run island:audit` | 投資の効き目の監査（`docs/ISLAND_AUDIT.md` を書き直す） |
+| `npm run island:sim` | 自動プレイで進み方を計測（`docs/ISLAND_BALANCE.md` を書き直す。数分かかる） |
+| `npm run pixel:lint` | スクリプトで描くドット絵の自動検査（`docs/pixel-rules.md`） |
 | `npm run sync-assets` | 素材の同期だけを実行 |
-| `node scripts/tree-grid.mjs` | スキルツリーのノード配置を文字で表示（新しいノードの置き場所を探す用） |
-| `npm run package` | ビルドして itch.io などにアップロードする zip を `release/` に作成 |
-| `npm run i18n:check` | 英訳のない日本語の文字列を検出 |
-| `npm run balance` | 自動プレイで進行ペースを計測し、`reports/balance-*.csv` と目標との比較表を出力（`-- 日数 シード` で指定可。`-- 日数 シード 周回数` で周回ごとのクリア時間、`BALANCE_PLAYERS=active` でプレイヤーを限定） |
 
-開発サーバーでは `G` キーで +10,000 GUM、`E` キーでその日の営業を終了、`T` キーで泥棒を出現させ、`R` キーでレイドを起こせます（本番ビルドでは無効）。
+URL に `?test=2` を付けて開くと、メニューの「システム → テスト」（資金の追加・1 か月進めるなど）が出ます。
 
 ### 素材の取り込み
 
-`scripts/sync-assets.mjs` が素材DBから次のものを生成します（いずれも Git 管理外）。
+`scripts/sync-assets.mjs` が素材 DB から、ゲームで使うものだけを書き出します（いずれも Git 管理外）。
 
-- `src/generated/catalog.json` — 全シリーズ（Legacy / Modern、真シリーズ含む）、ヒーロー、エネミー、スタッフ、アイコン、音声のカタログ（日本語名と英語名）
-- `public/mch-atlas/*.png` — 64px のドット絵（エクステンション・ヒーロー・エネミー）をまとめたスプライトシート。画像は `#ext-0/37` のようにシート名とセル番号で参照します
-- `public/mch/**` — それ以外の画像・音声（工房背景、立ち絵、アイコン、BGM/SE）
+- `src/generated/catalog.json` — エクステンションの全シリーズとヒーローのカタログ（日本語名と英語名）、BGM
+- `public/mch-atlas/*.png` — 64px のドット絵（エクステンション・ヒーロー）をまとめたスプライトシート。`#ext-0/37` のようにシート名とセル番号で参照します
+- `public/mch/**` — それ以外の画像・音声（マインちゃんの立ち絵、工房の背景、アイコン、ランドセクタの絵、BGM/SE）
 - `public/icons/icon-{192,512}.png` — ホーム画面用のアイコン（GUM コインを拡大）
 
-ゲームで使うシリーズ・泥棒役・エネミーは [`src/game/content.json`](src/game/content.json) で指定します。
-ここに挙げたものはスプライトシートの先頭にまとめられるので、最初の読み込みはシート数枚で済みます。
+アイランドの建物・地面・演出の絵は `public/island/`（PixelLab で生成したもの・`scripts/island/` のスクリプトで描いたもの）にあります。
+まだ仮の絵のものは [docs/ISLAND_ART_TODO.md](docs/ISLAND_ART_TODO.md) にまとめています。
 
 ### ディレクトリ構成
 
 ```
 src/
-  game/        ゲームロジック（DOM非依存・テスト可能）
-    catalog.ts   生成カタログの型付け
-    content.json 使うシリーズ・系統・泥棒・エネミーの指定
-    items.ts     商品コード（エディション）と基本価格
-    lines.ts     生産ラインと魔石
-    staff.ts     スタッフの職（雇うヒーローは content.json）
-    currency.ts  GUM・ゴールドダスト・研究ポイント
-    conditions.ts 営業日の状態（天候・市場の日・ランドの日）
-    skills4.ts   Phase 4 のノード（清掃係・イベント対策・客層・乗り物）
-    skills5.ts   Phase 5 のノード（シリーズ表・注文・名誉・クリア）
-    heroes.ts    ヒーロー図鑑・好感度・コンプリート報酬
-    orders.ts    注文（ゆかりの品）
-    achievements.ts 実績とデイリー依頼
-    skillsEn.ts  手書きノードの英語名・説明
-    prestige.ts  ランド移転（周回・Cp・名声・周回の記録）
-    titles.ts    称号（ランドごとの 6 段階・クリプタイドの強化・MCH Verse Pass）
-    blessings.ts クリプタイドの加護（移転先ごとの永続ボーナス）
-    skills6.ts   Phase 6 のノード（移転ブランチ・寄付係）
-    party.ts     英雄の酒場: スカウトできるヒーロー、教えるレシピ、スキルとシナジー
-    skills7.ts   英雄ブランチのノード（酒場・広間・パーティ枠・スカウト）
-    skills3.ts   Phase 3 のノード（スタッフ・設備・研究）
-    effects.ts   スキル効果の定義（データ）
-    skills.ts    スキルツリーのノード定義
-    stats.ts     ノードレベル → 能力値、価格・レアリティ計算
-    shop/        1日分の営業シミュレーション（生産・在庫・分解炉・客・レジ・泥棒・エネミー・スタッフ・マーケット・
-                 床のイベント hazards・来訪者 visitors・選択イベント decisions・レイド raid・パーティ party）
-    balance/     自動プレイとペース目標（npm run balance）
-    layout.ts    シーン座標
-    purchase.ts  習得と番頭（自動習得）
-    save.ts      セーブデータ（バージョン移行・引き継ぎコード）
-  render/      Canvas 描画（店頭・キャラクター・演出）
-  ui/          DOM UI（スキルツリー、図鑑、移転・統計、チュートリアル、カットイン、紙吹雪、共通ヘルパー）
+  island/      ゲーム本体（main.ts が入口。p1/ がフェーズ 1、free.ts は自由建築の試作）
+  game/        カタログの型付け（catalog.ts・content.json）と数の書式（format.ts）
+  render/      カタログの絵の読み込み（images.ts）
+  ui/          DOM の小さな共通部品（dom.ts）
   i18n.ts      言語（日本語 / English）と t(ja, en)
-  audio.ts     BGM / SE
-  net/         ランキングサーバーとの通信（leaderboard.ts）
-  main.ts      画面遷移とゲームループ
-api/           ランキング API（leaderboard.ts。Upstash Redis に保存。Worker と開発サーバーが共有）
-worker/        Cloudflare Workers の入口（index.ts: /api/leaderboard は API、それ以外は dist/）
+  audio.ts     BGM
+scripts/       素材の同期・PWA の Service Worker の雛形・各チェック・アイランドの絵と音を作るスクリプト
 tests/         Vitest
-docs/          ゲームデザインドキュメント
+docs/          ゲームの仕様と設計メモ
 ```
 
-### デプロイ（Cloudflare Workers）
+### 公開（Cloudflare Workers）
 
-本番は **https://workshop.bearko.games** で、Cloudflare Workers が配信しています（`wrangler.jsonc`・`worker/index.ts`）。
+本番は **https://successor.bearko.games** で、Cloudflare Workers の静的アセットとして配信します（`wrangler.jsonc`）。
 
-- 本番のブランチは `claude/mycryptoheroes-craft-game-vsfplv`。PR をここにマージすると、Cloudflare の Workers Builds が
-  `npm run build` で `dist/` を作って公開します。ほかのブランチはプレビューとしてビルドされます（`wrangler.jsonc` の
-  空の `previews` により、プレビューには本番の変数・シークレットがつながりません）
-- `/api/*` だけ Worker のコードが動き（`run_worker_first`）、それ以外は `dist/` をそのまま返します。キャッシュの指定は `public/_headers`
-- PR では GitHub Actions（`.github/workflows/ci.yml`）が `npm test`・`npm run typecheck`・`npm run i18n:check`・`npm run build` を回します
-- ビルド（`dist/`）は相対パスなので、ほかの静的ホスティング・サブフォルダでも動きます。`dist/sw.js`（Service Worker）が
-  オフライン用のキャッシュを担当します（起動に必要なファイルはインストール時、BGM などは初回再生時）
-- リンクを投稿したときのサムネイル（OGP・X のカード）は `public/og-image.jpg`（1200×630）。画像の URL は Workers Builds
-  では `https://workshop.bearko.games/` が入ります。ほかのドメインで配信するときは、環境変数 `SITE_URL=https://<ドメイン>` を
-  設定してビルドしてください
-- **itch.io**: `npm run package` で `release/mycryptoworkshop-web-<version>.zip` を作り、「HTML」プロジェクトとして
-  アップロードして「This file will be played in the browser」にチェック。推奨ビューポートは 1280×800（スマホは縦画面も可）。
-  ランキングを使う場合は、本番の API を指定してビルドします:
-  `VITE_LEADERBOARD_URL=https://workshop.bearko.games/api/leaderboard npm run package`
-
-### ランキングサーバー（Cloudflare Workers + Upstash Redis）
-
-ランキングは `api/leaderboard.ts` の API を Worker（`worker/index.ts`）が動かし、Upstash Redis に保存します。設定するまでゲームは
-「ランキングサーバーはまだ準備中です」と表示するだけで、ほかの機能には影響しません。
-
-1. [Upstash](https://upstash.com/) で Redis のデータベースを作る（無料枠で始められます）。REST の URL とトークンを控える。
-2. Cloudflare のダッシュボード → Workers & Pages → `mycryptoworkshop` → Settings → **Variables and Secrets** に、
-   `UPSTASH_REDIS_REST_URL` と `UPSTASH_REDIS_REST_TOKEN`（シークレット）を設定する（`KV_REST_API_URL` / `KV_REST_API_TOKEN` の名前でも可）。
-3. （任意）シークレット `LEADERBOARD_ADMIN_TOKEN` に長いランダムな文字列を設定する（不正な記録の削除用）。
-4. デプロイし直し、`https://workshop.bearko.games/api/leaderboard?board=total` が JSON を返すことを確認する
-   （`{"error":"not_configured"}` なら変数が入っていません）。
-
-`npm run dev` では同じ API がメモリ上のストアで動くので、Upstash なしで試せます（再起動で消えます）。
-
-bearko.games 共通基盤の総合スコア・アチーブメント（旧トロフィー）・RTA は、このランキングとは別に共通基盤へ送っています（[docs/platform-score.md](docs/platform-score.md)）。
-
-#### Google ログイン（任意）
-
-1. [Google Cloud Console](https://console.cloud.google.com/) でプロジェクトを作り、「API とサービス」→「OAuth 同意画面」を
-   設定する（ユーザーの種類は「外部」、アプリ名とサポートメールを入力し、公開ステータスを「本番環境」にする。
-   使うのはログインの基本情報だけなので、Google の審査は不要です）。
-2. 「認証情報」→「認証情報を作成」→「OAuth クライアント ID」→ 種類「ウェブ アプリケーション」。
-   「承認済みの JavaScript 生成元」に `https://workshop.bearko.games` を追加する（`npm run dev` で試すなら
-   `http://localhost:5173` も）。リダイレクト URI は不要です。
-3. 作成された **クライアント ID**（`….apps.googleusercontent.com`）を Worker の変数 `GOOGLE_CLIENT_ID` に設定して
-   再デプロイする。クライアントシークレットは使いません。ゲーム側はサーバーからクライアント ID を受け取るので、
-   ビルドのやり直しは不要です。
-4. （任意）`LEADERBOARD_REQUIRE_GOOGLE=1` にすると、Google でログインしたプレイヤーだけが参加できます。
-
-ローカルで試すときは `GOOGLE_CLIENT_ID=… npm run dev`。itch.io 版でログインを使うには、ゲームが表示される
-`https://html-classic.itch.zone` も承認済みの生成元に追加してください（iframe 内の動作は環境によります）。
-
-**不正対策について**: ブラウザゲームは送られてくる数値を完全には検証できません。サーバーでは、値の範囲と整合性
-（最高日商 ≤ 累計売上、クリア時間 ≥ 15 分かつ営業時間以内など）、送信間隔（1 人 10 秒・1 アドレス毎分 60 回）、
-ニックネームの禁止語を確認します。Google でログインしたプレイヤーの記録は、ログインした端末の鍵がないと更新・削除できません。怪しい記録は管理用トークンで削除・送信禁止にできます:
-
-```sh
-# プレイヤー ID つきで一覧を見る
-curl -H "Authorization: Bearer $TOKEN" "https://workshop.bearko.games/api/leaderboard?board=total&admin=1"
-# 記録を削除して、以後の送信を禁止する
-curl -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"id":"<プレイヤー ID>","ban":true}' "https://workshop.bearko.games/api/leaderboard"
-```
+- 本番のブランチは `main`。Workers Builds が `npm run build` で `dist/` を作り、`npx wrangler deploy` で公開します。ほかのブランチはプレビューとしてビルドされます
+- キャッシュの指定は `public/_headers`。`dist/sw.js`（Service Worker）がオフライン用のキャッシュを担当します
+- リンクを投稿したときのサムネイル（OGP・X のカード）は `public/og-image.jpg`（1200×630）。画像の URL は Workers Builds では `https://successor.bearko.games/` が入ります。ほかのドメインで配信するときは、環境変数 `SITE_URL=https://<ドメイン>` を設定してビルドしてください
+- PR では GitHub Actions（`.github/workflows/ci.yml`）が `npm test`・`npm run pixel:lint`・`npm run typecheck`・`npm run i18n:check`・`npm run build` を回します
 
 ## 素材とクレジット
 
-- ヒーロー、エクステンション、エネミー、背景、アイコン、BGM/SE: My Crypto Heroes（© MCH Co.,Ltd.）。
+- ヒーロー、エクステンション、背景、アイコン、ランドセクタの絵、BGM/SE: My Crypto Heroes（© MCH Co.,Ltd.）。
   [bearko/mycryptoheroes](https://github.com/bearko/mycryptoheroes) に整理されたものを使用しています。
-- クリスくん／マインちゃん ドット絵：こじもこ、マイクリくん 原画：こはる／ドット絵：こじもこ。
-- 紙吹雪（`src/ui/confetti.ts`）とカットイン（`style.css` の `.mch-passive-cutin*`）は、同リポジトリの
-  金宝箱演出・カットイン CSS（MIT License, © 2026 bearko）を移植・改変したものです。
+- マインちゃん ドット絵：こじもこ。
 
-ソースコードと文書は [MIT License](LICENSE) です。マイクリの素材（画像・音声）とクリスくん・マインちゃん・マイクリくんのドット絵は対象外です。
+ソースコードと文書は [MIT License](LICENSE) です。マイクリの素材（画像・音声）とマインちゃんのドット絵は対象外です。
 
 本作は非公式の二次創作です。マイクリ画像の利用は [MCH デザインガイドライン](https://medium.com/mycryptoheroes/mch-design-guideline-ja-99ff0970ccdc) に従い、
 非営利の範囲に限ります。営利目的での利用（有償販売など）は事前に MCH Co.,Ltd. への連絡が必要です。

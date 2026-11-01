@@ -28,5 +28,5 @@ export const PAL = {
 /** パレットのすべての色（検査に使う） */
 export const PALETTE = new Set([OUTLINE, SKIN, ...Object.values(PAL).flat()].map(key));
 
-/** 区画の縁の色（持ち主）。地図の描画（src/render/map）と同じ値 */
+/** 区画の縁の色（持ち主） */
 export const OWNER_EDGE = { ours: PAL.ours[1], rival: PAL.rival[1], neutral: PAL.neutral[1] };

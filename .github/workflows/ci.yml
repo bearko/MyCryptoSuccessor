@@ -4,9 +4,9 @@ name: CI
 # 公開は Cloudflare Workers Builds が本番のブランチへのマージで行う（ここではしない）。
 on:
   pull_request:
-    branches: [claude/mycryptoheroes-craft-game-vsfplv]
+    branches: [main]
   push:
-    branches: [claude/mycryptoheroes-craft-game-vsfplv]
+    branches: [main]
   workflow_dispatch:
 
 permissions:

@@ -1,4 +1,4 @@
-// エクステンションにない物の絵（docs/design.md 4 章）。64px のマスが基準、光源は左上。
+// エクステンションにない物の絵（docs/pixel-rules.md）。64px のマスが基準、光源は左上。
 // 地形（kind: tile）は背景として輪郭線なし・低コントラスト。建物や車（kind: fg）はほぼ黒の外郭線。
 import { Canvas, outlined } from './core.mjs';
 import { OUTLINE, PAL, SKIN } from './palette.mjs';
