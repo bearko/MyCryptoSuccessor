@@ -17,7 +17,7 @@ My Crypto Heroes の世界のランド「はじまりの国 Lime」で、工房�
 - **災害と復興**：ランクアップのときの災害で町が被災します。手で直すか、ヒーローに任せて復興させます
 - マインちゃんの会話つきチュートリアル、日本語 / English、オフラインで遊べる PWA（ホーム画面に追加）
 
-ゲームの仕様は [docs/ISLAND_PHASE1.md](docs/ISLAND_PHASE1.md)、変更履歴は [CHANGELOG.md](CHANGELOG.md) にあります。
+ゲームの全体像は [docs/SUCCESSOR_VISION.md](docs/SUCCESSOR_VISION.md)、ロードマップは [docs/SUCCESSOR_ROADMAP.md](docs/SUCCESSOR_ROADMAP.md)、ゲームの仕様は [docs/ISLAND_PHASE1.md](docs/ISLAND_PHASE1.md)、変更履歴は [CHANGELOG.md](CHANGELOG.md) にあります。
 
 ## 開発
 
