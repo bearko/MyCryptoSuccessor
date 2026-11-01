@@ -313,32 +313,69 @@ export const edgeEnd = (id: string | null, g: string) => (id ? POS.get(id)! : ro
  */
 export const rimDist = (ux: number, uy: number, r = PANEL / 2) => r / Math.max(1e-6, Math.abs(ux) + Math.abs(uy));
 /**
- * 線が、ほかのパネルの上を横切るときは、ゆるい弧にする（曲げる量。単位：UNIT。正は進む向きの左）。
- * 横切るパネルが無ければ 0。どちらに曲げても横切るなら、横切るパネルが少ない側
+ * 線の曲げ方（どれも 3 次ベジェで描く。制御点は線を 3 等分した点から横へずらす。線の向きには進むだけなので、弧が線の上で折り返さない）。
+ * - 数 m：左右対称のゆるい弧（2 次ベジェの制御点を真ん中から横へ m×2 と同じ。いちばん膨らむ所で線から m。正は進む向きの左。0 はまっすぐ）
+ * - { h1, h2 }：根もと側・先側の制御点を、それぞれ横へ h1・h2 ずらした弧（左右で膨らみが違う弧や、ゆるい S 字）。
+ *   左右対称の弧ではどう曲げてもほかのパネルを横切る線だけ、パネルのすき間を縫うのに使う
  */
-export function edgeBend(a: { x: number; y: number }, b: { x: number; y: number }, skip: (id: string) => boolean): number {
-  // 近くのパネルだけ調べる（弧が膨らむぶん＋ひし形の半分の外は見ない）
-  const pad = 1.6 + PANEL;
+export type Bend = number | { h1: number; h2: number };
+/** 曲げの大きさの上限（弧が、まっすぐな線からいちばん離れる所の距離。単位：UNIT） */
+export const BEND_MAX = 1.6;
+/** 線とパネルのすき間：ひし形（L1 の半径 PANEL / 2）のまわりに、この余白を足した形を横切らない */
+export const EDGE_CLEAR = 0.06;
+/** 弧の横のずれ（線からの距離。t は 0〜1） */
+const sideAt = (h1: number, h2: number, t: number) => 3 * (1 - t) * t * ((1 - t) * h1 + t * h2);
+/** 弧が、まっすぐな線からいちばん離れる所の距離 */
+export const bendSize = (m: Bend) => {
+  if (typeof m === 'number') return Math.abs(m);
+  let d = 0;
+  for (let i = 1; i < 40; i++) d = Math.max(d, Math.abs(sideAt(m.h1, m.h2, i / 40)));
+  return d;
+};
+/** 左右で違う弧の候補（膨らみの小さい順。同じなら左右の差の小さい順）。左右対称の弧（h1 = h2）は先に試すので除く */
+const TWO: { h1: number; h2: number }[] = [];
+for (let i = -12; i <= 12; i++) for (let j = -12; j <= 12; j++) if (i !== j) TWO.push({ h1: i / 5, h2: j / 5 });
+const TWO_OK = TWO.map((m) => ({ m, d: bendSize(m) }))
+  .filter((x) => x.d <= BEND_MAX + 1e-9)
+  .sort((x, y) => x.d - y.d || Math.abs(x.m.h1 - x.m.h2) - Math.abs(y.m.h1 - y.m.h2))
+  .map((x) => x.m);
+/**
+ * 線が、ほかのパネルの上を横切るときは、ゆるい弧にする（曲げ方。横切るパネルが無ければ 0）。
+ * 1. 左右対称の弧：曲げる量を 0.1 刻みで左右交互に試し、横切るパネルが 0 になる最小の曲げ。
+ * 2. それでも横切るなら、左右で膨らみの違う弧（TWO_OK）を膨らみの小さい順に試し、横切るパネルが 0 になる最初のもの。
+ * どれでも横切るなら、左右対称の弧のうち横切るパネルがいちばん少ないもの（テストで 0 本を確かめる）
+ */
+export function edgeBend(a: { x: number; y: number }, b: { x: number; y: number }, skip: (id: string) => boolean): Bend {
+  // 近くのパネルだけ調べる（弧は線から BEND_MAX より離れない。その外＋ひし形の半分は見ない）
+  const pad = BEND_MAX + PANEL;
   const near = [...POS].filter(([id, p]) => !skip(id) && p.x > Math.min(a.x, b.x) - pad && p.x < Math.max(a.x, b.x) + pad && p.y > Math.min(a.y, b.y) - pad && p.y < Math.max(a.y, b.y) + pad);
-  const hits = (bend: number) => near.filter(([, p]) => curveNear(a, b, bend, p, PANEL / 2 + 0.06)).length;
+  // 判定はテスト（折れ線にして 120 区間）よりほんの少し広い余白で（細かさの違いで、かすめる線を見落とさない）
+  const r = PANEL / 2 + EDGE_CLEAR + 0.005;
+  const hits = (m: Bend) => {
+    const pts = curvePoly(a, b, m);
+    return near.filter(([, p]) => polyNear(pts, p, r)).length;
+  };
   let bestN = hits(0);
   if (!bestN) return 0;
-  // 小さい曲げから順に（同じ数なら曲げの小さいほう）。左右を交互に
-  let best = 0;
-  for (let k = 1; k <= 16 && bestN; k++)
-    for (const m of [k * 0.1, -k * 0.1]) {
+  let best: Bend = 0;
+  for (let k = 1; k <= BEND_MAX * 10 + 1e-9; k++)
+    for (const m of [k / 10, -k / 10]) {
       const n = hits(m);
+      if (!n) return m;
       if (n < bestN) {
         best = m;
         bestN = n;
-        if (!n) break;
       }
     }
-  return Math.round(best * 10) / 10;
+  for (const m of TWO_OK) {
+    const pts = curvePoly(a, b, m);
+    if (!near.some(([, p]) => polyNear(pts, p, r))) return m;
+  }
+  return best;
 }
-let bends: Map<TreeEdge, number> | null = null;
+let bends: Map<TreeEdge, Bend> | null = null;
 /** どの線をどれだけ曲げるか（配置は変わらないので、はじめて使うときに 1 回だけ数える） */
-export function edgeBends(): Map<TreeEdge, number> {
+export function edgeBends(): Map<TreeEdge, Bend> {
   if (bends) return bends;
   bends = new Map();
   for (const e of EDGES) {
@@ -347,23 +384,71 @@ export function edgeBends(): Map<TreeEdge, number> {
   }
   return bends;
 }
-/** 弧（2 次ベジェ。制御点は真ん中から横へ bend×2）の上の点 */
-export function curveAt(a: { x: number; y: number }, b: { x: number; y: number }, bend: number, t: number) {
+/** 弧の 2 つの制御点（3 次ベジェ）。左右対称の弧 m は、h1 = h2 = m × 4/3（2 次ベジェの制御点を真ん中から横へ m×2 と同じ形） */
+export function curveCtrl(a: { x: number; y: number }, b: { x: number; y: number }, m: Bend) {
+  const h1 = typeof m === 'number' ? (m * 4) / 3 : m.h1;
+  const h2 = typeof m === 'number' ? (m * 4) / 3 : m.h2;
   const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
   const nx = -(b.y - a.y) / len;
   const ny = (b.x - a.x) / len;
-  const cx = (a.x + b.x) / 2 + nx * bend * 2;
-  const cy = (a.y + b.y) / 2 + ny * bend * 2;
-  const u = 1 - t;
-  return { x: u * u * a.x + 2 * u * t * cx + t * t * b.x, y: u * u * a.y + 2 * u * t * cy + t * t * b.y, cx, cy };
+  return {
+    c1: { x: a.x + (b.x - a.x) / 3 + nx * h1, y: a.y + (b.y - a.y) / 3 + ny * h1 },
+    c2: { x: b.x - (b.x - a.x) / 3 + nx * h2, y: b.y - (b.y - a.y) / 3 + ny * h2 },
+  };
 }
-/** 弧が、点 p のひし形（L1 の半径 r）に入るか */
-export function curveNear(a: { x: number; y: number }, b: { x: number; y: number }, bend: number, p: { x: number; y: number }, r: number) {
-  for (let i = 1; i < 60; i++) {
-    const q = curveAt(a, b, bend, i / 60);
-    if (Math.abs(q.x - p.x) + Math.abs(q.y - p.y) < r) return true;
+/** 弧の上の点（t は 0〜1） */
+export function curveAt(a: { x: number; y: number }, b: { x: number; y: number }, m: Bend, t: number) {
+  const { c1, c2 } = curveCtrl(a, b, m);
+  const u = 1 - t;
+  const w0 = u * u * u;
+  const w1 = 3 * u * u * t;
+  const w2 = 3 * u * t * t;
+  const w3 = t * t * t;
+  return { x: w0 * a.x + w1 * c1.x + w2 * c2.x + w3 * b.x, y: w0 * a.y + w1 * c1.y + w2 * c2.y + w3 * b.y };
+}
+/** 弧の [t0, t1] の部分（3 次ベジェの 4 点。縁で切った線を描く） */
+export function curvePart(a: { x: number; y: number }, b: { x: number; y: number }, m: Bend, t0: number, t1: number) {
+  const { c1, c2 } = curveCtrl(a, b, m);
+  // blossom：P(u, v, w) = 3 次ベジェの極形式。部分の制御点は P(t0,t0,t0)・P(t0,t0,t1)・P(t0,t1,t1)・P(t1,t1,t1)
+  const P = (u: number, v: number, w: number) => {
+    const q = [a, c1, c2, b];
+    const lerp = (p: { x: number; y: number }, r: { x: number; y: number }, t: number) => ({ x: p.x + (r.x - p.x) * t, y: p.y + (r.y - p.y) * t });
+    const l1 = [lerp(q[0], q[1], u), lerp(q[1], q[2], u), lerp(q[2], q[3], u)];
+    const l2 = [lerp(l1[0], l1[1], v), lerp(l1[1], l1[2], v)];
+    return lerp(l2[0], l2[1], w);
+  };
+  return [P(t0, t0, t0), P(t0, t0, t1), P(t0, t1, t1), P(t1, t1, t1)];
+}
+/** 点 p と線分 q0–q1 の L1 の距離（L1 の距離は線分の上で凸の折れ線なので、両端と折れ目だけ調べる） */
+function l1Seg(p: { x: number; y: number }, q0: { x: number; y: number }, q1: { x: number; y: number }) {
+  const dx = q1.x - q0.x;
+  const dy = q1.y - q0.y;
+  let best = Math.min(Math.abs(q0.x - p.x) + Math.abs(q0.y - p.y), Math.abs(q1.x - p.x) + Math.abs(q1.y - p.y));
+  for (const t of [dx ? (p.x - q0.x) / dx : -1, dy ? (p.y - q0.y) / dy : -1]) if (t > 0 && t < 1) best = Math.min(best, Math.abs(q0.x + dx * t - p.x) + Math.abs(q0.y + dy * t - p.y));
+  return best;
+}
+/** 弧を 60 区間の折れ線に */
+function curvePoly(a: { x: number; y: number }, b: { x: number; y: number }, m: Bend) {
+  const { c1, c2 } = curveCtrl(a, b, m);
+  const pts = [a];
+  for (let i = 1; i <= 60; i++) {
+    const t = i / 60;
+    const u = 1 - t;
+    pts.push({ x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x, y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y });
+  }
+  return pts;
+}
+/** 折れ線が、点 p のひし形（L1 の半径 r）に入るか（区間ごとに。区間の箱から離れていれば調べない） */
+function polyNear(pts: { x: number; y: number }[], p: { x: number; y: number }, r: number) {
+  for (let i = 1; i < pts.length; i++) {
+    const q0 = pts[i - 1];
+    const q1 = pts[i];
+    if (p.x + r < Math.min(q0.x, q1.x) || p.x - r > Math.max(q0.x, q1.x) || p.y + r < Math.min(q0.y, q1.y) || p.y - r > Math.max(q0.y, q1.y)) continue;
+    if (l1Seg(p, q0, q1) < r) return true;
   }
   return false;
 }
+/** 弧が、点 p のひし形（L1 の半径 r）に入るか（弧を 60 区間の折れ線にして、区間ごとに調べる。点だけで調べると、ひし形の角をかすめる線を見落とす） */
+export const curveNear = (a: { x: number; y: number }, b: { x: number; y: number }, m: Bend, p: { x: number; y: number }, r: number) => polyNear(curvePoly(a, b, m), p, r);
 
 export const BOUNDS = [...POS.values()].reduce((b, p) => ({ x0: Math.min(b.x0, p.x), x1: Math.max(b.x1, p.x), y0: Math.min(b.y0, p.y), y1: Math.max(b.y1, p.y) }), { x0: 0, x1: 0, y0: 0, y1: 0 });

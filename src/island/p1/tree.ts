@@ -19,7 +19,7 @@ import { deptLevel, deptLockText, deptOpen } from './dept';
 import { affordableSkills, bestSkillMove, digBranchOpen, donate, donateLock, donations, has, hqOpen, infAt, learn, LEARNABLE, levelLock, levelUp, lvOf, nextDonateCost, nextLevelCost, nextLevelRp, openHQ, openRing, ringOpen, ringsDue, skillLock, skillTier, trainDays, trainingOf, trainees, type P1State } from './model';
 import { after, mineTip, open, type Ctx } from './screens';
 import { pickHero } from './heroui';
-import { BOUNDS, DEPT_LAYOUT, EDGES, GROUP_STAGE, HUBPOS, KNOTPOS, LABEL_A, OUTER, PANEL, POS, R0, RING_EDGE, RING_OUT, STEP, UNIT, curveAt, deptAngle, edgeBends, edgeEnd, groupOfBranch, polar, type Group, type TreeEdge } from './treelayout';
+import { BOUNDS, DEPT_LAYOUT, EDGES, GROUP_STAGE, HUBPOS, KNOTPOS, LABEL_A, OUTER, PANEL, POS, R0, RING_EDGE, RING_OUT, STEP, UNIT, curveAt, curvePart, deptAngle, edgeBends, edgeEnd, groupOfBranch, polar, type Bend, type Group, type TreeEdge } from './treelayout';
 import { bar, btn, h, heroIcon, heroName, matIcon, money, plain, rich, skuIcon } from './ui';
 
 /** ランドセクタの絵（はじまりの国 Lime） */
@@ -777,7 +777,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       }
     }
     /**
-     * つながりの線：親のひし形の縁から、子のひし形の縁まで（パネルの下に隠れない）。ほかのパネルを横切る線はゆるい弧（treelayout の edgeBends）。
+     * つながりの線：親のひし形の縁から、子のひし形の縁まで（パネルの下に隠れない）。ほかのパネルを横切る線はゆるい弧（treelayout の edgeBends。左右対称の弧で避けられない線は、左右で膨らみの違う弧）。
      * 状態：開いている（親を取った・子はまだ）＝実線・鍵（親がまだ）＝細い点線・取得済みどうし＝実線で光る・外周が閉じている＝薄い点線
      */
     const RIM = PANEL / 2 + 0.04;
@@ -785,7 +785,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
     /** つながりの線（パネルの id → その線）。選んだ・マウスを乗せたパネルのつながりを強調する */
     const edgeEls: { e: TreeEdge; el: SVGPathElement }[] = [];
     /** 中心 c のひし形の縁を越える t（from=0 から、または 1 から戻る） */
-    const exitT = (a: { x: number; y: number }, b: { x: number; y: number }, bend: number, c: { x: number; y: number }, fromEnd: boolean) => {
+    const exitT = (a: { x: number; y: number }, b: { x: number; y: number }, bend: Bend, c: { x: number; y: number }, fromEnd: boolean) => {
       const out = (t0: number) => {
         const q = curveAt(a, b, bend, t0);
         return Math.abs(q.x - c.x) + Math.abs(q.y - c.y) >= RIM;
@@ -818,14 +818,12 @@ export function openSkills(ctx: Ctx, focus?: string) {
         d = `M${A.x.toFixed(1)} ${A.y.toFixed(1)}L${B.x.toFixed(1)} ${B.y.toFixed(1)}`;
         len = Math.hypot(B.x - A.x, B.y - A.y);
       } else {
-        // [t0, t1] の部分の 2 次ベジェ：制御点は blossom（(1−t0)(1−t1)a + ((1−t0)t1 + t0(1−t1))c + t0·t1·b）
-        const c = curveAt(a, b, bend, 0);
-        const w0 = (1 - t0) * (1 - t1);
-        const w1 = (1 - t0) * t1 + t0 * (1 - t1);
-        const w2 = t0 * t1;
-        const C = px({ x: w0 * a.x + w1 * c.cx + w2 * b.x, y: w0 * a.y + w1 * c.cy + w2 * b.y });
-        d = `M${A.x.toFixed(1)} ${A.y.toFixed(1)}Q${C.x.toFixed(1)} ${C.y.toFixed(1)} ${B.x.toFixed(1)} ${B.y.toFixed(1)}`;
-        len = Math.hypot(C.x - A.x, C.y - A.y) + Math.hypot(B.x - C.x, B.y - C.y);
+        // [t0, t1] の部分の 3 次ベジェ（制御点は treelayout の curvePart）。長さ（線が伸びる演出）は制御点を結んだ折れ線で
+        const [, c1, c2] = curvePart(a, b, bend, t0, t1);
+        const C1 = px(c1);
+        const C2 = px(c2);
+        d = `M${A.x.toFixed(1)} ${A.y.toFixed(1)}C${C1.x.toFixed(1)} ${C1.y.toFixed(1)} ${C2.x.toFixed(1)} ${C2.y.toFixed(1)} ${B.x.toFixed(1)} ${B.y.toFixed(1)}`;
+        len = Math.hypot(C1.x - A.x, C1.y - A.y) + Math.hypot(C2.x - C1.x, C2.y - C1.y) + Math.hypot(B.x - C2.x, B.y - C2.y);
       }
       const l = document.createElementNS(NS, 'path');
       l.setAttribute('style', `--len:${len.toFixed(0)};--d:${delay(a)}`);
