@@ -129,6 +129,7 @@ import { sectorDef, sectorProfile } from './company';
 import { UNSELLABLE_TEXT, seriesTag } from './digview';
 import { bar, btn, extImage, fmt, h, heroIcon, heroName, matIcon, money, sheet, skuIcon, skuName, rich } from './ui';
 import { bomRow, extCard, extSlot, jobLabel, knownBar, lotsFromStock, needText, pickExt, pickHero, profitPerDay, radar, rankEl, slot, techNeed } from './heroui';
+import { rolesCard } from './delegui';
 
 export interface Ctx {
   s: () => P1State;
@@ -1323,6 +1324,11 @@ export function openStaff(ctx: Ctx) {
       shops.length ? shops.map((b) => slot(s, { label: DEF[b.id].name, task: 'shop', hero: s.shops[b.uid].staff, hot, onTap: put('shop', b.uid, t(`${DEF[b.id].name}の店員`, `Clerk for ${DEF[b.id].name}`), s.shops[b.uid].staff), onRemove: s.shops[b.uid].staff != null ? () => (assign(s, s.shops[b.uid].staff!, null), after(ctx)) : undefined })) : [h('p', 'isl-dim', t('お店が開いたら店員を置けます', 'Assign a clerk once a shop opens'))],
       t('お店で棚に並べて売る（適性：INT 重視）', 'Shelves and sells in a shop (mostly INT)'),
     );
+    // 役目（任せ方の 4 段。段 D）：リーダー・部長・セクター長の札。チュートリアルの 1 か月目は出さない（画面を変えない）
+    if (!ctx.step?.()) {
+      const rc = rolesCard(ctx, s);
+      if (rc) body.append(rc);
+    }
     // そのほかの仕事
     const others = s.staff.filter((x) => x.task === 'explore' || x.task === 'intel' || x.task === 'train');
     if (others.length) {

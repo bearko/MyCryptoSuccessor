@@ -143,7 +143,7 @@ describe('部門のお知らせ（トースト）', () => {
     const a = deptNews(s);
     expect(a).toHaveLength(1);
     expect(a[0]).toContain('物流の理解度が 3');
-    expect(a[0]).toContain('次の更新');
+    expect(a[0]).toContain('置けるようになった');
     expect(deptNews(s)).toEqual([]);
     // 新しく開いた部門（段 F ができて、Uncommon に出店した）
     s.tier = 'U';
@@ -156,7 +156,7 @@ describe('部門のお知らせ（トースト）', () => {
 
 describe('セーブ（版 11）', () => {
   it('新しいゲームは版 11。版 10 の古いセーブは、取ったパネル・レベルがそのまま版 11 になり、届いていた節目はまとめて出さない', () => {
-    expect(newP1(1).v).toBe(13);
+    expect(newP1(1).v).toBe(14);
     const s = newP1(2);
     s.skills = ['host', 'display', 'vmd', 'golden', 'jig', 'lounge', 'shift'];
     s.skillLv = { host: 5, jig: 3 };
@@ -165,7 +165,7 @@ describe('セーブ（版 11）', () => {
     delete o.flags.depts;
     delete o.flags.deptMarks;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(13);
+    expect(back.v).toBe(14);
     expect(back.skills).toEqual(s.skills);
     expect(back.skillLv).toEqual(s.skillLv);
     expect(deptLevel(back, 'logistics')).toBe(5 + 1 + 3);

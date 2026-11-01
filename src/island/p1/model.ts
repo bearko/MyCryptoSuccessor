@@ -110,6 +110,7 @@ import {
   type PromoItem,
 } from './data';
 import { addXp, baseStats, initGrowth, levelForXp, passiveMul, passiveSum, promoteStaff, syncGrowth, type LevelUp, type PromoErr } from './hero';
+import { delegDay, delegMonth, headFx, roleXp, sectorApprove, type DelegReport, type DelegState } from './deleg';
 
 export type Ground = 'grass' | 'road';
 export type Owner = 'me' | 'town' | string;
@@ -306,6 +307,8 @@ export interface Report {
    * 支援金の残り・尽きた・担当（任せていなければ null）
    */
   rebuild?: { id: string; fixed: number; all: number; plus: number; rev: number; fund: number; out: boolean; hero: number | null }[];
+  /** 担当の報告（任せ方の 4 段。段 D）：リーダー・部長の業務の出来・届いた提案・先月の提案の結果 */
+  deleg?: DelegReport;
 }
 
 export interface Flags {
@@ -384,7 +387,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14;
   kind: 'p1';
   seed: number;
   n: number;
@@ -545,6 +548,8 @@ export interface P1State {
   loop?: { n: number; found: number[]; tablets: string[] };
   /** ランクアップの災害の記録（起きた日・行き先のランク・徴収額・支度金・被災した建物の数（セクタごと）） */
   resets?: ResetRec[];
+  /** 任せ方の 4 段（段 D・版 14）：業務の見直しの日・今月の記録・部長の提案の受け箱・承認した提案・交代。役目そのものは Staff（task 'lead'）に。無ければまだ任せていない */
+  deleg?: DelegState;
 }
 
 /** ランクアップの災害 1 回の記録（演出・自動プレイの計測） */
@@ -685,7 +690,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 13,
+    v: 14,
     kind: 'p1',
     seed,
     n,
@@ -957,7 +962,9 @@ export const aptBonus = (s: P1State | undefined, task: Task) => (!s ? 0 : 3 * lv
 /** 適性（能力値 ＋ スキルで足すぶん） */
 export const aptOf = (s: P1State | undefined, st: Pick<Staff, 'stats'>, task: Task) => aptitude(st.stats, task) + aptBonus(s, task);
 /** 作業の速さ。s を渡すとスキルの適性（マニュアル整備・名工の作業台）も入る */
-export const speed = (st: Staff, task: Task, s?: P1State) => speedOf(aptOf(s, st, task)) * (1 + PAY.raiseSpeed * (st.lv ?? 0)) * passiveMul(st, task);
+/** 仕事の部門（事業部長の補正。段 D）：製造・運搬・調達・販売は物流、発掘は R&D、開拓・調査はマーケ */
+const TASK_DEPT: Partial<Record<Task, DeptId>> = { craft: 'logistics', transport: 'logistics', buy: 'logistics', shop: 'logistics', dig: 'rnd', explore: 'marketing', intel: 'marketing' };
+export const speed = (st: Staff, task: Task, s?: P1State) => speedOf(aptOf(s, st, task)) * (1 + PAY.raiseSpeed * (st.lv ?? 0)) * passiveMul(st, task) * (s && TASK_DEPT[task] ? 1 + headFx(s, TASK_DEPT[task]!) : 1);
 /** 休むと 1 日に戻るスタミナ（休憩室・福利厚生で +50% ずつ） */
 export const restRateOf = (s: P1State) => STAMINA.rest * (1 + 0.5 * lvMul(s, 'lounge') + 0.5 * lvMul(s, 'welfare') + fxSum(s, 'rest'));
 /**
@@ -973,7 +980,9 @@ export function drainOf(s: P1State, st: Pick<Staff, 'task'> & Partial<Pick<Staff
     cut(s, 'shift', 0.2) *
     fxCut(s, 'stamina') *
     // ヒーローのパッシブ（システム：手順の自動化）
-    Math.max(0.5, 1 - passiveSum(st, 'system'));
+    Math.max(0.5, 1 - passiveSum(st, 'system')) *
+    // システム部長の補正（段 D）
+    (1 - headFx(s, 'systems'));
   return STAMINA.work * easy;
 }
 /**
@@ -1065,7 +1074,7 @@ export function restDaysLeft(s: P1State, st: Staff): number {
  * ヒーローを付け替える（ヒーロー選びで、ほかの担当についている人を押したとき）：いまの担当から外せるか。
  * 修行中・セクタマネージャー・休憩中・待機中は付け替えない（docs/ISLAND_PHASE1.md「ヒーロー選びの見分け」）
  */
-export const canSwap = (st: Staff) => st.task != null && st.task !== 'train' && st.task !== 'manager' && !st.resting;
+export const canSwap = (st: Staff) => st.task != null && st.task !== 'train' && st.task !== 'manager' && st.task !== 'lead' && !st.resting;
 
 /**
  * 付け替えで元の場所が無人になって止まるか（確認の赤字「△△ は担当がいなくなり、止まります」）。
@@ -1855,7 +1864,7 @@ export function gainSkill(s: P1State, id: string) {
 }
 
 /** 修行に出せる職人（製造の適性が高い順。ほかのセクタのマネージャーと修行中の人を除く） */
-export const trainees = (s: P1State) => s.staff.filter((x) => x.task !== 'manager' && x.task !== 'train').sort((a, b) => aptitude(b.stats, 'craft') - aptitude(a.stats, 'craft'));
+export const trainees = (s: P1State) => s.staff.filter((x) => x.task !== 'manager' && x.task !== 'train' && x.task !== 'lead').sort((a, b) => aptitude(b.stats, 'craft') - aptitude(a.stats, 'craft'));
 /** その職人が技を身につけるまでの日数：train ×（1 − min(0.4, 製造の適性 / 250)） */
 export function trainDays(s: P1State, id: string, hero: number | Staff | null): number {
   const k = SKILL[id];
@@ -2199,7 +2208,7 @@ function pull(s: P1State, b: PBuilding, sh: ShopState, x: Sku, clerk: Clerk = 'n
  * POS レジ ×1.03・人流解析 ×1.05・ERP／基幹システム刷新（全段 +5%／+10%）
  */
 export const skillPull = (s: P1State) =>
-  (1 + 0.15 * lvMul(s, 'host')) * (1 + 0.25 * lvMul(s, 'b_sign')) * (1 + 0.2 * lvMul(s, 'concierge')) * (1 + 0.05 * lvMul(s, 'incentive')) * (1 + 0.03 * lvMul(s, 'pos')) * (1 + 0.05 * lvMul(s, 'flow')) * (1 + fxSum(s, 'pull')) * flowMul(s);
+  (1 + 0.15 * lvMul(s, 'host')) * (1 + 0.25 * lvMul(s, 'b_sign')) * (1 + 0.2 * lvMul(s, 'concierge')) * (1 + 0.05 * lvMul(s, 'incentive')) * (1 + 0.03 * lvMul(s, 'pos')) * (1 + 0.05 * lvMul(s, 'flow')) * (1 + fxSum(s, 'pull')) * flowMul(s) * (1 + headFx(s, 'marketing'));
 /** お店ごと・棚ごとのスキル：VMD（棚 2 つ以上）×1.1・ゴールデンゾーン（1 番目の棚）×1.12・名物店主（✨）×1.4 */
 export function shopPull(s: P1State, b: PBuilding, sh: ShopState | null, x?: Sku): number {
   const vmd = shelfCount(s, b) >= 2 ? 1 + 0.1 * lvMul(s, 'vmd') : 1;
@@ -2438,7 +2447,8 @@ export function myStorePull(s: P1State, b: PBuilding): number {
   if (!sh || b.left > 0) return 0;
   let best = 0;
   for (const x of sh.shelves) if (x && !unsellableHere(s, skuParts(x)[0])) best = Math.max(best, pull(s, b, sh, x, 'in'));
-  return best * (sh.aw ?? 1) * localMul(s);
+  // 営業部長の補正（段 D）
+  return best * (sh.aw ?? 1) * localMul(s) * (1 + headFx(s, 'sales'));
 }
 /** 新しく出す店の引きの見込み（いまの自社の店の平均。店が無ければ、よろず屋に店員がいるとき） */
 export function newStorePull(s: P1State): number {
@@ -2852,7 +2862,8 @@ export function xpBonus(s: P1State, st: Staff): number {
 }
 /** 経験値を入れる（base × いるセクタのランクの倍率 ×（1 ＋ extra））。Lv が上がったら今月のレベルアップに記録 */
 export function giveXp(s: P1State, st: Staff, base: number, extra = 0, tier: Tier = s.tier ?? 'C'): LevelUp | null {
-  const up = addXp(st, base * HERO_GROWTH.xp.tier[tier] * (1 + extra));
+  // 人事部長の補正（段 D）：みんなの経験値
+  const up = addXp(st, base * HERO_GROWTH.xp.tier[tier] * (1 + extra) * (1 + headFx(s, 'hr')));
   if (up) {
     const list = (s.lvMonth ??= []);
     const was = list.find((x) => x.hero === up.hero);
@@ -3252,8 +3263,19 @@ export function step(s: P1State): DayResult {
     } else st.stamina = Math.min(st.stats.hp, st.stamina + restRate / 2);
   }
 
+  // 任せ方の 4 段（段 D）：チームリーダー・事業部長が任された業務を回す（見直しの日に。採掘は毎日）
+  const led = delegDay(s);
+  if (led.length) (res.dug ??= []).push(...led);
+
   // ヒーローの育成（段 E1）：今日働いた人に経験値（仕事ごと × ランク。OJT・社内研修・仲間の面倒見で上乗せ）
   if (growthOn(s)) {
+    // 役目（リーダー・部長）：毎日、役目の経験値（上の役目ほど多い）
+    for (const st of s.staff) {
+      const v = st.task === 'lead' ? roleXp(st) : 0;
+      if (!v) continue;
+      const up = giveXp(s, st, v, xpBonus(s, st));
+      if (up) (res.leveled ??= []).push(up);
+    }
     const crew = s.staff.filter((st) => working.has(st.hero) && st.task);
     const mentors = crew.map((st) => passiveSum(st, 'mentor'));
     const allMentor = mentors.reduce((a, b) => a + b, 0);
@@ -3271,6 +3293,8 @@ export function step(s: P1State): DayResult {
   checkMissions(s, res);
   if (s.open !== null && s.day > s.open && (s.day - s.open) % DAYS === 0) {
     res.report = endMonth(s);
+    // 担当の報告・部長の提案（段 D）
+    delegMonth(s, res.report);
     checkMissions(s, res);
   }
   // 会社の月の締め（ゲームの最初から 30 日ごと）：ほかのセクタの運営と、帳簿
@@ -3615,7 +3639,10 @@ export function closeCompanyMonth(s: P1State): CompanyMonth {
         continue;
       }
       // マネージャー研修：売上の倍率 +0.1・持株会社：利益 +10%。被災した町は直った割合ぶん
-      const r = runSector(rec, st?.stats ?? null, m, rng(s.seed + s.day * 31 + id.length * 7 + id.charCodeAt(1)), { rate: 0.1 * lvMul(s, 'mgr') + fxSum(s, 'manager') + (st ? passiveSum(st, 'manage') : 0), profit: 1 + 0.1 * lvMul(s, 'holding'), scale: reviveScale(rec) });
+      const r = runSector(rec, st?.stats ?? null, m, rng(s.seed + s.day * 31 + id.length * 7 + id.charCodeAt(1)), { rate: 0.1 * lvMul(s, 'mgr') + fxSum(s, 'manager') + (st ? passiveSum(st, 'manage') : 0) + headFx(s, 'strategy'), profit: 1 + 0.1 * lvMul(s, 'holding'), scale: reviveScale(rec) });
+      // セクター長の任せきり（段 D）：部長たちの提案を自分で承認して、そのセクタへ投資
+      rec.heads = undefined;
+      if (st) sectorApprove(s, rec, r);
       s.money += r.toHQ;
       book(s, 'managed', r.toHQ);
       managed.push({ id, ...r, hero: rec.manager ?? null, ...(rv ? { revive: rv } : {}) });
@@ -3864,7 +3891,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -3916,7 +3943,9 @@ export function deserializeP1(json: string): P1State | null {
     // 下の帯のメニュー・開いていた画面はセーブに入れていないので、移すものは無い
     // 版 12 → 13（段 C：営業の始まり）：Rare の町にいるセーブは、いまの他社の店（1 社 1 軒）から商圏を作り直す（開店のときの取り分＝自社の店を入れない）。
     // 空き店舗・撤退の数えは 0 から。ほかのセクタの写しの Rare の町は、戻ったときに作り直す（step）
-    s.v = 13;
+    // 版 13 → 14（段 D：任せ方の 4 段）：役目は Staff の task 'lead'（古いセーブには無い＝役目なし）・提案の受け箱（s.deleg）は無し（はじめて任せたときに作る）。
+    // ほかのセクタのマネージャー（task 'manager'）は、そのままセクター長として続く（数字は変えない。任命の条件は新しく任命するときだけ）
+    s.v = 14;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);
@@ -5740,16 +5769,22 @@ export function siteDiggable(s: P1State, k: number): boolean {
  * stand（常駐で働く日）は常駐の段取りで選び方が変わる（層の番号で）：Lv1 お題の気配のある所（お題の範囲の、お題の層まで）を先に・
  * Lv3 いまの層に研究 Lv の低いエクステがあるマスを先に・Lv5 研究 Lv の上限に達したエクステのマスを後回し
  */
-export function digNext(s: P1State, stand = false): [number, number] | null {
+export function digNext(s: P1State, stand = false, noTopic = false): [number, number] | null {
   const L = digSite(s);
   const st = curSite(s);
   if (!L || !st) return null;
   const rl = stand ? lvOf(s, 'u_dig_route') : 0;
   const bonus = new Map<number, number>();
   const add = (k: number, v: number) => bonus.set(k, Math.min(bonus.get(k) ?? 0, v));
+  const skip = new Set<number>();
   for (const f of L.finds) {
     const cells = findCells(L, f);
     if (cells.some((c) => st.depth[c] > f.layer) || !findAt(s, L, cells[0], f.layer)) continue;
+    // 採掘のリーダー（段 D）：お題は手で掘るので、お題の範囲には触らない
+    if (noTopic && f.item.kind === 'ext' && f.item.topic) {
+      for (const c of cells) skip.add(c);
+      continue;
+    }
     // 取りかけの大きいもの
     if (f.size[0] * f.size[1] > 1 && cells.some((c) => st.depth[c] === f.layer && st.hp[c] < L.cells[c].hard[f.layer])) for (const c of cells) add(c, -2e6);
     // 常駐の段取り Lv1：お題の気配
@@ -5761,7 +5796,7 @@ export function digNext(s: P1State, stand = false): [number, number] | null {
   for (let y = 0; y < L.h; y++)
     for (let x = 0; x < L.w; x++) {
       const k = y * L.w + x;
-      if (!open1(s, L, st, k)) continue;
+      if (!open1(s, L, st, k) || skip.has(k)) continue;
       const d = st.depth[k];
       let v = (bonus.get(k) ?? 0) + (st.hp[k] < L.cells[k].hard[d] ? -1e6 : 0) + d * 1000 + y * L.w + x;
       const it = findAt(s, L, k, d)?.item;
@@ -5816,6 +5851,34 @@ export function autoDig(s: P1State, st: Staff): DigHit[] {
     if (siteState(s, L.site)?.done) break;
   }
   s.dig.carry = Math.min(1, s.dig.carry);
+  return out;
+}
+
+/**
+ * 採掘のリーダー（段 D）の 1 日：発掘作業をしていない日に、許可のある荒れ地（常駐と同じ選び方）を、
+ * 適性の速さ × DIG_AUTO.perDay × rate 回ぶん打つ（端数は持ち越す）。お題の範囲には触らない（お題は手で掘る）。出土品・RP・研究は手で掘ったのと同じ
+ */
+export function leadDig(s: P1State, st: Staff, rate: number): DigHit[] {
+  if (!s.dig || s.digRun) return [];
+  const k = standSite(s);
+  if (k < 0) return [];
+  const prev = s.dig.cur;
+  s.dig.cur = k;
+  const out: DigHit[] = [];
+  const d = (s.deleg ??= { next: {}, stat: {}, inbox: [], done: [], seq: 0, cover: [], pend: {}, adWait: {}, carry: 0, newProps: 0 });
+  d.carry += DIG_AUTO.perDay * speed(st, 'dig', s) * rate;
+  const L = digSite(s)!;
+  while (d.carry >= 1) {
+    const at = digNext(s, true, true);
+    if (!at) break;
+    const r = strikeAt(s, L, at[0], at[1], digPower(s));
+    out.push(r, ...(r.extra ?? []));
+    d.carry -= 1;
+    if (siteState(s, L.site)?.done) break;
+  }
+  d.carry = Math.min(1, d.carry);
+  // 何も掘れなかった（お題の範囲しか残っていない）なら、いまの荒れ地は元のまま
+  if (!out.length) s.dig.cur = prev;
   return out;
 }
 

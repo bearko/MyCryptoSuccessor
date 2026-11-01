@@ -8,8 +8,9 @@ import { MATS, PRODUCT, rivalDef, SECTORS, SKILL, TASKS, aptitude, skuParts, sku
 import { assign, canSwap, DAYS, relicMinCraft, releaseForSwap, restDaysLeft, swapStops, sellEstimate, batchOf, craftCheck, craftDays, has, knownOf, monopolyLeft, recipeOf, saturated, staffOf, trainingOf, unitCost, type Need, type P1State, type Staff } from './model';
 import { bar, btn, h, heroIcon, heroName, matIcon, money, skuIcon, skuName } from './ui';
 import { seriesTag } from './digview';
+import { roleOf, roleText } from './deleg';
 
-export const TASK_NAME: Record<Task, string> = { ...(Object.fromEntries(TASKS.map((x) => [x.key, x.name])) as Record<Task, string>), side: t('バイト', 'Part-time'), manager: t('セクタマネージャー', 'Sector manager'), train: t('修行', 'Training'), dig: t('発掘', 'Digging') };
+export const TASK_NAME: Record<Task, string> = { ...(Object.fromEntries(TASKS.map((x) => [x.key, x.name])) as Record<Task, string>), side: t('バイト', 'Part-time'), manager: t('セクター長', 'Sector head'), train: t('修行', 'Training'), dig: t('発掘', 'Digging'), lead: t('リーダー・部長', 'Leader / head') };
 
 /**
  * 適性のランク：0〜100 の数を G・F・E・D・C・B・A・S の 8 段に。
@@ -106,7 +107,12 @@ export function jobLabel(s: P1State, st: Staff): string {
     case 'side':
       return t(`バイト・${rivalDef(String(st.target))?.name ?? ''}`, `Part-time · ${rivalDef(String(st.target))?.name ?? ''}`);
     case 'manager':
-      return t(`マネージャー：${SECTORS.find((x) => x.id === st.target)?.name ?? ''}`, `Manager: ${SECTORS.find((x) => x.id === st.target)?.name ?? ''}`);
+      return t(`セクター長：${SECTORS.find((x) => x.id === st.target)?.name ?? ''}`, `Sector head: ${SECTORS.find((x) => x.id === st.target)?.name ?? ''}`);
+    case 'lead': {
+      // 任せ方の 4 段（段 D）：チームリーダー・事業部長
+      const r = roleOf(st);
+      return r ? roleText(r) : t('リーダー', 'Leader');
+    }
     case 'train': {
       const name = SKILL[String(st.target)]?.name ?? '';
       const left = s.training?.hero === st.hero ? s.training.left : 0;
@@ -153,7 +159,7 @@ export function slot(s: P1State, o: { label: string; task: Task; hero: number | 
 }
 
 /** 引き出し（下から出る小さな窓）。閉じる関数を返す */
-function drawer(root: HTMLElement, title: string, note: string, fill: (box: HTMLElement, close: () => void) => void): () => void {
+export function drawer(root: HTMLElement, title: string, note: string, fill: (box: HTMLElement, close: () => void) => void): () => void {
   const el = h('div', 'isl-picker');
   const box = h('div', 'isl-picker-box');
   const head = h('div', 'isl-picker-head');
@@ -226,13 +232,13 @@ export function pickKind(st: Staff, current: number | null): PickKind {
 /** 押して選べるか（current・free だけ） */
 export const pickable = (k: PickKind) => k === 'current' || k === 'free';
 /** カードの右上の ✕ で担当を外せるか（ほかの担当についている人。修行中は外せない） */
-export const canRelease = (st: Staff, current: number | null) => st.hero !== current && st.task != null && st.task !== 'train' && st.task !== 'manager';
+export const canRelease = (st: Staff, current: number | null) => st.hero !== current && st.task != null && st.task !== 'train' && st.task !== 'manager' && st.task !== 'lead';
 /** 並び：待機中 → いまの担当 → ほかの担当 → 休憩中 → 修行中 */
 const KIND_ORDER: Record<PickKind, number> = { free: 0, current: 1, busy: 2, resting: 3, training: 4 };
 /** 引き出しの ✕：担当を外す（選べる状態に戻る）。外せなければ false */
 export function releaseHero(s: P1State, hero: number): boolean {
   const st = staffOf(s, hero);
-  if (!st || st.task == null || st.task === 'train' || st.task === 'manager') return false;
+  if (!st || st.task == null || st.task === 'train' || st.task === 'manager' || st.task === 'lead') return false;
   return assign(s, hero, null) == null;
 }
 /** 休憩中の札（「スタミナ 12%」） */
@@ -244,8 +250,10 @@ export function pickHero(
   s: P1State,
   o: { title: string; task: Task; current: number | null; onPick: (hero: number | null) => void; note?: string; extra?: (st: Staff) => string | null; badge?: string },
 ) {
-  // ほかのセクタでマネージャーをしている人は、ここにはいない
-  const list = [...s.staff].filter((x) => x.task !== 'manager').sort((a, b) => KIND_ORDER[pickKind(a, o.current)] - KIND_ORDER[pickKind(b, o.current)] || aptitude(b.stats, o.task) - aptitude(a.stats, o.task));
+  // ほかのセクタのセクター長と、チームリーダー・事業部長（役目。段 D）は、ここにはいない（役目は部門の画面の「担当」で）。
+  // ただしセクター長を選ぶときは、リーダー・部長も出す（昇進）
+  const promo = o.task === 'manager';
+  const list = [...s.staff].filter((x) => x.task !== 'manager' && (x.task !== 'lead' || promo)).sort((a, b) => KIND_ORDER[pickKind(a, o.current)] - KIND_ORDER[pickKind(b, o.current)] || aptitude(b.stats, o.task) - aptitude(a.stats, o.task));
   const best = Math.max(0, ...list.filter((x) => x.task !== 'train' && !x.resting).map((x) => Math.round(aptitude(x.stats, o.task))));
   const swapNote = !pickHooks.tutorial?.();
   const defNote = swapNote
@@ -276,6 +284,7 @@ export function pickHero(
       if (kind !== 'resting' || st.task != null) card.append(job);
       const ex = kind !== 'training' ? o.extra?.(st) : null;
       if (ex) card.append(h('small', 'isl-gold', ex));
+      if (promo && st.task === 'lead') card.append(h('span', 'isl-best is-promo', t('↑ セクター長へ昇進', '↑ Promote to sector head')));
       if (kind !== 'training' && kind !== 'resting' && best > 0 && apt === best) card.append(h('span', 'isl-best', o.badge ?? t('いちばん向いている', 'Best fit')));
       if (canRelease(st, o.current)) {
         const x = h('span', 'isl-pick-x', '✕');
@@ -326,6 +335,12 @@ export function pickHero(
           pickHooks.sfx?.('error');
           const n = restDaysLeft(s, st);
           pickHooks.toast?.(t(`休憩中（あと ${n} 日）`, `Resting (${n} more ${n === 1 ? 'day' : 'days'})`));
+          return;
+        }
+        // セクター長への昇進（リーダー・部長から）：役目を外して、セクター長に
+        if (promo && st.task === 'lead') {
+          close();
+          o.onPick(st.hero);
           return;
         }
         if (kind === 'busy' && swapOn(st)) {

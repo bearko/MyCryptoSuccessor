@@ -8,6 +8,7 @@
  * スマホ（390×844）では、折りたたみを閉じた状態でスクロールせずに 1 画面に収める。
  * docs/ISLAND_PHASE1.md「月の売上報告」。
  */
+import { delegReportText } from './delegui';
 import { clearCondText, digMet, digReportLine, digReportText, presentNeedText, presentReady, rebuildText, reviveReportText, type DigSummary } from './digmeet';
 import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
@@ -63,6 +64,8 @@ export interface ReportHooks {
   openGrowth?: () => void;
   /** 営業の画面（Rare の町の「商圏の取り分」の導線） */
   openTrade?: () => void;
+  /** 部長の提案（「担当の報告」の導線。段 D） */
+  openProps?: () => void;
   /** 効果音 */
   sfx?: (k: 'sale' | 'win' | 'levelup' | 'check' | 'report' | 'drum' | 'error') => void;
 }
@@ -634,6 +637,17 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
         if (hooks.openGrowth) line.append(btn(t('育成', 'Growth'), () => hooks.openGrowth?.(), 'isl-rp-go'));
         c4.append(line);
         body.classList.add('has-lv');
+      }
+      // 担当の報告（任せ方の 4 段。段 D）：リーダーの出来・部長の提案と結果・セクター長の 1 行（1 行にまとめる）
+      const dt = delegReportText(s, r);
+      if (dt) {
+        const line = h('div', 'isl-rp-dig isl-rp-deleg');
+        const txt = h('span', 'isl-rp-dig-text');
+        txt.append(h('b', '', t('👔 担当の報告', '👔 Delegation')), h('span', 'is-long', dt[0]), h('span', 'is-short', dt[1]));
+        line.append(txt);
+        if (hooks.openProps) line.append(btn(t('担当', 'Leads'), () => hooks.openProps?.(), 'isl-rp-go'));
+        c4.append(line);
+        body.classList.add('has-deleg');
       }
       cards.push(c4);
 

@@ -249,7 +249,7 @@ export const P1B: Record<string, P1Building> = Object.fromEntries(P1_BUILDINGS.m
 
 // ---------------------------------------------------------------- 従業員
 
-export type Task = 'craft' | 'transport' | 'shop' | 'explore' | 'intel' | 'buy' | 'side' | 'manager' | 'train' | 'dig';
+export type Task = 'craft' | 'transport' | 'shop' | 'explore' | 'intel' | 'buy' | 'side' | 'manager' | 'train' | 'dig' | 'lead';
 export const TASKS: { key: Task; name: string; note: string }[] = [
   { key: 'craft', name: t('製造', 'Craft'), note: t('3 つの能力のバランス', 'Balance of all three stats') },
   { key: 'transport', name: t('運搬', 'Haul'), note: t('PHY 重視', 'Mostly PHY') },
@@ -296,6 +296,9 @@ export function aptitude(s: Stats, task: Task): number {
     case 'dig':
       // 発掘：力仕事が中心（docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」）
       return 0.6 * s.phy + 0.2 * s.agi + 0.2 * s.int;
+    case 'lead':
+      // チームリーダー・事業部長（段 D）：部門ごとに向く能力値は deptApt。ここは 3 つの平均
+      return (s.phy + s.int + s.agi) / 3;
   }
 }
 
@@ -1909,8 +1912,8 @@ export type DeptId = 'logistics' | 'sales' | 'strategy' | 'rnd' | 'hr' | 'system
 export type DeptGroup = 'biz' | 'strat' | 'admin' | 'base';
 /** ロードマップの段（docs/SUCCESSOR_ROADMAP.md「ロードマップ」）。部門の中身（遊び）ができる段 */
 export type RoadStage = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J';
-/** いまできている段（段 C：営業の始まり）。中身ができる段がこれ以下の部門だけメニューに出る */
-export const ROAD_NOW: RoadStage = 'C';
+/** いまできている段（段 D：任せ方の 4 段）。中身ができる段がこれ以下の部門だけメニューに出る */
+export const ROAD_NOW: RoadStage = 'D';
 export interface DeptDef {
   id: DeptId;
   name: string;
@@ -1949,7 +1952,7 @@ export const DEPT_GROUPS: { id: DeptGroup; name: string; icon: string }[] = [
   { id: 'base', name: t('基盤', 'Base'), icon: '🧱' },
 ];
 /**
- * 理解度の節目（ロードマップ 1-2 の提案）。いまは「準備中」として見せるだけで、効き目は無い（任せ方の 4 段・奥義は後の段）
+ * 理解度の節目（ロードマップ 1-2）。3 チームリーダー・8 事業部長は段 D で置けるようになった（deleg.ts）。奥義は後の段（いまは準備中）
  */
 export const DEPT_MARKS: { at: number; name: string }[] = [
   { at: 3, name: t('チームリーダー', 'Team leader') },
@@ -1958,7 +1961,7 @@ export const DEPT_MARKS: { at: number; name: string }[] = [
   { at: 25, name: t('奥義 2', 'Mastery 2') },
   { at: 40, name: t('奥義 3', 'Mastery 3') },
 ];
-/** 節目の一言（トースト。「事業部長を置けるようになるのは、次の更新で」） */
+/** 節目の一言（トースト。「部門を丸ごと任せられる」） */
 export const deptMarkNote = (k: number) => [t('業務を 1 つ任せられる', 'delegate one task'), t('部門を丸ごと任せられる', 'delegate the whole department'), t('部門の奥義', 'department mastery'), t('部門の奥義', 'department mastery'), t('部門の奥義', 'department mastery')][k] ?? '';
 /**
  * パネルの部門の割り振り（docs/ISLAND_PHASE1.md「部門」の表）。枝（branch）ごとの決まり：
@@ -1975,6 +1978,79 @@ for (const k of SKILLS) k.dept = DEPT_MOVE[k.id] ?? BRANCH_DEPT[k.branch];
 export const deptOf = (k: Skill): DeptId => k.dept ?? BRANCH_DEPT[k.branch];
 /** 部門のパネル（並びは SKILLS の順） */
 export const DEPT_SKILLS: Record<DeptId, Skill[]> = Object.fromEntries(DEPTS.map((d) => [d.id, SKILLS.filter((k) => deptOf(k) === d.id)])) as Record<DeptId, Skill[]>;
+
+// ---------------------------------------------------------------- 任せ方の 4 段（ロードマップ段 D。docs/ISLAND_PHASE1.md「任せ方」）
+
+/** チームリーダーに任せられる業務（部門ごと。理解度 3 から 1 つずつ） */
+export type DutyId = 'order' | 'craft' | 'shelf' | 'swap' | 'rest' | 'dig' | 'ads' | 'vacant';
+export interface DutyDef {
+  id: DutyId;
+  dept: DeptId;
+  /** 仮のアイコン（絵文字。docs/ISLAND_ART_TODO.md） */
+  icon: string;
+  name: string;
+  /** 何をしてくれるか（任命の画面） */
+  note: string;
+  /** 出来の悪さが出る数（月次報告・任命の画面。「素材切れ 2 日」の「素材切れ」） */
+  miss: string;
+}
+export const DUTIES: DutyDef[] = [
+  { id: 'order', dept: 'logistics', icon: '📦', name: t('素材の発注', 'Ordering'), note: t('作業台の作るものに合わせて調達の品目をそろえ、素材が切れそうなら問屋に注文する（調達係が休む日の穴も埋める）', 'Keeps buying in step with the benches and orders lots before materials run out (covers the buyer’s rest days too)'), miss: t('素材切れ', 'Out of materials') },
+  { id: 'craft', dept: 'logistics', icon: '🔨', name: t('作るものの選択', 'What to craft'), note: t('売れる見込み × 粗利で、作業台ごとに作るものを決め直す', 'Re-picks each bench’s product by expected sales × margin'), miss: t('見込み', 'Plan') },
+  { id: 'shelf', dept: 'logistics', icon: '🏷', name: t('品出し（棚の入れ替え）', 'Shelving'), note: t('作っている商品を棚に並べ、作らなくなった商品は売り切ってから入れ替える', 'Shelves what is being made; swaps out dropped items once they sell out'), miss: t('入れ替え待ち', 'Waiting shelf') },
+  { id: 'swap', dept: 'hr', icon: '🔁', name: t('配置換え', 'Staffing'), note: t('空いた作業台・お店・運搬・調達に、待機中の人を回す（詰まりの段から）', 'Moves free heroes into empty benches, shops, hauling and buying (the jam first)'), miss: t('空き', 'Vacant') },
+  { id: 'rest', dept: 'hr', icon: '😴', name: t('休ませる（交代）', 'Rest & cover'), note: t('休む職人・店員の持ち場に待機中の人を入れて止めない。疲れた待機中の人は休ませる', 'Covers resting crafters and clerks with free heroes; rests tired free heroes'), miss: t('止まった', 'Stopped') },
+  { id: 'dig', dept: 'rnd', icon: '⛏', name: t('荒れ地の採掘', 'Wasteland digging'), note: t('発掘作業をしていない日に、許可のある荒れ地を少しずつ掘る（お題は自分で掘る）', 'Digs permitted wastelands a little on days you are not digging (targets are left to you)'), miss: t('掘った', 'Dug') },
+  { id: 'ads', dept: 'marketing', icon: '📣', name: t('宣伝の出し直し', 'Ad renewals'), note: t('切れた宣伝を、効き目の見込みが費用より大きければ出し直す', 'Re-runs expired ads when the expected lift beats the cost'), miss: t('切れていた', 'Lapsed') },
+  { id: 'vacant', dept: 'sales', icon: '🏚', name: t('空き店舗に入る', 'Take vacancies'), note: t('他社が撤退した空き店舗に、取り分が伸びるなら入る', 'Moves into vacated rival stores when it grows your share'), miss: t('空いたまま', 'Left empty') },
+];
+export const DUTY: Record<DutyId, DutyDef> = Object.fromEntries(DUTIES.map((d) => [d.id, d])) as Record<DutyId, DutyDef>;
+/** 部門の業務（並びは DUTIES の順。業務の無い部門は空＝部長の提案と補正だけ） */
+export const DEPT_DUTIES: Record<DeptId, DutyId[]> = Object.fromEntries(DEPTS.map((d) => [d.id, DUTIES.filter((x) => x.dept === d.id).map((x) => x.id)])) as Record<DeptId, DutyId[]>;
+/**
+ * 任せ方の数字（1 か所。docs/ISLAND_PHASE1.md「任せ方」・docs/SUCCESSOR_ROADMAP.md の段 D）。
+ * - leaderAt・headAt：理解度の節目（DEPT_MARKS の 3・8）。
+ * - q：出来（0〜1。手でやると 1）＝ lo ＋（hi − lo）×（部門に向く能力値 − aptLo）÷（aptHi − aptLo）（0〜1 に収める）＋ Lv の上乗せ（lv ×（Lv − 1）。lvMax まで）
+ *   ＋ その部門のパッシブ 1 つにつき passive（段が上がるごとに +25%）。cap で頭打ち（手を超えるのは奥義＝段 I）。部長の下のリーダーは underHead。
+ * - every：業務を見直す間隔（日）。出来 lo で slow 日・cap で fast 日（その間は手を付けない＝出来の悪さが「品切れの日」などで出る）。
+ * - headFx：部長の補正＝（出来 − 0.85）× headFx（−3%〜+2%。部門の効き目に掛ける）。
+ * - order：発注の量（days 日ぶん × 誤差 ±(1 − 出来) × err）・先回りの日数（ahead）。craftErr・adErr：見込みの誤差の大きさ。
+ * - dig：リーダーの採掘の速さ（発掘隊の常駐の 20% と同じ流儀で、作業中の rate 倍 × 出来）。
+ * - prop：部長の提案（月に perMonth 枚まで・受け箱は keep 枚まで・保留は expire か月で消える・見込みの誤差 ±(1 − 出来) × err）。
+ * - sector：セクター長（need：任命の条件の事業部長の数。ready：条件を効かせるか（いまは表示だけ＝準備中）・invest：提案 1 件で利益の何割を投資へ・max：月に承認する数）。
+ */
+export const DELEG = {
+  leaderAt: 3,
+  headAt: 8,
+  q: { lo: 0.7, hi: 0.9, aptLo: 20, aptHi: 70, lv: 0.001, lvMax: 0.05, passive: 0.01, cap: 0.97, underHead: 0.03 },
+  every: { slow: 8, fast: 1 },
+  headFx: 0.2,
+  order: { days: 12, ahead: 3, err: 1.5 },
+  craftErr: 0.8,
+  adErr: 1,
+  dig: { rate: 0.15 },
+  prop: { perMonth: 2, keep: 4, expire: 3, err: 1 },
+  sector: { need: 3, ready: false, invest: 0.1, max: 2 },
+};
+/** 部門に向く能力値（ロードマップ 2-4）：物流 AGI・営業とマーケ PHY・R&D と経理と法務とシステム INT・ほか（人事・総務・CS・経営企画）は 3 つの平均 */
+export function deptApt(st: Stats, d: DeptId): number {
+  switch (d) {
+    case 'logistics':
+      return st.agi;
+    case 'sales':
+    case 'marketing':
+      return st.phy;
+    case 'rnd':
+    case 'accounting':
+    case 'legal':
+    case 'systems':
+      return st.int;
+    default:
+      return (st.phy + st.int + st.agi) / 3;
+  }
+}
+/** 向く能力値の名前（任命の画面） */
+export const deptAptName = (d: DeptId) => (d === 'logistics' ? 'AGI' : d === 'sales' || d === 'marketing' ? 'PHY' : d === 'rnd' || d === 'accounting' || d === 'legal' || d === 'systems' ? 'INT' : t('3 つの平均', 'avg of 3'));
 
 /** 技の「技を n つ」の条件を満たしているか（has：取ったスキル） */
 export const anyOfMet =(k: Skill, has: (id: string) => boolean) => !k.anyOf || k.anyOf.ids.filter(has).length >= k.anyOf.n;
@@ -2604,7 +2680,10 @@ export const HERO_GROWTH = {
   mul: { atCap: 0.35, beyond: 0.002, limited: 0.0175, promo: 0.05, lo: 0.7, hi: 1.3 },
   curve: { k: 60, p: 1.4 },
   xp: {
-    day: { craft: 10, transport: 10, buy: 10, shop: 10, explore: 10, intel: 10, dig: 12, train: 12, side: 6, manager: 20 } as Record<Task, number>,
+    day: { craft: 10, transport: 10, buy: 10, shop: 10, explore: 10, intel: 10, dig: 12, train: 12, side: 6, manager: 20, lead: 13 } as Record<Task, number>,
+    /** 任せ方の 4 段（段 D）：チームリーダー 1 日 13・事業部長 1 日 16（セクター長＝マネージャーは 20・復興の担当は 25）。上の役目ほど多い */
+    leader: 13,
+    head: 16,
     revive: 25,
     tier: { C: 1, U: 2, R: 4, E: 8, L: 12 } as Record<Tier, number>,
     ojt: 0.2,

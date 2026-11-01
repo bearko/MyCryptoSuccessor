@@ -14,6 +14,8 @@ import { effectDone, image, loading, pick, waterFrame, type Camera, type Effect 
 import { cells, type Dir } from '../sim';
 import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO } from './data';
 import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
+import { bandText } from './deleg';
+import { openDeleg, openProps } from './delegui';
 import {
   allowedDirs,
   digSite,
@@ -520,6 +522,7 @@ const SUBS: Partial<Record<Menu, Sub[]>> = {
     { key: 'build', name: t('建築', 'Build'), note: t('工房・お店・倉庫', 'Workshop, shops, storage'), go: () => openBuildSheet() },
     { key: 'land', name: t('ランドマップ', 'Land map'), note: t('関所の先のセクタ', 'Sectors beyond the gate'), go: () => openLand(ctx), needs: 'land' },
     { key: 'books', name: t('決算書', 'Statements'), note: t('四半期の P/L・B/S', 'Quarterly P/L, B/S'), go: () => openBooks(ctx) },
+    { key: 'props', name: t('部長の提案', 'Proposals'), note: t('承認・却下・保留', 'Approve, reject, hold'), go: () => openProps(ctx) },
     { key: 'ma', name: 'M&A', note: t('買収・提携（準備中）', 'Deals (coming soon)'), go: () => openMA(ctx) },
   ],
   hr: [
@@ -762,13 +765,14 @@ function renderFoot() {
   deptBand.hidden = !!placing;
 }
 
-/** 部門の画面の上の帯（どの部門も同じ形）。節目と担当は準備中（任せ方の 4 段は後の段） */
+/** 部門の画面の上の帯（どの部門も同じ形）。担当（チームリーダー・事業部長。段 D）を押すと任命の画面。奥義は準備中 */
 let bandKey = '';
 function renderBand(m: Menu) {
   const d = DEPT[m];
   const lv = deptLevel(s, m);
   const nx = nextMark(lv);
-  const key = `${m}:${lv}:${isEn}`;
+  const bt = bandText(s, m);
+  const key = `${m}:${lv}:${isEn}:${bt.long}`;
   if (key === bandKey) return;
   bandKey = key;
   deptBand.style.setProperty('--br', d.color);
@@ -786,9 +790,19 @@ function renderBand(m: Menu) {
   const two = (long: string, short: string) => [h('span', 'is-long', long), h('span', 'is-short', short)];
   go.replaceChildren(...two(t('この部門のパネルを見る', 'See this department’s panels'), t('パネル ›', 'Panels ›')));
   const next = h('small', 'isl-dband-next');
-  next.append(...(nx ? two(t(`次の節目：${nx.name}まで あと ${nx.left}（準備中）`, `Next: ${nx.name} in ${nx.left} (coming soon)`), t(`次：${nx.name} あと ${nx.left}`, `Next: ${nx.name} in ${nx.left}`)) : two(t('節目はすべて到達（準備中）', 'All milestones reached (coming soon)'), t('節目はすべて到達', 'All milestones reached'))));
-  const lead = h('small', 'isl-dband-lead');
-  lead.append(...two(t('チームリーダー：準備中', 'Team leader: coming soon'), t('担当：準備中', 'Lead: soon')));
+  // 奥義（15・25・40）は後の段（準備中）。チームリーダー（3）・事業部長（8）は置ける
+  const soon = nx && nx.k >= 2;
+  next.append(...(nx ? two(t(`次の節目：${nx.name}まで あと ${nx.left}${soon ? '（準備中）' : ''}`, `Next: ${nx.name} in ${nx.left}${soon ? ' (coming soon)' : ''}`), t(`次：${nx.name} あと ${nx.left}`, `Next: ${nx.name} in ${nx.left}`)) : two(t('節目はすべて到達（奥義は準備中）', 'All milestones reached (mastery coming soon)'), t('節目はすべて到達', 'All milestones reached'))));
+  // 担当：押すと任命の画面（チュートリアル中は押せない）
+  const lead = h('button', `isl-dband-lead ${bt.on ? 'is-on' : ''}`);
+  lead.type = 'button';
+  lead.append(...two(bt.long, bt.short));
+  lead.addEventListener('click', () => {
+    if (tutStep()) return lockedNote();
+    closeSheet();
+    openDeleg(ctx, m);
+    renderAll();
+  });
   deptBand.replaceChildren(
     h('span', 'isl-dband-name', `${d.icon} ${d.name}`),
     h('span', 'isl-dband-lv', t(`理解度 ${lv}`, `Understanding ${lv}`)),
@@ -1743,7 +1757,7 @@ function payGate() {
     [
       { text: t(`通行料 ${money(toll)} を納めて、[[関所]]が開いたよ！`, `You paid the ${money(toll)} toll and the [[gate]] is open!`) },
       { text: t('この先には、いくつもの[[ランドセクタ]]が広がっているよ。新しいお客さんと、新しいライバルが待っているはず！', 'Beyond lie many [[land sectors]], with new customers and new rivals!') },
-      { text: t('ほかのセクタに出店すると、ここは[[セクタマネージャー]]に任せることになるよ。能力の高いヒーローほど、上手に運営してくれるんだ。', 'When you open in another sector, a [[sector manager]] runs this one. Stronger heroes run it better.') },
+      { text: t('ほかのセクタに出店すると、ここは[[セクター長]]に任せることになるよ。能力の高いヒーローほど、上手に運営してくれるんだ。', 'When you open in another sector, a [[sector head]] runs this one. Stronger heroes run it better.') },
       { text: t('まずは[[ランドマップ]]を見てみよう！', 'Let’s look at the [[land map]]!') },
     ],
     t('ランドマップへ', 'To the land map'),
@@ -3272,7 +3286,7 @@ function seamless(to: string): boolean {
   if (r.err) {
     blockedTo = to;
     sfx.play('error');
-    toast(r.err === 'manager' ? t('マネージャーにできるヒーローがいません', 'No hero is free to be the manager') : r.err === 'busy' ? t('そのヒーローは、ほかのセクタのマネージャーです', 'That hero manages another sector') : t('このセクタへは移れません', 'You cannot move to this sector'));
+    toast(r.err === 'manager' ? t('セクター長にできるヒーローがいません', 'No hero is free to be the sector head') : r.err === 'busy' ? t('そのヒーローは、ほかのセクタのセクター長です', 'That hero manages another sector') : t('このセクタへは移れません', 'You cannot move to this sector'));
     return false;
   }
   blockedTo = null;
@@ -3300,8 +3314,8 @@ function seamless(to: string): boolean {
   if (r.manager != null)
     toast(
       r.handed
-        ? t(`${heroName(r.manager)}が${fromName}のマネージャーに交代しました`, `${heroName(r.manager)} now manages ${fromName}`)
-        : t(`${fromName}のマネージャーに${heroName(r.manager)}を指名しました（適性がいちばん高い待機中のヒーロー）`, `${heroName(r.manager)} now manages ${fromName} (best available hero)`),
+        ? t(`${heroName(r.manager)}が${fromName}のセクター長に交代しました`, `${heroName(r.manager)} now heads ${fromName}`)
+        : t(`${fromName}のセクター長に${heroName(r.manager)}を指名しました（適性がいちばん高い待機中のヒーロー）`, `${heroName(r.manager)} now heads ${fromName} (best available hero)`),
     );
   else if (r.back != null) toast(t(`${heroName(r.back)}が本社の仕事に戻りました`, `${heroName(r.back)} is back at HQ`));
   sfx.play('move');
@@ -3350,7 +3364,7 @@ function sectorPop(id: string): { title: string; body: HTMLElement } {
   const row = h('div', 'isl-row');
   if (st === 'mine') {
     const b = sectorBadges(s).find((x) => x.id === id);
-    if (b?.manager != null) body.append(h('p', 'isl-dim', t(`マネージャー：${heroName(b.manager)}`, `Manager: ${heroName(b.manager)}`)));
+    if (b?.manager != null) body.append(h('p', 'isl-dim', t(`セクター長：${heroName(b.manager)}`, `Sector head: ${heroName(b.manager)}`)));
     row.append(btn(t(`${d.name}へ移動`, `Go to ${d.name}`), () => goSector(id), 'is-on'));
   } else if (st === 'open') {
     row.append(advanceBtn(id));
@@ -4068,7 +4082,7 @@ function companyNews(c: NonNullable<ReturnType<typeof step>['company']>) {
 let quarterNew: number | null = null;
 
 /** 月次報告の画面からほかの画面へ */
-const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
+const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), openProps: () => openProps(ctx), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
 
 function showReport(r: NonNullable<ReturnType<typeof step>['report']>) {
   speed = 0;
