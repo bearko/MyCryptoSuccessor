@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DEPT, DEPTS, DEPT_MARKS, DEPT_SKILLS, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
+import { DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
 import { deptLevel, deptNews, deptOpen, deptReady, menuDepts, menuLayout, nextMark } from '../src/island/p1/dept';
 import { deserializeP1, newP1, serializeP1 } from '../src/island/p1/model';
 import { DEPT_LAYOUT, EDGES, HUBPOS, HUB_BOX, KNOTPOS, POS, RING_OUT, SLACK, UNPLACED, groupOf } from '../src/island/p1/treelayout';
@@ -56,8 +56,8 @@ describe('パネルの部門の割り振り', () => {
   });
 
   it('効き目・値段・先に要るパネル・外周のランク・エンブレムの条件は、割り振り前と同じ', () => {
-    // 段 C で足した営業のパネル（営業の枝）は除いて比べる
-    expect(SKILLS.filter((k) => k.branch !== 'sales').map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
+    // 段 C で足した営業のパネル（営業の枝）・段 E2 で足した人事のパネル（HR_SKILLS）は除いて比べる
+    expect(SKILLS.filter((k) => k.branch !== 'sales' && !HR_SKILLS.includes(k)).map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
     for (const b of BEFORE) {
       const k = SKILL[b.id as string];
       const now = { id: k.id, name: k.name, note: k.note, cost: k.cost, rp: rpCost(k), cat: k.cat, max: maxLv(k) === Infinity ? 'inf' : maxLv(k), lv5: maxLv(k) >= 5 && maxLv(k) !== Infinity ? levelCost(k, 5) : null, requires: k.requires ?? [], reqLv: k.reqLv ?? null, anyOf: k.anyOf ?? null, brand: k.brand ?? null, tier: k.tier ?? 'C', emblem: k.emblem ?? null, big: !!k.big, train: k.train ?? null, fx: k.fx ?? null, up: k.up ?? null, shown: shownOf(k) };
@@ -156,7 +156,7 @@ describe('部門のお知らせ（トースト）', () => {
 
 describe('セーブ（版 11）', () => {
   it('新しいゲームは版 11。版 10 の古いセーブは、取ったパネル・レベルがそのまま版 11 になり、届いていた節目はまとめて出さない', () => {
-    expect(newP1(1).v).toBe(14);
+    expect(newP1(1).v).toBe(15);
     const s = newP1(2);
     s.skills = ['host', 'display', 'vmd', 'golden', 'jig', 'lounge', 'shift'];
     s.skillLv = { host: 5, jig: 3 };
@@ -165,7 +165,7 @@ describe('セーブ（版 11）', () => {
     delete o.flags.depts;
     delete o.flags.deptMarks;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(14);
+    expect(back.v).toBe(15);
     expect(back.skills).toEqual(s.skills);
     expect(back.skillLv).toEqual(s.skillLv);
     expect(deptLevel(back, 'logistics')).toBe(5 + 1 + 3);

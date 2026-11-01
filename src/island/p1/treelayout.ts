@@ -69,7 +69,8 @@ const INNER: Record<string, string[][]> = {
   'logistics:buy': [['stock1'], ['bulk', 'route_cloth'], ['abc', 'swift', 'route_paper'], ['bulk2', 'stock2', 'eye', 'scoutmap'], ['stock3', 'route_gem']],
   systems: [['pos'], ['auto_order', 'inventory']],
   rnd: [['dig_ext'], ['dig_power', 'dig_lamp'], ['dig_speed', 'dig_office', 'dig_deep'], ['dig_reach', 'dig_crew', 'dig_blast'], ['dig_study', 'dig_drill']],
-  hr: [['hire'], ['manual', 'slots'], ['ojt', 'incentive']],
+  // 段 E2：面談（OJT の先）・キャリアの道すじ（インセンティブの先）
+  hr: [['hire'], ['manual', 'slots'], ['ojt', 'incentive'], ['hr_talk', 'hr_career']],
   general: [['lounge'], ['shift'], ['welfare']],
   strategy: [['pace1'], ['budget', 'pace2'], ['pdca']],
 };

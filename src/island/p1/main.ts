@@ -12,7 +12,7 @@ import { icon } from '../../ui/dom';
 import { DEF, artId } from '../defs';
 import { effectDone, image, loading, pick, waterFrame, type Camera, type Effect } from '../render';
 import { cells, type Dir } from '../sim';
-import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO } from './data';
+import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, HERO_RARITY, MORALE, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO } from './data';
 import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
 import { bandText } from './deleg';
 import { openDeleg, openProps } from './delegui';
@@ -131,6 +131,8 @@ import { openDigSummary, openMonthReport } from './report';
 import { openSkills } from './tree';
 import { openSide } from './side';
 import { openGrowth } from './growthui';
+import { openCharisma } from './hrui';
+import { quitLeft, type HrDay } from './hr';
 import { IslandSfx } from './sfx';
 import { tileContent } from './tile';
 import { closeDig, digOpen, digRect, extIcon, openDig, openNotes, refreshDig, refreshTimer, showEndCard } from './digui';
@@ -523,13 +525,14 @@ const SUBS: Partial<Record<Menu, Sub[]>> = {
     { key: 'land', name: t('ランドマップ', 'Land map'), note: t('関所の先のセクタ', 'Sectors beyond the gate'), go: () => openLand(ctx), needs: 'land' },
     { key: 'books', name: t('決算書', 'Statements'), note: t('四半期の P/L・B/S', 'Quarterly P/L, B/S'), go: () => openBooks(ctx) },
     { key: 'props', name: t('部長の提案', 'Proposals'), note: t('承認・却下・保留', 'Approve, reject, hold'), go: () => openProps(ctx) },
+    { key: 'ceo', name: t('経営者', 'Executive'), note: t('カリスマ度・雇える格', 'Charisma, hiring rank'), go: () => openCharisma(ctx) },
     { key: 'ma', name: 'M&A', note: t('買収・提携（準備中）', 'Deals (coming soon)'), go: () => openMA(ctx) },
   ],
   hr: [
     { key: 'staff', name: t('ヒーローの配置', 'Assign heroes'), note: t('4 つの仕事に置く', 'Four jobs'), go: () => openStaff(ctx) },
     { key: 'growth', name: t('ヒーローの育成', 'Hero growth'), note: t('Lv・昇格・パッシブ', 'Levels, promotion, passives'), go: () => openGrowth(ctx) },
     { key: 'hire', name: t('人材登用', 'Recruiting'), note: t('ヒーローを雇う', 'Hire heroes'), go: () => openHire(ctx), needs: 'hire' },
-    { key: 'pay', name: t('給与・労務', 'Pay & welfare'), note: t('給料・賞与・休み', 'Wages, bonuses, rest'), go: () => openPayroll(ctx) },
+    { key: 'pay', name: t('給与・労務', 'Pay & welfare'), note: t('給与・士気・休み', 'Pay, morale, rest'), go: () => openPayroll(ctx) },
     { key: 'side', name: t('他店でバイト', 'Part-time'), note: t('資金が足りないとき', 'When funds run low'), go: () => openSide(ctx) },
   ],
   rnd: [
@@ -3191,6 +3194,17 @@ function openTest() {
       },
     ],
     [t('1 か月進める', 'Advance a month'), () => advance(daysToClose(s))],
+    [t('カリスマ +10', 'Charisma +10'), () => (s.charismaBonus = (s.charismaBonus ?? 0) + 10)],
+    [
+      t('士気を下げる（雇った人 1 人・次の日に辞めたい）', 'Lower morale (one hire, wants to quit tomorrow)'),
+      () => {
+        const st = s.staff.find((x) => ![10001, 10002, 10003].includes(x.hero) && x.quit == null) ?? s.staff.find((x) => x.quit == null);
+        if (!st) return;
+        st.morale = 10;
+        st.low = MORALE.quit.days;
+        advance(1);
+      },
+    ],
     [t('最初から', 'Start over'), () => restart()],
     [t('自由建築モードへ', 'Free-build mode'), () => location.assign(`${import.meta.env.BASE_URL}?test=2&mode=free`)],
   ]);
@@ -3934,6 +3948,7 @@ function advance(days: number) {
     if (tour) tourOn(r.made.length > 0 ? 'made' : null, r.delivered.some((x) => x.n > 0 && myShops(s).some((b) => b.uid === x.to)) ? 'dropped' : null);
     if (r.missions.length) sfx.play('mission');
     if (r.leveled?.length) levelNews(r.leveled);
+    if (r.hr) hrNews(r.hr);
     for (const g of r.grew) toast(t(`${heroName(g.hero)}の ${g.stat.toUpperCase()} が 1 上がりました（バイトの経験）`, `${heroName(g.hero)}’s ${g.stat.toUpperCase()} rose by 1 (part-time work)`));
     if (r.procLv) {
       toast(t(`調達ランクが Lv.${r.procLv} に上がりました`, `Buying rank is now Lv.${r.procLv}`));
@@ -3991,6 +4006,24 @@ function advance(days: number) {
  * ヒーローの育成（段 E1）：レベルアップのトースト。1 日に 2 人までは 1 人ずつ（「シップ 君が Lv 12 に！ PHY +1」）、
  * 3 人以上は 1 つにまとめる（くどくしない。名前は月次報告の「今月のレベルアップ」に）。上限 Lv に届いたら「昇格できる」
  */
+/** 人事のお知らせ（段 E2）：カリスマ度が上がった・辞めたいの予告・思いとどまった・辞めた */
+function hrNews(x: HrDay) {
+  if (x.charisma) {
+    const c = x.charisma;
+    toast(c.cap ? t(`👑 カリスマ度 ${c.from} → ${c.to}！ ${HERO_RARITY[c.cap].name}のヒーローを雇えるようになった`, `👑 Charisma ${c.from} → ${c.to}! You can now hire ${HERO_RARITY[c.cap].name} heroes`) : t(`👑 カリスマ度 ${c.from} → ${c.to}`, `👑 Charisma ${c.from} → ${c.to}`));
+    if (c.cap) sfx.play('levelup');
+  }
+  for (const id of x.want) {
+    const st = s.staff.find((y) => y.hero === id);
+    toast(t(`😣 ${heroName(id)}が「辞めたい」と言っている（あと ${st ? quitLeft(s, st) : 0} 日）。人事 → 給与・労務で引き止めよう`, `😣 ${heroName(id)} wants to quit (in ${st ? quitLeft(s, st) : 0} days). Talk them round in HR → Pay & welfare`));
+    sfx.play('error');
+  }
+  for (const id of x.stay) toast(t(`🙂 ${heroName(id)}が思いとどまってくれた`, `🙂 ${heroName(id)} decided to stay`));
+  for (const id of x.quit) {
+    toast(t(`💼 ${heroName(id)}が会社を辞めました`, `💼 ${heroName(id)} left the company`));
+    sfx.play('error');
+  }
+}
 function levelNews(ups: LevelUp[]) {
   const names = (x: LevelUp) => (['phy', 'int', 'agi'] as const).filter((k) => (x.gain[k] ?? 0) > 0).map((k) => `${k.toUpperCase()} +${x.gain[k]}`).join(t('・', ', '));
   if (ups.length <= 2)
@@ -4082,7 +4115,7 @@ function companyNews(c: NonNullable<ReturnType<typeof step>['company']>) {
 let quarterNew: number | null = null;
 
 /** 月次報告の画面からほかの画面へ */
-const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), openProps: () => openProps(ctx), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
+const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), openProps: () => openProps(ctx), openPay: () => openPayroll(ctx), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
 
 function showReport(r: NonNullable<ReturnType<typeof step>['report']>) {
   speed = 0;

@@ -282,7 +282,7 @@ describe('7. セーブ（版 12）', () => {
     }
     delete old.heroItems;
     const b = deserializeP1(JSON.stringify(old))!;
-    expect(b.v).toBe(14);
+    expect(b.v).toBe(15);
     expect(b.heroItems).toEqual({});
     for (const x of b.staff) {
       expect(x.level).toBeGreaterThan(1);

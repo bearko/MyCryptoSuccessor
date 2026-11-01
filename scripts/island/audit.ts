@@ -9,6 +9,7 @@
  * docs/ISLAND_PHASE1.md「投資の効き目の監査」
  */
 import { writeFileSync } from 'node:fs';
+import { careerMul, charismaOf, moraleTarget, quitNotice } from '../../src/island/p1/hr';
 import { areaShares, deserializeP1 as fromSave, newP1 as freshTown, newStorePull, rivalStores, serializeP1 as toSave, vacantCost } from '../../src/island/p1/model';
 import { HERO_GROWTH, ADS, DIG_BALANCE, DIG_SITES, HIRE_POOL, INVEST, INVESTS, MONEY_PANELS, P1B, PRODUCT, RESEARCH_NEED, SKILL, aptitude, isResearch, relicKey, sku, skuParts, type DigFxKind, type FxKind, type Mat, type Skill, type Sku, type Task } from '../../src/island/p1/data';
 import {
@@ -508,7 +509,13 @@ export const SKILL_SPEC: Record<string, SkillSpec> = {
   b_scout: { expect: [], check: 'probe', probe: { name: '雇える候補の数', f: (s) => hireSlots(s), better: 'up' } },
   training: { expect: [], check: 'probe', probe: { name: '技の修行の日数（木工・職人 10003）', f: (s) => trainDays(s, 't_wood', 10003), better: 'down' } },
   mgr: { expect: [], out: 'ほかのセクタ（セクタマネージャー）の売上の倍率。このセクタの段には効かない' },
-  headhunt: { expect: [], check: 'probe', probe: { name: '月の入れ替えでレアの候補が来る', f: (s) => s.hirePool.filter((id) => rareHeroes().includes(id)).length, better: 'up' }, days: 30 },
+  // 段 E2：レアの候補はカリスマ度 35 から（測るあいだはカリスマ度を 40 に）
+  headhunt: { expect: [], check: 'probe', probe: { name: '月の入れ替えでレアの候補が来る（カリスマ度 40）', f: (s) => s.hirePool.filter((id) => rareHeroes().includes(id)).length, better: 'up' }, setup: (s) => void (s.charismaBonus = 40), days: 30 },
+  // 人事（段 E2）：士気・給与・カリスマ度（SCM の段には出ない数。hr.ts）
+  hr_talk: { expect: [], check: 'probe', probe: { name: '辞めたいの予告の日数', f: (s) => quitNotice(s), better: 'up' }, note: '引き止めの面談の士気 +15 → +25 も' },
+  hr_career: { expect: [], check: 'probe', probe: { name: 'レベルアップ 1 つで上がる士気（×100）', f: (s) => Math.round(careerMul(s) * 100), better: 'up' }, note: '昇進・昇格も同じ倍率' },
+  hr_brand: { expect: [], check: 'probe', probe: { name: 'カリスマ度', f: (s) => charismaOf(s), better: 'up' } },
+  hr_paytable: { expect: [], check: 'probe', probe: { name: '相場どおりの人の士気の目標（×10）', f: (s) => Math.round(moraleTarget(s, s.staff[0]) * 10), better: 'up' } },
   d_people: { expect: ['craft'], after: (s) => replace('craft')(s), setup: undefined, note: '雇うときの能力（後だけ雇う。前も同じ人を雇う）' },
   // 経営
   pace1: { expect: [], out: '進行速度（遊ぶ速さ）。段の数字には効かない' },

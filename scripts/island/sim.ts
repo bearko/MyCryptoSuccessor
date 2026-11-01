@@ -11,6 +11,9 @@ import { crowned, moveFee, moveTo } from '../../src/island/p1/land';
 import { delegate, rankUpTier, repairAll, reviveView } from '../../src/island/p1/reset';
 import { MEET_IDLE_DAYS } from '../../src/island/p1/digmeet';
 import { siteCandidates } from '../../src/island/p1/trade';
+import { HR_OFF, baseWage, charismaOf, moraleOf, payroll, talk, toMarket } from '../../src/island/p1/hr';
+import { bonus as giveBonus, bonusCost, raise, raiseStep, setRest, wageMul } from '../../src/island/p1/model';
+import { CHARISMA, MORALE, PAY } from '../../src/island/p1/data';
 import { approve, candidatesFor, delegatedDuties, headDepts, headLeft, headOf, leaderLeft, leaderOf, quality, runnerOf, setHead, setLeader } from '../../src/island/p1/deleg';
 import { DELEG, DEPTS, type DeptId, type DutyId } from '../../src/island/p1/data';
 import {
@@ -298,6 +301,12 @@ export interface RunResult {
    * セクター長が自分で承認した提案（会社の月の締め）・リーダー（部長）が手を打った数・最初にリーダーを置いた日・最初に部長を置いた日
    */
   v18: { duties: number; dutiesEnd: number; heads: number; headsEnd: number; props: number; approved: number; sectorOk: number; acts: number; firstLead: number | null; firstHead: number | null };
+  /**
+   * v19（段 E2：カリスマ度・士気・給与）：ランクの終わり（そのランクの最後のセクタを離れたとき）のカリスマ度・最後のカリスマ度・
+   * 雇ったヒーローのもとのレアリティの数・月の締めの士気の平均（全部の月の平均と、いちばん低かった月）・辞めたいの予告・思いとどまった・辞めた人の数・
+   * 給与の合計 ÷ 給与の段が 0 のときの合計（月の締めの合計どうし）
+   */
+  v19: { chEnd: Partial<Record<Tier, number>>; ch: number; hired: Record<string, number>; morale: number[]; want: number; stay: number; quit: number; pay: number; pay0: number };
 }
 
 /**
@@ -1188,7 +1197,50 @@ export function policy(s: P1State, c: Ctx): Action[] {
       for (let i = 0; i < n; i++) acts.push({ kind: 'donate', run: () => (typeof donate(s) === 'string' ? 'none' : null) });
     }
   }
+  // v19（段 E2）：士気と給与の手（SIM_HR）
+  if (!HR_OFF.on) hrPlace(s, c, acts, budget, reserve);
   return acts;
+}
+
+/**
+ * v19（段 E2：士気と給与）の方針：
+ * - 通常：働いている人の士気が rest 未満なら休ませる。月末に、相場より 1 段以上下で士気が raiseBelow 未満の人を昇給（手元に残す資金を残せる月だけ）。
+ *   辞めたいが出たら、引き止めの面談 → 昇給 → 賞与（お金があれば）。
+ * - 100%：より丁寧に（休ませる目安が高い・相場より下の人は士気に関わらず昇給・士気がいちばん低い人に月 1 回の賞与）。
+ * - 最短：辞めたいが出たときの面談だけ。
+ */
+/** v18（段 E2 の前の main）の合計の実時間（秒。同じ 3 シードの平均：最短 1,835・1,631・1,557／通常 6,937・7,719・7,813／100% 19,781・20,076・19,692） */
+export const V18_TOTAL: Record<PolicyId, number> = { rta: (1835 + 1631 + 1557) / 3, normal: (6937 + 7719 + 7813) / 3, full: (19781 + 20076 + 19692) / 3 };
+export const SIM_HR: Record<PolicyId, { rest: number; raiseBelow: number; bonus: boolean }> = {
+  rta: { rest: 0, raiseBelow: 0, bonus: false },
+  normal: { rest: 38, raiseBelow: 55, bonus: false },
+  full: { rest: 45, raiseBelow: 62, bonus: true },
+};
+function hrPlace(s: P1State, c: Ctx, acts: Action[], budget: number, reserve: number) {
+  const H = SIM_HR[c.policy];
+  for (const st of s.staff) {
+    if (st.quit != null && !st.talked) acts.push({ kind: 'talk', run: () => talk(s, st.hero) });
+    // 休ませる：持ち場の人（リーダー・セクター長・修行・バイトは除く）
+    if (H.rest && !st.resting && st.task && st.task !== 'lead' && st.task !== 'manager' && st.task !== 'train' && st.task !== 'side' && moraleOf(st) < H.rest && st.stamina < st.stats.hp * 0.6) acts.push({ kind: 'rest', run: () => (setRest(s, st.hero, true), null) });
+  }
+  if (!c.monthEnd) return;
+  let left = budget - reserve;
+  for (const st of [...s.staff].sort((a, b) => moraleOf(a) - moraleOf(b))) {
+    const want = st.quit != null || (c.policy !== 'rta' && toMarket(st) >= 1 && moraleOf(st) < H.raiseBelow);
+    const cost = raiseStep(st.hero) * 3;
+    if (want && (st.lv ?? 0) < PAY.raiseMax && left > cost) {
+      left -= cost;
+      acts.push({ kind: 'raise', run: () => raise(s, st.hero) });
+    }
+    if (st.quit != null && c.policy !== 'rta' && left > bonusCost(st)) {
+      left -= bonusCost(st);
+      acts.push({ kind: 'bonus', run: () => giveBonus(s, st.hero) });
+    }
+  }
+  if (H.bonus && s.staff.length) {
+    const low = [...s.staff].sort((a, b) => moraleOf(a) - moraleOf(b))[0];
+    if (moraleOf(low) < MORALE.band.lo + 10 && left > bonusCost(low) * 20) acts.push({ kind: 'bonus', run: () => giveBonus(s, low.hero) });
+  }
 }
 
 /**
@@ -1575,7 +1627,9 @@ export interface RunOpts {
 export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   const s = newP1(seed);
   const c: Ctx = { policy: p, route: routeOf(p), at: 0, lineup: [], lineupDirty: true, shopsThisMonth: 0, monthEnd: null, lastBn: null, ban: new Set(o.ban ?? []), onlyFirst: !!o.onlyFirst, dayInMonth: 0, handCarry: 0, rpMoves: 0, runLeft: 0, runsMonth: 0, divesMonth: 0 };
-  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null } };
+  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 } };
+  /** v19：雇ったことのあるヒーロー（はじめの 3 人も入れる。新しく来た人を数える） */
+  const heroSeen = new Set(s.staff.map((x) => x.hero));
   /** v14：任せた町の担当（能力値の伸びを数える） */
   const growHeroes = new Set<number>();
   const R = SIM_RESET[p];
@@ -1881,6 +1935,23 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       }
       for (const x of d.company?.managed ?? []) if (s.land?.recs[x.id]?.heads) res.v18.sectorOk += s.land.recs[x.id].heads!.n;
     }
+    // v19：士気と給与・カリスマ度の記録
+    if (d.hr) {
+      res.v19.want += d.hr.want.length;
+      res.v19.stay += d.hr.stay.length;
+      res.v19.quit += d.hr.quit.length;
+    }
+    for (const x of s.staff)
+      if (!heroSeen.has(x.hero)) {
+        heroSeen.add(x.hero);
+        const r = x.baseRarity ?? 'C';
+        res.v19.hired[r] = (res.v19.hired[r] ?? 0) + 1;
+      }
+    if (d.report?.hr?.avg != null) {
+      res.v19.morale.push(d.report.hr.avg);
+      res.v19.pay += payroll(s);
+      res.v19.pay0 += s.staff.reduce((a, x) => a + baseWage(x), 0) * wageMul(s);
+    }
     // v14：任せた町の担当の伸び
     for (const x of d.company?.managed ?? []) {
       const g = x.revive?.grow;
@@ -2054,6 +2125,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       cur.act++;
       cur.left = s.day;
       cur.lv = s.staff.map((x) => x.level ?? 1);
+      if (!cur.revisit) res.v19.chEnd[cur.tier] = charismaOf(s);
       c.at++;
       cur = newRun(next);
       if (c.revisit?.has(next)) {
@@ -2081,6 +2153,8 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
     cur.dig.left = digLeft(s);
   }
   res.days = s.day;
+  if (!cur.revisit) res.v19.chEnd[cur.tier] = charismaOf(s);
+  res.v19.ch = charismaOf(s);
   res.v18.dutiesEnd = delegatedDuties(s).length;
   res.v18.headsEnd = headDepts(s).length;
   res.v18.approved = res.actions.approve ?? 0;
@@ -2369,6 +2443,39 @@ export function tables(rep: Report2): string {
     );
   }
   out.push('');
+  // v19：カリスマ度・士気・給与（段 E2）
+  {
+    out.push('### 表 13：カリスマ度・士気・給与（v19。段 E2）');
+    out.push('');
+    out.push(
+      `3 シードの平均（最小〜最大）。カリスマ度は記録から数え直す（\`CHARISMA\`：制覇 C +${CHARISMA.clear.C}・U +${CHARISMA.clear.U}・R +${CHARISMA.clear.R}／発表 +${CHARISMA.present.C}〜${CHARISMA.present.R}／ブランド力 ${CHARISMA.brand.per} ごとに +1（+${CHARISMA.brand.max} まで）／採用ブランド +${CHARISMA.panel}）。雇えるのは U ${CHARISMA.cap.U}・R ${CHARISMA.cap.R}・E ${CHARISMA.cap.E}・L ${CHARISMA.cap.L} から。士気と給与の手は \`SIM_HR\`（通常：士気 ${SIM_HR.normal.rest} 未満で疲れた持ち場の人を休ませる・月末に相場より 1 段以上下で士気 ${SIM_HR.normal.raiseBelow} 未満の人を昇給・辞めたいが出たら面談＋昇給＋賞与／100%：休ませる目安 ${SIM_HR.full.rest}・昇給の目安 ${SIM_HR.full.raiseBelow}・士気のいちばん低い人に賞与／最短：面談だけ）。「v18 の合計」は段 E2 の前の main の同じ 3 シード（\`V18_TOTAL\`）。給与の伸びは、月の締めの給与の合計 ÷ 給与の段が 0 のときの合計。`,
+    );
+    out.push('');
+    out.push('| 方針 | 合計 | v18 の合計 | 差 | C の終わりのカリスマ度 | U の終わり | R の終わり | 最後 | 雇ったレアリティ（もとの） | 士気の平均（いちばん低い月） | 辞めたい／思いとどまった／辞めた | 給与の伸び | 昇給・賞与・休ませる・面談（回） | 詰まって止まるシード |');
+    out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      const tot = mean(runs.map(totalSec));
+      const base = V18_TOTAL[p];
+      const chT = (tier: Tier) => {
+        const xs = runs.map((r) => r.v19.chEnd[tier]).filter((x): x is number => x != null);
+        return xs.length ? `${mean(xs).toFixed(1)}（${range(xs)}）` : '—';
+      };
+      const hired: Record<string, number> = {};
+      for (const r of runs) for (const [k, n] of Object.entries(r.v19.hired)) hired[k] = (hired[k] ?? 0) + n / runs.length;
+      const hiredTxt = ['N', 'C', 'U', 'R', 'E', 'L'].filter((k) => hired[k]).map((k) => `${k} ${hired[k].toFixed(1)}`).join('・') || '—';
+      const mor = runs.map((r) => mean(r.v19.morale));
+      const morMin = runs.map((r) => (r.v19.morale.length ? Math.min(...r.v19.morale) : 0));
+      const pay = runs.map((r) => (r.v19.pay0 ? r.v19.pay / r.v19.pay0 - 1 : 0));
+      const act = (k: string) => mean(runs.map((r) => r.actions[k] ?? 0)).toFixed(1);
+      const m = (f: (x: RunResult['v19']) => number) => mean(runs.map((r) => f(r.v19))).toFixed(1);
+      out.push(
+        `| ${POLICY_NAME[p]} | ${fmtH(tot)} | ${fmtH(base)} | ${tot >= base ? '+' : '−'}${Math.round(Math.abs(tot - base) / 60)} 分（${tot >= base ? '+' : '−'}${((Math.abs(tot - base) / base) * 100).toFixed(1)}%） | ${chT('C')} | ${chT('U')} | ${chT('R')} | ${m((x) => x.ch)} | ${hiredTxt} | ${mean(mor).toFixed(0)}（${Math.min(...morMin)}） | ${m((x) => x.want)}／${m((x) => x.stay)}／${m((x) => x.quit)} | +${(mean(pay) * 100).toFixed(1)}% | ${act('raise')}・${act('bonus')}・${act('rest')}・${act('talk')} | ${runs.filter((r) => !r.done).length} |`,
+      );
+    }
+    out.push('');
+  }
   // v18：任せ方の 4 段（段 D）
   {
     out.push('### 表 12：任せ方の 4 段（v18。段 D）');
@@ -2620,6 +2727,15 @@ export function withoutGrowth<T>(f: () => T): T {
     return f();
   } finally {
     Object.assign(tier, saved);
+  }
+}
+/** v19（段 E2）：カリスマ度・士気・給与を止めて回す（段 E2 の前と同じ雇い方・士気 ×1。比べるためだけ。終わったら戻す） */
+export function withoutHr<T>(f: () => T): T {
+  HR_OFF.on = true;
+  try {
+    return f();
+  } finally {
+    HR_OFF.on = false;
   }
 }
 /** 技の枝のスキル（技なしの比較で外す） */
