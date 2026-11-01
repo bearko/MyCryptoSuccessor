@@ -2741,7 +2741,7 @@ function tutorial(): { text: string; action?: [string, () => void] } {
     };
   }
   if (!ws && s.land && s.land.mine.length > 1 && s.sector !== s.land.mine[0]) return { text: t('このセクタにも[[工房]]を建てましょう。建物はセクタごとです。「営業企画」→「建築」から、道路に面した空き地へ。', 'Build a [[workshop]] in this sector too — buildings belong to each sector. Planning → Build, then a lot facing a road.'), action: [t('建築を開く', 'Open Build'), openBuildTab] };
-  if (!ws) return { text: t('新天地へようこそ！まずは Workshop から引き継いだ「工房」を建てましょう。下の「営業企画」→「建築」から工房を選び、道路に面した空き地へ。入口は道路の方にしか向けられません。', 'Welcome to the new land! First, build the Workshop you brought from home: Planning → Build, then place it on a lot facing a road — the entrance can only face the road.'), action: [t('建築を開く', 'Open Build'), openBuildTab] };
+  if (!ws) return { text: t('新天地へようこそ！まずは先代から引き継いだ「工房」を建てましょう。下の「営業企画」→「建築」から工房を選び、道路に面した空き地へ。入口は道路の方にしか向けられません。', 'Welcome to the new land! First, build the workshop you inherited from your predecessor: Planning → Build, then place it on a lot facing a road — the entrance can only face the road.'), action: [t('建築を開く', 'Open Build'), openBuildTab] };
   if (ws.left > 0) return { text: t('工房の工事中です。⏩ で時間を早められます。地図のマスを押すと、建物の詳しい情報が見られます。', 'The workshop is under construction. ⏩ speeds things up. Tap any tile on the map for details.') };
   // 2 か所目以降：市場データ → 勧めた商品の技 → 素材のルート（→ Uncommon は魔法の釜・商品開発）の順に導く
   const research = researchTip();
