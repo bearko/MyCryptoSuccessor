@@ -1,34 +1,17 @@
 /**
- * スキルツリー v2 の配置（DOM なし。tree.ts とテストが使う）。
- * 9 本の枝：もとの 8 本は 41.75° ずつ（もとの 45° から少し詰めて、最大 11.4° 回した）、そのあいだ（③ 物流とシステムのあいだ）に
- * 細めの 9 本目「発掘」（26°。外周のパネルは 1 段 3 枚まで）。内側（Common）の段を根もとから外へ、外周（U・R・E・L）は同じ半径の同心円に並べる。
- * docs/ISLAND_PHASE1.md「スキルツリー」。
+ * スキルツリーの配置（DOM なし。tree.ts とテストが使う）。
+ * 段 B（部門の土台）：本社から 11 本の部門の枝。枝の角度の幅は、その部門のパネルが収まる幅（内側の段・外周の段のどれもが隣の枝と重ならない幅）
+ * に、残りの角度をパネルの数に応じて足して決める。パネルの無い部門（営業・カスタマーサポート・法務・経理）は細い枝で、鍵の札だけ。
+ * 物流の枝は、もとの 5 本（④ 販売の売り場の運営・③ 運搬・② 製造・技・① 調達）を小さな束（グループ）として並べる。
+ * 内側（Common）の段を根もとから外へ、外周（U・R・E・L）は前と同じ半径の同心円に並べる。
+ * docs/ISLAND_PHASE1.md「スキルツリー」「部門」。
  */
 import { t } from '../../i18n';
-import { SKILLS, type Branch, type Tier } from './data';
+import { DEPTS, DEPT_SKILLS, SKILLS, deptOf, type Branch, type DeptId, type Skill, type Tier } from './data';
 import { ROW_CAP } from './skillsx';
 
 /** スキルのランク（外周）。無ければ C */
 const tierOf = (k: { tier?: Tier }): Tier => k.tier ?? 'C';
-
-/** 枝の向き（度。0 = 右、90 = 下）と、内側（Common）の段（根もとから外へ。段ごとに横へ広げる）。外周のパネルはデータの tier から自動で並べる */
-export const LAYOUT: Record<Branch, { angle: number; rows: string[][]; color: string; stage?: string }> = {
-  buy: { angle: 178.4, color: '#6fc6f0', stage: t('① 調達', '① Buy'), rows: [['stock1', 'bulk'], ['route_cloth', 'swift', 'eye'], ['route_paper', 'abc', 'stock2', 'bulk2'], ['scoutmap', 'route_gem', 'stock3']] },
-  tech: { angle: -139.9, color: '#e6d36a', rows: [['t_wood', 't_paper'], ['t_metal', 't_clay', 't_glass'], ['t_textile', 't_jewel', 't_master']] },
-  craft: { angle: -98.1, color: '#f2b544', stage: t('② 製造', '② Craft'), rows: [['jig', 'pot'], ['jig2', 'lot', 'five_s'], ['kaizen', 'chair']] },
-  logi: { angle: -56.4, color: '#7ee08f', stage: t('③ 物流', '③ Haul'), rows: [['loading'], ['shortcut', 'timetable'], ['route_opt', 'hub']] },
-  // 発掘（9 本目。発掘 v2 の 2 段目）：根もと＝追加申請・ツルハシ。左（物流の側）が深さと発掘隊、右（システムの側）が威力・速さ・仕掛け
-  dig: { angle: -22.5, color: '#d0945a', rows: [['dig_ext', 'dig_power'], ['dig_lamp', 'dig_office', 'dig_speed'], ['dig_deep', 'dig_crew', 'dig_reach', 'dig_blast'], ['dig_study', 'dig_drill']] },
-  sys: { angle: 11.4, color: '#5fe0d0', rows: [['pos'], ['auto_order', 'inventory']] },
-  shop: { angle: 53.1, color: '#ff9f5a', stage: t('④ 販売', '④ Sell'), rows: [['host', 'display'], ['shop2', 'vmd', 'pop'], ['shop3', 'golden', 'point', 'hours'], ['set']] },
-  ops: { angle: 94.9, color: '#c49bff', rows: [['pace1', 'budget'], ['pace2', 'pdca']] },
-  people: { angle: 136.6, color: '#ff8fb0', rows: [['hire', 'lounge'], ['manual', 'slots', 'shift'], ['ojt', 'incentive', 'welfare']] },
-};
-/** 枝ごとの外周の 1 段の枚数（無ければランクの ROW_CAP）。細い発掘の枝は 3 枚ずつ */
-export const BR_CAP: Partial<Record<Branch, number>> = { dig: 3 };
-/** もとの 8 本の枝の幅（度）。外周の段の半径は、ROW_CAP 枚がこの幅に収まる大きさから */
-export const WEDGE = 41.75;
-
 
 export const UNIT = 96;
 /**
@@ -36,36 +19,115 @@ export const UNIT = 96;
  * 中のアイコンは正立のまま、ひし形の内側に収まる正方形（幅の半分＝32px。64×64 のエクステの絵はちょうど 1/2）
  */
 export const PANEL = 2 / 3;
-/** 内側（Common）の段：1 段目の半径・段の間・パネルの間（弧の長さ）。パネルのすき間はひし形の幅の 0.8〜1 枚分（前は 1.25・1.15） */
+/** 内側（Common）の段：1 段目の半径・段の間・パネルの間（弧の長さ）。パネルのすき間はひし形の幅の 0.8〜1 枚分 */
 export const R0 = 3.6;
 export const STEP = 1.3;
 export const GAP = 1.22;
-/** 枝の根もと（ハブ）の距離 */
-export const HUB = 1.45;
-/** 大きめの研究パネル（以前の ✨）：根もとの近く（枝の向きから少し横へ） */
-export const DUST_R = 2.5;
-export const DUST_A = 0.42;
+/** 枝の根もと（ハブ。部門の名前と理解度の札）の距離。隣の札と近い枝は少し外へずらす（hubR） */
+export const HUB = 1.55;
+/** 札の大きさ（単位：UNIT。1 行の札「物流 12」）。隣の札と重なるときは外へ（HUB2） */
+export const HUB_BOX = { w: 0.82, h: 0.34 };
+export const HUB2 = 2.05;
+/** 物流のように束（グループ）が複数ある部門：束の根もと（小さな節）の距離 */
+export const KNOT = 2.1;
+/** 大きめの研究パネル（以前の ✨）・研究への寄付：根もとの近く（束の向きから少し横へ） */
+export const DUST_R = 2.6;
+/** 根もとの近くのパネルの、束の向きからのずれ（ラジアン。0.15〜DUST_A のうち、ほかのパネル・札からいちばん離れる所） */
+export const DUST_A = 0.32;
+/** パネルの無い部門の枝の札の距離（細い枝の先。隣どうしは互い違い） */
+export const EMPTY_R = [4.7, 6.3];
+/** パネルの無い部門の枝の幅（ラジアン） */
+export const EMPTY_W = 0.2;
+/** 隣の枝のパネルとのすき間（弧の長さ。ひし形どうしの中心の距離がひし形の幅の 1.6 倍を超える） */
+const EDGE_PAD = 1.08;
+/** もとの 8 本の枝の幅（度）。外周の段の半径は、ROW_CAP 枚がこの幅に収まる大きさから（前と同じ半径） */
+export const WEDGE = 41.75;
+
+/** 物流の枝の真ん中の向き（度）。札が横に並ぶ下側に、間の狭い部門が来ないように */
+export const LOGI_AT = -168;
+/** 物流の枝の中の束（もとの枝）。並びは角度の順（マーケの側から） */
+const LOGI_ORDER: Branch[] = ['shop', 'logi', 'craft', 'tech', 'buy'];
+/** 束の名前（詳細カードの「（物流・② 製造）」） */
+export const GROUP_STAGE: Partial<Record<Branch, string>> = {
+  shop: t('④ 販売', '④ Sell'),
+  logi: t('③ 運搬', '③ Haul'),
+  craft: t('② 製造', '② Craft'),
+  tech: t('技', 'Crafts'),
+  buy: t('① 調達', '① Buy'),
+};
 /**
- * 外周（ランクのエリア）：枝ごとに、そのランクのパネルを内側の段から外へ ROW_CAP 枚ずつ並べる（Common の内側と同じ流儀）。
- * 段の半径は、ROW_CAP 枚が隣の枝と重ならない大きさから。ランクのあいだに境目の円（RING_EDGE）。
+ * 内側（Common）の段（根もとから外へ。束ごと）。並べ忘れは UNPLACED（テストで 0 件）。
+ * 段の中の並びは、角度の小さい側（反時計回り）から
+ */
+const INNER: Record<string, string[][]> = {
+  // マーケの 1 段目は、もとの経営の枝の大きめの研究パネル（ブランド戦略室。先に要るものが無い）
+  marketing: [['d_ops'], ['vmd', 'pop'], ['golden', 'point'], ['set']],
+  'logistics:shop': [['host'], ['display', 'shop2'], ['hours', 'shop3']],
+  'logistics:logi': [['loading'], ['shortcut', 'timetable'], ['route_opt', 'hub']],
+  'logistics:craft': [['jig'], ['pot', 'five_s'], ['jig2', 'lot'], ['kaizen', 'chair']],
+  'logistics:tech': [['t_wood'], ['t_paper', 't_metal'], ['t_clay', 't_glass'], ['t_textile', 't_jewel', 't_master']],
+  'logistics:buy': [['stock1'], ['bulk', 'route_cloth'], ['abc', 'swift', 'route_paper'], ['bulk2', 'stock2', 'eye', 'scoutmap'], ['stock3', 'route_gem']],
+  systems: [['pos'], ['auto_order', 'inventory']],
+  rnd: [['dig_ext'], ['dig_power', 'dig_lamp'], ['dig_speed', 'dig_office', 'dig_deep'], ['dig_reach', 'dig_crew', 'dig_blast'], ['dig_study', 'dig_drill']],
+  hr: [['hire'], ['manual', 'slots'], ['ojt', 'incentive']],
+  general: [['lounge'], ['shift'], ['welfare']],
+  strategy: [['pace1'], ['budget', 'pace2'], ['pdca']],
+};
+
+/** 部門の枝の中の束（物流は 5 つ、ほかは 1 つ。パネルの無い部門は 0） */
+export interface Group {
+  key: string;
+  dept: DeptId;
+  branch?: Branch;
+  /** 束の向き（ラジアン）と幅 */
+  a: number;
+  w: number;
+  skills: Skill[];
+}
+export interface DeptLayout {
+  /** 枝の向き（度。0 = 右、90 = 下）・幅（ラジアン）・色 */
+  angle: number;
+  w: number;
+  color: string;
+  groups: Group[];
+  /** 根もとの札の距離 */
+  hubR: number;
+}
+
+/**
+ * 外周（ランクのエリア）：束ごとに、そのランクのパネルを内側の段から外へ、段の半径で入るだけ並べる（Common の内側と同じ流儀）。
+ * 段の数と半径は前の 9 本の枝のときと同じ（もとの枝ごとの ROW_CAP 枚で数える）。ランクのあいだに境目の円（RING_EDGE）。
  */
 export const OUTER: Tier[] = ['U', 'R', 'E', 'L'];
 /** ランクごとの段の半径（内側から） */
 export const RING_ROWS = {} as Record<Tier, number[]>;
 /** ランクのいちばん内側の段（RING_R）と、いちばん外の段（RING_OUT）・境目の円（RING_EDGE） */
 export const RING_R = { C: 0 } as Record<Tier, number>;
-export const RING_OUT = { C: R0 + STEP * 3 } as Record<Tier, number>;
+export const RING_OUT = { C: R0 + STEP * (Math.max(...Object.values(INNER).map((x) => x.length)) - 1) } as Record<Tier, number>;
 export const RING_EDGE = { C: 0 } as Record<Tier, number>;
-/** 外周のパネルの並び（枝・ランクごと。既存のパネル → 追加のパネル → ✨） */
-const outerList = (br: Branch, tier: Tier) => [...SKILLS.filter((k) => k.branch === br && tierOf(k) === tier && !k.big && !k.donate), ...SKILLS.filter((k) => k.branch === br && tierOf(k) === tier && k.big)].map((k) => k.id);
-const capOf = (br: Branch, tier: Tier) => BR_CAP[br] ?? ROW_CAP[tier as Exclude<Tier, 'C'>];
+/** 外周のパネルの並び（既存のパネル → 追加のパネル → 大きめの研究パネル） */
+/**
+ * 外周の並びの入れ替え（id → 並びの何番目に置くか）。根もとから線が伸びるパネル（先に要るものが無い）を、
+ * 内側のパネルを横切らない場所へ
+ */
+const OUTER_AT: Record<string, number> = { u_dig_mat: 3 };
+function outerOf(list: Skill[], tier: Tier): Skill[] {
+  const out = [...list.filter((k) => tierOf(k) === tier && !k.big && !k.donate), ...list.filter((k) => tierOf(k) === tier && k.big)];
+  for (const [id, at] of Object.entries(OUTER_AT)) {
+    const i = out.findIndex((k) => k.id === id);
+    if (i >= 0) out.splice(at, 0, ...out.splice(i, 1));
+  }
+  return out;
+}
 {
+  // 段の数は、もとの 9 本の枝（発掘は 1 段 3 枚）で数える（半径を前と変えない）
+  const OLD_BR: Branch[] = ['shop', 'craft', 'logi', 'buy', 'people', 'ops', 'sys', 'tech', 'dig'];
   let r = 9.0;
   const SPAN = (WEDGE * Math.PI) / 180;
   for (const tier of OUTER) {
     const cap = ROW_CAP[tier as Exclude<Tier, 'C'>];
     r = Math.max(r, (GAP * (cap - 1) + 1.15) / SPAN);
-    const rows = Math.max(1, ...(Object.keys(LAYOUT) as Branch[]).map((br) => Math.ceil(outerList(br, tier).length / capOf(br, tier))));
+    const rows = Math.max(1, ...OLD_BR.map((br) => Math.ceil(outerOf(SKILLS.filter((k) => k.branch === br), tier).length / (br === 'dig' ? 3 : cap))));
     RING_EDGE[tier] = r - 0.85;
     RING_R[tier] = r;
     RING_ROWS[tier] = Array.from({ length: rows }, (_, k) => r + STEP * k);
@@ -73,52 +135,170 @@ const capOf = (br: Branch, tier: Tier) => BR_CAP[br] ?? ROW_CAP[tier as Exclude<
     r = RING_OUT[tier] + 1.6;
   }
 }
-/** エリアの札を置く向き（枝と枝のあいだ：製造と物流のあいだ） */
-export const LABEL_A = (-76.5 * Math.PI) / 180;
+export const polar = (a: number, r: number) => ({ x: Math.cos(a) * r, y: Math.sin(a) * r });
+/** 幅 w の束の、半径 r の段に並べられる枚数 */
+const capAt = (w: number, r: number) => Math.max(1, Math.floor((w * r - EDGE_PAD) / GAP + 1e-9) + 1);
+/** 束に要る幅（内側の段・外周の各ランクの段のどれもが収まる） */
+function needOf(key: string, list: Skill[]): number {
+  let w = 0;
+  (INNER[key] ?? []).forEach((ids, k) => {
+    if (ids.length) w = Math.max(w, (GAP * (ids.length - 1) + EDGE_PAD) / (R0 + STEP * k));
+  });
+  // 大きめの研究パネル（根もとの近く）
+  if (list.some((k) => tierOf(k) === 'C' && (k.big || k.donate) && !Object.values(INNER).flat(2).includes(k.id))) w = Math.max(w, EDGE_PAD / DUST_R);
+  for (const tier of OUTER) {
+    const n = outerOf(list, tier).length;
+    if (!n) continue;
+    let lo = w;
+    while (RING_ROWS[tier].reduce((a, r) => a + capAt(lo, r), 0) < n) lo += 0.005;
+    w = Math.max(w, lo);
+  }
+  return w;
+}
+
+/** 部門の枝の配置 */
+export const DEPT_LAYOUT = {} as Record<DeptId, DeptLayout>;
+export const GROUPS: Group[] = [];
+const GROUP_OF = new Map<string, Group>();
+/** 枝の幅の余り（パネルの数に応じて足した角度の合計。テスト用：0 以上） */
+export let SLACK = 0;
+{
+  const items: { d: DeptId; g: Group | null; need: number; n: number }[] = [];
+  for (const d of DEPTS) {
+    const list = DEPT_SKILLS[d.id];
+    if (!list.length) {
+      items.push({ d: d.id, g: null, need: EMPTY_W, n: 0 });
+      continue;
+    }
+    const parts: [string, Branch | undefined, Skill[]][] = d.id === 'logistics' ? LOGI_ORDER.map((b) => [`logistics:${b}`, b, list.filter((k) => k.branch === b)]) : [[d.id, undefined, list]];
+    for (const [key, branch, skills] of parts) {
+      const g: Group = { key, dept: d.id, branch, a: 0, w: 0, skills };
+      items.push({ d: d.id, g, need: needOf(key, skills), n: skills.length });
+    }
+  }
+  const total = items.reduce((a, x) => a + x.need, 0);
+  SLACK = Math.PI * 2 - total;
+  const nAll = items.reduce((a, x) => a + x.n, 0);
+  // 物流の真ん中が左（LOGI_AT）に来るように回す
+  let a = 0;
+  for (const x of items) {
+    const w = x.need + (Math.max(0, SLACK) * x.n) / nAll;
+    if (x.g) {
+      x.g.a = a + w / 2;
+      x.g.w = w;
+      GROUPS.push(x.g);
+      GROUP_OF.set(x.g.key, x.g);
+    }
+    const L = (DEPT_LAYOUT[x.d] ??= { angle: 0, w: 0, color: DEPTS.find((y) => y.id === x.d)!.color, groups: [], hubR: HUB });
+    if (!L.w) L.angle = a;
+    L.w += w;
+    if (x.g) L.groups.push(x.g);
+    a += w;
+  }
+  const logi = DEPT_LAYOUT.logistics;
+  const rot = (LOGI_AT * Math.PI) / 180 - (logi.angle + logi.w / 2);
+  for (const g of GROUPS) g.a += rot;
+  for (const L of Object.values(DEPT_LAYOUT)) L.angle = ((L.angle + L.w / 2 + rot) * 180) / Math.PI;
+  // パネルの無い部門は、細い枝の先に札（隣どうしは互い違いの距離）
+  let k = 0;
+  for (const d of DEPTS) {
+    const L = DEPT_LAYOUT[d.id];
+    if (!L.groups.length) L.hubR = EMPTY_R[k++ % 2];
+    else k = 0;
+  }
+  // 札どうしが重なる（隣の枝の根もとの札と、札の箱が重なる）ときは、少し外へ（HUB2）
+  const ids = DEPTS.map((d) => d.id);
+  const boxAt = (d: DeptId, r: number) => polar(((DEPT_LAYOUT[d].angle * Math.PI) / 180), r);
+  const clash = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.abs(a.x - b.x) < HUB_BOX.w + 0.06 && Math.abs(a.y - b.y) < HUB_BOX.h + 0.06;
+  for (let i = 0; i < ids.length; i++) {
+    const L = DEPT_LAYOUT[ids[i]];
+    if (!L.groups.length) continue;
+    const P = ids[(i + ids.length - 1) % ids.length];
+    if (!DEPT_LAYOUT[P].groups.length || DEPT_LAYOUT[P].hubR !== HUB || !clash(boxAt(ids[i], HUB), boxAt(P, HUB))) continue;
+    // 外へずらすのは、根もとの近くに大きめの研究パネルが無いほう
+    const bigAt = (d: DeptId) => DEPT_SKILLS[d].some((k) => tierOf(k) === 'C' && (k.big || k.donate));
+    if (bigAt(ids[i]) && !bigAt(P)) DEPT_LAYOUT[P].hubR = HUB2;
+    else L.hubR = HUB2;
+  }
+}
+/** 部門の枝の真ん中の向き（ラジアン） */
+export const deptAngle = (d: DeptId) => (DEPT_LAYOUT[d].angle * Math.PI) / 180;
+/** パネルの束 */
+export const groupOf = (id: string) => GROUP_BY_ID.get(id) ?? null;
+const GROUP_BY_ID = new Map<string, Group>();
+for (const g of GROUPS) for (const k of g.skills) GROUP_BY_ID.set(k.id, g);
+/** もとの枝（SCM ダッシュボードの「スキルツリーで見る」）の束 */
+export const groupOfBranch = (br: string) => GROUPS.find((g) => g.branch === br) ?? GROUPS.find((g) => g.skills.some((k) => k.branch === br)) ?? null;
+
+/** エリアの札を置く向き（パネルの無い部門の枝：営業とカスタマーサポートのあいだ） */
+export const LABEL_A = (deptAngle('sales') + deptAngle('support')) / 2;
 /** 木の上の位置（単位：UNIT）。本社が (0, 0) */
 export const POS = new Map<string, { x: number; y: number }>();
-export const HUBPOS = new Map<Branch, { x: number; y: number }>();
-export const polar = (a: number, r: number) => ({ x: Math.cos(a) * r, y: Math.sin(a) * r });
-for (const [br, L] of Object.entries(LAYOUT) as [Branch, (typeof LAYOUT)[Branch]][]) {
-  const a = (L.angle * Math.PI) / 180;
-  HUBPOS.set(br, polar(a, HUB));
-  const row = (ids: string[], r: number) => ids.forEach((id, i) => POS.set(id, polar(a + ((i - (ids.length - 1) / 2) * GAP) / r, r)));
-  L.rows.forEach((ids, k) => row(ids, R0 + STEP * k));
-  for (const tier of OUTER) {
-    const cap = capOf(br, tier);
-    const ids = outerList(br, tier);
-    RING_ROWS[tier].forEach((r, k) => row(ids.slice(k * cap, (k + 1) * cap), r));
+/** 部門の根もとの札 */
+export const HUBPOS = new Map<DeptId, { x: number; y: number }>();
+/** 束の根もとの節（物流のように束が複数ある部門だけ） */
+export const KNOTPOS = new Map<string, { x: number; y: number }>();
+for (const d of DEPTS) {
+  const L = DEPT_LAYOUT[d.id];
+  HUBPOS.set(d.id, polar(deptAngle(d.id), L.hubR));
+  for (const g of L.groups) {
+    if (L.groups.length > 1) KNOTPOS.set(g.key, polar(g.a, KNOT));
+    const row = (ids: string[], r: number) => ids.forEach((id, i) => POS.set(id, polar(g.a + ((i - (ids.length - 1) / 2) * GAP) / r, r)));
+    (INNER[g.key] ?? []).forEach((ids, k) => row(ids, R0 + STEP * k));
+    for (const tier of OUTER) {
+      const ids = outerOf(g.skills, tier).map((k) => k.id);
+      let at = 0;
+      for (const r of RING_ROWS[tier]) {
+        const c = capAt(g.w, r);
+        row(ids.slice(at, at + c), r);
+        at += c;
+      }
+    }
   }
-  for (const k of SKILLS) if (k.branch === br && k.big && tierOf(k) === 'C') POS.set(k.id, polar(a + DUST_A, DUST_R));
-  // 研究への寄付（発掘の枝。発掘 v2 の 6 段目）：大きめの研究パネルと同じ、根もとの近くの横
-  for (const k of SKILLS) if (k.branch === br && k.donate) POS.set(k.id, polar(a + DUST_A, DUST_R));
 }
-// 並べ忘れたスキルは、その枝の根もとの外へ（テストで 0 件を確かめる）
+// 大きめの研究パネル・研究への寄付：根もとの近くの横（束の向きから左右どちらか。ほかのパネル・札からいちばん離れる側）
+// （先に置いた枝の側に寄らないように、3 回置き直す。内側の段に並べたものは除く）
+const INNER_IDS = new Set(Object.values(INNER).flat(2));
+for (let pass = 0; pass < 3; pass++)
+  for (const g of GROUPS)
+    for (const k of g.skills) {
+      if (!((k.big || k.donate) && tierOf(k) === 'C') || INNER_IDS.has(k.id)) continue;
+      POS.delete(k.id);
+      const far = (p: { x: number; y: number }) => Math.min(...[...POS.values(), ...HUBPOS.values(), ...KNOTPOS.values()].map((q) => Math.hypot(p.x - q.x, p.y - q.y)));
+      const cand: number[] = [];
+      for (let d = 0.15; d <= DUST_A + 1e-9; d += 0.01) cand.push(d, -d);
+      POS.set(k.id, cand.map((d) => polar(g.a + d, DUST_R)).sort((a, b) => far(b) - far(a))[0]);
+    }
+// 並べ忘れたスキルは、本社に（テストで 0 件を確かめる）
 export const UNPLACED = SKILLS.filter((k) => !POS.has(k.id)).map((k) => k.id);
 for (const id of UNPLACED) POS.set(id, { x: 0, y: 0 });
 /** パネルの位置（テスト用：重なっていないか） */
 export const treePos = (id: string) => POS.get(id) ?? null;
 
 /**
- * つながりの線：from（先に要るパネル。null は枝の根もと＝ハブ）→ to。先に要るものが無ければ根もとから。
- * 封印（sealed）は、ひとつ内側の外周のまんなかのパネル（無ければ根もと）から
+ * つながりの線：from（先に要るパネル。null は束の根もと＝ハブか節）→ to。先に要るものが無ければ根もとから。
+ * 封印（sealed）は、ひとつ内側の外周のまんなかのパネル（無ければ根もと）から。
+ * br は線の先（to）の部門・g はその束（根もとの位置と色）。部門をまたぐ線（販売 → マーケなど）もある
  */
-export type TreeEdge = { from: string | null; to: string; br: Branch };
+export type TreeEdge = { from: string | null; to: string; br: DeptId; g: string };
 export const EDGES: TreeEdge[] = [];
-for (const br of Object.keys(LAYOUT) as Branch[]) {
-  for (const k of SKILLS.filter((x) => x.branch === br)) {
+for (const g of GROUPS) {
+  for (const k of g.skills) {
+    const br = deptOf(k);
     if (k.sealed) {
       const tier = tierOf(k);
-      const inner = SKILLS.filter((x) => x.branch === br && !x.big && OUTER.indexOf(tierOf(x)) === OUTER.indexOf(tier) - 1);
-      EDGES.push({ from: inner.length ? inner[Math.floor(inner.length / 2)].id : null, to: k.id, br });
+      const inner = g.skills.filter((x) => !x.big && OUTER.indexOf(tierOf(x)) === OUTER.indexOf(tier) - 1);
+      EDGES.push({ from: inner.length ? inner[Math.floor(inner.length / 2)].id : null, to: k.id, br, g: g.key });
       continue;
     }
-    if (k.requires?.length) for (const r of k.requires) EDGES.push({ from: r, to: k.id, br });
-    else EDGES.push({ from: null, to: k.id, br });
+    if (k.requires?.length) for (const r of k.requires) EDGES.push({ from: r, to: k.id, br, g: g.key });
+    else EDGES.push({ from: null, to: k.id, br, g: g.key });
   }
 }
-/** 線の端の位置（木の上。null は枝の根もと） */
-export const edgeEnd = (id: string | null, br: Branch) => (id ? POS.get(id)! : HUBPOS.get(br)!);
+/** 束の根もと（節があれば節、無ければ部門の札） */
+export const rootOf = (g: string) => KNOTPOS.get(g) ?? HUBPOS.get(GROUP_OF.get(g)?.dept ?? (g as DeptId))!;
+/** 線の端の位置（木の上。null は束の根もと） */
+export const edgeEnd = (id: string | null, g: string) => (id ? POS.get(id)! : rootOf(g));
 /**
  * 線をパネルのひし形の縁で切る：中心 c から向き (ux, uy) に進んで、ひし形（L1 の半径 r）の縁に着くまでの距離。
  * ひし形は |x| + |y| ≤ r なので、r / (|ux| + |uy|)
@@ -154,7 +334,7 @@ export function edgeBends(): Map<TreeEdge, number> {
   if (bends) return bends;
   bends = new Map();
   for (const e of EDGES) {
-    const m = edgeBend(edgeEnd(e.from, e.br), edgeEnd(e.to, e.br), (id) => id === e.from || id === e.to);
+    const m = edgeBend(edgeEnd(e.from, e.g), edgeEnd(e.to, e.g), (id) => id === e.from || id === e.to);
     if (m) bends.set(e, m);
   }
   return bends;
@@ -179,4 +359,3 @@ export function curveNear(a: { x: number; y: number }, b: { x: number; y: number
 }
 
 export const BOUNDS = [...POS.values()].reduce((b, p) => ({ x0: Math.min(b.x0, p.x), x1: Math.max(b.x1, p.x), y0: Math.min(b.y0, p.y), y1: Math.max(b.y1, p.y) }), { x0: 0, x1: 0, y0: 0, y1: 0 });
-

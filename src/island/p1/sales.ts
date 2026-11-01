@@ -214,7 +214,7 @@ export function openSales(ctx: Ctx) {
 
     // 一覧
     if (!rows.length) {
-      body.append(h('p', 'isl-dim', t('お店がまだありません。「営業企画」→「建築」で建てましょう。', 'No shops yet. Build one under Planning → Build.')));
+      body.append(h('p', 'isl-dim', t('お店がまだありません。「経営企画」→「建築」で建てましょう。', 'No shops yet. Build one under Strategy → Build.')));
       return;
     }
     const list = h('div', 'isl-sales-list');

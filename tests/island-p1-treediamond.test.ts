@@ -41,7 +41,7 @@ describe('スキルツリー：つながりの線', () => {
     for (const e of EDGES) {
       expect(SKILL[e.to], e.to).toBeTruthy();
       if (e.from) expect(POS.has(e.from), e.from).toBe(true);
-      expect(edgeEnd(e.from, e.br)).toBeTruthy();
+      expect(edgeEnd(e.from, e.g)).toBeTruthy();
     }
     for (const k of Object.values(SKILL)) if (k.requires?.length && !k.sealed) for (const r of k.requires) expect(EDGES.some((e) => e.from === r && e.to === k.id), `${r} → ${k.id}`).toBe(true);
   });
@@ -57,8 +57,8 @@ describe('スキルツリー：つながりの線', () => {
     let straightHits = 0;
     let left = 0;
     for (const e of EDGES) {
-      const a = edgeEnd(e.from, e.br);
-      const b = edgeEnd(e.to, e.br);
+      const a = edgeEnd(e.from, e.g);
+      const b = edgeEnd(e.to, e.g);
       const others = [...POS].filter(([id]) => id !== e.from && id !== e.to);
       const hit = (bend: number) => others.filter(([, p]) => curveNear(a, b, bend, p, PANEL / 2 + 0.06)).length;
       if (hit(0)) straightHits++;

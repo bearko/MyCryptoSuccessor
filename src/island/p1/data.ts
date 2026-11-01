@@ -869,7 +869,10 @@ export type Branch = 'shop' | 'craft' | 'logi' | 'buy' | 'people' | 'ops' | 'sys
 
 export interface Skill {
   id: string;
+  /** もとの枝（9 本。RP の値段の割り振り・SCM の段・自動プレイが使う）。スキルツリーでは部門の枝の中の小さな束 */
   branch: Branch;
+  /** 部門（data.ts の DEPT_MOVE・BRANCH_DEPT で決める。docs/ISLAND_PHASE1.md「部門」） */
+  dept?: DeptId;
   name: string;
   /** 効き目（数字で書く） */
   note: string;
@@ -1849,8 +1852,83 @@ export const BRANCHES: { key: Branch; name: string }[] = [
   { key: 'tech', name: t('技', 'Crafts') },
   { key: 'dig', name: t('発掘', 'Digging') },
 ];
+// ---------------------------------------------------------------- 部門（ロードマップ段 B。docs/ISLAND_PHASE1.md「部門」）
+
+/** 11 の部門（docs/SUCCESSOR_VISION.md「部門」）。スキルツリーの枝・下の帯のメニューの単位 */
+export type DeptId = 'logistics' | 'sales' | 'strategy' | 'rnd' | 'hr' | 'systems' | 'marketing' | 'legal' | 'support' | 'accounting' | 'general';
+/** 部門のグループ（メニューが 7 つ以上になったときの引き出し） */
+export type DeptGroup = 'biz' | 'strat' | 'admin' | 'base';
+/** ロードマップの段（docs/SUCCESSOR_ROADMAP.md「ロードマップ」）。部門の中身（遊び）ができる段 */
+export type RoadStage = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J';
+/** いまできている段（段 B：部門の土台）。中身ができる段がこれ以下の部門だけメニューに出る */
+export const ROAD_NOW: RoadStage = 'B';
+export interface DeptDef {
+  id: DeptId;
+  name: string;
+  /** スマホの下の帯の短い名前 */
+  short: string;
+  /** 仮のアイコン（絵文字。docs/ISLAND_ART_TODO.md） */
+  icon: string;
+  color: string;
+  group: DeptGroup;
+  /** 開くランク（そのランクのセクタに出店すると開く。ロードマップ 8 章の決定：ランクごとに順に） */
+  opens: Tier;
+  /** 中身（その部門の遊び）ができる段 */
+  stage: RoadStage;
+  /** 部門の遊びの一言（部門の画面の上の帯・鍵の枝の札） */
+  note: string;
+}
+/** 11 部門（並びはスキルツリーの枝の並び。マーケ → 物流 → … → 経営企画で一周） */
+export const DEPTS: DeptDef[] = [
+  { id: 'marketing', name: t('マーケティング', 'Marketing'), short: t('マーケ', 'Mktg'), icon: '📣', color: '#ff7fae', group: 'strat', opens: 'C', stage: 'B', note: t('宣伝・市場調査・ブランド', 'Ads, research, brand') },
+  { id: 'logistics', name: t('物流', 'Logistics'), short: t('物流', 'Logistics'), icon: '🚚', color: '#7ee08f', group: 'biz', opens: 'C', stage: 'B', note: t('調達 → 製造 → 運搬 → 販売の流れ', 'Buy → craft → haul → sell') },
+  { id: 'sales', name: t('営業', 'Sales'), short: t('営業', 'Sales'), icon: '🤝', color: '#f0a35a', group: 'biz', opens: 'R', stage: 'C', note: t('他店との交渉・販路の開拓', 'Deals with rivals, new channels') },
+  { id: 'support', name: t('カスタマーサポート', 'Customer Support'), short: 'CS', icon: '🎧', color: '#7fc8ff', group: 'biz', opens: 'U', stage: 'G', note: t('お客さんの問い合わせ・顧客満足度', 'Inquiries and satisfaction') },
+  { id: 'systems', name: t('システム', 'Systems'), short: t('システム', 'System'), icon: '⚙', color: '#5fe0d0', group: 'base', opens: 'C', stage: 'B', note: t('業務の効率化・ゲームの設定', 'Efficiency and game settings') },
+  { id: 'rnd', name: 'R&D', short: 'R&D', icon: '🔬', color: '#d0945a', group: 'strat', opens: 'C', stage: 'B', note: t('発掘・研究・復刻品', 'Digs, research, revivals') },
+  { id: 'legal', name: t('法務', 'Legal'), short: t('法務', 'Legal'), icon: '⚖', color: '#b8b8d8', group: 'admin', opens: 'E', stage: 'H', note: t('契約・特許・争い', 'Contracts, patents, disputes') },
+  { id: 'hr', name: t('人事', 'HR'), short: t('人事', 'HR'), icon: '👥', color: '#ff9f5a', group: 'admin', opens: 'C', stage: 'B', note: t('配置・採用・育成', 'Staffing, hiring, growth') },
+  { id: 'general', name: t('総務', 'General Affairs'), short: t('総務', 'GA'), icon: '🛋', color: '#e6d36a', group: 'admin', opens: 'U', stage: 'F', note: t('職場の環境・福利厚生', 'Workplace and benefits') },
+  { id: 'accounting', name: t('経理', 'Accounting'), short: t('経理', 'Acct'), icon: '🧾', color: '#9fd27a', group: 'admin', opens: 'U', stage: 'F', note: t('決算書・税・節税', 'Statements, tax, savings') },
+  { id: 'strategy', name: t('経営企画', 'Strategy'), short: t('経営企画', 'Strategy'), icon: '✦', color: '#c49bff', group: 'strat', opens: 'C', stage: 'B', note: t('全社の方針・スキルツリー', 'Company policy, skill tree') },
+];
+export const DEPT: Record<DeptId, DeptDef> = Object.fromEntries(DEPTS.map((d) => [d.id, d])) as Record<DeptId, DeptDef>;
+export const DEPT_GROUPS: { id: DeptGroup; name: string; icon: string }[] = [
+  { id: 'biz', name: t('事業', 'Business'), icon: '🏪' },
+  { id: 'strat', name: t('戦略', 'Strategy'), icon: '🧭' },
+  { id: 'admin', name: t('管理', 'Admin'), icon: '🗂' },
+  { id: 'base', name: t('基盤', 'Base'), icon: '🧱' },
+];
+/**
+ * 理解度の節目（ロードマップ 1-2 の提案）。いまは「準備中」として見せるだけで、効き目は無い（任せ方の 4 段・奥義は後の段）
+ */
+export const DEPT_MARKS: { at: number; name: string }[] = [
+  { at: 3, name: t('チームリーダー', 'Team leader') },
+  { at: 8, name: t('事業部長', 'Division head') },
+  { at: 15, name: t('奥義 1', 'Mastery 1') },
+  { at: 25, name: t('奥義 2', 'Mastery 2') },
+  { at: 40, name: t('奥義 3', 'Mastery 3') },
+];
+/** 節目の一言（トースト。「事業部長を置けるようになるのは、次の更新で」） */
+export const deptMarkNote = (k: number) => [t('業務を 1 つ任せられる', 'delegate one task'), t('部門を丸ごと任せられる', 'delegate the whole department'), t('部門の奥義', 'department mastery'), t('部門の奥義', 'department mastery'), t('部門の奥義', 'department mastery')][k] ?? '';
+/**
+ * パネルの部門の割り振り（docs/ISLAND_PHASE1.md「部門」の表）。枝（branch）ごとの決まり：
+ * 調達・製造・物流・技・販売 → 物流／経営 → 経営企画／人材 → 人事／発掘 → R&D／システム → システム。
+ * 例外：販売の枝の宣伝・ブランド・見せ方 → マーケ、経営の枝のブランドのもの → マーケ、人材の枝の職場の環境 → 総務
+ */
+export const BRANCH_DEPT: Record<Branch, DeptId> = { shop: 'logistics', craft: 'logistics', logi: 'logistics', buy: 'logistics', tech: 'logistics', ops: 'strategy', people: 'hr', dig: 'rnd', sys: 'systems' };
+export const DEPT_MOVE: Record<string, DeptId> = Object.fromEntries([
+  ...['vmd', 'pop', 'golden', 'point', 'set', 'd_ops', 'b_sign', 'fair', 'u_shop_2', 'u_shop_5', 'u_shop_6', 'b_ads', 'b_premium', 'r_shop_2', 'r_shop_3', 'r_shop_5', 'r_shop_6', 'r_shop_8', 'e_shop_3', 'e_shop_5', 'e_shop_6', 'e_shop_8', 'e_shop_10', 'l_shop_1', 'l_shop_2', 'l_shop_5', 'l_shop_6', 'l_shop_7', 'l_shop_8', 'l_shop_9'].map((id) => [id, 'marketing']),
+  ...['lounge', 'shift', 'welfare', 'u_people_5', 'r_people_5', 'e_people_3', 'e_people_7', 'l_people_3', 'l_people_6'].map((id) => [id, 'general']),
+]) as Record<string, DeptId>;
+for (const k of SKILLS) k.dept = DEPT_MOVE[k.id] ?? BRANCH_DEPT[k.branch];
+/** パネルの部門 */
+export const deptOf = (k: Skill): DeptId => k.dept ?? BRANCH_DEPT[k.branch];
+/** 部門のパネル（並びは SKILLS の順） */
+export const DEPT_SKILLS: Record<DeptId, Skill[]> = Object.fromEntries(DEPTS.map((d) => [d.id, SKILLS.filter((k) => deptOf(k) === d.id)])) as Record<DeptId, Skill[]>;
+
 /** 技の「技を n つ」の条件を満たしているか（has：取ったスキル） */
-export const anyOfMet = (k: Skill, has: (id: string) => boolean) => !k.anyOf || k.anyOf.ids.filter(has).length >= k.anyOf.n;
+export const anyOfMet =(k: Skill, has: (id: string) => boolean) => !k.anyOf || k.anyOf.ids.filter(has).length >= k.anyOf.n;
 
 /** 雇える候補（Common のヒーロー）。月の初めに入れ替わる */
 export const HIRE_POOL = [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018, 1019, 1020];

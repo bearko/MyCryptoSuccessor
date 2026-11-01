@@ -386,7 +386,7 @@ export function needText(n: Need, s?: P1State): string {
     case 'pot':
       return t(`アンコモン：${SKILL.pot.name}（スキルツリー）`, `Uncommon: ${SKILL.pot.name} (skill tree)`);
     case 'dev':
-      return t('アンコモン：商品開発がまだ（営業企画 → 商品開発）', 'Uncommon: not developed yet (Planning → Product development)');
+      return t('アンコモン：商品開発がまだ（R&D → 商品開発）', 'Uncommon: not developed yet (R&D → Product development)');
   }
 }
 

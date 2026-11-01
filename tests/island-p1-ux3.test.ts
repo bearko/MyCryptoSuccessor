@@ -123,14 +123,14 @@ describe('ヒーロー選びの見分け', () => {
 });
 
 describe('チュートリアル：調達の段は自分でタブを押す', () => {
-  it('素材の段は lesson（SCM → 調達）で、画面へ直接は飛ばさない', () => {
+  it('素材の段は lesson（物流 → 調達。段 B で SCM のメニューは物流の部門に）で、画面へ直接は飛ばさない', () => {
     const mats = TUT.find((x) => x.id === 'mats')!;
     expect(mats.lesson).toBe(true);
     expect(mats.autoGo).toBeFalsy();
-    expect(mats.hl).toBe('scm:buy');
-    // 前の段（工房の設定）の会話の最後の枚が、SCM タブへの案内
+    expect(mats.hl).toBe('logistics:buy');
+    // 前の段（工房の設定）の会話の最後の枚が、物流タブへの案内
     const craft = TUT.find((x) => x.id === 'craft')!;
-    expect(craft.sheetTalk?.pages.at(-1)?.text).toContain('SCM');
+    expect(craft.sheetTalk?.pages.at(-1)?.text).toContain('物流');
   });
   it('運ぶ段のあと・ダッシュボードの段は、画面の ✕ を光らせる', () => {
     expect(TUT.find((x) => x.id === 'firstSale')?.closeOn).toContain('staff');

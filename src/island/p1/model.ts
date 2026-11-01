@@ -99,6 +99,7 @@ import {
   anyOfMet,
   techSkill,
   SKILLS,
+  type DeptId,
   type Skill,
   type ProductDef,
   type SectorProfile,
@@ -315,6 +316,10 @@ export interface Flags {
   delegateTalk?: boolean;
   /** 再発掘で初めて RP が入ったときの一言を出した */
   redigTalk?: boolean;
+  /** 部門（段 B）：お知らせ済みの開いた部門（dept.ts の deptNews。無ければ、はじめて調べたときにいまの状態をお知らせ済みに） */
+  depts?: DeptId[];
+  /** 部門（段 B）：お知らせ済みの理解度の節目の数（部門ごと） */
+  deptMarks?: Partial<Record<DeptId, number>>;
 }
 
 export interface P1State {
@@ -322,7 +327,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
   kind: 'p1';
   seed: number;
   n: number;
@@ -616,7 +621,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 10,
+    v: 11,
     kind: 'p1',
     seed,
     n,
@@ -3433,7 +3438,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -3480,7 +3485,10 @@ export function deserializeP1(json: string): P1State | null {
     // 版 8 → 9（発掘 v2 の 8 段目）：他社の巻き返し（comeback。下）
     // 版 9 → 10（Rare の町 ①）：Rare の町が遊べるように。Rare の調査依頼状は「Uncommon の 2 つの町で発表」になったが、
     // 前の条件（Uncommon の 1 つ目の発表）で受け取っていた依頼状はそのまま残す（受け取った発表は取り消さない）。Rare に出店済みのセーブは無い
-    s.v = 10;
+    // 版 10 → 11（段 B：部門の土台）：パネルの部門はデータの側（data.ts の DEPT_MOVE）なので、取ったパネル・レベルはそのまま。
+    // 部門のお知らせ（開いた部門・理解度の節目）は、はじめて調べたときに、いまの状態をお知らせ済みにする（dept.ts の deptNews）。
+    // 下の帯のメニュー・開いていた画面はセーブに入れていないので、移すものは無い
+    s.v = 11;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);

@@ -364,7 +364,7 @@ export const after = (ctx: Ctx) => {
 
 const CRAFT_ERR: Record<string, string> = {
   pot: t('アンコモンには「魔法の釜」が要ります（スキル）', 'Uncommons need the Magic Pot (skill)'),
-  dev: t('このアンコモンはまだ開発していません（営業企画 → 商品開発）', 'Develop this Uncommon first (Planning → Product development)'),
+  dev: t('このアンコモンはまだ開発していません（R&D → 商品開発）', 'Develop this Uncommon first (R&D → Product development)'),
   skill: t(`アンコモンには製造の適性 ${UNCOMMON.minCraft} 以上の職人が要ります`, `Uncommons need a crafter with aptitude ${UNCOMMON.minCraft}+`),
   mats: t('素材が足りません（「調達」で買えます）', 'Not enough materials (buy them under Buy)'),
   full: t('置き場所がいっぱいで、できた商品を置けません（倉庫を建てるか、お店へ運びましょう）', 'No room for finished goods (build a warehouse or haul to shops)'),
@@ -1763,7 +1763,7 @@ export function openBom(ctx: Ctx) {
   });
 }
 
-// ---------------------------------------------------------------- 営業企画
+// ---------------------------------------------------------------- 経営企画（建築）・R&D（商品開発）
 
 export function openDev(ctx: Ctx) {
   open(ctx, t('商品開発', 'Product development'), (body) => {

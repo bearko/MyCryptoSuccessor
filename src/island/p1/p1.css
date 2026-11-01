@@ -10053,3 +10053,126 @@ small.isl-note-series.is-bad {
 .isl-tree.is-ringfx .isl-tree-lines path.isl-tree-edge {
   opacity: 0.08;
 }
+
+/* ================================================================ 部門（段 B：部門の土台。docs/ISLAND_PHASE1.md「部門」） */
+/* 部門の画面の上の共通の帯：アイコンと名前・理解度・次の節目（準備中）・担当（準備中）・この部門のパネルを見る */
+.isl-dband {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  margin: -2px 0 6px;
+  padding: 3px 8px;
+  border-left: 4px solid var(--br, var(--isl-gold));
+  border-radius: 6px;
+  background: rgba(15, 22, 38, 0.6);
+  font-size: 12px;
+}
+.isl-dband[hidden] {
+  display: none;
+}
+.isl-dband-name {
+  color: var(--br, var(--isl-gold));
+  font-weight: 700;
+}
+.isl-dband-lv {
+  color: var(--isl-text);
+  font-weight: 700;
+}
+.isl-dband-next,
+.isl-dband-lead {
+  color: var(--isl-dim);
+  font-size: 11px;
+}
+.isl-dband .is-short {
+  display: none;
+}
+.isl-dband-go {
+  margin-left: auto;
+  padding: 2px 10px;
+  border: 1px solid var(--br, var(--isl-gold));
+  border-radius: 999px;
+  background: transparent;
+  color: var(--br, var(--isl-gold));
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+@media (max-width: 599px) {
+  .isl-dband {
+    gap: 0 8px;
+    font-size: 11px;
+  }
+  .isl-dband {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    margin-bottom: 5px;
+  }
+  .isl-dband .is-long {
+    display: none;
+  }
+  .isl-dband-lead {
+    flex: none;
+    font-size: 10px;
+  }
+  .isl-dband .is-short {
+    display: inline;
+  }
+  .isl-dband-next {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 10px;
+  }
+}
+/* 部門が 7 つ以上のときのグループの引き出し（いまは器だけ） */
+.isl-drawer {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  padding: 6px;
+  background: var(--isl-panel);
+  border-top: 2px solid var(--isl-line);
+}
+.isl-drawer[hidden] {
+  display: none;
+}
+.isl-drawer .isl-tab {
+  flex: 0 1 96px;
+}
+/* スキルツリー：パネルの無い部門の鍵の札・細い枝、物流の束の根もとの節 */
+.isl-tree-hub {
+  min-width: 0;
+  white-space: nowrap;
+}
+.isl-tree-hub.is-lock {
+  border-style: dashed;
+  opacity: 0.8;
+  white-space: normal;
+  max-width: 150px;
+  word-break: keep-all;
+  text-align: center;
+}
+.isl-tree-hub.is-lock b {
+  font-size: 12px;
+}
+.isl-tree-knot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--br);
+  border-radius: 50%;
+  background: #0f1626;
+  transform: translate(-50%, -50%);
+}
+.isl-tree-lines path.is-trunk.is-thin {
+  stroke-width: calc(var(--lw, 4px) * 0.6);
+  stroke-dasharray: calc(var(--lw, 4px) * 1.2) calc(var(--lw, 4px) * 2);
+  opacity: 0.55;
+}
+.isl-tree-lines path.is-trunk.is-knot {
+  stroke-width: var(--lw, 4px);
+}
+.isl-tree-chip.is-lock {
+  border-style: dashed;
+  opacity: 0.75;
+}
