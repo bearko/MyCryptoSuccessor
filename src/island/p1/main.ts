@@ -12,7 +12,7 @@ import { icon } from '../../ui/dom';
 import { DEF, artId } from '../defs';
 import { effectDone, image, loading, pick, waterFrame, type Camera, type Effect } from '../render';
 import { cells, type Dir } from '../sim';
-import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, skuParts, STORE, DEPT, type DeptGroup, type DeptId, type Mat, type Tier } from './data';
+import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier } from './data';
 import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
 import {
   allowedDirs,
@@ -88,6 +88,7 @@ import {
   revivedSites,
   museumOpen,
 } from './model';
+import type { LevelUp } from './hero';
 import { openMuseum } from './museumui';
 import { along, newAnim, type Walker } from './anim';
 import { drawP1, type P1Ghost } from './render';
@@ -125,6 +126,7 @@ import { pickHooks } from './heroui';
 import { openDigSummary, openMonthReport } from './report';
 import { openSkills } from './tree';
 import { openSide } from './side';
+import { openGrowth } from './growthui';
 import { IslandSfx } from './sfx';
 import { tileContent } from './tile';
 import { closeDig, digOpen, digRect, extIcon, openDig, openNotes, refreshDig, refreshTimer, showEndCard } from './digui';
@@ -425,9 +427,16 @@ function brandNews() {
 /** エンブレム・研究ポイントが増えたら知らせる（上の帯には出さない。スキルツリーの通貨の帯に出す） */
 let emblemSeen = s.emblem ?? 0;
 let rpSeen = s.rp ?? 0;
+/** 強化アイテム（段 E1）：増えたら「✨ 銅の昇格の証を手に入れた！」 */
+let itemSeen: Partial<Record<PromoItem, number>> = { ...s.heroItems };
 function currencyNews() {
   const e = s.emblem ?? 0;
   const d = s.rp ?? 0;
+  for (const k of PROMO_ITEMS) {
+    const n = s.heroItems?.[k] ?? 0;
+    if (n > (itemSeen[k] ?? 0)) toast(t(`✨ 強化アイテム「${PROMO_ITEM[k].name}」を手に入れた！（${n} 個）`, `✨ Got a promotion item: ${PROMO_ITEM[k].name}! (${n})`));
+  }
+  itemSeen = { ...s.heroItems };
   if (e > emblemSeen) {
     toast(t(`🏅 エンブレムを獲得！（いま ${e}）`, `🏅 Emblem earned! (now ${e})`), 'mch/Image/Icons/emblem.webp');
     sfx.play('levelup');
@@ -511,6 +520,7 @@ const SUBS: Partial<Record<Menu, Sub[]>> = {
   ],
   hr: [
     { key: 'staff', name: t('ヒーローの配置', 'Assign heroes'), note: t('4 つの仕事に置く', 'Four jobs'), go: () => openStaff(ctx) },
+    { key: 'growth', name: t('ヒーローの育成', 'Hero growth'), note: t('Lv・昇格・パッシブ', 'Levels, promotion, passives'), go: () => openGrowth(ctx) },
     { key: 'hire', name: t('人材登用', 'Recruiting'), note: t('ヒーローを雇う', 'Hire heroes'), go: () => openHire(ctx), needs: 'hire' },
     { key: 'pay', name: t('給与・労務', 'Pay & welfare'), note: t('給料・賞与・休み', 'Wages, bonuses, rest'), go: () => openPayroll(ctx) },
     { key: 'side', name: t('他店でバイト', 'Part-time'), note: t('資金が足りないとき', 'When funds run low'), go: () => openSide(ctx) },
@@ -3837,6 +3847,7 @@ function advance(days: number) {
     if (tour && TOUR[tour.k].key === 'inside') tourUnpaid += r.sales.reduce((a, x) => a + x.yen, 0);
     if (tour) tourOn(r.made.length > 0 ? 'made' : null, r.delivered.some((x) => x.n > 0 && myShops(s).some((b) => b.uid === x.to)) ? 'dropped' : null);
     if (r.missions.length) sfx.play('mission');
+    if (r.leveled?.length) levelNews(r.leveled);
     for (const g of r.grew) toast(t(`${heroName(g.hero)}の ${g.stat.toUpperCase()} が 1 上がりました（バイトの経験）`, `${heroName(g.hero)}’s ${g.stat.toUpperCase()} rose by 1 (part-time work)`));
     if (r.procLv) {
       toast(t(`調達ランクが Lv.${r.procLv} に上がりました`, `Buying rank is now Lv.${r.procLv}`));
@@ -3890,6 +3901,25 @@ function advance(days: number) {
   checkMeet();
 }
 
+/**
+ * ヒーローの育成（段 E1）：レベルアップのトースト。1 日に 2 人までは 1 人ずつ（「シップ 君が Lv 12 に！ PHY +1」）、
+ * 3 人以上は 1 つにまとめる（くどくしない。名前は月次報告の「今月のレベルアップ」に）。上限 Lv に届いたら「昇格できる」
+ */
+function levelNews(ups: LevelUp[]) {
+  const names = (x: LevelUp) => (['phy', 'int', 'agi'] as const).filter((k) => (x.gain[k] ?? 0) > 0).map((k) => `${k.toUpperCase()} +${x.gain[k]}`).join(t('・', ', '));
+  if (ups.length <= 2)
+    for (const x of ups) {
+      const g = names(x);
+      toast(t(`⭐ ${heroName(x.hero)}が Lv ${x.to} に！${g ? ` ${g}` : ''}`, `⭐ ${heroName(x.hero)} reached Lv ${x.to}!${g ? ` ${g}` : ''}`));
+    }
+  else toast(t(`⭐ ${ups.length} 人がレベルアップ！（くわしくは人事 → ヒーローの育成）`, `⭐ ${ups.length} heroes leveled up! (HR → Hero growth)`));
+  for (const x of ups) {
+    for (const k of x.passives) toast(t(`✦ ${heroName(x.hero)}のパッシブ「${PASSIVES[k].name}」が開いた`, `✦ ${heroName(x.hero)} unlocked the passive “${PASSIVES[k].name}”`));
+    if (x.cap) toast(t(`🎖 ${heroName(x.hero)}が上限 Lv ${x.to}！ 強化アイテムで昇格できるよ`, `🎖 ${heroName(x.hero)} hit the level cap (${x.to})! Promote with an item`));
+  }
+  sfx.play('levelup');
+}
+
 /** 月の締めのトースト：他社の追随・撤退、OJT、他社の反撃 */
 function reportNews(rep: NonNullable<ReturnType<typeof step>['report']>) {
   // 他社の追随：自社が売っている商品を、他社が真似して売り始めた
@@ -3941,7 +3971,7 @@ function companyNews(c: NonNullable<ReturnType<typeof step>['company']>) {
 let quarterNew: number | null = null;
 
 /** 月次報告の画面からほかの画面へ */
-const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
+const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
 
 function showReport(r: NonNullable<ReturnType<typeof step>['report']>) {
   speed = 0;

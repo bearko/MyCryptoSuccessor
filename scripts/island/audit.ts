@@ -9,7 +9,7 @@
  * docs/ISLAND_PHASE1.md「投資の効き目の監査」
  */
 import { writeFileSync } from 'node:fs';
-import { ADS, DIG_BALANCE, DIG_SITES, HIRE_POOL, INVEST, INVESTS, MONEY_PANELS, P1B, PRODUCT, RESEARCH_NEED, SKILL, aptitude, isResearch, relicKey, sku, skuParts, type DigFxKind, type FxKind, type Mat, type Skill, type Sku, type Task } from '../../src/island/p1/data';
+import { HERO_GROWTH, ADS, DIG_BALANCE, DIG_SITES, HIRE_POOL, INVEST, INVESTS, MONEY_PANELS, P1B, PRODUCT, RESEARCH_NEED, SKILL, aptitude, isResearch, relicKey, sku, skuParts, type DigFxKind, type FxKind, type Mat, type Skill, type Sku, type Task } from '../../src/island/p1/data';
 import {
   LEARNABLE,
   allowedDirs,
@@ -177,7 +177,24 @@ export function hireFor(s: P1State, task: Task, worst = false): number {
  */
 export const PHASES = [0, 1, 2];
 const baseCache = new Map<string, P1State>();
+/**
+ * 段 E1（ヒーローの育成）：監査は投資の効き目だけを比べたいので、測るあいだはヒーローの経験値を止める（Lv1 のまま）。
+ * 経験値が入ると、比べる 2 つの写しで Lv の上がる日がずれて、効き目の小さい投資の差が Lv の差に埋もれる（育成は投資ではない）
+ */
+export function noGrowth<T>(f: () => T): T {
+  const tier = HERO_GROWTH.xp.tier as Record<string, number>;
+  const saved = { ...tier };
+  for (const k of Object.keys(tier)) tier[k] = 0;
+  try {
+    return f();
+  } finally {
+    Object.assign(tier, saved);
+  }
+}
 export function baseOf(id: BaseId, phase = 0): P1State {
+  return noGrowth(() => baseOf0(id, phase));
+}
+function baseOf0(id: BaseId, phase = 0): P1State {
   const hit = baseCache.get(`${id}:${phase}`);
   if (hit) return clone(hit);
   const o = BASES[id];
@@ -866,6 +883,9 @@ function measure(item: Item, base: BaseId, stage: Stage): Cell {
 }
 
 export function audit(list = items()): Row[] {
+  return noGrowth(() => audit0(list));
+}
+function audit0(list: Item[]): Row[] {
   const rows: Row[] = [];
   for (const item of list) {
     if (item.out) {
@@ -917,6 +937,9 @@ const f1 = (v: number) => (Math.round(v * 10) / 10).toString();
 const g = (v: number) => `${Math.round(v).toLocaleString('en-US')}`;
 
 export function baseTable(): string {
+  return noGrowth(baseTable0);
+}
+function baseTable0(): string {
   const out: string[] = [];
   out.push(`| 基準 | ① 調達 | ② 製造 | ③ 物流 | ④ 販売 | 詰まり | ${RUN_DAYS} 日：作った・運んだ・売れた | ${RUN_DAYS} 日の売上 |`);
   out.push('|---|---|---|---|---|---|---|---|');

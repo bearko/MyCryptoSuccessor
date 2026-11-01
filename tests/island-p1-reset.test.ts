@@ -33,6 +33,7 @@ import {
 } from '../src/island/p1/model';
 import { clearRuin, delegate, delegateLock, rankUpTier, repair, repairAll, repairAllCost, repairLock, reviveView, ruinsOf } from '../src/island/p1/reset';
 import { INVEST_SPEC } from '../scripts/island/audit';
+import { baseStats } from '../src/island/p1/hero';
 
 function lot(s: P1State, id: string, skip = 0): [number, number, 'rd' | 'ld' | 'lu' | 'ru'] {
   let n = 0;
@@ -410,16 +411,20 @@ describe('5. ヒーローに任せる（復興支援金）', () => {
     const s = after();
     const st = s.staff.find((x) => x.hero === MGR)!;
     st.stats = { ...st.stats, phy: 30, int: 50, agi: 40 };
+    // 段 E1：復興の担当は経験値も入って Lv が上がる。上がったぶん（lvGain）を除いた Lv1 のときの能力値で見る
+    st.lvGain = undefined;
     s.money = 1e6;
     expect(delegate(s, 'c1', MGR, 80000)).toBeNull();
     const g = closeCompanyMonth(s).managed.find((x) => x.id === 'c1')!.revive!.grow;
     expect(Object.keys(g).sort()).toEqual(['agi', 'phy']);
     for (const v of Object.values(g)) expect(v).toBeGreaterThanOrEqual(RESET.grow.lo);
     for (const v of Object.values(g)) expect(v).toBeLessThanOrEqual(RESET.grow.hi);
-    expect(st.stats.int).toBe(50);
+    expect(baseStats(st).int).toBe(50);
     st.stats = { ...st.stats, phy: 99, int: 100, agi: 99 };
+    st.lvGain = undefined;
     closeCompanyMonth(s);
-    expect([st.stats.phy, st.stats.int, st.stats.agi]).toEqual([100, 100, 100]);
+    const b = baseStats(st);
+    expect([b.phy, b.int, b.agi]).toEqual([100, 100, 100]);
   });
 
   it('任せていた町に戻ると、支援金の残りは本社へ戻り、直った建物は働く（お店の札）', () => {
@@ -447,7 +452,7 @@ describe('6. 投資の監査・セーブ', () => {
     expect(moveTo(s, 'u1', MGR)).toBeNull();
     s.storeName = 'くま商会';
     const back = deserializeP1(serializeP1(s))!;
-    expect(back.v).toBe(11);
+    expect(back.v).toBe(12);
     expect(back.storeName).toBe('くま商会');
     expect(back.loop).toEqual(s.loop);
     expect(back.resets).toEqual(s.resets);
@@ -461,7 +466,7 @@ describe('6. 投資の監査・セーブ', () => {
     const o = JSON.parse(serializeP1(s));
     o.v = 7;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(11);
+    expect(back.v).toBe(12);
     expect(back.resets).toBeUndefined();
     expect(rankUpTier(back, 'u2')).toBeNull();
     expect(sectorState(back.land!, 'u2')).toBe('open');

@@ -1358,6 +1358,8 @@ export function openStaff(ctx: Ctx) {
     if (holding != null) bench.append(h('p', 'isl-good', t(`${heroName(holding)}を選んでいます。置きたい枠を押してください。`, `${heroName(holding)} selected. Tap a slot.`)));
     const links = h('div', 'isl-row');
     links.append(btn(t('人材登用（雇う）', 'Recruit'), () => openHire(ctx), 'is-on'), btn(t('給与・労務', 'Pay & welfare'), () => openPayroll(ctx)));
+    // ヒーローの育成（段 E1）：レベルが上がった人がいれば（チュートリアルの 1 か月目は出さない）
+    if (s.staff.some((x) => (x.level ?? 1) > 1)) links.append(btn(t('ヒーローの育成', 'Hero growth'), () => void import('./growthui').then((m) => m.openGrowth(ctx))));
     bench.append(links);
     body.append(bench);
   });

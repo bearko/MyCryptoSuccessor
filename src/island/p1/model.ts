@@ -103,7 +103,12 @@ import {
   type Skill,
   type ProductDef,
   type SectorProfile,
+  HERO_GROWTH,
+  type HeroRarity,
+  type PassiveKind,
+  type PromoItem,
 } from './data';
+import { addXp, baseStats, initGrowth, levelForXp, passiveMul, passiveSum, promoteStaff, syncGrowth, type LevelUp, type PromoErr } from './hero';
 
 export type Ground = 'grass' | 'road';
 export type Owner = 'me' | 'town' | string;
@@ -136,6 +141,16 @@ export interface Staff {
   lv?: number;
   /** 前の便・往復で余った日の端数（次に持ち越す。運搬係・調達係） */
   lag?: number;
+  /**
+   * ヒーローの育成（段 E1。hero.ts）：レベル（1〜。昇給の段 lv とは別）・いまの Lv の経験値・いまのレアリティ（昇格で変わる）・
+   * もとのレアリティ・開いたパッシブ（種類と段）・Lv と昇格で上がった能力値（stats に含まれる。stats − lvGain が Lv1 のときの値）
+   */
+  level?: number;
+  xp?: number;
+  rarity?: HeroRarity;
+  baseRarity?: HeroRarity;
+  passives?: { k: PassiveKind; tier: number }[];
+  lvGain?: Partial<Record<'phy' | 'int' | 'agi', number>>;
 }
 
 export interface Slot {
@@ -236,6 +251,9 @@ export interface Report {
   goal?: { present: boolean; got: number; all: number; res?: [number, number, number] };
   /** OJT で能力が上がった人の数 */
   ojt?: number;
+  /** 今月のレベルアップ（ヒーロー・前の Lv・あとの Lv。会社ぜんたい）・今月手に入れた強化アイテム（段 E1） */
+  levelUps?: { hero: number; from: number; to: number }[];
+  items?: Partial<Record<PromoItem, number>>;
   /** 月次 PDCA：来月の見込み（売上・利益） */
   forecast?: { sales: number; profit: number };
   /** 今月の出土品：新発見・研究 Lv が上がった数・入った RP（発掘場のあるセクタ） */
@@ -327,7 +345,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
   kind: 'p1';
   seed: number;
   n: number;
@@ -418,6 +436,11 @@ export interface P1State {
   holdSales?: boolean;
   /** ゲームの進行速度（1・1.5・2。スキルで選べる） */
   pace?: number;
+  /** ヒーローの育成（段 E1）：強化アイテム（昇格の証）の数。会社のもの（ランクアップの災害でも失わない） */
+  heroItems?: Partial<Record<PromoItem, number>>;
+  /** 今月のレベルアップ（会社ぜんたい。月の締めの報告に載せて空にする）・今月手に入れた強化アイテム */
+  lvMonth?: { hero: number; from: number; to: number }[];
+  itemMonth?: Partial<Record<PromoItem, number>>;
   /** 月末ポーズ：月次報告を出したあと、「次の月に進む」を押すまで時間を止める（以前のセーブには無い＝止めない） */
   monthPause?: boolean;
   /** 技の修行（会社で 1 つずつ。終わると skills に入る）。docs/ISLAND_PHASE1.md「技の修行」 */
@@ -621,7 +644,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 11,
+    v: 12,
     kind: 'p1',
     seed,
     n,
@@ -791,7 +814,10 @@ export const speedOf = (apt: number) => apt / (aptBase ||= aptitude(heroStats(ST
 
 function newStaff(hero: number, wage: number): Staff {
   const stats = heroStats(hero);
-  return { hero, stats, stamina: stats.hp, task: null, target: null, resting: false, wage, explore: 0 };
+  const st: Staff = { hero, stats, stamina: stats.hp, task: null, target: null, resting: false, wage, explore: 0 };
+  // ヒーローの育成：Lv1・経験値 0・もとのレアリティ（Lv1 の能力値はいまのまま）
+  initGrowth(st);
+  return st;
 }
 
 /** 月給は MCH の能力値のまま（縮める前）の合計で決める */
@@ -862,21 +888,23 @@ export const aptBonus = (s: P1State | undefined, task: Task) => (!s ? 0 : 3 * lv
 /** 適性（能力値 ＋ スキルで足すぶん） */
 export const aptOf = (s: P1State | undefined, st: Pick<Staff, 'stats'>, task: Task) => aptitude(st.stats, task) + aptBonus(s, task);
 /** 作業の速さ。s を渡すとスキルの適性（マニュアル整備・名工の作業台）も入る */
-export const speed = (st: Staff, task: Task, s?: P1State) => speedOf(aptOf(s, st, task)) * (1 + PAY.raiseSpeed * (st.lv ?? 0));
+export const speed = (st: Staff, task: Task, s?: P1State) => speedOf(aptOf(s, st, task)) * (1 + PAY.raiseSpeed * (st.lv ?? 0)) * passiveMul(st, task);
 /** 休むと 1 日に戻るスタミナ（休憩室・福利厚生で +50% ずつ） */
 export const restRateOf = (s: P1State) => STAMINA.rest * (1 + 0.5 * lvMul(s, 'lounge') + 0.5 * lvMul(s, 'welfare') + fxSum(s, 'rest'));
 /**
  * 働くと 1 日に減るスタミナ。職人：職人の休憩所・職人の椅子・5S（減る）、夜間稼働（増える）。
  * 店員：営業時間の延長（増える）。シフト制：みんな減る
  */
-export function drainOf(s: P1State, st: Pick<Staff, 'task'>): number {
+export function drainOf(s: P1State, st: Pick<Staff, 'task'> & Partial<Pick<Staff, 'passives'>>): number {
   const easy =
     (st.task === 'craft' ? (invLv(myWorkshop(s), 'breakroom') > 0 ? 0.7 : 1) * cut(s, 'chair', 0.3) * cut(s, 'five_s', 0.1) * (has(s, 'night') ? 1.2 : 1) : 1) *
     (st.task === 'shop' && has(s, 'hours') ? 1.2 : 1) *
     // 常駐の交代制：常駐で働く日（作業していない日）の発掘隊の減り −15%／Lv
     (st.task === 'dig' && !s.digRun ? fxCut(s, 'dig.relay') : 1) *
     cut(s, 'shift', 0.2) *
-    fxCut(s, 'stamina');
+    fxCut(s, 'stamina') *
+    // ヒーローのパッシブ（システム：手順の自動化）
+    Math.max(0.5, 1 - passiveSum(st, 'system'));
   return STAMINA.work * easy;
 }
 /**
@@ -2024,6 +2052,8 @@ export function claim(s: P1State, id: string): string | null {
   book(s, 'other', m.reward);
   // 研究ポイント（以前のゴールドダスト ✨ 1 つ = 40 RP）
   if (m.rp) s.rp = (s.rp ?? 0) + m.rp;
+  // ヒーローの育成：依頼の報酬に強化アイテム（上のランクの町ほど、1 つ下の段の証）。タオックスの 1 か月目（チュートリアル）は無し
+  if (growthOn(s)) gainItem(s, HERO_GROWTH.items.mission[s.tier ?? 'C']);
   brandAdd(s, BRAND.mission, t(`依頼「${m.title}」を達成`, `Request done: ${m.title}`));
   return null;
 }
@@ -2482,7 +2512,47 @@ export interface DayResult {
   learned?: { id: string; hero: number }[];
   /** 自動発掘で打ったマス */
   dug?: DigHit[];
+  /** ヒーローの育成（段 E1）：今日 Lv が上がった人 */
+  leveled?: LevelUp[];
 }
+
+// ---------------------------------------------------------------- ヒーローの育成（段 E1。hero.ts・docs/ISLAND_PHASE1.md「ヒーローの育成」）
+
+/** 経験値が入るか：タオックスの 1 か月目（最初の月の締めまで＝チュートリアル）は入らない（チュートリアルの体験と数字を変えない） */
+export const growthOn = (s: Pick<P1State, 'sector' | 'reports'>) => !((s.sector ?? 'c1') === 'c1' && !s.reports.length);
+const sectorTierOf = (id: string): Tier => SECTORS.find((x) => x.id === id)?.tier ?? 'C';
+/** 経験値の上乗せ：OJT（担当のある人）・社内研修（技の修行中） */
+export function xpBonus(s: P1State, st: Staff): number {
+  let v = 0;
+  if (st.task && has(s, 'ojt')) v += HERO_GROWTH.xp.ojt * lvMul(s, 'ojt');
+  if (st.task === 'train' && has(s, 'training')) v += HERO_GROWTH.xp.training * lvMul(s, 'training');
+  return v;
+}
+/** 経験値を入れる（base × いるセクタのランクの倍率 ×（1 ＋ extra））。Lv が上がったら今月のレベルアップに記録 */
+export function giveXp(s: P1State, st: Staff, base: number, extra = 0, tier: Tier = s.tier ?? 'C'): LevelUp | null {
+  const up = addXp(st, base * HERO_GROWTH.xp.tier[tier] * (1 + extra));
+  if (up) {
+    const list = (s.lvMonth ??= []);
+    const was = list.find((x) => x.hero === up.hero);
+    if (was) was.to = up.to;
+    else list.push({ hero: up.hero, from: up.from, to: up.to });
+  }
+  return up;
+}
+/** 強化アイテムを手に入れる（会社のもの。今月の分にも記録） */
+export function gainItem(s: P1State, k: PromoItem, n = 1) {
+  if (n <= 0) return;
+  s.heroItems = { ...s.heroItems, [k]: (s.heroItems?.[k] ?? 0) + n };
+  s.itemMonth = { ...s.itemMonth, [k]: (s.itemMonth?.[k] ?? 0) + n };
+}
+/** ヒーローを昇格させる（強化アイテムを 1 つ使う） */
+export function promote(s: P1State, hero: number): ReturnType<typeof promoteStaff> | 'no-staff' {
+  const st = staffOf(s, hero);
+  if (!st) return 'no-staff';
+  s.heroItems ??= {};
+  return promoteStaff(st, s.heroItems);
+}
+export type { PromoErr };
 
 export function step(s: P1State): DayResult {
   s.day++;
@@ -2742,6 +2812,7 @@ export function step(s: P1State): DayResult {
       const keys: (keyof Stats)[] = ['int', 'agi', 'phy'];
       const k = keys[Math.floor(rng(s.seed + s.day * 977 + st.hero)() * 3)];
       st.stats = { ...st.stats, [k]: st.stats[k] + 1 };
+      syncGrowth(st);
       res.grew.push({ hero: st.hero, stat: k });
     }
   }
@@ -2854,6 +2925,18 @@ export function step(s: P1State): DayResult {
       st.resting = true;
       st.stamina = Math.min(st.stats.hp, st.stamina + restRate);
     } else st.stamina = Math.min(st.stats.hp, st.stamina + restRate / 2);
+  }
+
+  // ヒーローの育成（段 E1）：今日働いた人に経験値（仕事ごと × ランク。OJT・社内研修・仲間の面倒見で上乗せ）
+  if (growthOn(s)) {
+    const crew = s.staff.filter((st) => working.has(st.hero) && st.task);
+    const mentors = crew.map((st) => passiveSum(st, 'mentor'));
+    const allMentor = mentors.reduce((a, b) => a + b, 0);
+    crew.forEach((st, n) => {
+      const extra = Math.min(HERO_GROWTH.xp.mentorMax, allMentor - mentors[n]) + xpBonus(s, st);
+      const up = giveXp(s, st, HERO_GROWTH.xp.day[st.task!] ?? 0, extra);
+      if (up) (res.leveled ??= []).push(up);
+    });
   }
 
   // 宣伝の残り日数
@@ -3054,10 +3137,17 @@ export function endMonth(s: P1State): Report {
   if (won && !s.cleared) {
     s.emblem = (s.emblem ?? 0) + 1;
     report.emblem = 1;
+    // ヒーローの育成：町の制覇で強化アイテム（町のランクの昇格の証。Legendary の町は限定の王冠）
+    gainItem(s, HERO_GROWTH.items.clear[s.tier ?? 'C']);
   }
   if (won) s.cleared = true;
   // OJT：担当のある人の、担当に効く能力が +1（上限 100）
   if (has(s, 'ojt')) report.ojt = ojtMonth(s);
+  // 今月のレベルアップ・手に入れた強化アイテム（会社ぜんたい。段 E1）
+  if (s.lvMonth?.length) report.levelUps = s.lvMonth;
+  s.lvMonth = [];
+  if (s.itemMonth && Object.keys(s.itemMonth).length) report.items = s.itemMonth;
+  s.itemMonth = {};
   // 今月の出土品
   if (s.dig) {
     report.dig = { ...s.dig.month };
@@ -3134,9 +3224,12 @@ export function ojtMonth(s: P1State): number {
   let n = 0;
   for (const st of s.staff) {
     const k = ojtStat(st);
-    if (!k || st.stats[k] >= 100) continue;
+    // 上限 100 は Lv1 のときの能力値で見る（ヒーローの育成で上がったぶんは数えない。上げたあと Lv の上乗せをそろえ直す）
+    const pre = k ? baseStats(st)[k] : 100;
+    if (!k || pre >= 100) continue;
     // OJT のレベルぶん（Lv3 で +3）
-    st.stats = { ...st.stats, [k]: Math.min(100, st.stats[k] + Math.max(1, lvOf(s, 'ojt'))) };
+    st.stats = { ...st.stats, [k]: st.stats[k] + Math.min(100 - pre, Math.max(1, lvOf(s, 'ojt'))) };
+    syncGrowth(st);
     n++;
   }
   return n;
@@ -3180,6 +3273,12 @@ export function closeCompanyMonth(s: P1State): CompanyMonth {
       const st = st0 && st0.task === 'manager' && st0.target === id ? st0 : null;
       // 被災した町（発掘 v2 の 7 段目）：担当が支援金で廃墟を直す（売上の前に。直ったぶんから売上が戻る）
       const rv = rec.revive ? reviveMonth(rec, st, rng(s.seed + s.day * 17 + id.charCodeAt(1) * 3)) : null;
+      // ヒーローの育成：マネージャーは 30 日ぶんの経験値（そのセクタのランク）。復興の担当（支援金で直した月）はさらに多め
+      if (st) {
+        syncGrowth(st);
+        const revived = !!rv && Object.keys(rv.grow).length > 0;
+        giveXp(s, st, DAYS * (revived ? HERO_GROWTH.xp.revive : HERO_GROWTH.xp.day.manager), xpBonus(s, st), sectorTierOf(id));
+      }
       if (rv?.refund) {
         s.money += rv.refund;
         book(s, 'build', -rv.refund);
@@ -3189,7 +3288,7 @@ export function closeCompanyMonth(s: P1State): CompanyMonth {
         continue;
       }
       // マネージャー研修：売上の倍率 +0.1・持株会社：利益 +10%。被災した町は直った割合ぶん
-      const r = runSector(rec, st?.stats ?? null, m, rng(s.seed + s.day * 31 + id.length * 7 + id.charCodeAt(1)), { rate: 0.1 * lvMul(s, 'mgr') + fxSum(s, 'manager'), profit: 1 + 0.1 * lvMul(s, 'holding'), scale: reviveScale(rec) });
+      const r = runSector(rec, st?.stats ?? null, m, rng(s.seed + s.day * 31 + id.length * 7 + id.charCodeAt(1)), { rate: 0.1 * lvMul(s, 'mgr') + fxSum(s, 'manager') + (st ? passiveSum(st, 'manage') : 0), profit: 1 + 0.1 * lvMul(s, 'holding'), scale: reviveScale(rec) });
       s.money += r.toHQ;
       book(s, 'managed', r.toHQ);
       managed.push({ id, ...r, hero: rec.manager ?? null, ...(rv ? { revive: rv } : {}) });
@@ -3438,7 +3537,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -3488,7 +3587,7 @@ export function deserializeP1(json: string): P1State | null {
     // 版 10 → 11（段 B：部門の土台）：パネルの部門はデータの側（data.ts の DEPT_MOVE）なので、取ったパネル・レベルはそのまま。
     // 部門のお知らせ（開いた部門・理解度の節目）は、はじめて調べたときに、いまの状態をお知らせ済みにする（dept.ts の deptNews）。
     // 下の帯のメニュー・開いていた画面はセーブに入れていないので、移すものは無い
-    s.v = 11;
+    s.v = 12;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);
@@ -3497,6 +3596,9 @@ export function deserializeP1(json: string): P1State | null {
       for (const st of s.staff) st.stats = scaleStats(st.stats);
       s.statV = 2;
     }
+    // 版 11 → 12（段 E1：ヒーローの育成）：雇用中のヒーローに Lv（会社の月数から無理のない Lv。上げすぎない）・経験値 0・強化アイテム 0
+    // （版 12 のセーブは、全員 Lv を持っているので何もしない）
+    migrateGrowth(s);
     // 以前のセーブ：自分でスキルを取っていれば、本社は開放済み（チュートリアルでもらう「人材の募集」は数えない）
     if (s.flags.hq === undefined && s.skills.some((k) => k !== 'hire')) s.flags.hq = true;
     // 以前のセーブ：チュートリアルが済んでいて人材の募集があれば、アンロックの演出は見たことに
@@ -3527,6 +3629,28 @@ export function deserializeP1(json: string): P1State | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * 版 11 → 12（段 E1：ヒーローの育成）：雇用中のヒーローの Lv を、会社の月数（帳簿の月・なければ報告の数）から決める。
+ * 創業の 3 人は「月数 × HERO_GROWTH.migrate.days 日」、雇った人はその half 倍働いたとして、いまのセクタのランクの倍率で経験値を数え、
+ * その経験値で届く Lv（もとのレアリティの上限 Lv − 1 まで。昇格の札は出さない）。経験値は 0 から・強化アイテムは 0・パッシブは Lv の節目まで開く
+ */
+export function migrateGrowth(s: P1State) {
+  const months = Math.max(s.books?.months.length ?? 0, s.reports.length);
+  const M = HERO_GROWTH.migrate;
+  for (const st of s.staff) {
+    if (st.level != null) continue;
+    const days = months * M.days * (START_STAFF.includes(st.hero) ? 1 : M.half);
+    const xp = days * (HERO_GROWTH.xp.day.craft ?? 10) * HERO_GROWTH.xp.tier[s.tier ?? 'C'];
+    initGrowth(st, 1);
+    st.level = Math.max(1, Math.min(levelForXp(xp, 999), (HERO_GROWTH.cap[st.rarity ?? 'C'] ?? 40) - 1));
+    st.xp = 0;
+    initGrowth(st);
+  }
+  s.heroItems ??= {};
+  s.lvMonth ??= [];
+  s.itemMonth ??= {};
 }
 
 /**
@@ -4106,7 +4230,7 @@ function scratch(s: P1State): P1State {
     routes: [...s.routes],
     buildings: s.buildings.map((b) => ({ ...b, inv: b.inv ? { ...b.inv } : undefined })),
     slots: s.slots.map((x) => ({ ...x })),
-    staff: s.staff.map((x) => ({ ...x, stats: { ...x.stats } })),
+    staff: s.staff.map((x) => ({ ...x, stats: { ...x.stats }, passives: x.passives?.map((p) => ({ ...p })) })),
     shops: Object.fromEntries(Object.entries(s.shops).map(([k, sh]) => [k, { ...sh, shelves: [...sh.shelves] }])),
     hirePool: [...s.hirePool],
     proc: { ...s.proc, qty: { ...s.proc.qty }, items: [...s.proc.items], extra: [...s.proc.extra], carry: { ...s.proc.carry } },
@@ -4420,6 +4544,8 @@ export interface DigHit {
   recipe?: string;
   /** 会心（2 倍） */
   crit?: boolean;
+  /** ダンジョンの奥の層をはがして見つけた強化アイテム（段 E1） */
+  promo?: PromoItem;
   /** 素材のマス：実際に入った数（素材の選り分けで増える。置き場所に入るぶんだけ） */
   mat?: number;
   /** 置き場所がいっぱいで、素材を置けなかった */
@@ -5134,6 +5260,16 @@ function strike(s: P1State, L: DigLayout, x: number, y: number, power: number): 
   }
   hit.depth = st.depth[k];
   hit.left = st.hp[k];
+  // ヒーローの育成：ダンジョンの奥の層をはがすと、ときどき強化アイテム（深い層ほど上の段。同じ壁・同じマスなら同じ結果）
+  if (L.dungeon && s.dig?.dungeon && layer >= HERO_GROWTH.items.dungeon.layer) {
+    const D = HERO_GROWTH.items.dungeon;
+    const roll = rng(strSeed(`promo:${L.sector}:${s.dig.dungeon.runs}:${k}:${layer}`))();
+    if (roll < D.odds) {
+      const up: Record<Tier, PromoItem> = { C: 'U', U: 'R', R: 'E', E: 'L', L: roll < D.odds * D.ll ? 'LL' : 'L' };
+      hit.promo = layer >= D.deep ? up[L.tier] : (L.tier as PromoItem);
+      gainItem(s, hit.promo);
+    }
+  }
   // ダンジョン：いちばん深くはがした層（最深記録）
   if (L.dungeon && s.dig?.dungeon) {
     const dd = Math.max(...(hit.span ? findCells(L, { x: hit.span.x, y: hit.span.y, size: [hit.span.w, hit.span.h] }) : [k]).map((c) => st.depth[c]));
@@ -5790,6 +5926,8 @@ export function present(s: P1State): { rp: number; letter: Tier | null; conquere
   s.presented.push(sector);
   const v = RP_GAIN[tier].present;
   gainRp(s, v);
+  // ヒーローの育成：研究成果の発表で強化アイテム（そのランクの昇格の証）
+  gainItem(s, HERO_GROWTH.items.present[tier]);
   // 調査依頼状：そのランクの 2 つのセクタで発表したら（LETTER_NEED。Common → U・Uncommon → R・Rare → E（枠だけ））
   const next = NEXT_TIER[tier] ?? null;
   const letter = next && !s.letters.includes(next) && presentedOf(s, tier) >= letterNeed(tier) ? next : null;
@@ -5799,6 +5937,7 @@ export function present(s: P1State): { rp: number; letter: Tier | null; conquere
   if (!s.cleared && (s.topStreak ?? 0) >= TOP_STREAK) {
     s.cleared = true;
     s.emblem = (s.emblem ?? 0) + 1;
+    gainItem(s, HERO_GROWTH.items.clear[s.tier ?? 'C']);
     brandAdd(s, BRAND.sectorTop, t('ランドセクタを制覇（2 か月続けて 1 位＋研究成果の発表）', 'Conquered the land sector (#1 two months running + findings presented)'));
     conquered = true;
   }
