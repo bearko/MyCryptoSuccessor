@@ -2743,6 +2743,9 @@ function tutorial(): { text: string; action?: [string, () => void] } {
   if (!ws && s.land && s.land.mine.length > 1 && s.sector !== s.land.mine[0]) return { text: t('このセクタにも[[工房]]を建てましょう。建物はセクタごとです。「営業企画」→「建築」から、道路に面した空き地へ。', 'Build a [[workshop]] in this sector too — buildings belong to each sector. Planning → Build, then a lot facing a road.'), action: [t('建築を開く', 'Open Build'), openBuildTab] };
   if (!ws) return { text: t('新天地へようこそ！まずは先代から引き継いだ「工房」を建てましょう。下の「営業企画」→「建築」から工房を選び、道路に面した空き地へ。入口は道路の方にしか向けられません。', 'Welcome to the new land! First, build the workshop you inherited from your predecessor: Planning → Build, then place it on a lot facing a road — the entrance can only face the road.'), action: [t('建築を開く', 'Open Build'), openBuildTab] };
   if (ws.left > 0) return { text: t('工房の工事中です。⏩ で時間を早められます。地図のマスを押すと、建物の詳しい情報が見られます。', 'The workshop is under construction. ⏩ speeds things up. Tap any tile on the map for details.') };
+  // 他社の巻き返し（Uncommon のセール中）：2 位の会社が伸びてくるので、ほかの助言より先に（ランキングで差を見る）
+  const sale = saleTip();
+  if (sale) return { text: sale, action: [t('ランキングを見る', 'Open ranking'), () => openRanking(ctx)] };
   // 2 か所目以降：市場データ → 勧めた商品の技 → 素材のルート（→ Uncommon は魔法の釜・商品開発）の順に導く
   const research = researchTip();
   if (research) return research;
@@ -2814,6 +2817,9 @@ function tutorial(): { text: string; action?: [string, () => void] } {
 function firstTopTip(): string {
   const g = clearGoal(s);
   const rally = (s.rally ?? 0) > 0;
+  // 他社の巻き返し（Uncommon のセール中）：いちばん先に言う（2 位の会社が伸びてくる）
+  const sale = saleTip();
+  if (sale) return sale;
   if (!g.present && g.res)
     // Uncommon（発掘 v2 の 7 段目）：発表にはお題と、この町で掘った数も
     return t(`1 位になったね！制覇の条件は[[2 か月続けて 1 位]]（いま ${g.streak} / ${TOP_STREAK}）と[[研究成果の発表]]（${presentNeedText(g)[0]}）。${rally ? '他社の反撃に負けず、' : ''}来月も守って、荒れ地も掘ろう！`, `You are #1! To conquer: [[#1 two months in a row]] (${g.streak} / ${TOP_STREAK}) and [[present your findings]] (${presentNeedText(g)[0]}). ${rally ? 'Beat the rivals’ push, ' : ''}hold on next month and keep digging!`);
@@ -2822,6 +2828,19 @@ function firstTopTip(): string {
   return rally
     ? t(`1 位になったね！ゴールは[[2 か月続けて 1 位]]（いま ${g.streak} / ${TOP_STREAK}）。他社が反撃中だけど、来月も守り切れたら制覇だよ！`, `You are #1! The goal is [[#1 two months in a row]] (${g.streak} / ${TOP_STREAK}). Rivals are fighting back — hold on next month and the sector is yours!`)
     : t(`1 位になったね！ゴールは[[2 か月続けて 1 位]]（いま ${g.streak} / ${TOP_STREAK}）。来月も守り切れたら制覇だよ！`, `You are #1! The goal is [[#1 two months in a row]] (${g.streak} / ${TOP_STREAK}). Hold on next month and the sector is yours!`);
+}
+/**
+ * 他社の巻き返し（Uncommon のセール中）の一言：セールをしている会社と残りの月、制覇までの「いま n / 2」。
+ * セールが無ければ null
+ */
+function saleTip(): string | null {
+  const c = s.comeback;
+  if (!c || c.left <= 0) return null;
+  const who = rivalName(c.rid);
+  const g = clearGoal(s);
+  return (s.topStreak ?? 0) > 0
+    ? t(`[[${who}]]がセールで巻き返してきた！（あと ${c.left} か月）棚・宣伝・新商品で引き離して、1 位を守ろう（制覇まで いま ${g.streak} / ${TOP_STREAK}）！`, `[[${who}]] is fighting back with a sale! (${c.left} mo left) Pull ahead with shelves, ads and new goods and hold #1 (${g.streak} / ${TOP_STREAK})!`)
+    : t(`[[${who}]]がセールで巻き返してきた！（あと ${c.left} か月）セールは月ごとに弱まるから、棚・宣伝・新商品で 1 位を取り返そう！`, `[[${who}]] is fighting back with a sale! (${c.left} mo left) The sale fades each month — win #1 back with shelves, ads and new goods!`);
 }
 /** 荒れ地を見る（許可のある掘りかけの荒れ地。無ければ 1 か所目） */
 function digWasteAct(): [string, () => void] | undefined {
@@ -3793,6 +3812,9 @@ function reportNews(rep: NonNullable<ReturnType<typeof step>['report']>) {
   // 他社の反撃：1 位を取った月から、他社が宣伝を始める
   const ra = rep.rally;
   if (ra) toast(plain(t(`他社が反撃！ [[${ra.by}]]が宣伝を始めた（${ra.months} か月）`, `Rivals strike back! [[${ra.by}]] started advertising (${ra.months} months)`)));
+  // 他社の巻き返し（Uncommon）：2 位の会社がセールを始めた
+  const cb = rep.comeback;
+  if (cb) toast(plain(t(`[[${cb.by}]]がセールで巻き返してきた！（${cb.months} か月）`, `[[${cb.by}]] is fighting back with a sale! (${cb.months} months)`)));
 }
 
 /** 会社の月の締め：マネージャーのセクタの結果・四半期の決算 */

@@ -55,6 +55,8 @@ import {
   toggleProcItem,
   utilRate,
   areaRanking,
+  rivalBase,
+  saleBonus,
   assign,
   bonus,
   bonusCost,
@@ -1592,17 +1594,26 @@ export function openRanking(ctx: Ctx, tab: 'area' | 'land' | 'world' = 'area') {
     body.append(tabs);
     const list = h('ol', 'isl-rank');
     const rallying = tab === 'area' && (s.rally ?? 0) > 0;
+    const selling = tab === 'area' && s.comeback && s.comeback.left > 0 ? s.comeback : null;
     const row = (name: string, sales: number, me: boolean, n: number) => {
       const li = h('li', me ? 'is-me' : '');
       const nm = h('span', '', me ? t('あなたの会社', 'Your company') : name);
       if (rallying && !me) nm.append(h('span', 'isl-tag is-bad isl-rally-tag', t(`反撃中（あと ${s.rally} か月）`, `Fighting back (${s.rally} mo)`)));
+      // 他社の巻き返し（Uncommon のセール中の会社）
+      if (selling && !me && name === rivalName(selling.rid)) nm.append(h('span', 'isl-tag is-bad isl-sale-tag', t(`セール中（あと ${selling.left} か月）`, `On sale (${selling.left} mo)`)));
       li.append(h('span', 'isl-rank-n', `${n}`), nm, h('b', '', money(sales)));
       list.append(li);
     };
     if (tab === 'area') {
       const rb = rallyBadge(s);
       if (rb) body.append(rb);
-      const rows = last ? last.area : areaRanking(s, mine, Object.fromEntries(s.rivals.map((r) => [r.id, r.base])));
+      // 他社の巻き返し（Uncommon のセール中）：どの会社が・あと何か月・いまいくら上乗せ
+      if (selling) {
+        const box = h('p', 'isl-rally');
+        box.append(h('span', 'isl-tag is-bad', t(`セール中（あと ${selling.left} か月）`, `On sale (${selling.left} mo left)`)), h('small', '', t(`あなたが 1 位を取ったので、${rivalName(selling.rid)}がセールで巻き返してきた。売上 +${money(saleBonus(s, selling.rid))}／月（月ごとに弱まる）`, `You took #1, so ${rivalName(selling.rid)} is fighting back with a sale: sales +${money(saleBonus(s, selling.rid))}/mo (fading each month)`)));
+        body.append(box);
+      }
+      const rows = last ? last.area : areaRanking(s, mine, Object.fromEntries(s.rivals.map((r) => [r.id, rivalBase(s, r)])));
       rows.forEach((r, k) => row(r.name, r.sales, r.me, k + 1));
       body.append(h('p', 'isl-dim', t('同じエリアで物販をしている同業他社です。ここで 2 か月続けて 1 位になる（制覇）のが目標です。', 'Retail rivals in your area. The goal: #1 here two months in a row (conquer the sector).')));
     } else if (tab === 'land') {

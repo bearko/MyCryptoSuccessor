@@ -364,6 +364,7 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
 
 /** 2 行に分けて、吹き出しの幅をせまく */
 const STOP: Record<Stop, [string, string]> = {
+  sale: [t('セール', 'Big'), t('中！', 'sale!')],
   gateShut: [t('関所', 'Gate'), t('通行止め', 'closed')],
   gateOpen: [t('関所', 'Gate'), t('開通', 'open')],
   noCrafter: [t('職人', 'No'), t('不在', 'crafter')],

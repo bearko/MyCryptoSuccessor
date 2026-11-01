@@ -131,6 +131,27 @@ export const MARKET_GROWTH = 0.015;
  * 追随で入った商品は、その月の売上がその商品の市場（自社＋他社）の weakShare 未満の月が weakMonths 続くと撤退する。
  */
 export const RIVAL = { pullCap: 1.3, weakShare: 0.15, weakMonths: 3 };
+/**
+ * Uncommon の同業他社の強さ（発掘 v2 の 8 段目。docs/ISLAND_PHASE1.md「同業他社」の「Uncommon の他社」・docs/ISLAND_BALANCE.md の v15）。
+ * Common の数字（RIVAL・RIVAL_GROWTH・ENTRY_AFTER・MARKET_GROWTH）は変えず、Uncommon のセクタだけに掛かる。
+ * - base：エクステ以外の月の売上に、ランクの倍率（TIERS.U.rival）とセクタの rivalMul にさらに掛ける（町を作るとき）。
+ * - town：町ごとの、エクステ以外の月の売上の倍率（base にさらに掛ける。無い町は 1）。Uncommon の入り口のウメコタウン（u1）は 1、
+ *   ほかの 4 つの町は大きい（2 つ目からの Uncommon の町は、会社のお金が戻っていて立ち上げが速いので）。
+ * - growth・baseCap：エクステ以外の売上の月の伸び（Common は MARKET_GROWTH でずっと伸びる）。町を作ったときの baseCap 倍で止まる（追いかける目標が逃げ続けない）。
+ * - entryAfter：自社のヒット商品に他社が入ってくるまでの月数（Common は ENTRY_AFTER）。
+ * - sale：巻き返し。自社が 1 位になった月の締めで、まだこの町でセールをしていない会社のうち売上のいちばん大きい会社（ふつうは 2 位）が、
+ *   翌月から months か月セールをする。足す売上（月）は「自社の売上 × target − その会社の売上」（少なくともその会社の売上の min）で、
+ *   毎月の締めで自社の売上を見て決めなおし、残りの月に比例して弱まって戻る。終わってから cool か月は次のセールをしない
+ *   （1 位を取り返した月は、ほかの会社が続けて始める）。1 つの町で max 社まで。ポイントカードなど「他社の反撃」を弱めるパネルで target は 1 に近づく。
+ */
+export const UNCOMMON_RIVAL = {
+  base: 3,
+  town: { u2: 7.5, u3: 7.5, u4: 7.5, u5: 7.5 } as Record<string, number>,
+  growth: 0.015,
+  baseCap: 1.1,
+  entryAfter: 3,
+  sale: { target: 1.3, min: 0.15, months: 3, cool: 1, max: 2 },
+};
 
 // ---------------------------------------------------------------- 建てられる建物
 

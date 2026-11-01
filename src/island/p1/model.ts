@@ -45,6 +45,7 @@ import {
   ENTRY_AFTER,
   MARKET_GROWTH,
   RIVAL,
+  UNCOMMON_RIVAL,
   BUILD_CATS,
   BRAND,
   TIERS,
@@ -221,6 +222,8 @@ export interface Report {
   streak?: number;
   /** この月に他社の反撃が始まった（宣伝を始めた他社＝その月の 2 位・月数） */
   rally?: { by: string; months: number };
+  /** この月の締めで他社の巻き返し（セール）が始まった（Uncommon。その月の 2 位の会社の名前と id・月数） */
+  comeback?: { by: string; rid: string; months: number; bonus: number };
   /** この月に制覇してもらったエンブレム */
   emblem?: number;
   /**
@@ -315,7 +318,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
   kind: 'p1';
   seed: number;
   n: number;
@@ -416,6 +419,13 @@ export interface P1State {
   topStreak?: number;
   /** 他社の反撃の残りの月（このセクタ。0 で終わり）。docs/ISLAND_PHASE1.md「他社の反撃」 */
   rally?: number;
+  /**
+   * 他社の巻き返し（Uncommon のセクタだけ。発掘 v2 の 8 段目・版 9）：自社が 1 位になった月の締めで、2 位の会社（rid）がセールを始める。
+   * bonus＝セールで足す月の売上（始めた月の強さ）・left＝残りの月（UNCOMMON_RIVAL.sale.months から。月の締めで −1。bonus は left に比例して弱まる）・
+   * cool＝終わってから次のセールまでの月・used＝この町でもうセールをした会社（1 社 1 回。全部の会社がしたら、もう始まらない）。
+   * 古いセーブは無い（＝セールなし）
+   */
+  comeback?: { rid: string; left: number; cool: number; bonus: number; used: string[] } | null;
   /** 会社のエンブレム（関所の開通・セクタの制覇で 1 つずつ）。スキルツリーの外周のパネルの条件（数を持っていればよい） */
   emblem: number;
   /** 会社の研究ポイント（RP）。採掘で貯まる（v14a から研究への寄付でも買える）。研究パネルを開くのに使う（docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」） */
@@ -602,7 +612,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 8,
+    v: 9,
     kind: 'p1',
     seed,
     n,
@@ -621,7 +631,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
     trips: [],
     skills: [],
     skillLv: {},
-    rivals: rivalDefs.map((r) => ({ id: r.id, sells: Object.fromEntries(Object.entries(r.sells).map(([k, v]) => [k, (v ?? 0) * T.rival])), base: r.base * T.rival * (prof?.rivalMul ?? 1) })),
+    rivals: rivalDefs.map((r) => ({ id: r.id, sells: Object.fromEntries(Object.entries(r.sells).map(([k, v]) => [k, (v ?? 0) * T.rival])), base: rivalBase0(r, tier, sector) })),
     demand: Object.fromEntries(PRODUCTS.map((p) => [p.key, baseDemand(p, tier, prof)])),
     monthSales: {},
     rivalSales: Object.fromEntries(rivalDefs.map((r) => [r.id, 0])),
@@ -632,6 +642,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
     cleared: false,
     topStreak: 0,
     rally: 0,
+    comeback: null,
     flags: { data: false, ranking: false, clearSeen: false, buildCats: ['base'] },
     tut: 0,
     tutV: 3,
@@ -1282,7 +1293,7 @@ export const gateOf = (s: P1State) => s.buildings.find(isGate) ?? null;
 
 /** 他社のひと月の売上の見込み（自社が無いとき）。先月の締めがまだ無いときに使う */
 export function rivalMonthGuess(s: P1State): Record<string, number> {
-  const out: Record<string, number> = Object.fromEntries(s.rivals.map((r) => [r.id, r.base]));
+  const out: Record<string, number> = Object.fromEntries(s.rivals.map((r) => [r.id, rivalBase(s, r)]));
   for (const p of productsOf(s)) {
     const rv = rivalOffers(s, p.key);
     const month = capture(s, p.key, rv);
@@ -2209,6 +2220,58 @@ export function capture(s: P1State, key: string, offers: Offer[]): number[] {
   return out;
 }
 
+/** Uncommon の他社の強さ（発掘 v2 の 8 段目）。Common（と、まだ準備中の上のランク）は null＝今までどおり */
+export const rivalTune = (s: Pick<P1State, 'tier'>) => (s.tier === 'U' ? UNCOMMON_RIVAL : null);
+/** 町を作るときの、他社のエクステ以外の月の売上（ランクの倍率 × セクタの rivalMul × Uncommon の倍率） */
+export function rivalBase0(r: { base: number }, tier: Tier, sector = 'c1'): number {
+  const prof = SECTORS.find((x) => x.id === sector)?.profile;
+  return r.base * TIERS[tier].rival * (prof?.rivalMul ?? 1) * (tier === 'U' ? UNCOMMON_RIVAL.base * (UNCOMMON_RIVAL.town[sector] ?? 1) : 1);
+}
+/** 巻き返しのセールで、その会社に足すいまの月の売上（セール中でなければ 0。始めた月がいちばん大きく、残りの月に比例して弱まる） */
+export function saleBonus(s: P1State, rid: string): number {
+  const c = s.comeback;
+  if (!c || c.rid !== rid || c.left <= 0) return 0;
+  return c.bonus * Math.min(1, c.left / UNCOMMON_RIVAL.sale.months);
+}
+/** 他社のエクステ以外の月の売上（セール中はその会社だけ ＋saleBonus） */
+export const rivalBase = (s: P1State, r: RivalState) => r.base + saleBonus(s, r.id);
+/**
+ * 巻き返しの効き目（1 ＝そのまま）。他社の反撃と同じく、ポイントカード（−50%。レベルで伸びる）・汎用の rally の効き目で弱まる
+ */
+export const comebackResist = (s: P1State) => Math.max(0, 1 - 0.5 * lvMul(s, 'point') - fxSum(s, 'rally'));
+/**
+ * 月の締め：巻き返しの残りを減らし、1 位の月なら、まだこの町でセールをしていない会社のうち売上のいちばん大きい会社（ふつうは 2 位）がセールを始める
+ * （Uncommon のセクタだけ。1 社 1 回。セール中・休みのあいだは始めないが、fresh＝1 位を取り返した月は、ほかの会社が続けて始める＝前のセールは終わり）。
+ * 始めたら、報告に載せる名前と月数を返す
+ */
+export function comebackMonth(s: P1State, top: boolean, area: Rank[], fresh = false): Report['comeback'] | null {
+  const c = s.comeback;
+  const name = (id: string) => rivalDef(id)?.name ?? id;
+  const mine = area.find((x) => x.me)?.sales ?? 0;
+  const { months, target, min } = UNCOMMON_RIVAL.sale;
+  // 足す売上：自社の売上 × aim（ポイントカードなどで 1 に近づく）− その会社のセールなしの売上。少なくともその会社の売上の min
+  const aim = 1 + (target - 1) * comebackResist(s);
+  const bonusOf = (own: number) => Math.round(Math.max(own * min, mine * aim - own));
+  if (c && c.left > 0) {
+    // セール中の会社は、毎月の締めで自社の売上を見て、足す売上を決めなおす（追いかけてくる。強さは残りの月に比例して弱まる）
+    const own = (area.find((x) => !x.me && x.name === name(c.rid))?.sales ?? 0) - saleBonus(s, c.rid);
+    c.left--;
+    if (c.left <= 0) c.cool = UNCOMMON_RIVAL.sale.cool;
+    else c.bonus = bonusOf(own);
+  } else if (c && c.cool > 0) c.cool--;
+  // セール中・休みのあいだは始めない。ただし 1 位を取り返した月（前の月は 1 位でない）は、まだセールをしていないほかの会社が続けて始める
+  if (!rivalTune(s) || !top || (c && (c.left > 0 || c.cool > 0) && !fresh)) return null;
+  const used = c?.used ?? [];
+  if (used.length >= UNCOMMON_RIVAL.sale.max) return null;
+  const next = area.find((x) => !x.me && s.rivals.some((r) => name(r.id) === x.name && !used.includes(r.id)));
+  const r = next && s.rivals.find((x) => name(x.id) === next.name);
+  if (!next || !r) return null;
+  // 前のセールの途中で始めるとき（1 位を取り返した月）は、前のセールの会社の上乗せは終わる
+  const bonus = bonusOf(next.sales - saleBonus(s, r.id));
+  s.comeback = { rid: r.id, left: months, cool: 0, bonus, used: [...used, r.id] };
+  return { by: next.name, rid: r.id, months, bonus };
+}
+
 /** 他社のお店（商品を売っている強さつき） */
 export function rivalOffers(s: P1State, key: string): (Offer & { rid: string })[] {
   const out: (Offer & { rid: string })[] = [];
@@ -2817,7 +2880,7 @@ export function endMonth(s: P1State): Report {
   s.ws.made = 0;
   s.ws.hauled = 0;
   s.ws.value = 0;
-  s.rivalLast = Object.fromEntries(s.rivals.map((r) => [r.id, { total: Math.round(r.base + (s.rivalSales[r.id] ?? 0)), by: { ...(s.rivalProd[r.id] ?? {}) } }]));
+  s.rivalLast = Object.fromEntries(s.rivals.map((r) => [r.id, { total: Math.round(rivalBase(s, r) + (s.rivalSales[r.id] ?? 0)), by: { ...(s.rivalProd[r.id] ?? {}) } }]));
   s.rivalProd = {};
   const wages = Math.round(s.staff.reduce((a, st) => a + st.wage, 0) * wageMul(s));
   s.money -= upkeep + wages;
@@ -2825,7 +2888,7 @@ export function endMonth(s: P1State): Report {
   spend(s, 'wages', wages);
   const revenue = Object.values(s.monthSales).reduce<number>((a, v) => a + (v ?? 0), 0);
   const rivals: Record<string, number> = {};
-  for (const r of s.rivals) rivals[r.id] = r.base + (s.rivalSales[r.id] ?? 0);
+  for (const r of s.rivals) rivals[r.id] = rivalBase(s, r) + (s.rivalSales[r.id] ?? 0);
   const area = areaRanking(s, revenue, rivals);
   const rank = area.findIndex((x) => x.me) + 1;
   const costs = { ...s.monthCost };
@@ -2865,6 +2928,9 @@ export function endMonth(s: P1State): Report {
   // gap の商品も同じ。2 社目が入ると飽和（saturated）になるので、次の gap を探す理由になる。
   // 最初の町（noSaturation）はいままでどおり、誰も売っていない商品に 1 社だけ
   const noSat = !!sectorProfile(s)?.noSaturation;
+  // Uncommon は他社の追随が早い（UNCOMMON_RIVAL.entryAfter。発掘 v2 の 8 段目）
+  const tune = rivalTune(s);
+  const entryAfter = tune?.entryAfter ?? ENTRY_AFTER;
   for (const p of productsOf(s)) {
     const sold = (s.monthSales[p.key] ?? 0) > 0;
     const n = sellersOf(s, p.key);
@@ -2875,12 +2941,12 @@ export function endMonth(s: P1State): Report {
     if (rr && rr.sold == null) rr.sold = s.day;
     // 復刻品の独占のあいだは、どの他社も真似しない（数えるのは続ける。切れた月の締めで 1 社目が真似を始める）
     if (p.relic && monopolyLeft(s, p.key) > 0) {
-      s.alone[p.key] = Math.min(ENTRY_AFTER, s.alone[p.key] ?? 0);
+      s.alone[p.key] = Math.min(entryAfter, s.alone[p.key] ?? 0);
       continue;
     }
     // 独占が切れた月の締め（まだどこも真似していない）：独占の月数が ENTRY_AFTER より短くても、ここで 1 社目（v13：monopolyMonths 3）
-    if (p.relic && sold && n === 0 && s.recipes?.[p.key]?.sold != null) s.alone[p.key] = Math.max(ENTRY_AFTER, s.alone[p.key] ?? 0);
-    if ((s.alone[p.key] ?? 0) >= ENTRY_AFTER) {
+    if (p.relic && sold && n === 0 && s.recipes?.[p.key]?.sold != null) s.alone[p.key] = Math.max(entryAfter, s.alone[p.key] ?? 0);
+    if ((s.alone[p.key] ?? 0) >= entryAfter) {
       const next = s.rivals.filter((r) => !((r.sells[p.key] ?? 0) > 0) && !r.quit?.includes(p.key)).sort((a, b) => rivals[a.id] - rivals[b.id])[0];
       s.alone[p.key] = 0;
       if (next) {
@@ -2917,8 +2983,13 @@ export function endMonth(s: P1State): Report {
   }
   // 他社と需要の伸び：他社の「エクステ以外の売上」は市場（需要）と同じだけ伸びる。
   // 売り場の強さは少しずつ伸びるが、扱い始めたときの RIVAL.pullCap 倍で頭打ち（市場より速く強くなり続けない）
+  // Uncommon（UNCOMMON_RIVAL）：エクステ以外の売上は growth で町を作ったときの baseCap 倍まで伸びて、そこで止まる
+  // （追いかける目標が逃げ続けない＝自社が伸びればいつか抜ける）。売り場の強さは Common と同じ
   for (const r of s.rivals) {
-    r.base *= 1 + MARKET_GROWTH;
+    if (tune) {
+      const cap = rivalBase0(rivalDef(r.id) ?? { base: r.base }, 'U', s.sector) * tune.baseCap;
+      if (r.base < cap) r.base = Math.min(cap, r.base * (1 + tune.growth));
+    } else r.base *= 1 + MARKET_GROWTH;
     const p0 = (r.pull0 ??= {});
     for (const k of Object.keys(r.sells)) {
       const v = r.sells[k] ?? 0;
@@ -2939,10 +3010,14 @@ export function endMonth(s: P1State): Report {
     s.rally = MARKET.rallyMonths;
     report.rally = { by: area.find((x) => !x.me)?.name ?? '', months: MARKET.rallyMonths };
   }
+  // 他社の巻き返し（Uncommon）：1 位の月の締めで、2 位の会社が翌月からセール（セール中・休みのあいだは始めない）
   // 制覇の 2 つ目の条件：そのセクタの研究成果の発表（発掘 v2 の 5 段目。お題のあるセクタだけ）
   const goal = clearGoal(s);
   if (goal.all > 0) report.goal = { present: goal.present, got: goal.got, all: goal.all, ...(goal.res ? { res: goal.res } : {}) };
   const won = s.topStreak >= TOP_STREAK && goal.present;
+  // 他社の巻き返し（Uncommon）：1 位の月の締めで、2 位の会社が翌月からセール（セール中・休みのあいだ・制覇した月とそのあとは始めない）
+  const cb = comebackMonth(s, top && !won && !s.cleared, area, !wasTop);
+  if (cb) report.comeback = cb;
   // ブランド力：セクタを制覇・1 位を守った・順位が上がった・大きく下がった
   if (top && s.cleared) brandAdd(s, BRAND.stayTop, t('1 位を守った', 'Stayed #1'));
   else if (top && won) brandAdd(s, BRAND.sectorTop, t('ランドセクタを制覇（2 か月続けて 1 位＋研究成果の発表）', 'Conquered the land sector (#1 two months running + findings presented)'));
@@ -3311,7 +3386,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -3355,7 +3430,8 @@ export function deserializeP1(json: string): P1State | null {
     // 版 7 → 8（発掘 v2 の 7 段目）：ランクアップの災害。すでに Uncommon に出店しているセーブは、さかのぼって災害を起こさない
     // （起きるのは会社として初めて上のランクへ進出するとき＝次は Rare。rankUpTier が出店したセクタのランクで決める）。
     // 店の名前が無ければ、次のサインのときに決める。周回は 0（研究ノートの数で初発見）
-    s.v = 8;
+    // 版 8 → 9（発掘 v2 の 8 段目）：他社の巻き返し（comeback。下）
+    s.v = 9;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);
@@ -3387,6 +3463,8 @@ export function deserializeP1(json: string): P1State | null {
     // 以前のセーブ：制覇（2 か月続けて 1 位）と他社の反撃。もう制覇していればそのまま
     s.topStreak ??= s.cleared ? TOP_STREAK : 0;
     s.rally ??= 0;
+    // 版 8 → 9（発掘 v2 の 8 段目）：他社の巻き返しは無し（0）から
+    s.comeback ??= null;
     migrateEquipSkills(s);
     return s;
   } catch {
@@ -3414,12 +3492,14 @@ export function migrateEquipSkills(s: P1State) {
 
 // ---------------------------------------------------------------- 地図の吹き出し（自社の施設）
 
-export type Stop = 'gateShut' | 'gateOpen' | 'noCrafter' | 'crafterRest' | 'noItem' | 'noMats' | 'full' | 'noHauler' | 'noProduct' | 'noClerk' | 'clerkRest' | 'soldOut';
+export type Stop = 'sale' | 'gateShut' | 'gateOpen' | 'noCrafter' | 'crafterRest' | 'noItem' | 'noMats' | 'full' | 'noHauler' | 'noProduct' | 'noClerk' | 'clerkRest' | 'soldOut';
 /** 施設のようす：動いているなら作っている／売っている商品、止まっているなら理由（error＝止まっている、warn＝流れが詰まりかけ） */
 export type FacilityStatus = { kind: 'craft' | 'sell'; items: Sku[] } | { level: 'error' | 'warn' | 'info'; stop: Stop };
 
 export function facilityStatus(s: P1State, b: PBuilding): FacilityStatus | null {
   if (isGate(b)) return s.gateOpen ? { level: 'info', stop: 'gateOpen' } : { level: 'warn', stop: 'gateShut' };
+  // 他社の巻き返し（Uncommon のセール中の会社の店）：「セール中！」
+  if (s.comeback && s.comeback.left > 0 && b.owner === s.comeback.rid) return { level: 'error', stop: 'sale' };
   if (b.owner !== 'me' || b.left > 0) return null;
   const kind = P1B[b.id]?.kind;
   if (kind === 'workshop') {

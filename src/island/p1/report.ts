@@ -463,6 +463,18 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       goalK.append(h('span', 'is-long', goalLong), h('span', 'is-short', goalShort));
       head.append(goalK);
       c2.append(head);
+      // 他社の巻き返し（Uncommon）：1 位を取った月の締めで、2 位の会社が翌月からセール
+      if (r.comeback) {
+        const cb = h('p', 'isl-rp-sale');
+        // スマホは短い文（順位のカードを 1 画面に収める）
+        const long = h('span', 'is-long');
+        long.append(rich(t(`[[${r.comeback.by}]]がセールで巻き返してきた！（${r.comeback.months} か月）`, `[[${r.comeback.by}]] is fighting back with a sale! (${r.comeback.months} mo)`)));
+        const short = h('span', 'is-short');
+        short.append(rich(t(`[[${r.comeback.by}]]がセールで巻き返し！（${r.comeback.months} か月）`, `[[${r.comeback.by}]] strikes back with a sale! (${r.comeback.months} mo)`)));
+        cb.append(h('span', 'isl-tag is-bad', t('巻き返し', 'Comeback')), long, short);
+        c2.append(cb);
+        body.classList.add('has-sale');
+      }
       const me = r.area.findIndex((x) => x.me);
       const mySales = me >= 0 ? r.area[me].sales : r.revenue;
       let gap = '';
