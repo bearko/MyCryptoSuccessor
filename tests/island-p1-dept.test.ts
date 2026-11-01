@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
+import { ACCT_SKILLS, GA_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
 import { deptLevel, deptNews, deptOpen, deptReady, menuDepts, menuLayout, nextMark } from '../src/island/p1/dept';
 import { deserializeP1, newP1, serializeP1 } from '../src/island/p1/model';
 import { DEPT_LAYOUT, EDGES, HUBPOS, HUB_BOX, KNOTPOS, POS, RING_OUT, SLACK, UNPLACED, groupOf } from '../src/island/p1/treelayout';
@@ -35,9 +35,12 @@ describe('部門の定義（DEPTS）', () => {
 });
 
 describe('パネルの部門の割り振り', () => {
-  it('すべてのパネルに部門がある。経理・カスタマーサポート・法務はパネルなし（営業は段 C の 6 枚）、総務は人材の枝の職場の環境のもの', () => {
+  it('すべてのパネルに部門がある。カスタマーサポート・法務はパネルなし（営業は段 C の 6 枚・経理は段 F の 6 枚）、総務は人材の枝の職場の環境のもの（段 F の 3 枚を足して 12 枚）', () => {
     for (const k of SKILLS) expect(DEPT[deptOf(k)], k.id).toBeTruthy();
-    for (const d of ['accounting', 'support', 'legal'] as const) expect(DEPT_SKILLS[d], d).toHaveLength(0);
+    for (const d of ['support', 'legal'] as const) expect(DEPT_SKILLS[d], d).toHaveLength(0);
+    expect(DEPT_SKILLS.accounting.map((k) => k.id)).toEqual(ACCT_SKILLS.map((k) => k.id));
+    expect(DEPT_SKILLS.general).toHaveLength(12);
+    for (const k of GA_SKILLS) expect(deptOf(k), k.id).toBe('general');
     expect(DEPT_SKILLS.sales.map((k) => k.id)).toEqual(['sa_survey', 'sa_local', 'sa_dominant', 'sa_road', 'sa_nego', 'sa_edge']);
     expect(DEPT_SKILLS.general.map((k) => k.id)).toEqual(expect.arrayContaining(['lounge', 'shift', 'welfare']));
     for (const k of DEPT_SKILLS.general) expect(k.branch).toBe('people');
@@ -48,7 +51,8 @@ describe('パネルの部門の割り振り', () => {
     for (const id of ['vmd', 'pop', 'golden', 'b_sign', 'fair', 'b_premium', 'd_ops', 'b_ads']) expect(deptOf(SKILL[id]), id).toBe('marketing');
     for (const k of SKILLS.filter((x) => x.branch === 'shop')) expect(['logistics', 'marketing'], k.id).toContain(deptOf(k));
     // 経営 → 経営企画（ブランドのものはマーケ）・発掘 → R&D（寄付・無限の強化パネルも）・システム → システム
-    for (const k of SKILLS.filter((x) => x.branch === 'ops')) expect(['strategy', 'marketing'], k.id).toContain(deptOf(k));
+    for (const k of SKILLS.filter((x) => x.branch === 'ops' && !ACCT_SKILLS.includes(x))) expect(['strategy', 'marketing'], k.id).toContain(deptOf(k));
+    for (const k of ACCT_SKILLS) expect([k.branch, deptOf(k)], k.id).toEqual(['ops', 'accounting']);
     for (const k of SKILLS.filter((x) => x.branch === 'dig')) expect(deptOf(k), k.id).toBe('rnd');
     for (const k of SKILLS.filter((x) => x.branch === 'sys')) expect(deptOf(k), k.id).toBe('systems');
     expect(deptOf(SKILL.dig_donate)).toBe('rnd');
@@ -56,8 +60,8 @@ describe('パネルの部門の割り振り', () => {
   });
 
   it('効き目・値段・先に要るパネル・外周のランク・エンブレムの条件は、割り振り前と同じ', () => {
-    // 段 C で足した営業のパネル（営業の枝）・段 E2 で足した人事のパネル（HR_SKILLS）は除いて比べる
-    expect(SKILLS.filter((k) => k.branch !== 'sales' && !HR_SKILLS.includes(k)).map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
+    // 段 C で足した営業のパネル（営業の枝）・段 E2 で足した人事のパネル（HR_SKILLS）・段 F の経理と総務のパネルは除いて比べる
+    expect(SKILLS.filter((k) => k.branch !== 'sales' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k)).map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
     for (const b of BEFORE) {
       const k = SKILL[b.id as string];
       const now = { id: k.id, name: k.name, note: k.note, cost: k.cost, rp: rpCost(k), cat: k.cat, max: maxLv(k) === Infinity ? 'inf' : maxLv(k), lv5: maxLv(k) >= 5 && maxLv(k) !== Infinity ? levelCost(k, 5) : null, requires: k.requires ?? [], reqLv: k.reqLv ?? null, anyOf: k.anyOf ?? null, brand: k.brand ?? null, tier: k.tier ?? 'C', emblem: k.emblem ?? null, big: !!k.big, train: k.train ?? null, fx: k.fx ?? null, up: k.up ?? null, shown: shownOf(k) };
@@ -85,21 +89,24 @@ describe('部門の理解度（deptLevel）', () => {
 });
 
 describe('開く部門とメニュー', () => {
-  it('はじめは Common の 6 部門がメニューに出る。中身の無い部門（経理・総務・CS・法務）と、まだ開くランクに達していない営業は出ない', () => {
+  it('はじめは Common の 6 部門がメニューに出る。中身の無い部門（CS・法務）と、まだ開くランクに達していない営業・経理・総務は出ない', () => {
     const s = newP1(1);
     expect(menuDepts(s)).toEqual(['marketing', 'logistics', 'systems', 'rnd', 'hr', 'strategy']);
     for (const d of ['accounting', 'general', 'support', 'sales', 'legal'] as const) expect(deptOpen(s, d), d).toBe(false);
-    for (const d of ['accounting', 'general', 'support', 'legal'] as const) expect(deptReady(d), d).toBe(false);
-    // 段 C：営業の中身はできた（Rare に出店すると開く）
-    expect(deptReady('sales')).toBe(true);
+    for (const d of ['support', 'legal'] as const) expect(deptReady(d), d).toBe(false);
+    // 段 C：営業の中身はできた（Rare に出店すると開く）。段 F：経理・総務の中身もできた（Uncommon に出店すると開く）
+    for (const d of ['sales', 'accounting', 'general'] as const) expect(deptReady(d), d).toBe(true);
   });
 
-  it('Uncommon に出店すると経理・総務・CS は開くランクに達するが、中身の段（F・G）まではメニューに出ない', () => {
+  it('Uncommon に出店すると経理・総務・CS は開くランクに達する。中身ができた経理・総務（段 F）はメニューに出て、CS（段 G）は出ない', () => {
     const s = newP1(1);
     s.tier = 'U';
     for (const d of ['accounting', 'general', 'support'] as const) expect(deptOpen(s, d), d).toBe(true);
     expect(deptOpen(s, 'sales')).toBe(false);
-    expect(menuDepts(s)).toHaveLength(6);
+    expect(menuDepts(s)).toHaveLength(8);
+    expect(menuDepts(s)).not.toContain('support');
+    // 段 E2 まで（段 D）は 6 部門のまま
+    expect(menuDepts(s, 'D')).toHaveLength(6);
     // 段 F ができたら（経理と総務）
     expect(menuDepts(s, 'F')).toEqual(['marketing', 'logistics', 'systems', 'rnd', 'hr', 'general', 'accounting', 'strategy']);
     // 段 C（営業）ができても、Rare に出店するまでは出ない
@@ -156,7 +163,7 @@ describe('部門のお知らせ（トースト）', () => {
 
 describe('セーブ（版 11）', () => {
   it('新しいゲームは版 11。版 10 の古いセーブは、取ったパネル・レベルがそのまま版 11 になり、届いていた節目はまとめて出さない', () => {
-    expect(newP1(1).v).toBe(15);
+    expect(newP1(1).v).toBe(16);
     const s = newP1(2);
     s.skills = ['host', 'display', 'vmd', 'golden', 'jig', 'lounge', 'shift'];
     s.skillLv = { host: 5, jig: 3 };
@@ -165,7 +172,7 @@ describe('セーブ（版 11）', () => {
     delete o.flags.depts;
     delete o.flags.deptMarks;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(15);
+    expect(back.v).toBe(16);
     expect(back.skills).toEqual(s.skills);
     expect(back.skillLv).toEqual(s.skillLv);
     expect(deptLevel(back, 'logistics')).toBe(5 + 1 + 3);

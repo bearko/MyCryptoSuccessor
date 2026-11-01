@@ -7,7 +7,7 @@
  * docs/ISLAND_PHASE1.md「スキルツリー」「部門」。
  */
 import { t } from '../../i18n';
-import { DEPTS, DEPT_SKILLS, SKILLS, deptOf, type Branch, type DeptId, type Skill, type Tier } from './data';
+import { DEPTS, DEPT_SKILLS, GA_SKILLS, SKILLS, deptOf, type Branch, type DeptId, type Skill, type Tier } from './data';
 import { ROW_CAP } from './skillsx';
 
 /** スキルのランク（外周）。無ければ C */
@@ -157,6 +157,8 @@ function needOf(key: string, list: Skill[]): number {
   return w;
 }
 
+/** 外周だけにパネルのある、あとから足した部門（収まる幅だけ。余りの角度を取らない） */
+const NARROW: DeptId[] = ['sales', 'accounting'];
 /** 部門の枝の配置 */
 export const DEPT_LAYOUT = {} as Record<DeptId, DeptLayout>;
 export const GROUPS: Group[] = [];
@@ -174,15 +176,16 @@ export let SLACK = 0;
     const parts: [string, Branch | undefined, Skill[]][] = d.id === 'logistics' ? LOGI_ORDER.map((b) => [`logistics:${b}`, b, list.filter((k) => k.branch === b)]) : [[d.id, undefined, list]];
     for (const [key, branch, skills] of parts) {
       const g: Group = { key, dept: d.id, branch, a: 0, w: 0, skills };
-      // 営業（段 C。Rare の外周だけ）は、収まる幅だけ（余りの角度を取らない＝ほかの枝の幅を前と変えない）
-      items.push({ d: d.id, g, need: needOf(key, skills), n: d.id === 'sales' ? 0 : skills.length });
+      // 営業（段 C。Rare の外周だけ）・経理（段 F。Uncommon の外周だけ）は、収まる幅だけ（余りの角度を取らない＝ほかの枝の幅を前と変えない）。
+      // 総務は段 F で足した 3 枚（GA_SKILLS）を余りの数に入れない（ほかの枝の幅を前と変えない）
+      items.push({ d: d.id, g, need: needOf(key, skills), n: NARROW.includes(d.id) ? 0 : skills.filter((k) => !GA_SKILLS.includes(k)).length });
     }
   }
   // 段 C：営業の枝（パネルの無い細い枝だったもの）が広がったぶんは、ほかのパネルの無い部門の枝から分けてもらう
-  // （パネルのある部門の枝の幅・角度を前と変えない）
-  const sales = items.find((x) => x.d === 'sales' && x.g);
+  // （パネルのある部門の枝の幅・角度を前と変えない）。段 F の経理も同じ
+  const grown = items.filter((x) => NARROW.includes(x.d) && x.g).reduce((a, x) => a + (x.need - EMPTY_W), 0);
   const empty = items.filter((x) => !x.g);
-  if (sales && empty.length) for (const x of empty) x.need = Math.max(0.08, EMPTY_W - (sales.need - EMPTY_W) / empty.length);
+  if (grown > 0 && empty.length) for (const x of empty) x.need = Math.max(0.08, EMPTY_W - grown / empty.length);
   const total = items.reduce((a, x) => a + x.need, 0);
   SLACK = Math.PI * 2 - total;
   const nAll = items.reduce((a, x) => a + x.n, 0);
@@ -228,6 +231,13 @@ export let SLACK = 0;
     const bigAt = (d: DeptId) => DEPT_SKILLS[d].some((k) => tierOf(k) === 'C' && (k.big || k.donate));
     if (bigAt(ids[i]) && !bigAt(P)) DEPT_LAYOUT[P].hubR = HUB2;
     else L.hubR = HUB2;
+  }
+  // 段 F：内側（Common）のパネルが無い細い枝（経理）の札が、まだほかの札と重なるときは、さらに外へ（内側の段の手前まで）
+  for (const d of ids) {
+    const L = DEPT_LAYOUT[d];
+    if (!L.groups.length || DEPT_SKILLS[d].some((k) => tierOf(k) === 'C')) continue;
+    const hit = () => ids.some((e) => e !== d && clash(boxAt(d, L.hubR), boxAt(e, DEPT_LAYOUT[e].hubR)));
+    for (let r = L.hubR; hit() && r < R0 - 0.5; r += 0.25) L.hubR = r + 0.25;
   }
 }
 /** 部門の枝の真ん中の向き（ラジアン） */

@@ -793,6 +793,11 @@ function candidates(s: P1State, d: DeptId, ifs: () => StageIf[]): Cand[] {
     case 'systems':
       for (const w of ifs()) add(fromIf(s, w, margin, (dept, kind) => (kind === 'skill' || kind === 'level') && dept === 'systems'));
       break;
+    // 段 F：総務（職場の環境のパネル：スタミナ → 稼働率）・経理（原価・経費のパネル）の部長は、その部門のパネルとレベル
+    case 'general':
+    case 'accounting':
+      for (const w of ifs()) add(fromIf(s, w, margin, (dept, kind) => (kind === 'skill' || kind === 'level') && dept === d));
+      break;
     case 'strategy': {
       const b = bestSkillMove(s);
       if (b && b.units > 0) add({ act: b.kind === 'skill' ? { k: 'skill', id: b.id } : { k: 'level', id: b.id }, real: b.units * margin, unit: 'G', cost: b.kind === 'skill' ? SKILL[b.id].cost : nextLevelCost(s, SKILL[b.id]), units: b.units, stage: myShops(s).length ? bottleneck(stageCaps(s)) : undefined });

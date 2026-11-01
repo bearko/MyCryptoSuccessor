@@ -12,7 +12,7 @@ import { icon } from '../../ui/dom';
 import { DEF, artId } from '../defs';
 import { effectDone, image, loading, pick, waterFrame, type Camera, type Effect } from '../render';
 import { cells, type Dir } from '../sim';
-import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, HERO_RARITY, MORALE, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO } from './data';
+import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, HERO_RARITY, MORALE, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO, ACCT_INTRO } from './data';
 import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
 import { bandText } from './deleg';
 import { openDeleg, openProps } from './delegui';
@@ -132,6 +132,8 @@ import { openSkills } from './tree';
 import { openSide } from './side';
 import { openGrowth } from './growthui';
 import { openCharisma } from './hrui';
+import { openGa, openTax } from './acctui';
+import { taxHint, type TaxRec } from './acct';
 import { quitLeft, type HrDay } from './hr';
 import { IslandSfx } from './sfx';
 import { tileContent } from './tile';
@@ -548,6 +550,12 @@ const SUBS: Partial<Record<Menu, Sub[]>> = {
   ],
   // 営業（段 C：Rare の町に進出すると開く）：商圏の取り合い
   sales: [{ key: 'area', name: t('商圏の取り合い', 'Trade areas'), note: t('取り分・他社の店・候補地', 'Shares, rival stores, sites'), go: () => openTradeScreen() }],
+  // 経理・総務（段 F：Uncommon の町に進出すると開く）。決算書は経理が開くと経営企画から経理へ
+  accounting: [
+    { key: 'tax', name: t('税と節税', 'Tax & savings'), note: t('四半期の税・節税の見込み', 'Quarterly tax, savings plan'), go: () => openTaxScreen() },
+    { key: 'books', name: t('決算書', 'Statements'), note: t('P/L・B/S・コストと助言', 'P/L, B/S, costs, advice'), go: () => openBooks(ctx) },
+  ],
+  general: [{ key: 'env', name: t('疲れと職場の環境', 'Fatigue & workplace'), note: t('疲れ・休ませる・設備', 'Fatigue, rest, facilities'), go: () => openGaScreen() }],
   systems: [
     { key: 'invest', name: t('設備投資', 'Investment'), note: t('建物ごとの設備', 'Per-building upgrades'), go: () => openInvest(ctx), needs: 'workshop' },
     { key: 'pace', name: t('進行速度', 'Game speed'), note: t('標準・1.5 倍・2 倍', 'Normal, 1.5×, 2×'), go: () => openPace() },
@@ -556,7 +564,8 @@ const SUBS: Partial<Record<Menu, Sub[]>> = {
     ...(TEST ? [{ key: 'test', name: t('テスト', 'Test'), note: '?test=2', go: () => openTest() }] : []),
   ],
 };
-const subsOf = (m: Menu) => SUBS[m] ?? [];
+/** 部門のサブタブ。経理が開いたら、決算書は経営企画から外す（経理へ移る。段 F） */
+const subsOf = (m: Menu) => (SUBS[m] ?? []).filter((x) => !(m === 'strategy' && x.key === 'books' && menuDepts(s).includes('accounting')));
 /** 部門の名前（タブ・マインちゃんの案内の「「物流」タブ」） */
 const MENU_NAME = (m: Menu) => DEPT[m].name;
 
@@ -2917,6 +2926,10 @@ function tutorial(): { text: string; action?: [string, () => void] } {
   if (s.cleared && !s.gateOpen) return { text: t(`2 か月続けてエリア 1 位、制覇おめでとう！ランドのふちの[[関所]]は、通行料 ${money(gateToll(s))} で開通できるよ。開けると、となりのランドセクタへ進めるんだ。`, `Congratulations — #1 two months running, the sector is yours! The [[gate]] at the edge of the land opens for a ${money(gateToll(s))} toll and leads to the next land sector.`), action: [t('関所を見る', 'View the gate'), () => showGate()] };
   if (quarterNew) {
     const q = quarterNew;
+    const tx = quarterTax;
+    if (tx)
+      return {
+        text: tx.saved > 0 ? t(`第 ${q} 四半期の[[法人税]]は ${money(tx.paid)}。節税で ${money(tx.saved)} 減らせたよ！`, `Q${q} [[corporate tax]]: ${money(tx.paid)}. Savings cut ${money(tx.saved)}!`) : t(`第 ${q} 四半期の[[法人税]]は ${money(tx.paid)}。締めの前に投資すると、税が減るよ！`, `Q${q} [[corporate tax]]: ${money(tx.paid)}. Investing before the close lowers it!`), action: [t('税と節税を見る', 'Open tax'), () => ((quarterNew = null), (quarterTax = null), openTaxScreen())] };
     return { text: t(`第 ${q} 四半期の[[決算書]]が出たよ。売上と利益、お金の残りを確かめよう！`, `Your Q${q} [[statements]] are ready. Check sales, profit and cash!`), action: [t('決算書を見る', 'Open statements'), () => ((quarterNew = null), openBooks(ctx))] };
   }
   const digLow = digAt('low');
@@ -3555,17 +3568,21 @@ function renderAll() {
   sectorChecks();
   deptChecks();
   salesTalk();
+  acctTalk();
   // 撤退した他社の店のシャッター：報告・画面を閉じて地図が見えたら
   if (pendingShutter.length && !root.querySelector('.isl-modal, .isl-rp-reveal') && !sheetOpen()) playShutters();
 }
 /** 部門のお知らせ（新しく開いた部門・理解度の節目。1 回だけ。docs/ISLAND_PHASE1.md「部門」） */
 function deptChecks() {
   const had = s.flags.depts?.includes('sales');
+  const hadAcct = s.flags.depts?.includes('accounting');
   const news = deptNews(s);
   if (!news.length) return;
   for (const n of news) toast(n);
   // 営業の部門が開いた（Rare の町に初めて進出）：「新しい部門：営業」の演出（マインちゃんの紹介は、到着の案内のあと）
   if (!had && s.flags.depts?.includes('sales')) newDeptBanner('sales');
+  // 経理・総務（段 F。Uncommon の町に初めて進出）
+  else if (!hadAcct && s.flags.depts?.includes('accounting')) newDeptBanner('accounting');
   save();
 }
 /** 「新しい部門」の演出：画面の真ん中に部門のアイコンと名前（光って消える） */
@@ -3593,6 +3610,33 @@ function salesTalk() {
     t('営業を開く', 'Open Sales'),
     () => goSub('sales', 'area'),
   );
+}
+/** 経理・総務の紹介（マインちゃん。Uncommon の町に初めて進出したあと 1 回だけ。到着の案内が終わってから） */
+function acctTalk() {
+  if (s.flags.acctTalk || !s.flags.depts?.includes('accounting') || tutStep() || root.querySelector('.isl-modal') || sheetOpen() || placing || (s.tier ?? 'C') === 'C') return;
+  s.flags.acctTalk = true;
+  save();
+  talk(
+    ACCT_INTRO().map((text) => ({ text })),
+    t('経理を開く', 'Open Accounting'),
+    () => goSub('accounting', 'tax'),
+  );
+}
+/** 経理 → 税と節税 */
+function openTaxScreen() {
+  openTax(ctx, { books: () => openBooks(ctx), skills: () => panelsOf('accounting') });
+}
+/** 総務 → 疲れと職場の環境 */
+function openGaScreen() {
+  openGa(ctx, { invest: () => openInvest(ctx), skills: () => panelsOf('general') });
+}
+/** その部門のパネル（スキルツリーのその枝へ） */
+function panelsOf(d: DeptId) {
+  menu = 'strategy';
+  sub = 'tree';
+  closeSheet();
+  openSkills(ctx, d);
+  renderAll();
 }
 /** 営業の画面（商圏の取り合い）を開く */
 function openTradeScreen() {
@@ -4107,10 +4151,19 @@ function companyNews(c: NonNullable<ReturnType<typeof step>['company']>) {
   }
   if (c.quarter) {
     sfx.play('report');
-    toast(t(`第 ${c.quarter} 四半期の決算が出ました（経営企画 → 決算書）`, `Q${c.quarter} statements are ready (Strategy → Statements)`));
+    const acct = menuDepts(s).includes('accounting');
+    toast(acct ? t(`第 ${c.quarter} 四半期の決算が出ました（経理 → 決算書）`, `Q${c.quarter} statements are ready (Accounting → Statements)`) : t(`第 ${c.quarter} 四半期の決算が出ました（経営企画 → 決算書）`, `Q${c.quarter} statements are ready (Strategy → Statements)`));
+    // 経理（段 F）：四半期の税の報告
+    if (c.tax) toast(c.tax.saved > 0 ? t(`🧾 第 ${c.tax.q} 四半期の法人税 ${money(c.tax.paid)}（節税で −${money(c.tax.saved)}）`, `🧾 Q${c.tax.q} corporate tax ${money(c.tax.paid)} (saved ${money(c.tax.saved)})`) : t(`🧾 第 ${c.tax.q} 四半期の法人税 ${money(c.tax.paid)}`, `🧾 Q${c.tax.q} corporate tax ${money(c.tax.paid)}`));
     quarterNew = c.quarter;
+    quarterTax = c.tax ?? null;
   }
+  // 経理（段 F）：決算の 1 か月前のお知らせ（あと ○○ G 投資すると、税が △△ G 減る）
+  const hint = taxHint(s);
+  if (hint) toast(hint);
 }
+/** 見ていない四半期の税の報告（マインちゃんの一言） */
+let quarterTax: TaxRec | null = null;
 /** 見ていない四半期の決算（マインちゃんが勧める） */
 let quarterNew: number | null = null;
 
