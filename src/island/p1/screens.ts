@@ -120,6 +120,7 @@ import {
   type Report,
   procBonus,
   scoutMul,
+  relicMinCraft,
 } from './model';
 import { sectorDef, sectorProfile } from './company';
 import { bar, btn, extImage, fmt, h, heroIcon, heroName, matIcon, money, sheet, skuIcon, skuName, rich } from './ui';
@@ -370,7 +371,12 @@ const CRAFT_ERR: Record<string, string> = {
   relic: t('この復刻品のレシピはまだ分かっていません（遺物の研究 Lv3 で開く）', 'This revival recipe is not known yet (research the relic to Lv3)'),
 };
 /** 作れない理由（技が要るものは、その技の名前） */
-const craftErr = (x: Sku, e: string, s?: P1State) => (e === 'tech' ? techNeed(skuParts(x)[0], s) : null) ?? CRAFT_ERR[e] ?? e;
+const craftErr = (x: Sku, e: string, s?: P1State) =>
+  (e === 'tech' ? techNeed(skuParts(x)[0], s) : null) ??
+  // Rare の復刻品（Rare の町 ①）は 1 段上の職人
+  (e === 'skill' && PRODUCT[skuParts(x)[0]]?.relic?.rare ? t(`Rare の復刻品には製造の適性 ${relicMinCraft(skuParts(x)[0])} 以上の職人が要ります`, `Rare revivals need a crafter with aptitude ${relicMinCraft(skuParts(x)[0])}+`) : null) ??
+  CRAFT_ERR[e] ??
+  e;
 
 /**
  * 作れる商品（Common と、開発したアンコモン）。技がまだの商品は、うしろに（カードに「技：○○が要る」）。

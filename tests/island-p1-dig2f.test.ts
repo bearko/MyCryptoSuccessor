@@ -129,7 +129,7 @@ describe('1. RP はレアリティで変わらない', () => {
   it('売上の側の差：展示館の価値は C 1・U 2・R 5・E 15・L 40 のまま。Uncommon の復刻品は Common より高い（同じランクの既存の商品の平均 × priceMul）', () => {
     expect(DIG_BALANCE.museum.val).toEqual({ C: 1, U: 2, R: 5, E: 15, L: 40 });
     const cs = RELICS.filter((p) => p.relic!.rank === 'C').map((p) => skuPrice(relicSku(p.key)));
-    const us = RELICS.filter((p) => p.relic!.rank === 'U').map((p) => skuPrice(relicSku(p.key)));
+    const us = RELICS.filter((p) => p.relic!.rank === 'U' && !p.relic!.rare).map((p) => skuPrice(relicSku(p.key)));
     expect(cs.length).toBeGreaterThan(0);
     expect(us.length).toBeGreaterThan(0);
     expect(Math.min(...us)).toBeGreaterThan(Math.max(...cs));
@@ -138,8 +138,9 @@ describe('1. RP はレアリティで変わらない', () => {
       expect(v).toBeGreaterThanOrEqual(avgU * DIG_BALANCE.relic.priceMul * 0.88);
       expect(v).toBeLessThanOrEqual(avgU * DIG_BALANCE.relic.priceMul * 1.12);
     }
-    // Rare 以上の復刻品はまだ無い（Rare の町が開いてから）
+    // Rare の町 ①：Rare の復刻品は Rare のエクステだけ（作るのはアンコモンの格）。Epic 以上の復刻品はまだ無い
     expect(RELICS.every((p) => p.relic!.rank === 'C' || p.relic!.rank === 'U')).toBe(true);
+    expect(RELICS.filter((p) => p.relic!.rare).every((p) => extRank(p.relic!.ext) === 'R')).toBe(true);
   });
 });
 
@@ -301,7 +302,7 @@ describe('3. 研究への寄付（お金で RP・回数の上限なし）', () =
     donate(s);
     donate(s);
     const back = deserializeP1(serializeP1(s))!;
-    expect([back.v, donations(back), nextDonateCost(back)]).toEqual([9, 2, 26400]);
+    expect([back.v, donations(back), nextDonateCost(back)]).toEqual([10, 2, 26400]);
   });
 });
 
@@ -312,9 +313,9 @@ describe('4. Uncommon のお題に、この町で掘った数（v14：研究 Lv 
     s.dig!.topics = [...DIG_SITES.u1.topics];
     return s;
   };
-  it('お題がそろっても、出土品 2 種をこの町で 10 個ずつ掘っていなければ鍵（research）。会社の研究 Lv は数えない。そろえば発表できる（RP と Rare の依頼状）', () => {
+  it('お題がそろっても、出土品 2 種をこの町で 10 個ずつ掘っていなければ鍵（research）。会社の研究 Lv は数えない。そろえば発表できる（RP。Rare の依頼状は 2 つ目の町で）', () => {
     const s = uTown();
-    expect(DIG_BALANCE.presentRes).toEqual({ U: { n: 2, dug: 10 } });
+    expect(DIG_BALANCE.presentRes).toEqual({ U: { n: 2, dug: 10 }, R: { n: 2, dug: 12 } });
     expect(presentLock(s)).toBe('research');
     expect(presentRes(s)).toMatchObject({ have: 0, need: 2, dug: 10 });
     expect(present(s)).toBe('research');
@@ -329,7 +330,8 @@ describe('4. Uncommon のお題に、この町で掘った数（v14：研究 Lv 
     s.dig!.dug[DIG_SITES.u1.finds[1]] = 10;
     expect(presentLock(s)).toBeNull();
     const r = present(s);
-    expect(r).toMatchObject({ rp: RP_GAIN.U.present, letter: 'R' });
+    // Rare の町 ①：Rare の調査依頼状は Uncommon の 2 つの町で発表したら（1 つ目では届かない。tests/island-p1-rare.test.ts）
+    expect(r).toMatchObject({ rp: RP_GAIN.U.present, letter: null });
     expect(presentLock(s)).toBe('done');
   });
 
@@ -375,7 +377,7 @@ describe('5. 古いセーブ（版 6 → 7）', () => {
     o.v = 6;
     delete o.rpBuys;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(9);
+    expect(back.v).toBe(10);
     expect(donations(back)).toBe(0);
     for (const id of INF_PANELS) expect(lvOf(back, id)).toBe(0);
     expect(presentLock(back)).toBe('done');

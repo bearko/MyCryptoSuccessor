@@ -152,8 +152,10 @@ export function playDisaster(root: HTMLElement, s: P1State, rec: ResetRec, hooks
     clearTimeout(timer);
     stage.replaceChildren();
     const paper = h('div', 'isl-disaster-paper');
+    // 2 回目から（Rare の町 ①：Uncommon → Rare）は「第 N 回」。サインは保存済みの店の名前（入力は出さない）
+    const nth = Math.max(1, (s.resets ?? []).indexOf(rec) + 1);
     paper.append(
-      h('h3', '', t('復興協定書', 'Recovery Agreement')),
+      h('h3', '', nth > 1 ? t(`第 ${nth} 回 復興協定書`, `Recovery Agreement No. ${nth}`) : t('復興協定書', 'Recovery Agreement')),
       h('p', '', t(`ランド復興局（以下「甲」）と下記の店（以下「乙」）は、ランドの復興について次のとおり協定する。`, 'The Land Recovery Office ("the Office") and the store below ("the Store") agree as follows on the recovery of the land.')),
       h('p', '', t(`第 1 条　乙は、復興のための徴収（${money(rec.levy)}）に応じる。`, `Art. 1  The Store accepts the recovery levy (${money(rec.levy)}).`)),
       h('p', '', t(`第 2 条　甲は、乙に復興の支度金（${money(rec.grant)}）を支給し、${TIER_NAME[rec.tier]} のセクタ「${sectorDef(rec.to).name}」への進出を認める。`, `Art. 2  The Office pays the Store a recovery grant (${money(rec.grant)}) and permits it to expand into ${sectorDef(rec.to).name} (${TIER_NAME[rec.tier]}).`)),

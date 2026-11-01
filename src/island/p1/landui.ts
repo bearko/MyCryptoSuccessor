@@ -4,9 +4,9 @@
  */
 import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
-import { BRAND, DIG_SITES, MANAGER, RESET, SECTORS, SKILLS, TIERS, UNCOMMON_RIVAL, aptitude, type SectorDef } from './data';
+import { BRAND, DIG_SITES, MANAGER, RESET, RIVAL_TUNE, SECTORS, SKILLS, TIERS, aptitude, fundsOf, grantOf, type SectorDef } from './data';
 import { CAPITAL, TIER_NAME, brandPull, delegateCostOf, emptyLedger, managerRate, pl, quarters, revivePerMonth, RUIN, sectorDef, sectorState, sumLedger, tierLabel, type Balance, type Ledger, type RuinLike, type SectorState } from './company';
-import { crowned, letterLock, hasBusiness, lastRank, letterLocked, moveTo, recOf, type MoveErr } from './land';
+import { crowned, letterLockOf, hasBusiness, lastRank, letterLocked, moveTo, recOf, type MoveErr } from './land';
 import { delegate, delegateLock, fundShort, rankUpTier, reviveView } from './reset';
 import { balance, clearGoal, clearWaiting, date, lvMul, staffOf, type P1State } from './model';
 import { clearCondText } from './digmeet';
@@ -42,7 +42,7 @@ export const sectorIcon = (tier: SectorDef['tier']) => assetUrl(`mch/Image/LandS
 const TIER_NOTE: Record<SectorDef['tier'], string> = {
   C: t('いまと同じくらいの広さと商売敵。出店許可申請の費用も軽い。', 'About the same size and rivals as now. The permit is cheap.'),
   U: t('地図が広く、商売敵の規模が大きい。1 位を取ると、他社がセールで巻き返してくる。Common の商品は相手にされにくいので、エクステのランクアップが鍵（SCM の強化を楽しむセクタ）。', 'A wider map with bigger rivals who strike back with sales when you take #1. Common goods barely sell here, so ranking up your extensions is key.'),
-  R: t('他社のお店が乱立する、栄えた市場。他店から客を奪う出店計画としのぎの削り合い（準備中）。', 'A crowded, thriving market where you win customers from rivals (coming soon).'),
+  R: t('他社のお店が乱立する、栄えた市場。商売敵は Uncommon よりさらに大きく、お客さんも多い。アンコモンと Rare の復刻品で勝負（他店から客を奪う出店は次の更新）。', 'A crowded, thriving market with even bigger rivals and more customers. Compete with Uncommons and Rare revivals (winning customers from rival shops comes in the next update).'),
   E: t('他社を M&A で買収できるセクタ（準備中）。', 'Acquire rivals through M&A (coming soon).'),
   L: t('ブランド力で売る総力戦。街そのものを作り変える（準備中）。', 'A brand-power showdown where you reshape the city (coming soon).'),
 };
@@ -99,7 +99,7 @@ export function startMove(ctx: Ctx, target: string) {
     const gated = SECTORS.filter((x) => x.need && sectorState(s.land!, x.id) === 'locked').map((x) => x.id);
     const e = moveTo(s, target, hero);
     if (e) {
-      ctx.toast(e === 'letter' ? letterLock(s) : ERR[e]);
+      ctx.toast(e === 'letter' ? letterLockOf(s, target) : ERR[e]);
       ctx.sfx?.('error');
       return;
     }
@@ -147,7 +147,18 @@ export function openRankUp(ctx: Ctx, target: string) {
     const big = h('img', 'isl-land-dico');
     big.src = sectorIcon(d.tier);
     big.alt = '';
-    head.append(big, h('b', '', t(`${TIER_NAME[d.tier]} へ進出すると、ランドの復興のため大きな災害と徴収が起きます`, `Expanding into ${TIER_NAME[d.tier]} brings a great disaster and a levy for the land’s recovery`)));
+    // 2 回目からは「2 回目の」（Rare の町 ①：Uncommon → Rare）
+    const nth = (s.resets?.length ?? 0) + 1;
+    head.append(
+      big,
+      h(
+        'b',
+        '',
+        nth > 1
+          ? t(`${TIER_NAME[d.tier]} へ進出すると、ランドの復興のため ${nth} 回目の大きな災害と徴収が起きます`, `Expanding into ${TIER_NAME[d.tier]} brings great disaster no. ${nth} and a levy for the land’s recovery`)
+          : t(`${TIER_NAME[d.tier]} へ進出すると、ランドの復興のため大きな災害と徴収が起きます`, `Expanding into ${TIER_NAME[d.tier]} brings a great disaster and a levy for the land’s recovery`),
+      ),
+    );
     body.append(head);
     const cols = h('div', 'isl-rankup-cols');
     const lose = h('div', 'isl-card2 isl-rankup-lose');
@@ -176,7 +187,9 @@ export function openRankUp(ctx: Ctx, target: string) {
     keep.append(ul2);
     cols.append(lose, keep);
     body.append(cols);
-    body.append(h('p', 'isl-dim', t(`新しい町は、ランドからの復興の支度金 ${money(RESET.grant)} で始めます。被災した町は、手で直すか、ヒーローに復興を任せられます。出店許可申請の費用はかかりません。`, `You start the new town with a ${money(RESET.grant)} recovery grant from the land. Ruined towns can be repaired by hand or left to a hero. No permit fee.`)));
+    const n = (s.land?.mine ?? []).length;
+    const tiers = [...new Set((s.land?.mine ?? []).map((x) => TIER_NAME[sectorDef(x).tier]))].join(t('・', ', '));
+    body.append(h('p', 'isl-dim', t(`新しい町は、ランドからの復興の支度金 ${money(grantOf(d.tier))} で始めます。被災するのは、いままで出店した ${n} つの町すべて（${tiers}）。被災した町は、手で直すか、ヒーローに復興を任せられます。出店許可申請の費用はかかりません。`, `You start the new town with a ${money(grantOf(d.tier))} recovery grant from the land. All ${n} towns you have opened (${tiers}) are hit. Ruined towns can be repaired by hand or left to a hero. No permit fee.`)));
     // マインちゃんの一言
     const say = h('div', 'isl-rankup-say');
     const mi = h('img', 'isl-dock-mine');
@@ -262,7 +275,7 @@ export function openDelegate(ctx: Ctx, id: string, hero0?: number) {
     const cheap = bs.map((b) => delegateCostOf(b.id)).sort((a, b) => a - b);
     fundBox.append(h('small', 'isl-dim', t(`残り ${bs.length} 軒を直しきるには、あと ${money(short)}（1 軒 ${money(cheap[0] ?? 0)}〜）`, `${money(short)} more to rebuild the last ${bs.length} (from ${money(cheap[0] ?? 0)} each)`)));
     const grid = h('div', 'isl-delegate-grid');
-    for (const v of RESET.delegate.funds) {
+    for (const v of fundsOf(d.tier)) {
       // この額で直せる見込み（安い順）
       let left = v + rv.fund;
       let n = 0;
@@ -384,7 +397,7 @@ export function openLand(ctx: Ctx) {
         tip.append(h('b', '', d.name), h('small', 'isl-dim', stateText(s, d, st)));
         if (d.profile.tag) tip.append(h('span', 'isl-land-tag', d.profile.tag));
         if (st === 'locked') tip.append(h('span', 'isl-warn', needText(s, d)));
-        if (noLetter) tip.append(h('span', 'isl-warn', letterLock(s)));
+        if (noLetter) tip.append(h('span', 'isl-warn', letterLockOf(s, d.id)));
         if (rv && rv.ruins > 0) tip.append(h('span', 'isl-warn', reviveLine(rv)));
         if (st === 'open' && !noLetter && rankUpTier(s, d.id)) tip.append(h('span', 'isl-warn', t('⚠ 進出すると、ランドの復興のため災害と徴収が起きる', '⚠ Expanding here brings a disaster and a levy')));
       }
@@ -438,8 +451,9 @@ function detail(ctx: Ctx, s: P1State, id: string): HTMLElement {
     grid.append(c);
   };
   stat(t('地図', 'Map'), t(`${T.n}×${T.n} マス`, `${T.n}×${T.n}`));
-  // Uncommon（発掘 v2 の 8 段目）：エクステ以外の売上はさらに大きい（町の倍率も）。巻き返し（セール）もある
-  const rb = d.tier === 'U' ? Math.round(T.rival * UNCOMMON_RIVAL.base * (UNCOMMON_RIVAL.town[id] ?? 1) * 10) / 10 : null;
+  // Uncommon・Rare（発掘 v2 の 8 段目・Rare の町 ①）：エクステ以外の売上はさらに大きい（町の倍率も）。巻き返し（セール）もある
+  const tune = RIVAL_TUNE[d.tier];
+  const rb = tune ? Math.round(T.rival * tune.base * (tune.town[id] ?? 1) * 10) / 10 : null;
   stat(t('商売敵の規模', 'Rivals'), rb ? t(`×${T.rival}（売上 ×${rb}）`, `×${T.rival} (sales ×${rb})`) : `×${T.rival}`);
   stat(t('お客さん', 'Customers'), `×${T.demand}`);
   stat(t('Common の売れやすさ', 'Common goods'), `×${T.commonPull}`);
@@ -454,7 +468,7 @@ function detail(ctx: Ctx, s: P1State, id: string): HTMLElement {
     const b = btn(t(`出店する（出店許可申請 ${money(d.fee)}）`, `Open here (permit ${money(d.fee)})`), () => undefined);
     b.disabled = true;
     row.append(b);
-    box.append(h('p', 'isl-warn', letterLock(s)));
+    box.append(h('p', 'isl-warn', letterLockOf(s, id)));
   } else if (st === 'open' && rankUpTier(s, id)) {
     // 会社として初めて上のランクへ（発掘 v2 の 7 段目）：先に確認の画面（失うもの・残るもの）。出店許可申請の費用は取らない
     row.append(btn(t(`${TIER_NAME[d.tier]} へ進出する…`, `Expand into ${TIER_NAME[d.tier]}…`), () => openRankUp(ctx, id), 'is-on'));

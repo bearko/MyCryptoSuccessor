@@ -95,7 +95,7 @@ describe('発掘との出会い（2 か月目の途中、初めて手が空い�
     expect(meetReady(s, 9)).toBe(true);
     run(s, 0);
     expect(meetReady(s, 9)).toBe(false);
-    const r = month2(1, 'r1' as string, 'U');
+    const r = month2(1, 'e1' as string, 'U');
     r.dig = null;
     expect(meetReady(r, 9)).toBe(false);
     const old = month2();
@@ -136,11 +136,11 @@ describe('町の長と研究成果の発表', () => {
     for (const [sec, id] of Object.entries(SECTOR_CHIEF)) {
       const hero = heroById.get(id);
       expect(hero?.category, sec).toBe('replica');
-      expect(hero?.rarity, sec).toBe(sec.startsWith('c') ? 'RepC' : 'RepB');
+      expect(hero?.rarity, sec).toBe(sec.startsWith('c') ? 'RepC' : sec.startsWith('u') ? 'RepB' : 'RepA');
       expect(chiefOf(sec)).toBe(id);
     }
     expect(new Set(Object.values(SECTOR_CHIEF)).size).toBe(Object.keys(SECTOR_CHIEF).length);
-    expect(chiefOf('r1')).toBeNull();
+    expect(chiefOf('e1')).toBeNull();
     const s = month2(3);
     const home = chiefHome(s)!;
     expect(home.owner).toBe('town');
@@ -216,7 +216,9 @@ describe('町の長と研究成果の発表', () => {
     expect(topicsPage('c2')).toContain(`荒れ地には、栄えていた頃の[[${DIG_THEME.c2}]]が眠っているはず。お題は 3 つ`);
     // Uncommon（7 段目）：お題 4 つと、この町の出土品 2 種をこの町で 10 個ずつ
     expect(topicsPage('u1')).toContain('お題 4 つと、この町の出土品 2 種を[[この町で 10 個ずつ]]');
-    expect(topicsPage('r1')).toBeNull();
+    // Rare（Rare の町 ①）：Lime が荒れたわけ。お題 4 つと、この町の出土品 2 種をこの町で 12 個ずつ
+    expect(topicsPage('r1')).toContain('お題 4 つと、この町の出土品 2 種を[[この町で 12 個ずつ]]');
+    expect(topicsPage('e1')).toBeNull();
   });
 });
 
@@ -339,7 +341,7 @@ describe('発掘の依頼', () => {
     for (const [sec, q] of Object.entries(DIG_REQUEST)) {
       expect(DIG_SITES[sec].finds, sec).toContain(q.ext);
       const m = MISSIONS.find((x) => x.id === `${sec}_dig`)!;
-      expect(m).toMatchObject({ sector: sec, dig: q.ext, reward: 0, rp: sec.startsWith('u') ? 80 : 40 });
+      expect(m).toMatchObject({ sector: sec, dig: q.ext, reward: 0, rp: sec.startsWith('r') ? 200 : sec.startsWith('u') ? 80 : 40 });
       expect(m.title).toContain('古い');
       expect(rewardText(m)).toBe(`報酬 研究 ${m.rp} RP`);
     }

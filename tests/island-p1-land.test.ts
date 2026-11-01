@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MANAGER, RESET, TIERS, UNCOMMON_RIVAL, rivalDef } from '../src/island/p1/data';
 import { managerRate, pl, quarters, runSector, sectorState, type SectorRec } from '../src/island/p1/company';
-import { moveTo, recOf } from '../src/island/p1/land';
+import { letterLocked, moveTo, recOf } from '../src/island/p1/land';
 import { allowedDirs, assign, build, deserializeP1, gateToll, heroStats, monthRevenue, newP1, openGate, serializeP1, setShelf, startCraft, step, type P1State } from '../src/island/p1/model';
 
 function lot(s: P1State, id: string): [number, number, 'rd' | 'ld' | 'lu' | 'ru'] {
@@ -87,7 +87,7 @@ describe('帳簿（四半期の P/L・B/S）', () => {
 });
 
 describe('関所の先：ランドセクタ', () => {
-  it('関所を開けるとランドが開く。Epic・Legendary は雲、Rare は Uncommon 2 つで開放', () => {
+  it('関所を開けるとランドが開く。Epic・Legendary は雲。Rare は開いていて、出店には Rare の調査依頼状が要る（Rare の町 ①）', () => {
     const s = newP1(7);
     s.money = gateToll(s) + 1000;
     expect(openGate(s)).toBe(true);
@@ -96,11 +96,12 @@ describe('関所の先：ランドセクタ', () => {
     expect(sectorState(land, 'c1')).toBe('here');
     expect(sectorState(land, 'c2')).toBe('open');
     expect(sectorState(land, 'u1')).toBe('open');
-    expect(sectorState(land, 'r1')).toBe('locked');
+    expect(sectorState(land, 'r1')).toBe('open');
+    expect(letterLocked(s, 'r1')).toBe(true);
     expect(sectorState(land, 'e1')).toBe('cloud');
     expect(sectorState(land, 'l1')).toBe('cloud');
     land.mine.push('u1', 'u2');
-    expect(sectorState(land, 'r1')).toBe('soon');
+    expect(sectorState(land, 'r1')).toBe('open');
   });
 
   it('建物があるセクタを離れるにはマネージャーが要る。新しいセクタは入国料を払って、まっさらから', () => {

@@ -4,7 +4,7 @@
  * 独占の 4 か月は他社が来ない・切れたら後追い・ニュース・市場データの組み立て・セーブの読み書き。
  */
 import { describe, expect, it } from 'vitest';
-import { DIG, DIG_BALANCE, DIG_SITES, ENTRY_AFTER, PRODUCT, PRODUCTS, RELICS, RESEARCH_NEED, TIERS, isRelic, relicKey, relicOf, relicRecipe, skuParts, skuPrice, type Mat } from '../src/island/p1/data';
+import { DIG, DIG_BALANCE, DIG_SITES, DUNGEON_FINDS, ENTRY_AFTER, PRODUCT, PRODUCTS, RELICS, RESEARCH_NEED, TIERS, isRelic, relicKey, relicOf, relicRecipe, skuParts, skuPrice, type Mat } from '../src/island/p1/data';
 import { relicLine } from '../src/island/p1/digview';
 import { relicEnding } from '../src/island/p1/digmeet';
 import {
@@ -78,21 +78,23 @@ function lotOf(s: P1State, id: string): [number, number, 'rd' | 'ld' | 'lu' | 'r
 }
 
 describe('復刻品のデータ', () => {
-  it('発掘で出るエクステ 1 つに 1 つ（いまの 17 商品とキーが重ならない）。ランクは出たセクタのランク', () => {
-    const ids = new Set(Object.values(DIG_SITES).flatMap((d) => [...d.topics, ...d.finds]));
+  it('発掘で出るエクステ 1 つに 1 つ（いまの 17 商品とキーが重ならない）。ランクは出たセクタのランク（Rare はアンコモンの格で作る Rare の復刻品）', () => {
+    // Rare の町 ①：Rare の荒れ地の出土品と、ダンジョンの奥で出る Rare のエクステにも復刻品
+    const ids = new Set([...Object.values(DIG_SITES).flatMap((d) => [...d.topics, ...d.finds]), ...Object.values(DUNGEON_FINDS).flatMap((x) => x.R ?? [])]);
     expect(RELICS).toHaveLength(ids.size);
     for (const p of RELICS) {
       expect(isRelic(p.key)).toBe(true);
       expect(PRODUCTS.some((x) => x.key === p.key)).toBe(false);
       expect(PRODUCT[p.key]).toBe(p);
       expect(p.relic!.rank).toBe(p.relic!.ext < 2000 ? 'C' : 'U');
+      expect(!!p.relic!.rare).toBe(p.relic!.ext >= 3000);
       expect(p.tech).toBeUndefined();
     }
     expect(relicOf(1122)?.name).toContain('復刻');
   });
 
   it('同じ遺物はいつも同じレシピ。素材はそのランクの発掘の素材（C：2 種・U：布・紙・宝石 1〜2 種＋ C の 1 種）', () => {
-    for (const p of RELICS) {
+    for (const p of RELICS.filter((x) => !x.relic!.rare)) {
       const r = relicRecipe(p.relic!.ext, p.relic!.rank);
       expect(relicRecipe(p.relic!.ext, p.relic!.rank)).toEqual(r);
       expect(p.recipe[p.relic!.rank]).toEqual(r);
@@ -116,7 +118,7 @@ describe('復刻品のデータ', () => {
   it('売値は同じランクの商品の平均 × 1.25（±10%）', () => {
     const base = PRODUCTS.filter((p) => !p.tier);
     const avg = base.reduce((a, p) => a + p.price, 0) / base.length;
-    for (const p of RELICS) {
+    for (const p of RELICS.filter((x) => !x.relic!.rare)) {
       expect(p.price).toBeGreaterThanOrEqual(avg * DIG_BALANCE.relic.priceMul * 0.9 - 10);
       expect(p.price).toBeLessThanOrEqual(avg * DIG_BALANCE.relic.priceMul * 1.1 + 10);
     }

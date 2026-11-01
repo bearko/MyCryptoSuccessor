@@ -6,7 +6,7 @@
  */
 import { t } from '../../i18n';
 import { BRAND, LETTER_NEED, MANAGER, P1B, SECTORS, TOP_STREAK, type Mat, type Tier } from './data';
-import { brandAdd, book, newLand, sectorDef, sectorState, type SectorRec } from './company';
+import { brandAdd, book, newLand, sectorDef, sectorState, TIER_NAME, type SectorRec } from './company';
 import { assign, ensureDig, fitEquipment, groundOf, hasLetter, letterProgress, newP1, staffOf, syncFacilities, syncGround, type P1State, type Report } from './model';
 import { rankUpTier, resetForTier } from './reset';
 
@@ -89,14 +89,20 @@ export const feeOf = (id: string) => sectorDef(id).fee;
 export const moveFee = (s: Pick<P1State, 'land'>, id: string) => (s.land && sectorState(s.land, id) !== 'open' ? 0 : rankUpTier(s, id) ? 0 : feeOf(id));
 
 /**
- * 調査依頼状が無いので出店できない理由（ランドマップ・隣のセクタの札・進出のボタン・助言で同じ文）。
- * 発掘 v2 の 5 段目：Uncommon の調査依頼状は Common の 2 つの町で発表したら（LETTER_NEED）。「いま 1 / 2」
+ * 調査依頼状が無いので出店できない理由（ランドマップ・隣のセクタの札・進出のボタン・助言で同じ文）。tier は出店したいセクタのランク。
+ * 発掘 v2 の 5 段目：Uncommon の調査依頼状は Common の 2 つの町で発表したら（LETTER_NEED）。「いま 1 / 2」。
+ * Rare の町 ①：Rare の調査依頼状は Uncommon の 2 つの町で発表したら（同じ流儀）
  */
-export function letterLock(s: Pick<P1State, 'presented' | 'letters'>): string {
-  const [a, b] = letterProgress(s, 'U') ?? [LETTER_NEED, LETTER_NEED];
-  return t(`🔒 調査依頼状が要る（Common の ${b} つの町で研究を発表しよう。いま ${a} / ${b}）`, `🔒 Needs a survey request (present findings in ${b} Common towns — now ${a} / ${b})`);
+export function letterLock(s: Pick<P1State, 'presented' | 'letters'>, tier: Tier = 'U'): string {
+  const [a, b] = letterProgress(s, tier) ?? [LETTER_NEED, LETTER_NEED];
+  const from = TIER_NAME[TIER_DOWN[tier] ?? 'C'];
+  return t(`🔒 調査依頼状が要る（${from} の ${b} つの町で研究を発表しよう。いま ${a} / ${b}）`, `🔒 Needs a survey request (present findings in ${b} ${from} towns — now ${a} / ${b})`);
 }
-/** まだ出店していない開いたセクタで、そのランクの調査依頼状が無い（Uncommon 以上。押せないボタンに LETTER_LOCK を出す） */
+/** 1 つ下のランク（その依頼状のための発表を数えるランク） */
+const TIER_DOWN: Partial<Record<Tier, Tier>> = { U: 'C', R: 'U', E: 'R', L: 'E' };
+/** そのセクタに出店できない理由（依頼状が無い）。セクタの id から */
+export const letterLockOf = (s: Pick<P1State, 'presented' | 'letters'>, id: string) => letterLock(s, sectorDef(id).tier);
+/** まだ出店していない開いたセクタで、そのランクの調査依頼状が無い（Uncommon 以上。押せないボタンに letterLockOf を出す） */
 export const letterLocked = (s: P1State, id: string) => !!s.land && sectorState(s.land, id) === 'open' && !hasLetter(s, sectorDef(id).tier);
 
 export type MoveErr = 'no-land' | 'here' | 'cloud' | 'locked' | 'soon' | 'letter' | 'money' | 'manager' | 'busy';

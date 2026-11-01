@@ -386,8 +386,11 @@ export function dungeonNotes(s: P1State): { sector: string; name: string; here: 
     return { sector, name: sectorDef(sector).name, here, best: here ? s.dig!.dungeon!.best : null, ranks };
   });
 }
-/** Rare 以上の遺物は、まだ復刻品にしない（研究ノートの注記） */
-export const RARE_RELIC_NOTE = () => t('Rare 以上の復刻は、Rare の町が開いてから。いまは遺物の展示館で飾ると価値が大きい。', 'Rare-and-up revivals come once the Rare towns open. For now they are worth a lot in the relic museum.');
+/** ダンジョンの上のランクの遺物の注記（研究ノート）：Rare の復刻品は Rare の町に進出してから（Rare の町 ①）。Epic 以上はまだ */
+export const RARE_RELIC_NOTE = (rareOpen = false) =>
+  rareOpen
+    ? t('Rare の遺物は研究 Lv3 で Rare の復刻品のレシピに（アンコモンの復刻品より高く売れる）。Epic 以上の復刻は、Epic の町が開いてから。', 'Rare relics give Rare revival recipes at research Lv3 (they sell for more than Uncommon revivals). Epic-and-up revivals come once the Epic towns open.')
+    : t('Rare の復刻は、Rare の町に進出してから。Epic 以上はまだ先。いまは遺物の展示館で飾ると価値が大きい。', 'Rare revivals come once you expand into a Rare town; Epic and up come later. For now they are worth a lot in the relic museum.');
 
 /** 研究ノートの 1 行（エクステ） */
 export interface NoteEntry {
@@ -410,10 +413,12 @@ export function noteEntries(s: P1State, sector: string): NoteEntry[] {
   return [...site.topics.map((id) => one(id, true)), ...site.finds.map((id) => one(id, false))];
 }
 /** 研究ノートの復刻品の 1 行（研究 Lv3 で開く／開いた）。復刻品の無い遺物は null。[文, 開いた] */
-export function relicLine(e: Pick<NoteEntry, 'id' | 'lv'>): [string, boolean] | null {
+export function relicLine(e: Pick<NoteEntry, 'id' | 'lv'>, rareOpen = false): [string, boolean] | null {
   const rk = extRank(e.id);
-  if (rk === 'R' || rk === 'E' || rk === 'L') return [t('復刻は Rare の町が開いてから', 'Revival once Rare towns open'), false];
-  if (!relicOf(e.id)) return null;
+  if (rk === 'E' || rk === 'L') return [t('復刻は Epic の町が開いてから', 'Revival once Epic towns open'), false];
+  // Rare の町 ①：Rare の復刻品は Rare の町に進出してから（研究 Lv3 で開く）
+  if (rk === 'R' && relicOf(e.id) && !rareOpen) return [t('復刻は Rare の町に進出してから', 'Revival once you expand into a Rare town'), false];
+  if (!relicOf(e.id)) return rk === 'R' ? [t('復刻品は無い', 'No revival'), false] : null;
   return e.lv >= DIG_BALANCE.relic.openLv ? [t('復刻品：作れる', 'Revival: can make'), true] : [t(`Lv${DIG_BALANCE.relic.openLv} で復刻品のレシピ`, `Revival recipe at Lv${DIG_BALANCE.relic.openLv}`), false];
 }
 /** 「次のレベルまで」の文 */

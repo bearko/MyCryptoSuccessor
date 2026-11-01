@@ -6,7 +6,7 @@
  */
 import { DEF } from '../defs';
 import { cells } from '../sim';
-import { MANAGER, P1B, RESET, SECTORS, SKILL, isResearch, type Tier } from './data';
+import { MANAGER, P1B, SECTORS, SKILL, grantOf, isResearch, type Tier } from './data';
 import { book, delegateCostOf, repairCostOf, repairDaysOf, repairOrder, ruinCount, RUIN, sectorDef, type Land, type RuinLike, type SectorRec } from './company';
 import { assign, newDig, reviveMul, spend, staffOf, wasteSpots, type DigState, type P1State, type PBuilding, type ResetRec } from './model';
 
@@ -80,7 +80,8 @@ function ruinSnap(snap: Record<string, unknown>, sector: string, round: number):
 
 /**
  * ランクアップの災害と徴収（moveTo から。いまのセクタの写しを取ったあと、行き先の町を作る前に呼ぶ）：
- * - 所持金は全額徴収（帳簿の特別損失「復興の徴収」）→ ランドからの復興の支度金（特別利益。RESET.grant）
+ * - 所持金は全額徴収（帳簿の特別損失「復興の徴収」）→ ランドからの復興の支度金（特別利益。行き先のランクで grantOf）。
+ *   2 回目（Uncommon → Rare）は、Common・Uncommon のすべての町が被災する（出店したセクタすべて）
  * - お金で開けたパネルは未取得へ（研究パネル・無限の強化パネル・研究への寄付の回数は残る）。お金のパネルの修行は取りやめ
  * - ヒーローは残る（能力値・Lv）。仕事の割り当ては外す（セクタマネージャーはそのまま：被災した町の復興の担当の第一候補）
  * - すべてのセクタの写し：建物は廃墟・荒れ地は作り直し・在庫は 0。お題・石板・出土品はまた埋まっている（この周回で初めて見つけたぶんの RP がまた入る）
@@ -89,12 +90,22 @@ function ruinSnap(snap: Record<string, unknown>, sector: string, round: number):
  */
 export function resetForTier(s: P1State, tier: Tier, to: string): ResetRec {
   const land = s.land as Land;
-  // 所持金：全額徴収 → 支度金
-  const levy = Math.max(0, Math.round(s.money));
+  // 所持金：全額徴収 → 支度金（行き先のランクで。Uncommon 30,000 G・Rare RESET.grantR）。
+  // 2 回目から（Rare の町 ①）：前の災害のあと任せた町に残っていた復興支援金も、会社のお金なので徴収に入る
+  let fundsLeft = 0;
+  for (const id of land.mine) {
+    const rv = land.recs[id]?.revive;
+    if (rv?.fund) {
+      fundsLeft += rv.fund;
+      rv.fund = 0;
+    }
+  }
+  const levy = Math.max(0, Math.round(s.money)) + fundsLeft;
   s.money = 0;
-  book(s, 'levy', levy);
-  s.money += RESET.grant;
-  book(s, 'grant', RESET.grant);
+  book(s, 'levy', levy - fundsLeft);
+  const grant = grantOf(tier);
+  s.money += grant;
+  book(s, 'grant', grant);
   // お金で開けたパネル
   const lost = s.skills.filter((id) => SKILL[id] && !isResearch(SKILL[id]));
   if (lost.length) {
@@ -132,7 +143,7 @@ export function resetForTier(s: P1State, tier: Tier, to: string): ResetRec {
     s.museum.items = [];
     s.museum.lv = 0;
   }
-  const rec: ResetRec = { day: s.day, tier, to, levy, grant: RESET.grant, ruins };
+  const rec: ResetRec = { day: s.day, tier, to, levy, grant, ruins };
   (s.resets ??= []).push(rec);
   return rec;
 }
@@ -264,7 +275,7 @@ export function delegate(s: P1State, id: string, hero: number, fund: number): De
   return null;
 }
 
-/** 被災した Common の町の一覧（ランクアップの災害のあと。演出の札） */
+/** 被災した町の一覧（ランクアップの災害のあと。演出の札。2 回目は Common・Uncommon の町） */
 export const ruinedSectors = (s: P1State): string[] => (s.land?.mine ?? []).filter((id) => !!s.land?.recs[id]?.revive);
 /** 演出の札に並べるセクタ（被災した町。いま出店しているセクタの順） */
 export const ruinedDefs = (s: P1State) => ruinedSectors(s).map((id) => SECTORS.find((x) => x.id === id)!).filter(Boolean);
