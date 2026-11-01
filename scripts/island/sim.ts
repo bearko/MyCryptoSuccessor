@@ -11,6 +11,8 @@ import { crowned, moveFee, moveTo } from '../../src/island/p1/land';
 import { delegate, rankUpTier, repairAll, reviveView } from '../../src/island/p1/reset';
 import { MEET_IDLE_DAYS } from '../../src/island/p1/digmeet';
 import { siteCandidates } from '../../src/island/p1/trade';
+import { approve, candidatesFor, delegatedDuties, headDepts, headLeft, headOf, leaderLeft, leaderOf, quality, runnerOf, setHead, setLeader } from '../../src/island/p1/deleg';
+import { DELEG, DEPTS, type DeptId, type DutyId } from '../../src/island/p1/data';
 import {
   promote,
   takeVacant,
@@ -291,6 +293,11 @@ export interface RunResult {
    * ランクの終わり（そのランクの最後のセクタを離れたとき）の Lv
    */
   v17: { promos: number; passives: number; items: number; lvEnd: number[]; rarEnd: string[]; byTier: Partial<Record<Tier, number[]>> };
+  /**
+   * v18（段 D：任せ方の 4 段）：任せた業務の数（いちばん多かったとき・最後）・事業部長の数（同）・届いた提案・承認した提案・
+   * セクター長が自分で承認した提案（会社の月の締め）・リーダー（部長）が手を打った数・最初にリーダーを置いた日・最初に部長を置いた日
+   */
+  v18: { duties: number; dutiesEnd: number; heads: number; headsEnd: number; props: number; approved: number; sectorOk: number; acts: number; firstLead: number | null; firstHead: number | null };
 }
 
 /**
@@ -424,7 +431,7 @@ interface Ctx {
 const DIRS = ['rd', 'ld', 'lu', 'ru'] as const;
 
 /** 手の届く人（ほかのセクタのマネージャーと、技の修行中の人を除く） */
-const crew = (s: P1State) => s.staff.filter((x) => x.task !== 'manager' && x.task !== 'train');
+const crew = (s: P1State) => s.staff.filter((x) => x.task !== 'manager' && x.task !== 'train' && x.task !== 'lead');
 const craftApt = (hero: number, s: P1State) => aptitude(s.staff.find((x) => x.hero === hero)!.stats, 'craft');
 
 /** 道路に面した空き地（建物ごと）。お店は下見でいちばん売れる所（遠いと運ぶのに日数がかかるので少し引く） */
@@ -552,6 +559,66 @@ export interface Action {
 /** 成功した（null・true・建物） */
 const ok = (r: unknown) => r === null || r === true || (typeof r === 'object' && r !== undefined);
 
+/**
+ * v18（段 D：任せ方の 4 段）：通常の方針は、理解度 3 に届いた部門に順にチームリーダー（lead の業務。手でやっている手の中で、任せて困りにくいもの）、
+ * 8 に届いたら事業部長（その部門のリーダーを昇進。いなければ待機中・雇った人）。最短・100% は手で（いまどおり）
+ */
+export const SIM_DELEG: Record<PolicyId, { on: boolean; lead: Partial<Record<DeptId, DutyId>> }> = {
+  rta: { on: false, lead: {} },
+  normal: { on: true, lead: { logistics: 'shelf', hr: 'rest', rnd: 'dig', marketing: 'ads', sales: 'vacant' } },
+  full: { on: false, lead: {} },
+};
+/** v18：任せないで回す（比べるためだけ。終わったら戻す） */
+let delegOff = false;
+export function withoutDeleg<T>(f: () => T): T {
+  delegOff = true;
+  try {
+    return f();
+  } finally {
+    delegOff = false;
+  }
+}
+/** 任命の人：待機中で出来のいちばん高い人。いなければ雇える候補から（1 日 1 人） */
+function delegPlace(s: P1State, c: Ctx, acts: Action[], budget: number, reserve: number, hired: boolean, setHired: () => void) {
+  if (!s.reports.length) return;
+  const idle = (d: DeptId) => candidatesFor(s, d).filter((x) => x.st.task == null && !x.st.resting)[0]?.st.hero ?? null;
+  const fromPool = (d: DeptId) => (has(s, 'hire') && !hired && budget > 3000 + reserve ? ([...s.hirePool].sort((a, b) => quality({ stats: heroStatsOf(b) }, d) - quality({ stats: heroStatsOf(a) }, d))[0] ?? null) : null);
+  for (const def of DEPTS) {
+    const d = def.id;
+    if (headLeft(s, d) === 0 && !headOf(s, d)) {
+      const lead = SIM_DELEG[c.policy].lead[d];
+      const L = lead ? leaderOf(s, lead) : null;
+      const hero = L?.hero ?? idle(d);
+      if (hero != null) {
+        acts.push({ kind: 'lead', run: () => setHead(s, d, hero) });
+        return;
+      }
+      const pick = fromPool(d);
+      if (pick != null) {
+        setHired();
+        acts.push({ kind: 'hire', run: () => hire(s, pick) });
+        acts.push({ kind: 'lead', run: () => setHead(s, d, pick) });
+        return;
+      }
+      continue;
+    }
+    const duty = SIM_DELEG[c.policy].lead[d];
+    if (!duty || leaderLeft(s, d) !== 0 || runnerOf(s, duty)) continue;
+    const hero = idle(d);
+    if (hero != null) {
+      acts.push({ kind: 'lead', run: () => setLeader(s, duty, hero) });
+      return;
+    }
+    const pick = fromPool(d);
+    if (pick != null) {
+      setHired();
+      acts.push({ kind: 'hire', run: () => hire(s, pick) });
+      acts.push({ kind: 'lead', run: () => setLeader(s, duty, pick) });
+      return;
+    }
+  }
+}
+
 /** 1 日 1 回の判断：行動のリストを返す */
 export function policy(s: P1State, c: Ctx): Action[] {
   const acts: Action[] = [];
@@ -664,7 +731,13 @@ export function policy(s: P1State, c: Ctx): Action[] {
   if (!ws) return acts;
 
   // ---- 作るもの（月の締め・作業台が増えた・開発できた・セクタに着いたとき）
-  if (c.lineupDirty || c.lineup.length !== s.slots.length) {
+  // v18（段 D）：任せた業務は、手で決めない（リーダー・部長が回す。deleg.ts）
+  const dg = (d: DutyId) => SIM_DELEG[c.policy].on && !delegOff && !!runnerOf(s, d);
+  if (dg('craft')) {
+    // 作るものの選択を任せた：作業台でいま作っているもの（任された人が決める）
+    c.lineup = s.slots.map((sl) => sl.sku).filter((x): x is Sku => !!x);
+    if (c.lineup.length < s.slots.length) c.lineup = s.slots.map((sl, k) => sl.sku ?? c.lineup[k % Math.max(1, c.lineup.length)]).filter((x): x is Sku => !!x);
+  } else if (c.lineupDirty || c.lineup.length !== s.slots.length) {
     c.lineup = chooseLineup(s, c);
     c.lineupDirty = false;
   }
@@ -708,6 +781,21 @@ export function policy(s: P1State, c: Ctx): Action[] {
     want.splice(0, want.length, ...crafts.slice(0, 1), ...rest.filter((w) => w.task === 'transport'), ...rest.filter((w) => w.task !== 'transport'), ...crafts.slice(1));
   }
   let hired = false;
+  // v18：配置換えを任せた：空いた持ち場に待機中の人が足りなければ、雇うだけ（置くのは任された人）
+  if (dg('swap')) {
+    const idleN = people.filter((x) => x.task == null).length;
+    const open = want.filter((w) => w.cur == null || !people.some((x) => x.hero === w.cur));
+    if (open.length > idleN && has(s, 'hire') && budget > 3000 + reserve / 2) {
+      const w = open[0];
+      const pick = [...s.hirePool].filter((id) => (w.min ? aptitude(heroStatsOf(id), 'craft') >= w.min : true)).sort((a, b) => aptitude(heroStatsOf(b), w.apt) - aptitude(heroStatsOf(a), w.apt))[0];
+      if (pick != null) {
+        hired = true;
+        spend(1000);
+        acts.push({ kind: 'hire', run: () => hire(s, pick) });
+      }
+    }
+    want.length = 0;
+  }
   for (const w of want) {
     let hero: number | null = null;
     if (w.cur != null && !used.has(w.cur) && people.some((x) => x.hero === w.cur) && craftOk(s, w.cur, w)) hero = w.cur;
@@ -753,20 +841,21 @@ export function policy(s: P1State, c: Ctx): Action[] {
   const want2 = lineup.slice(0, s.slots.length);
   const kindsNow = [...new Set(want2)];
   const cur = procItems(s);
-  if (s.proc.items.length || want2.some((x) => !cur.includes(x)) || cur.some((x) => !want2.includes(x))) {
+  if (!dg('order') && (s.proc.items.length || want2.some((x) => !cur.includes(x)) || cur.some((x) => !want2.includes(x)))) {
     for (const x of kindsNow) if (!s.proc.items.includes(x)) acts.push({ kind: 'proc', run: () => (toggleProcItem(s, x), null) });
     for (const x of s.proc.items) if (!kindsNow.includes(x)) acts.push({ kind: 'proc', run: () => (toggleProcItem(s, x), null) });
   }
-  s.slots.forEach((sl, k) => {
-    const x = want2[k];
-    if (!x || sl.running) return;
-    if (sl.sku === x && sl.repeat) return;
-    acts.push({ kind: 'craft', run: () => startCraft(s, k, x) });
-  });
+  if (!dg('craft'))
+    s.slots.forEach((sl, k) => {
+      const x = want2[k];
+      if (!x || sl.running) return;
+      if (sl.sku === x && sl.repeat) return;
+      acts.push({ kind: 'craft', run: () => startCraft(s, k, x) });
+    });
 
   // ---- 素材：調達係がいないうちは手で買う（12 日ぶん）
   const hasBuyer = crew(s).some((x) => x.task === 'buy');
-  if (!hasBuyer) {
+  if (!hasBuyer && !dg('order')) {
     for (const { m } of procMats(s)) {
       const need = want2.reduce((a, x) => a + ((recipeOf(x)[m] ?? 0) * 30) / craftDays(s, x), 0);
       const have = s.mats[m] ?? 0;
@@ -806,8 +895,8 @@ export function policy(s: P1State, c: Ctx): Action[] {
     // 並べたい商品のうち棚に無いものを、並べなくなった商品・重なった棚・空の棚と替える（順番は気にしない）
     const left = (z: Sku) => (s.stock[z] ?? 0) + Object.values(s.shops).reduce((a, q) => a + (q.storage[z] ?? 0) + (q.shelf[z] ?? 0), 0) + s.trips.reduce((a, t) => a + (t.cargo[z] ?? 0), 0);
     const plan = [...sh.shelves];
-    const missing = kindsNow.filter((y) => !plan.includes(y));
-    plan.forEach((x, k) => {
+    const missing = dg('shelf') ? [] : kindsNow.filter((y) => !plan.includes(y));
+    if (!dg('shelf')) plan.forEach((x, k) => {
       const dup = x != null && plan.indexOf(x) !== k;
       if (x && kindsNow.includes(x) && !dup) return;
       // 古い商品が残っているうちは、新しい商品ができるまで売り切る
@@ -883,7 +972,7 @@ export function policy(s: P1State, c: Ctx): Action[] {
   if (!saving && s.land && s.land.mine[0] !== s.sector && c.policy !== 'rta') for (const x of ['@bench:1', '@carts:1', '@shelves:1']) take(x, reserve / 2);
   // 新商品の認知：gap の商品を並べたら、駅のポスター（30 日）で早く広める
   const gapOnShelf = myShops(s).some((b) => s.shops[b.uid].shelves.some((x) => x && gapOf(s).includes(skuParts(x)[0]) && knownOf(s, skuParts(x)[0]) < 1));
-  if (gapOnShelf && (s.ads.poster ?? 0) <= 0) {
+  if (gapOnShelf && (s.ads.poster ?? 0) <= 0 && !(dg('ads') && s.ads.poster != null)) {
     const ad = ADS.find((a) => a.id === 'poster')!;
     if (budget >= ad.cost + reserve / 2) {
       spend(ad.cost);
@@ -970,7 +1059,7 @@ export function policy(s: P1State, c: Ctx): Action[] {
       if (s.area) {
         const A = SIM_AREA;
         let took = 0;
-        for (const cand of siteCandidates(s, 12)) {
+        for (const cand of dg('vacant') ? [] : siteCandidates(s, 12)) {
           if (cand.vacant == null || took >= A.vacantPerMonth || cand.gain < A.minGain) continue;
           if (budget < cand.cost + reserve) break;
           spend(cand.cost);
@@ -986,7 +1075,7 @@ export function policy(s: P1State, c: Ctx): Action[] {
         }
         for (const id of A.ads) {
           const ad = ADS.find((x) => x.id === id)!;
-          if ((s.ads[id] ?? 0) > 0 || budget < ad.cost + reserve * 2) continue;
+          if ((s.ads[id] ?? 0) > 0 || budget < ad.cost + reserve * 2 || (dg('ads') && s.ads[id] != null)) continue;
           spend(ad.cost);
           acts.push({ kind: 'ad', run: () => runAd(s, id) });
         }
@@ -1030,7 +1119,7 @@ export function policy(s: P1State, c: Ctx): Action[] {
       // 売り場が細いのに枝で取れるものが無ければ、お店（月 1 軒まで）・チラシ・看板
       if (bn === 'sell') {
         const ad = ADS[0];
-        if ((s.ads.flyer ?? 0) <= 0 && budget > ad.cost + reserve * 2) {
+        if ((s.ads.flyer ?? 0) <= 0 && budget > ad.cost + reserve * 2 && !(dg('ads') && s.ads.flyer != null)) {
           spend(ad.cost);
           acts.push({ kind: 'ad', run: () => runAd(s, 'flyer') });
         }
@@ -1077,6 +1166,14 @@ export function policy(s: P1State, c: Ctx): Action[] {
   // v14a（発掘 v2 の 6 段目）：月末に、100% は研究パネルを取り切ったあとの RP を無限の強化パネルへ（infSpend）。
   // 通常・100% は研究への寄付が開いたら（Common を 1 つ制覇・または Uncommon の調査依頼状）、資金に余裕がある月に寄付する（donates）
   if (c.monthEnd && c.policy === 'full') acts.push({ kind: 'skill', run: () => (infSpend(s) > 0 ? null : 'none') });
+  // v18（段 D）：任せ方の 4 段。理解度 3 の部門に順にリーダー（SIM_DELEG.lead の業務）・8 で部長（その部門のリーダーを昇進）。
+  // 提案は月末に、見込みがプラスなら承認（お金が足りなければ資金不足で保留）
+  if (SIM_DELEG[c.policy].on && !delegOff && !saving) delegPlace(s, c, acts, budget, reserve, hired, () => (hired = true));
+  if (SIM_DELEG[c.policy].on && !delegOff && c.monthEnd)
+    for (const pr of [...(s.deleg?.inbox ?? [])]) {
+      if (pr.est <= 0) continue;
+      acts.push({ kind: 'approve', run: () => (s.money - pr.cost < reserve ? 'none' : approve(s, pr.id) == null ? null : 'none') });
+    }
   if (c.monthEnd && c.policy !== 'rta' && donateLock(s) !== 'hidden' && donateLock(s) !== 'closed') {
     const next = c.route[c.at + 1];
     // v14：次がランクアップの進出なら、費用も立ち上げの資金も要らない（お金は徴収される）
@@ -1478,7 +1575,7 @@ export interface RunOpts {
 export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   const s = newP1(seed);
   const c: Ctx = { policy: p, route: routeOf(p), at: 0, lineup: [], lineupDirty: true, shopsThisMonth: 0, monthEnd: null, lastBn: null, ban: new Set(o.ban ?? []), onlyFirst: !!o.onlyFirst, dayInMonth: 0, handCarry: 0, rpMoves: 0, runLeft: 0, runsMonth: 0, divesMonth: 0 };
-  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} } };
+  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null } };
   /** v14：任せた町の担当（能力値の伸びを数える） */
   const growHeroes = new Set<number>();
   const R = SIM_RESET[p];
@@ -1770,6 +1867,20 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
     // ---- 1 日（v9：作業のあいだは発掘隊も打つ。作業の日数が尽きた・荒れ地を掘りきったら作業を終える）
     const d = step(s);
     cur.dig.auto += d.dug?.length ?? 0;
+    // v18：任せ方の記録
+    {
+      const nd = delegatedDuties(s).length;
+      const nh = headDepts(s).length;
+      res.v18.duties = Math.max(res.v18.duties, nd);
+      res.v18.heads = Math.max(res.v18.heads, nh);
+      if (nd && res.v18.firstLead == null) res.v18.firstLead = s.day;
+      if (nh && res.v18.firstHead == null) res.v18.firstHead = s.day;
+      if (d.report?.deleg) {
+        res.v18.props += d.report.deleg.props;
+        res.v18.acts += d.report.deleg.duties.reduce((a, x) => a + x.acts, 0);
+      }
+      for (const x of d.company?.managed ?? []) if (s.land?.recs[x.id]?.heads) res.v18.sectorOk += s.land.recs[x.id].heads!.n;
+    }
     // v14：任せた町の担当の伸び
     for (const x of d.company?.managed ?? []) {
       const g = x.revive?.grow;
@@ -1970,6 +2081,9 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
     cur.dig.left = digLeft(s);
   }
   res.days = s.day;
+  res.v18.dutiesEnd = delegatedDuties(s).length;
+  res.v18.headsEnd = headDepts(s).length;
+  res.v18.approved = res.actions.approve ?? 0;
   // v17：育成の記録（ランクの終わりの Lv は、そのランクの最後に離れたセクタ）
   res.v17.passives = s.staff.reduce((a, x) => a + (x.passives?.length ?? 0), 0);
   res.v17.lvEnd = s.staff.map((x) => x.level ?? 1);
@@ -2054,6 +2168,8 @@ export interface Report2 {
   noTech?: RunResult[];
   /** v17：ヒーローの育成なし（経験値 0）の 3 方針 × 3 シード */
   noGrowth?: RunResult[];
+  /** v18：任せない通常（3 シード） */
+  noDeleg?: RunResult[];
   ms: number;
 }
 
@@ -2253,6 +2369,35 @@ export function tables(rep: Report2): string {
     );
   }
   out.push('');
+  // v18：任せ方の 4 段（段 D）
+  {
+    out.push('### 表 12：任せ方の 4 段（v18。段 D）');
+    out.push('');
+    out.push(`3 シードの平均（最小〜最大）。任せるのは通常の方針だけ（\`SIM_DELEG\`：理解度 ${DELEG.leaderAt} に届いた部門に順にチームリーダー（物流＝品出し・人事＝休ませる・R&D＝荒れ地の採掘・マーケ＝宣伝の出し直し・営業＝空き店舗）・${DELEG.headAt} で事業部長（その部門のリーダーを昇進）・部長の提案は見込みがプラスなら承認）。最短・100% は手で（いまどおり）。「任せない」は同じシードの通常を任せずに回した合計（\`withoutDeleg\`）。任せた業務の手（品出し・発注・配置など）は行動に数えない（そのぶん実時間が短い）。`);
+    out.push('');
+    out.push('| 方針 | 合計（任せる） | 任せない | 短くなったぶん | うち C（任せる／任せない） | うち U | うち R | 任せた業務の数（最多） | 事業部長の数（最多） | 届いた提案 | 承認した提案 | セクター長が自分で承認（件） | リーダー・部長の手の数 | 最初のリーダー・部長（日） | 行動の数（任せる／任せない） | 詰まって止まるシード（任せる／任せない） |');
+    out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      const off = p === 'normal' ? (rep.noDeleg ?? []) : [];
+      if (!runs.length) continue;
+      const tot = mean(runs.map(totalSec));
+      const tot0 = off.length ? mean(off.map(totalSec)) : NaN;
+      const byTier = (rs: RunResult[], tier: Tier) => (rs.length ? mean(rs.map((x) => x.sectors.filter((r) => r.tier === tier && !r.revisit).reduce((a, r) => a + (secOf(p, r, 'left') ?? 0), 0) + (tier === 'C' ? SIM_TIME[p].tutorial : 0))) : NaN);
+      const cell = (tier: Tier) => (off.length ? `${fmtH(byTier(runs, tier))}／${fmtH(byTier(off, tier))}` : fmtH(byTier(runs, tier)));
+      const v = (f: (x: RunResult['v18']) => number) => runs.map((r) => f(r.v18));
+      const mr = (f: (x: RunResult['v18']) => number) => `${mean(v(f)).toFixed(1)}（${range(v(f))}）`;
+      const acts = (rs: RunResult[]) => mean(rs.map((r) => Object.values(r.actions).reduce((a, b) => a + b, 0)));
+      const first = (f: (x: RunResult['v18']) => number | null) => {
+        const xs = runs.map((r) => f(r.v18)).filter((x): x is number => x != null);
+        return xs.length ? `${Math.round(mean(xs))}` : '—';
+      };
+      out.push(
+        `| ${POLICY_NAME[p]} | ${fmtH(tot)} | ${off.length ? fmtH(tot0) : '—'} | ${off.length ? `${Math.round((tot0 - tot) / 60)} 分（${(((tot0 - tot) / tot0) * 100).toFixed(1)}%）` : '—'} | ${cell('C')} | ${cell('U')} | ${cell('R')} | ${mr((x) => x.duties)} | ${mr((x) => x.heads)} | ${mr((x) => x.props)} | ${mr((x) => x.approved)} | ${mr((x) => x.sectorOk)} | ${mr((x) => x.acts)} | ${first((x) => x.firstLead)}・${first((x) => x.firstHead)} | ${Math.round(acts(runs))}／${off.length ? Math.round(acts(off)) : '—'} | ${runs.filter((r) => !r.done).length}／${off.length ? off.filter((r) => !r.done).length : '—'} |`,
+      );
+    }
+    out.push('');
+  }
   // v16c：Rare の町 ②（商圏の取り合い・撤退と空き店舗）
   out.push('### 表 11：Rare の町 ②：商圏の取り合い（v16c。段 C：営業の始まり）');
   out.push('');
@@ -2499,7 +2644,9 @@ export function runAll(seeds = SEEDS, opts: { ablation?: boolean } = {}): Report
   const noTech = opts.ablation ? seeds.map((seed) => runOnce('normal', seed, { ban: TECH_SKILLS })) : undefined;
   // v17：ヒーローの育成なし（経験値 0＝いつも Lv1）で同じ 3 方針 × 3 シード。育成で短くなったぶんを比べる
   const noGrowth = opts.ablation ? (['rta', 'normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutGrowth(() => runOnce(p, seed)))) : undefined;
-  return { runs, ablation, noTech, noGrowth, ms: performance.now() - t0 };
+  // v18：任せない通常（任せ方の 4 段を使わない）。任せて短くなったぶんを比べる
+  const noDeleg = opts.ablation ? seeds.map((seed) => withoutDeleg(() => runOnce('normal', seed))) : undefined;
+  return { runs, ablation, noTech, noGrowth, noDeleg, ms: performance.now() - t0 };
 }
 
 /** docs/ISLAND_BALANCE.md の「自動で書く」部分を差し替える（前後の手書きの文はそのまま） */

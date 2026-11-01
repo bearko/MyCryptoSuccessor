@@ -1,7 +1,7 @@
 /**
  * 部門（ロードマップ段 B：部門の土台）。DOM なし（main.ts・tree.ts とテストが使う）。
  * 11 部門の理解度・開く時期・下の帯のメニューの並び。docs/ISLAND_PHASE1.md「部門」・docs/SUCCESSOR_ROADMAP.md「部門の土台」。
- * 今回は器だけ：理解度の節目（チームリーダー・事業部長・奥義）は「準備中」として見せるだけで、効き目は無い。
+ * 理解度の節目：チームリーダー（3）・事業部長（8）は段 D で置けるようになった（deleg.ts）。奥義（15・25・40）は「準備中」として見せるだけ。
  */
 import { t } from '../../i18n';
 import { DEPT, DEPTS, DEPT_GROUPS, DEPT_MARKS, DEPT_SKILLS, ROAD_NOW, deptMarkNote, isResearch, type DeptGroup, type DeptId, type RoadStage, type Tier } from './data';
@@ -75,7 +75,12 @@ export function deptNews(s: P1State, now: RoadStage = ROAD_NOW): string[] {
     if (n > had) {
       marks[d.id] = n;
       const m = DEPT_MARKS[n - 1];
-      out.push(t(`${d.name}の理解度が ${m.at} に！ ${m.name}（${deptMarkNote(n - 1)}）は、次の更新で`, `${d.name} understanding reached ${m.at}! ${m.name} (${deptMarkNote(n - 1)}) arrives in a future update`));
+      // チームリーダー（3）・事業部長（8）は段 D で置けるようになった。奥義は後の段（準備中）
+      out.push(
+        n - 1 < 2
+          ? t(`${d.name}の理解度が ${m.at} に！ ${m.name}を置けるようになった！（${deptMarkNote(n - 1)}。部門の画面の上の「担当」から）`, `${d.name} understanding reached ${m.at}! You can now place a ${m.name} (${deptMarkNote(n - 1)} — “Lead” on the department’s band)`)
+          : t(`${d.name}の理解度が ${m.at} に！ ${m.name}（${deptMarkNote(n - 1)}）は準備中`, `${d.name} understanding reached ${m.at}! ${m.name} (${deptMarkNote(n - 1)}) is coming soon`),
+      );
     }
   }
   return out;

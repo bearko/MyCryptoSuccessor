@@ -122,8 +122,8 @@ export function resetForTier(s: P1State, tier: Tier, to: string): ResetRec {
     }
     s.training = null;
   }
-  // ヒーロー：仕事の割り当ては外す（マネージャー・修行中はそのまま）
-  for (const st of s.staff) if (st.task !== 'manager' && st.task !== 'train') assign(s, st.hero, null);
+  // ヒーロー：仕事の割り当ては外す（セクター長（マネージャー）・修行中・チームリーダーと事業部長（役目。段 D）はそのまま）
+  for (const st of s.staff) if (st.task !== 'manager' && st.task !== 'train' && st.task !== 'lead') assign(s, st.hero, null);
   // 周回：この周回で見つけた記録だけ消す（研究 Lv・レシピは残る）
   s.loop = { n: (s.loop?.n ?? 0) + 1, found: [], tablets: [] };
   // すべてのセクタ（出店したセクタの写し）

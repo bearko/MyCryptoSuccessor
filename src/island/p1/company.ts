@@ -149,6 +149,8 @@ export interface SectorRec {
    * 全部直った月（任せた月から数える）・支援金が尽きた。担当は manager（マネージャーの仕組みのまま）
    */
   revive?: { fund: number; all: number; months: number; spent: number; doneAt?: number; out?: boolean; last?: number };
+  /** セクター長の任せきり（段 D）：先月の会社の締めで、部長たちの提案を自分で承認した数と、投資に回した額（deleg.ts の sectorApprove） */
+  heads?: { n: number; invest: number };
 }
 
 export interface Land {

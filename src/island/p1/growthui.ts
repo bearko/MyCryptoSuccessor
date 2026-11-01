@@ -62,7 +62,7 @@ export function growthCard(ctx: Ctx, s: P1State, st: Staff, onPromote: (st: Staf
   if (up && promoLock(st, { [up]: 1 }) == null) lv.append(h('span', 'isl-hcan', t('昇格できる', 'Can promote')));
   name.append(h('b', '', heroName(st.hero)), lv);
   // いちばん向いている仕事（ランクと数。PHY などの元の数値は見せない）
-  const best = TASKS.filter((k) => k.key !== 'side' && k.key !== 'manager' && k.key !== 'train').reduce((a, k) => (aptitude(st.stats, k.key) > aptitude(st.stats, a.key) ? k : a));
+  const best = TASKS.filter((k) => k.key !== 'side' && k.key !== 'manager' && k.key !== 'train' && k.key !== 'lead').reduce((a, k) => (aptitude(st.stats, k.key) > aptitude(st.stats, a.key) ? k : a));
   const fit = h('div', 'isl-row');
   fit.append(h('small', 'isl-dim', best.name), rankEl(aptitude(st.stats, best.key)));
   name.append(fit);

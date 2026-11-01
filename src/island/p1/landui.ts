@@ -9,6 +9,7 @@ import { CAPITAL, TIER_NAME, brandPull, delegateCostOf, emptyLedger, managerRate
 import { crowned, letterLockOf, hasBusiness, lastRank, letterLocked, moveTo, recOf, type MoveErr } from './land';
 import { delegate, delegateLock, fundShort, rankUpTier, reviveView } from './reset';
 import { balance, clearGoal, clearWaiting, date, lvMul, staffOf, type P1State } from './model';
+import { sectorHeadOk } from './deleg';
 import { clearCondText } from './digmeet';
 import { pickHero, rankEl } from './heroui';
 import { adjacent } from './world';
@@ -56,7 +57,7 @@ const stateText = (s: P1State, d: SectorDef, st: SectorState): string => {
     case 'mine': {
       const rec = s.land?.recs[d.id];
       const m = rec?.manager != null ? heroName(rec.manager) : null;
-      return m ? t(`マネージャー：${m}`, `Manager: ${m}`) : t('出店済み', 'Opened');
+      return m ? t(`セクター長：${m}`, `Sector head: ${m}`) : t('出店済み', 'Opened');
     }
     case 'open':
       return t(`出店許可 ${money(d.fee)}`, `Permit ${money(d.fee)}`);
@@ -85,8 +86,8 @@ const ERR: Record<MoveErr, string> = {
   soon: t('このセクタは準備中です', 'This sector is coming soon'),
   letter: '',
   money: t('資金が足りません', 'Not enough funds'),
-  manager: t('セクタマネージャーを選んでください', 'Pick a sector manager'),
-  busy: t('そのヒーローは、ほかのセクタのマネージャーです', 'That hero manages another sector'),
+  manager: t('セクター長を選んでください', 'Pick a sector head'),
+  busy: t('そのヒーローは、ほかのセクタのセクター長です', 'That hero heads another sector'),
 };
 
 /** 移る：いまのセクタに建物があれば、まずマネージャーを選ぶ（ランドマップの「出店する」・地図の「このセクタに進出」） */
@@ -115,15 +116,24 @@ export function startMove(ctx: Ctx, target: string) {
   };
   if (!hasBusiness(s)) return go(null);
   pickHero(ctx.root, s, {
-    title: t(`「${cur.name}」のセクタマネージャー`, `Manager for ${cur.name}`),
+    title: t(`「${cur.name}」のセクター長`, `Sector head for ${cur.name}`),
     task: 'manager',
     current: null,
-    note: t(
-      '離れているあいだ、このセクタの運営を任せるヒーローを選びます。能力値の合計が高いほど売上が上がりやすく、低いと下振れします（赤字もあります）。ほかのヒーローは一緒に移ります。',
-      'Pick the hero who runs this sector while you are away. Higher total stats tend to raise sales; low ones can mean losses. Everyone else comes with you.',
-    ),
+    note:
+      t(
+        '離れているあいだ、このセクタの運営を任せるヒーロー（セクター長）を選びます。能力値の合計が高いほど売上が上がりやすく、低いと下振れします（赤字もあります）。ほかのヒーローは一緒に移ります。リーダー・部長からも昇進できます。',
+        'Pick the hero who runs this sector while you are away (sector head). Higher total stats tend to raise sales; low ones can mean losses. Everyone else comes with you. Leaders and heads can be promoted.',
+      ) + sectorNeedNote(s),
     onPick: (hero) => hero != null && go(hero),
   });
+}
+
+/** セクター長の任命の条件（段 D。事業部長が 3 部門以上。いまは表示だけ＝準備中） */
+function sectorNeedNote(s: P1State): string {
+  const ok = sectorHeadOk(s);
+  return ok.ready
+    ? t(`（条件：事業部長が ${ok.need} 部門以上・いま ${ok.heads}）`, ` (Needs ${ok.need}+ division heads; now ${ok.heads})`)
+    : t(`（セクター長の条件「事業部長が ${ok.need} 部門以上」は準備中：いま ${ok.heads} 部門。いまは条件なしで任命できます）`, ` (The “${ok.need}+ division heads” condition is coming soon: now ${ok.heads}. No condition for now)`);
 }
 
 /** 復興の札の 1 行：「🏚 復興 3 / 8 軒・支援金 残り 42,000 G・担当 ○○」 */
@@ -223,7 +233,7 @@ function reviveBox(ctx: Ctx, s: P1State, id: string): HTMLElement {
   if (rv.hero != null && (rv.fund > 0 || rv.rec.revive!.spent > 0)) {
     const st = staffOf(s, rv.hero);
     const per = st ? revivePerMonth(st.stats) : 1;
-    box.append(h('small', 'isl-dim', t(`${heroName(rv.hero)}が毎月の締めで 1 か月に ${per} 軒ずつ直していく（1 軒は手で直す値段の ${RESET.delegate.costMul} 倍）。直ったお店の割合で、マネージャーの売上が戻る。`, `${heroName(rv.hero)} rebuilds ${per} per month at each close (${RESET.delegate.costMul}× the hand-repair price). Manager sales return as shops come back.`)));
+    box.append(h('small', 'isl-dim', t(`${heroName(rv.hero)}が毎月の締めで 1 か月に ${per} 軒ずつ直していく（1 軒は手で直す値段の ${RESET.delegate.costMul} 倍）。直ったお店の割合で、セクター長の売上が戻る。`, `${heroName(rv.hero)} rebuilds ${per} per month at each close (${RESET.delegate.costMul}× the hand-repair price). The sector head’s sales return as shops come back.`)));
   } else box.append(h('small', 'isl-dim', t('ヒーローに復興支援金を送ると、毎月の締めで廃墟を直していってくれる（手で直すより割高だけど、自動で進む）。', 'Send recovery funds to a hero and they rebuild the ruins at each monthly close (pricier than by hand, but automatic).')));
   box.append(h('small', 'isl-gold', t('⛏ お題と出土品は手で掘ろう（任せた町でも、荒れ地はまた掘れる）', '⛏ Dig the targets and finds yourself (the wastelands can be dug again)')));
   const row = h('div', 'isl-row');
@@ -326,7 +336,7 @@ export function openLand(ctx: Ctx) {
       return;
     }
     sel ??= land.cur;
-    const intro = h('p', 'isl-dim', t('いまいるランドの全体図。ほかのセクタに出店すると、いまのセクタはセクタマネージャーが運営し、利益の一部が本社に入ります。', 'The whole land. When you open in another sector, a sector manager runs this one and sends part of the profit to HQ.'));
+    const intro = h('p', 'isl-dim', t('いまいるランドの全体図。ほかのセクタに出店すると、いまのセクタはセクター長が運営し、利益の一部が本社に入ります。', 'The whole land. When you open in another sector, a sector head runs this one and sends part of the profit to HQ.'));
     const map = h('div', 'isl-land');
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 100 100');
@@ -478,7 +488,7 @@ function detail(ctx: Ctx, s: P1State, id: string): HTMLElement {
     b.disabled = s.money < d.fee;
     row.append(b);
     if (s.money < d.fee) box.append(h('small', 'isl-warn', t(`あと ${money(d.fee - s.money)} 足りません。`, `${money(d.fee - s.money)} short.`)));
-    if (hasBusiness(s)) box.append(h('small', 'isl-dim', t('いまのセクタは、セクタマネージャーに任せます（次に選びます）。', 'You will pick a manager for the current sector next.')));
+    if (hasBusiness(s)) box.append(h('small', 'isl-dim', t('いまのセクタは、セクター長に任せます（次に選びます）。', 'You will pick a sector head for the current sector next.')));
   } else if (st === 'mine') {
     const rv = reviveView(s, id);
     if (rv && rv.ruins > 0) box.append(reviveBox(ctx, s, id));
@@ -506,11 +516,11 @@ function managerBox(ctx: Ctx, s: P1State, id: string): HTMLElement {
   if (m && m.task === 'manager') {
     const apt = aptitude(m.stats, 'manager');
     who.append(heroIcon(m.hero, 44), h('b', '', heroName(m.hero)), rankEl(apt), h('small', 'isl-dim', t(`売上の目安 ×${managerRate(apt).toFixed(2)}`, `Sales ×${managerRate(apt).toFixed(2)}`)));
-  } else who.append(h('b', 'isl-warn', t('マネージャー不在（売上が大きく下がります）', 'No manager (sales drop a lot)')));
+  } else who.append(h('b', 'isl-warn', t('セクター長が不在（売上が大きく下がります）', 'No sector head (sales drop a lot)')));
   who.append(
     btn(t('替える', 'Change'), () =>
       pickHero(ctx.root, s, {
-        title: t(`「${sectorDef(id).name}」のセクタマネージャー`, `Manager for ${sectorDef(id).name}`),
+        title: t(`「${sectorDef(id).name}」のセクター長`, `Sector head for ${sectorDef(id).name}`),
         task: 'manager',
         current: null,
         onPick: (hero) => {
@@ -522,7 +532,7 @@ function managerBox(ctx: Ctx, s: P1State, id: string): HTMLElement {
           }
           const nx = staffOf(s, hero);
           if (!nx) return;
-          if (nx.task) ctx.toast(t('いまの仕事を外して、マネージャーにしました', 'Moved from their current job'));
+          if (nx.task) ctx.toast(t('いまの仕事・役目を外して、セクター長にしました', 'Moved from their current job or role'));
           nx.task = 'manager';
           nx.target = id;
           // ほかの仕事の枠からは外す

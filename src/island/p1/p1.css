@@ -10784,3 +10784,228 @@ small.isl-note-series.is-bad {
     min-height: 0;
   }
 }
+
+/* ================================================================ 任せ方の 4 段（段 D。docs/ISLAND_PHASE1.md「任せ方」・delegui.ts） */
+/* 部門の帯の「担当」：押すと任命の画面 */
+button.isl-dband-lead {
+  padding: 1px 8px;
+  border: 1px dashed var(--isl-dim);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--isl-dim);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+button.isl-dband-lead.is-on {
+  border-style: solid;
+  border-color: var(--br, var(--isl-gold));
+  color: var(--br, var(--isl-gold));
+}
+/* 役目の札：リーダーは角の四角・部長は丸・セクター長は二重の枠（色だけに頼らない） */
+.isl-role {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px solid var(--c, var(--isl-gold));
+  border-radius: 3px;
+  color: var(--c, var(--isl-gold));
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+  background: #0f1626;
+}
+.isl-role.is-head {
+  border-width: 2px;
+  border-radius: 999px;
+}
+.isl-role.is-sector {
+  border: 3px double var(--isl-gold);
+  border-radius: 6px;
+  color: var(--isl-gold);
+}
+.isl-dl .isl-card2 {
+  margin-bottom: 8px;
+}
+.isl-dl-lv {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0 0 8px;
+}
+.isl-dl-head {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  border-left: 4px solid var(--br, var(--isl-gold));
+}
+.isl-dl-head > * {
+  margin: 0;
+}
+.isl-dl-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+.isl-dl-name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.isl-dl-q {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.isl-dl-q .isl-bar {
+  width: 90px;
+}
+.isl-dl-on {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 4px 0;
+  font-size: 12px;
+}
+.isl-dl-leads {
+  display: grid;
+  align-items: start;
+  gap: 6px;
+}
+.isl-dl-duty {
+  display: grid;
+  gap: 3px;
+  padding: 6px 8px;
+  border: 1px solid #2a3a5c;
+  border-radius: 8px;
+  background: rgba(15, 22, 38, 0.5);
+}
+.isl-dl-duty.is-lock {
+  opacity: 0.6;
+}
+.isl-dl-duty p {
+  margin: 2px 0;
+  font-size: 12px;
+}
+.isl-dl-stat {
+  color: var(--isl-gold);
+}
+.isl-dl-add {
+  justify-self: start;
+}
+@media (min-width: 900px) {
+  .isl-dl-leads {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+  .isl-dl-leads > h3,
+  .isl-dl-leads > p {
+    grid-column: 1 / -1;
+  }
+}
+/* 部長の提案のカード */
+.isl-prop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-auto-rows: max-content;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.isl-prop {
+  display: grid;
+  gap: 4px;
+  border-left: 4px solid var(--br, var(--isl-gold));
+}
+.isl-prop.is-held {
+  border-left-style: dashed;
+}
+.isl-prop-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.isl-prop-who {
+  display: grid;
+  flex: 1;
+}
+.isl-prop-title {
+  font-size: 14px;
+}
+.isl-prop-why,
+.isl-prop-est {
+  margin: 0;
+  font-size: 12px;
+}
+.isl-prop-btns .isl-btn {
+  flex: 1;
+}
+.isl-prop-done p,
+.isl-prop-report p,
+.isl-prop-sector p {
+  margin: 3px 0;
+  font-size: 12px;
+}
+/* 人事の画面の「役目」 */
+.isl-roles-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 4px;
+}
+.isl-roles-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border: 1px solid #2a3a5c;
+  border-radius: 8px;
+  background: rgba(15, 22, 38, 0.5);
+  color: var(--isl-text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.isl-roles-row b {
+  white-space: nowrap;
+}
+.isl-roles-row small {
+  flex: none;
+  white-space: nowrap;
+}
+.isl-roles-row small.isl-dim {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.isl-best.is-promo {
+  background: #c49bff;
+}
+@media (max-width: 599px) {
+  .isl-prop-grid,
+  .isl-roles-list {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 599px) {
+  /* 担当の報告の 1 行（段 D）のぶんも、推移のグラフを低く（報告を 1 画面に） */
+  .is-report.has-deleg .isl-rp-chart {
+    max-height: 88px;
+  }
+  .is-report.has-deleg.has-lv .isl-rp-chart,
+  .is-report.has-deleg.has-dig .isl-rp-chart {
+    max-height: 64px;
+  }
+  .is-report.has-deleg.has-dig.has-lv .isl-rp-chart {
+    max-height: 44px;
+  }
+  .is-report.has-deleg .isl-rp-sbar {
+    height: 22px;
+  }
+  .is-report.has-deleg.has-dig.has-lv.has-say .isl-rp-chart,
+  .is-report.has-deleg.has-trade .isl-rp-chart {
+    max-height: 44px;
+  }
+}
