@@ -9,6 +9,7 @@
  * docs/ISLAND_PHASE1.md「投資の効き目の監査」
  */
 import { writeFileSync } from 'node:fs';
+import { areaShares, deserializeP1 as fromSave, newP1 as freshTown, newStorePull, rivalStores, serializeP1 as toSave, vacantCost } from '../../src/island/p1/model';
 import { HERO_GROWTH, ADS, DIG_BALANCE, DIG_SITES, HIRE_POOL, INVEST, INVESTS, MONEY_PANELS, P1B, PRODUCT, RESEARCH_NEED, SKILL, aptitude, isResearch, relicKey, sku, skuParts, type DigFxKind, type FxKind, type Mat, type Skill, type Sku, type Task } from '../../src/island/p1/data';
 import {
   LEARNABLE,
@@ -537,7 +538,28 @@ export const SKILL_SPEC: Record<string, SkillSpec> = {
   t_textile: { expect: [], out: '解放（リボン・ハットを作れる）。商品の行で確かめる' },
   t_jewel: { expect: [], out: '解放（オルゴールを作れる）。商品の行で確かめる' },
   t_master: { expect: ['sell'], setup: (s) => (gainSkill(s, 't_metal'), second('Knife:C')(s)), note: '技の商品（ナイフ）を並べているとき' },
+  // 営業（段 C）：Rare の町の商圏にだけ効く（Common の基準の SCM の段には出ない）。Rare の町（グリーン・マウス）で、他社の店のとなりに自社の店 2 軒を置いたときの取り分で測る
+  sa_survey: { expect: [], out: '表示（出店の候補地と下見に取り分の予測が出る。tests/island-p1-sales.test.ts で確認）' },
+  sa_local: { expect: [], check: 'probe', probe: { name: 'Rare の町の自社の取り分（0.1% 単位）', f: (s) => Math.round(rareShare(s) * 1000), better: 'up' }, note: 'Rare の町（他社の店のとなりに自社の店 2 軒）' },
+  sa_dominant: { expect: [], check: 'probe', probe: { name: 'Rare の町の自社の取り分（0.1% 単位）', f: (s) => Math.round(rareShare(s) * 1000), better: 'up' }, note: 'Rare の町（となりどうしの自社の店 2 軒）' },
+  sa_road: { expect: [], check: 'probe', probe: { name: 'Rare の町の自社の取り分（0.1% 単位）', f: (s) => Math.round(rareShare(s) * 1000), better: 'up' }, note: 'Rare の町（他社の店のとなりに自社の店 2 軒）' },
+  sa_edge: { expect: [], check: 'probe', probe: { name: 'Rare の町の自社の取り分（0.1% 単位）', f: (s) => Math.round(rareShare(s) * 1000), better: 'up' }, note: 'Rare の町（他社の店のとなりに自社の店 2 軒）' },
+  sa_nego: { expect: [], check: 'probe', probe: { name: '空き店舗に入る費用（G）', f: (s) => vacantCost(s), better: 'down' } },
 };
+/** 営業のパネルの監査：Rare の町（グリーン・マウス・種 5）で、1 軒目の他社の店のとなりに自社の店 2 軒（見込みの引き）を置いたときの、自社の取り分の合計 */
+let RARE_TOWN: string | null = null;
+function rareShare(s: P1State): number {
+  RARE_TOWN ??= toSave(freshTown(5, 'R', 'r1'));
+  const r = fromSave(RARE_TOWN)!;
+  r.skills = [...s.skills];
+  r.skillLv = { ...s.skillLv };
+  const st = rivalStores(r)[0];
+  const w = newStorePull(r);
+  return areaShares(r, [
+    { i: st.i + 1, j: st.j, w },
+    { i: st.i + 1, j: st.j + 1, w },
+  ]).me;
+}
 
 /**
  * 汎用の効き目（fx）のパネル：fx の種類から、効くはずの段と基準を自動で決める（docs/ISLAND_PHASE1.md「汎用の効き目」）。

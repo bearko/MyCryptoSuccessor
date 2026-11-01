@@ -452,7 +452,7 @@ describe('6. 投資の監査・セーブ', () => {
     expect(moveTo(s, 'u1', MGR)).toBeNull();
     s.storeName = 'くま商会';
     const back = deserializeP1(serializeP1(s))!;
-    expect(back.v).toBe(12);
+    expect(back.v).toBe(13);
     expect(back.storeName).toBe('くま商会');
     expect(back.loop).toEqual(s.loop);
     expect(back.resets).toEqual(s.resets);
@@ -466,7 +466,7 @@ describe('6. 投資の監査・セーブ', () => {
     const o = JSON.parse(serializeP1(s));
     o.v = 7;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(12);
+    expect(back.v).toBe(13);
     expect(back.resets).toBeUndefined();
     expect(rankUpTier(back, 'u2')).toBeNull();
     expect(sectorState(back.land!, 'u2')).toBe('open');

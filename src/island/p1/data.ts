@@ -165,6 +165,33 @@ export const RARE_RIVAL: typeof UNCOMMON_RIVAL = {
   entryAfter: 3,
   sale: { target: 1.3, min: 0.15, months: 3, cool: 1, max: 2 },
 };
+/**
+ * Rare の町 ②（段 C：営業の始まり）：商圏の取り合い・撤退と空き店舗（docs/ISLAND_PHASE1.md「商圏の取り合い（Rare）」・docs/ISLAND_BALANCE.md の v16c）。
+ * Rare の町だけに掛かる（Common・Uncommon の売れ方は変えない）。
+ * - d0：Rare の町の距離の重み（この距離で来やすさが半分。Common・Uncommon は MARKET.d0）。小さいほど、店の場所が効く
+ * - stores：町を作るとき、他社 1 社が持つ店の数（1 軒目はいままでの場所。残りは町のあちこちに）
+ * - pull：他社の店の引き（その会社の扱う商品の強さの平均 × ランクの倍率 × pull）。その店に無い商品のお客さんも引き寄せる（買わずに帰る）
+ * - branch：支店の引き（本店＝その会社の 1 軒目に対して。支店は押せば撤退させやすい）
+ * - quitAt・quitMonths：他社の店の取り分が開店のときの quitAt 倍を下回る月が quitMonths か月続くと撤退（空き店舗になる）
+ * - refill：空き店舗を放っておくと、この月数で別の他社が新しい店を出す
+ * - vacant：空き店舗に自社が入るときの費用（その建物の値段 × cost）と工期（days 日。内装だけ）
+ * - cap：他社の店の売上の上限（開店のときの取り分の cap 倍まで。まわりが撤退すると伸びる）
+ * - sale：巻き返し（セール）の間、その会社の店の引き ×(1 ＋ sale × 残りの月 ÷ セールの月数)
+ */
+export const RARE_AREA = {
+  d0: 1.3,
+  stores: 5,
+  pull: 4.5,
+  branch: 0.45,
+  quitAt: 0.6,
+  quitMonths: 2,
+  refill: 3,
+  vacant: { cost: 0.5, days: 2 },
+  cap: 1.6,
+  sale: 0.6,
+};
+/** 営業の奥義の予告（理解度 15。効き目は段 I。表示だけ） */
+export const SALES_MASTERY = () => t('奥義 1：撤退した他社の土地を、出店許可なしで取れる（準備中）', 'Mastery 1: take over land left by a closed rival with no permit (coming soon)');
 /** そのランクの他社の強さ（Uncommon・Rare。Common は null） */
 export const RIVAL_TUNE: Partial<Record<Tier, typeof UNCOMMON_RIVAL>> = { U: UNCOMMON_RIVAL, R: RARE_RIVAL };
 
@@ -401,7 +428,13 @@ const RESEARCH_R = t('ここは Rare ランド。[[市場データ]]で、まだ
 /** 到着の案内の 2 枚目（リサーチ）か。main.ts が「市場データを開く」ボタンを付ける */
 export const isResearchPage = (text: string) => text === RESEARCH || text === RESEARCH_U || text === RESEARCH_R;
 /** Rare の町に着いたときの一言（Rare の町 ② の予告。到着の案内の前に 1 枚） */
-export const RARE_TEASER = () => t('この町は他社の店がひしめいている。近くに店を出してお客さんを奪い合う時代が来る…（次の更新）', 'Rival stores crowd this town. An age of opening near rivals to win their customers is coming… (next update)');
+export const RARE_TEASER = () => t('この町は他社の店がひしめいている。お客さんは[[近くの店]]へ行くから、1 軒では町じゅうには売れない。店の場所で[[商圏]]を取り合おう！', 'Rival stores crowd this town. Customers go to [[nearby stores]], so one shop can’t sell to the whole town. Fight over [[trade areas]] with where you build!');
+/** 営業の部門の紹介（Rare の町に初めて進出して、営業の部門が開いたとき。main.ts の会話） */
+export const SALES_INTRO = () => [
+  t('新しい部門：[[営業]]！ 他社の店から[[お客さんを奪う]]のが営業の仕事だよ。', 'New department: [[Sales]]! Its job is to [[win customers]] from rival stores.'),
+  t(`[[営業]]の画面で、店ごとの[[商圏]]（取り分）と、他社の店の[[撤退の危険]]が見えるよ。取り分が開店のときの ${Math.round(RARE_AREA.quitAt * 10)} 割を切った月が ${RARE_AREA.quitMonths} か月続くと撤退して、[[空き店舗]]になるの。`, `The [[Sales]] screen shows each store’s [[trade area]] (share) and how close rival stores are to [[closing]]. A store under ${Math.round(RARE_AREA.quitAt * 100)}% of its opening share for ${RARE_AREA.quitMonths} months closes and leaves a [[vacant store]].`),
+  t('空き店舗には安く・すぐ出店できる。まずは[[出店の候補地]]の上位に店を出してみよう！', 'You can move into a vacant store cheaply and fast. Start by building at the top [[candidate sites]]!'),
+];
 
 /** 1 枚目（目標）：ようこそ ＋ エリア 1 位 ＋ 1 位の他社の月の売上（{top}） */
 const goal = (name: string) =>
@@ -688,7 +721,7 @@ export const SECTORS: SectorDef[] = [
   },
   // ---------------------------------------------------------------- Rare（r1〜r4。Rare の町 ①）
   // 基礎の 5 つは Uncommon と同じく、どれも他社 2 社以上が扱う。gap の商品をアンコモンにする・Rare の復刻品（他社の sells に入れない）が勝ち筋。
-  // 他社の店の場所（store）は町を作るときに決まる。次の更新（Rare の町 ②）で、店ごとの商圏の取り合いの足場にする
+  // 他社の店の場所（store）は町を作るときに決まる。Rare の町 ②（段 C）：他社 1 社に RARE_AREA.stores 軒の店があり、店ごとに商圏を取り合う
   {
     id: 'r1',
     tier: 'R',
@@ -865,7 +898,8 @@ export const STORE = { base: 80, warehouse: 200 };
 // ---------------------------------------------------------------- スキルツリー
 
 /** 枝（9 本）。dig＝発掘（発掘 v2 の 2 段目。Lime だけ・発掘との出会いのあとに雲から出る。パネルはすべてお金パネル） */
-export type Branch = 'shop' | 'craft' | 'logi' | 'buy' | 'people' | 'ops' | 'sys' | 'tech' | 'dig';
+/** sales：営業の枝（段 C。Rare の外周だけ。BRANCHES の 9 本には入れない＝もとの枝の数・外周の半径は変えない） */
+export type Branch = 'shop' | 'craft' | 'logi' | 'buy' | 'people' | 'ops' | 'sys' | 'tech' | 'dig' | 'sales';
 
 export interface Skill {
   id: string;
@@ -1757,6 +1791,21 @@ export const DONATE: Skill = {
   note: t(`国の研究所に寄付して、研究ポイントを受け取る（1 回 ${DB.rp} RP。押すたびに寄付の額が ×${DB.grow} ずつ上がる・回数の上限なし）`, `Donate to the national institute for research points (${DB.rp} RP each; each donation costs ×${DB.grow} more · no limit)`),
   cost: DB.cost,
 };
+/**
+ * 営業のパネル（段 C。Rare の外周・営業の枝。docs/ISLAND_PHASE1.md「営業の部門」）。効き目は Rare の町の商圏だけに効く（model.ts の「商圏の取り合い」）。
+ * 研究パネル 2 枚（立地調査・ドミナント出店）・お金パネル 4 枚（SALES_MONEY。Lv1〜5）
+ */
+export const SALES_SKILLS: Skill[] = [
+  { id: 'sa_survey', branch: 'sales', tier: 'R', name: t('立地調査', 'Site survey'), note: t('営業の画面の「出店の候補地」と、お店を置くときの下見に、取れる取り分の予測（％）が出る', 'Shows the predicted share (%) at candidate sites and when placing a shop'), cost: 0 },
+  { id: 'sa_local', branch: 'sales', tier: 'R', name: t('地域密着', 'Local roots'), note: t('Rare の町の自社のお店の引き +10%（商圏の取り分が増える）', 'Your shops’ pull in Rare towns +10% (bigger trade-area share)'), cost: 60000, requires: ['sa_survey'], show: [{ label: t('自社の店の引き', 'Your store pull'), v: 0.1, unit: '%' }] },
+  { id: 'sa_dominant', branch: 'sales', tier: 'R', name: t('ドミナント出店', 'Dominant clustering'), note: t('同じ町の自社のお店どうしの商圏が重なっても取り合わない（重なった所のお客さんは、自社の店の引きの合計で選ぶ）', 'Your shops in the same town stop competing where their trade areas overlap (customers there weigh your shops’ combined pull)'), cost: 0, requires: ['sa_survey'] },
+  { id: 'sa_road', branch: 'sales', tier: 'R', name: t('ロードサイド', 'Roadside stores'), note: t('Rare の町の自社のお店の商圏（お客さんが来る距離）+15%', 'Your shops’ trade-area reach in Rare towns +15%'), cost: 90000, requires: ['sa_local'], show: [{ label: t('商圏の距離', 'Reach'), v: 0.15, unit: '%' }] },
+  { id: 'sa_nego', branch: 'sales', tier: 'R', name: t('撤退の交渉', 'Exit negotiations'), note: t('撤退した店の跡（空き店舗）に自社が入る費用 −20%', 'Moving into a vacant store costs 20% less'), cost: 80000, requires: ['sa_dominant'], show: [{ label: t('空き店舗に入る費用', 'Vacant-store cost'), v: 0.2, unit: '%', down: true }] },
+  { id: 'sa_edge', branch: 'sales', tier: 'R', name: t('差別化の売り場', 'Differentiated floors'), note: t('Rare の町の他社の店の引き −6%（商品と売り場で差をつけ、他社のお客さんを奪う）', 'Rival stores’ pull in Rare towns −6% (stand out to win their customers)'), cost: 130000, requires: ['sa_road'], show: [{ label: t('他社の店の引き', 'Rival store pull'), v: 0.06, unit: '%', down: true }] },
+];
+/** 営業のお金パネル（Lv1〜5） */
+export const SALES_MONEY = ['sa_local', 'sa_road', 'sa_nego', 'sa_edge'];
+SKILLS.push(...SALES_SKILLS);
 SKILLS.push(...INF_SKILLS, DONATE);
 /** 無限の強化パネルの id */
 export const INF_PANELS = INF_SKILLS.map((k) => k.id);
@@ -1789,7 +1838,7 @@ export const START_RP = 30;
 export const RP_PER_DUST = 40;
 const RP_FIXED: Record<string, number> = { hire: START_RP };
 {
-  const money = new Set([...Object.values(MONEY_PANELS).flatMap((x) => Object.values(x)), ...DIG_PANELS, DONATE.id]);
+  const money = new Set([...Object.values(MONEY_PANELS).flatMap((x) => Object.values(x)), ...DIG_PANELS, DONATE.id, ...SALES_MONEY]);
   const byId = new Map(SKILLS.map((k) => [k.id, k]));
   const tierOf = (k: Skill) => k.tier ?? 'C';
   // 同じランクの中の深さ（先に要るパネルのうち、同じランクのものをたどった最長の数）
@@ -1860,8 +1909,8 @@ export type DeptId = 'logistics' | 'sales' | 'strategy' | 'rnd' | 'hr' | 'system
 export type DeptGroup = 'biz' | 'strat' | 'admin' | 'base';
 /** ロードマップの段（docs/SUCCESSOR_ROADMAP.md「ロードマップ」）。部門の中身（遊び）ができる段 */
 export type RoadStage = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J';
-/** いまできている段（段 B：部門の土台）。中身ができる段がこれ以下の部門だけメニューに出る */
-export const ROAD_NOW: RoadStage = 'B';
+/** いまできている段（段 C：営業の始まり）。中身ができる段がこれ以下の部門だけメニューに出る */
+export const ROAD_NOW: RoadStage = 'C';
 export interface DeptDef {
   id: DeptId;
   name: string;
@@ -1916,7 +1965,7 @@ export const deptMarkNote = (k: number) => [t('業務を 1 つ任せられる', 
  * 調達・製造・物流・技・販売 → 物流／経営 → 経営企画／人材 → 人事／発掘 → R&D／システム → システム。
  * 例外：販売の枝の宣伝・ブランド・見せ方 → マーケ、経営の枝のブランドのもの → マーケ、人材の枝の職場の環境 → 総務
  */
-export const BRANCH_DEPT: Record<Branch, DeptId> = { shop: 'logistics', craft: 'logistics', logi: 'logistics', buy: 'logistics', tech: 'logistics', ops: 'strategy', people: 'hr', dig: 'rnd', sys: 'systems' };
+export const BRANCH_DEPT: Record<Branch, DeptId> = { shop: 'logistics', craft: 'logistics', logi: 'logistics', buy: 'logistics', tech: 'logistics', ops: 'strategy', people: 'hr', dig: 'rnd', sys: 'systems', sales: 'sales' };
 export const DEPT_MOVE: Record<string, DeptId> = Object.fromEntries([
   ...['vmd', 'pop', 'golden', 'point', 'set', 'd_ops', 'b_sign', 'fair', 'u_shop_2', 'u_shop_5', 'u_shop_6', 'b_ads', 'b_premium', 'r_shop_2', 'r_shop_3', 'r_shop_5', 'r_shop_6', 'r_shop_8', 'e_shop_3', 'e_shop_5', 'e_shop_6', 'e_shop_8', 'e_shop_10', 'l_shop_1', 'l_shop_2', 'l_shop_5', 'l_shop_6', 'l_shop_7', 'l_shop_8', 'l_shop_9'].map((id) => [id, 'marketing']),
   ...['lounge', 'shift', 'welfare', 'u_people_5', 'r_people_5', 'e_people_3', 'e_people_7', 'l_people_3', 'l_people_6'].map((id) => [id, 'general']),

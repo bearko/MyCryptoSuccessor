@@ -47,6 +47,7 @@ import {
   RIVAL,
   UNCOMMON_RIVAL,
   RIVAL_TUNE,
+  RARE_AREA,
   BUILD_CATS,
   BRAND,
   TIERS,
@@ -211,6 +212,37 @@ export interface RivalState {
   follow?: Partial<Record<string, number>>;
   /** 撤退した商品（もう追随しない） */
   quit?: string[];
+  /** 町から撤退した（Rare の町 ②：店が全部撤退した。ランキング・追随・巻き返しに出ない） */
+  gone?: boolean;
+}
+
+/** 商圏の取り合い（Rare の町 ②）：他社の店 1 軒。share0＝開店のときの取り分（町のお客さんのうち）・share＝いまの取り分・weak＝取り分が quitAt を下回った月の続き */
+export interface AreaStore {
+  uid: number;
+  rid: string;
+  share0: number;
+  share: number;
+  weak: number;
+  /** 本店（町を作ったときのその会社の 1 軒目。引きが強い。支店は RARE_AREA.branch 倍） */
+  main?: boolean;
+}
+/** 空き店舗（撤退した店の跡）。months＝空いてからの月の締めの数・was＝前の会社 */
+export interface AreaVacant {
+  uid: number;
+  months: number;
+  was: string;
+}
+/**
+ * 商圏の取り合い（Rare の町 ②。版 13。SECTOR_KEYS の area）：他社の店ごとの取り分・空き店舗・記録。
+ * sum0＝町を作ったときの会社ごとの取り分の合計（他社の売上を、店ごとに開店のときの取り分で分ける）・closed＝撤退させた店の数・took＝自社が空き店舗に入った数・mine＝自社の店ごとのいまの取り分
+ */
+export interface AreaState {
+  stores: AreaStore[];
+  vacant: AreaVacant[];
+  sum0: Record<string, number>;
+  closed: number;
+  took: number;
+  mine: Record<number, number>;
 }
 
 export interface Rank {
@@ -240,6 +272,11 @@ export interface Report {
   streak?: number;
   /** この月に他社の反撃が始まった（宣伝を始めた他社＝その月の 2 位・月数） */
   rally?: { by: string; months: number };
+  /**
+   * 商圏の取り合い（Rare の町 ②）：締めの時点の自社の取り分（町のお客さんのうち。0〜1）・先月の取り分・撤退した他社の店（会社の id と店の uid）・
+   * 空き店舗に入った他社の店・町から撤退した会社
+   */
+  trade?: { share: number; prev: number | null; quit: { rid: string; uid: number }[]; refill: { rid: string; uid: number }[]; gone: string[] };
   /** この月の締めで他社の巻き返し（セール）が始まった（Uncommon。その月の 2 位の会社の名前と id・月数） */
   comeback?: { by: string; rid: string; months: number; bonus: number };
   /** この月に制覇してもらったエンブレム */
@@ -338,6 +375,8 @@ export interface Flags {
   depts?: DeptId[];
   /** 部門（段 B）：お知らせ済みの理解度の節目の数（部門ごと） */
   deptMarks?: Partial<Record<DeptId, number>>;
+  /** 営業の部門の紹介（Rare の町に初めて進出したときのマインちゃんの会話。段 C）を見た */
+  salesTalk?: boolean;
 }
 
 export interface P1State {
@@ -345,7 +384,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
   kind: 'p1';
   seed: number;
   n: number;
@@ -458,6 +497,8 @@ export interface P1State {
    * 古いセーブは無い（＝セールなし）
    */
   comeback?: { rid: string; left: number; cool: number; bonus: number; used: string[] } | null;
+  /** 商圏の取り合い（Rare の町だけ。Rare の町 ②・版 13）。Common・Uncommon は無い */
+  area?: AreaState | null;
   /** 会社のエンブレム（関所の開通・セクタの制覇で 1 つずつ）。スキルツリーの外周のパネルの条件（数を持っていればよい） */
   emblem: number;
   /** 会社の研究ポイント（RP）。採掘で貯まる（v14a から研究への寄付でも買える）。研究パネルを開くのに使う（docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」） */
@@ -644,7 +685,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 12,
+    v: 13,
     kind: 'p1',
     seed,
     n,
@@ -699,6 +740,8 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
     ...extras(),
   };
   populate(s);
+  // Rare の町 ②：他社の店ごとの商圏（開店のときの取り分）
+  if (tier === 'R') initArea(s);
   s.hirePool = pickHires(s);
   return s;
 }
@@ -777,6 +820,32 @@ function populate(s: P1State) {
   // セクタの個性：町の大きさ（住宅の数の倍率）
   const nHomes = Math.round(46 * ((s.n * s.n) / (N * N)) * (sectorProfile(s).homes ?? 1));
   for (let k = 0; k < nHomes; k++) placeTown(s, homes[Math.floor(r() * homes.length)], r, 'town');
+  // Rare の町 ②：他社の店が乱立する町。1 社 RARE_AREA.stores 軒（2 軒目からは、ほかの店から離れた所。住宅のあと＝住宅の並びは前と同じ）
+  if (s.tier === 'R') {
+    const rr = rng(s.seed + 977);
+    for (let k = 1; k < RARE_AREA.stores; k++) for (const rv of rivalsOf(s.sector)) placeSpread(s, rv.store, rr, rv.id);
+  }
+}
+
+/** 道路に面した空き地のうち、ほかの店（自社・他社）からいちばん離れた所（少し揺らす）に置く */
+function placeSpread(s: P1State, id: string, r: () => number, owner: Owner): boolean {
+  const stores = s.buildings.filter((b) => b.owner !== 'town' && b.owner !== 'me');
+  let best: [number, number, Dir] | null = null;
+  let bestV = -Infinity;
+  for (let j = 1; j < s.n - 1; j++)
+    for (let i = 1; i < s.n - 1; i++)
+      for (const dir of ['rd', 'ld', 'lu', 'ru'] as Dir[]) {
+        if (!lotFree(s, id, i, j, dir) || !facesRoad(s, id, i, j, dir)) continue;
+        const near = stores.length ? Math.min(...stores.map((b) => Math.abs(b.i - i) + Math.abs(b.j - j))) : 99;
+        const v = Math.min(near, 9) + r() * 2.5;
+        if (v > bestV) {
+          bestV = v;
+          best = [i, j, dir];
+        }
+      }
+  if (!best) return false;
+  put(s, id, best[0], best[1], best[2], owner);
+  return true;
 }
 
 // ---------------------------------------------------------------- 従業員
@@ -2233,6 +2302,8 @@ export interface Offer {
  * 選んだ会社のお店のあいだでは、来やすさに応じて分かれる。だから同じ所に自社のお店を固めても、お客さんは増えず取り合いになる。
  */
 export function capture(s: P1State, key: string, offers: Offer[]): number[] {
+  // Rare の町 ②：店ごとの商圏（距離の重みが強く、その商品を売らない他社の店もお客さんを引き寄せる）
+  if (s.area) return captureR(s, key, offers);
   const out = offers.map(() => 0);
   if (!offers.length) return out;
   const { list, total } = sources(s);
@@ -2281,12 +2352,14 @@ export function rivalBase0(r: { base: number }, tier: Tier, sector = 'c1'): numb
 const saleOf = (s: Pick<P1State, 'tier'>) => (rivalTune(s) ?? UNCOMMON_RIVAL).sale;
 /** 巻き返しのセールで、その会社に足すいまの月の売上（セール中でなければ 0。始めた月がいちばん大きく、残りの月に比例して弱まる） */
 export function saleBonus(s: P1State, rid: string): number {
+  // Rare の町 ②：セールは売上に足さず、その会社の店の引きを上げる（rivalAreaMul）
+  if (s.area) return 0;
   const c = s.comeback;
   if (!c || c.rid !== rid || c.left <= 0) return 0;
   return c.bonus * Math.min(1, c.left / saleOf(s).months);
 }
 /** 他社のエクステ以外の月の売上（セール中はその会社だけ ＋saleBonus） */
-export const rivalBase = (s: P1State, r: RivalState) => r.base + saleBonus(s, r.id);
+export const rivalBase = (s: P1State, r: RivalState) => (s.area ? r.base * areaBaseMul(s, r.id) : r.base + saleBonus(s, r.id));
 /**
  * 巻き返しの効き目（1 ＝そのまま）。他社の反撃と同じく、ポイントカード（−50%。レベルで伸びる）・汎用の rally の効き目で弱まる
  */
@@ -2324,16 +2397,262 @@ export function comebackMonth(s: P1State, top: boolean, area: Rank[], fresh = fa
   return { by: next.name, rid: r.id, months, bonus };
 }
 
+/** 他社の反撃中の売り場の強さの倍率（ポイントカード：反撃の効き目 −50%。レベルで伸びる・汎用の rally） */
+const rallyMul = (s: P1State) => ((s.rally ?? 0) > 0 ? 1 + (MARKET.rally - 1) * Math.max(0, 1 - 0.5 * lvMul(s, 'point') - fxSum(s, 'rally')) : 1);
+
+// ---------------------------------------------------------------- 商圏の取り合い（Rare の町 ②。段 C：営業の始まり。docs/ISLAND_PHASE1.md「商圏の取り合い（Rare）」）
+
+/** 撤退した他社の店の跡（空き店舗）の持ち主 */
+export const VACANT = 'vacant';
+export const isVacant = (b: { owner: Owner }) => b.owner === VACANT;
+/** Rare の町の来やすさ（RARE_AREA.d0 マスで半分） */
+export const reachR = (d: number) => 1 / (1 + (d / RARE_AREA.d0) ** 2);
+/** 地図の商圏の塗りの来やすさ（Rare の町は RARE_AREA.d0。ほかは MARKET.d0） */
+export const reachOf = (s: Pick<P1State, 'area'>, d: number) => (s.area ? reachR(d) : reach(d));
+/** 営業のパネル：地域密着（自社の店の引き +10%）・ロードサイド（自社の店の商圏の距離 +15%）・差別化の売り場（他社の店の引き −6%）・撤退の交渉（空き店舗の費用 −20%） */
+export const localMul = (s: P1State) => 1 + 0.1 * lvMul(s, 'sa_local');
+export const roadMul = (s: P1State) => 1 + 0.15 * lvMul(s, 'sa_road');
+export const edgeMul = (s: P1State) => Math.max(0.2, 1 - 0.06 * lvMul(s, 'sa_edge'));
+/** 他社の店（いまも営業している会社の店。空き店舗・廃墟・町の建物は除く） */
+export const rivalStores = (s: P1State) => {
+  const ids = new Set(s.rivals.filter((r) => !r.gone).map((r) => r.id));
+  return s.buildings.filter((b) => ids.has(b.owner));
+};
+/** 他社の店の引きの倍率（Rare）：巻き返しのセール中（残りの月に比例して弱まる）・差別化の売り場 */
+export function rivalAreaMul(s: P1State, rid: string): number {
+  const c = s.comeback;
+  const sale = c && c.rid === rid && c.left > 0 ? 1 + RARE_AREA.sale * Math.min(1, c.left / saleOf(s).months) : 1;
+  return sale * edgeMul(s);
+}
+/** 他社の店の本店・支店の引きの倍率（本店 1・支店 RARE_AREA.branch） */
+export const storeMul = (s: P1State, uid: number) => (s.area?.stores.find((x) => x.uid === uid)?.main === false ? RARE_AREA.branch : 1);
+/** 他社の店の引き（扱う商品の強さの平均 × ランクの倍率 × RARE_AREA.pull × 本店・支店 × 反撃・セール・差別化）。uid が無ければ本店として */
+export function rivalStorePull(s: P1State, rid: string, uid?: number): number {
+  const v = Object.values(rivalDef(rid)?.sells ?? {}).filter((x): x is number => (x ?? 0) > 0);
+  const mean = v.length ? v.reduce((a, x) => a + x, 0) / v.length : 1;
+  return RARE_AREA.pull * mean * TIERS[s.tier ?? 'R'].rival * rallyMul(s) * rivalAreaMul(s, rid) * (uid != null ? storeMul(s, uid) : 1);
+}
+/** 自社の店の引き（棚の商品のうち、いちばん強い売り場の強さ × 認知度 × 地域密着）。工事中・棚が空・売れない商品だけなら 0 */
+export function myStorePull(s: P1State, b: PBuilding): number {
+  const sh = s.shops[b.uid];
+  if (!sh || b.left > 0) return 0;
+  let best = 0;
+  for (const x of sh.shelves) if (x && !unsellableHere(s, skuParts(x)[0])) best = Math.max(best, pull(s, b, sh, x, 'in'));
+  return best * (sh.aw ?? 1) * localMul(s);
+}
+/** 新しく出す店の引きの見込み（いまの自社の店の平均。店が無ければ、よろず屋に店員がいるとき） */
+export function newStorePull(s: P1State): number {
+  const v = myShops(s).map((b) => myStorePull(s, b)).filter((x) => x > 0);
+  if (v.length) return v.reduce((a, x) => a + x, 0) / v.length;
+  return (P1B.general_store.pull ?? 1) * skillPull(s) * brandPull(s.brand, lvMul(s, 'd_ops')) * UNCOMMON.pull * localMul(s);
+}
+
+type AreaOffer = Offer & { sink?: boolean };
+/**
+ * 店ごとの取り分（町のお客さんのうち、その店に来る割合。0〜1）。住む場所ごとに、会社ごとの「いちばん来やすい店」の強さで会社を選び、
+ * 選んだ会社の店のあいだでは来やすさで分ける（capture と同じ）。ドミナント出店：自社の店は強さを足す（取り合わない）。
+ * 自社の店からの距離はロードサイドで縮む。EC サイトの届き方の下限も同じ
+ */
+function areaFrac(s: P1State, offers: AreaOffer[]): number[] {
+  const out = offers.map(() => 0);
+  if (!offers.length) return out;
+  const { list, total } = sources(s);
+  const dom = has(s, 'sa_dominant');
+  const ec = has(s, 'ec');
+  const ecFloor = Math.min(1, MARKET_EC.floor * lvMul(s, 'ec'));
+  const road = roadMul(s);
+  const w = offers.map(() => 0);
+  const groups = [...new Set(offers.map((o) => o.g))];
+  const gmax: Record<string, number> = {};
+  const gsum: Record<string, number> = {};
+  for (const k of list) {
+    offers.forEach((o, n) => {
+      const d = Math.abs(o.i - k.i) + Math.abs(o.j - k.j);
+      const r0 = reachR(o.g === 'me' ? d / road : d);
+      w[n] = o.w * (o.g === 'me' && ec ? Math.max(ecFloor, r0) : r0);
+    });
+    for (const g of groups) gmax[g] = gsum[g] = 0;
+    offers.forEach((o, n) => {
+      gmax[o.g] = Math.max(gmax[o.g], w[n]);
+      gsum[o.g] += w[n];
+    });
+    const str = (g: string) => (g === 'me' && dom ? gsum[g] : gmax[g]);
+    let sum = MARKET.outside;
+    for (const g of groups) sum += str(g);
+    offers.forEach((o, n) => {
+      if (gsum[o.g] > 0) out[n] += (k.pop / total) * (str(o.g) / sum) * (w[n] / gsum[o.g]);
+    });
+  }
+  return out;
+}
+/** capture の Rare の町：その商品を売らない他社の店も、お客さんを引き寄せる（その店に無い商品は買わずに帰る） */
+function captureR(s: P1State, key: string, offers: Offer[]): number[] {
+  if (!offers.length) return [];
+  const demand = (s.demand[key] ?? 0) * MARKET.pot;
+  const meMul = 1 + 0.1 * lvMul(s, 'order') + fxSum(s, 'demand');
+  const selling = new Set(offers.filter((o) => o.g !== 'me').map((o) => o.g));
+  const sinks: AreaOffer[] = rivalStores(s)
+    .filter((b) => !selling.has(b.owner))
+    .map((b) => ({ i: b.i, j: b.j, w: rivalStorePull(s, b.owner, b.uid), g: b.owner, sink: true }));
+  const lm = localMul(s);
+  const f = areaFrac(s, [...offers.map((o) => (o.g === 'me' ? { ...o, w: o.w * lm } : o)), ...sinks]);
+  return offers.map((o, n) => demand * f[n] * (o.g === 'me' ? meMul : 1));
+}
+/**
+ * 町の店ごとの取り分（商品によらない「お客さんがどの店に来るか」）：自社の店（myStorePull）・他社の店（rivalStorePull）・extra（下見の店。自社）。
+ * noMine：自社の店を入れない（開店のときの取り分）
+ */
+export function areaShares(s: P1State, extra: { i: number; j: number; w: number }[] = [], noMine = false): { mine: Record<number, number>; stores: Record<number, number>; extra: number[]; me: number } {
+  const mine = noMine ? [] : myShops(s).map((b) => ({ b, w: myStorePull(s, b) })).filter((x) => x.w > 0);
+  const rs = rivalStores(s);
+  const offers: AreaOffer[] = [...mine.map((x) => ({ i: x.b.i, j: x.b.j, w: x.w, g: 'me' })), ...extra.map((x) => ({ ...x, g: 'me' })), ...rs.map((b) => ({ i: b.i, j: b.j, w: rivalStorePull(s, b.owner, b.uid), g: b.owner }))];
+  const f = areaFrac(s, offers);
+  const out = { mine: {} as Record<number, number>, stores: {} as Record<number, number>, extra: [] as number[], me: 0 };
+  mine.forEach((x, n) => (out.mine[x.b.uid] = f[n]));
+  extra.forEach((_, n) => out.extra.push(f[mine.length + n]));
+  rs.forEach((b, n) => (out.stores[b.uid] = f[mine.length + extra.length + n]));
+  out.me = f.slice(0, mine.length + extra.length).reduce((a, x) => a + x, 0);
+  return out;
+}
+/** 町を作ったとき（と、古いセーブで Rare にいるとき）：いまの他社の店から商圏を作る（開店のときの取り分＝自社の店を入れない） */
+export function initArea(s: P1State) {
+  // 本店：その会社のいちばん先に建った店（uid の小さい店）
+  const rs = rivalStores(s);
+  const main = new Set(s.rivals.map((r) => rs.filter((b) => b.owner === r.id).sort((a, b) => a.uid - b.uid)[0]?.uid));
+  s.area = { stores: rs.map((b): AreaStore => ({ uid: b.uid, rid: b.owner, share0: 1, share: 0, weak: 0, main: main.has(b.uid) })), vacant: s.buildings.filter(isVacant).map((b) => ({ uid: b.uid, months: 0, was: '' })), sum0: {}, closed: 0, took: 0, mine: {} };
+  const sh = areaShares(s, [], true);
+  for (const x of s.area.stores) {
+    x.share0 = Math.max(1e-4, sh.stores[x.uid] ?? 0);
+    s.area.sum0[x.rid] = (s.area.sum0[x.rid] ?? 0) + x.share0;
+  }
+  areaTick(s);
+}
+/** 1 日ごと：いまの取り分を数え直す（他社の売上・営業の画面・撤退の判定が使う） */
+export function areaTick(s: P1State) {
+  const a = s.area;
+  if (!a) return;
+  const sh = areaShares(s);
+  for (const x of a.stores) x.share = sh.stores[x.uid] ?? 0;
+  a.mine = sh.mine;
+}
+/**
+ * 他社のエクステ以外の売上の倍率（Rare）：店ごとの売上は、開店のときの取り分に比例して分け（本店ほど大きい）、
+ * 「いまの取り分 ÷ 開店のときの取り分」（RARE_AREA.cap まで）で伸び縮みする。町を作ったときは 1
+ */
+export function areaBaseMul(s: P1State, rid: string): number {
+  const a = s.area;
+  if (!a) return 1;
+  const sum0 = a.sum0[rid] ?? 0;
+  if (sum0 <= 0) return 0;
+  return a.stores.filter((x) => x.rid === rid).reduce((v, x) => v + Math.min(RARE_AREA.cap * x.share0, x.share), 0) / sum0;
+}
+/** 店の取り分の割合（いま ÷ 開店のとき）と、撤退の危険（0〜1：取り分が quitAt を下回った月の続き ÷ quitMonths。下回っていなければ 0） */
+export function storeRisk(x: AreaStore): { ratio: number; risk: number; below: boolean } {
+  const ratio = x.share / x.share0;
+  const below = ratio < RARE_AREA.quitAt;
+  return { ratio, below, risk: below ? Math.min(1, (x.weak + 1) / RARE_AREA.quitMonths) : 0 };
+}
+/** 自社のいまの取り分の合計 */
+export const myShare = (s: P1State) => Object.values(s.area?.mine ?? {}).reduce((a, x) => a + x, 0);
+/**
+ * 月の締め（Rare）：取り分が開店のときの quitAt 倍を下回った月を数え、quitMonths か月続いた店は撤退（空き店舗）。
+ * 店が全部撤退した会社は町から撤退。空き店舗は refill か月で、別の他社が新しい店を出す
+ */
+export function areaMonth(s: P1State): NonNullable<Report['trade']> {
+  const a = s.area!;
+  areaTick(s);
+  const prev = s.reports.length ? (s.reports[s.reports.length - 1].trade?.share ?? null) : null;
+  const out: NonNullable<Report['trade']> = { share: myShare(s), prev, quit: [], refill: [], gone: [] };
+  // 空き店舗の月を進める（今月できた空き店舗は 0 から）・別の他社が入る
+  for (const v of [...a.vacant]) {
+    v.months++;
+    if (v.months < RARE_AREA.refill) continue;
+    const b = s.buildings.find((x) => x.uid === v.uid);
+    if (!b || !isVacant(b)) {
+      a.vacant = a.vacant.filter((x) => x !== v);
+      continue;
+    }
+    const live = s.rivals.filter((r) => !r.gone);
+    // 別の他社（前の会社でない、いちばん大きい会社）。ほかにいなければ前の会社
+    const big = (xs: RivalState[]) => [...xs].sort((x, y) => y.base - x.base)[0];
+    const by = big(live.filter((r) => r.id !== v.was)) ?? big(live);
+    if (!by) continue;
+    b.owner = by.id;
+    a.vacant = a.vacant.filter((x) => x !== v);
+    const rec: AreaStore = { uid: b.uid, rid: by.id, share0: 1, share: 0, weak: 0, main: false };
+    a.stores.push(rec);
+    rec.share = areaShares(s).stores[b.uid] ?? 0;
+    rec.share0 = Math.max(1e-4, rec.share);
+    out.refill.push({ rid: by.id, uid: b.uid });
+  }
+  // 撤退：取り分が quitAt を下回った月の続き
+  for (const x of [...a.stores]) {
+    const { below } = storeRisk(x);
+    x.weak = below ? x.weak + 1 : 0;
+    if (x.weak < RARE_AREA.quitMonths) continue;
+    const b = s.buildings.find((y) => y.uid === x.uid);
+    if (b) b.owner = VACANT;
+    a.stores = a.stores.filter((y) => y !== x);
+    a.vacant.push({ uid: x.uid, months: 0, was: x.rid });
+    a.closed++;
+    out.quit.push({ rid: x.rid, uid: x.uid });
+  }
+  // 店が全部撤退した会社は、町から撤退（扱う商品も無くなる。セール中ならセールも終わり）
+  for (const r of s.rivals) {
+    if (r.gone || a.stores.some((x) => x.rid === r.id)) continue;
+    r.gone = true;
+    r.sells = {};
+    if (s.comeback?.rid === r.id) s.comeback.left = 0;
+    out.gone.push(r.id);
+  }
+  areaTick(s);
+  return out;
+}
+/** 空き店舗に入る費用（建物の値段 × RARE_AREA.vacant.cost。撤退の交渉で −20%／Lv の倍率。内装だけ） */
+export const vacantCost = (s: P1State, kind = 'general_store') => Math.round((P1B[kind]?.cost ?? 0) * RARE_AREA.vacant.cost * Math.max(0.2, 1 - 0.2 * lvMul(s, 'sa_nego')));
+/** 空き店舗に入れるか（理由。null なら入れる） */
+export function vacantErr(s: P1State, uid: number, kind = 'general_store'): PlaceErr | null {
+  const b = s.buildings.find((x) => x.uid === uid);
+  if (!b || !isVacant(b)) return 'taken';
+  const e = canBuild(s, kind);
+  if (e && e !== 'money') return e;
+  if (s.money < vacantCost(s, kind)) return 'money';
+  return null;
+}
+/** 空き店舗に自社の店を出す（内装だけ：費用は安く・工期は RARE_AREA.vacant.days 日。場所と向きはそのまま） */
+export function takeVacant(s: P1State, uid: number, kind = 'general_store'): PBuilding | PlaceErr {
+  const e = vacantErr(s, uid, kind);
+  if (e) return e;
+  const b = s.buildings.find((x) => x.uid === uid)!;
+  const cost = vacantCost(s, kind);
+  s.money -= cost;
+  spend(s, 'build', cost);
+  b.id = kind;
+  b.owner = 'me';
+  b.left = RARE_AREA.vacant.days;
+  delete b.inv;
+  if (s.area) {
+    s.area.vacant = s.area.vacant.filter((x) => x.uid !== uid);
+    s.area.took++;
+  }
+  return b;
+}
+
 /** 他社のお店（商品を売っている強さつき） */
 export function rivalOffers(s: P1State, key: string): (Offer & { rid: string })[] {
   const out: (Offer & { rid: string })[] = [];
   // 他社の反撃中（自社が 1 位を取った月から）：売り場の強さ ×MARKET.rally
   // ポイントカード：反撃の効き目が半分（×1.25 → ×1.12）
   // ポイントカード：反撃の効き目 −50%（レベルで伸びる）・汎用の rally
-  const rally = (s.rally ?? 0) > 0 ? 1 + (MARKET.rally - 1) * Math.max(0, 1 - 0.5 * lvMul(s, 'point') - fxSum(s, 'rally')) : 1;
+  const rally = rallyMul(s);
   for (const r of s.rivals) {
     const w = (r.sells[key] ?? 0) * MARKET.rivalPull * rally;
     if (w <= 0) continue;
+    // Rare の町 ②：他社の店ごと（セール中の会社の店は引きが強い・差別化の売り場で弱い）
+    if (s.area) {
+      for (const b of s.buildings) if (b.owner === r.id) out.push({ i: b.i, j: b.j, w: w * rivalAreaMul(s, r.id) * storeMul(s, b.uid), g: r.id, rid: r.id });
+      continue;
+    }
     const b = s.buildings.find((x) => x.owner === r.id);
     if (b) out.push({ i: b.i, j: b.j, w, g: r.id, rid: r.id });
   }
@@ -2453,6 +2772,8 @@ export interface SiteInfo {
   homes: number;
   rivals: number;
   days: number;
+  /** Rare の町 ②：この店の商圏の取り分の見込み（町のお客さんのうち。営業の立地調査で見せる） */
+  share?: number;
 }
 export function siteInfo(s: P1State, id: string, i: number, j: number, dir: Dir): SiteInfo | null {
   const def = P1B[id];
@@ -2479,6 +2800,7 @@ export function siteInfo(s: P1State, id: string, i: number, j: number, dir: Dir)
     return b && Math.abs(b.i - i) + Math.abs(b.j - j) <= MARKET.d0 * 1.5 && (r.sells[best!.key] ?? 0) > 0;
   }).length;
   best.days = oneWay(s, fake).days;
+  if (s.area) best.share = areaShares(s, [{ i, j, w: newStorePull(s) * (def.pull ?? 1) }]).extra[0];
   return best;
 }
 
@@ -2862,6 +3184,9 @@ export function step(s: P1State): DayResult {
   // 売れる：住む場所ごとに、近くて強いお店へお客さんが分かれる（棚が空のお店には来ない＝他社へ流れる）
   const today: Partial<Record<string, number>> = {};
   syncRelics(s);
+  // 商圏の取り合い（Rare の町 ②）：古いセーブ・ほかのセクタの写しから戻った Rare の町は、いまの他社の店から作り直す
+  if (s.tier === 'R' && !s.area) initArea(s);
+  areaTick(s);
   for (const p of productsOf(s)) {
     const mine = s.holdSales ? [] : myOffers(s, p.key, true);
     const rv = rivalOffers(s, p.key);
@@ -2964,7 +3289,7 @@ function checkMissions(s: P1State, res: DayResult) {
 // ---------------------------------------------------------------- 月末
 
 export function areaRanking(s: P1State, mine: number, rivals: Record<string, number>): Rank[] {
-  const rows: Rank[] = s.rivals.map((r) => ({ name: rivalDef(r.id)?.name ?? r.id, sales: Math.round(rivals[r.id]), me: false }));
+  const rows: Rank[] = s.rivals.filter((r) => !r.gone).map((r) => ({ name: rivalDef(r.id)?.name ?? r.id, sales: Math.round(rivals[r.id]), me: false }));
   rows.push({ name: '', sales: Math.round(mine), me: true });
   return rows.sort((a, b) => b.sales - a.sales);
 }
@@ -3052,7 +3377,7 @@ export function endMonth(s: P1State): Report {
     // 独占が切れた月の締め（まだどこも真似していない）：独占の月数が ENTRY_AFTER より短くても、ここで 1 社目（v13：monopolyMonths 3）
     if (p.relic && sold && n === 0 && s.recipes?.[p.key]?.sold != null) s.alone[p.key] = Math.max(entryAfter, s.alone[p.key] ?? 0);
     if ((s.alone[p.key] ?? 0) >= entryAfter) {
-      const next = s.rivals.filter((r) => !((r.sells[p.key] ?? 0) > 0) && !r.quit?.includes(p.key)).sort((a, b) => rivals[a.id] - rivals[b.id])[0];
+      const next = s.rivals.filter((r) => !r.gone && !((r.sells[p.key] ?? 0) > 0) && !r.quit?.includes(p.key)).sort((a, b) => rivals[a.id] - rivals[b.id])[0];
       s.alone[p.key] = 0;
       if (next) {
         next.sells[p.key] = 0.8;
@@ -3103,6 +3428,8 @@ export function endMonth(s: P1State): Report {
     }
   }
   for (const k of Object.keys(s.demand)) s.demand[k] = (s.demand[k] ?? 0) * (1 + MARKET_GROWTH);
+  // 商圏の取り合い（Rare の町 ②）：撤退と空き店舗
+  if (s.area) report.trade = areaMonth(s);
 
   // 制覇：TOP_STREAK か月続けて 1 位（docs/ISLAND_PHASE1.md「制覇」）。他社の反撃：1 位を取った月から MARKET.rallyMonths か月
   const prev = s.reports.length ? s.reports[s.reports.length - 1].rank : null;
@@ -3537,7 +3864,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -3587,7 +3914,9 @@ export function deserializeP1(json: string): P1State | null {
     // 版 10 → 11（段 B：部門の土台）：パネルの部門はデータの側（data.ts の DEPT_MOVE）なので、取ったパネル・レベルはそのまま。
     // 部門のお知らせ（開いた部門・理解度の節目）は、はじめて調べたときに、いまの状態をお知らせ済みにする（dept.ts の deptNews）。
     // 下の帯のメニュー・開いていた画面はセーブに入れていないので、移すものは無い
-    s.v = 12;
+    // 版 12 → 13（段 C：営業の始まり）：Rare の町にいるセーブは、いまの他社の店（1 社 1 軒）から商圏を作り直す（開店のときの取り分＝自社の店を入れない）。
+    // 空き店舗・撤退の数えは 0 から。ほかのセクタの写しの Rare の町は、戻ったときに作り直す（step）
+    s.v = 13;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);
@@ -3625,6 +3954,7 @@ export function deserializeP1(json: string): P1State | null {
     // 版 8 → 9（発掘 v2 の 8 段目）：他社の巻き返しは無し（0）から
     s.comeback ??= null;
     migrateEquipSkills(s);
+    if (s.tier === 'R' && !s.area) initArea(s);
     return s;
   } catch {
     return null;

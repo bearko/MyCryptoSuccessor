@@ -634,7 +634,9 @@ describe('発掘隊（仕事「発掘」）', () => {
 describe('スキルツリーの 2 区分', () => {
   it('お金パネルは技を除く 7 本 × 5 ランクの 35 枚と発掘の枝の 17 枚（Lv5 まで）＋研究への寄付、残りは研究パネル（レベルなし。無限の強化パネル 3 枚だけ上限なし）', () => {
     const money = SKILLS.filter((k) => !isResearch(k));
-    expect(money).toHaveLength(35 + 17 + 1);
+    // ＋段 C：営業のお金パネル 4 枚（SALES_MONEY）
+    expect(money).toHaveLength(35 + 17 + 1 + 4);
+    expect(money.filter((k) => k.branch === 'sales').map((k) => k.id)).toEqual(['sa_local', 'sa_road', 'sa_nego', 'sa_edge']);
     expect(money.filter((k) => k.branch === 'dig' && !k.donate)).toHaveLength(17);
     expect(money.filter((k) => k.donate).map((k) => [k.id, maxLv(k)])).toEqual([['dig_donate', 1]]);
     expect(Object.values(MONEY_PANELS.C).sort()).toEqual(['budget', 'bulk', 'host', 'jig', 'manual', 'pos', 'shortcut']);
@@ -653,7 +655,7 @@ describe('スキルツリーの 2 区分', () => {
       expect(rpCost(k), k.id).toBeGreaterThan(0);
     }
     expect(SKILLS.filter((k) => k.inf).length).toBe(3);
-    expect(SKILLS.filter(isResearch).length).toBe(SKILLS.length - 35 - 17 - 1);
+    expect(SKILLS.filter(isResearch).length).toBe(SKILLS.length - 35 - 17 - 1 - 4);
   });
 
   it('RP の値段：Common 平均 50 前後（20〜80）・Uncommon 平均 120 前後・Rare 以降 2.5 倍ずつ・大きめの研究パネルは約 2.5 倍・人材の募集は 30', () => {
@@ -755,7 +757,7 @@ describe('調査依頼状', () => {
 describe('セーブ', () => {
   it('新しいゲームは版 6・30 RP。発掘の進み・許可・研究ノートはセーブに残る', () => {
     const s = run(site());
-    expect([s.v, s.rp]).toEqual([12, 30]);
+    expect([s.v, s.rp]).toEqual([13, 30]);
     breakCell(s, 0, 0);
     endRun(s);
     s.research[1011] = 3;
@@ -787,7 +789,7 @@ describe('セーブ', () => {
     const m0 = o.money;
     const old = deserializeP1(JSON.stringify(o))!;
     // 版 1 → 2 → 3 → 4 → 5 と順に移す
-    expect(old.v).toBe(12);
+    expect(old.v).toBe(13);
     expect(old.dig!.sites).toHaveLength(4);
     expect(old.skills).toEqual(expect.arrayContaining(['host', 'golden', 'jig', 'lounge', 'd_shop']));
     expect([lvOf(old, 'host'), lvOf(old, 'golden'), lvOf(old, 'lounge'), lvOf(old, 'd_shop')]).toEqual([3, 1, 1, 1]);
@@ -827,7 +829,7 @@ describe('セーブ', () => {
     o.tablets = ['tab_c1'];
     o.presented = [];
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(12);
+    expect(back.v).toBe(13);
     expect(back.rp).toBe(333);
     expect(back.research).toEqual({ [found]: 11, 1011: 4 });
     expect(back.tablets).toEqual(['tab_c1']);
