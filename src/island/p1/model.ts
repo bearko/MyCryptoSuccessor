@@ -65,6 +65,7 @@ import {
   MOVE,
   PAY,
   MORALE,
+  ENV_INVESTS,
   MATS,
   P1B,
   PRODUCT,
@@ -112,6 +113,8 @@ import {
 } from './data';
 import { addXp, baseStats, initGrowth, levelForXp, passiveMul, passiveSum, promoteStaff, syncGrowth, type LevelUp, type PromoErr } from './hero';
 import { delegDay, delegMonth, headFx, roleXp, sectorApprove, type DelegReport, type DelegState } from './deleg';
+import { acctMonth, deduct, panelKind, priceMul, type AcctState, type TaxRec } from './acct';
+import { fatigueMul } from './ga';
 import { canHireRarity, charismaOf, hireCap, initMorale, moraleAdd, moraleAvg, moraleDay, moraleMul, newHrMonth, syncCharisma, wantsToQuit, type HrDay, type HrMonth } from './hr';
 
 export type Ground = 'grass' | 'road';
@@ -395,6 +398,8 @@ export interface Flags {
   deptMarks?: Partial<Record<DeptId, number>>;
   /** 営業の部門の紹介（Rare の町に初めて進出したときのマインちゃんの会話。段 C）を見た */
   salesTalk?: boolean;
+  /** 経理・総務の紹介（マインちゃん。Uncommon の町に初めて進出したあと 1 回。段 F） */
+  acctTalk?: boolean;
 }
 
 export interface P1State {
@@ -402,7 +407,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16;
   kind: 'p1';
   seed: number;
   n: number;
@@ -574,6 +579,11 @@ export interface P1State {
   charismaBonus?: number;
   hrMonth?: HrMonth;
   quits?: { hero: number; day: number }[];
+  /**
+   * 経理（段 F・版 16。acct.ts）：いまの四半期の課税の対象の利益と節税の支出・締めた四半期の税の記録・払った税と節税の合計・繰越の損失・
+   * 払いきれなかった税・決算の前のお知らせ。会社のもの（災害でも残る）。無ければ税の記録は 0 から
+   */
+  acct?: AcctState;
 }
 
 /** ランクアップの災害 1 回の記録（演出・自動プレイの計測） */
@@ -714,7 +724,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 15,
+    v: 16,
     kind: 'p1',
     seed,
     n,
@@ -1013,7 +1023,8 @@ export const aptOf = (s: P1State | undefined, st: Pick<Staff, 'stats'>, task: Ta
 /** 仕事の部門（事業部長の補正。段 D）：製造・運搬・調達・販売は物流、発掘は R&D、開拓・調査はマーケ */
 const TASK_DEPT: Partial<Record<Task, DeptId>> = { craft: 'logistics', transport: 'logistics', buy: 'logistics', shop: 'logistics', dig: 'rnd', explore: 'marketing', intel: 'marketing' };
 /** 作業の速さ：適性 × 昇給（上げた段だけ。下げた段は速さでなく士気に出る）× パッシブ × 部長の補正 × 士気（段 E2。ふつうの帯は ×1） */
-export const speed = (st: Staff, task: Task, s?: P1State) => speedOf(aptOf(s, st, task)) * (1 + PAY.raiseSpeed * Math.max(0, st.lv ?? 0)) * passiveMul(st, task) * (s && TASK_DEPT[task] ? 1 + headFx(s, TASK_DEPT[task]!) : 1) * moraleMul(st);
+/** 段 F：× 疲れ（総務。Uncommon から。疲れが 60% を超えると下がる） */
+export const speed = (st: Staff, task: Task, s?: P1State) => speedOf(aptOf(s, st, task)) * (1 + PAY.raiseSpeed * Math.max(0, st.lv ?? 0)) * passiveMul(st, task) * (s && TASK_DEPT[task] ? 1 + headFx(s, TASK_DEPT[task]!) : 1) * moraleMul(st) * (s ? fatigueMul(s, st) : 1);
 /** 休むと 1 日に戻るスタミナ（休憩室・福利厚生で +50% ずつ） */
 export const restRateOf = (s: P1State) => STAMINA.rest * (1 + 0.5 * lvMul(s, 'lounge') + 0.5 * lvMul(s, 'welfare') + fxSum(s, 'rest'));
 /**
@@ -1030,8 +1041,9 @@ export function drainOf(s: P1State, st: Pick<Staff, 'task'> & Partial<Pick<Staff
     fxCut(s, 'stamina') *
     // ヒーローのパッシブ（システム：手順の自動化）
     Math.max(0.5, 1 - passiveSum(st, 'system')) *
-    // システム部長の補正（段 D）
-    (1 - headFx(s, 'systems'));
+    // システム部長の補正（段 D）・総務部長の補正（段 F）
+    (1 - headFx(s, 'systems')) *
+    (1 - headFx(s, 'general'));
   return STAMINA.work * easy;
 }
 /**
@@ -1284,6 +1296,8 @@ export function build(s: P1State, id: string, i: number, j: number, dir: Dir): P
   const b = P1B[id];
   s.money -= b.cost;
   spend(s, 'build', b.cost);
+  // 経理（段 F）：建てる費用は設備投資として節税の対象
+  deduct(s, 'capex', b.cost);
   const pb: PBuilding = { uid: s.nextUid++, id, i, j, dir, left: b.days, owner: 'me' };
   s.buildings.push(pb);
   // 遺物の展示館（会社で 1 つ）：建てた場所を覚える。展示・増築の段は会社のもの
@@ -1395,6 +1409,8 @@ export function invest(s: P1State, uid: number, id: string): string | null {
   if (s.money < cost) return 'money';
   s.money -= cost;
   spend(s, 'build', cost);
+  // 経理（段 F）：設備は設備投資（職人の休憩所は総務の環境）として節税の対象
+  deduct(s, ENV_INVESTS.includes(id) ? 'env' : 'capex', cost);
   b.inv = { ...b.inv, [id]: invLv(b, id) + 1 };
   // 展示室の増築：枠の数は会社のもの（展示館の段）
   if (kind === 'museum' && s.museum) s.museum.lv = Math.max(s.museum.lv, invLv(b, id));
@@ -1463,7 +1479,7 @@ export function rivalMonthGuess(s: P1State): Record<string, number> {
   for (const p of productsOf(s)) {
     const rv = rivalOffers(s, p.key);
     const month = capture(s, p.key, rv);
-    rv.forEach((o, n) => (out[o.rid] += month[n] * p.price));
+    rv.forEach((o, n) => (out[o.rid] += month[n] * p.price * priceMul(s)));
   }
   return out;
 }
@@ -1802,6 +1818,8 @@ export function learn(s: P1State, id: string, hero?: number): string | null {
     if (s.money < k.cost) return 'money';
     s.money -= k.cost;
     spend(s, 'build', k.cost);
+    // 経理（段 F）：お金パネルは設備投資（総務のパネルは総務の環境・R&D は研究開発）として節税の対象
+    deduct(s, panelKind(id), k.cost);
   }
   if (trainee) {
     startTraining(s, id, trainee);
@@ -1843,6 +1861,7 @@ export function levelUp(s: P1State, id: string): LevelLock | null {
     const c = levelCost(k, lv);
     s.money -= c;
     spend(s, 'build', c);
+    deduct(s, panelKind(id), c);
   }
   setLevel(s, id, lv);
   return null;
@@ -1883,6 +1902,8 @@ export function donate(s: P1State): { cost: number; rp: number; next: number } |
   const cost = nextDonateCost(s);
   s.money -= cost;
   spend(s, 'build', cost);
+  // 経理（段 F）：研究への寄付は研究開発として節税の対象
+  deduct(s, 'rnd', cost);
   s.rpBuys = donations(s) + 1;
   const rp = DIG_BALANCE.buyRp.rp;
   s.rp = (s.rp ?? 0) + rp;
@@ -2069,6 +2090,7 @@ export function develop(s: P1State, key: string): string | null {
   if (s.money < cost) return 'money';
   s.money -= cost;
   spend(s, 'build', cost);
+  deduct(s, 'rnd', cost);
   s.lab = { key, left: devDays(s) };
   return null;
 }
@@ -2419,7 +2441,8 @@ export function saleBonus(s: P1State, rid: string): number {
   return c.bonus * Math.min(1, c.left / saleOf(s).months);
 }
 /** 他社のエクステ以外の月の売上（セール中はその会社だけ ＋saleBonus） */
-export const rivalBase = (s: P1State, r: RivalState) => (s.area ? r.base * areaBaseMul(s, r.id) : r.base + saleBonus(s, r.id));
+/** 段 F：Uncommon からの町は単価が高い（priceMul。自社と同じだけ。巻き返しのセールの足し分は自社の売上から決まるので掛けない） */
+export const rivalBase = (s: P1State, r: RivalState) => (s.area ? r.base * areaBaseMul(s, r.id) * priceMul(s) : r.base * priceMul(s) + saleBonus(s, r.id));
 /**
  * 巻き返しの効き目（1 ＝そのまま）。他社の反撃と同じく、ポイントカード（−50%。レベルで伸びる）・汎用の rally の効き目で弱まる
  */
@@ -2688,6 +2711,7 @@ export function takeVacant(s: P1State, uid: number, kind = 'general_store'): PBu
   const cost = vacantCost(s, kind);
   s.money -= cost;
   spend(s, 'build', cost);
+  deduct(s, 'capex', cost);
   b.id = kind;
   b.owner = 'me';
   b.left = RARE_AREA.vacant.days;
@@ -3288,7 +3312,7 @@ export function step(s: P1State): DayResult {
       if (cur < 1) s.known[p.key] = Math.min(1, cur + (AWARE_GOODS.perDay + (adBoost(s) > 0 ? AWARE_GOODS.ad : 0)) * (1 + 0.5 * lvMul(s, 'pop') + fxSum(s, 'known') + museumKnown(s)));
     }
     rv.forEach((o, n) => {
-      const yen = (month[mine.length + n] / DAYS) * p.price;
+      const yen = (month[mine.length + n] / DAYS) * p.price * priceMul(s);
       s.rivalSales[o.rid] += yen;
       const m = (s.rivalProd[o.rid] ??= {});
       m[p.key] = (m[p.key] ?? 0) + yen;
@@ -3681,10 +3705,13 @@ export interface CompanyMonth {
   managed: { id: string; rev: number; profit: number; invest: number; toHQ: number; hero: number | null; revive?: ReviveMonth }[];
   /** 四半期が終わった（3 か月ごと） */
   quarter: number | null;
+  /** 経理（段 F）：四半期の締めで払った税（税がかかる会社だけ） */
+  tax?: TaxRec;
 }
 export function closeCompanyMonth(s: P1State): CompanyMonth {
   const m = Math.round(s.day / DAYS);
   const managed: CompanyMonth['managed'] = [];
+  let managedU = 0;
   if (s.land) {
     for (const id of s.land.mine) {
       if (id === s.land.cur) continue;
@@ -3716,14 +3743,19 @@ export function closeCompanyMonth(s: P1State): CompanyMonth {
       if (st) sectorApprove(s, rec, r);
       s.money += r.toHQ;
       book(s, 'managed', r.toHQ);
+      // 経理（段 F）：Uncommon 以上の町から回った利益は課税の対象
+      if (sectorTierOf(id) !== 'C') managedU += r.toHQ;
       managed.push({ id, ...r, hero: rec.manager ?? null, ...(rv ? { revive: rv } : {}) });
     }
   }
   const books = (s.books ??= newBooks());
+  // 経理（段 F）：課税の対象の利益を足し、四半期の締め（会社の月が 3 の倍数）なら法人税を払う（この月の帳簿に載る）
+  const tax = acctMonth(s, books.cur, m, managedU);
   books.months.push({ m, l: books.cur, bs: balance(s) });
-  books.months = books.months.slice(-48);
+  // 48 か月より前は捨てる（3 か月ずつ：四半期の区切りをずらさない）
+  while (books.months.length > 48) books.months = books.months.slice(3);
   books.cur = emptyLedger();
-  return { m, managed, quarter: books.months.length % 3 === 0 ? books.months.length / 3 : null };
+  return { m, managed, quarter: m % 3 === 0 ? m / 3 : null, ...(tax ? { tax } : {}) };
 }
 
 /** 貸借対照表の材料：現金・在庫（原価）・建物（取得額）・ほかのセクタへの投資 */
@@ -3945,7 +3977,8 @@ export function relicsSoon(s: Pick<P1State, 'recipes' | 'research'> & Partial<Pi
 
 export const skuOf = (key: string, r: Rar = 'C') => sku(key, r);
 /** 売るときの値段（スキル「プレミアム価格」で +15%） */
-export const priceOf = (s: P1State, x: Sku) => Math.round(skuPrice(x) * (1 + 0.15 * lvMul(s, 'b_premium')) * (has(s, 'dyn') && sellersOf(s, skuParts(x)[0]) <= 1 ? 1 + 0.08 * lvMul(s, 'dyn') : 1) * (1 + fxSum(s, 'price')));
+/** 値段（段 F：Uncommon からの町は × priceMul） */
+export const priceOf = (s: P1State, x: Sku) => Math.round(skuPrice(x) * priceMul(s) * (1 + 0.15 * lvMul(s, 'b_premium')) * (has(s, 'dyn') && sellersOf(s, skuParts(x)[0]) <= 1 ? 1 + 0.08 * lvMul(s, 'dyn') : 1) * (1 + fxSum(s, 'price')));
 /** そのお店で売るときの値段（セット販売：2 種類以上並べているお店で +5%） */
 export function priceAt(s: P1State, x: Sku, sh: ShopState | null): number {
   const kinds = sh ? new Set(sh.shelves.filter((y) => !!y)).size : 0;
@@ -3962,7 +3995,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -4019,7 +4052,9 @@ export function deserializeP1(json: string): P1State | null {
     // 版 14 → 15（段 E2：カリスマ度・士気・給与）：士気は 70 から（ふつうの帯）・給与はいまの月給と昇給の段のまま（合計はいまの人件費と同じ）・
     // カリスマ度は記録（制覇・発表・ブランド力）からさかのぼって数える（hr.ts。ブランド力のいちばん高かった値は、いまのブランド力から）。
     // お知らせ済みのカリスマ度はいまの値に（読み込んだとたんにトーストを出さない）
-    s.v = 15;
+    // 版 15 → 16（段 F：経理と総務）：税の記録（s.acct）は 0 から。四半期は次の区切り（会社の月が 3 の倍数になる締め）から。
+    // 疲れはいまのスタミナの見せ方なので、移すものは無い
+    s.v = 16;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);
@@ -5991,6 +6026,8 @@ export function applyPermit(s: P1State, k: number): { fee: number } | PermitErr 
   if (fee > 0) {
     s.money -= fee;
     book(s, 'fees', fee);
+    // 経理（段 F）：発掘許可は研究開発として節税の対象
+    deduct(s, 'rnd', fee);
   }
   s.dig!.sites[k].permit = true;
   return { fee };

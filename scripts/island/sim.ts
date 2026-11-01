@@ -12,8 +12,10 @@ import { delegate, rankUpTier, repairAll, reviveView } from '../../src/island/p1
 import { MEET_IDLE_DAYS } from '../../src/island/p1/digmeet';
 import { siteCandidates } from '../../src/island/p1/trade';
 import { HR_OFF, baseWage, charismaOf, moraleOf, payroll, talk, toMarket } from '../../src/island/p1/hr';
+import { ACCT_OFF, quarterNow, taxPlan, taxOn } from '../../src/island/p1/acct';
+import { fatigueAvg, fatigueMul, fatigueOf, gaOn } from '../../src/island/p1/ga';
 import { bonus as giveBonus, bonusCost, raise, raiseStep, setRest, wageMul } from '../../src/island/p1/model';
-import { CHARISMA, MORALE, PAY } from '../../src/island/p1/data';
+import { CHARISMA, FATIGUE, MORALE, PAY, TAX, deptOf } from '../../src/island/p1/data';
 import { approve, candidatesFor, delegatedDuties, headDepts, headLeft, headOf, leaderLeft, leaderOf, quality, runnerOf, setHead, setLeader } from '../../src/island/p1/deleg';
 import { DELEG, DEPTS, type DeptId, type DutyId } from '../../src/island/p1/data';
 import {
@@ -307,6 +309,11 @@ export interface RunResult {
    * 給与の合計 ÷ 給与の段が 0 のときの合計（月の締めの合計どうし）
    */
   v19: { chEnd: Partial<Record<Tier, number>>; ch: number; hired: Record<string, number>; morale: number[]; want: number; stay: number; quit: number; pay: number; pay0: number };
+  /**
+   * v20（段 F：経理と総務）：払った税・節税で減らした税・税のかかった四半期の数・決算の前の節税の投資（回数と G）・
+   * Uncommon 以上の町の毎日の疲れの平均と士気の平均（持ち場のある人）・疲れで遅くなった割合の平均
+   */
+  v20: { paid: number; saved: number; quarters: number; preInv: number; preG: number; fatigue: number[]; morale: number[]; slow: number[] };
 }
 
 /**
@@ -430,6 +437,9 @@ interface Ctx {
   /** v9：いまの発掘作業の残りの日数・今月始めた作業の回数 */
   runLeft: number;
   runsMonth: number;
+  /** v20：決算の前に節税の投資をした回数と G */
+  preInv: number;
+  preG: number;
   /** v12：今月ダンジョンに潜った回数 */
   divesMonth?: number;
   /** v14：100% の再発掘の周回を足した・その町 */
@@ -628,6 +638,16 @@ function delegPlace(s: P1State, c: Ctx, acts: Action[], budget: number, reserve:
   }
 }
 
+/**
+ * v20（段 F：経理と総務）の方針。share：決算の前に節税の上限まで前倒しする投資の、手元の資金（手元に残す資金を除く）に対する上限。
+ * donate：通常は研究への寄付（研究開発。RP も入る）を前倒しする回数の上限（そのあと見込みのある設備投資）。
+ * env：100% は安い順のパネル・設備でも上限まで埋め、総務の環境（総務のパネル）を先に取り、疲れが FATIGUE.from を超えた持ち場の人を早めに休ませる（100%）。最短は節税を気にしない（null）
+ */
+export const SIM_TAX: Record<PolicyId, { share: number; env: boolean; donate: number } | null> = {
+  rta: null,
+  normal: { share: 0.5, env: false, donate: 8 },
+  full: { share: 0.8, env: true, donate: 0 },
+};
 /** 1 日 1 回の判断：行動のリストを返す */
 export function policy(s: P1State, c: Ctx): Action[] {
   const acts: Action[] = [];
@@ -1158,6 +1178,39 @@ export function policy(s: P1State, c: Ctx): Action[] {
           if (take(id, 0)) rest -= cost;
         }
       }
+      // v20（段 F）：決算の前（会社の四半期の締めまで 30 日以内の月末）に、節税の上限まで投資を前倒しする（SIM_TAX。最短は節税を気にしない）
+      const T = SIM_TAX[c.policy];
+      if (T && taxOn(s) && quarterNow(s).days <= 30) {
+        const plan = taxPlan(s);
+        const b0 = budget;
+        // 通常：研究への寄付（研究開発。RP も入る）を前倒し → 残りは見込みのある設備投資（見込みの大きい順）
+        if (!T.env && donateLock(s) !== 'hidden' && donateLock(s) !== 'closed') {
+          let rnd = Math.min(plan.needRnd, Math.max(0, budget - reserve) * T.share);
+          let n = 0;
+          for (let k = donations(s); n < T.donate && donateCost(k) <= rnd; k++, n++) {
+            rnd -= donateCost(k);
+            spend(donateCost(k));
+            acts.push({ kind: 'donate', run: () => (typeof donate(s) === 'string' ? 'none' : null) });
+          }
+        }
+        let room = Math.min(plan.needCapex * (1 - (b0 - budget) / Math.max(1, plan.needRnd)), Math.max(0, budget - reserve) * T.share);
+        if (room > 1000) {
+          const b1 = budget;
+          byWhatIf(s, c, bn, room, { take, spend, budget: () => budget, reserve, acts, hired: () => hired, setHired: () => (hired = true), buildShop: () => buildShop(shopKind()) });
+          room -= b1 - budget;
+          const pool = !T.env ? [] : [...SKILLS.filter((k) => !isResearch(k) && ['C', 'U'].includes(skillTier(k)) && (T.env || deptOf(k) !== 'general')).map((k) => (has(s, k.id) ? `lv:${k.id}` : k.id)), ...Object.values(INVEST).flatMap((x) => x.cost.map((_, k) => `@${x.id}:${k + 1}`))].filter(can).sort((a, b) => (T.env && deptOf(SKILL[b.replace('lv:', '')] ?? SKILLS[0]) === 'general' ? 1 : 0) - (T.env && deptOf(SKILL[a.replace('lv:', '')] ?? SKILLS[0]) === 'general' ? 1 : 0) || costOf(a) - costOf(b));
+          for (const id of pool) {
+            const cost = costOf(id);
+            if (cost <= 0 || cost > room || !can(id)) continue;
+            if (take(id, 0)) room -= cost;
+          }
+        }
+        const used = b0 - budget;
+        if (used > 0) {
+          c.preInv++;
+          c.preG += used;
+        }
+      }
     }
     // 100%：宣伝を 2 種類同時にする依頼（エムケーシティ）
     if (c.policy === 'full' && s.missions.u3_ads === 'accepted') {
@@ -1211,17 +1264,23 @@ export function policy(s: P1State, c: Ctx): Action[] {
  */
 /** v18（段 E2 の前の main）の合計の実時間（秒。同じ 3 シードの平均：最短 1,835・1,631・1,557／通常 6,937・7,719・7,813／100% 19,781・20,076・19,692） */
 export const V18_TOTAL: Record<PolicyId, number> = { rta: (1835 + 1631 + 1557) / 3, normal: (6937 + 7719 + 7813) / 3, full: (19781 + 20076 + 19692) / 3 };
+/** v19（段 F の前の main）の合計の実時間（秒。同じ 3 シード：最短 1,835・1,631・1,557／通常 7,815・7,013・7,211／100% 20,793・21,120・21,940） */
+export const V19_TOTAL: Record<PolicyId, number> = { rta: (1835 + 1631 + 1557) / 3, normal: (7815 + 7013 + 7211) / 3, full: (20793 + 21120 + 21940) / 3 };
 export const SIM_HR: Record<PolicyId, { rest: number; raiseBelow: number; bonus: boolean }> = {
   rta: { rest: 0, raiseBelow: 0, bonus: false },
   normal: { rest: 38, raiseBelow: 55, bonus: false },
   full: { rest: 45, raiseBelow: 62, bonus: true },
 };
+/** 出ている途中の調達係・運搬係（休ませない） */
+const onTrip = (s: P1State, st: { hero: number; task: Task | null }) => (st.task === 'buy' && s.buyTrip?.hero === st.hero) || (st.task === 'transport' && s.trips.some((x) => x.hauler === st.hero));
 function hrPlace(s: P1State, c: Ctx, acts: Action[], budget: number, reserve: number) {
   const H = SIM_HR[c.policy];
   for (const st of s.staff) {
     if (st.quit != null && !st.talked) acts.push({ kind: 'talk', run: () => talk(s, st.hero) });
     // 休ませる：持ち場の人（リーダー・セクター長・修行・バイトは除く）
     if (H.rest && !st.resting && st.task && st.task !== 'lead' && st.task !== 'manager' && st.task !== 'train' && st.task !== 'side' && moraleOf(st) < H.rest && st.stamina < st.stats.hp * 0.6) acts.push({ kind: 'rest', run: () => (setRest(s, st.hero, true), null) });
+    // v20（段 F）：100% は、疲れが FATIGUE.to に近い（くたくたの手前）持ち場の人を、月末に休ませる（押す数を増やしすぎない）
+    else if (SIM_TAX[c.policy]?.env && c.monthEnd && gaOn(s) && !st.resting && st.task && st.task !== 'lead' && st.task !== 'manager' && st.task !== 'train' && st.task !== 'side' && fatigueOf(st) >= FATIGUE.from + 0.1 && !onTrip(s, st)) acts.push({ kind: 'rest', run: () => (setRest(s, st.hero, true), null) });
   }
   if (!c.monthEnd) return;
   let left = budget - reserve;
@@ -1622,12 +1681,14 @@ export interface RunOpts {
   onlyFirst?: boolean;
   /** 月の締めごとに呼ぶ（調べもの用） */
   onMonth?: (s: P1State, sector: string, month: number) => void;
+  /** 毎日の step のあとに呼ぶ（調べもの用） */
+  onDay?: (s: P1State, sector: string) => void;
 }
 
 export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   const s = newP1(seed);
-  const c: Ctx = { policy: p, route: routeOf(p), at: 0, lineup: [], lineupDirty: true, shopsThisMonth: 0, monthEnd: null, lastBn: null, ban: new Set(o.ban ?? []), onlyFirst: !!o.onlyFirst, dayInMonth: 0, handCarry: 0, rpMoves: 0, runLeft: 0, runsMonth: 0, divesMonth: 0 };
-  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 } };
+  const c: Ctx = { policy: p, route: routeOf(p), at: 0, lineup: [], lineupDirty: true, shopsThisMonth: 0, monthEnd: null, lastBn: null, ban: new Set(o.ban ?? []), onlyFirst: !!o.onlyFirst, dayInMonth: 0, handCarry: 0, rpMoves: 0, runLeft: 0, runsMonth: 0, divesMonth: 0, preInv: 0, preG: 0 };
+  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 }, v20: { paid: 0, saved: 0, quarters: 0, preInv: 0, preG: 0, fatigue: [], morale: [], slow: [] } };
   /** v19：雇ったことのあるヒーロー（はじめの 3 人も入れる。新しく来た人を数える） */
   const heroSeen = new Set(s.staff.map((x) => x.hero));
   /** v14：任せた町の担当（能力値の伸びを数える） */
@@ -1920,6 +1981,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
 
     // ---- 1 日（v9：作業のあいだは発掘隊も打つ。作業の日数が尽きた・荒れ地を掘りきったら作業を終える）
     const d = step(s);
+    o.onDay?.(s, cur.id);
     cur.dig.auto += d.dug?.length ?? 0;
     // v18：任せ方の記録
     {
@@ -1934,6 +1996,16 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
         res.v18.acts += d.report.deleg.duties.reduce((a, x) => a + x.acts, 0);
       }
       for (const x of d.company?.managed ?? []) if (s.land?.recs[x.id]?.heads) res.v18.sectorOk += s.land.recs[x.id].heads!.n;
+    }
+    // v20：税と疲れの記録
+    if (d.company?.tax) res.v20.quarters++;
+    if (gaOn(s)) {
+      const crew0 = s.staff.filter((x) => x.task && x.task !== 'manager' && x.task !== 'lead');
+      if (crew0.length) {
+        res.v20.fatigue.push(fatigueAvg(s));
+        res.v20.morale.push(crew0.reduce((a, x) => a + moraleOf(x), 0) / crew0.length);
+        res.v20.slow.push(crew0.reduce((a, x) => a + (1 - fatigueMul(s, x)), 0) / crew0.length);
+      }
     }
     // v19：士気と給与・カリスマ度の記録
     if (d.hr) {
@@ -2153,6 +2225,10 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
     cur.dig.left = digLeft(s);
   }
   res.days = s.day;
+  res.v20.paid = s.acct?.paid ?? 0;
+  res.v20.preInv = c.preInv;
+  res.v20.preG = c.preG;
+  res.v20.saved = s.acct?.saved ?? 0;
   if (!cur.revisit) res.v19.chEnd[cur.tier] = charismaOf(s);
   res.v19.ch = charismaOf(s);
   res.v18.dutiesEnd = delegatedDuties(s).length;
@@ -2244,6 +2320,9 @@ export interface Report2 {
   noGrowth?: RunResult[];
   /** v18：任せない通常（3 シード） */
   noDeleg?: RunResult[];
+  /** v20：節税しない通常（SIM_TAX を止める）・段 F を止めた 3 方針（withoutAcct） */
+  noSave?: RunResult[];
+  noAcct?: RunResult[];
   ms: number;
 }
 
@@ -2443,6 +2522,32 @@ export function tables(rep: Report2): string {
     );
   }
   out.push('');
+  // v20：経理と総務（段 F）
+  {
+    out.push('### 表 14：経理と総務（v20。段 F）');
+    out.push('');
+    out.push(
+      `3 シードの平均（最小〜最大）。税は会社の四半期（90 日）ごと、税率は会社の格（\`TAX.rate\`：U ${Math.round(TAX.rate.U * 100)}%・R ${Math.round(TAX.rate.R * 100)}%・E ${Math.round(TAX.rate.E * 100)}%）、Common の町の利益にはかけない。Uncommon からの町は単価が高い（\`TAX.price\`：U ×${TAX.price.U}・R ×${TAX.price.R}。自社も他社も）。節税は設備投資 ${Math.round(TAX.ded.capex * 100)}%・研究開発 ${Math.round(TAX.ded.rnd * 100)}%・総務の環境 ${Math.round(TAX.ded.env * 100)}% を差し引く（上限は利益の ${Math.round(TAX.cap * 100)}%）。疲れ（1 − スタミナ ÷ HP）は Uncommon から、${Math.round(FATIGUE.from * 100)}% を超えると働きの速さ（${Math.round(FATIGUE.to * 100)}% で −${Math.round(FATIGUE.work * 100)}%）と士気の目標（−${FATIGUE.morale}）が下がる。方針（\`SIM_TAX\`）：通常＝決算の前の月末に研究への寄付 → 見込みのある設備投資を、上限まで前倒し（手元の資金の ${Math.round((SIM_TAX.normal?.share ?? 0) * 100)}% まで）／100%＝それに加えて総務のパネル → 安い順のパネル・設備でも埋める（${Math.round((SIM_TAX.full?.share ?? 0) * 100)}% まで）、くたくたの手前の人を月末に休ませる／最短＝節税を気にしない。「v19 の合計」は段 F の前の main の同じ 3 シード（\`V19_TOTAL\`）、「段 F なし」は同じ方針・シードを \`withoutAcct\` で回した合計、「節税なし」は通常を \`withoutTaxSaving\` で回した合計。疲れ・士気・遅くなった割合は、Uncommon 以上の町の毎日の持ち場の人の平均。`,
+    );
+    out.push('');
+    out.push('| 方針 | 合計 | v19 の合計 | 差 | 段 F なし | 節税なし（通常） | 払った税 | 節税で減らした税 | 税のかかった四半期 | 決算の前の節税の投資（回・G） | 疲れの平均 | 士気の平均 | 疲れで遅くなった割合 | 詰まって止まるシード |');
+    out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      const tot = mean(runs.map(totalSec));
+      const base = V19_TOTAL[p];
+      const off = (rep.noAcct ?? []).filter((r) => r.policy === p);
+      const ns = p === 'normal' ? (rep.noSave ?? []) : [];
+      const d = (a: number, b: number) => `${a >= b ? '+' : '−'}${Math.round(Math.abs(a - b) / 60)} 分（${a >= b ? '+' : '−'}${((Math.abs(a - b) / b) * 100).toFixed(1)}%）`;
+      const vv = (f: (x: RunResult['v20']) => number) => runs.map((r) => f(r.v20));
+      const g = (f: (x: RunResult['v20']) => number) => `${fmtG(mean(vv(f)))}（${range(vv(f), fmtG)}）`;
+      out.push(
+        `| ${POLICY_NAME[p]} | ${fmtH(tot)} | ${fmtH(base)} | ${d(tot, base)} | ${off.length ? `${fmtH(mean(off.map(totalSec)))}（${d(tot, mean(off.map(totalSec)))}）` : '—'} | ${ns.length ? `${fmtH(mean(ns.map(totalSec)))}（節税で ${d(tot, mean(ns.map(totalSec)))}）` : '—'} | ${g((x) => x.paid)} | ${g((x) => x.saved)} | ${mean(vv((x) => x.quarters)).toFixed(1)} | ${mean(vv((x) => x.preInv)).toFixed(1)}・${fmtG(mean(vv((x) => x.preG)))} | ${(mean(runs.map((r) => mean(r.v20.fatigue))) * 100).toFixed(0)}% | ${mean(runs.map((r) => mean(r.v20.morale))).toFixed(0)} | ${(mean(runs.map((r) => mean(r.v20.slow))) * 100).toFixed(2)}% | ${runs.filter((r) => !r.done).length}${off.length ? `／段 F なし ${off.filter((r) => !r.done).length}` : ''} |`,
+      );
+    }
+    out.push('');
+  }
   // v19：カリスマ度・士気・給与（段 E2）
   {
     out.push('### 表 13：カリスマ度・士気・給与（v19。段 E2）');
@@ -2738,6 +2843,25 @@ export function withoutHr<T>(f: () => T): T {
     HR_OFF.on = false;
   }
 }
+/** v20（段 F）：自動プレイの節税の手（SIM_TAX）を止めて回す（税はかかる。比べるためだけ） */
+export function withoutTaxSaving<T>(f: () => T): T {
+  const saved = { ...SIM_TAX };
+  for (const k of Object.keys(SIM_TAX) as PolicyId[]) SIM_TAX[k] = null;
+  try {
+    return f();
+  } finally {
+    Object.assign(SIM_TAX, saved);
+  }
+}
+/** v20（段 F）：経理と総務を止めて回す（税 0・単価の倍率 1・疲れが効かない。段 F の前と同じ。比べるためだけ。終わったら戻す） */
+export function withoutAcct<T>(f: () => T): T {
+  ACCT_OFF.on = true;
+  try {
+    return f();
+  } finally {
+    ACCT_OFF.on = false;
+  }
+}
 /** 技の枝のスキル（技なしの比較で外す） */
 export const TECH_SKILLS = SKILLS.filter((k) => k.branch === 'tech').map((k) => k.id);
 
@@ -2762,7 +2886,10 @@ export function runAll(seeds = SEEDS, opts: { ablation?: boolean } = {}): Report
   const noGrowth = opts.ablation ? (['rta', 'normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutGrowth(() => runOnce(p, seed)))) : undefined;
   // v18：任せない通常（任せ方の 4 段を使わない）。任せて短くなったぶんを比べる
   const noDeleg = opts.ablation ? seeds.map((seed) => withoutDeleg(() => runOnce('normal', seed))) : undefined;
-  return { runs, ablation, noTech, noGrowth, noDeleg, ms: performance.now() - t0 };
+  // v20：節税しない通常（決算の前の前倒しをしない）・段 F を止めた 3 方針（税 0・単価 ×1・疲れなし。段 F の前と同じ）
+  const noSave = opts.ablation ? seeds.map((seed) => withoutTaxSaving(() => runOnce('normal', seed))) : undefined;
+  const noAcct = opts.ablation ? (['rta', 'normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutAcct(() => runOnce(p, seed)))) : undefined;
+  return { runs, ablation, noTech, noGrowth, noDeleg, noSave, noAcct, ms: performance.now() - t0 };
 }
 
 /** docs/ISLAND_BALANCE.md の「自動で書く」部分を差し替える（前後の手書きの文はそのまま） */

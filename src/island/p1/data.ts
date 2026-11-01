@@ -439,6 +439,12 @@ export const SALES_INTRO = () => [
   t('空き店舗には安く・すぐ出店できる。まずは[[出店の候補地]]の上位に店を出してみよう！', 'You can move into a vacant store cheaply and fast. Start by building at the top [[candidate sites]]!'),
 ];
 
+/** 経理・総務の紹介（Uncommon の町に初めて進出して、2 つの部門が開いたとき。main.ts の会話。段 F） */
+export const ACCT_INTRO = () => [
+  t('新しい部門：[[経理]]と[[総務]]！ Uncommon からは、四半期ごとに利益へ[[法人税]]がかかるよ。', 'New departments: [[Accounting]] and [[General Affairs]]! From Uncommon on, quarterly profit pays [[corporate tax]].'),
+  t('そのぶん町の物価が高くて、単価も高いの。締めの前に[[設備]]や[[研究]]に投資すると、そのぶん税が減る（[[節税]]）よ。', 'Prices here are higher too. Investing in [[upgrades]] or [[research]] before the close lowers the tax ([[tax savings]]).'),
+  t('[[総務]]ではヒーローの[[疲れ]]が見える。疲れが溜まると働きと士気が落ちるから、早めに休ませよう！', 'In [[General Affairs]] you can see heroes’ [[fatigue]]. Tired heroes work slower and lose morale, so rest them early!'),
+];
 /** 1 枚目（目標）：ようこそ ＋ エリア 1 位 ＋ 1 位の他社の月の売上（{top}） */
 const goal = (name: string) =>
   t(`[[${name}]]へようこそ！ 目標は[[2 か月続けてエリア 1 位]]、他社 4 社のうち 1 位の月の売上は約 {top} だよ。`, `Welcome to [[${name}]]! The goal: [[#1 in the area two months running]]. There are 4 rivals; the leader makes about {top} a month.`);
@@ -1824,7 +1830,36 @@ export const HR_SKILLS: Skill[] = [
 export const HR_MONEY = ['hr_career', 'hr_paytable'];
 /** 人事の研究パネルの RP（決め打ち） */
 export const HR_RP: Record<string, number> = { hr_talk: 45, hr_brand: 130 };
+/** 段 F の研究パネルの RP（決め打ち。Uncommon の研究パネルの範囲 60〜180 の中） */
+export const ACCT_RP: Record<string, number> = { ac_advisor: 90, ac_rnd: 140, ac_carry: 170, ga_check: 120 };
 SKILLS.push(...HR_SKILLS);
+/**
+ * 経理のパネル（段 F。Uncommon の外周・経営の枝のうち経理の部門。docs/ISLAND_PHASE1.md「経理」）。効き目は acct.ts（税・節税）と汎用の効き目（素材の値段・維持費）。
+ * 研究パネル 3 枚（税理士の顧問・研究開発の税制・繰越の損失）・お金パネル 3 枚（ACCT_MONEY。Lv1〜5：減価償却・材料費の分析・経費の見直し）。
+ * 研究パネルの RP は決め打ち（FIXED_RP）：ほかの経営の枝の研究パネルの値段を動かさない
+ */
+export const ACCT_SKILLS: Skill[] = [
+  { id: 'ac_advisor', branch: 'ops', tier: 'U', name: t('税理士の顧問', 'Tax advisor'), note: t('節税の上限（差し引ける額）が四半期の利益の 50% → 60% に', 'Tax-saving cap rises from 50% to 60% of quarterly profit'), cost: 0 },
+  { id: 'ac_deprec', branch: 'ops', tier: 'U', name: t('減価償却', 'Depreciation'), note: t('設備投資（建てる・設備・お金パネル）の差し引き 30% → 36%（Lv ごとに +25%）', 'Capex deduction 30% → 36% (+25% per Lv)'), cost: 24000, requires: ['ac_advisor'], show: [{ label: t('設備投資の差し引き', 'Capex deduction'), v: 0.06, unit: '%' }] },
+  { id: 'ac_rnd', branch: 'ops', tier: 'U', name: t('研究開発の税制', 'R&D tax credit'), note: t('研究開発（研究への寄付・発掘許可・商品開発）の差し引き 50% → 80%', 'R&D deduction (donations, dig permits, product development) 50% → 80%'), cost: 0, requires: ['ac_advisor'] },
+  { id: 'ac_cost', branch: 'ops', tier: 'U', name: t('材料費の分析', 'Material cost analysis'), note: '', cost: 30000, requires: ['ac_advisor'], fx: [{ kind: 'matPrice', v: 0.04 }] },
+  { id: 'ac_carry', branch: 'ops', tier: 'U', name: t('繰越の損失', 'Loss carryforward'), note: t('赤字の四半期の損失を、4 四半期まで繰り越して利益から差し引ける（立ち上げの赤字のあとの税が軽い）', 'A loss-making quarter’s loss is carried forward up to 4 quarters (lighter tax after a loss-making start)'), cost: 0, requires: ['ac_deprec'] },
+  { id: 'ac_upkeep', branch: 'ops', tier: 'U', name: t('経費の見直し', 'Expense review'), note: '', cost: 42000, requires: ['ac_cost'], fx: [{ kind: 'upkeep', v: 0.06 }] },
+];
+/** 経理のお金パネル（Lv1〜5） */
+export const ACCT_MONEY = ['ac_deprec', 'ac_cost', 'ac_upkeep'];
+/**
+ * 総務のパネル（段 F で足した 3 枚。人材の枝のうち総務の部門・Uncommon の外周。docs/ISLAND_PHASE1.md「総務」）。いまの 9 枚（休憩室・シフト制・福利厚生など）と同じく、
+ * 取った枚数が士気の目標の「職場の環境」に入る（hr.ts の envPanels）。お金パネル 2 枚（GA_MONEY：社員食堂・仮眠室）・研究パネル 1 枚（ストレスチェック）
+ */
+export const GA_SKILLS: Skill[] = [
+  { id: 'ga_canteen', branch: 'people', tier: 'U', name: t('社員食堂', 'Staff canteen'), note: '', cost: 20000, requires: ['welfare'], fx: [{ kind: 'rest', v: 0.15 }] },
+  { id: 'ga_nap', branch: 'people', tier: 'U', name: t('仮眠室', 'Nap room'), note: '', cost: 28000, requires: ['ga_canteen'], fx: [{ kind: 'stamina', v: 0.06 }] },
+  { id: 'ga_check', branch: 'people', tier: 'U', name: t('ストレスチェック', 'Stress checks'), note: t('疲れが働きの速さと士気に響く分 −50%', 'Fatigue’s hit on work speed and morale −50%'), cost: 0, requires: ['ga_canteen'] },
+];
+/** 総務のお金パネル（Lv1〜5） */
+export const GA_MONEY = ['ga_canteen', 'ga_nap'];
+SKILLS.push(...ACCT_SKILLS, ...GA_SKILLS);
 SKILLS.push(...INF_SKILLS, DONATE);
 /** 無限の強化パネルの id */
 export const INF_PANELS = INF_SKILLS.map((k) => k.id);
@@ -1857,7 +1892,7 @@ export const START_RP = 30;
 export const RP_PER_DUST = 40;
 const RP_FIXED: Record<string, number> = { hire: START_RP };
 {
-  const money = new Set([...Object.values(MONEY_PANELS).flatMap((x) => Object.values(x)), ...DIG_PANELS, DONATE.id, ...SALES_MONEY, ...HR_MONEY]);
+  const money = new Set([...Object.values(MONEY_PANELS).flatMap((x) => Object.values(x)), ...DIG_PANELS, DONATE.id, ...SALES_MONEY, ...HR_MONEY, ...ACCT_MONEY, ...GA_MONEY]);
   const byId = new Map(SKILLS.map((k) => [k.id, k]));
   const tierOf = (k: Skill) => k.tier ?? 'C';
   // 同じランクの中の深さ（先に要るパネルのうち、同じランクのものをたどった最長の数）
@@ -1879,14 +1914,14 @@ const RP_FIXED: Record<string, number> = { hire: START_RP };
     const P = RP_PRICE[tier];
     const round = (v: number) => Math.max(P.step, Math.round(v / P.step) * P.step);
     for (const b of new Set(SKILLS.map((k) => k.branch))) {
-      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
+      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null && ACCT_RP[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
       list.forEach((k, i) => (k.rp = round(P.lo + ((P.hi - P.lo) * (list.length > 1 ? i : 0)) / Math.max(1, list.length - 1))));
       // 1 枚だけの枝は真ん中の値段
       if (list.length === 1) list[0].rp = round((P.lo + P.hi) / 2);
     }
     for (const k of SKILLS) if (tierOf(k) === tier && k.big) k.rp = P.big;
   }
-  for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP })) if (byId.get(id)) byId.get(id)!.rp = v;
+  for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP, ...ACCT_RP })) if (byId.get(id)) byId.get(id)!.rp = v;
   // 無限の強化パネル：Lv1 の値段（Lv2 からは infCost）
   for (const k of INF_SKILLS) k.rp = infCost(1);
   // 研究パネルはレベルなし（効き目は Lv1 の値）：Lv2 からの効き目は持たない
@@ -1928,8 +1963,8 @@ export type DeptId = 'logistics' | 'sales' | 'strategy' | 'rnd' | 'hr' | 'system
 export type DeptGroup = 'biz' | 'strat' | 'admin' | 'base';
 /** ロードマップの段（docs/SUCCESSOR_ROADMAP.md「ロードマップ」）。部門の中身（遊び）ができる段 */
 export type RoadStage = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J';
-/** いまできている段（段 D：任せ方の 4 段）。中身ができる段がこれ以下の部門だけメニューに出る */
-export const ROAD_NOW: RoadStage = 'D';
+/** いまできている段（段 F：経理と総務）。中身ができる段がこれ以下の部門だけメニューに出る */
+export const ROAD_NOW: RoadStage = 'F';
 export interface DeptDef {
   id: DeptId;
   name: string;
@@ -1987,7 +2022,9 @@ export const deptMarkNote = (k: number) => [t('業務を 1 つ任せられる', 
 export const BRANCH_DEPT: Record<Branch, DeptId> = { shop: 'logistics', craft: 'logistics', logi: 'logistics', buy: 'logistics', tech: 'logistics', ops: 'strategy', people: 'hr', dig: 'rnd', sys: 'systems', sales: 'sales' };
 export const DEPT_MOVE: Record<string, DeptId> = Object.fromEntries([
   ...['vmd', 'pop', 'golden', 'point', 'set', 'd_ops', 'b_sign', 'fair', 'u_shop_2', 'u_shop_5', 'u_shop_6', 'b_ads', 'b_premium', 'r_shop_2', 'r_shop_3', 'r_shop_5', 'r_shop_6', 'r_shop_8', 'e_shop_3', 'e_shop_5', 'e_shop_6', 'e_shop_8', 'e_shop_10', 'l_shop_1', 'l_shop_2', 'l_shop_5', 'l_shop_6', 'l_shop_7', 'l_shop_8', 'l_shop_9'].map((id) => [id, 'marketing']),
-  ...['lounge', 'shift', 'welfare', 'u_people_5', 'r_people_5', 'e_people_3', 'e_people_7', 'l_people_3', 'l_people_6'].map((id) => [id, 'general']),
+  ...['lounge', 'shift', 'welfare', 'u_people_5', 'r_people_5', 'e_people_3', 'e_people_7', 'l_people_3', 'l_people_6', ...GA_SKILLS.map((k) => k.id)].map((id) => [id, 'general']),
+  // 段 F：経理のパネル（経営の枝のうち経理）
+  ...ACCT_SKILLS.map((k) => [k.id, 'accounting']),
 ]) as Record<string, DeptId>;
 for (const k of SKILLS) k.dept = DEPT_MOVE[k.id] ?? BRANCH_DEPT[k.branch];
 /** パネルの部門 */
@@ -2811,3 +2848,54 @@ export const MORALE = {
   /** 「士気が低い」の札（画面）・自動プレイが休ませる目安 */
   warn: 35,
 };
+
+// ---------------------------------------------------------------- 経理と総務（ロードマップ段 F。docs/ISLAND_PHASE1.md「経理」「総務」）
+
+/**
+ * 法人税と節税（段 F。計算は acct.ts）。ロードマップ 8 章の決定 3：税は Uncommon から、そのぶん売上の側も整え、節税の上手さで差がつく。
+ * - rate：会社の格（入ったいちばん上のランク）の税率。Common の町の利益とタオックスのチュートリアルには、かけない。
+ * - price：その町の商品の単価の倍率（自社も他社も。Uncommon からの町は物価が高い）。節税しなくても遊ぶ時間が変わらない値（docs/ISLAND_BALANCE.md の v20）。
+ * - ded：税の計算の前に差し引ける割合（設備投資＝建てる・設備・お金パネル／研究開発＝研究への寄付・発掘許可・商品開発／総務の環境＝総務のパネル・職人の休憩所）。
+ * - cap：差し引ける額の上限（四半期の利益に対して）。advisor：税理士の顧問（研究パネル）で上がるぶん。deprec：減価償却（お金パネル）で設備投資の割合に足すぶん（Lv で ×1.25 ずつ）。
+ *   rnd：研究開発の税制（研究パネル）の研究開発の割合。carry：繰越の損失（研究パネル）で繰り越せる四半期の数。
+ * - keep：税を払っても資金がこの額を切らない（足りないぶんは次の四半期へ。町を回すお金を残す）
+ * - hint：決算の何か月前から「あと ○○ G 投資すると税が △△ G 減る」を知らせるか（会社の月で）
+ */
+export const TAX = {
+  rate: { C: 0, U: 0.2, R: 0.25, E: 0.3, L: 0.35 } as Record<Tier, number>,
+  price: { C: 1, U: 1.1, R: 1.13, E: 1.15, L: 1.18 } as Record<Tier, number>,
+  ded: { capex: 0.3, rnd: 0.5, env: 0.5 },
+  cap: 0.5,
+  advisor: 0.1,
+  deprec: 0.06,
+  rnd: 0.8,
+  carry: 4,
+  hint: 1,
+  keep: 30000,
+};
+/** 節税の区分 */
+export type DedKind = 'capex' | 'rnd' | 'env';
+/** 総務の環境に入る設備投資（工房の「職人の休憩所」） */
+export const ENV_INVESTS = ['breakroom'];
+
+/**
+ * 疲れ（段 F。総務。計算は ga.ts）：いまのスタミナを「疲れ」として見せる（疲れ ＝ 1 − スタミナ ÷ HP）。Uncommon の町に出店してから効く。
+ * - from〜to：疲れがこの間で増えると、働きの速さが ×1 → ×(1 − work)、士気の目標が 0 → −morale（to より上はそのまま）。
+ *   ストレスチェック（研究パネル）で、どちらも ×(1 − check)。士気は段 E2 の士気の目標の 1 項目（二重に数えない）。
+ * - show：画面で「疲れている」の札を出す目安
+ */
+export const FATIGUE = { from: 0.6, to: 0.85, work: 0.08, morale: 6, check: 0.5, show: 0.6 };
+
+/** 経理・総務の奥義（理解度 15・25・40。効き目は段 I。表示だけ） */
+export const ACCT_MASTERY = () => [
+  t('奥義 1：税率 −5%（準備中）', 'Mastery 1: tax rate −5% (coming soon)'),
+  t('奥義 2：繰越の損失がいつでも使える（リセット後の税が軽い。準備中）', 'Mastery 2: loss carryforward always on (lighter tax after a reset; coming soon)'),
+  t('奥義 3：経理の助言どおりに自動で節約（準備中）', 'Mastery 3: savings follow the accountant’s advice automatically (coming soon)'),
+];
+export const GA_MASTERY = () => [
+  t('奥義 1：疲れの回復 ×2（準備中）', 'Mastery 1: fatigue recovery ×2 (coming soon)'),
+  t('奥義 2：士気が下がらない（準備中）', 'Mastery 2: morale never drops (coming soon)'),
+  t('奥義 3：疲れが極限まで下がり、最高の働きを続ける（準備中）', 'Mastery 3: fatigue drops to the minimum; peak work every day (coming soon)'),
+];
+/** 掛け合わせの予告（経理 × 総務。効き目は段 I。表示だけ） */
+export const CROSS_ACCT_GA = () => t('掛け合わせ（経理 × 総務）：節税になる設備投資 — 設備の費用の 30% を税から引く（両方の理解度 10 で開く・準備中）', 'Cross panel (Accounting × General Affairs): tax-saving capex — 30% of upgrade costs off your tax (opens at understanding 10 in both; coming soon)');

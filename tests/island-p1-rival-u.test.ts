@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { ENTRY_AFTER, MARKET_GROWTH, RIVAL, RIVAL_GROWTH, RIVALS, TIERS, UNCOMMON_RIVAL, rivalsOf, SECTORS } from '../src/island/p1/data';
 import { deserializeP1, endMonth, facilityStatus, newP1, rivalBase, rivalBase0, rivalMonthGuess, rivalTune, saleBonus, serializeP1, type P1State } from '../src/island/p1/model';
+import { priceMul } from '../src/island/p1/acct';
 
 /** その月の自社の売上を決めて締める（他社の商品の売上は 0。エクステ以外の売上だけ） */
 function close(s: P1State, mine: number) {
@@ -117,7 +118,8 @@ describe('他社の巻き返し（Uncommon のセール）', () => {
     expect(second.sales).toBeCloseTo(a > b ? a : b, -1);
     // 翌月：いちばん強い（自社の売上 × target くらい）
     const r = s.rivals.find((x) => x.id === rid)!;
-    expect(rivalBase(s, r)).toBeCloseTo(r.base + s.comeback!.bonus);
+    // 段 F：Uncommon の町は単価が高い（他社の売上も priceMul。セールの足し分には掛けない）
+    expect(rivalBase(s, r)).toBeCloseTo(r.base * priceMul(s) + s.comeback!.bonus);
     expect(rivalBase(s, r) + 1).toBeGreaterThan(mine * UNCOMMON_RIVAL.sale.target - 1);
     // ほかの会社は伸びない
     for (const x of s.rivals.filter((y) => y.id !== rid)) expect(saleBonus(s, x.id)).toBe(0);
@@ -207,7 +209,7 @@ describe('他社の巻き返し（Uncommon のセール）', () => {
 describe('セーブ（版 9）', () => {
   it('新しいゲームは版 9・巻き返しなし', () => {
     const s = newP1(12, 'U', 'u1');
-    expect(s.v).toBe(15);
+    expect(s.v).toBe(16);
     expect(s.comeback).toBeNull();
   });
 
@@ -224,7 +226,7 @@ describe('セーブ（版 9）', () => {
     o.v = 8;
     delete o.comeback;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(15);
+    expect(back.v).toBe(16);
     expect(back.comeback).toBeNull();
     expect(back.rivals.every((r) => saleBonus(back, r.id) === 0)).toBe(true);
   });

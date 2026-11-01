@@ -4168,6 +4168,165 @@ button.isl-mis {
   font-weight: 900;
 }
 
+/* ================================================================ 経理・総務（段 F） */
+.isl-acct-head,
+.isl-ga-head {
+  display: grid;
+  gap: 6px;
+}
+.isl-acct-head .isl-big,
+.isl-ga-head .isl-big,
+.isl-acct-report .isl-big {
+  font-variant-numeric: tabular-nums;
+}
+.isl-acct-tip {
+  display: grid;
+  gap: 2px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+}
+.isl-acct-tip.is-hot2 {
+  border: 2px solid var(--isl-gold);
+  background: rgba(242, 181, 68, 0.1);
+}
+.isl-acct-list {
+  margin: 4px 0 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: 3px;
+  font-size: 13px;
+}
+.isl-acct-cost {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+}
+.isl-acct-crow {
+  display: grid;
+  grid-template-columns: minmax(7em, 11em) 1fr auto 5.5em;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.isl-acct-crow b {
+  font-variant-numeric: tabular-nums;
+}
+.isl-acct-crow small {
+  text-align: right;
+}
+@media (max-width: 599px) {
+  .isl-acct-crow {
+    grid-template-columns: 7em 1fr 6.8em;
+    row-gap: 0;
+    font-size: 12px;
+  }
+  .isl-acct-crow b {
+    white-space: nowrap;
+    text-align: right;
+  }
+  .isl-acct-crow small {
+    grid-column: 3;
+    margin-top: -2px;
+    font-size: 11px;
+  }
+}
+.isl-acct-advice {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-left: 3px solid #9fd27a;
+  background: rgba(159, 210, 122, 0.08);
+  border-radius: 6px;
+}
+.isl-acct-report {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(159, 210, 122, 0.5);
+}
+.isl-acct-hist {
+  display: grid;
+  gap: 1px;
+}
+.isl-acct-hist .isl-books-row span,
+.isl-acct-hist .isl-books-row b {
+  white-space: nowrap;
+}
+@media (max-width: 599px) {
+  .isl-acct-hist .isl-books-row {
+    font-size: 12px;
+  }
+}
+.isl-acct-soon h3 {
+  margin: 0 0 4px;
+}
+.isl-ga-env {
+  display: grid;
+  gap: 4px;
+}
+.isl-ga-item {
+  display: grid;
+  grid-template-columns: minmax(8em, 12em) 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 3px 4px;
+  font-size: 13px;
+  opacity: 0.75;
+}
+.isl-ga-item.is-on {
+  opacity: 1;
+}
+@media (max-width: 599px) {
+  .isl-ga-item {
+    grid-template-columns: 1fr auto;
+  }
+  .isl-ga-item > small:nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+.isl-ga-card {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+}
+.isl-ga-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.isl-ga-top b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.isl-ga-pct {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.isl-ga-pct.is-tired {
+  color: var(--isl-gold);
+}
+.isl-ga-pct.is-worn {
+  color: var(--isl-bad);
+}
+.isl-ga-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.isl-ga-foot .isl-btn {
+  padding: 4px 12px;
+  min-height: 0;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 /* ================================================================ ブランド力の画面・スキルツリーの札 */
 .isl-brand-top {
   display: grid;

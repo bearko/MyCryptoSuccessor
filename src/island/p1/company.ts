@@ -61,9 +61,11 @@ export interface Ledger {
   levy?: number;
   /** 特別利益：復興の支度金（ランドから） */
   grant?: number;
+  /** 法人税（段 F。四半期の締めの月に。以前の帳簿には無い） */
+  tax?: number;
 }
 export type LedgerKey = keyof Ledger;
-export const emptyLedger = (): Ledger => ({ sales: 0, mats: 0, wages: 0, part: 0, upkeep: 0, ads: 0, build: 0, fees: 0, side: 0, other: 0, managed: 0, museum: 0, levy: 0, grant: 0 });
+export const emptyLedger = (): Ledger => ({ sales: 0, mats: 0, wages: 0, part: 0, upkeep: 0, ads: 0, build: 0, fees: 0, side: 0, other: 0, managed: 0, museum: 0, levy: 0, grant: 0, tax: 0 });
 
 /** 月末の貸借対照表の材料 */
 export interface Balance {
@@ -99,6 +101,8 @@ export interface PL {
   op: number;
   nonop: number;
   special: number;
+  /** 法人税（段 F） */
+  tax: number;
   net: number;
   l: Ledger;
 }
@@ -109,7 +113,8 @@ export function pl(l: Ledger): PL {
   const nonop = l.side + l.other + l.managed + (l.museum ?? 0);
   // 特別な出入り：投資・入国料・復興の徴収（損失）から、復興の支度金（利益）を引く
   const special = l.build + l.fees + (l.levy ?? 0) - (l.grant ?? 0);
-  return { sales: l.sales, cogs: l.mats, gross, sga, op, nonop, special, net: op + nonop - special, l };
+  const tax = l.tax ?? 0;
+  return { sales: l.sales, cogs: l.mats, gross, sga, op, nonop, special, tax, net: op + nonop - special - tax, l };
 }
 export function sumLedger(ls: Ledger[]): Ledger {
   const out = emptyLedger();
@@ -120,10 +125,13 @@ export function sumLedger(ls: Ledger[]): Ledger {
 /** 四半期（3 か月ずつ）。最後の四半期は途中でもよい */
 export function quarters(b: Books): { q: number; months: number; l: Ledger; bs: Balance | null; done: boolean }[] {
   const out: { q: number; months: number; l: Ledger; bs: Balance | null; done: boolean }[] = [];
-  for (let k = 0; k < b.months.length; k += 3) {
-    const part = b.months.slice(k, k + 3);
-    out.push({ q: k / 3 + 1, months: part.length, l: sumLedger(part.map((x) => x.l)), bs: part[part.length - 1].bs, done: part.length === 3 });
+  // 会社の月 m（1, 2, 3 が第 1 四半期）で束ねる（段 F：帳簿を 48 か月で切ったあとも四半期の区切りがずれない）
+  const byQ = new Map<number, Books['months']>();
+  for (const x of b.months) {
+    const q = Math.ceil(Math.max(1, x.m) / 3);
+    byQ.set(q, [...(byQ.get(q) ?? []), x]);
   }
+  for (const [q, part] of byQ) out.push({ q, months: part.length, l: sumLedger(part.map((x) => x.l)), bs: part[part.length - 1].bs, done: part[part.length - 1].m % 3 === 0 });
   return out;
 }
 

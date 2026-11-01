@@ -166,6 +166,8 @@ function partsText(s: P1State, st: Staff): string {
     p.role ? t(`役目 ${sg(p.role)}`, `role ${sg(p.role)}`) : '',
     p.table ? t(`給与テーブル ${sg(p.table)}`, `pay scale ${sg(p.table)}`) : '',
     p.same ? t(`同じ仕事の続きすぎ ${sg(p.same)}`, `same job too long ${sg(p.same)}`) : '',
+    // 総務（段 F）：疲れ
+    Math.round(p.tired) ? t(`疲れ ${sg(p.tired)}`, `fatigue ${sg(p.tired)}`) : '',
   ].filter(Boolean);
   return t(`士気の目標 ${Math.round(p.total)} ＝ ${xs.join('・')}`, `Morale target ${Math.round(p.total)} = ${xs.join(', ')}`);
 }

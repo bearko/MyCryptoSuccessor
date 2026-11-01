@@ -6,6 +6,7 @@
  */
 import { DEF } from '../defs';
 import { cells } from '../sim';
+import { acctReset } from './acct';
 import { MANAGER, P1B, SECTORS, SKILL, grantOf, isResearch, type Tier } from './data';
 import { book, delegateCostOf, repairCostOf, repairDaysOf, repairOrder, ruinCount, RUIN, sectorDef, type Land, type RuinLike, type SectorRec } from './company';
 import { assign, newDig, reviveMul, spend, staffOf, wasteSpots, type DigState, type P1State, type PBuilding, type ResetRec } from './model';
@@ -106,6 +107,8 @@ export function resetForTier(s: P1State, tier: Tier, to: string): ResetRec {
   const grant = grantOf(tier);
   s.money += grant;
   book(s, 'grant', grant);
+  // 経理（段 F）：その四半期のここまでの税と、払いきれていない税は帳消し（徴収に入る）
+  acctReset(s);
   // お金で開けたパネル
   const lost = s.skills.filter((id) => SKILL[id] && !isResearch(SKILL[id]));
   if (lost.length) {

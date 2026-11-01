@@ -5,6 +5,8 @@
 import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { BRAND, DIG_SITES, MANAGER, RESET, RIVAL_TUNE, SECTORS, SKILLS, TIERS, aptitude, fundsOf, grantOf, type SectorDef } from './data';
+import { costCard } from './acctui';
+import { quarterNow } from './acct';
 import { CAPITAL, TIER_NAME, brandPull, delegateCostOf, emptyLedger, managerRate, pl, quarters, revivePerMonth, RUIN, sectorDef, sectorState, sumLedger, tierLabel, type Balance, type Ledger, type RuinLike, type SectorState } from './company';
 import { crowned, letterLockOf, hasBusiness, lastRank, letterLocked, moveTo, recOf, type MoveErr } from './land';
 import { delegate, delegateLock, fundShort, rankUpTier, reviveView } from './reset';
@@ -584,25 +586,27 @@ export function openBooks(ctx: Ctx) {
     const s = ctx.s();
     const books = s.books;
     const qs = books ? quarters(books) : [];
-    // いまの四半期（途中）：締めた月 ＋ 今月のここまで
-    const doneMonths = books?.months.length ?? 0;
-    const inQ = doneMonths % 3;
-    const curL = sumLedger([...(books?.months.slice(doneMonths - inQ).map((x) => x.l) ?? []), books?.cur ?? emptyLedger()]);
-    const curQ = Math.floor(doneMonths / 3) + 1;
-    const list = [...qs.filter((q) => q.done).map((q) => ({ q: q.q, l: q.l, bs: q.bs, label: t(`第 ${q.q} 四半期`, `Q${q.q}`), done: true })), { q: curQ, l: curL, bs: balance(s) as Balance, label: t(`第 ${curQ} 四半期（途中）`, `Q${curQ} (in progress)`), done: false }];
+    // いまの四半期（途中）：締めた月のうち同じ四半期のもの ＋ 今月のここまで（段 F：会社の月 m で束ねる）
+    const now = quarterNow(s);
+    const curQ = now.q;
+    const inQ = now.inQ - 1;
+    const curL = sumLedger([...(books?.months.filter((x) => Math.ceil(Math.max(1, x.m) / 3) === curQ).map((x) => x.l) ?? []), books?.cur ?? emptyLedger()]);
+    const list = [...qs.filter((q) => q.done && q.q !== curQ).map((q) => ({ q: q.q, l: q.l, bs: q.bs, label: t(`第 ${q.q} 四半期`, `Q${q.q}`), done: true })), { q: curQ, l: curL, bs: balance(s) as Balance, label: t(`第 ${curQ} 四半期（途中）`, `Q${curQ} (in progress)`), done: false }];
     if (qSel == null || !list.some((x) => x.q === qSel)) qSel = list[list.length - 1].q;
     body.append(h('p', 'isl-dim', t('会社ぜんたいの決算書（簡易版）。会社の月はゲームの最初から 30 日ごとに締め、3 か月で 1 四半期です。ほかのセクタの利益は「他セクタからの利益」に入ります。', 'Company-wide statements (simplified). Company months close every 30 days from the start; 3 months make a quarter. Profit from managed sectors is listed separately.')));
     const chips = h('div', 'isl-books-chips');
-    for (const x of list) chips.append(btn(x.label, () => ((qSel = x.q), after(ctx)), x.q === qSel ? 'is-on' : ''));
+    for (const x of list.slice(-8)) chips.append(btn(x.label, () => ((qSel = x.q), after(ctx)), x.q === qSel ? 'is-on' : ''));
     body.append(chips);
-    const cur = list.find((x) => x.q === qSel)!;
+    const idx = list.findIndex((x) => x.q === qSel);
+    const cur = list[idx];
     const p = pl(cur.l);
     const wrap = h('div', 'isl-books');
     wrap.append(plTable(p), bsTable(cur.bs, s));
     body.append(wrap);
+    // 経理（段 F）：コストの大きい順と経理からの助言（前の四半期と比べる）
+    const prev = idx > 0 ? list[idx - 1] : null;
+    body.append(costCard(s, cur.l, prev && prev.q === cur.q - 1 ? prev.l : null, cur.label));
     if (!cur.done) body.append(h('small', 'isl-dim', t(`いまは ${inQ + 1} か月目の途中です。四半期が終わると、マインちゃんが知らせます。`, `Month ${inQ + 1} of this quarter is in progress.`)));
-    const d = date(s);
-    void d;
   });
 }
 
@@ -636,6 +640,8 @@ function plTable(p: ReturnType<typeof pl>): HTMLElement {
   // 発掘 v2 の 7 段目：ランクアップの災害（特別損失・特別利益）
   if (l.levy) row(tbl, t('　特別損失：復興の徴収', '  Special loss: recovery levy'), -l.levy, 'is-sub');
   if (l.grant) row(tbl, t('　特別利益：復興の支度金', '  Special gain: recovery grant'), l.grant, 'is-sub');
+  // 段 F：法人税（四半期の締めの月に）
+  if (p.tax) row(tbl, t('法人税', 'Corporate tax'), -p.tax, 'is-head');
   row(tbl, t('当期の利益', 'Net profit'), p.net, 'is-total');
   return tbl;
 }
