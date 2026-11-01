@@ -207,7 +207,7 @@ describe('他社の巻き返し（Uncommon のセール）', () => {
 describe('セーブ（版 9）', () => {
   it('新しいゲームは版 9・巻き返しなし', () => {
     const s = newP1(12, 'U', 'u1');
-    expect(s.v).toBe(12);
+    expect(s.v).toBe(13);
     expect(s.comeback).toBeNull();
   });
 
@@ -224,7 +224,7 @@ describe('セーブ（版 9）', () => {
     o.v = 8;
     delete o.comeback;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(12);
+    expect(back.v).toBe(13);
     expect(back.comeback).toBeNull();
     expect(back.rivals.every((r) => saleBonus(back, r.id) === 0)).toBe(true);
   });

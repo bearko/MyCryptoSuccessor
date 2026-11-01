@@ -9,7 +9,8 @@ import { center, diamond, drawArt, drawBuilding, drawCell, image, type Camera, t
 import { cells, frontCell, type Dir } from '../sim';
 import { PRODUCT, skuParts, type Sku } from './data';
 import { COIN_KEEP, COIN_MS, PLUS_MS, along, drawRing, drawWalker, floatText, type Anim } from './anim';
-import { DUNGEON, craftDays, doorOf, facilityStatus, ground, isRoad, myWorkshop, reach, roadPath, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
+import { DUNGEON, craftDays, doorOf, facilityStatus, ground, isRoad, isVacant, myWorkshop, reachOf, roadPath, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
+import { areaPaint, companyColor } from './trade';
 import { bounds, cacheScale, covered, drawBorders, drawWorld, roadAt, type World } from './worldrender';
 import { standing } from './digview';
 import { RUIN } from './company';
@@ -151,9 +152,20 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
       for (let i = ghost.i - 6; i <= ghost.i + 6; i++) {
         const d = Math.abs(i - ghost.i) + Math.abs(j - ghost.j);
         if (d > 6 || !ground(s, i, j) || !visible(i, j)) continue;
-        diamond(ctx, i, j, `rgba(255,205,90,${(0.55 * reach(d)).toFixed(3)})`);
+        diamond(ctx, i, j, `rgba(255,205,90,${(0.55 * reachOf(s, d)).toFixed(3)})`);
       }
 
+  // 営業（Rare の町 ②）：商圏の塗り分け（マスごとに、お客さんがいちばん行く会社の色。濃いほど取り分が大きい。仮の塗り。docs/ISLAND_ART_TODO.md）
+  if (areaOverlay.on && s.area) {
+    const key = `${s.day}:${s.buildings.length}:${s.buildings.filter((b) => b.owner === 'me').length}:${s.skills.length}`;
+    if (paintCache.key !== key) paintCache = { key, cells: areaPaint(s) };
+    for (let j = 0; j < s.n; j++)
+      for (let i = 0; i < s.n; i++) {
+        const p = paintCache.cells[j * s.n + i];
+        if (!p || !visible(i, j)) continue;
+        diamond(ctx, i, j, hexA(companyColor(s, p.g), 0.18 + 0.5 * Math.min(1, p.v * 1.3)));
+      }
+  }
   // チュートリアル：建ててもらう場所（金色に光るマスと「ここに建ててみて！」）
   if (anim?.mark) {
     const a = 0.35 + 0.25 * Math.sin(now / 220);
@@ -177,6 +189,11 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
         // 廃墟（ランクアップの災害。発掘 v2 の 7 段目）：元の建物の絵を暗く・傾けて、瓦礫とひびを重ねる（仮の絵。docs/ISLAND_ART_TODO.md）
         if (b.owner === RUIN) {
           drawRuin(ctx, b, def, now);
+          return;
+        }
+        // 空き店舗（Rare の町 ②：撤退した他社の店の跡）：シャッターを下ろした絵と札（閉まったばかりは、シャッターが下りる）
+        if (isVacant(b)) {
+          drawVacant(ctx, b, def, now, shutterFx.get(b.uid) ?? null);
           return;
         }
         if (b.owner !== 'town') for (const [x, y] of cells(def, b.i, b.j, b.dir)) outline(ctx, x, y, b.owner === 'me' ? OWN : RIVAL);
@@ -505,6 +522,80 @@ function drawBubbles(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w: 
   ctx.restore();
 }
 
+
+/** 地図の商圏の塗り分けを出す（営業の画面の「地図で商圏を見る」。main.ts が切り替える） */
+export const areaOverlay = { on: false };
+let paintCache: { key: string; cells: ({ g: string; v: number } | null)[] } = { key: '', cells: [] };
+/** '#rrggbb' → rgba */
+function hexA(hex: string, a: number) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a.toFixed(3)})`;
+}
+/** 他社の店が撤退した時刻（performance.now。シャッターが下りる演出。main.ts が月の締めで入れる） */
+export const shutterFx = new Map<number, number>();
+const SHUTTER_MS = 2200;
+/**
+ * 空き店舗：もとの店の絵を暗くして、入口の前にシャッター（灰色の横じま）を重ね、上に「空き店舗」の札（仮の絵。docs/ISLAND_ART_TODO.md）。
+ * t0（撤退した時刻）から SHUTTER_MS のあいだは、シャッターが上から下りてくる
+ */
+export function drawVacant(ctx: CanvasRenderingContext2D, b: { uid: number; id: string; i: number; j: number; dir: Dir; left: number; owner: string }, def: (typeof DEF)[string], now: number, t0: number | null) {
+  const cs = cells(def, b.i, b.j, b.dir);
+  ctx.save();
+  ctx.setLineDash([8, 6]);
+  for (const [x, y] of cs) outline(ctx, x, y, 'rgba(220,220,220,0.7)');
+  ctx.restore();
+  // t0 が Infinity：報告を閉じるのを待っている（まだ開いている店のまま）
+  const k = t0 == null ? 1 : t0 === Infinity ? 0 : Math.max(0, Math.min(1, (now - t0) / SHUTTER_MS));
+  ctx.save();
+  ctx.filter = `grayscale(${(0.3 + 0.6 * k).toFixed(2)}) brightness(${(1 - 0.35 * k).toFixed(2)})`;
+  drawBuilding(ctx, { ...b, left: 0 }, def, now);
+  ctx.restore();
+  const [fi, fj] = frontCell(def, b.i, b.j, b.dir);
+  const c = center(fi, fj);
+  // シャッター（入口のあたりの四角。上から k の割合まで下りる）
+  const w = 92;
+  const hh = 70;
+  const x0 = c.x - w / 2;
+  const y0 = c.y - 40 - hh;
+  ctx.save();
+  ctx.fillStyle = '#8d939c';
+  ctx.fillRect(x0, y0, w, hh * k);
+  ctx.strokeStyle = 'rgba(40,44,52,0.7)';
+  ctx.lineWidth = 2;
+  for (let y = y0 + 7; y < y0 + hh * k; y += 8) {
+    ctx.beginPath();
+    ctx.moveTo(x0 + 2, y);
+    ctx.lineTo(x0 + w - 2, y);
+    ctx.stroke();
+  }
+  ctx.strokeRect(x0, y0, w, Math.max(1, hh * k));
+  ctx.restore();
+  // 札：「空き店舗」（シャッターが下りきったら）
+  if (k >= 1) {
+    ctx.save();
+    ctx.font = 'bold 24px sans-serif';
+    ctx.textAlign = 'center';
+    const label = t('□ 空き店舗', '□ Vacant');
+    const lw = ctx.measureText(label).width + 20;
+    ctx.fillStyle = 'rgba(250,246,230,0.95)';
+    roundRect(ctx, c.x - lw / 2, c.y - 168, lw, 36, 9);
+    ctx.fill();
+    ctx.strokeStyle = '#3a3f4a';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#2a2f38';
+    ctx.fillText(label, c.x, c.y - 142);
+    ctx.restore();
+  } else if (t0 != null && now - t0 < SHUTTER_MS * 3) {
+    // 閉店の札（シャッターが下りているあいだ）
+    ctx.save();
+    ctx.font = 'bold 22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#e0524f';
+    ctx.fillText(t('閉店', 'Closed'), c.x, c.y - 150);
+    ctx.restore();
+  }
+}
 
 /** 荷車の道（工房・拠点 → お店）。道路は変わらないので覚えておく */
 const tripPaths = new Map<string, [number, number][]>();

@@ -173,9 +173,15 @@ export let SLACK = 0;
     const parts: [string, Branch | undefined, Skill[]][] = d.id === 'logistics' ? LOGI_ORDER.map((b) => [`logistics:${b}`, b, list.filter((k) => k.branch === b)]) : [[d.id, undefined, list]];
     for (const [key, branch, skills] of parts) {
       const g: Group = { key, dept: d.id, branch, a: 0, w: 0, skills };
-      items.push({ d: d.id, g, need: needOf(key, skills), n: skills.length });
+      // 営業（段 C。Rare の外周だけ）は、収まる幅だけ（余りの角度を取らない＝ほかの枝の幅を前と変えない）
+      items.push({ d: d.id, g, need: needOf(key, skills), n: d.id === 'sales' ? 0 : skills.length });
     }
   }
+  // 段 C：営業の枝（パネルの無い細い枝だったもの）が広がったぶんは、ほかのパネルの無い部門の枝から分けてもらう
+  // （パネルのある部門の枝の幅・角度を前と変えない）
+  const sales = items.find((x) => x.d === 'sales' && x.g);
+  const empty = items.filter((x) => !x.g);
+  if (sales && empty.length) for (const x of empty) x.need = Math.max(0.08, EMPTY_W - (sales.need - EMPTY_W) / empty.length);
   const total = items.reduce((a, x) => a + x.need, 0);
   SLACK = Math.PI * 2 - total;
   const nAll = items.reduce((a, x) => a + x.n, 0);
@@ -213,8 +219,10 @@ export let SLACK = 0;
   for (let i = 0; i < ids.length; i++) {
     const L = DEPT_LAYOUT[ids[i]];
     if (!L.groups.length) continue;
-    const P = ids[(i + ids.length - 1) % ids.length];
-    if (!DEPT_LAYOUT[P].groups.length || DEPT_LAYOUT[P].hubR !== HUB || !clash(boxAt(ids[i], HUB), boxAt(P, HUB))) continue;
+    // ひとつ前の、パネルのある部門（あいだのパネルの無い部門は細い枝なので、その先の札とも重なりうる。段 C の営業とシステム）
+    let P = ids[(i + ids.length - 1) % ids.length];
+    for (let k = 1; k < ids.length && !DEPT_LAYOUT[P].groups.length; k++) P = ids[(i + ids.length - 1 - k) % ids.length];
+    if (P === ids[i] || DEPT_LAYOUT[P].hubR !== HUB || !clash(boxAt(ids[i], HUB), boxAt(P, HUB))) continue;
     // 外へずらすのは、根もとの近くに大きめの研究パネルが無いほう
     const bigAt = (d: DeptId) => DEPT_SKILLS[d].some((k) => tierOf(k) === 'C' && (k.big || k.donate));
     if (bigAt(ids[i]) && !bigAt(P)) DEPT_LAYOUT[P].hubR = HUB2;

@@ -12,7 +12,7 @@ import { icon } from '../../ui/dom';
 import { DEF, artId } from '../defs';
 import { effectDone, image, loading, pick, waterFrame, type Camera, type Effect } from '../render';
 import { cells, type Dir } from '../sim';
-import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier } from './data';
+import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO } from './data';
 import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
 import {
   allowedDirs,
@@ -91,7 +91,9 @@ import {
 import type { LevelUp } from './hero';
 import { openMuseum } from './museumui';
 import { along, newAnim, type Walker } from './anim';
-import { drawP1, type P1Ghost } from './render';
+import { areaOverlay, drawP1, shutterFx, type P1Ghost } from './render';
+import { openTrade } from './tradeui';
+import { storeName, surveyed } from './trade';
 import {
   closeSheet,
   openAds,
@@ -218,6 +220,8 @@ let W = 0;
 let H = 0;
 let DPR = 1;
 let dirty = true;
+/** 撤退した他社の店（シャッターの演出を待っている）。月次報告を閉じたら、その店へ地図を寄せてシャッターを下ろす（playShutters） */
+const pendingShutter: number[] = [];
 const cam: Camera = { x: 0, y: (s.n - 1) * 55, zoom: innerWidth < 600 ? 0.3 : 0.5 };
 let speed = 1;
 /** 建てる（move があれば移転） */
@@ -536,6 +540,8 @@ const SUBS: Partial<Record<Menu, Sub[]>> = {
     { key: 'data', name: t('市場調査データ', 'Market data'), note: t('売れ筋・ニーズ', 'Demand and sellers'), go: () => openData(ctx) },
     { key: 'ranking', name: t('企業ランキング', 'Ranking'), note: t('エリア・ランド・世界', 'Area, land, world'), go: () => openRanking(ctx) },
   ],
+  // 営業（段 C：Rare の町に進出すると開く）：商圏の取り合い
+  sales: [{ key: 'area', name: t('商圏の取り合い', 'Trade areas'), note: t('取り分・他社の店・候補地', 'Shares, rival stores, sites'), go: () => openTradeScreen() }],
   systems: [
     { key: 'invest', name: t('設備投資', 'Investment'), note: t('建物ごとの設備', 'Per-building upgrades'), go: () => openInvest(ctx), needs: 'workshop' },
     { key: 'pace', name: t('進行速度', 'Game speed'), note: t('標準・1.5 倍・2 倍', 'Normal, 1.5×, 2×'), go: () => openPace() },
@@ -1146,6 +1152,8 @@ function siteCard(id: string, i: number, j: number, dir: Dir, move?: number): HT
       rows.append(r);
     };
     row(t('近くの家', 'Homes nearby'), t(`${info.homes} 軒`, `${info.homes}`));
+    // 営業の立地調査（Rare の町）：この店の商圏の取り分の予測
+    if (s.area && surveyed(s) && info.share != null) row(t('商圏の取り分（予測）', 'Trade-area share (forecast)'), `${Math.round(info.share * 1000) / 10}%`, 'is-good');
     if (info.fromRivals >= 0.5) row(t('他社から奪う', 'Taken from rivals'), t(`${info.fromRivals.toFixed(1)} 個`, `${info.fromRivals.toFixed(1)}`), 'is-good');
     if (info.rivals) row(t('近くの競合', 'Rivals nearby'), t(`${info.rivals} 社`, `${info.rivals}`), 'is-warn');
     if (info.fromMine >= 0.5) row(t('自社の店と取り合い', 'Cannibalized'), t(`−${info.fromMine.toFixed(1)} 個`, `−${info.fromMine.toFixed(1)}`), 'is-bad');
@@ -3518,15 +3526,79 @@ function renderAll() {
   layout();
   sectorChecks();
   deptChecks();
+  salesTalk();
+  // 撤退した他社の店のシャッター：報告・画面を閉じて地図が見えたら
+  if (pendingShutter.length && !root.querySelector('.isl-modal, .isl-rp-reveal') && !sheetOpen()) playShutters();
 }
 /** 部門のお知らせ（新しく開いた部門・理解度の節目。1 回だけ。docs/ISLAND_PHASE1.md「部門」） */
 function deptChecks() {
+  const had = s.flags.depts?.includes('sales');
   const news = deptNews(s);
   if (!news.length) return;
   for (const n of news) toast(n);
+  // 営業の部門が開いた（Rare の町に初めて進出）：「新しい部門：営業」の演出（マインちゃんの紹介は、到着の案内のあと）
+  if (!had && s.flags.depts?.includes('sales')) newDeptBanner('sales');
   save();
 }
-root.append(worldUi, meetEl, chiefEl, hud, sectorPill, zoomBox, pointEl, missionBox, tourEl, toasts, advisor, nextBtn, placeBox, popEl, foot, selBox, ghostUi);
+/** 「新しい部門」の演出：画面の真ん中に部門のアイコンと名前（光って消える） */
+function newDeptBanner(d: DeptId) {
+  const el = h('div', 'isl-newdept');
+  el.style.setProperty('--br', DEPT[d].color);
+  el.append(h('small', '', t('新しい部門', 'New department')), h('i', '', DEPT[d].icon), h('b', '', DEPT[d].name));
+  for (let k = 0; k < 10; k++) {
+    const sp = h('i', 'isl-spark');
+    sp.style.setProperty('--a', `${k * 36}deg`);
+    el.append(sp);
+  }
+  root.append(el);
+  sfx.play('levelup');
+  setTimeout(() => el.classList.add('is-out'), 2600);
+  setTimeout(() => el.remove(), 3200);
+}
+/** 営業の部門の紹介（マインちゃん。Rare の町に初めて進出したあと 1 回だけ。到着の案内が終わってから） */
+function salesTalk() {
+  if (s.flags.salesTalk || !s.area || !s.flags.depts?.includes('sales') || tutStep() || root.querySelector('.isl-modal') || sheetOpen() || placing) return;
+  s.flags.salesTalk = true;
+  save();
+  talk(
+    SALES_INTRO().map((text) => ({ text })),
+    t('営業を開く', 'Open Sales'),
+    () => goSub('sales', 'area'),
+  );
+}
+/** 営業の画面（商圏の取り合い）を開く */
+function openTradeScreen() {
+  openTrade(ctx, {
+    areaView: () => {
+      closeMenu();
+      areaOverlay.on = true;
+      renderAreaPill();
+      renderAll();
+    },
+    panels: () => {
+      menu = 'strategy';
+      sub = 'tree';
+      closeSheet();
+      openSkills(ctx, 'sales');
+      renderAll();
+    },
+  });
+}
+/** 地図の商圏の塗り分けを出しているあいだの札（押すと消す） */
+const areaPill = h('button', 'isl-area-pill');
+areaPill.type = 'button';
+areaPill.hidden = true;
+areaPill.addEventListener('click', () => {
+  areaOverlay.on = false;
+  renderAreaPill();
+  renderAll();
+});
+function renderAreaPill() {
+  areaPill.hidden = !areaOverlay.on || !s.area;
+  if (!s.area) areaOverlay.on = false;
+  areaPill.replaceChildren(h('span', '', t('🗺 商圏を表示中（色＝お客さんが行く会社）', '🗺 Showing trade areas (color = where customers go)')), h('b', '', '✕'));
+}
+root.append(worldUi, meetEl, chiefEl, hud, sectorPill, areaPill, zoomBox, pointEl, missionBox, tourEl, toasts, advisor, nextBtn, placeBox, popEl, foot, selBox, ghostUi);
 resize();
 renderAll();
 // 始めたばかりなら、建築の一覧を開いておく
@@ -3920,6 +3992,18 @@ function levelNews(ups: LevelUp[]) {
   sfx.play('levelup');
 }
 
+function playShutters() {
+  if (!pendingShutter.length) return;
+  const now = performance.now();
+  const b = s.buildings.find((x) => x.uid === pendingShutter[0]);
+  if (b && tutOf(s) >= TUT_DONE) {
+    cam.x = (b.i - b.j) * 100;
+    cam.y = (b.i + b.j) * 55 - 40;
+  }
+  pendingShutter.forEach((uid, k) => shutterFx.set(uid, now + 300 + k * 500));
+  pendingShutter.length = 0;
+  dirty = true;
+}
 /** 月の締めのトースト：他社の追随・撤退、OJT、他社の反撃 */
 function reportNews(rep: NonNullable<ReturnType<typeof step>['report']>) {
   // 他社の追随：自社が売っている商品を、他社が真似して売り始めた
@@ -3938,6 +4022,19 @@ function reportNews(rep: NonNullable<ReturnType<typeof step>['report']>) {
   // 他社の巻き返し（Uncommon）：2 位の会社がセールを始めた
   const cb = rep.comeback;
   if (cb) toast(plain(t(`[[${cb.by}]]がセールで巻き返してきた！（${cb.months} か月）`, `[[${cb.by}]] is fighting back with a sale! (${cb.months} months)`)));
+  // 商圏の取り合い（Rare の町 ②）：他社の店の撤退（シャッターの演出）・空き店舗に他社が入った・会社が町から撤退
+  const tr = rep.trade;
+  if (tr) {
+    for (const q of tr.quit) {
+      // シャッターの演出は、報告を閉じて地図に戻ったときに（playShutters）
+      shutterFx.set(q.uid, Infinity);
+      pendingShutter.push(q.uid);
+      toast(t(`🏚 ${storeName(s, q.uid, q.rid)}が撤退した！ 空き店舗にすぐ出店できる`, `🏚 ${storeName(s, q.uid, q.rid)} closed! You can move into the vacant store`));
+    }
+    if (tr.quit.length) sfx.play('clear');
+    for (const q of tr.refill) toast(t(`🏪 ${storeName(s, q.uid, q.rid)}が空き店舗に新しく出店した`, `🏪 ${storeName(s, q.uid, q.rid)} opened in a vacant store`));
+    for (const id of tr.gone) toast(t(`${rivalName(id)}が町から撤退した！ ライバルが 1 社減った`, `${rivalName(id)} left town! One fewer rival`));
+  }
 }
 
 /** 会社の月の締め：マネージャーのセクタの結果・四半期の決算 */
@@ -3971,7 +4068,7 @@ function companyNews(c: NonNullable<ReturnType<typeof step>['company']>) {
 let quarterNew: number | null = null;
 
 /** 月次報告の画面からほかの画面へ */
-const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
+const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
 
 function showReport(r: NonNullable<ReturnType<typeof step>['report']>) {
   speed = 0;
@@ -3984,6 +4081,7 @@ function showReport(r: NonNullable<ReturnType<typeof step>['report']>) {
 }
 /** 月次報告（・発掘作業のまとめ報告）を閉じたあと：ランキングの紹介・制覇のお祝い。月末ポーズのまま */
 function afterReport() {
+  playShutters();
   if (tutOf(s) < TUT_DONE) {
     // チュートリアル中は、ランキングの紹介を案内の段（tut.ts の ranking）で出す
     s.flags.ranking = true;
@@ -4082,6 +4180,8 @@ function frame(now: number) {
   for (let k = fx.length - 1; k >= 0; k--) if (effectDone(fx[k], now)) fx.splice(k, 1);
   const wf = waterFrame(now);
   if (changed || fx.length || wf !== lastWater || loading()) dirty = true;
+  // 他社の店の撤退のシャッターが下りているあいだ（月末ポーズで時間が止まっていても描き直す）
+  if (shutterFx.size && [...shutterFx.values()].some((t0) => t0 !== Infinity && now - t0 > -1000 && now - t0 < 5000)) dirty = true;
   // 動いているものがあるときは、30 コマ/秒ほどで描き直す
   if (!held && speed > 0 && now - lastDraw > 33 && animating()) dirty = true;
   lastWater = wf;

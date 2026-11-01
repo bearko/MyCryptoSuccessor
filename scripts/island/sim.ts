@@ -5,13 +5,15 @@
  * ゲームの数値（data.ts・式）は変えない。ここは計測だけ。
  */
 import { writeFileSync } from 'node:fs';
-import { HERO_GROWTH, HERO_RARITIES, aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier } from '../../src/island/p1/data';
+import { HERO_GROWTH, HERO_RARITIES, aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier, RARE_AREA } from '../../src/island/p1/data';
 import { managerApt, RUIN, sectorDef, type RuinLike } from '../../src/island/p1/company';
 import { crowned, moveFee, moveTo } from '../../src/island/p1/land';
 import { delegate, rankUpTier, repairAll, reviveView } from '../../src/island/p1/reset';
 import { MEET_IDLE_DAYS } from '../../src/island/p1/digmeet';
+import { siteCandidates } from '../../src/island/p1/trade';
 import {
   promote,
+  takeVacant,
   accept,
   allowedDirs,
   assign,
@@ -77,6 +79,7 @@ import {
   lvOf,
   nextLevelCost,
   myShops,
+  myShare,
   myWorkshop,
   newP1,
   offeredMissions,
@@ -211,6 +214,8 @@ export interface SectorRun {
   log: { m: number; rank: number; rev: number; top: number; money: number; bn: Stage | undefined; read: Stage }[];
   /** v15：他社の巻き返し（Uncommon のセール）が始まった回数 */
   comeback: number;
+  /** v16c（Rare の町 ②）：最後の月の締めの時点の自社の店の数・撤退させた他社の店・空き店舗に入った数・自社の取り分 */
+  area?: { shops: number; closed: number; took: number; share: number };
   /** v14：100% の再発掘の周回（被災した Common の町に戻って、荒れ地を掘り直す。表の「1 町の平均」には入れない） */
   revisit?: boolean;
   /** v17（段 E1：ヒーローの育成）：離れたときのヒーローの Lv（全員） */
@@ -961,8 +966,34 @@ export function policy(s: P1State, c: Ctx): Action[] {
     if (r && !saving && (s.sector ?? 'c1') === 'c1' && !s.cleared) take('@bench:1', reserve / 2);
     if (r && !saving) {
       const bn = c.lastBn ?? 'sell';
+      // v16c（Rare の町 ②）：営業の画面の手。空き店舗が出たら入る → 「出店の候補地」の上位に店を出す → 宣伝で押す → 営業のパネル
+      if (s.area) {
+        const A = SIM_AREA;
+        let took = 0;
+        for (const cand of siteCandidates(s, 12)) {
+          if (cand.vacant == null || took >= A.vacantPerMonth || cand.gain < A.minGain) continue;
+          if (budget < cand.cost + reserve) break;
+          spend(cand.cost);
+          took++;
+          const uid = cand.vacant;
+          acts.push({ kind: 'vacant', run: () => { const x = takeVacant(s, uid); return typeof x === 'string' ? x : null; } });
+        }
+        const top = siteCandidates(s, 1).find((x) => x.vacant == null);
+        if (!took && top && top.gain >= A.minGain && c.shopsThisMonth === 0 && shopsAll.every((b) => b.left <= 0) && shopsAll.length < A.maxShops && budget > top.cost + reserve) {
+          spend(top.cost);
+          c.shopsThisMonth++;
+          acts.push({ kind: 'build', run: () => build(s, 'general_store', top.i, top.j, top.dir) });
+        }
+        for (const id of A.ads) {
+          const ad = ADS.find((x) => x.id === id)!;
+          if ((s.ads[id] ?? 0) > 0 || budget < ad.cost + reserve * 2) continue;
+          spend(ad.cost);
+          acts.push({ kind: 'ad', run: () => runAd(s, id) });
+        }
+        for (const id of A.panels) if (can(id) && take(id, reserve + budget * (1 - A.panelShare))) break;
+      }
       // 売り場が細ければ、まずお店を 1 軒（月 1 軒まで。棚 2 の輸入品店は資金に余裕があるとき）
-      if (bn === 'sell' && c.shopsThisMonth === 0 && shopsAll.every((b) => b.left <= 0) && shopsAll.length < 5) {
+      else if (bn === 'sell' && c.shopsThisMonth === 0 && shopsAll.every((b) => b.left <= 0) && shopsAll.length < 5) {
         const kind = shopKind();
         buildShop(budget > P1B[kind].cost * 3 + reserve ? kind : 'general_store');
       }
@@ -1068,6 +1099,12 @@ export function policy(s: P1State, c: Ctx): Action[] {
  * 月に perMonth 回まで（値段は押すたびに上がるので、余りが少ない月は押さない）。最短は押さない
  */
 export const SIM_DONATE = { keep: 100000, perMonth: 5 };
+/**
+ * v16c（Rare の町 ②）：通常・100% の Rare の町の営業の手（月末）。空き店舗にはひと月 vacantPerMonth 軒まで入る・
+ * 候補地の 1 位に（自社の取り分の増えが minGain 以上なら）月 1 軒・maxShops 軒まで。宣伝（ads）は切れたら出し直す。
+ * 営業のパネル（panels）は並びの順に、資金の panelShare までで 1 つずつ
+ */
+export const SIM_AREA = { vacantPerMonth: 2, maxShops: 8, minGain: 0.01, ads: ['flyer'], panels: ['sa_survey', 'sa_local', 'sa_dominant', 'sa_road', 'sa_nego', 'sa_edge'], panelShare: 0.3 };
 /** 100% は C・U の研究パネル（無限の強化パネルを除く）を全部開けたら、RP を無限の強化パネルへ（次の Lv の安い順に、RP があるだけ）。上げた Lv の数 */
 export function infSpend(s: P1State): number {
   if (!fullSkills().filter((k) => isResearch(k) && !k.inf).every((k) => has(s, k.id))) return 0;
@@ -1766,6 +1803,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       cur.allRev += r.revenue;
       cur.relicRev += r.relic ?? 0;
       cur.relicRRev += Object.entries(r.bySeries ?? {}).reduce<number>((a, [k, v]) => a + (PRODUCT[k]?.relic?.rare ? (v ?? 0) : 0), 0);
+      if (s.area) cur.area = { shops: myShops(s).length, closed: s.area.closed, took: s.area.took, share: myShare(s) };
       // v8：月の締め。RP が足りなくて止まった月＝詰まりの段に効く研究パネルがあるのに、どれも RP が足りない
       c.dayInMonth = 0;
       c.runsMonth = 0;
@@ -2212,6 +2250,35 @@ export function tables(rep: Report2): string {
     const mr = (f: (x: RunResult['v17']) => number) => `${mean(v(f)).toFixed(1)}（${range(v(f))}）`;
     out.push(
       `| ${POLICY_NAME[p]} | ${fmtH(tot)} | ${off.length ? fmtH(tot0) : '—'} | ${off.length ? `${Math.round((tot0 - tot) / 60)} 分（${(((tot0 - tot) / tot0) * 100).toFixed(1)}%）` : '—'} | ${tierCell('C')} | ${tierCell('U')} | ${tierCell('R')} | ${lvCell('C')} | ${lvCell('U')} | ${lvCell('R')} | ${mr((x) => x.promos)} | ${mr((x) => x.passives)} | ${mr((x) => x.items)} | ${rarTxt} | ${stuck}／${off.length ? stuck0 : '—'} |`,
+    );
+  }
+  out.push('');
+  // v16c：Rare の町 ②（商圏の取り合い・撤退と空き店舗）
+  out.push('### 表 11：Rare の町 ②：商圏の取り合い（v16c。段 C：営業の始まり）');
+  out.push('');
+  out.push(`3 シードの平均（最小〜最大）。Rare の町の数字は制覇した月の締めの時点（\`RARE_AREA\`：距離の重み ${RARE_AREA.d0}・他社 1 社 ${RARE_AREA.stores} 軒・他社の店の引き ×${RARE_AREA.pull}・支店 ×${RARE_AREA.branch}・撤退は取り分が開店のときの ${Math.round(RARE_AREA.quitAt * 100)}% 未満が ${RARE_AREA.quitMonths} か月・空き店舗は ${RARE_AREA.refill} か月で他社が入る）。自動プレイの営業の手は \`SIM_AREA\`（空き店舗に入る → 候補地の 1 位に月 1 軒・${SIM_AREA.maxShops} 軒まで → チラシ → 営業のパネル）。「ランクの順」は Uncommon 1 町の平均 < Rare 1 町の平均。`);
+  out.push('');
+  out.push('| 方針 | Uncommon 1 町の平均 | Rare 1 町の平均 | Rare の制覇までの月数 | 自社の店の数 | 撤退させた他社の店 | 空き店舗に入った | 自社の取り分 | ランクの順（U < R） | 詰まって止まるシード |');
+  out.push('|---|---|---|---|---|---|---|---|---|---|');
+  for (const p of pols) {
+    const runs = rep.runs.filter((r) => r.policy === p);
+    const us = runs.flatMap((x) => x.sectors.filter((r) => r.tier === 'U' && !r.revisit));
+    const rs = runs.flatMap((x) => x.sectors.filter((r) => r.tier === 'R' && !r.revisit));
+    const stuck = runs.filter((x) => !x.done).length;
+    if (!rs.length) {
+      out.push(`| ${POLICY_NAME[p]} | ${us.length ? fmtMin(mean(us.map((r) => secOf(p, r, 'left') ?? 0))) : '—'} | —（C＋U で止める） | — | — | — | — | — | — | ${stuck} |`);
+      continue;
+    }
+    const uMin = mean(us.map((r) => secOf(p, r, 'left') ?? 0));
+    const rSec = rs.map((r) => secOf(p, r, 'left') ?? 0);
+    const rMonths = rs.filter((r) => r.months != null).map((r) => r.months!);
+    const a = (f: (x: NonNullable<SectorRun['area']>) => number, d = 1) => {
+      const v = rs.map((r) => (r.area ? f(r.area) : 0));
+      return `${mean(v).toFixed(d)}（${range(v)}）`;
+    };
+    const share = rs.map((r) => (r.area?.share ?? 0) * 100);
+    out.push(
+      `| ${POLICY_NAME[p]} | ${fmtMin(uMin)} | ${fmtMin(mean(rSec))}（${range(rSec.map((x) => x / 60), (v) => String(Math.round(v)))} 分） | ${rMonths.length ? `${mean(rMonths).toFixed(1)}（${range(rMonths)}）` : '—'} | ${a((x) => x.shops)} | ${a((x) => x.closed)} | ${a((x) => x.took)} | ${mean(share).toFixed(1)}%（${range(share, (v) => v.toFixed(1))}%） | ${uMin < mean(rSec) ? '○' : '×'}（U ${fmtMin(uMin)} ${uMin < mean(rSec) ? '<' : '≧'} R ${fmtMin(mean(rSec))}） | ${stuck} |`,
     );
   }
   out.push('');

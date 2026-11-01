@@ -55,6 +55,8 @@ export const SECTOR_KEYS = [
   'yday',
   // 発掘場（荒れ地 4 か所の進み具合と発掘許可。docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」）
   'dig',
+  // 商圏の取り合い（Rare の町 ②。版 13）
+  'area',
 ] as const;
 
 /** いまのセクタに自社の建物があるか（あれば、離れるときにマネージャーが要る） */

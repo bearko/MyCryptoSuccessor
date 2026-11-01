@@ -14,6 +14,46 @@ import { extIcon } from './digui';
 import { DEEP_LOCK, standing } from './digview';
 import { repairCostOf, repairDaysOf } from './company';
 import { clearRuin, isRuin, repair, repairAll, repairAllCost, repairLock, ruinsOf } from './reset';
+import { areaShares, isVacant, newStorePull, storeRisk, takeVacant, vacantCost, vacantErr } from './model';
+import { RARE_AREA } from './data';
+import { storeName, surveyed } from './trade';
+
+const pct = (v: number) => `${Math.round(v * 1000) / 10}%`;
+/**
+ * 空き店舗の吹き出し（Rare の町 ②）：撤退した他社の店の跡。自社がすぐ出店できる（内装だけ：費用は安く・工期は短い）。
+ * 立地調査があれば取り分の予測。放っておくと別の他社が入る
+ */
+function vacantPop(ctx: Ctx, b: PBuilding, body: HTMLElement, hooks: TileHooks): HTMLElement {
+  const s = ctx.s();
+  const v = s.area?.vacant.find((x) => x.uid === b.uid);
+  const was = v?.was ? storeName(s, b.uid, v.was) : '';
+  body.append(h('p', '', was ? t(`${was}が撤退した跡の空き店舗。内装だけで、すぐ自社の店にできる。`, `A vacant store left by ${was}. A quick fit-out makes it yours.`) : t('空き店舗。内装だけで、すぐ自社の店にできる。', 'A vacant store. A quick fit-out makes it yours.')));
+  const left = Math.max(1, RARE_AREA.refill - (v?.months ?? 0));
+  body.append(
+    meta([
+      [t('費用', 'Cost'), money(vacantCost(s))],
+      [t('工期', 'Work'), t(`${RARE_AREA.vacant.days} 日`, `${RARE_AREA.vacant.days} days`)],
+      [t('ほかの他社が入るまで', 'Until a rival moves in'), t(`約 ${left} か月`, `~${left} mo`)],
+    ]),
+  );
+  if (surveyed(s)) body.append(h('p', 'isl-good', t(`取り分の予測：この店 ${pct(areaShares(s, [{ i: b.i, j: b.j, w: newStorePull(s) }]).extra[0])}`, `Share forecast: ${pct(areaShares(s, [{ i: b.i, j: b.j, w: newStorePull(s) }]).extra[0])} for this store`)));
+  const e = vacantErr(s, b.uid);
+  const row = h('div', 'isl-row');
+  const go = btn(t(`ここに出店（よろず屋・${money(vacantCost(s))}）`, `Open here (general store, ${money(vacantCost(s))})`), () => {
+    const x = takeVacant(s, b.uid);
+    if (typeof x === 'string') return ctx.toast(t('出店できません（資金・条件）', 'Can’t open here (funds or conditions)'));
+    ctx.sfx?.('place');
+    ctx.toast(t(`空き店舗に出店！ ${RARE_AREA.vacant.days} 日で開店します`, `Moved into the vacant store! Opens in ${RARE_AREA.vacant.days} days`));
+    ctx.save();
+    ctx.refresh();
+    hooks.close();
+  }, 'is-on');
+  go.disabled = !!e;
+  row.append(go);
+  body.append(row);
+  if (e === 'money') body.append(h('small', 'isl-bad', t(`あと ${money(vacantCost(s) - s.money)}`, `${money(vacantCost(s) - s.money)} short`)));
+  return body;
+}
 
 /**
  * 廃墟の吹き出し：ランドの災害で壊れた自社の建物。手で直す（元の建物の値段の 40%・工期は短く。設備投資の段は 0 から）か、取り壊す（無料・空き地）。
@@ -172,7 +212,8 @@ export function tileContent(ctx: Ctx, i: number, j: number, hooks: TileHooks): {
     if (isHome) body.append(h('p', 'isl-dim', t(`${DEF[b.id].homes} 世帯が暮らしています。`, `${DEF[b.id].homes} households live here.`)));
     return { title: name, body };
   }
-  return { title: name, body: rival(ctx, b, body, hooks) };
+  if (isVacant(b)) return { title: t('□ 空き店舗', '□ Vacant store'), body: vacantPop(ctx, b, body, hooks) };
+  return { title: s.area ? storeName(s, b.uid) : name, body: rival(ctx, b, body, hooks) };
 }
 
 /** 町の長（セクター長）の家：お題の進み・研究成果の発表（そろっていなければ押せず、理由） */
@@ -515,6 +556,13 @@ function rival(ctx: Ctx, b: PBuilding, body: HTMLElement, hooks: TileHooks): HTM
   const last = s.rivalLast[rid];
   const grid = h('div', 'isl-pop-grid');
   stat(grid, t('先月の売上（公開）', 'Last month (public)'), last ? money(last.total) : '—', 'is-wide');
+  // 商圏の取り合い（Rare の町 ②）：この店の取り分と撤退の危険
+  const ar = s.area?.stores.find((x) => x.uid === b.uid);
+  if (ar) {
+    const r = storeRisk(ar);
+    stat(grid, t('この店の商圏の取り分', 'This store’s share'), t(`${pct(ar.share)}（開店 ${pct(ar.share0)}）`, `${pct(ar.share)} (open ${pct(ar.share0)})`), r.below ? 'is-good' : '');
+    stat(grid, t('撤退の危険', 'Closing risk'), r.below ? t(`あり（あと ${Math.max(1, RARE_AREA.quitMonths - ar.weak)} か月）`, `Yes (${Math.max(1, RARE_AREA.quitMonths - ar.weak)} mo)`) : t('なし', 'None'), r.below ? 'is-good' : '');
+  }
   body.append(grid);
 
   const box = h('div', 'isl-intel');

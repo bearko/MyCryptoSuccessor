@@ -57,6 +57,8 @@ import {
   areaRanking,
   rivalBase,
   saleBonus,
+  rivalAreaMul,
+  edgeMul,
   assign,
   bonus,
   bonusCost,
@@ -1626,7 +1628,11 @@ export function openRanking(ctx: Ctx, tab: 'area' | 'land' | 'world' = 'area') {
       // 他社の巻き返し（Uncommon のセール中）：どの会社が・あと何か月・いまいくら上乗せ
       if (selling) {
         const box = h('p', 'isl-rally');
-        box.append(h('span', 'isl-tag is-bad', t(`セール中（あと ${selling.left} か月）`, `On sale (${selling.left} mo left)`)), h('small', '', t(`あなたが 1 位を取ったので、${rivalName(selling.rid)}がセールで巻き返してきた。売上 +${money(saleBonus(s, selling.rid))}／月（月ごとに弱まる）`, `You took #1, so ${rivalName(selling.rid)} is fighting back with a sale: sales +${money(saleBonus(s, selling.rid))}/mo (fading each month)`)));
+        // Rare の町 ②：セールは売上に足さず、その会社の店の引きが上がる（商圏の取り分を取り返しに来る）
+        const how = s.area
+          ? t(`店の引き ×${(rivalAreaMul(s, selling.rid) / edgeMul(s)).toFixed(2)}（月ごとに弱まる）`, `store pull ×${(rivalAreaMul(s, selling.rid) / edgeMul(s)).toFixed(2)} (fading each month)`)
+          : t(`売上 +${money(saleBonus(s, selling.rid))}／月（月ごとに弱まる）`, `sales +${money(saleBonus(s, selling.rid))}/mo (fading each month)`);
+        box.append(h('span', 'isl-tag is-bad', t(`セール中（あと ${selling.left} か月）`, `On sale (${selling.left} mo left)`)), h('small', '', t(`あなたが 1 位を取ったので、${rivalName(selling.rid)}がセールで巻き返してきた。${how}`, `You took #1, so ${rivalName(selling.rid)} is fighting back with a sale: ${how}`)));
         body.append(box);
       }
       const rows = last ? last.area : areaRanking(s, mine, Object.fromEntries(s.rivals.map((r) => [r.id, rivalBase(s, r)])));

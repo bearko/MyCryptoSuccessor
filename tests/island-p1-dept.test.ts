@@ -35,9 +35,10 @@ describe('部門の定義（DEPTS）', () => {
 });
 
 describe('パネルの部門の割り振り', () => {
-  it('すべてのパネルに部門がある。経理・営業・カスタマーサポート・法務はパネルなし、総務は人材の枝の職場の環境のもの', () => {
+  it('すべてのパネルに部門がある。経理・カスタマーサポート・法務はパネルなし（営業は段 C の 6 枚）、総務は人材の枝の職場の環境のもの', () => {
     for (const k of SKILLS) expect(DEPT[deptOf(k)], k.id).toBeTruthy();
-    for (const d of ['accounting', 'sales', 'support', 'legal'] as const) expect(DEPT_SKILLS[d], d).toHaveLength(0);
+    for (const d of ['accounting', 'support', 'legal'] as const) expect(DEPT_SKILLS[d], d).toHaveLength(0);
+    expect(DEPT_SKILLS.sales.map((k) => k.id)).toEqual(['sa_survey', 'sa_local', 'sa_dominant', 'sa_road', 'sa_nego', 'sa_edge']);
     expect(DEPT_SKILLS.general.map((k) => k.id)).toEqual(expect.arrayContaining(['lounge', 'shift', 'welfare']));
     for (const k of DEPT_SKILLS.general) expect(k.branch).toBe('people');
     // 物流：調達・製造・物流・技の枝はすべて
@@ -55,7 +56,8 @@ describe('パネルの部門の割り振り', () => {
   });
 
   it('効き目・値段・先に要るパネル・外周のランク・エンブレムの条件は、割り振り前と同じ', () => {
-    expect(SKILLS.map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
+    // 段 C で足した営業のパネル（営業の枝）は除いて比べる
+    expect(SKILLS.filter((k) => k.branch !== 'sales').map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
     for (const b of BEFORE) {
       const k = SKILL[b.id as string];
       const now = { id: k.id, name: k.name, note: k.note, cost: k.cost, rp: rpCost(k), cat: k.cat, max: maxLv(k) === Infinity ? 'inf' : maxLv(k), lv5: maxLv(k) >= 5 && maxLv(k) !== Infinity ? levelCost(k, 5) : null, requires: k.requires ?? [], reqLv: k.reqLv ?? null, anyOf: k.anyOf ?? null, brand: k.brand ?? null, tier: k.tier ?? 'C', emblem: k.emblem ?? null, big: !!k.big, train: k.train ?? null, fx: k.fx ?? null, up: k.up ?? null, shown: shownOf(k) };
@@ -83,13 +85,13 @@ describe('部門の理解度（deptLevel）', () => {
 });
 
 describe('開く部門とメニュー', () => {
-  it('はじめは Common の 6 部門がメニューに出る。中身の無い部門（経理・総務・CS・営業・法務）は出ない', () => {
+  it('はじめは Common の 6 部門がメニューに出る。中身の無い部門（経理・総務・CS・法務）と、まだ開くランクに達していない営業は出ない', () => {
     const s = newP1(1);
     expect(menuDepts(s)).toEqual(['marketing', 'logistics', 'systems', 'rnd', 'hr', 'strategy']);
-    for (const d of ['accounting', 'general', 'support', 'sales', 'legal'] as const) {
-      expect(deptOpen(s, d), d).toBe(false);
-      expect(deptReady(d), d).toBe(false);
-    }
+    for (const d of ['accounting', 'general', 'support', 'sales', 'legal'] as const) expect(deptOpen(s, d), d).toBe(false);
+    for (const d of ['accounting', 'general', 'support', 'legal'] as const) expect(deptReady(d), d).toBe(false);
+    // 段 C：営業の中身はできた（Rare に出店すると開く）
+    expect(deptReady('sales')).toBe(true);
   });
 
   it('Uncommon に出店すると経理・総務・CS は開くランクに達するが、中身の段（F・G）まではメニューに出ない', () => {
@@ -154,7 +156,7 @@ describe('部門のお知らせ（トースト）', () => {
 
 describe('セーブ（版 11）', () => {
   it('新しいゲームは版 11。版 10 の古いセーブは、取ったパネル・レベルがそのまま版 11 になり、届いていた節目はまとめて出さない', () => {
-    expect(newP1(1).v).toBe(12);
+    expect(newP1(1).v).toBe(13);
     const s = newP1(2);
     s.skills = ['host', 'display', 'vmd', 'golden', 'jig', 'lounge', 'shift'];
     s.skillLv = { host: 5, jig: 3 };
@@ -163,7 +165,7 @@ describe('セーブ（版 11）', () => {
     delete o.flags.depts;
     delete o.flags.deptMarks;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(12);
+    expect(back.v).toBe(13);
     expect(back.skills).toEqual(s.skills);
     expect(back.skillLv).toEqual(s.skillLv);
     expect(deptLevel(back, 'logistics')).toBe(5 + 1 + 3);
@@ -187,7 +189,7 @@ describe('スキルツリー：11 本の部門の枝', () => {
     // パネルの数が多い部門ほど枝が広い（物流がいちばん広い・パネルの無い部門がいちばん細い）
     const w = (d: keyof typeof DEPT_LAYOUT) => DEPT_LAYOUT[d].w;
     for (const d of DEPTS) if (d.id !== 'logistics') expect(w('logistics')).toBeGreaterThan(w(d.id));
-    for (const d of ['accounting', 'sales', 'support', 'legal'] as const) for (const x of ['hr', 'marketing', 'systems', 'strategy', 'rnd'] as const) expect(w(d)).toBeLessThan(w(x));
+    for (const d of ['accounting', 'support', 'legal'] as const) for (const x of ['hr', 'marketing', 'systems', 'strategy', 'rnd'] as const) expect(w(d)).toBeLessThan(w(x));
     expect(RING_OUT.L).toBeLessThanOrEqual(21);
   });
 

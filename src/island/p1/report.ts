@@ -61,6 +61,8 @@ export interface ReportHooks {
   openNotes?: () => void;
   /** ヒーローの育成（「今月のレベルアップ」の導線。段 E1） */
   openGrowth?: () => void;
+  /** 営業の画面（Rare の町の「商圏の取り分」の導線） */
+  openTrade?: () => void;
   /** 効果音 */
   sfx?: (k: 'sale' | 'win' | 'levelup' | 'check' | 'report' | 'drum' | 'error') => void;
 }
@@ -490,6 +492,20 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
         cb.append(h('span', 'isl-tag is-bad', t('巻き返し', 'Comeback')), long, short);
         c2.append(cb);
         body.classList.add('has-sale');
+      }
+      // 商圏の取り合い（Rare の町 ②）：自社の取り分（先月から）・撤退した他社の店・空き店舗に入った他社
+      if (r.trade) {
+        const tr = r.trade;
+        const p1 = (v: number) => `${Math.round(v * 1000) / 10}%`;
+        const line = h('div', 'isl-rp-trade');
+        const txt = h('span', 'isl-rp-trade-text');
+        const move = tr.prev != null ? `${p1(tr.prev)} → ${p1(tr.share)}` : p1(tr.share);
+        const extra = [tr.quit.length ? t(`撤退 ${tr.quit.length} 軒`, `${tr.quit.length} closed`) : '', tr.refill.length ? t(`他社が空き店舗に ${tr.refill.length} 軒`, `${tr.refill.length} vacancies refilled`) : '', tr.gone.length ? t(`町から撤退 ${tr.gone.length} 社`, `${tr.gone.length} left town`) : ''].filter(Boolean).join(t('・', ' · '));
+        txt.append(h('b', '', t('🤝 商圏の取り分', '🤝 Trade-area share')), h('span', 'is-long', `${move}${extra ? t(`（${extra}）`, ` (${extra})`) : ''}`), h('span', 'is-short', `${move}${tr.quit.length ? t(`・撤退 ${tr.quit.length}`, ` · ${tr.quit.length} closed`) : ''}`));
+        line.append(txt);
+        if (hooks.openTrade) line.append(btn(t('営業', 'Sales'), () => hooks.openTrade?.(), 'isl-rp-go'));
+        c2.append(line);
+        body.classList.add('has-trade');
       }
       const me = r.area.findIndex((x) => x.me);
       const mySales = me >= 0 ? r.area[me].sales : r.revenue;

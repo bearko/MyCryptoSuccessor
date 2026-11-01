@@ -135,7 +135,8 @@ describe('外周のボリューム（Uncommon 以降）', () => {
     // 発掘の枝（9 本目。お金パネルだけ・大きめの研究パネルなし）は別に数える（tests/island-p1-dig2b.test.ts）
     const BR = BRANCHES.filter((b) => b.key !== 'dig');
     for (const tier of ['U', 'R', 'E', 'L'] as const) {
-      const all = SKILLS.filter((k) => k.tier === tier && k.branch !== 'dig');
+      // 営業の枝（段 C。Rare の外周 6 枚）も別に数える（tests/island-p1-sales.test.ts）
+      const all = SKILLS.filter((k) => k.tier === tier && k.branch !== 'dig' && k.branch !== 'sales');
       const n = all.filter((k) => !k.big).length;
       expect(n, tier).toBeGreaterThanOrEqual(52);
       expect(n, tier).toBeLessThanOrEqual(60);
