@@ -2061,6 +2061,16 @@ export const DIG_SITES: Record<string, { topics: number[]; finds: number[] }> = 
   r4: { topics: [3047, 3046, 3038, 3122], finds: [3019, 3089, 3093, 3155, 3160, 3113, 3186, 3016, 3008, 3017] },
 };
 
+/** エクステの id → シリーズの key（catalog.json の series.key。カタログに無ければ「#id」） */
+let seriesKeys: Map<number, string> | null = null;
+export function seriesOf(ext: number): string {
+  if (!seriesKeys) {
+    seriesKeys = new Map();
+    for (const x of allSeries) for (const e of x.items) if (!seriesKeys.has(e.id)) seriesKeys.set(e.id, x.key);
+  }
+  return seriesKeys.get(ext) ?? `#${ext}`;
+}
+
 // ---------------------------------------------------------------- 復刻品（発掘 v2 の 3 段目。docs/ISLAND_PHASE1.md「3. 復刻品」）
 
 /** 復刻品の商品キー（「Relic-1122」。SKU は「Relic-1122:C」。いまの 17 商品のキーと重ならない） */
@@ -2098,9 +2108,13 @@ export const DUNGEON_FINDS: Record<string, Partial<Record<Tier, number[]>>> = ((
     }
     return out;
   };
-  // Rare の町 ①：Rare の荒れ地のお題は、ほかのセクタのダンジョンにも出さない（お題はそのセクタだけ）
-  const rTopics = new Set(Object.entries(DIG_SITES).filter(([id]) => id.startsWith('r')).flatMap(([, x]) => x.topics));
-  const pools: Partial<Record<Tier, number[]>> = { U: uFinds, R: byRar('R').filter((id) => !rTopics.has(id)), E: byRar('E'), L: byRar('L') };
+  // Rare の町 ①：Rare の荒れ地のお題は、ほかのセクタのダンジョンにも出さない（お題はそのセクタだけ）。
+  // 売れるシリーズ（MARKET_SERIES）：Rare の荒れ地の出土品（お題以外も）のシリーズは、Common・Uncommon のダンジョンに出さない
+  // （Rare の町では新しいシリーズが出る。ダンジョンの Rare は Epic の町の骨董の需要へ）。荒れ地の側の選び（テーマ・依頼）はそのまま、ダンジョンの側を選び直す
+  const rSeries = new Set(Object.entries(DIG_SITES).filter(([id]) => id.startsWith('r')).flatMap(([, x]) => [...x.topics, ...x.finds]).map((e) => seriesOf(e)));
+  const notR = (xs: number[]) => xs.filter((id) => !rSeries.has(seriesOf(id)));
+  // Epic・Legendary も同じ（シリーズの単位で重ならない。Epic の町の骨董の需要はダンジョンのシリーズだけ）
+  const pools: Partial<Record<Tier, number[]>> = { U: uFinds, R: notR(byRar('R')), E: notR(byRar('E')), L: notR(byRar('L')) };
   const out: Record<string, Partial<Record<Tier, number[]>>> = {};
   for (const id of Object.keys(DIG_SITES)) {
     // Rare のセクタ：上のランクは Epic・Legendary（2 × 2）
@@ -2192,6 +2206,38 @@ export const RELICS: ProductDef[] = (() => {
   return [...out.values()];
 })();
 for (const p of RELICS) PRODUCT[p.key] = p;
+
+/**
+ * 売れるシリーズ（ランクの町ごとの市場。docs/ISLAND_PHASE1.md「売れるシリーズ・売れないシリーズ」）。
+ * - Common・Uncommon：制限なし（いまの商品・復刻品がいまどおり売れる）。
+ * - Rare：Rare の 4 町の荒れ地（お題・出土品）のシリーズの Rare の復刻品だけが売れる。いまの商品（Common は commonPull のまま）・
+ *   Common・Uncommon の復刻品はいまどおり。Common・Uncommon のダンジョンで出た Rare のシリーズは入れない（Rare の町では売れない）。
+ * - Epic・Legendary（まだ無い。soon）：これまでの各ダンジョンで掘った Rare 以上のシリーズを「骨董の需要」（antique）として入れる前提のデータだけ。
+ * relics・antique はシリーズの key。町ごとの違いは無し（ランクの単位で決める）
+ */
+export interface SeriesMarket {
+  /** Rare 以上の復刻品のうち、このランクの町で売れるシリーズ（無ければ制限なし） */
+  relics?: string[];
+  /** 骨董の需要：ダンジョンで掘った Rare 以上のシリーズ（Epic 以降） */
+  antique?: string[];
+  /** まだ遊べないランク（データの準備だけ） */
+  soon?: boolean;
+}
+export const MARKET_SERIES: Record<Tier, SeriesMarket> = (() => {
+  const uniq = (xs: number[]) => [...new Set(xs.map((e) => seriesOf(e)))].sort();
+  const rDig = uniq(Object.entries(DIG_SITES).filter(([id]) => id.startsWith('r')).flatMap(([, d]) => [...d.topics, ...d.finds]));
+  // 骨董の需要：Common・Uncommon・Rare のダンジョンの奥で出る Rare 以上のシリーズ
+  const antique = uniq(Object.values(DUNGEON_FINDS).flatMap((x) => [...(x.R ?? []), ...(x.E ?? []), ...(x.L ?? [])]));
+  return { C: {}, U: {}, R: { relics: rDig }, E: { soon: true, antique }, L: { soon: true, antique } };
+})();
+/** その復刻品が、そのランクの町で売れるか（Rare 以上の復刻品だけ市場で決まる。ほかはいつも売れる） */
+export function relicSells(p: Pick<ProductDef, 'relic'> | undefined, tier: Tier): boolean {
+  if (!p?.relic?.rare) return true;
+  const m = MARKET_SERIES[tier];
+  if (m.soon || !m.relics) return true;
+  const k = seriesOf(p.relic.ext);
+  return m.relics.includes(k) || (m.antique ?? []).includes(k);
+}
 /** その遺物（エクステの id）の復刻品。無ければ undefined */
 export const relicOf = (ext: number): ProductDef | undefined => PRODUCT[relicKey(ext)];
 

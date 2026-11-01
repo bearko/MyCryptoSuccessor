@@ -70,6 +70,7 @@ import {
   RELICS,
   isRelic,
   relicOf,
+  relicSells,
   RIVAL_GROWTH,
   SHOP,
   CHEAP_RATE,
@@ -683,7 +684,9 @@ export const tierOk = (p: ProductDef, tier: Tier) => TIER_ORDER.indexOf(p.tier ?
  */
 export function baseDemand(p: ProductDef, tier: Tier, prof?: SectorProfile): number {
   if (!tierOk(p, tier)) return 0;
-  // 復刻品：どのセクタでも売れる（昔の Lime の品として人気）。ランクの需要 × 町の大きさ（家の数）に比例
+  // 復刻品：どのセクタでも売れる（昔の Lime の品として人気）。ランクの需要 × 町の大きさ（家の数）に比例。
+  // ただし Rare 以上の復刻品は、そのランクの町の売れるシリーズ（MARKET_SERIES）に無ければ需要 0（売れない）
+  if (p.relic && !relicSells(p, tier)) return 0;
   if (p.relic) return p.demand * TIERS[tier].demand * (prof?.homes ?? 1);
   const niche = p.tech && !prof?.gap?.includes(p.key) ? MARKET.niche : 1;
   return p.demand * TIERS[tier].demand * (prof?.demand?.[p.key] ?? 1) * niche;
@@ -2046,9 +2049,14 @@ export function raise(s: P1State, hero: number): string | null {
 
 // ---------------------------------------------------------------- お店
 
+/** この町で売れない商品（Rare の町のダンジョン由来の Rare の復刻品など。MARKET_SERIES）。棚に並べられない */
+export const unsellableHere = (s: Pick<P1State, 'tier'>, key: string) => !relicSells(PRODUCT[key], s.tier ?? 'C');
+
 export function setShelf(s: P1State, uid: number, idx: number, x: Sku | null): boolean {
   const sh = s.shops[uid];
   if (!sh || idx >= sh.shelves.length) return false;
+  // この町で売れない商品は並べない（作って倉庫に貯めるのはよい）
+  if (x && unsellableHere(s, skuParts(x)[0])) return false;
   const prev = sh.shelves[idx];
   sh.shelves[idx] = x;
   // 棚から外した商品が、このお店のどの棚にも無くなったら、棚に残っていた分は裏へ戻す
@@ -3335,6 +3343,30 @@ export function syncRelics(s: P1State) {
   s.recipes ??= {};
   for (const [id, n] of Object.entries(s.research ?? {})) if (researchLv(n ?? 0) >= DIG_BALANCE.relic.openLv) openRelic(s, Number(id));
   relicDemand(s);
+  pullUnsellable(s);
+}
+/**
+ * この町で売れない復刻品（MARKET_SERIES。Rare の町のダンジョン由来の Rare の復刻品）：需要は 0、棚・お店の裏にあれば倉庫へ戻す。
+ * 以前のセーブ（Rare の町で並べていた）とセクタの移動のため。戻した数（個）
+ */
+export function pullUnsellable(s: P1State): number {
+  let moved = 0;
+  for (const k of Object.keys(s.recipes ?? {})) {
+    if (!unsellableHere(s, k)) continue;
+    if (s.demand[k]) s.demand[k] = 0;
+    for (const sh of Object.values(s.shops)) {
+      const xs = new Set([...sh.shelves.filter((x): x is Sku => !!x && skuParts(x)[0] === k), ...(Object.keys(sh.shelf) as Sku[]).filter((x) => skuParts(x)[0] === k), ...(Object.keys(sh.storage) as Sku[]).filter((x) => skuParts(x)[0] === k)]);
+      for (const x of xs) {
+        const n = (sh.shelf[x] ?? 0) + (sh.storage[x] ?? 0);
+        if (n > 0) s.stock[x] = (s.stock[x] ?? 0) + n;
+        moved += n;
+        delete sh.shelf[x];
+        delete sh.storage[x];
+        sh.shelves = sh.shelves.map((y) => (y === x ? null : y));
+      }
+    }
+  }
+  return moved;
 }
 /** 独占が切れる日（まだ売っていなければ null） */
 export const monopolyEnd = (s: Pick<P1State, 'recipes'>, key: string): number | null => {

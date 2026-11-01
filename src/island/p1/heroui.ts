@@ -7,6 +7,7 @@ import { DEF } from '../defs';
 import { MATS, PRODUCT, rivalDef, SECTORS, SKILL, TASKS, aptitude, skuParts, skuPrice, techSkill, type Mat, type Sku, type Task } from './data';
 import { assign, canSwap, DAYS, relicMinCraft, releaseForSwap, restDaysLeft, swapStops, sellEstimate, batchOf, craftCheck, craftDays, has, knownOf, monopolyLeft, recipeOf, saturated, staffOf, trainingOf, unitCost, type Need, type P1State, type Staff } from './model';
 import { bar, btn, h, heroIcon, heroName, matIcon, money, skuIcon, skuName } from './ui';
+import { seriesTag } from './digview';
 
 export const TASK_NAME: Record<Task, string> = { ...(Object.fromEntries(TASKS.map((x) => [x.key, x.name])) as Record<Task, string>), side: t('バイト', 'Part-time'), manager: t('セクタマネージャー', 'Sector manager'), train: t('修行', 'Training'), dig: t('発掘', 'Digging') };
 
@@ -446,9 +447,9 @@ export function monthOutlook(s: P1State, x: Sku) {
  * 左：名前・販売価格・1 ロットの素材（保有数）・生産可能数（ロット）・全部作るときの素材。
  * 右：生産ペース・粗利／個・需要・見込利益／月・取扱企業。
  */
-export function extCard(s: P1State, x: Sku, o: { worker?: number | null; on?: boolean; best?: boolean; badge?: string; making?: boolean; onTap?: () => void; compact?: boolean } = {}): HTMLElement {
+export function extCard(s: P1State, x: Sku, o: { worker?: number | null; on?: boolean; best?: boolean; badge?: string; making?: boolean; onTap?: () => void; compact?: boolean; off?: boolean } = {}): HTMLElement {
   const [k, r] = skuParts(x);
-  const card = h(o.onTap ? 'button' : 'div', `isl-ext-card is-2col ${o.on ? 'is-on' : ''} ${o.best || o.badge ? 'is-best' : ''}`);
+  const card = h(o.onTap ? 'button' : 'div', `isl-ext-card is-2col ${o.on ? 'is-on' : ''} ${o.best || o.badge ? 'is-best' : ''} ${o.off ? 'is-off' : ''}`);
   if (card instanceof HTMLButtonElement) card.type = 'button';
   const left = h('div', 'isl-ext-l');
   const right = h('div', 'isl-ext-r');
@@ -464,6 +465,9 @@ export function extCard(s: P1State, x: Sku, o: { worker?: number | null; on?: bo
     tags.append(h('span', 'isl-tag isl-relic-tag', t('復刻', 'Revival')));
     const left = monopolyLeft(s, k);
     if (left > 0) tags.append(h('span', 'isl-tag is-gold', s.recipes?.[k]?.sold != null ? t(`独占 あと ${left} か月`, `Monopoly ${left} mo`) : t(`独占 ${left} か月`, `Monopoly ${left} mo`)));
+    // 売れるシリーズの札（Rare の復刻品：Rare の町で売れる／この町では売れない）
+    const sg = seriesTag(PRODUCT[k].relic!.ext, s.tier);
+    if (sg) tags.append(h('span', `isl-tag ${sg[1] ? 'is-good' : 'is-bad'}`, sg[0]));
   }
   const err = craftCheck(s, x, o.worker ?? null);
   if (err === 'tech') tags.append(h('span', 'isl-tag is-bad', techNeed(k, s) ?? ''));
@@ -522,14 +526,16 @@ export function knownBar(v: number): HTMLElement {
 export function pickExt(
   root: HTMLElement,
   s: P1State,
-  o: { title: string; items: Sku[]; current: Sku | null; worker?: number | null; note?: string; onPick: (x: Sku | null) => void; allowNone?: boolean; badge?: { x: Sku; text: string } | null; making?: Sku[] },
+  o: { title: string; items: Sku[]; current: Sku | null; worker?: number | null; note?: string; onPick: (x: Sku | null) => void; allowNone?: boolean; badge?: { x: Sku; text: string } | null; making?: Sku[]; blocked?: (x: Sku) => boolean; onBlocked?: (x: Sku) => void },
 ) {
   // 技がまだの商品はうしろへ（カードに「技：○○が要る」）
   const locked = (x: Sku) => Number(craftCheck(s, x, null) === 'tech');
-  const list = [...o.items].sort((a, b) => locked(a) - locked(b) || profitPerDay(s, b) - profitPerDay(s, a));
+  // この町で売れない商品（棚に並べられない）は、いちばんうしろへ
+  const off = (x: Sku) => Number(!!o.blocked?.(x));
+  const list = [...o.items].sort((a, b) => off(a) - off(b) || locked(a) - locked(b) || profitPerDay(s, b) - profitPerDay(s, a));
   // 印をつけたもの（おすすめ・工房で作っているもの）を先頭に
   if (o.badge && list.includes(o.badge.x)) list.splice(0, 0, ...list.splice(list.indexOf(o.badge.x), 1));
-  const ok = list.filter((x) => lotsFromStock(s, x) > 0 && !craftCheck(s, x, o.worker ?? null));
+  const ok = list.filter((x) => !off(x) && lotsFromStock(s, x) > 0 && !craftCheck(s, x, o.worker ?? null));
   const best = ok[0] ?? null;
   drawer(root, o.title, o.note ?? t('素材 → 商品のつながりと、今の素材で何ロット作れるか、1 日あたりの粗利を見比べて選びましょう。', 'Compare materials → product, how many lots your stock makes, and gross profit per day.'), (body, close) => {
     const grid = h('div', 'isl-ext-grid');
@@ -541,7 +547,13 @@ export function pickExt(
           best: !o.badge && x === best,
           badge: o.badge?.x === x ? o.badge.text : undefined,
           making: o.making?.includes(x),
+          // この町で売れない商品（棚）：灰色で、押すと止める（引き出しは閉じない）
+          off: o.blocked?.(x),
           onTap: () => {
+            if (o.blocked?.(x)) {
+              o.onBlocked?.(x);
+              return;
+            }
             close();
             o.onPick(x);
           },

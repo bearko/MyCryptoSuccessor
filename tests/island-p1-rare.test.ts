@@ -5,15 +5,20 @@
  * Rare の復刻品（Rare 進出後に研究 Lv3 で開く・Uncommon より高い）・Rare の他社・古いセーブ。
  */
 import { describe, expect, it } from 'vitest';
-import { DIG_BALANCE, DIG_SITES, DUNGEON_FINDS, RARE_RIVAL, RELICS, RESEARCH_NEED, RESET, RP_GAIN, SECTORS, TABLETS, TIERS, UNCOMMON, fundsOf, grantOf, rivalsOf, skuPrice } from '../src/island/p1/data';
+import { DIG_BALANCE, DIG_SITES, DUNGEON_FINDS, MARKET_SERIES, PRODUCTS, RARE_RIVAL, RELICS, RESEARCH_NEED, RESET, RP_GAIN, SECTORS, TABLETS, TIERS, UNCOMMON, fundsOf, grantOf, relicOf, relicSells, rivalsOf, seriesOf, sku, skuPrice } from '../src/island/p1/data';
+import { sectorProfile } from '../src/island/p1/company';
 import { RUIN, sectorState } from '../src/island/p1/company';
 import { letterLock, letterLockOf, letterLocked, moveTo, recOf } from '../src/island/p1/land';
 import { lettersLeft, letterToGet, presentAfter, presentPages, topicsPage } from '../src/island/p1/digmeet';
-import { relicLine } from '../src/island/p1/digview';
+import { relicLine, seriesTag } from '../src/island/p1/digview';
 import { pendingReset, rankUpTier, reviveView } from '../src/island/p1/reset';
 import {
   allowedDirs,
+  baseDemand,
   build,
+  pullUnsellable,
+  setShelf,
+  unsellableHere,
   craftCheck,
   deserializeP1,
   extRank,
@@ -279,5 +284,114 @@ describe('5. セーブ（版 10）', () => {
     // 新しいゲームは版 10
     expect(newP1(1).v).toBe(10);
     void setLevel;
+  });
+});
+
+describe('6. 売れるシリーズ（Rare の町では新しいシリーズ。ダンジョン由来の Rare は Rare の町で売れない）', () => {
+  const rDig = Object.entries(DIG_SITES).filter(([id]) => id.startsWith('r')).flatMap(([, d]) => [...d.topics, ...d.finds]);
+  // Common・Uncommon のセクタのダンジョンで出る Rare 以上
+  const dungeonUp = Object.entries(DUNGEON_FINDS).filter(([id]) => !id.startsWith('r')).flatMap(([, x]) => [...(x.R ?? []), ...(x.E ?? []), ...(x.L ?? [])]);
+  const dungeonRare = dungeonUp.find((e) => relicOf(e)?.relic?.rare)!;
+
+  it('Rare の町の荒れ地のシリーズ（お題・出土品とも）は、Common・Uncommon のダンジョンの Rare 以上のシリーズと重ならない', () => {
+    const a = new Set(rDig.map(seriesOf));
+    const b = new Set(dungeonUp.map(seriesOf));
+    expect([...a].filter((k) => b.has(k))).toEqual([]);
+    // ダンジョンの Rare はいまの数のまま（セクタごと pick 種）
+    for (const [id, x] of Object.entries(DUNGEON_FINDS)) if (!id.startsWith('r')) expect(x.R, id).toHaveLength(DIG_BALANCE.dungeon.pick);
+    // 市場：Rare は荒れ地のシリーズ。Epic・Legendary は準備中で、骨董の需要にダンジョンの Rare 以上のシリーズ
+    expect(new Set(MARKET_SERIES.R.relics)).toEqual(a);
+    expect(MARKET_SERIES.C.relics).toBeUndefined();
+    expect(MARKET_SERIES.U.relics).toBeUndefined();
+    for (const k of ['E', 'L'] as const) {
+      expect(MARKET_SERIES[k].soon).toBe(true);
+      for (const e of dungeonUp) expect(MARKET_SERIES[k].antique).toContain(seriesOf(e));
+    }
+  });
+
+  it('ダンジョン由来の Rare の復刻品は、レシピは開くが Rare の町では売れない（需要 0・棚に並べられない・札「この町では売れない」）', () => {
+    expect(dungeonRare).toBeTruthy();
+    const s = newP1(4, 'R', 'r1');
+    s.tut = 99;
+    s.money = 1e7;
+    s.flags.hq = true;
+    s.flags.digMeet = 'done';
+    s.research[dungeonRare] = RESEARCH_NEED[2];
+    syncRelics(s);
+    const key = `Relic-${dungeonRare}`;
+    expect(s.recipes[key]).toBeTruthy();
+    expect(relicSells(relicOf(dungeonRare), 'R')).toBe(false);
+    expect(unsellableHere(s, key)).toBe(true);
+    expect(s.demand[key]).toBe(0);
+    expect(baseDemand(relicOf(dungeonRare)!, 'R', sectorProfile(s))).toBe(0);
+    put(s, 'workshop');
+    const b = put(s, 'general_store', 3);
+    expect(setShelf(s, b.uid, 0, relicSku(key))).toBe(false);
+    expect(s.shops[b.uid].shelves[0]).toBeNull();
+    expect(seriesTag(dungeonRare, 'R')).toEqual([expect.stringContaining('この町では売れない'), false]);
+    expect(seriesTag(dungeonRare)![0]).toContain('Epic の町で骨董');
+    // 展示館の価値はそのまま（R 5）
+    expect(DIG_BALANCE.museum.val).toMatchObject({ R: 5, E: 15, L: 40 });
+  });
+
+  it('Rare の町の荒れ地の Rare の復刻品は売れる（需要 ×3 × 家・棚に並べられる・札「Rare の町で売れる」）', () => {
+    const ext = DIG_SITES.r2.finds[3];
+    const s = newP1(4, 'R', 'r1');
+    s.tut = 99;
+    s.money = 1e7;
+    s.flags.hq = true;
+    s.flags.digMeet = 'done';
+    s.research[ext] = RESEARCH_NEED[2];
+    syncRelics(s);
+    const key = `Relic-${ext}`;
+    expect(relicSells(relicOf(ext), 'R')).toBe(true);
+    expect(s.demand[key]).toBe(DIG_BALANCE.relic.demandBase * TIERS.R.demand * (sectorProfile(s)?.homes ?? 1));
+    put(s, 'workshop');
+    const b = put(s, 'general_store', 3);
+    expect(setShelf(s, b.uid, 0, relicSku(key))).toBe(true);
+    expect(seriesTag(ext, 'R')).toEqual([expect.stringContaining('Rare の町で売れる'), true]);
+  });
+
+  it('Common・Uncommon の売れ方は前と同じ（全商品・全復刻品の需要の式・Rare の町のいまの商品と Uncommon の復刻品も）', () => {
+    for (const tier of ['C', 'U'] as const) {
+      for (const id of SECTORS.filter((x) => x.tier === tier).map((x) => x.id)) {
+        const prof = sectorProfile({ sector: id } as P1State);
+        for (const p of RELICS) {
+          expect(relicSells(p, tier)).toBe(true);
+          expect(baseDemand(p, tier, prof)).toBe(p.demand * TIERS[tier].demand * (prof?.homes ?? 1));
+        }
+      }
+    }
+    // Rare の町でも、いまの商品と Common・Uncommon の復刻品は制限なし（Common の売れにくさは ×0.35 のまま）
+    for (const p of [...PRODUCTS, ...RELICS.filter((x) => !x.relic!.rare)]) expect(relicSells(p, 'R')).toBe(true);
+    expect(TIERS.R.commonPull).toBe(0.35);
+    void sku;
+  });
+
+  it('以前のセーブ：Rare の町の棚にダンジョン由来の Rare の復刻品があれば、倉庫へ戻す（需要も 0 に）', () => {
+    const s = newP1(4, 'R', 'r1');
+    s.tut = 99;
+    s.money = 1e7;
+    s.flags.hq = true;
+    s.flags.digMeet = 'done';
+    s.research[dungeonRare] = RESEARCH_NEED[2];
+    const key = `Relic-${dungeonRare}`;
+    const x = relicSku(key);
+    put(s, 'workshop');
+    const b = put(s, 'general_store', 3);
+    // 前の版で並べていた状態をつくる
+    s.recipes[key] = { at: 0 };
+    s.shops[b.uid].shelves[0] = x;
+    s.shops[b.uid].shelf[x] = 3;
+    s.shops[b.uid].storage[x] = 5;
+    s.demand[key] = 40;
+    s.stock[x] = 2;
+    const back = deserializeP1(serializeP1(s))!;
+    expect(back.shops[b.uid].shelves[0]).toBeNull();
+    expect(back.shops[b.uid].shelf[x]).toBeUndefined();
+    expect(back.shops[b.uid].storage[x]).toBeUndefined();
+    expect(back.stock[x]).toBe(10);
+    expect(back.demand[key]).toBe(0);
+    expect(pullUnsellable(back)).toBe(0);
   });
 });

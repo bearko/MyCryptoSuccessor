@@ -6,9 +6,10 @@
  */
 import { t } from '../../i18n';
 import { DEF } from '../defs';
-import { aptitude, SHOP, type Sku } from './data';
+import { aptitude, SHOP, skuParts, type Sku } from './data';
+import { UNSELLABLE_TEXT } from './digview';
 import { pickExt, rankEl } from './heroui';
-import { assign, myShops, partMax, setPart, setShelf, shopArea, shopEstimates, staffOf, type P1State, type PBuilding, type Staff } from './model';
+import { assign, myShops, partMax, setPart, setShelf, shopArea, shopEstimates, staffOf, unsellableHere, type P1State, type PBuilding, type Staff } from './model';
 import { openSupply } from './scm';
 import { after, craftable, mineTip, open, openShop, pickClerk, pickShelf, shelfMoved, type Ctx } from './screens';
 import { bar, btn, h, heroIcon, heroName, money, skuIcon, skuName } from './ui';
@@ -171,7 +172,7 @@ export function openSales(ctx: Ctx) {
     bulk.append(h('h3', '', t('一括で変える', 'Change all at once')), h('p', 'isl-dim', t('お店ごとに同じ操作をくり返さなくてよいように。外した商品の棚の残りは裏に戻ります。', 'So you don’t repeat the same step per shop. Items taken off a shelf go to the back room.')));
     const row = h('div', 'isl-row');
     const pickAll = (title: string, note: string, apply: (x: Sku) => void) =>
-      pickExt(ctx.root, s, { title, items: items(), current: null, making, badge, note, onPick: (x) => x && apply(x) });
+      pickExt(ctx.root, s, { title, items: items(), current: null, making, badge, note, onPick: (x) => x && apply(x), blocked: (x) => unsellableHere(s, skuParts(x)[0]), onBlocked: (x) => ctx.toast(t(`${skuName(x)}：${UNSELLABLE_TEXT()}`, `${skuName(x)}: ${UNSELLABLE_TEXT()}`)) });
     const bMain = btn(t('全店の主力商品をまとめて替える…', 'Change every shop’s main product…'), () =>
       pickAll(t('全店の主力商品にするもの', 'Main product for every shop'), t('全部のお店の 1 番目の棚をこの商品にします。', 'Every shop’s first shelf will sell this.'), (x) => {
         const n = setMainAll(s, x);
