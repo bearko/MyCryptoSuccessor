@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { SKILL, type Tier } from '../src/island/p1/data';
-import { BEND_MAX, BOUNDS, EDGES, EDGE_CLEAR, GAP, HUBPOS, PANEL, POS, RING_OUT, STEP, UNIT, bendSize, curveAt, curveNear, curvePart, edgeBends, edgeEnd, rimDist } from '../src/island/p1/treelayout';
+import { BEND_MAX, BOUNDS, EDGES, EDGE_CLEAR, GAP, HUBPOS, PANEL, POS, RING_OUT, STEP, UNIT, bendSize, curveAt, curveNear, curvePart, edgeBends, edgeEnd, hubsAround, polyInBox, rimDist } from '../src/island/p1/treelayout';
 
 describe('スキルツリー：ひし形のパネルの大きさと間隔', () => {
   it('パネルはひし形の外接の幅 UNIT の 0.6〜0.7（64px）。段の間・パネルの間は、ひし形のすき間が 0.8〜1 枚分', () => {
@@ -142,6 +142,23 @@ describe('スキルツリー：線がほかのパネルを横切らない', () =
     const all: Tier[] = [...R, 'E', 'L'];
     const n = { C: crossingEdges(C), U: crossingEdges(U), R: crossingEdges(R), all: crossingEdges(all) };
     expect(n, JSON.stringify(n, null, 1)).toEqual({ C: [], U: [], R: [], all: [] });
+  });
+
+  it('線は、ほかの部門の札（2 行の札「🔒 Uncommon で開く」も入る大きさ）の下を通らない（根もとの札から出る線の、その札は除く）', () => {
+    const bends = edgeBends();
+    const out: string[] = [];
+    for (const e of EDGES) {
+      const a = edgeEnd(e.from, e.g);
+      const b = edgeEnd(e.to, e.g);
+      const m = bends.get(e) ?? 0;
+      const pts = Array.from({ length: 121 }, (_, i) => curveAt(a, b, m, i / 120));
+      const hit = hubsAround(e).filter((p) => polyInBox(pts, p, p));
+      if (hit.length) out.push(`${e.from ?? '(根もと)'} → ${e.to}（${hit.map((p) => p.d).join('・')}）`);
+    }
+    expect(out).toEqual([]);
+    // 数える関数：札の真ん中を通る線は通る・札の外の線は通らない
+    expect(polyInBox([{ x: -1, y: 0 }, { x: 1, y: 0 }], { x: 0, y: 0 }, { w: 0.4, h: 0.2 })).toBe(true);
+    expect(polyInBox([{ x: -1, y: 0.3 }, { x: 1, y: 0.3 }], { x: 0, y: 0 }, { w: 0.4, h: 0.2 })).toBe(false);
   });
 
   it('数える関数：パネルの真ん中を通る線は横切る・ひし形の角の外をかすめる線は横切らない', () => {

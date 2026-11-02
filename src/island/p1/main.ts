@@ -287,6 +287,7 @@ function toast(text: string, img?: string) {
   }
   e.dataset.text = text;
   toasts.append(e);
+  placeToasts();
   setTimeout(() => e.remove(), 3300);
   while (toasts.children.length > 3) toasts.firstChild?.remove();
 }
@@ -3593,9 +3594,20 @@ function layout() {
     const dr = digRect();
     nextBtn.style.bottom = `${rail ? 24 : innerHeight - (dr ? dr.top : advOn ? advisor.getBoundingClientRect().top : foot.getBoundingClientRect().top) + 8}px`;
   }
-  toasts.style.top = `${placing ? selBox.getBoundingClientRect().bottom + 8 : top}px`;
+  placeToasts();
   selBox.style.top = `${hud.getBoundingClientRect().top}px`;
   placePop();
+}
+/**
+ * トーストの高さ：上の帯の下（建てるモードは選んでいる建物の札の下）。
+ * 画面（シート）を開いているときは、その見出しの下へ（見出しと ✕ を隠さない。スマホではパネルの見出しの上に重なっていた）
+ */
+function placeToasts() {
+  let y = placing ? selBox.getBoundingClientRect().bottom + 8 : hud.getBoundingClientRect().bottom + 8;
+  // （見出しがトーストより下なら、そのまま）
+  const head = root.querySelector('.isl-sheet-head')?.getBoundingClientRect();
+  if (head && head.top < y + Math.max(40, toasts.offsetHeight)) y = Math.max(y, head.bottom + 6);
+  toasts.style.top = `${Math.round(y)}px`;
 }
 function renderAll() {
   dirty = true;

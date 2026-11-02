@@ -387,15 +387,39 @@ function reveal(ctx: Ctx, r: Report, hooks: ReportHooks, top1: boolean, alive: (
   requestAnimationFrame(tick);
 }
 
+/**
+ * スマホ（〜599px）で月次報告を 1 画面に収める：行の多い月（巻き返し・1 位の一言・法務 など）ではみ出すなら、詰めた表示（is-tight）にする
+ * （詰まりの定義の一言を隠す・2 位との差をランキング表の行へ・流れの図と各行を低く）。それでも入らなければ、推移のグラフのカードが縮み、
+ * 最後は本体をスクロールできる。はみ出しは、グラフを縮める前の高さで測る
+ */
+function fitPhone(body: HTMLElement) {
+  body.classList.remove('is-tight');
+  if (!window.matchMedia?.('(max-width: 599px)').matches) return;
+  body.classList.add('is-measure');
+  const over = body.scrollHeight > body.clientHeight + 1;
+  body.classList.remove('is-measure');
+  if (over) body.classList.add('is-tight');
+}
+
+/**
+ * 発表（ドラムロール）を済ませた報告。1 回の報告で発表は 1 回だけ：同じ報告を開き直したとき（まとめ報告の「くわしい報告を見る」など）は
+ * 発表を飛ばして本体をすぐ出す（カードの出る演出・順位のポンもしない）
+ */
+const announced = new WeakSet<Report>();
+/** 発表を済ませたか（テスト用） */
+export const wasAnnounced = (r: Report) => announced.has(r);
+
 export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: () => void) {
   const s = ctx.s();
   const idx = s.reports.indexOf(r);
   const prev = idx > 0 ? s.reports[idx - 1] : idx < 0 && s.reports.length ? s.reports[s.reports.length - 1] : null;
   const upto = idx >= 0 ? s.reports.slice(0, idx + 1) : [...s.reports, r];
+  const again = announced.has(r);
+  announced.add(r);
   /** 発表が終わったか（終わるまでは本体を隠す） */
-  let shown = false;
+  let shown = again;
   /** 本体のカードの出る演出・順位のポン（最初の 1 回だけ） */
-  let animated = false;
+  let animated = again;
   let bodyEl: HTMLElement | null = null;
   open(
     ctx,
@@ -436,7 +460,12 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       // 月次 PDCA（スキル）：来月の見込み
       if (r.forecast) {
         const fc = h('p', 'isl-rp-fc');
-        fc.append(h('span', 'isl-tag is-good', t('月次 PDCA', 'Monthly PDCA')), h('span', '', t(`来月の見込み：売上 ${money(r.forecast.sales)}・利益 `, `Next month: sales ${money(r.forecast.sales)}, profit `)), h('b', r.forecast.profit >= 0 ? 'isl-good' : 'isl-bad', (r.forecast.profit >= 0 ? '+' : '−') + money(Math.abs(r.forecast.profit))));
+        // スマホは短い文（1 行に収める）
+        const fl = h('span', 'is-long');
+        fl.append(h('span', '', t(`来月の見込み：売上 ${money(r.forecast.sales)}・利益 `, `Next month: sales ${money(r.forecast.sales)}, profit `)), h('b', r.forecast.profit >= 0 ? 'isl-good' : 'isl-bad', (r.forecast.profit >= 0 ? '+' : '−') + money(Math.abs(r.forecast.profit))));
+        const fs = h('span', 'is-short');
+        fs.append(h('span', '', t(`来月 売上 ${kfmt(r.forecast.sales)} G・利益 `, `Next: sales ${kfmt(r.forecast.sales)} G, profit `)), h('b', r.forecast.profit >= 0 ? 'isl-good' : 'isl-bad', (r.forecast.profit >= 0 ? '+' : '−') + kfmt(Math.abs(r.forecast.profit)) + ' G'));
+        fc.append(h('span', 'isl-tag is-good', t('月次 PDCA', 'Monthly PDCA')), fl, fs);
         c1.append(fc);
       }
       // 内訳（折りたたみ）
@@ -533,26 +562,32 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
         const p = h('p');
         // 発表がまだなら、制覇の 2 つ目の条件（研究成果の発表）を言う
         const g = r.goal;
-        p.append(
-          rich(
-            waiting && g
-              ? presentReady(g)
-                ? t('あとは[[町の長]]に研究成果を発表すれば[[制覇]]だよ！', 'Present your findings to the [[town head]] and it is [[yours]]!')
-                : t(`あとは研究成果の発表で[[制覇]]！ ${presentNeedText(g)[0]}`, `Present your findings to [[conquer]]! ${presentNeedText(g)[0]}`)
-              : g && !g.present
-                ? g.res
-                  ? t(`来月も守って、発表の条件もそろえよう（${presentNeedText(g)[0]}）！`, `Hold on next month and meet the presenting conditions (${presentNeedText(g)[0]})!`)
-                  : t(`来月も守って、お題もそろえよう（${g.got} / ${g.all}）！`, `Hold on next month and find the targets (${g.got} / ${g.all})!`)
-                : t('来月も守り切れたら[[制覇]]だよ！', 'Hold on next month and the sector is [[yours]]!'),
-          ),
-        );
+        // スマホは短い文（条件の数は上の札にあるので繰り返さない。マインちゃんと 1 行に収める）
+        const [sayLong, sayShort] =
+          waiting && g
+            ? presentReady(g)
+              ? [t('あとは[[町の長]]に研究成果を発表すれば[[制覇]]だよ！', 'Present your findings to the [[town head]] and it is [[yours]]!'), t('あとは[[町の長]]に発表すれば[[制覇]]！', 'Present to the [[town head]] to [[conquer]]!')]
+              : [t(`あとは研究成果の発表で[[制覇]]！ ${presentNeedText(g)[0]}`, `Present your findings to [[conquer]]! ${presentNeedText(g)[0]}`), t('あとは研究成果の発表で[[制覇]]！', 'Present your findings to [[conquer]]!')]
+            : g && !g.present
+              ? g.res
+                ? [t(`来月も守って、発表の条件もそろえよう（${presentNeedText(g)[0]}）！`, `Hold on next month and meet the presenting conditions (${presentNeedText(g)[0]})!`), t('来月も守って、発表の条件もそろえよう！', 'Hold on and meet the presenting conditions!')]
+                : [t(`来月も守って、お題もそろえよう（${g.got} / ${g.all}）！`, `Hold on next month and find the targets (${g.got} / ${g.all})!`), t('来月も守って、お題もそろえよう！', 'Hold on and find the targets!')]
+              : [t('来月も守り切れたら[[制覇]]だよ！', 'Hold on next month and the sector is [[yours]]!'), t('来月も守り切れたら[[制覇]]だよ！', 'Hold on next month and the sector is [[yours]]!')];
+        const sl = h('span', 'is-long');
+        sl.append(rich(sayLong));
+        const ss = h('span', 'is-short');
+        ss.append(rich(sayShort));
+        p.append(sl, ss);
         say.append(mi, p);
         if (me === 0 && r.area.length > 1) say.append(h('small', 'isl-rp-lead', t(`2 位との差 ${money(Math.max(0, mySales - r.area[1].sales))}`, `${money(Math.max(0, mySales - r.area[1].sales))} ahead of #2`)));
         c2.append(say);
         body.classList.add('has-say');
       } else if (gap) c2.append(h('p', 'isl-rp-goal', gap));
       const rk = h('details', 'isl-rp-detail');
-      rk.append(h('summary', '', t('ランキング表', 'Ranking table')));
+      const sum = h('summary', '', t('ランキング表', 'Ranking table'));
+      // 詰めた表示（スマホで収まらない月）：2 位との差は、一言の下ではなくこの行に
+      if (streak > 0 && !conquered && me === 0 && r.area.length > 1) sum.append(h('small', 'isl-rp-sumlead', t(`・2 位との差 ${money(Math.max(0, mySales - r.area[1].sales))}`, ` · ${money(Math.max(0, mySales - r.area[1].sales))} ahead of #2`)));
+      rk.append(sum);
       const list = h('ol', 'isl-rank isl-rp-list');
       r.area.forEach((x, k) => {
         const li = h('li', x.me ? 'is-me' : '');
@@ -566,7 +601,7 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       cards.push(c2);
 
       // ---- ③ 【KPI ②】月次売上推移
-      const c3 = h('div', 'isl-card2 isl-rp-card');
+      const c3 = h('div', 'isl-card2 isl-rp-card isl-rp-trend');
       const wrap = h('div', 'isl-rp-chartwrap');
       let svg = chart(upto);
       const sel = select(RANGES, chartRange, (v) => {
@@ -708,10 +743,13 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
 
       cards.forEach((c, k) => c.style.setProperty('--d', `${k * 0.08}s`));
       body.append(...cards);
+      fitPhone(body);
     },
     then,
   );
   const alive = () => !!bodyEl?.isConnected;
+  // 開き直し：発表は済んでいる（ドラムロールを繰り返さない）
+  if (again) return;
   reveal(
     ctx,
     r,
@@ -756,7 +794,11 @@ export interface DigSummaryHooks {
  */
 export function openDigSummary(ctx: Ctx, sum: DigSummary, hooks: DigSummaryHooks, then?: () => void) {
   const s = ctx.s();
+  // まとめ報告の発表は、最新の月の報告の発表も兼ねる（「くわしい報告を見る」でドラムロールを繰り返さない）
+  announced.add(sum.latest);
   let counted = false;
+  /** カウントを始めた時刻（画面を描き直しても、続きから。ドラムロールは最初の 1 回だけ） */
+  let t0: number | null = null;
   open(
     ctx,
     sum.title,
@@ -766,7 +808,8 @@ export function openDigSummary(ctx: Ctx, sum: DigSummary, hooks: DigSummaryHooks
       const c1 = h('div', 'isl-card2 isl-ds-card');
       c1.append(cardHead(t('KPI ①', 'KPI 1'), false, t('期間の売上', 'Sales in this period')));
       const top = h('div', 'isl-ds-top');
-      const num = h('b', 'isl-ds-total', counted ? money(sum.total) : '0 G');
+      // 描き直したときは、カウントの続きから
+      const num = h('b', 'isl-ds-total', counted ? money(sum.total) : t0 != null ? money(countValue(sum.total, Math.min(1, (performance.now() - t0) / REVEAL.count))) : '0 G');
       top.append(num);
       const bars = h('div', 'isl-ds-bars');
       const max = Math.max(1, ...sum.months.map((m) => m.revenue));
@@ -833,10 +876,14 @@ export function openDigSummary(ctx: Ctx, sum: DigSummary, hooks: DigSummaryHooks
       body.append(c1, c2, c3, acts);
       // カウントアップ（いつもの報告の発表と同じ長さ。カウント中のタップで到達）
       if (!counted) {
-        const t0 = performance.now();
+        if (t0 == null) {
+          t0 = performance.now();
+          hooks.sfx?.('drum');
+        }
+        const start = t0;
         let landed = false;
         const land = () => {
-          if (landed) return;
+          if (landed || counted) return;
           landed = true;
           counted = true;
           num.textContent = money(sum.total);
@@ -845,10 +892,9 @@ export function openDigSummary(ctx: Ctx, sum: DigSummary, hooks: DigSummaryHooks
         };
         num.addEventListener('click', land);
         c1.addEventListener('click', land);
-        hooks.sfx?.('drum');
         const tick = (now: number) => {
-          if (landed || !num.isConnected) return;
-          const k = Math.min(1, (now - t0) / REVEAL.count);
+          if (landed || counted || !num.isConnected) return;
+          const k = Math.min(1, (now - start) / REVEAL.count);
           num.textContent = money(countValue(sum.total, k));
           if (k < 1) requestAnimationFrame(tick);
           else land();
