@@ -369,7 +369,7 @@ describe('6. 法務の部門・パネル・セーブ', () => {
     delete old.legal;
     if (old.area) delete old.area.ma;
     const back = deserializeP1(JSON.stringify(old))!;
-    expect(back.v).toBe(19);
+    expect(back.v).toBe(20);
     expect(back.legal).toBeUndefined();
     expect(back.area?.ma).toBeUndefined();
     expect(startDeal(back, nonTop(back))).toMatchObject({ stage: 'offer' });

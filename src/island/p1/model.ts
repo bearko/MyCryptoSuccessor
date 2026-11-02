@@ -118,6 +118,7 @@ import {
 } from './data';
 import { addXp, baseStats, initGrowth, levelForXp, passiveMul, passiveSum, promoteStaff, syncGrowth, type LevelUp, type PromoErr } from './hero';
 import { delegDay, delegMiss, delegMonth, headFx, roleXp, sectorApprove, type DelegReport, type DelegState } from './deleg';
+import { cardsCompany, cardsDay, cardsMonth, type CardReport, type CardState } from './card';
 import { acctMonth, deduct, panelKind, priceMul, type AcctState, type TaxRec } from './acct';
 import { fatigueMul } from './ga';
 import { csDay, csMonth, visitMul, type CsReport, type CsState } from './cs';
@@ -338,6 +339,8 @@ export interface Report {
   rebuild?: { id: string; fixed: number; all: number; plus: number; rev: number; fund: number; out: boolean; hero: number | null }[];
   /** 担当の報告（任せ方の 4 段。段 D）：リーダー・部長の業務の出来・届いた提案・先月の提案の結果 */
   deleg?: DelegReport;
+  /** 提案と報告のカード（段 UI1）：今月出たカード・時間を止めて出した数・受け箱に回った数・任せて実行した提案 */
+  cards?: CardReport;
   /** カスタマーサポートと炎上（段 G。Uncommon 以上の町の報告だけ）：問い合わせ・返事・期限切れ・満足度・炎上のおそれ・炎上 */
   cs?: CsReport;
   /** 法務（段 H2）：成立した買収・引き継いだ商売の売上・特許（審査が終わった・切れた・止めた追随・使用料）・裁判・仕入れの契約で安くなったぶん */
@@ -428,7 +431,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20;
   kind: 'p1';
   seed: number;
   n: number;
@@ -591,6 +594,8 @@ export interface P1State {
   resets?: ResetRec[];
   /** 任せ方の 4 段（段 D・版 14）：業務の見直しの日・今月の記録・部長の提案の受け箱・承認した提案・交代。役目そのものは Staff（task 'lead'）に。無ければまだ任せていない */
   deleg?: DelegState;
+  /** 提案・報告のカード（段 UI1。card.ts）：受け箱・任せた種類・出した数。古いセーブには無い（はじめて出すときに作る） */
+  cards?: CardState;
   /**
    * 人事（段 E2・版 15。hr.ts）：ブランド力のいちばん高かった値（カリスマ度のブランドの分）・お知らせ済みのカリスマ度・
    * テストの札と監査で足すカリスマ度（ふつうのゲームでは無し）・今月の人事の記録（月次報告）・辞めた人の記録。どれも会社のもの（災害でも残る）
@@ -760,7 +765,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 19,
+    v: 20,
     kind: 'p1',
     seed,
     n,
@@ -3529,6 +3534,8 @@ export function step(s: P1State): DayResult {
   // 人事（段 E2）：士気（目標へ寄る・休み・働きすぎ・昇進・昇格・レベルアップ）と、辞めたいの予告・思いとどまり・辞める。カリスマ度が上がったか
   const hrd = moraleDay(s, tired);
   if (hrd) res.hr = hrd;
+  // 提案・報告のカード（段 UI1）：辞めたいの予告は、本人が話し手のカードに
+  if (hrd?.want.length) cardsDay(s, hrd.want);
   const ch = syncCharisma(s);
   if (ch) (res.hr ??= { want: [], stay: [], quit: [] }).charisma = ch;
 
@@ -3541,10 +3548,16 @@ export function step(s: P1State): DayResult {
     res.report = endMonth(s);
     // 担当の報告・部長の提案（段 D）
     delegMonth(s, res.report);
+    // 提案・報告のカード（段 UI1）：ヒーローからの提案・部長の提案・問い合わせ・炎上の予告・他社の巻き返し
+    cardsMonth(s, res.report);
     checkMissions(s, res);
   }
   // 会社の月の締め（ゲームの最初から 30 日ごと）：ほかのセクタの運営と、帳簿
-  if (s.day % DAYS === 0) res.company = closeCompanyMonth(s);
+  if (s.day % DAYS === 0) {
+    res.company = closeCompanyMonth(s);
+    // 経理の助言（決算の 1 か月前）のカード
+    cardsCompany(s);
+  }
   return res;
 }
 
@@ -4193,7 +4206,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19 && o.v !== 20) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -4262,7 +4275,8 @@ export function deserializeP1(json: string): P1State | null {
       s.brand = Math.min(s.brand ?? 0, brandCap(s));
     }
     // 版 18 → 19（段 H2：Epic の町 ②）：契約・特許・裁判（s.legal）と町ごとの M&A（area.ma）は空から（はじめて使うときに作る）
-    s.v = 19;
+    // 版 19 → 20（段 UI1：提案・報告のカード）：カードの受け箱・任せた種類（s.cards）は空から（はじめて出すときに作る）。部長の提案の受け箱（s.deleg）はそのまま
+    s.v = 20;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);

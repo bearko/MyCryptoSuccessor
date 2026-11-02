@@ -2377,6 +2377,25 @@ export const DELEG = {
   prop: { perMonth: 2, keep: 4, expire: 3, err: 1 },
   sector: { need: 3, ready: false, invest: 0.1, max: 2 },
 };
+/**
+ * 提案・報告のカード（段 UI1。card.ts・cardui.ts。docs/ISLAND_PHASE1.md「提案・報告のカード」）：時間を止めて選ばせるカードの出る数と、
+ * ヒーローの読みの確かさ（★）。効き目・値段はいまの手のまま（ここはカードの出し方だけ）
+ */
+export const CARD = {
+  /** 時間を止めて出す（ポップアップ）のは、月にこの枚数まで（町のランク）。あふれたものは受け箱だけ */
+  cap: { C: 1, U: 2, R: 3, E: 3, L: 3 } as Record<'C' | 'U' | 'R' | 'E' | 'L', number>,
+  /** 同じ種類のカードは、出してから 2 か月目まで出さない（月の締めの回数で数える） */
+  kindGap: 2,
+  /** セリフの字数の上限（[[ ]] を除いた字数） */
+  sayMax: 60,
+  /** 読みの確かさ ★2・★3（出来と Lv。★3 で「任せる」を選べる） */
+  star: { two: { q: 0.8, lv: 10 }, three: { q: 0.87, lv: 20 } },
+  /** 受け箱に置いておく枚数・ヒーローの提案が古くなる月数（同じ種類の新しい提案が来たら差し替える） */
+  keep: 8,
+  expire: 2,
+  /** 選択肢（任せるを除く）の数 */
+  choices: 3,
+};
 /** 部門に向く能力値（ロードマップ 2-4）：物流 AGI・営業とマーケ PHY・R&D と経理と法務とシステム INT・ほか（人事・総務・CS・経営企画）は 3 つの平均 */
 export function deptApt(st: Stats, d: DeptId): number {
   switch (d) {
@@ -3018,12 +3037,14 @@ export interface Mission {
   rp?: number;
   /** 発掘の依頼：このエクステを掘り出す（研究ノートに 1 つ以上） */
   dig?: number;
+  /** 受ける前の一言（段 UI1：中身と報酬は変えずに、気をつけることを添える） */
+  note?: string;
 }
 export const MISSIONS: Mission[] = [
   { id: 'first_sale', from: t('町内会', 'Neighborhood council'), title: t('はじめての売上', 'First sale'), text: t('お店で商品を 1 つ売る', 'Sell one item in your shop'), reward: 1000 },
   { id: 'sensu100', from: t('近所の住民', 'A neighbor'), title: t('夏祭りにセンスを', 'Fans for the festival'), text: t('ひと月にセンスを 15 個売る', 'Sell 15 Sensu in one month'), reward: 3000 },
   { id: 'ad', from: t('町内会', 'Neighborhood council'), title: t('お店を知ってほしい', 'Let people know'), text: t('宣伝広報をする', 'Run an ad'), reward: 1000 },
-  { id: 'two_shops', from: t('商店会', 'Merchants’ association'), title: t('通りににぎわいを', 'Liven up the street'), text: t('お店を 2 軒にする', 'Open a second shop'), reward: 3000 },
+  { id: 'two_shops', from: t('商店会', 'Merchants’ association'), title: t('通りににぎわいを', 'Liven up the street'), text: t('お店を 2 軒にする', 'Open a second shop'), reward: 3000, note: t('近くに建てると、自社のお店どうしでお客さんを食い合います。維持費とアルバイト代が毎月かかります（よろず屋は月 2,100 G）。', 'Built close by, your shops split the same customers. Upkeep and part-time pay cost every month (2,100 G for a general store).') },
   { id: 'research', from: t('商店会', 'Merchants’ association'), title: t('ライバルを知る', 'Know your rivals'), text: t('他社のお店を調査する', 'Research a rival store'), reward: 1500 },
   { id: 'lantern50', from: t('駅長', 'Stationmaster'), title: t('夜道を明るく', 'Light up the night'), text: t('ひと月にランタンを 10 個売る', 'Sell 10 Lanterns in one month'), reward: 3000 },
   { id: 'uncommon', from: t('収集家', 'A collector'), title: t('めずらしい品を', 'Something rare'), text: t('アンコモンを合わせて 5 個売る', 'Sell 5 Uncommons in total'), reward: 5000, rp: 40 },

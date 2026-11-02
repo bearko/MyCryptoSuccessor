@@ -23,6 +23,12 @@ import { CHARISMA, CS, CSM_RP, FATIGUE, FLAME, GRADE, GRADE_NAME, MORALE, PAY, T
 // v22（段 G）：販売の枝に足したカスタマーサポート・マーケの研究パネル（CSM_RP）は、通常の「詰まりの段の枝の研究パネル」には数えない（売り場の段に効かない）
 import { approve, candidatesFor, delegatedDuties, headDepts, headLeft, headOf, leaderLeft, leaderOf, quality, runnerOf, setHead, setLeader } from '../../src/island/p1/deleg';
 import { DELEG, DEPTS, type DeptId, type DutyId } from '../../src/island/p1/data';
+import { CARD_SRCS, SIM_CARD_TAKE, simTake, type CardSrc, type CardStat } from '../../src/island/p1/card';
+import { CARD } from '../../src/island/p1/data';
+/** v25：通常の方針が受けるカードの手の名前（表 19） */
+const TAKE_NAME: Record<string, string> = { shelf: '棚 +1 と商品', goods: '品ぞろえの入れ替え', invest: '設備投資', part: 'アルバイト', famous: '名物店主', permit: '発掘許可', ad: '宣伝' };
+/** v25：カードの出どころの名前（表 19） */
+const SRC_NAME: Record<CardSrc, string> = { clerk: '店員', crafter: '職人', buyer: '調達係', idle: '手の空いた人', head: '部長', cs: '問い合わせ', flame: '炎上の予告', quit: '辞めたい', tax: '経理の助言', rally: '巻き返し・反撃' };
 import {
   promote,
   takeVacant,
@@ -342,6 +348,8 @@ export interface RunResult {
    * 訴え（受けた・起こした数・勝ち・負け・和解）・仕入れの契約（結んだ数・安くなったぶん・違約金）・3 回目の災害の前の寄付に払った額
    */
   v24: { ma: number; maG: number; acqRev: number; patents: number; stopped: number; royalty: number; suits: number; won: number; lost: number; settled: number; contracts: number; saved: number; penalty: number; preDonateG: number };
+  /** v25（段 UI1：提案・報告のカード）：カードの数え（ランクごと：出た・時間を止めて出した・上限で受け箱へ・任せて実行・締めの回数／出どころごと：出た・受けた） */
+  v25: CardStat;
 }
 
 /**
@@ -613,6 +621,8 @@ const ok = (r: unknown) => r === null || r === true || (typeof r === 'object' &&
  * v18（段 D：任せ方の 4 段）：通常の方針は、理解度 3 に届いた部門に順にチームリーダー（lead の業務。手でやっている手の中で、任せて困りにくいもの）、
  * 8 に届いたら事業部長（その部門のリーダーを昇進。いなければ待機中・雇った人）。最短・100% は手で（いまどおり）
  */
+/** v25（段 UI1）：通常の方針がヒーローからの提案のカードを受ける（比べるときだけ止める） */
+export const SIM_CARDS = { on: true };
 export const SIM_DELEG: Record<PolicyId, { on: boolean; lead: Partial<Record<DeptId, DutyId>> }> = {
   rta: { on: false, lead: {} },
   normal: { on: true, lead: { logistics: 'shelf', hr: 'rest', rnd: 'dig', marketing: 'ads', sales: 'vacant', support: 'reply' } },
@@ -1283,6 +1293,9 @@ export function policy(s: P1State, c: Ctx): Action[] {
       if (pr.est <= 0) continue;
       acts.push({ kind: 'approve', run: () => (s.money - pr.cost < reserve ? 'none' : approve(s, pr.id) == null ? null : 'none') });
     }
+  // v25（段 UI1）：ヒーローからの提案のカード（店員・職人・調達係・待機中の人）。部長の提案と同じ条件（見込みがプラス・払ったあとも手元に残すお金が残る）で、
+  // おすすめ（金色）を受ける。最短・100% は手で（カードは使わない）。問い合わせ・炎上の予告・辞めたい・経理の助言・巻き返しは、いまの方針の手（SIM_CS・SIM_HR ほか）のまま
+  if (SIM_DELEG[c.policy].on && !delegOff && c.monthEnd && SIM_CARDS.on) acts.push({ kind: 'approve', run: () => (simTake(s, reserve) > 0 ? null : 'none') });
   if (c.monthEnd && c.policy !== 'rta' && donateLock(s) !== 'hidden' && donateLock(s) !== 'closed') {
     const next = c.route[c.at + 1];
     // v14：次がランクアップの進出なら、費用も立ち上げの資金も要らない（お金は徴収される）
@@ -1476,6 +1489,15 @@ export const V23_TIER: Record<PolicyId, { total: number; C: number; U: number; R
   rta: { total: (1627 + 1698 + 1737) / 3, C: (771 + 764 + 769) / 3, U: (857 + 935 + 969) / 3, R: 0, E: 0, R1: 0, E1: 0, E2: 0, E3: 0, redig: 0, levy: [] },
   normal: { total: (9215 + 9661 + 10255) / 3, C: (3409 + 3415 + 3403) / 3, U: (2130 + 2344 + 3040) / 3, R: (2226 + 2218 + 1978) / 3, E: (1451 + 1685 + 1835) / 3, R1: (1397 + 1369 + 1141) / 3, E1: (1451 + 1685 + 1835) / 3, E2: 0, E3: 0, redig: 0, levy: [9173, 1457473, 3437908] },
   full: { total: (24451 + 24748 + 25118) / 3, C: (6815 + 7036 + 6930) / 3, U: (7277 + 7865 + 7609) / 3, R: (4117 + 3638 + 4413) / 3, E: (3112 + 3021 + 3008) / 3, R1: (1837 + 1417 + 2089) / 3, E1: (1531 + 1460 + 1448) / 3, E2: (771 + 767 + 753) / 3, E3: (811 + 795 + 807) / 3, redig: (3130 + 3188 + 3158) / 3, levy: [38804676, 20779187, 10020335] },
+};
+/**
+ * v25（段 UI1）：段 UI1 の前の main（v24）で同じ 3 シードを回した、ランクごとの時間（秒。C はチュートリアルを含む）。
+ * 最短 1,627・1,698・1,737／通常 9,235・9,669・10,323／100% 24,587・24,954・25,334
+ */
+export const V24_TIER: Record<PolicyId, { total: number; C: number; U: number; R: number; E: number }> = {
+  rta: { total: (1627 + 1698 + 1737) / 3, C: (771 + 764 + 769) / 3, U: (857 + 935 + 969) / 3, R: 0, E: 0 },
+  normal: { total: (9235 + 9669 + 10323) / 3, C: (3409 + 3415 + 3403) / 3, U: (2130 + 2344 + 3040) / 3, R: (2226 + 2218 + 1978) / 3, E: (1471 + 1693 + 1903) / 3 },
+  full: { total: (24587 + 24954 + 25334) / 3, C: (6815 + 7036 + 6930) / 3, U: (7277 + 7865 + 7609) / 3, R: (4117 + 3638 + 4413) / 3, E: (3252 + 3223 + 3232) / 3 },
 };
 export const V21_TOTAL: Record<PolicyId, number> = { rta: (1627 + 1635 + 1676) / 3, normal: (6831 + 7015 + 7197) / 3, full: (21703 + 21714 + 22472) / 3 };
 export const V19_TOTAL: Record<PolicyId, number> = { rta: (1835 + 1631 + 1557) / 3, normal: (7815 + 7013 + 7211) / 3, full: (20793 + 21120 + 21940) / 3 };
@@ -1903,7 +1925,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   const s = newP1(seed);
   Object.assign(csLog, { pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0 });
   const c: Ctx = { policy: p, route: routeOf(p), at: 0, lineup: [], lineupDirty: true, shopsThisMonth: 0, monthEnd: null, lastBn: null, ban: new Set(o.ban ?? []), onlyFirst: !!o.onlyFirst, dayInMonth: 0, handCarry: 0, rpMoves: 0, runLeft: 0, runsMonth: 0, divesMonth: 0, preInv: 0, preG: 0 };
-  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 }, v20: { paid: 0, saved: 0, quarters: 0, preInv: 0, preG: 0, fatigue: [], morale: [], slow: [] }, v21: { rev: 0, wages: 0, months: 0, morale: [], high: [] }, v22: { got: 0, answered: 0, auto: 0, expired: 0, good: 0, sat: [], warns: 0, flames: 0, flameMonths: 0, pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0, brandEnd: {}, gradeEnd: {} }, v23: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, hitR: 0, kept: 0, delegated: 0, delegatedR: 0, resWaitE: 0, comebackE: 0 }, v24: { ma: 0, maG: 0, acqRev: 0, patents: 0, stopped: 0, royalty: 0, suits: 0, won: 0, lost: 0, settled: 0, contracts: 0, saved: 0, penalty: 0, preDonateG: 0 } };
+  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 }, v20: { paid: 0, saved: 0, quarters: 0, preInv: 0, preG: 0, fatigue: [], morale: [], slow: [] }, v21: { rev: 0, wages: 0, months: 0, morale: [], high: [] }, v22: { got: 0, answered: 0, auto: 0, expired: 0, good: 0, sat: [], warns: 0, flames: 0, flameMonths: 0, pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0, brandEnd: {}, gradeEnd: {} }, v23: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, hitR: 0, kept: 0, delegated: 0, delegatedR: 0, resWaitE: 0, comebackE: 0 }, v24: { ma: 0, maG: 0, acqRev: 0, patents: 0, stopped: 0, royalty: 0, suits: 0, won: 0, lost: 0, settled: 0, contracts: 0, saved: 0, penalty: 0, preDonateG: 0 }, v25: { made: {}, pop: {}, boxed: {}, auto: {}, months: {}, src: {} } };
   /** v19：雇ったことのあるヒーロー（はじめの 3 人も入れる。新しく来た人を数える） */
   const heroSeen = new Set(s.staff.map((x) => x.hero));
   /** v14：任せた町の担当（能力値の伸びを数える） */
@@ -2536,6 +2558,8 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   res.rpLeft.afterAll = Math.round(res.rpLeft.afterAll);
   // v24（段 H2）：法務の記録（会社のもの）
   if (s.legal) Object.assign(res.v24, { ...s.legal.tot, acqRev: Math.round(s.legal.tot.acqRev), preDonateG: res.v24.preDonateG });
+  // v25（段 UI1）：カードの数え（会社のもの）
+  if (s.cards) res.v25 = JSON.parse(JSON.stringify(s.cards.stat));
   // v12：復興・ダンジョン・見つけた上のランクの遺物（研究ノート：種類と、掘った数）・展示館
   res.v12.revived = revivedDone + (s.dig?.sites.filter((x) => x.revived).length ?? 0);
   res.v12.dungeons = s.dungeons?.length ?? 0;
@@ -2799,6 +2823,49 @@ export function tables(rep: Report2): string {
     );
   }
   out.push('');
+  // v25（段 UI1）：提案・報告のカード
+  {
+    out.push('### 表 19：提案・報告のカード（v25。段 UI1）');
+    out.push('');
+    out.push(
+      `3 シードの平均（最小〜最大）。「v24」は段 UI1 の前の main の同じ 3 シード（\`V24_TIER\`）。C・U・R・E は ±5% が目安。カードの数はランクごとの月の締め 1 回あたり（出た・時間を止めて出した・上限で受け箱に回った）。上限は C ${CARD.cap.C}・U ${CARD.cap.U}・R 以上 ${CARD.cap.R} 枚／月・同じヒーロー月 1・同じ種類は ${CARD.kindGap} か月あける。方針：通常だけ、ヒーローの提案（店員・職人・調達係・手の空いた人）のおすすめを部長の提案と同じ条件で受ける（受ける手：${[...SIM_CARD_TAKE].map((k) => TAKE_NAME[k] ?? k).join('・')}。出店・品ぞろえの入れ替え・パネルの順・人の配置・宣伝は方針のまま）。最短・100% はカードを使わない（カードは作られるが選ばない）。「受けた」は、カードの手か、部長の提案を承認した数。`,
+    );
+    out.push('');
+    out.push('| 方針 | 合計（v24） | うち C（v24） | うち U（v24） | うち R（v24） | うち E（v24） | カード／月 C（出す・受け箱） | U | R | E | 任せて実行 | 詰まって止まるシード |');
+    out.push('|---|---|---|---|---|---|---|---|---|---|---|---|');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      const B = V24_TIER[p];
+      const byTier = (tier: Tier) => mean(runs.map((x) => x.sectors.filter((r) => r.tier === tier && !r.revisit).reduce((a, r) => a + (secOf(p, r, 'left') ?? 0), 0) + (tier === 'C' ? SIM_TIME[p].tutorial : 0)));
+      const pc = (a: number, b: number) => (b > 0 ? `${fmtH(a)}（${fmtH(b)}・${a >= b ? '+' : '−'}${((Math.abs(a - b) / b) * 100).toFixed(1)}%）` : '—');
+      const per = (tier: Tier) => {
+        const m = runs.reduce((a, r) => a + (r.v25.months[tier] ?? 0), 0);
+        if (!m) return '—';
+        const f = (k: 'made' | 'pop' | 'boxed') => (runs.reduce((a, r) => a + (r.v25[k][tier] ?? 0), 0) / m).toFixed(2);
+        return `${f('made')}（${f('pop')}・${f('boxed')}）`;
+      };
+      const tot = mean(runs.map(totalSec));
+      const auto = mean(runs.map((r) => Object.values(r.v25.auto).reduce((a, n) => a + (n ?? 0), 0)));
+      out.push(`| ${POLICY_NAME[p]} | ${pc(tot, B.total)} | ${pc(byTier('C'), B.C)} | ${pc(byTier('U'), B.U)} | ${pc(byTier('R'), B.R)} | ${pc(byTier('E'), B.E)} | ${per('C')} | ${per('U')} | ${per('R')} | ${per('E')} | ${auto.toFixed(1)} | ${runs.filter((r) => !r.done).length} |`);
+    }
+    out.push('');
+    out.push('出どころごと（1 回の通しあたりの平均：出た数・受けた数と割合）');
+    out.push('');
+    out.push(`| 方針 | ${CARD_SRCS.map((x) => SRC_NAME[x]).join(' | ')} |`);
+    out.push(`|---|${CARD_SRCS.map(() => '---').join('|')}|`);
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      const cell = (k: CardSrc) => {
+        const made = mean(runs.map((r) => r.v25.src[k]?.made ?? 0));
+        const taken = mean(runs.map((r) => r.v25.src[k]?.taken ?? 0));
+        return made > 0 ? `${made.toFixed(1)}・${taken.toFixed(1)}（${Math.round((taken / made) * 100)}%）` : '—';
+      };
+      out.push(`| ${POLICY_NAME[p]} | ${CARD_SRCS.map(cell).join(' | ')} |`);
+    }
+    out.push('');
+  }
   // v24（段 H2）：Epic の町 ②（法務と M&A）
   {
     out.push('### 表 18：法務と M&A（v24。段 H2：Epic の町 ②）');

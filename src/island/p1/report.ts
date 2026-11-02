@@ -17,7 +17,8 @@ import { legalReportText } from './legalui';
 import { assetUrl } from '../../render/images';
 import { PRODUCT, TOP_STREAK, sku } from './data';
 import { jamOf, myShops, whatIf, type P1State, type Report, type Stage } from './model';
-import { moveUp } from './scm';
+import { moveUp, sellBigUp } from './scm';
+import { bestSell } from './moves';
 import { closeSheet, open, type Ctx } from './screens';
 import { btn, h, heroName, money, rich, select, skuIcon } from './ui';
 
@@ -631,17 +632,27 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       const long = h('span', 'is-long');
       const short = h('span', 'is-short');
       // 詰まりの段の打ち手のうち、見込み（+N 個／月）のいちばん大きいもの（SCM ダッシュボードの「上げるには」と同じ）
-      const top = bn !== 'sell' || myShops(s).length ? whatIf(s, bn).find((w) => w.ok) : undefined;
-      const best = top ? moveUp(ctx, s, top) : null;
-      if (best && top) {
-        const n = Math.round(top.units);
+      let bestBtn: HTMLButtonElement | null = null;
+      // 段 UI1：④ 販売は毎月の費用を引いた利益の見込みの順（moves.ts の bestSell。SCM の大きいボタンと同じ）。押すとその手を打つ
+      const sm = bn === 'sell' && myShops(s).length ? bestSell(s) : null;
+      const top = sm ? undefined : bn !== 'sell' || myShops(s).length ? whatIf(s, bn).find((w) => w.ok) : undefined;
+      const best = sm ? sellBigUp(ctx, s, sm) : top ? moveUp(ctx, s, top) : null;
+      if (best && (top || sm)) {
+        const n = Math.round(sm ? sm.units : top!.units);
         long.append(rich(t(`[[${STAGE_NAME[bn]}]]が詰まっています。いちばん効く手は[[${best.label}]]（${best.sub}）。`, `[[${STAGE_NAME[bn]}]] is the jam. Best move: [[${best.label}]] (${best.sub}).`)));
         short.append(rich(t(`[[${STAGE_NAME[bn]}]]が詰まり。効く手：[[${best.label}]]（+${n} 個／月）`, `[[${STAGE_NAME[bn]}]] jam. Best: [[${best.label}]] (+${n} / mo)`)));
+        hint.classList.add('has-go');
+        bestBtn = btn(t('▶ この手を打つ', '▶ Do it'), () => {
+          closeSheet();
+          best.go();
+        }, 'is-on isl-rp-best');
+        if (best.short) bestBtn.classList.add('is-short');
       } else {
         long.append(rich(t(`[[${STAGE_NAME[bn]}]]が詰まっています。${STAGE_HINT[bn]}`, `[[${STAGE_NAME[bn]}]] is the jam. ${STAGE_HINT[bn]}`)));
         short.append(rich(t(`[[${STAGE_NAME[bn]}]]が詰まり。${STAGE_HINT_SHORT[bn]}`, `[[${STAGE_NAME[bn]}]] jam. ${STAGE_HINT_SHORT[bn]}`)));
       }
       hint.append(long, short);
+      if (bestBtn) hint.append(bestBtn);
       c4.append(hint);
       // 今月の出土品（発掘との出会いのあと・発掘場のあるセクタ）：新発見・研究 Lv ↑・RP。導線は研究ノート
       const dg = digMet(s) ? digReportLine(r) : null;

@@ -38,6 +38,7 @@ import type { P1State, Staff } from './model';
 import { after, open, type Ctx } from './screens';
 import { sectorDef } from './company';
 import { bar, btn, h, heroIcon, money, rich } from './ui';
+import { cardInboxCard } from './cardui';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 /** 役目の札（リーダー・部長・セクター長。形で見分ける：リーダーは角、部長は丸、セクター長は二重の枠） */
@@ -247,6 +248,8 @@ export function openProps(ctx: Ctx) {
   open(ctx, t('部長の提案', 'Proposals from your heads'), (body) => {
     const s = ctx.s();
     body.classList.add('isl-dl');
+    // 段 UI1：ヒーローからの提案・報告のカード（時間を止めて出せなかったもの）と、任せている提案
+    body.append(cardInboxCard(ctx));
     body.append(h('p', 'isl-dim', t('事業部長は、月に 1 回、いま打てる手の中から効き目の見込みが大きいものを持ってきます。部長の出来が高いほど、見込みの誤差が小さくなります。承認すると、すぐに実行します。', 'Each month your heads bring the move they expect to pay off most. Better heads misjudge less. Approving carries it out right away.')));
     const here = s.sector ?? 'c1';
     const inbox = (s.deleg?.inbox ?? []).filter((p) => (p.sector ?? here) === here);
@@ -262,7 +265,7 @@ export function openProps(ctx: Ctx) {
     if (done.length) {
       const c = h('div', 'isl-card2 isl-prop-done');
       c.append(h('h3', '', t('承認した提案（翌月の報告で結果）', 'Approved (results in next month’s report)')));
-      for (const x of done) c.append(h('p', 'isl-good', t(`✔ ${DEPT[x.p.dept].name}部長：${actName(s, x.p.act)}`, `✔ ${DEPT[x.p.dept].name} head: ${actName(s, x.p.act)}`)));
+      for (const x of done) c.append(h('p', 'isl-good', x.p.src ? t(`✔ ${heroNm(x.p.hero)}：${actName(s, x.p.act)}`, `✔ ${heroNm(x.p.hero)}: ${actName(s, x.p.act)}`) : t(`✔ ${DEPT[x.p.dept].name}部長：${actName(s, x.p.act)}`, `✔ ${DEPT[x.p.dept].name} head: ${actName(s, x.p.act)}`)));
       body.append(c);
     }
     // 先月の結果・担当の報告
@@ -335,10 +338,11 @@ export function rolesCard(ctx: Ctx, s: P1State): HTMLElement | null {
 }
 
 /** 月次報告の「担当の報告」の文（長い・短い）。無ければ null */
-export function delegReportText(s: P1State, r: { deleg?: import('./deleg').DelegReport }): [string, string] | null {
+export function delegReportText(s: P1State, r: { deleg?: import('./deleg').DelegReport; cards?: import('./card').CardReport }): [string, string] | null {
   const d = r.deleg;
   const sec = sectorLines(s).length;
-  if (!d && !sec) return null;
+  const cr = r.cards;
+  if (!d && !sec && !cr) return null;
   const parts: string[] = [];
   const short: string[] = [];
   if (d?.duties.length) {
@@ -353,6 +357,16 @@ export function delegReportText(s: P1State, r: { deleg?: import('./deleg').Deleg
   if (d?.results.length) {
     parts.push(t(`提案の結果 ${d.results.length} 件`, `${d.results.length} results`));
     short.push(t(`結果 ${d.results.length}`, `${d.results.length} res.`));
+  }
+  // 段 UI1：任せた提案（自分で実行して報告）・ヒーローからの提案のカード
+  if (cr?.auto.length) {
+    const x = cr.auto[0];
+    parts.push(t(`🤝 任せた提案：${heroNm(x.hero)}が「${actName(s, x.act)}」を実行${cr.auto.length > 1 ? `ほか ${cr.auto.length - 1} 件` : ''}`, `🤝 Trusted: ${heroNm(x.hero)} did “${actName(s, x.act)}”${cr.auto.length > 1 ? ` + ${cr.auto.length - 1}` : ''}`));
+    short.push(t(`任せた ${cr.auto.length}`, `${cr.auto.length} trusted`));
+  }
+  if (cr?.made) {
+    parts.push(t(`提案のカード ${cr.made} 件（受け箱 ${cr.boxed}）`, `${cr.made} proposal cards (${cr.boxed} to inbox)`));
+    short.push(t(`カード ${cr.made}`, `${cr.made} cards`));
   }
   if (sec) {
     parts.push(t(`セクター長 ${sec} 町`, `${sec} sector heads`));

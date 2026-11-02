@@ -551,14 +551,14 @@ describe('8. セーブ（版 18）', () => {
     const o = JSON.parse(serializeP1(s));
     o.v = 17;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(19);
+    expect(back.v).toBe(20);
     expect(back.letters).toEqual(['U', 'R', 'E']);
     expect(letterProgress(back, 'E')).toBeNull();
     expect(back.stock[x]).toBe(4);
     // ブランド力は上限（Rare の町にいるので 800）へ。いちばん高かった値（カリスマ度の分）は残す
     expect(back.brand).toBe(BRAND_CAP.R);
     expect(back.brandPeak).toBe(999);
-    expect(newP1(1).v).toBe(19);
+    expect(newP1(1).v).toBe(20);
     void staffOf;
     void sectorDef;
   });

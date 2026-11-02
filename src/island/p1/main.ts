@@ -16,6 +16,9 @@ import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDIN
 import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
 import { bandText } from './deleg';
 import { openDeleg, openProps } from './delegui';
+import { autoText, cardsCompany, cardsDay, cardsMonth, demoDraft, enqueue, nextPop, takeAuto } from './card';
+import { cardNav, showCard } from './cardui';
+import { bestSell } from './moves';
 import {
   allowedDirs,
   digSite,
@@ -71,6 +74,8 @@ import {
   market,
   trainingOf,
   invLv,
+  jamOf,
+  type Report as P1Report,
   extName,
   present,
   topicsOf,
@@ -264,7 +269,14 @@ const toasts = h('div', 'isl-toasts');
 /** 発掘画面のあいだに来たお知らせ（作業のあとに出す） */
 let heldToasts: [string, string | undefined][] = [];
 /** お知らせ（icon：左に添える絵。エンブレム・ゴールドダストなど） */
+/** 提案・報告のカードが出ているあいだのお知らせ（カードの上にかぶらないように、閉じたあとにまとめて。段 UI1） */
+const cardToasts: [string, string | undefined][] = [];
 function toast(text: string, img?: string) {
+  if (root.querySelector('.isl-cardm')) {
+    if (!cardToasts.some((x) => x[0] === text)) cardToasts.push([text, img]);
+    if (cardToasts.length > 4) cardToasts.shift();
+    return;
+  }
   // 発掘作業のあいだ（全画面の発掘画面）は、町で起きたことのお知らせは出さない。作業のあとにまとめて（多ければ新しい 4 つ）
   if (digOpen()) {
     if (!heldToasts.some((x) => x[0] === text)) heldToasts.push([text, img]);
@@ -2972,7 +2984,21 @@ function tutorial(): { text: string; action?: [string, () => void] } {
   if (!s.cleared && (s.topStreak ?? 0) > 0 && last?.rank === 1) return { text: firstTopTip(), action: [t('ランキングを見る', 'Open ranking'), () => openRanking(ctx)] };
   // タオックスの前半：作業台が 1 台のままなら、2 台にすると作る数が倍（工房の設備投資）。通常のプレイが遅い主因（docs/ISLAND_BALANCE.md）
   const wsB = myWorkshop(s);
-  if ((s.sector ?? 'c1') === 'c1' && !s.cleared && wsB && invLv(wsB, 'bench') === 0)
+  // 段 UI1：詰まりの段に合わせる。販売が詰まりなら、作業台より先に「棚を増やして別の商品」（いちばん効く販売の手）を
+  const jamNow = myShops(s).length ? jamOf(s) : null;
+  if ((s.sector ?? 'c1') === 'c1' && !s.cleared && jamNow === 'sell') {
+    const m = sellTipMove();
+    if (m && m.act?.k === 'stock' && m.uid != null) {
+      const uid = m.uid;
+      return {
+        text: m.act.add
+          ? t(`④ 販売が詰まり。[[棚]]を増やして「${PRODUCT[m.key ?? '']?.name ?? ''}」も並べると、月 +${Math.round(m.units)} 個売れるよ（お店 → [[設備投資]]）。`, `④ Sell is the jam. Add a [[shelf]] and stock ${PRODUCT[m.key ?? '']?.name ?? ''} for +${Math.round(m.units)} a month (Shop → [[Capital investment]]).`)
+          : t(`④ 販売が詰まり。棚に「${PRODUCT[m.key ?? '']?.name ?? ''}」を並べると、月 +${Math.round(m.units)} 個売れるよ。`, `④ Sell is the jam. Stock ${PRODUCT[m.key ?? '']?.name ?? ''} for +${Math.round(m.units)} a month.`),
+        action: [t('お店を開く', 'Open shop'), () => openShop(ctx, uid)],
+      };
+    }
+  }
+  if ((s.sector ?? 'c1') === 'c1' && !s.cleared && wsB && invLv(wsB, 'bench') === 0 && jamNow === 'craft')
     return { text: t('[[作業台]]を 2 台にすると、作る数が倍になるよ（工房 → [[設備投資]]）。', 'Two [[workbenches]] double what you make (Workshop → [[Capital investment]]).'), action: [t('工房を開く', 'Open workshop'), () => openWorkshop(ctx, true)] };
   if (s.cleared && !s.gateOpen) return { text: t(`2 か月続けてエリア 1 位、制覇おめでとう！ランドのふちの[[関所]]は、通行料 ${money(gateToll(s))} で開通できるよ。開けると、となりのランドセクタへ進めるんだ。`, `Congratulations — #1 two months running, the sector is yours! The [[gate]] at the edge of the land opens for a ${money(gateToll(s))} toll and leads to the next land sector.`), action: [t('関所を見る', 'View the gate'), () => showGate()] };
   if (quarterNew) {
@@ -3069,6 +3095,46 @@ function introPending(): boolean {
   if (st.lesson && !st.intro && performance.now() < tutIntroAfter) return true;
   return (!!st.intro || !!st.autoGo) && tutIntro !== k;
 }
+
+/** 吹き出しの販売の手（重いので、日と資金が変わったときだけ計算し直す） */
+let sellTipKey = '';
+let sellTipVal: ReturnType<typeof bestSell> = null;
+function sellTipMove() {
+  const key = `${s.sector}:${s.day}:${s.money}:${s.buildings.length}:${s.skills.length}`;
+  if (key !== sellTipKey) {
+    sellTipKey = key;
+    sellTipVal = bestSell(s);
+  }
+  return sellTipVal;
+}
+
+/**
+ * 提案・報告のカード（段 UI1）：落ち着いた時に 1 枚ずつ出す（月次報告を閉じたあと・月の途中）。
+ * 会話・画面・吹き出し・置くモード・発掘・流れの案内・チュートリアルのあいだは出さない（次の機会に）
+ */
+let cardCheck = 0;
+function maybeCard(now: number) {
+  if (now - cardCheck < 400) return;
+  cardCheck = now;
+  if (placing || menu || pop || sheetOpen() || tour || s.digRun || digOpen() || meetPing || tutOf(s) < TUT_DONE) return;
+  if (root.querySelector('.isl-modal, .isl-rp-reveal, .isl-tour:not([hidden])')) return;
+  const c = nextPop(s);
+  if (!c) return;
+  closePop();
+  showCard(ctx, c, { done: cardDone, open: cardOpen });
+}
+function cardDone() {
+  for (const [x, img] of cardToasts.splice(0)) toast(x, img);
+  save();
+  renderAll();
+  refreshSheet();
+}
+function cardOpen(to: 'tax' | 'ads') {
+  if (to === 'tax') openTaxScreen();
+  else openAds(ctx);
+}
+cardNav.done = cardDone;
+cardNav.open = cardOpen;
 
 function renderAdvisor() {
   advisor.style.display = placing || sheetOpen() || pop || !guideOn || introPending() || (digOpen() && !RAIL.matches) ? 'none' : '';
@@ -4108,6 +4174,8 @@ function advance(days: number) {
     if (tour) tourOn(r.made.length > 0 ? 'made' : null, r.delivered.some((x) => x.n > 0 && myShops(s).some((b) => b.uid === x.to)) ? 'dropped' : null);
     if (r.missions.length) sfx.play('mission');
     if (r.leveled?.length) levelNews(r.leveled);
+    // 段 UI1：任せた提案（★3 のヒーローが自分で実行した）
+    for (const x of takeAuto(s)) toast(autoText(s, x));
     if (r.hr) hrNews(r.hr);
     // 法務（段 H2）：M&A の話の進み・特許の審査が終わった
     if (r.legal) for (const x of legalToasts(r.legal)) toast(x);
@@ -4373,6 +4441,7 @@ function frame(now: number) {
     statDate.classList.toggle('is-held', held);
   }
   renderNext();
+  maybeCard(now);
   // 発掘作業の残り時間（現実の秒。ゲームの速さに寄らない）
   if (s.digRun) {
     if (speed === 0) speed = 1;
@@ -4442,6 +4511,31 @@ requestAnimationFrame(frame);
 
 (window as unknown as { islandDebug: unknown }).islandDebug = {
   state: () => s,
+  /** 提案・報告のカード（撮影スクリプト用）：月の締めのカードを作る・辞めたい・経理の助言・持ち場の提案を作って出す・受け箱のカードを出す */
+  cardsNow: (opt: { comeback?: string; rally?: string } = {}) => {
+    const last = s.reports[s.reports.length - 1];
+    const r = { ...(last ?? ({} as P1Report)), month: (last?.month ?? 0) + 1, comeback: opt.comeback ? { by: opt.comeback, rid: '', months: 3, bonus: 0 } : undefined, rally: opt.rally ? { by: opt.rally, months: 2 } : undefined } as P1Report;
+    cardsMonth(s, r);
+    return s.cards?.inbox.map((c) => ({ id: c.id, src: c.src, pop: c.pop }));
+  },
+  cardsDay: (heroes: number[]) => cardsDay(s, heroes),
+  cardsCompany: () => cardsCompany(s),
+  cardDemo: (src: 'clerk' | 'crafter' | 'buyer' | 'idle', hero?: number) => {
+    const d = demoDraft(s, src, hero);
+    const c = d ? enqueue(s, d) : null;
+    if (c) showCard(ctx, c, { done: cardDone, open: cardOpen });
+    return c?.id ?? null;
+  },
+  cardRaw: (d: Parameters<typeof enqueue>[1]) => {
+    const c = enqueue(s, d);
+    if (c) showCard(ctx, c, { done: cardDone, open: cardOpen });
+    return c?.id ?? null;
+  },
+  cardShow: (id: number) => {
+    const c = s.cards?.inbox.find((x) => x.id === id);
+    if (c) showCard(ctx, c, { done: cardDone, open: cardOpen });
+    return !!c;
+  },
   setState: (next: P1State) => {
     s = next;
     renderAll();

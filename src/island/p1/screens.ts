@@ -1840,6 +1840,8 @@ export function openMissions(ctx: Ctx) {
       const st = s.missions[m.id];
       const c = h('div', `isl-card2 isl-mission ${st === 'done' ? 'is-done' : ''} ${st === 'accepted' ? 'is-on' : ''}`);
       c.append(h('small', 'isl-dim', m.from), h('h3', '', m.title), h('p', '', m.text));
+      // 段 UI1：受ける前の一言（気をつけること。中身と報酬は同じ）
+      if (m.note && !st) c.append(h('small', 'isl-warn isl-mission-note', `⚠ ${m.note}`));
       const pr = missionProgress(s, m.id);
       if (pr && st === 'accepted') {
         const f = h('div', 'isl-field');
