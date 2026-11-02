@@ -118,6 +118,7 @@ import {
   procBonus,
   scoutMul,
   relicMinCraft,
+  MAX_HAULERS,
 } from './model';
 import { sectorDef, sectorProfile } from './company';
 import { UNSELLABLE_TEXT, seriesTag } from './digview';
@@ -1309,7 +1310,7 @@ export function openStaff(ctx: Ctx) {
     // ③ 物流：今いる運搬係＋空きの枠（3 人まで）
     const haulers = s.staff.filter((x) => x.task === 'transport');
     const hs = haulers.map((x) => slot(s, { label: t('運搬係', 'Hauler'), task: 'transport', hero: x.hero, hot, onTap: put('transport', null, t('物流の担当', 'Hauler'), x.hero, () => assign(s, x.hero, null)), onRemove: () => (assign(s, x.hero, null), after(ctx)) }));
-    if (haulers.length < 3) hs.push(slot(s, { label: t('運搬係', 'Hauler'), task: 'transport', hero: null, hot: hot || (ctx.step?.() === 'haul' && !haulers.length), onTap: put('transport', null, t('物流の担当', 'Hauler'), null) }));
+    if (haulers.length < MAX_HAULERS) hs.push(slot(s, { label: t('運搬係', 'Hauler'), task: 'transport', hero: null, hot: hot || (ctx.step?.() === 'haul' && !haulers.length), onTap: put('transport', null, t('物流の担当', 'Hauler'), null) }));
     lane('③', t('物流', 'Haul'), hs, t('工房からお店へ荷車で運ぶ（適性：PHY 重視）', 'Carts goods from the workshop to shops (mostly PHY)'));
     // ④ 販売
     const shops = myShops(s);

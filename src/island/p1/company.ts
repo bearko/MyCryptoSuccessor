@@ -161,8 +161,8 @@ export interface SectorRec {
   id: string;
   /** そのセクタの地図・お店などの写し（いま経営していないときだけ） */
   snap?: Record<string, unknown>;
-  /** 離れるときに担当していた仕事（戻ったら、空いていれば元に戻す） */
-  jobs?: { hero: number; task: string; target: number | string | null }[];
+  /** 離れるときに担当していた仕事（戻ったら、空いていれば元に戻す）。train：離れているあいだに修行を終えた職人の元の持ち場（ふさがっていれば待機） */
+  jobs?: { hero: number; task: string; target: number | string | null; train?: boolean }[];
   /** セクタマネージャー（ヒーロー） */
   manager?: number | null;
   /** 利益のうちそのセクタへ回す割合 */

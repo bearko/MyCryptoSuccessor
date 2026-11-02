@@ -7,7 +7,7 @@ import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { DEF } from '../defs';
 import { INVEST, MAT_KEYS, MATS, MARKET, PRODUCT, SKILL, SKILLS, TRANSPORT, isResearch, rpCost, skuPrice, type Mat, type Sku } from './data';
-import { clearGoal, has, invest, skillLock, type PBuilding, jamOf, hasRoute, oneWay, shopArea, craftCheck, craftDays, learn, matDays, monthRevenue, myShops, myWorkshop, nextJam, poolCap, poolFree, poolUsed, sellInfo, speed, stageCaps, staffOf, storageCap, assign, whatIf, type GoodsWhy, type P1State, type SellInfo, type SellWhy, type Stage, type StageIf, type WhatIf } from './model';
+import { clearGoal, has, invest, MAX_HAULERS, skillLock, type PBuilding, jamOf, hasRoute, oneWay, shopArea, craftCheck, craftDays, learn, matDays, monthRevenue, myShops, myWorkshop, nextJam, poolCap, poolFree, poolUsed, sellInfo, speed, stageCaps, staffOf, storageCap, assign, whatIf, type GoodsWhy, type P1State, type SellInfo, type SellWhy, type Stage, type StageIf, type WhatIf } from './model';
 import { pickHero, slot, TASK_NAME } from './heroui';
 import { clearCondText } from './digmeet';
 import { after, mineSay, mineTip, open, openAds, openBuy, openData, openHire, openShop, openStaff, openWorkshop, SHELF_TIP, type Ctx } from './screens';
@@ -795,7 +795,7 @@ export function openSupply(ctx: Ctx, opt: { breakdown?: boolean } = {}) {
     }
     if (!s.trips.length) carts.append(h('small', 'isl-dim', t('いま走っている荷車はありません', 'No carts on the road')));
     const hs = haulers.map((x) => assignSlot(t('運搬係', 'Hauler'), 'transport', x.hero, null));
-    if (haulers.length < 3) hs.push(assignSlot(t('運搬係', 'Hauler'), 'transport', null, null));
+    if (haulers.length < MAX_HAULERS) hs.push(assignSlot(t('運搬係', 'Hauler'), 'transport', null, null));
     flow.append(card('haul', hs, [wait, carts]));
     flow.append(pipe(STAGE.haul.what, hauled));
 

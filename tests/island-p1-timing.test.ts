@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { AWARE_GOODS, ENTRY_AFTER, MARKET, SKILL, aptitude } from '../src/island/p1/data';
+import { moveTo } from '../src/island/p1/land';
 import {
   allowedDirs,
   assign,
@@ -14,6 +15,7 @@ import {
   learn,
   market,
   newP1,
+  openGate,
   runAd,
   saturated,
   sellEstimate,
@@ -105,6 +107,51 @@ describe('技の修行', () => {
     expect(has(s, 't_wood')).toBe(true);
     expect(s.staff.find((x) => x.hero === 10003)!.task).toBeNull();
     expect(s.slots[0].worker).toBe(10001);
+  });
+
+  it('修行中にセクタを移っても、元のセクタに戻ったら元の作業台へ（空いていれば）', () => {
+    const s = newP1(8);
+    shopWith(s, 'Sensu:C');
+    assign(s, 10003, 'craft', 0);
+    for (let k = 0; k < 32; k++) step(s);
+    s.money = 1e6;
+    s.rp = 1000;
+    expect(learn(s, 't_wood', 10003)).toBeNull();
+    // マネージャーの候補を 1 人足して、となりのセクタへ
+    s.staff.push({ ...JSON.parse(JSON.stringify(s.staff[0])), hero: 20001, task: null, target: null, resting: false });
+    openGate(s);
+    expect(moveTo(s, 'c2', 20001)).toBeNull();
+    for (let k = 0; k < 20 && s.training; k++) step(s);
+    expect(has(s, 't_wood')).toBe(true);
+    const st = s.staff.find((x) => x.hero === 10003)!;
+    // いまのセクタ（c2）には元の作業台が無いので待機
+    expect(st.task).toBeNull();
+    expect(moveTo(s, 'c1', null)).toBeNull();
+    expect(st.task).toBe('craft');
+    expect(s.slots[0].worker).toBe(10003);
+  });
+
+  it('調達係・他店のバイトからも元の持ち場へ。調達係がほかにいれば待機', () => {
+    const s = newP1(5);
+    shopWith(s, 'Sensu:C');
+    s.rp = 1000;
+    assign(s, 10003, 'buy');
+    expect(learn(s, 't_wood', 10003)).toBeNull();
+    for (let k = 0; k < 20 && s.training; k++) step(s);
+    expect(s.staff.find((x) => x.hero === 10003)!.task).toBe('buy');
+    // 2 回目：修行中にほかの人が調達係になった → 待機（調達係は 1 人）
+    assign(s, 10003, 'buy');
+    expect(learn(s, 't_paper', 10003)).toBeNull();
+    assign(s, 10001, 'buy');
+    for (let k = 0; k < 20 && s.training; k++) step(s);
+    expect(s.staff.find((x) => x.hero === 10003)!.task).toBeNull();
+    expect(s.staff.filter((x) => x.task === 'buy').map((x) => x.hero)).toEqual([10001]);
+    // 他店でバイト
+    const rival = s.rivals[0].id;
+    expect(assign(s, 10003, 'side', rival)).toBeNull();
+    expect(learn(s, 't_metal', 10003)).toBeNull();
+    for (let k = 0; k < 30 && s.training; k++) step(s);
+    expect(s.staff.find((x) => x.hero === 10003)).toMatchObject({ task: 'side', target: rival });
   });
 });
 

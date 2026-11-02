@@ -27,6 +27,15 @@ export const GAP = 1.22;
 export const HUB = 1.55;
 /** 札の大きさ（単位：UNIT。1 行の札「物流 12」）。隣の札と重なるときは外へ（HUB2） */
 export const HUB_BOX = { w: 0.82, h: 0.34 };
+/**
+ * つながりの線が下を通らないようにする札の大きさ（単位：UNIT。日本語・英語の長いほうが入る大きさ）：
+ * 1 行の札「システム 12」・2 行の札（開くランクに達していないあいだ「総務 0／🔒 Uncommon で開く」）
+ */
+export const HUB_CLEAR: Record<'C' | 'U' | 'RE', { w: number; h: number }> = { C: { w: 1.0, h: 0.32 }, U: { w: 1.47, h: 0.43 }, RE: { w: 1.12, h: 0.43 } };
+export const hubClear = (d: DeptId) => {
+  const o = DEPTS.find((x) => x.id === d)?.opens ?? 'C';
+  return HUB_CLEAR[o === 'C' ? 'C' : o === 'U' ? 'U' : 'RE'];
+};
 export const HUB2 = 2.05;
 /** 物流のように束（グループ）が複数ある部門：束の根もと（小さな節）の距離 */
 export const KNOT = 2.1;
@@ -368,15 +377,17 @@ const TWO_OK = TWO.map((m) => ({ m, d: bendSize(m) }))
  * 2. それでも横切るなら、左右で膨らみの違う弧（TWO_OK）を膨らみの小さい順に試し、横切るパネルが 0 になる最初のもの。
  * どれでも横切るなら、左右対称の弧のうち横切るパネルがいちばん少ないもの（テストで 0 本を確かめる）
  */
-export function edgeBend(a: { x: number; y: number }, b: { x: number; y: number }, skip: (id: string) => boolean): Bend {
+export function edgeBend(a: { x: number; y: number }, b: { x: number; y: number }, skip: (id: string) => boolean, hubs: HubBox[] = []): Bend {
   // 近くのパネルだけ調べる（弧は線から BEND_MAX より離れない。その外＋ひし形の半分は見ない）
   const pad = BEND_MAX + PANEL;
   const near = [...POS].filter(([id, p]) => !skip(id) && p.x > Math.min(a.x, b.x) - pad && p.x < Math.max(a.x, b.x) + pad && p.y > Math.min(a.y, b.y) - pad && p.y < Math.max(a.y, b.y) + pad);
+  const nearHubs = hubs.filter((p) => p.x > Math.min(a.x, b.x) - pad - p.w && p.x < Math.max(a.x, b.x) + pad + p.w && p.y > Math.min(a.y, b.y) - pad - p.h && p.y < Math.max(a.y, b.y) + pad + p.h);
   // 判定はテスト（折れ線にして 120 区間）よりほんの少し広い余白で（細かさの違いで、かすめる線を見落とさない）
   const r = PANEL / 2 + EDGE_CLEAR + 0.005;
+  // パネルを横切らないのが先（札の下を通るのは、パネルを横切るより軽い）
   const hits = (m: Bend) => {
     const pts = curvePoly(a, b, m);
-    return near.filter(([, p]) => polyNear(pts, p, r)).length;
+    return near.filter(([, p]) => polyNear(pts, p, r)).length * 10 + nearHubs.filter((p) => polyInBox(pts, p, p)).length;
   };
   let bestN = hits(0);
   if (!bestN) return 0;
@@ -392,9 +403,16 @@ export function edgeBend(a: { x: number; y: number }, b: { x: number; y: number 
     }
   for (const m of TWO_OK) {
     const pts = curvePoly(a, b, m);
-    if (!near.some(([, p]) => polyNear(pts, p, r))) return m;
+    if (!near.some(([, p]) => polyNear(pts, p, r)) && !nearHubs.some((p) => polyInBox(pts, p, p))) return m;
   }
   return best;
+}
+/** 部門の札の位置と大きさ */
+export type HubBox = { d: DeptId; x: number; y: number; w: number; h: number };
+/** 線の下に来ないようにする、ほかの部門の札（根もと（札・束の節）から出る線の、その部門の札は除く） */
+export function hubsAround(e: TreeEdge): HubBox[] {
+  const own = e.from == null ? (GROUP_OF.get(e.g)?.dept ?? (e.g as DeptId)) : null;
+  return [...HUBPOS].filter(([d]) => d !== own).map(([d, p]) => ({ d, ...p, ...hubClear(d) }));
 }
 let bends: Map<TreeEdge, Bend> | null = null;
 /** どの線をどれだけ曲げるか（配置は変わらないので、はじめて使うときに 1 回だけ数える） */
@@ -402,7 +420,7 @@ export function edgeBends(): Map<TreeEdge, Bend> {
   if (bends) return bends;
   bends = new Map();
   for (const e of EDGES) {
-    const m = edgeBend(edgeEnd(e.from, e.g), edgeEnd(e.to, e.g), (id) => id === e.from || id === e.to);
+    const m = edgeBend(edgeEnd(e.from, e.g), edgeEnd(e.to, e.g), (id) => id === e.from || id === e.to, hubsAround(e));
     if (m) bends.set(e, m);
   }
   return bends;
@@ -468,6 +486,37 @@ function polyNear(pts: { x: number; y: number }[], p: { x: number; y: number }, 
     const q1 = pts[i];
     if (p.x + r < Math.min(q0.x, q1.x) || p.x - r > Math.max(q0.x, q1.x) || p.y + r < Math.min(q0.y, q1.y) || p.y - r > Math.max(q0.y, q1.y)) continue;
     if (l1Seg(p, q0, q1) < r) return true;
+  }
+  return false;
+}
+/** 折れ線が、中心 c・大きさ box の札（長方形）の中を通るか（区間ごとに、長方形で切り取って調べる） */
+export function polyInBox(pts: { x: number; y: number }[], c: { x: number; y: number }, box: { w: number; h: number }) {
+  const x0 = c.x - box.w / 2;
+  const x1 = c.x + box.w / 2;
+  const y0 = c.y - box.h / 2;
+  const y1 = c.y + box.h / 2;
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i - 1];
+    const dx = pts[i].x - p.x;
+    const dy = pts[i].y - p.y;
+    let lo = 0;
+    let hi = 1;
+    let ok = true;
+    for (const [q, d] of [
+      [-dx, p.x - x0],
+      [dx, x1 - p.x],
+      [-dy, p.y - y0],
+      [dy, y1 - p.y],
+    ]) {
+      if (q === 0) {
+        if (d < 0) ok = false;
+        continue;
+      }
+      const t = d / q;
+      if (q < 0) lo = Math.max(lo, t);
+      else hi = Math.min(hi, t);
+    }
+    if (ok && lo <= hi) return true;
   }
   return false;
 }

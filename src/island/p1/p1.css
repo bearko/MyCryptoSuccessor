@@ -2747,6 +2747,10 @@ button.isl-mis {
   #isl-ui .isl-toasts {
     max-width: calc(100% - min(200px, 52vw) - 24px);
   }
+  /* 画面（シート）を開いているとき：トーストは見出しの下（main.ts の placeToasts）。右上のミッションは隠れているので、横いっぱいに（行を少なく） */
+  #isl-ui:has(.isl-sheet) .isl-toasts {
+    max-width: calc(100% - 16px);
+  }
   .isl-praise {
     top: calc(var(--hud-h, 56px) + 64px);
     left: 8px;
@@ -6795,6 +6799,147 @@ button.isl-mis {
   gap: 6px;
   margin: 4px 0 0;
   font-size: 13px;
+}
+.isl-rp-fc .is-short,
+.isl-rp-say p .is-short,
+.isl-rp-sumlead {
+  display: none;
+}
+/* スマホ（390×844）：月次報告を 1 画面に（はみ出していた約 100px を詰める） */
+@media (max-width: 599px) {
+  /* 来月の見込みは短い文で 1 行 */
+  .is-report .isl-rp-fc {
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin-top: 2px;
+    font-size: 11px !important;
+    white-space: nowrap;
+  }
+  .is-report .isl-rp-fc .isl-tag {
+    padding: 0 5px;
+    font-size: 10px;
+  }
+  .isl-rp-fc .is-long,
+  .isl-rp-say p .is-long {
+    display: none;
+  }
+  .isl-rp-fc .is-short,
+  .isl-rp-say p .is-short {
+    display: inline;
+  }
+  /* 資金の変化：右の列からはみ出さないように（左の列は売上の幅だけ・右の列に残り。それでも長いときは → で折り返す） */
+  .isl-rp-sales {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+  }
+  .isl-rp-cash {
+    font-size: 11px !important;
+    white-space: normal;
+  }
+  /* 1 回目の 1 位の一言：マインちゃんと一言を 1 行に（2 位との差は一言の下に小さく） */
+  .isl-rp-say {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0 6px;
+  }
+  .isl-rp-say .isl-rp-lead {
+    grid-column: 2;
+    line-height: 1.2;
+  }
+  .isl-rp-say p {
+    line-height: 1.3 !important;
+  }
+  /* 売上の内訳・ランキング表（折りたたみ）の行を薄く */
+  .is-report .isl-rp-detail {
+    margin-top: 2px;
+    padding: 1px 8px;
+  }
+  .is-report .isl-rp-detail summary {
+    font-size: 11px;
+  }
+  .is-report .isl-rp-relic {
+    font-size: 11px;
+  }
+  /*
+   * 収まらない月（行の多い月）は、推移のグラフのカードが縮んで 1 画面に収める（グラフは下限まで）。
+   * それでも入りきらなければ、本体はスクロールできる
+   */
+  #isl-ui .isl-sheet-body.is-report {
+    display: flex;
+    flex-direction: column;
+  }
+  #isl-ui .isl-sheet-body.is-report > * {
+    flex: none;
+  }
+  #isl-ui .isl-sheet-body.is-report > .isl-rp-trend {
+    flex: 0 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 100px;
+  }
+  /* はみ出しを測るあいだ（report.ts の fitPhone）：グラフを縮めない */
+  #isl-ui .isl-sheet-body.is-report.is-measure > .isl-rp-trend {
+    flex-shrink: 0;
+  }
+  /* 詰めた表示（行の多い月）：詰まりの定義の一言を隠す・2 位との差はランキング表の行へ・流れの図と各行を低く */
+  #isl-ui .is-report.is-tight .isl-rp-bnnote,
+  #isl-ui .is-report.is-tight .isl-rp-say .isl-rp-lead {
+    display: none;
+  }
+  #isl-ui .is-report.is-tight .isl-rp-sumlead {
+    display: inline;
+  }
+  #isl-ui .is-report.is-tight .isl-rp-rankhead {
+    gap: 2px 6px;
+  }
+  #isl-ui .is-report.is-tight .isl-rp-ranknum {
+    font-size: 20px;
+  }
+  #isl-ui .is-report.is-tight .isl-rp-flow {
+    margin-top: 2px;
+  }
+  #isl-ui .is-report.is-tight .isl-rp-stage {
+    gap: 0;
+    padding: 2px 2px 1px;
+  }
+  #isl-ui .is-report.is-tight .isl-rp-sicon {
+    font-size: 15px;
+  }
+  #isl-ui .is-report.is-tight .isl-rp-sbar {
+    height: 16px;
+  }
+  #isl-ui .is-report.is-tight .isl-rp-stage b {
+    font-size: 13px;
+    line-height: 1.1;
+  }
+  #isl-ui .is-report.is-tight .isl-rp-dig {
+    margin-top: 2px;
+    padding: 1px 6px;
+  }
+  #isl-ui .is-report.is-tight .isl-rp-dig .isl-btn.isl-rp-go,
+  #isl-ui .is-report.is-tight .isl-rp-trade .isl-btn.isl-rp-go {
+    min-height: 20px;
+  }
+  #isl-ui .is-report.is-tight .isl-rp-trade,
+  #isl-ui .is-report.is-tight .isl-rp-sale,
+  #isl-ui .is-report.is-tight .isl-rp-say {
+    margin-top: 1px;
+    margin-bottom: 1px;
+  }
+  .isl-rp-trend .isl-rp-chartwrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-rows: minmax(40px, 1fr) auto;
+  }
+  .isl-rp-trend .isl-rp-chart {
+    height: 100%;
+    min-height: 40px;
+  }
+  .isl-rp-trend .isl-rp-legend {
+    font-size: 10px;
+    line-height: 1.2;
+  }
 }
 .isl-tree.is-ringfx .isl-tree-node.is-ringpop {
   filter: none;

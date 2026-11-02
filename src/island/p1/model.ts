@@ -1989,7 +1989,8 @@ export const trainingOf = (s: P1State, id: string) => (s.training?.id === id ? s
 
 function startTraining(s: P1State, id: string, st: Staff) {
   const days = trainDays(s, id, st);
-  const from = st.task && st.task !== 'side' ? { task: st.task, target: st.target, sector: s.sector ?? 'c1' } : null;
+  // 元の持ち場（他店でのバイトも。マネージャーと修行は持ち場ではない）
+  const from = st.task && st.task !== 'manager' && st.task !== 'train' ? { task: st.task, target: st.target, sector: s.sector ?? 'c1' } : null;
   unassign(s, st);
   st.task = 'train';
   st.target = id;
@@ -1997,7 +1998,44 @@ function startTraining(s: P1State, id: string, st: Staff) {
   s.training = { id, hero: st.hero, left: days, total: days, from };
 }
 
-/** 修行が終わった：スキルが効き始め、職人は元の配置へ（同じセクタで、空いていれば） */
+/** セクタに属する仕事（セクタを離れるときに外し、戻ったら空いていれば元に戻す。land.ts の moveTo） */
+export const SECTOR_TASKS: readonly Task[] = ['craft', 'transport', 'shop', 'buy', 'intel', 'dig'];
+/** 運搬係の上限（物流の画面の四角の数） */
+export const MAX_HAULERS = 3;
+
+/**
+ * その持ち場が空いているか（修行から戻るとき・セクタに戻ったときの「空いていれば元に戻す」）：
+ * 作業台・お店はあって空き（または本人）・調達係はほかにいない・運搬係は上限まで・役目（リーダー・部長）は同じ役目の人がいない。
+ * マネージャー・修行は持ち場ではない。ほかの仕事（開拓・調査・発掘・バイト）は assign が確かめる
+ */
+export function postFree(s: P1State, hero: number, task: Task, target: number | string | null): boolean {
+  switch (task) {
+    case 'craft': {
+      const sl = s.slots[target as number];
+      return !!sl && (sl.worker == null || sl.worker === hero);
+    }
+    case 'shop': {
+      const sh = s.shops[target as number];
+      return !!sh && (sh.staff == null || sh.staff === hero);
+    }
+    case 'buy':
+      return !s.staff.some((x) => x.hero !== hero && x.task === 'buy');
+    case 'transport':
+      return s.staff.filter((x) => x.hero !== hero && x.task === 'transport').length < MAX_HAULERS;
+    case 'lead':
+      return !s.staff.some((x) => x.hero !== hero && x.task === 'lead' && x.target === target);
+    case 'manager':
+    case 'train':
+      return false;
+    default:
+      return true;
+  }
+}
+
+/**
+ * 修行が終わった：スキルが効き始め、職人は元の持ち場へ（空いていれば。ふさがっている・無くなっていれば待機）。
+ * 元の持ち場がほかのセクタ（修行中にセクタを移った）なら、そのセクタに戻ったときに空いていれば戻す（そのセクタの記録の jobs に足す）
+ */
 function finishTraining(s: P1State): { id: string; hero: number } | null {
   const tr = s.training;
   if (!tr) return null;
@@ -2008,10 +2046,14 @@ function finishTraining(s: P1State): { id: string; hero: number } | null {
     st.task = null;
     st.target = null;
     const f = tr.from;
-    if (f && f.sector === (s.sector ?? 'c1')) {
-      const free =
-        f.task === 'craft' ? s.slots[f.target as number]?.worker == null : f.task === 'shop' ? s.shops[f.target as number] != null && s.shops[f.target as number].staff == null : f.task !== 'manager' && f.task !== 'train';
-      if (free) assign(s, st.hero, f.task, f.target);
+    const here = s.sector ?? 'c1';
+    // セクタに属さない仕事（開拓・役目）は、どのセクタにいても戻せる
+    const local = SECTOR_TASKS.includes(f?.task as Task) || f?.task === 'side';
+    if (f && (f.sector === here || !local)) {
+      if (postFree(s, st.hero, f.task, f.target)) assign(s, st.hero, f.task, f.target);
+    } else if (f && SECTOR_TASKS.includes(f.task)) {
+      const rec = s.land?.recs[f.sector];
+      if (rec?.snap) (rec.jobs ??= []).push({ hero: st.hero, task: f.task, target: f.target, train: true });
     }
   }
   return { id: tr.id, hero: tr.hero };

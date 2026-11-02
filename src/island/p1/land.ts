@@ -6,9 +6,9 @@
  */
 import { t } from '../../i18n';
 import { csMove } from './cs';
-import { BRAND, LETTER_NEED, MANAGER, P1B, SECTORS, TOP_STREAK, hasArea, type Mat, type Sku, type Tier } from './data';
+import { BRAND, LETTER_NEED, MANAGER, P1B, SECTORS, TOP_STREAK, hasArea, type Mat, type Sku, type Task, type Tier } from './data';
 import { brandAdd, book, newLand, sectorDef, sectorState, TIER_NAME, type SectorRec } from './company';
-import { assign, dropStaleArea, ensureDig, fitEquipment, groundOf, hasLetter, letterProgress, newP1, staffOf, syncFacilities, syncGround, type P1State, type Report } from './model';
+import { assign, dropStaleArea, ensureDig, fitEquipment, groundOf, hasLetter, letterProgress, newP1, postFree, SECTOR_TASKS, staffOf, syncFacilities, syncGround, type P1State, type Report } from './model';
 import { rankUpTier, resetForTier } from './reset';
 
 /** セクタごとに持つもの（セクタを離れるときに写しを取り、戻ったら戻す） */
@@ -144,8 +144,7 @@ export function moveTo(s: P1State, target: string, manager: number | null): Move
     s.buyTrip = null;
   }
   // このセクタで担当していた仕事（戻ったら、空いていれば元に戻す）
-  const local = ['craft', 'transport', 'shop', 'buy', 'intel', 'dig'];
-  rec.jobs = s.staff.filter((x) => x.task && local.includes(x.task)).map((x) => ({ hero: x.hero, task: x.task as string, target: x.target }));
+  rec.jobs = s.staff.filter((x) => x.task && SECTOR_TASKS.includes(x.task)).map((x) => ({ hero: x.hero, task: x.task as string, target: x.target }));
   for (const j of rec.jobs) assign(s, j.hero, null);
   if (manager != null) {
     assign(s, manager, null);
@@ -202,9 +201,10 @@ export function moveTo(s: P1State, target: string, manager: number | null): Move
       }
     }
     // 前の担当を、空いていれば元に戻す
+    // （離れているあいだに修行を終えた職人は、元の持ち場が空いていれば。うしろに並んでいるので、前の担当が先に戻る）
     for (const j of back.jobs ?? []) {
       const x = staffOf(s, j.hero);
-      if (x && x.task == null) assign(s, j.hero, j.task as never, j.target);
+      if (x && x.task == null && (!j.train || postFree(s, j.hero, j.task as Task, j.target))) assign(s, j.hero, j.task as never, j.target);
     }
     // 設備は建物の設備投資の段で数える（以前の写しで、スキルで増やした作業台・棚が残っていれば外す）
     s.ground = groundOf(s.n);
