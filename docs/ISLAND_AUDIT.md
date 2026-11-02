@@ -2,7 +2,7 @@
 
 <!-- island:audit:begin（npm run island:audit が書き換える。手で直さない） -->
 
-最終更新：npm run island:audit（453 項目・計測 39.5 秒）
+最終更新：npm run island:audit（453 項目・計測 67.8 秒）
 
 ### 基準の状態
 

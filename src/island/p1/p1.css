@@ -11905,3 +11905,308 @@ button.isl-dband-lead.is-on {
   color: #3a2a08;
   font-weight: 600;
 }
+
+/* ---------------------------------------------------------------- 提案・報告のカード（段 UI1。cardui.ts）
+ * 画面いっぱいのポップアップ：端に少し隙間を空けて後ろの町が見える。スマホは HUD の下から下のタブ（中央の丸いボタンの出っ張りも含む）の上まで、
+ * 縦の短い画面（〜800px）は HUD にも重ねて全部見えるように。PC は 32px あけて、上（話し手・課題）と下（選択肢）を左右に分ける。
+ * 選択肢は下にそろえる。おすすめは金色。トーストより上（出ているあいだのお知らせは閉じたあとに）。仮の見た目は docs/ISLAND_ART_TODO.md */
+.isl-modal.isl-cardm {
+  display: block;
+  background: rgba(10, 14, 24, 0.55);
+  z-index: 10;
+}
+.isl-modal.isl-cardm > .isl-cardm-panel {
+  position: absolute;
+  top: calc(var(--hud-h, 56px) + 8px);
+  bottom: calc(var(--foot-h, 0px) + 28px);
+  left: 12px;
+  right: 12px;
+  width: auto;
+  padding: 12px 12px 8px;
+  border: 3px solid #2a2016;
+  border-radius: 18px;
+  background: #fbf3df;
+  color: #2a2016;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.25);
+  display: flex;
+  overflow-y: auto;
+  animation: isl-up 0.2s ease-out;
+}
+@media (max-width: 599px) and (max-height: 800px) {
+  .isl-modal.isl-cardm > .isl-cardm-panel {
+    top: 8px;
+  }
+}
+.isl-cardm-in {
+  flex: 1;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 100%;
+}
+.isl-cardm-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.isl-cardm-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.isl-cardm-who {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.isl-cardm-face {
+  flex: none;
+  width: 96px;
+  height: 96px;
+  border: 2px solid #2a2016;
+  border-radius: 14px;
+  background: #e9dcbd;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.isl-cardm-face > * {
+  width: 100% !important;
+  height: 100% !important;
+}
+.isl-cardm-face img {
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.isl-cardm-id {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.isl-cardm-role {
+  justify-self: start;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--c, #d9822b);
+  color: #1c1408;
+  font-size: 16px;
+  font-weight: 800;
+}
+.isl-cardm-name {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.isl-cardm-tag {
+  font-size: 16px;
+  line-height: 1.3;
+  color: #7a6a55;
+}
+.isl-cardm-quip {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.35;
+  font-style: italic;
+  color: #9a5d16;
+}
+.isl-cardm-say {
+  font-size: 17px;
+  line-height: 1.5;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: #fff8ea;
+  border: 2px solid #e2d2ad;
+}
+.isl-cardm-say b,
+.isl-cardm-say .isl-hl {
+  color: #c4521b;
+}
+.isl-cardm-gap {
+  flex: 1;
+  min-height: 0;
+}
+.isl-cardm-ch {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.isl-cardm-btn {
+  font: inherit;
+  text-align: left;
+  border: 2.5px solid #2a2016;
+  border-radius: 14px;
+  background: #fff;
+  color: #2a2016;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.isl-cardm-btn.is-rec {
+  background: var(--isl-gold, #f2b544);
+}
+.isl-cardm-btn.is-trust {
+  padding: 4px 12px;
+  background: #eef4ff;
+  border-style: dashed;
+}
+.isl-cardm-btn.is-trust small {
+  display: none;
+}
+.isl-cardm-btn:active {
+  transform: translateY(1px);
+}
+.isl-cardm-lab {
+  display: grid;
+  gap: 1px;
+}
+.isl-cardm-lab b {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.isl-cardm-lab small {
+  font-size: 16px;
+  line-height: 1.35;
+  color: #5b4a36;
+}
+.isl-cardm-lab small.isl-bad {
+  color: #b3261e;
+}
+.isl-nw {
+  white-space: nowrap;
+}
+.isl-cardm-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 16px;
+  line-height: 1.3;
+  color: #7a6a55;
+}
+@media (min-width: 600px) {
+  .isl-modal.isl-cardm > .isl-cardm-panel {
+    top: max(32px, calc(var(--hud-h, 56px) + 12px));
+    bottom: 32px;
+    left: 32px;
+    right: 32px;
+    padding: 24px 32px 14px;
+  }
+  .isl-cardm-in {
+    max-width: 1120px;
+    gap: 20px;
+    justify-content: center;
+  }
+  .isl-cardm-body {
+    flex: none;
+  }
+  /* 上下に分ける代わりに左右に：左に話し手・一言・課題、右に選択肢（縦）。空白を作らない */
+  .isl-cardm-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 32px;
+    align-items: center;
+  }
+  .isl-cardm-gap {
+    display: none;
+  }
+  .isl-cardm-main {
+    gap: 14px;
+  }
+  .isl-cardm-who {
+    gap: 18px;
+  }
+  .isl-cardm-face {
+    width: 192px;
+    height: 192px;
+    border-radius: 18px;
+  }
+  .isl-cardm-role {
+    font-size: 17px;
+  }
+  .isl-cardm-name {
+    font-size: 32px;
+  }
+  .isl-cardm-tag {
+    font-size: 17px;
+  }
+  .isl-cardm-quip {
+    font-size: 20px;
+  }
+  .isl-cardm-say {
+    font-size: 26px;
+    line-height: 1.6;
+    padding: 22px 24px;
+  }
+  .isl-cardm-ch {
+    gap: 12px;
+  }
+  .isl-cardm-btn {
+    padding: 16px 20px;
+  }
+  .isl-cardm-btn.is-trust {
+    padding: 8px 18px;
+  }
+  .isl-cardm-btn.is-trust small {
+    display: block;
+  }
+  .isl-cardm-lab b {
+    font-size: 19px;
+  }
+  .isl-cardm-lab small {
+    font-size: 16px;
+  }
+}
+
+/* 受け箱の「ヒーローからの提案・報告」 */
+.isl-cardbox {
+  display: grid;
+  gap: 8px;
+}
+.isl-cardbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 2px solid var(--c, var(--isl-line));
+  border-radius: 12px;
+  background: var(--isl-panel2, rgba(255, 255, 255, 0.04));
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.isl-cardbox-txt {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.isl-cardbox-trust {
+  justify-content: space-between;
+}
+.isl-mission-note {
+  display: block;
+  margin: -2px 0 6px;
+}
+.isl-sellx-big {
+  font-weight: 800;
+}
+.isl-rp-hint.has-go {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.isl-rp-best {
+  font-size: 13px;
+  padding: 4px 10px;
+}
+/* カードが出ているあいだは、トーストを隠す（カードの見出しにかぶらない。新しいお知らせは main.ts でためて、閉じたあとに出す） */
+#isl-ui:has(.isl-cardm) .isl-toasts {
+  visibility: hidden;
+}

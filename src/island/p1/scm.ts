@@ -12,6 +12,8 @@ import { pickHero, slot, TASK_NAME } from './heroui';
 import { clearCondText } from './digmeet';
 import { after, mineSay, mineTip, open, openAds, openBuy, openData, openHire, openShop, openStaff, openWorkshop, SHELF_TIP, type Ctx } from './screens';
 import { openSkills } from './tree';
+import { bestSell, goodsName, shopMonthly, type SellMove } from './moves';
+import { execute } from './deleg';
 import { bar, btn, h, heroIcon, heroName, matIcon, money, rich, skuIcon, skuName } from './ui';
 
 type Lamp = 'ok' | 'warn' | 'stop';
@@ -223,6 +225,69 @@ function whatIfUp(ctx: Ctx, s: P1State, w: WhatIf): { label: string; sub: string
   }
 }
 
+/**
+ * 販売の手（moves.ts。毎月の費用を引いた利益の見込みの順）1 つを、大きいボタンに（段 UI1）。
+ * 打てる手（棚 +1 と商品・空き棚に商品・アルバイト・什器・パネル・名物店主・宣伝）はその場で打ち、建てる手は置くモードへ
+ */
+export function sellBigUp(ctx: Ctx, s: P1State, m: SellMove): Up {
+  const gain = m.monthly > 0 ? t(`+${Math.round(m.units)} 個／月・毎月の費用を引いて ${m.net >= 0 ? '+' : '−'}${money(Math.abs(m.net))}`, `+${Math.round(m.units)} / mo, ${m.net >= 0 ? '+' : '−'}${money(Math.abs(m.net))} after monthly costs`) : t(`+${Math.round(m.units)} 個／月（粗利 ≒ +${money(m.net)}）`, `+${Math.round(m.units)} / mo (≈ +${money(m.net)} margin)`);
+  const shop = m.uid != null ? s.buildings.find((b) => b.uid === m.uid) : undefined;
+  const at = shop ? shopLabel(s, shop) : '';
+  const cost = m.rp ? t(`研究 ${m.rp} RP`, `${m.rp} RP`) : m.cost > 0 ? money(m.cost) : t('費用なし', 'free');
+  const run = (ok: string) => () => {
+    // 打てない（作り手がいない商品など）：お店か工房の画面へ
+    if (!m.act) {
+      if (m.kind === 'goods' || m.kind === 'shelf') openWorkshop(ctx);
+      else if (m.uid != null) openShop(ctx, m.uid);
+      return;
+    }
+    if (m.act.k === 'build') {
+      ctx.build?.(m.act.id, [m.act.i, m.act.j]);
+      return;
+    }
+    const e = execute(s, m.act as Parameters<typeof execute>[1]);
+    if (e === 'money' || e === 'rp') {
+      ctx.sfx?.('error');
+      ctx.toast(e === 'money' ? t(`資金が足りません（あと ${money(Math.max(0, m.cost - s.money))}）`, `Not enough funds (${money(Math.max(0, m.cost - s.money))} short)`) : t('研究ポイントが足りません', 'Not enough RP'));
+      return;
+    }
+    if (e) {
+      ctx.sfx?.('error');
+      ctx.toast(t('いまは打てない手でした', 'That move is not possible now'));
+      after(ctx);
+      return;
+    }
+    ctx.sfx?.('spend');
+    ctx.toast(ok);
+    after(ctx);
+    if (m.act.k === 'stock' && m.uid != null) {
+      openShop(ctx, m.uid);
+      if (m.act.add) mineSay(ctx, SHELF_TIP());
+    }
+  };
+  const nm = m.key ? goodsName(m.key) : '';
+  switch (m.kind) {
+    case 'shelf':
+      return { label: t(`棚をもう 1 段、「${nm}」も並べる`, `One more shelf, and stock ${nm}`), sub: t(`${gain}・${at}の設備投資 ${cost}`, `${gain} · invest ${cost} at ${at}`), buy: true, short: s.money < m.cost, go: run(t(`棚を増やして「${nm}」を並べました（${at}）`, `Added a shelf with ${nm} (${at})`)) };
+    case 'goods':
+      return { label: m.replace ? t(`「${goodsName(m.replace)}」を「${nm}」に替える`, `Swap ${goodsName(m.replace)} for ${nm}`) : t(`空いた棚に「${nm}」を並べる`, `Stock ${nm} on the free shelf`), sub: t(`${gain}・${at}`, `${gain} · ${at}`), go: run(t(`「${nm}」を並べました（${at}）`, `Stocked ${nm} (${at})`)) };
+    case 'shop':
+      return { label: myShops(s).length >= 2 ? t('次のお店を建てる', 'Build another shop') : t('2 軒目のお店を建てる', 'Build a 2nd shop'), sub: t(`${gain}・建築 ${cost}＋毎月 ${money(m.monthly)}（食い合いあり）`, `${gain} · build ${cost} + ${money(m.monthly)}/mo (shares customers)`), short: s.money < m.cost, go: run('') };
+    case 'part':
+      return { label: t('アルバイト +1', 'One more part-timer'), sub: t(`${gain}・${at}`, `${gain} · ${at}`), go: run(t('アルバイトを 1 人増やしました', 'Added a part-timer')) };
+    case 'fixtures':
+      return { label: t('陳列の什器 +1', 'Display fixtures +1'), sub: t(`${gain}・${at}の設備投資 ${cost}`, `${gain} · invest ${cost} at ${at}`), buy: true, short: s.money < m.cost, go: run(t(`「${INVEST.fixtures.name}」を導入しました（${at}）`, `Installed: ${INVEST.fixtures.name} (${at})`)) };
+    case 'famous':
+      return { label: t('名物店主を置く', 'Celebrity shopkeeper'), sub: t(`${gain}・${cost}`, `${gain} · ${cost}`), short: (s.rp ?? 0) < (m.rp ?? 0) || s.money < m.cost, go: run(t('名物店主を置きました', 'Celebrity shopkeeper set')) };
+    case 'ad':
+      return { label: t('宣伝を出す', 'Run an ad'), sub: t(`期間で +${money(m.net)}（費用を引いて）・${cost}`, `+${money(m.net)} over the run, net · ${cost}`), short: s.money < m.cost, go: run(t('宣伝を始めました', 'Ad started')) };
+    default: {
+      const id = m.act && m.act.k === 'skill' ? m.act.id : 'host';
+      return { label: t(`「${SKILL[id]?.name ?? id}」を取る`, `Take ${SKILL[id]?.name ?? id}`), sub: t(`${gain}・${cost}`, `${gain} · ${cost}`), short: (s.rp ?? 0) < (m.rp ?? 0) || s.money < m.cost, go: m.act ? run(t(`「${SKILL[id]?.name ?? id}」を取りました`, `Took ${SKILL[id]?.name ?? id}`)) : () => openSkills(ctx, id) };
+    }
+  }
+}
+
 const WHY_NAME: Record<SellWhy, string> = {
   capacity: t('お店の処理力（品出し）が足りない', 'Shops can’t shelve fast enough'),
   demand: t('並べている商品の需要が小さい／他社と取り合っている', 'Your items have little demand or are shared with rivals'),
@@ -318,15 +383,20 @@ function sellBreakdown(ctx: Ctx, s: P1State, info: SellInfo, ws: WhatIf[], openN
   const KIND: Record<SellWhy, WhatIf['kind'][]> = { capacity: ['part', 'fixtures'], demand: ['goods', 'shelf'], far: ['shop'], known: ['known'], rival: ['pull'] };
   const mineW = ws.filter((w) => KIND[info.why].includes(w.kind)).sort((a, b) => b.units - a.units)[0];
   const act = h('div', 'isl-sellx-act');
-  act.append(btn(why.act[0], why.act[1], 'is-on'));
-  if (mineW) {
-    const best = okW[0];
-    const note = mineW.ok
-      ? t(`見込み ${gainText(mineW)}`, `Expected ${gainText(mineW)}`)
-      : best
-        ? t(`見込みは ${gainText(mineW)}。いまいちばん効くのは「${whatIfUp(ctx, s, best).label}」（+${Math.round(best.units)} 個／月）`, `Expected ${gainText(mineW)}. Best now: ${whatIfUp(ctx, s, best).label} (+${Math.round(best.units)} / mo)`)
-        : t(`見込みは ${gainText(mineW)}`, `Expected ${gainText(mineW)}`);
-    act.append(h('small', mineW.ok ? 'isl-good' : 'isl-dim', note));
+  // 段 UI1：大きいボタンは、いちばん見込みの大きい手（毎月の費用を引いた利益。moves.ts の bestSell）。
+  // 前は頭打ちの理由の手（遠い → 2 軒目）で、下の 1 位（別の商品を並べる）と食い違っていた
+  const big = bestSell(s);
+  if (big) {
+    const u = sellBigUp(ctx, s, big);
+    const b = btn(t(`いちばん効く手：${u.label}`, `Best move: ${u.label}`), u.go, `is-on isl-sellx-big ${u.short ? 'is-short' : ''}`);
+    b.dataset.kind = big.kind;
+    act.append(b, h('small', 'isl-good', u.sub));
+  } else act.append(btn(why.act[0], why.act[1], 'is-on'));
+  // 頭打ちの理由の手（遠い → 2 軒目 など）の見込みは、大きいボタンと別の手なら小さく並べる（比べられるように）
+  if (mineW && !(big && big.kind === mineW.kind)) {
+    const u = whatIfUp(ctx, s, mineW);
+    const note = t(`頭打ちの理由の手「${u.label}」は ${gainText(mineW)}${mineW.kind === 'shop' ? `・毎月 ${money(shopMonthly())} かかる` : ''}`, `The reason’s own move, ${u.label}: ${gainText(mineW)}${mineW.kind === 'shop' ? `, plus ${money(shopMonthly())}/mo` : ''}`);
+    act.append(h('small', 'isl-dim', note));
   }
   head.append(lim, act);
   box.append(head);

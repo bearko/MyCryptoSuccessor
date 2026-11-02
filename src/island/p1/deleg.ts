@@ -45,6 +45,7 @@ import {
   myShops,
   myWorkshop,
   order,
+  partMax,
   permitFee,
   poolFree,
   priceOf,
@@ -56,8 +57,8 @@ import {
   rng,
   runAd,
   sellEstimate,
-  sellNow,
-  sellWhatIf,
+  setDustShop,
+  setPart,
   setRest,
   setShelf,
   shelfCount,
@@ -82,6 +83,7 @@ import { siteCandidates } from './trade';
 import { bestReply, fits, refundCost, reply } from './cs';
 import { filePatent, guidePrice, keepRate, legalHere, maLock, patentLock, patentOf, patentable, signSupply, startDeal, supplyLock } from './legal';
 import { copyIn } from './mkt';
+import { adGain, grossRate, sellMoves } from './moves';
 import type { SectorRec } from './company';
 
 // ---------------------------------------------------------------- 役目
@@ -245,13 +247,21 @@ export type PropAct =
   | { k: 'vacant'; uid: number }
   // 段 H2：法務（特許の出願・M&A の打診）
   | { k: 'patent'; key: string }
-  | { k: 'ma'; rid: string };
+  | { k: 'ma'; rid: string }
+  // 段 UI1：ヒーローからの提案の手（棚に商品を並べる・棚を増やして並べる・アルバイト・名物店主・待機中の人を持ち場へ・素材の注文）
+  | { k: 'stock'; uid: number; key: string; rar: 'C' | 'U'; idx: number; add: boolean; make?: number }
+  | { k: 'part'; uid: number }
+  | { k: 'famous'; uid: number }
+  | { k: 'assign'; hero: number; task: Task; target: number | string | null }
+  | { k: 'order'; m: Mat; lots: number };
 /** 見込みの単位：G（月の粗利）・ad（宣伝の期間の粗利 − 費用）・finds（出土品の数）・share（商圏の取り分 %）・legal（法務：守る・増える月の売上） */
 export type PropUnit = 'G' | 'ad' | 'finds' | 'share' | 'legal';
 export interface Proposal {
   id: number;
   dept: DeptId;
   hero: number;
+  /** 段 UI1：部長でないヒーローの提案（店員・職人・調達係・待機中の人）。カードで選んだ手の結果を、翌月の報告で同じようにはかる */
+  src?: 'clerk' | 'crafter' | 'buyer' | 'idle';
   /** 出した月（このセクタの報告の月）・出したセクタ（ほかのセクタへ移ったら、その町の提案は消える） */
   month: number;
   sector?: string;
@@ -297,6 +307,8 @@ export interface DelegState {
   carry: number;
   /** 今月届いた提案の数 */
   newProps: number;
+  /** 段 UI1：最近承認した提案の id（カードの「受けた」の数え。20 件まで） */
+  okIds?: number[];
 }
 export const newDeleg = (): DelegState => ({ next: {}, stat: {}, inbox: [], done: [], seq: 0, cover: [], pend: {}, adWait: {}, carry: 0, newProps: 0 });
 const D = (s: P1State) => (s.deleg ??= newDeleg());
@@ -319,14 +331,14 @@ export function reserveOf(s: P1State): number {
   return s.staff.reduce((a, x) => a + x.wage, 0) + s.buildings.filter((b) => b.owner === 'me').reduce((a, b) => a + (P1B[b.id]?.upkeep ?? 0), 0) + 3000;
 }
 const strHash = (x: string) => [...x].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 1000003, 7);
-const rndOf = (s: P1State, salt: number) => rng(s.seed + s.day * 7919 + salt * 104729);
+export const rndOf = (s: P1State, salt: number) => rng(s.seed + s.day * 7919 + salt * 104729);
 /** ±(1 − 出来) × k の誤差の倍率 */
-const errMul = (r: () => number, q: number, k: number) => 1 + (r() * 2 - 1) * (1 - q) * k;
+export const errMul = (r: () => number, q: number, k: number) => 1 + (r() * 2 - 1) * (1 - q) * k;
 
 /** 1 日の業務：任せた業務を、見直しの日に回す（採掘・交代の戻しは毎日）。採掘で打ったマスを返す（地図の演出用） */
 export function delegDay(s: P1State): ReturnType<typeof leadDigHits> {
   const any = s.staff.some((x) => x.task === 'lead');
-  if (!any && !s.deleg?.cover.length) return [];
+  if (!any && !s.deleg?.cover.length && !Object.keys(s.deleg?.pend ?? {}).length) return [];
   const st = D(s);
   let hits: ReturnType<typeof leadDigHits> = [];
   // 作るものの選択：ロットが終わった作業台を替える
@@ -703,14 +715,8 @@ function leadDigHits(s: P1State, r: Runner) {
   return leadDig(s, r.st, DELEG.dig.rate * r.q);
 }
 
-/** 宣伝の見込み：宣伝のある日の売上の伸び（粗利）× 日数 − 費用（G） */
-export function adGain(s: P1State, id: string): number {
-  const ad = ADS.find((a) => a.id === id);
-  if (!ad || !myShops(s).length) return 0;
-  const base = sellNow(s).yen;
-  const on = sellNow({ ...s, ads: { ...s.ads, [id]: ad.days } }).yen;
-  return Math.round((on - base) * (ad.days / DAYS) * grossRate(s) - adCost(s, id));
-}
+/** 宣伝の見込み（moves.ts。段 UI1 で販売の手と一緒に移した） */
+export { adGain };
 /** マーケ：宣伝の出し直し */
 function doAds(s: P1State, r: Runner, rec: DutyStat, rnd: () => number) {
   if (!myShops(s).length) return;
@@ -787,12 +793,14 @@ export function unitMargin(s: P1State): number {
   if (!xs.length) return 600;
   return Math.max(100, xs.reduce((a, x) => a + priceOf(s, x) - unitCost(s, x), 0) / xs.length);
 }
-/** 売上のうち粗利の割合（先月の報告。無ければ 0.8） */
-export function grossRate(s: P1State): number {
-  const last = s.reports[s.reports.length - 1];
-  return last && last.revenue > 0 ? Math.max(0.3, 1 - (last.costs.materials ?? 0) / last.revenue) : 0.8;
-}
-type Cand = { act: PropAct; real: number; unit: PropUnit; cost: number; rp?: number; units?: number; stage?: Stage; dig?: Proposal['dig'] };
+/** 売上のうち粗利の割合（moves.ts） */
+export { grossRate };
+/**
+ * 物流部長が販売の詰まりの月に持ってくる販売の手（段 UI1）：設備・パネル・アルバイトの投資。品ぞろえの入れ替えと出店は
+ * お店の店員の提案（card.ts）に任せる（部長の提案を承認する自動プレイの品ぞろえ・出店の判断とぶつからないように）
+ */
+const HEAD_SELL: string[] = ['shelf', 'fixtures', 'part', 'pull', 'vmd', 'golden', 'famous'];
+export type Cand = { act: PropAct; real: number; unit: PropUnit; cost: number; rp?: number; units?: number; stage?: Stage; dig?: Proposal['dig'] };
 /** whatIf の手 → 提案の手（設備投資・倉庫・パネル・レベル・雇う） */
 function fromIf(s: P1State, w: StageIf, margin: number, keep: (dept: DeptId | null, kind: string) => boolean): Cand | null {
   const m = w.move;
@@ -808,7 +816,7 @@ function fromIf(s: P1State, w: StageIf, margin: number, keep: (dept: DeptId | nu
   return null;
 }
 /** 建てる場所（工房から近い順に、道路に面した空き地） */
-function findLot(s: P1State, id: string): [number, number, 'rd' | 'ld' | 'lu' | 'ru'] | null {
+export function findLot(s: P1State, id: string): [number, number, 'rd' | 'ld' | 'lu' | 'ru'] | null {
   const ws = myWorkshop(s);
   let best: [number, number, 'rd' | 'ld' | 'lu' | 'ru'] | null = null;
   let dist = Infinity;
@@ -825,20 +833,24 @@ function findLot(s: P1State, id: string): [number, number, 'rd' | 'ld' | 'lu' | 
   return best;
 }
 /** 部門ごとの候補（いまのゲームで実際に取れる手。見込みは本当の値） */
-function candidates(s: P1State, d: DeptId, ifs: () => StageIf[]): Cand[] {
+export function candidates(s: P1State, d: DeptId, ifs: () => StageIf[]): Cand[] {
   const margin = unitMargin(s);
   const out: Cand[] = [];
   const add = (c: Cand | null) => c && c.real > 0 && out.push(c);
   switch (d) {
     case 'logistics': {
       for (const w of ifs()) add(fromIf(s, w, margin, (dept, kind) => (kind === 'invest' || kind === 'build' ? true : dept === 'logistics')));
-      // 販売が詰まり：棚を増やす・陳列の什器（設備投資）
-      for (const w of myShops(s).length ? sellWhatIf(s) : []) {
-        if ((w.kind === 'shelf' || w.kind === 'fixtures') && w.uid != null && w.yen > 0) {
-          const id = w.kind === 'shelf' ? 'shelves' : 'fixtures';
-          const b = s.buildings.find((x) => x.uid === w.uid);
-          const cost = b ? investCost(b, id) : null;
-          if (cost != null) add({ act: { k: 'invest', id, uid: w.uid }, real: w.yen * grossRate(s), unit: 'G', cost, units: w.units, stage: 'sell' });
+      // 販売が詰まり（段 UI1 で直した）：販売の手（moves.ts の sellMoves）を、毎月の費用を引いた利益の見込みで。
+      // 前は棚と陳列の什器だけで、別の商品を並べる・名物店主・2 軒目などが候補に入らなかった（販売の詰まりの提案がいちばん出にくかった）
+      // 販売が詰まりでない月は、いままでどおり棚を増やす・陳列の什器だけ
+      if (myShops(s).length) {
+        const jam = bottleneck(stageCaps(s)) === 'sell';
+        for (const m of sellMoves(s)) {
+          if (!m.act || m.act.k === 'ad' || m.units <= 0.5) continue;
+          if (!(jam ? HEAD_SELL : ['shelf', 'fixtures']).includes(m.kind)) continue;
+          // 棚 +1 は、いままでどおり設備投資だけ（並べる商品は品出し・店員の提案で。作るものを替えない）
+          const act: PropAct = m.kind === 'shelf' && m.uid != null ? { k: 'invest', id: 'shelves', uid: m.uid } : (m.act as PropAct);
+          add({ act, real: jam ? m.net : m.gross, unit: 'G', cost: m.cost, rp: m.rp, units: m.units, stage: 'sell' });
         }
       }
       break;
@@ -986,7 +998,10 @@ export function delegMonth(s: P1State, r: Report) {
 }
 /** その提案がまだ打てる手か */
 function stillOk(s: P1State, p: Proposal): boolean {
-  const a = p.act;
+  return actOk(s, p.act);
+}
+/** その手がまだ打てるか（資金・研究ポイントだけが足りないものは打てる扱い。カードの受け箱も使う） */
+export function actOk(s: P1State, a: PropAct): boolean {
   switch (a.k) {
     case 'invest': {
       const b = s.buildings.find((x) => x.uid === a.uid && x.owner === 'me');
@@ -1018,6 +1033,24 @@ function stillOk(s: P1State, p: Proposal): boolean {
     }
     case 'ma':
       return maLock(s, a.rid) == null;
+    case 'stock': {
+      const sh = s.shops[a.uid];
+      const b = s.buildings.find((x) => x.uid === a.uid && x.owner === 'me');
+      if (!sh || !b || sh.shelves.some((y) => y && skuParts(y)[0] === a.key)) return false;
+      return a.add ? investCost(b, 'shelves') != null : a.idx < sh.shelves.length;
+    }
+    case 'part': {
+      const sh = s.shops[a.uid];
+      return !!sh && sh.part < partMax(s, a.uid);
+    }
+    case 'famous':
+      return !!s.shops[a.uid] && s.dustShop !== a.uid && (has(s, 'd_shop') || (() => { const e = skillLock(s, SKILL.d_shop); return e == null || e === 'money' || e === 'rp'; })());
+    case 'assign': {
+      const st = staffOf(s, a.hero);
+      return !!st && st.task == null;
+    }
+    case 'order':
+      return hasRoute(s, a.m);
   }
 }
 /** はかる数（結果の比べ）：G＝段の流れの数（個／月）・ad＝今月の売上・finds＝研究ノートの数・share＝取り分（%） */
@@ -1056,6 +1089,7 @@ export function approve(s: P1State, id: number): ApproveErr | null {
   }
   st.inbox = st.inbox.filter((x) => x !== p);
   if (e) return 'gone';
+  st.okIds = [...(st.okIds ?? []), p.id].slice(-20);
   const month = s.reports.length ? s.reports[s.reports.length - 1].month : 0;
   st.done.push({ p, month, before: p.unit === 'ad' || p.unit === 'legal' ? (s.reports[s.reports.length - 1]?.revenue ?? 0) : before });
   return null;
@@ -1073,7 +1107,7 @@ export function hold(s: P1State, id: number): boolean {
   return true;
 }
 /** 手を打つ（いまのゲームの関数をそのまま使う）。'money'・'rp'：足りない */
-function execute(s: P1State, a: PropAct): 'money' | 'rp' | string | null {
+export function execute(s: P1State, a: PropAct): 'money' | 'rp' | string | null {
   switch (a.k) {
     case 'invest':
       return invest(s, a.uid, a.id);
@@ -1114,6 +1148,42 @@ function execute(s: P1State, a: PropAct): 'money' | 'rp' | string | null {
       const d = startDeal(s, a.rid);
       return typeof d === 'string' ? d : null;
     }
+    case 'stock': {
+      // 棚を増やして並べる：棚の設備投資のあと、増えた棚（空いた棚のいちばん後ろ）に並べる
+      if (a.add) {
+        const e = invest(s, a.uid, 'shelves');
+        if (e) return e;
+      }
+      const sh = s.shops[a.uid];
+      if (!sh) return 'gone';
+      const idx = a.add ? sh.shelves.lastIndexOf(null) : a.idx;
+      if (idx < 0) return 'gone';
+      const x = sku(a.key, a.rar);
+      if (!setShelf(s, a.uid, idx, x)) return 'gone';
+      // 作っていない商品：作業台を 1 台その商品に（いまのロットが終わってから）。棚が空のまま満足度が下がらないように
+      const sl = a.make != null ? s.slots[a.make] : undefined;
+      if (sl && sl.sku !== x) {
+        if (sl.running) D(s).pend[a.make!] = x;
+        else Object.assign(sl, { sku: x, repeat: true, left: 0, progress: 0 });
+      }
+      return null;
+    }
+    case 'part': {
+      const sh = s.shops[a.uid];
+      if (!sh || sh.part >= partMax(s, a.uid)) return 'gone';
+      return setPart(s, a.uid, sh.part + 1) ? null : 'gone';
+    }
+    case 'famous': {
+      if (!has(s, 'd_shop')) {
+        const e = learn(s, 'd_shop');
+        if (e) return e;
+      }
+      return setDustShop(s, a.uid) ? null : 'gone';
+    }
+    case 'assign':
+      return assign(s, a.hero, a.task, a.target);
+    case 'order':
+      return order(s, a.m, a.lots);
   }
 }
 /** 自動で承認する（セクター長の任せきり・自動プレイ）：見込みがプラスのものを、お金があるだけ */
@@ -1201,6 +1271,18 @@ export function actName(s: P1State, a: PropAct): string {
       return t(`『${PRODUCT_NAME(a.key)}』を特許にする`, `Patent ${PRODUCT_NAME(a.key)}`);
     case 'ma':
       return t(`${rivalNm(a.rid)}に買収を打診する`, `Approach ${rivalNm(a.rid)} about an acquisition`);
+    case 'stock': {
+      const name = PRODUCT_NAME(a.key);
+      return a.add ? t(`棚を 1 段増やして「${name}」を並べる`, `Add a shelf and stock ${name}`) : t(`「${name}」を棚に並べる`, `Stock ${name}`);
+    }
+    case 'part':
+      return t('アルバイトをもう 1 人', 'One more part-timer');
+    case 'famous':
+      return t('名物店主を置く', 'Make a celebrity shopkeeper');
+    case 'assign':
+      return t(`${heroNm(a.hero)}を持ち場に置く`, `Put ${heroNm(a.hero)} to work`);
+    case 'order':
+      return t(`素材を ${a.lots} ロット注文する`, `Order ${a.lots} lot(s) of materials`);
   }
 }
 const nameOf = (id: string) => DEF[id]?.name ?? id;
