@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -55,4 +56,10 @@ export default defineConfig({
     assetsInlineLimit: 0,
   },
   plugins: [pwa(), siteUrl()],
+  test: {
+    // CI の機械は手元より遅く、町を何年ぶんも回すテストが既定の 5 秒を超えることがある
+    testTimeout: 60_000,
+    // ほかの作業の一時的な worktree（.claude/worktrees）のテストを拾わない
+    exclude: ['**/node_modules/**', '**/dist/**', '.claude/**'],
+  },
 });
