@@ -11632,3 +11632,131 @@ button.isl-dband-lead.is-on {
     display: none;
   }
 }
+
+/* ---------------------------------------------------------------- 段 H2：法務（M&A・契約・特許・争い。legalui.ts） */
+.isl-ma-steps {
+  display: flex;
+  gap: 4px;
+  margin: 6px 0;
+}
+.isl-ma-steps span {
+  flex: 1;
+  text-align: center;
+  font-size: 11px;
+  padding: 3px 2px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--isl-dim, #9aa);
+}
+.isl-ma-steps span.is-done {
+  background: rgba(126, 224, 143, 0.18);
+  color: var(--isl-good);
+}
+.isl-ma-steps span.is-now {
+  background: rgba(255, 211, 92, 0.22);
+  color: var(--isl-gold);
+  font-weight: 700;
+}
+.isl-ma-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 4px;
+  margin: 4px 0 6px;
+}
+.isl-ma-fact {
+  display: grid;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.isl-ma-fact.is-locked b {
+  color: var(--isl-dim, #9aa);
+}
+.isl-ma-fact.is-bad b {
+  color: var(--isl-bad);
+}
+.isl-ma-fact.is-good b {
+  color: var(--isl-good);
+}
+.isl-ma-offers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 6px 0;
+}
+.isl-ma-offer {
+  display: grid;
+  gap: 2px;
+  text-align: center;
+  padding: 6px 4px;
+}
+.isl-ma-clauses {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0;
+}
+.isl-ma-clause {
+  display: grid;
+  text-align: left;
+  gap: 1px;
+  padding: 5px 8px;
+}
+.isl-ma-clause.is-on {
+  outline: 2px solid var(--isl-gold);
+}
+.isl-ma-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.isl-ma-row.is-hot {
+  outline: 2px solid var(--isl-gold);
+  border-radius: 4px;
+}
+.isl-ma-name {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  min-width: 8em;
+}
+.isl-lg-suit {
+  display: grid;
+  gap: 3px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.isl-legal-nav {
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.isl-rp-legal.is-warn .isl-rp-dig-text b {
+  color: var(--isl-gold);
+}
+@media (max-width: 599px) {
+  .isl-rp-legal.is-quiet {
+    display: none;
+  }
+  .is-report.has-legal .isl-rp-chart {
+    max-height: 52px;
+  }
+  .is-report.has-legal.has-cs .isl-rp-chart,
+  .is-report.has-legal.has-deleg .isl-rp-chart {
+    max-height: 36px;
+  }
+  .isl-ma-offers {
+    gap: 4px;
+  }
+  .isl-ma-facts {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+/* 金の地（選んだ条項・ふつうの提示・選んだ期間）の上の小さな文字は濃く（読みやすく） */
+.isl-btn.isl-ma-clause.is-on small,
+.isl-btn.isl-ma-offer.is-on small {
+  color: #3a2a08;
+  font-weight: 600;
+}

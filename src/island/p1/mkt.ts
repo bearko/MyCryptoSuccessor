@@ -16,6 +16,7 @@ import { topTier } from './acct';
 import { CS_OFF, csOf } from './cs';
 import { adGain } from './deleg';
 import { has, lvMul, market, monopolyLeft, myShops, rivalTune, sellersOf, spend, type P1State } from './model';
+import { patentBlocks, patentLeft } from './legal';
 
 // ---------------------------------------------------------------- 企業の格
 
@@ -102,8 +103,10 @@ export interface ForeRow {
   sellers: number;
   /** 自社の棚に並べている */
   mine: boolean;
-  /** 他社が真似してくるまでの月数の予報（需要の読み。自社が売っていて、まだ飽和していない商品だけ） */
+  /** 他社が真似してくるまでの月数の予報（需要の読み。自社が売っていて、まだ飽和していない商品だけ。特許の間は null） */
   copyIn: number | null;
+  /** 特許で真似されない残りの月（段 H2。Epic の町・貸していない特許。無ければ 0） */
+  patent: number;
   /** その商品が売れ筋（いちばん売れている商品）の他社の名前（市場調査の部署） */
   topOf: string[];
   /** 認知（並べている新しい商品） */
@@ -121,6 +124,8 @@ export interface Forecast {
 }
 /** 他社が真似してくるまでの月数（いまの追随の数えから。真似されない・飽和は null） */
 export function copyIn(s: P1State, key: string): number | null {
+  // 段 H2：特許の間（Epic の町・貸していない）は真似されない
+  if (patentBlocks(s, key)) return null;
   const n = sellersOf(s, key);
   if (n >= MARKET.satAt) return null;
   const after = rivalTune(s)?.entryAfter ?? ENTRY_AFTER;
@@ -153,9 +158,28 @@ export function forecast(s: P1State): Forecast {
     sellers: m.sellers,
     mine: m.mine,
     copyIn: read && m.mine ? copyIn(s, m.p.key) : null,
+    patent: patentBlocks(s, m.p.key) ? patentLeft(s, m.p.key) : 0,
     topOf: tops[m.p.key] ?? [],
     known: m.known,
   }));
+  // 段 H2：並べている復刻品も見通しに（特許の「真似されない」・独占の残りの「真似してくるまで」が見えるように。market は基礎の商品だけ）
+  const shelved = new Set(myShops(s).flatMap((b) => s.shops[b.uid]?.shelves.filter((x): x is NonNullable<typeof x> => !!x).map((x) => x.split(':')[0]) ?? []));
+  for (const key of shelved) {
+    const p = PRODUCT[key];
+    if (!p?.relic || rows.some((r) => r.key === key)) continue;
+    const d0 = s.demand[key] ?? 0;
+    rows.push({
+      key,
+      name: p.name,
+      demand: Array.from({ length: h + 1 }, (_, k) => Math.round(d0 * (1 + MARKET_GROWTH) ** k)),
+      sellers: sellersOf(s, key),
+      mine: true,
+      copyIn: read ? copyIn(s, key) : null,
+      patent: patentBlocks(s, key) ? patentLeft(s, key) : 0,
+      topOf: tops[key] ?? [],
+      known: 1,
+    });
+  }
   rows.sort((a, b) => Number(b.mine) - Number(a.mine) || b.demand[0] - a.demand[0]);
   // 宣伝の打ち時
   const hints: Forecast['hints'] = [];

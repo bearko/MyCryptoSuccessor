@@ -139,7 +139,8 @@ describe('外周のボリューム（Uncommon 以降）', () => {
       // 段 E2 の人事のパネル（HR_SKILLS。Uncommon の外周 2 枚）も別に数える（tests/island-p1-e2.test.ts）
       // 段 F の経理・総務のパネル（ACCT_SKILLS・GA_SKILLS。Uncommon の外周 9 枚）も別に数える（tests/island-p1-acct.test.ts）
       // 段 G のカスタマーサポート・マーケのパネル（CS_SKILLS・MKT_SKILLS。Uncommon の外周 9 枚）も別に数える（tests/island-p1-cs-mkt.test.ts）
-      const all = SKILLS.filter((k) => k.tier === tier && k.branch !== 'dig' && k.branch !== 'sales' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k));
+      // 段 H2 の法務のパネル（法務の枝。Epic の外周 4 枚）も別に数える（tests/island-p1-legal.test.ts）
+      const all = SKILLS.filter((k) => k.tier === tier && k.branch !== 'dig' && k.branch !== 'sales' && k.branch !== 'legal' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k));
       const n = all.filter((k) => !k.big).length;
       expect(n, tier).toBeGreaterThanOrEqual(52);
       expect(n, tier).toBeLessThanOrEqual(60);

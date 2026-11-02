@@ -261,6 +261,8 @@ export function openForecast(ctx: Ctx, hooks: { skills?: () => void; ads?: () =>
       const rv = h('span', 'isl-mk-rv');
       rv.append(h('b', '', t(`${r.sellers} 社`, `${r.sellers}`)));
       if (r.copyIn != null) rv.append(h('small', r.copyIn <= 1 ? 'isl-bad' : 'isl-warn', t(`${r.copyIn} か月で真似されそう`, `copied in ~${r.copyIn} mo`)));
+      // 段 H2：特許の間は真似されない（Epic の町）
+      if (r.patent > 0) rv.append(h('small', 'isl-good', t(`🛡 特許で真似されない（あと ${r.patent} か月）`, `🛡 Patented: no copies (${r.patent} mo left)`)));
       if (r.topOf.length) rv.append(h('small', 'isl-dim', t(`${r.topOf.join('・')}の売れ筋`, `best-seller of ${r.topOf.join(', ')}`)));
       x.append(rv);
       tbl.append(x);

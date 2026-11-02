@@ -454,7 +454,7 @@ describe('パネルと古いセーブ', () => {
     delete o.charisma;
     delete o.hrMonth;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(18);
+    expect(back.v).toBe(19);
     for (const st of back.staff) expect(st.morale).toBe(MORALE.start);
     expect(back.staff.map((x) => [x.wage, x.lv ?? 0])).toEqual(wages);
     expect(back.brandPeak).toBe(85);

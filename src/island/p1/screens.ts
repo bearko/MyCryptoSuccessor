@@ -1771,43 +1771,19 @@ export function openDev(ctx: Ctx) {
   });
 }
 
+/** 経営企画 → M&A（法務の部門が開く前：Epic の町に進出すると、法務の部門が他社の買収を受け持つ。開いたあとは法務 → M&A へ。main.ts） */
 export function openMA(ctx: Ctx) {
   open(ctx, t('M&A', 'M&A'), (body) => {
-    body.append(h('p', 'isl-dim', t('他社との買収や提携は、スキルツリーで解放する予定です（準備中）。他社のお店をタップして「調査」しておくと、交渉に使えるデータが集まります。', 'Acquisitions and alliances will be unlocked in the skill tree (coming soon). Research rival stores (tap them on the map) to gather data for negotiations.')));
+    body.append(h('p', 'isl-dim', t('他社の買収（M&A）は、Epic の町に進出すると開く法務の部門が受け持ちます。他社のお店をタップして「調査」しておくと、相手のことがよく分かります。', 'Acquiring rivals (M&A) is handled by the Legal department, which opens when you enter an Epic town. Research rival stores (tap them on the map) to learn about them.')));
     for (const [name, note] of [
-      [t('買収提案', 'Acquisition offer'), t('他社のお店を買い取り、自社のお店にする', 'Buy a rival store and make it yours')],
-      [t('業務提携', 'Alliance'), t('他社と組んで、素材や商品を融通しあう', 'Team up with a rival to share materials and goods')],
-      [t('妨害工作', 'Sabotage'), t('他社の売り場を一時的に弱くする', 'Weaken a rival store for a while')],
+      [t('買収（M&A）', 'Acquisition (M&A)'), t('打診 → 調査 → 値段の交渉と条項 → 成立。相手の店と売れ筋を手に入れる（Epic の町）', 'Approach → diligence → price & clauses → signed. Take over the rival’s stores and best-sellers (Epic towns)')],
+      [t('業務提携', 'Alliance'), t('他社と組んで、素材や商品を融通しあう（準備中）', 'Team up with a rival to share materials and goods (coming soon)')],
+      [t('妨害工作', 'Sabotage'), t('他社の売り場を一時的に弱くする（準備中）', 'Weaken a rival store for a while (coming soon)')],
     ]) {
       const card = h('div', 'isl-skill is-locked');
-      card.append(h('b', '', name), h('small', '', note), h('small', 'isl-dim', t('スキルツリーで解放（準備中）', 'Skill tree (coming soon)')));
+      card.append(h('b', '', name), h('small', '', note), h('small', 'isl-dim', t('Epic の町で', 'In Epic towns')));
       body.append(card);
     }
-  });
-}
-
-/**
- * 法務（段 H1：Epic の町に進出すると部門が開く。中身は次の更新＝段 H2：契約・特許・争い・M&A）。いまは札だけ
- */
-export function openLegal(ctx: Ctx) {
-  open(ctx, t('法務', 'Legal'), (body) => {
-    const head = h('div', 'isl-card2 isl-legal-soon');
-    head.append(
-      h('b', 'isl-gold', t('⚖ 法務の部門ができた！（中身は次の更新）', '⚖ The Legal department is here! (contents in the next update)')),
-      h('p', 'isl-dim', t('Epic の町では、他社との約束ごとや争いが大きくなる。法務は、契約・特許・争いごとを受け持ち、いつか他社の買収（M&A）も手がける部門だよ。', 'In Epic towns, deals and disputes with rivals grow bigger. Legal handles contracts, patents and disputes — and, one day, acquisitions (M&A).')),
-    );
-    body.append(head);
-    for (const [name, note] of [
-      [t('契約', 'Contracts'), t('卸・仕入れ・買収の契約に条項（違約金・独占・期間）を選ぶ', 'Pick clauses (penalties, exclusivity, terms) for supply, wholesale and acquisition deals')],
-      [t('特許', 'Patents'), t('復刻品を特許にすると、他社が真似できない・使用料が入る', 'Patent a revival so rivals cannot copy it, and earn royalties')],
-      [t('争い', 'Disputes'), t('他社からの訴えと、こちらからの訴え。裁判は数か月の勝負', 'Suits from rivals and suits you file. A trial is a months-long fight')],
-      [t('M&A（他社の買収）', 'M&A (acquiring rivals)'), t('Epic の町の他社を買い取り、店ごと自社にする', 'Buy an Epic-town rival and make its stores yours')],
-    ]) {
-      const card = h('div', 'isl-skill is-locked');
-      card.append(h('b', '', name), h('small', '', note), h('small', 'isl-dim', t('次の更新', 'Next update')));
-      body.append(card);
-    }
-    body.append(h('p', 'isl-dim', t('法務の奥義（予告）：契約で不利な条項を受けない／特許の期間 2 倍／裁判で負けない', 'Legal mastery (preview): never accept a bad clause / patents last twice as long / never lose a trial')));
   });
 }
 

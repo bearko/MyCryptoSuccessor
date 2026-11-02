@@ -466,17 +466,18 @@ const RESEARCH_E = t('ここは Epic ランド。[[市場データ]]で、まだ
 /** 到着の案内の 2 枚目（リサーチ）か。main.ts が「市場データを開く」ボタンを付ける */
 export const isResearchPage = (text: string) => text === RESEARCH || text === RESEARCH_U || text === RESEARCH_R || text === RESEARCH_E;
 /**
- * Epic の町に着いたときの 1 枚（段 H1。Rare の RARE_TEASER にあたる）：骨董の需要の紹介と、次の更新（段 H2：他社の買収）の予告の 1 行
+ * Epic の町に着いたときの 1 枚（段 H1。Rare の RARE_TEASER にあたる）：骨董の需要の紹介と、他社の買収（段 H2：M&A）の一言
  */
 export const EPIC_TEASER = () =>
   t(
-    'この町では、ダンジョンで掘ってきた古いエクステの[[復刻品]]が[[骨董]]として高く売れる。倉庫に貯めておいたぶんも、そのまま棚に並べられるよ！ いつか、この町で[[他社を買収できる]]日が来る…（次の更新）',
-    'In this town, revivals of old extensions you dug up in dungeons sell high as [[antiques]]. The ones you kept in storage can go straight onto the shelves! Someday, you will be able to [[acquire rivals]] here… (next update)',
+    'この町では、ダンジョンで掘ってきた古いエクステの[[復刻品]]が[[骨董]]として高く売れる。倉庫に貯めておいたぶんも、そのまま棚に並べられるよ！ それに Epic の町では、他社の店をタップすると[[買収の打診]]ができるの。',
+    'In this town, revivals of old extensions you dug up in dungeons sell high as [[antiques]]. The ones you kept in storage can go straight onto the shelves! And in Epic towns, tap a rival store to make an [[acquisition offer]].',
   );
-/** 法務の部門の紹介（Epic の町に初めて進出して、法務の部門が開いたとき。段 H1 は部門の演出と紹介だけ。中身は段 H2） */
+/** 法務の部門の紹介（Epic の町に初めて進出して、法務の部門が開いたとき。段 H2 で中身ができた：M&A・契約・特許・争い） */
 export const LEGAL_INTRO = () => [
-  t('新しい部門：[[法務]]！ 他社との[[契約]]・復刻品の[[特許]]・[[争いごと]]を受け持つ部門だよ。', 'New department: [[Legal]]! It handles [[contracts]] with rivals, [[patents]] on revivals, and [[disputes]].'),
-  t('中身は[[次の更新]]で届くよ。Epic の町では、契約を結んだり、他社を[[買収]]したりできるようになるの。いまは部門の札だけ見ておいてね。', 'The contents arrive in the [[next update]]: in Epic towns you will sign contracts and [[acquire]] rivals. For now, just have a look at the department.'),
+  t('新しい部門：[[法務]]！ 他社の[[買収（M&A）]]・卸問屋との[[契約]]・復刻品の[[特許]]・[[争いごと]]を受け持つ部門だよ。', 'New department: [[Legal]]! It handles [[acquisitions (M&A)]], [[contracts]] with wholesalers, [[patents]] on revivals, and [[disputes]].'),
+  t('[[M&A]]では、1 位でない他社を[[調査]]して値段を交渉し、店ごと買い取れる。高いけれど、お金で時間を買える勝ち筋だよ。', 'With [[M&A]] you [[investigate]] a rival that is not #1, negotiate a price, and buy it stores and all. Costly, but it buys you time.'),
+  t('復刻品を[[特許]]にすると他社が真似できない。仕入れの[[契約]]で素材も安くなる。まずは法務の画面を見てみよう！', 'A [[patent]] keeps rivals from copying a revival, and a supply [[contract]] makes materials cheaper. Have a look at the Legal screens!'),
 ];
 /** Rare の町に着いたときの一言（Rare の町 ② の予告。到着の案内の前に 1 枚） */
 export const RARE_TEASER = () => t('この町は他社の店がひしめいている。お客さんは[[近くの店]]へ行くから、1 軒では町じゅうには売れない。店の場所で[[商圏]]を取り合おう！', 'Rival stores crowd this town. Customers go to [[nearby stores]], so one shop can’t sell to the whole town. Fight over [[trade areas]] with where you build!');
@@ -1027,7 +1028,7 @@ export const STORE = { base: 80, warehouse: 200 };
 
 /** 枝（9 本）。dig＝発掘（発掘 v2 の 2 段目。Lime だけ・発掘との出会いのあとに雲から出る。パネルはすべてお金パネル） */
 /** sales：営業の枝（段 C。Rare の外周だけ。BRANCHES の 9 本には入れない＝もとの枝の数・外周の半径は変えない） */
-export type Branch = 'shop' | 'craft' | 'logi' | 'buy' | 'people' | 'ops' | 'sys' | 'tech' | 'dig' | 'sales';
+export type Branch = 'shop' | 'craft' | 'logi' | 'buy' | 'people' | 'ops' | 'sys' | 'tech' | 'dig' | 'sales' | 'legal';
 
 export interface Skill {
   id: string;
@@ -1454,6 +1455,23 @@ for (const k of SKILLS) if (k.branch === 'tech' && k.train) LEVELS[k.id] = { max
 for (const k of SKILLS) Object.assign(k, LEVELS[k.id] ?? {});
 // 外周（U・R・E・L）のパネル：汎用の効き目（fx）で書いた追加のパネル
 SKILLS.push(...OUTER_SKILLS);
+/**
+ * 段 H2（Epic の町 ②）：Epic の外周の 2 枚を、M&A の遊びに合わせて見直した（名前はそのまま・効き目を M&A に。値段・先に要るパネル・区分は前のまま）。
+ * - M&A 部門（e_ops_1。お金パネル）：前は「セクター長の売上の倍率」→ 買収の提示を相手が受ける見込み +4%（Lv ごとに +25%）
+ * - 工芸の工房の買収（e_tech_2。研究パネル）：前は「適性 +」→ 買った店から引き継ぐ商売（相手のエクステ以外の売上）+10%
+ * 効き目は legal.ts（maChance・keepRate）。docs/ISLAND_PHASE1.md「Epic の町 ②」
+ */
+for (const k of OUTER_SKILLS) {
+  if (k.id === 'e_ops_1') {
+    delete k.fx;
+    k.note = t('買収の提示を相手が受ける見込み +4%（M&A の交渉術。Lv ごとに +25%）', 'Odds a rival accepts your acquisition offer +4% (M&A negotiation; +25% per Lv)');
+    k.show = [{ label: t('買収の提示を受ける見込み', 'Offer acceptance odds'), v: 0.04, unit: '%' }];
+  }
+  if (k.id === 'e_tech_2') {
+    delete k.fx;
+    k.note = t('M&A で買った店から引き継ぐ商売（相手のエクステ以外の売上）+10%（職人の工房ごと引き継ぐ）', 'Business carried over from stores bought through M&A (the rival’s non-extension sales) +10% (the artisans come with the studio)');
+  }
+}
 
 /** 発掘のスキルツリーの数字（DIG_BALANCE.tree） */
 export interface DigTree {
@@ -2047,6 +2065,83 @@ export const MKT_MONEY = ['mk_press', 'mk_ci'];
 /** 段 G の研究パネルの RP（決め打ち。Uncommon の研究パネルの範囲 60〜180 の中） */
 export const CSM_RP: Record<string, number> = { cs_faq: 70, cs_policy: 110, cs_survey: 150, mk_research: 80, mk_forecast: 130, mk_crisis: 160 };
 SKILLS.push(...CS_SKILLS, ...MKT_SKILLS);
+/**
+ * 法務（段 H2：Epic の町 ②。docs/ISLAND_PHASE1.md「Epic の町 ②：法務と M&A」・docs/SUCCESSOR_ROADMAP.md 4-8）。計算は legal.ts（DOM なし）。
+ * どれも Epic の町だけで起きる（Common・Uncommon・Rare の町には M&A・特許・訴え・仕入れの契約が出ない）。
+ * - ma：M&A（他社の買収）。打診の返事まで replyDays 日・調査（デューデリジェンス）ddDays 日（調査の目利きで −ddFast）・調査料は目安の値段の ddFee（ddMin から）・
+ *   値段の交渉の返事まで negoDays 日。値段の目安＝相手の月の売上 × months（伸びと利益率で 6〜10 か月）。提示は offer の 3 段・受ける見込み chance
+ *   （企業の格 1 段 +grade・法務の理解度 1 ごとに +legalLv（legalMax まで）・弱っている相手 +weak・2 位の相手 second・M&A 部門 +panel × Lv の倍率・
+ *   条項 1 つ clause（店員の引き継ぎは +staff）。cap まで）。断られたら wait 日は同じか安い提示ができない（高い提示はすぐできる）。
+ *   買えるのは町の他社の maxShare まで。隠れた借金（debtP の確率で、目安の値段の debt）・訴えの種（seedP の確率で seed）は調査で見える。
+ *   条項：支払いの分割（split：月の締めごとに months 回・合わせて +extra）・従業員の引き継ぎ（店員ごと＝すぐ開く・引き継ぐ商売 keep.yes／引き継がない＝noStaffDays 日の休業・keep.no）・
+ *   競業避止（相手のオーナーが返りの returnAfter か月で新しい店を出さない。無ければ、そのころ 1 軒だけ戻ってくる＝買ったときの売上の returnBase）。
+ *   買った店には売れ筋を stock 個ずつ。工芸の工房の買収（研究パネル）で引き継ぐ商売 +tech
+ * - supply：仕入れの契約（卸問屋）。期間 terms か月で素材 −cut・独占で −excl 足す（違約金 ×exclPen）。途中でやめると違約金＝残りの月 × 先月の素材の費用 × penalty（cap まで）を、
+ *   卸問屋が訴える（違約金なしの条項なら 0）
+ * - patent：特許（Epic の町で、Rare・Epic の復刻品）。出願料 fee・審査 examDays 日・期間 months か月（特許の事務所で +office か月 × Lv の倍率）。特許の間は他社が追随しない。
+ *   使用料で貸すと追随を許し、他社がその商品を売った額の royalty が毎月入る。更新は renew。貸さずに真似を止めた他社は sueP の確率で「無効の訴え」（損害 claim か月ぶんの売上の見込み）
+ * - suit：争い（訴えは実際に起きたことからだけ）。months か月の勝負・毎月少しずつ進む。勝ちの見込み＝base（訴えられた側 def・訴えた側 plain）＋理解度 1 ごとに legalLv（legalMax まで）
+ *   ＋顧問弁護士 counsel × Lv の倍率＋証拠 evidence（調査をした・特許がある）＋企業の格 1 段 grade＋担当のヒーローの INT（int[0] から 1 ごとに int[1]）。floor〜cap。
+ *   和解は settle（訴えられた側は払う・訴えた側は受け取る）ですぐ終わる。負けても払うのは maxPay まで（資金が TAX.keep を切らない。残りは月ごとに）。訴えるときは file の費用
+ * - clauses：通せる条項の数（はじめ base・法務の理解度 at で +1・契約の雛形で +1）。xp：契約・特許・M&A・裁判で上がる法務の理解度（max まで）
+ */
+export const LEGAL = {
+  ma: {
+    replyDays: 5,
+    ddDays: 10,
+    ddFast: 0.4,
+    ddFee: 0.02,
+    ddMin: 50000,
+    negoDays: 7,
+    months: [6, 10] as [number, number],
+    offer: { low: 0.85, mid: 1, high: 1.2 },
+    chance: { low: 0.3, mid: 0.55, high: 0.85 },
+    grade: 0.03,
+    legalLv: 0.01,
+    legalMax: 0.12,
+    weak: 0.15,
+    second: -0.1,
+    panel: 0.04,
+    clause: -0.05,
+    staff: 0.05,
+    cap: 0.95,
+    wait: 30,
+    maxShare: 0.5,
+    debtP: 0.5,
+    debt: [0.08, 0.2] as [number, number],
+    seedP: 0.35,
+    seed: [0.04, 0.1] as [number, number],
+    split: { months: 3, extra: 0.05 },
+    keep: { yes: 0.8, no: 0.6 },
+    noStaffDays: 5,
+    returnAfter: 2,
+    returnBase: 0.3,
+    stock: 6,
+    tech: 0.1,
+  },
+  supply: { terms: [3, 6, 12], cut: { 3: 0.04, 6: 0.07, 12: 0.1 } as Record<number, number>, excl: 0.03, exclPen: 1.5, penalty: 0.25, cap: 400000 },
+  patent: { fee: 150000, examDays: 20, months: 12, office: 2, royalty: 0.08, renew: 100000, sueP: 0.5, claim: 3 },
+  suit: { months: 3, base: { def: 0.45, plain: 0.5 }, legalLv: 0.02, legalMax: 0.16, counsel: 0.08, evidence: 0.15, grade: 0.02, int: [40, 0.004] as [number, number], floor: 0.1, cap: 0.95, settle: 0.5, maxPay: 1500000, file: 30000, dmg: 3 },
+  clauses: { base: 1, at: 3, template: 1 },
+  xp: { max: 10 },
+};
+/**
+ * 法務のパネル（段 H2。Epic の外周・法務の枝。docs/ISLAND_PHASE1.md「Epic の町 ②」）。効き目は legal.ts。
+ * 研究パネル 2 枚（契約の雛形・調査の目利き）・お金パネル 2 枚（LEGAL_MONEY。Lv1〜5：特許の事務所・顧問弁護士）。
+ * 値段は Epic の段の釣り合い（Rare の営業のパネル 6〜13 万 G の 2.5 倍の流儀・研究パネルは Epic の研究パネルの範囲 375〜1,125 RP の中で決め打ち）。
+ * M&A の交渉術は経営企画の「M&A 部門」（e_ops_1）が受け持つ（上の見直し）
+ */
+export const LEGAL_SKILLS: Skill[] = [
+  { id: 'lg_template', branch: 'legal', tier: 'E', name: t('契約の雛形', 'Contract templates'), note: t('M&A と仕入れの契約で、通せる条項 +1（有利な条項を選びやすい）', 'One more clause in M&A and supply deals (easier to get favorable terms)'), cost: 0 },
+  { id: 'lg_patent', branch: 'legal', tier: 'E', name: t('特許の事務所', 'Patent office'), note: t(`特許の期間 +${LEGAL.patent.office} か月（Lv ごとに +25%）・審査の日数 −25%`, `Patents last ${LEGAL.patent.office} more months (+25% per Lv); exams 25% faster`), cost: 160000, requires: ['lg_template'], show: [{ label: t('特許の期間（か月）', 'Patent term (months)'), v: LEGAL.patent.office, unit: '' }] },
+  { id: 'lg_dd', branch: 'legal', tier: 'E', name: t('調査の目利き', 'Due-diligence eye'), note: t(`M&A の調査で「訴えの種」まで見える・調査の日数 −${Math.round(LEGAL.ma.ddFast * 100)}%`, `M&A due diligence also finds pending claims; ${Math.round(LEGAL.ma.ddFast * 100)}% faster`), cost: 0, requires: ['lg_template'] },
+  { id: 'lg_counsel', branch: 'legal', tier: 'E', name: t('顧問弁護士', 'Legal counsel'), note: t(`裁判の勝ちの見込み +${Math.round(LEGAL.suit.counsel * 100)}%（Lv ごとに +25%）`, `Odds of winning a trial +${Math.round(LEGAL.suit.counsel * 100)}% (+25% per Lv)`), cost: 240000, requires: ['lg_dd'], show: [{ label: t('裁判の勝ちの見込み', 'Trial win odds'), v: LEGAL.suit.counsel, unit: '%' }] },
+];
+/** 法務のお金パネル（Lv1〜5） */
+export const LEGAL_MONEY = ['lg_patent', 'lg_counsel'];
+/** 法務の研究パネルの RP（決め打ち。Epic の研究パネルの範囲 375〜1,125 の中） */
+export const LEGAL_RP: Record<string, number> = { lg_template: 500, lg_dd: 750 };
+SKILLS.push(...LEGAL_SKILLS);
 SKILLS.push(...INF_SKILLS, DONATE);
 /** 無限の強化パネルの id */
 export const INF_PANELS = INF_SKILLS.map((k) => k.id);
@@ -2079,7 +2174,7 @@ export const START_RP = 30;
 export const RP_PER_DUST = 40;
 const RP_FIXED: Record<string, number> = { hire: START_RP };
 {
-  const money = new Set([...Object.values(MONEY_PANELS).flatMap((x) => Object.values(x)), ...DIG_PANELS, DONATE.id, ...SALES_MONEY, ...HR_MONEY, ...ACCT_MONEY, ...GA_MONEY, ...CS_MONEY, ...MKT_MONEY]);
+  const money = new Set([...Object.values(MONEY_PANELS).flatMap((x) => Object.values(x)), ...DIG_PANELS, DONATE.id, ...SALES_MONEY, ...HR_MONEY, ...ACCT_MONEY, ...GA_MONEY, ...CS_MONEY, ...MKT_MONEY, ...LEGAL_MONEY]);
   const byId = new Map(SKILLS.map((k) => [k.id, k]));
   const tierOf = (k: Skill) => k.tier ?? 'C';
   // 同じランクの中の深さ（先に要るパネルのうち、同じランクのものをたどった最長の数）
@@ -2101,14 +2196,14 @@ const RP_FIXED: Record<string, number> = { hire: START_RP };
     const P = RP_PRICE[tier];
     const round = (v: number) => Math.max(P.step, Math.round(v / P.step) * P.step);
     for (const b of new Set(SKILLS.map((k) => k.branch))) {
-      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null && ACCT_RP[k.id] == null && CSM_RP[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
+      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null && ACCT_RP[k.id] == null && CSM_RP[k.id] == null && LEGAL_RP[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
       list.forEach((k, i) => (k.rp = round(P.lo + ((P.hi - P.lo) * (list.length > 1 ? i : 0)) / Math.max(1, list.length - 1))));
       // 1 枚だけの枝は真ん中の値段
       if (list.length === 1) list[0].rp = round((P.lo + P.hi) / 2);
     }
     for (const k of SKILLS) if (tierOf(k) === tier && k.big) k.rp = P.big;
   }
-  for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP, ...ACCT_RP, ...CSM_RP })) if (byId.get(id)) byId.get(id)!.rp = v;
+  for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP, ...ACCT_RP, ...CSM_RP, ...LEGAL_RP })) if (byId.get(id)) byId.get(id)!.rp = v;
   // 無限の強化パネル：Lv1 の値段（Lv2 からは infCost）
   for (const k of INF_SKILLS) k.rp = infCost(1);
   // 研究パネルはレベルなし（効き目は Lv1 の値）：Lv2 からの効き目は持たない
@@ -2151,8 +2246,8 @@ export type DeptGroup = 'biz' | 'strat' | 'admin' | 'base';
 /** ロードマップの段（docs/SUCCESSOR_ROADMAP.md「ロードマップ」）。部門の中身（遊び）ができる段 */
 export type RoadStage = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J';
 /**
- * いまできている段（段 H1：Epic の町 ①）。中身ができる段がこれ以下の部門だけメニューに出る。
- * 法務（stage 'H'）は段 H1 では部門の演出と紹介だけ（中身は「次の更新」の札。契約・特許・争いと M&A は段 H2）
+ * いまできている段（段 H2：Epic の町 ②）。中身ができる段がこれ以下の部門だけメニューに出る。
+ * 法務（stage 'H'）は段 H1 で部門の演出と紹介、段 H2 で中身（M&A・契約・特許・争い。legal.ts）ができた
  */
 export const ROAD_NOW: RoadStage = 'H';
 export interface DeptDef {
@@ -2209,7 +2304,7 @@ export const deptMarkNote = (k: number) => [t('業務を 1 つ任せられる', 
  * 調達・製造・物流・技・販売 → 物流／経営 → 経営企画／人材 → 人事／発掘 → R&D／システム → システム。
  * 例外：販売の枝の宣伝・ブランド・見せ方 → マーケ、経営の枝のブランドのもの → マーケ、人材の枝の職場の環境 → 総務
  */
-export const BRANCH_DEPT: Record<Branch, DeptId> = { shop: 'logistics', craft: 'logistics', logi: 'logistics', buy: 'logistics', tech: 'logistics', ops: 'strategy', people: 'hr', dig: 'rnd', sys: 'systems', sales: 'sales' };
+export const BRANCH_DEPT: Record<Branch, DeptId> = { shop: 'logistics', craft: 'logistics', logi: 'logistics', buy: 'logistics', tech: 'logistics', ops: 'strategy', people: 'hr', dig: 'rnd', sys: 'systems', sales: 'sales', legal: 'legal' };
 export const DEPT_MOVE: Record<string, DeptId> = Object.fromEntries([
   ...['vmd', 'pop', 'golden', 'point', 'set', 'd_ops', 'b_sign', 'fair', 'u_shop_2', 'u_shop_5', 'u_shop_6', 'b_ads', 'b_premium', 'r_shop_2', 'r_shop_3', 'r_shop_5', 'r_shop_6', 'r_shop_8', 'e_shop_3', 'e_shop_5', 'e_shop_6', 'e_shop_8', 'e_shop_10', 'l_shop_1', 'l_shop_2', 'l_shop_5', 'l_shop_6', 'l_shop_7', 'l_shop_8', 'l_shop_9'].map((id) => [id, 'marketing']),
   ...['lounge', 'shift', 'welfare', 'u_people_5', 'r_people_5', 'e_people_3', 'e_people_7', 'l_people_3', 'l_people_6', ...GA_SKILLS.map((k) => k.id)].map((id) => [id, 'general']),
@@ -2228,7 +2323,7 @@ export const DEPT_SKILLS: Record<DeptId, Skill[]> = Object.fromEntries(DEPTS.map
 // ---------------------------------------------------------------- 任せ方の 4 段（ロードマップ段 D。docs/ISLAND_PHASE1.md「任せ方」）
 
 /** チームリーダーに任せられる業務（部門ごと。理解度 3 から 1 つずつ） */
-export type DutyId = 'order' | 'craft' | 'shelf' | 'swap' | 'rest' | 'dig' | 'ads' | 'vacant' | 'reply';
+export type DutyId = 'order' | 'craft' | 'shelf' | 'swap' | 'rest' | 'dig' | 'ads' | 'vacant' | 'reply' | 'renew';
 export interface DutyDef {
   id: DutyId;
   dept: DeptId;
@@ -2251,6 +2346,8 @@ export const DUTIES: DutyDef[] = [
   { id: 'vacant', dept: 'sales', icon: '🏚', name: t('空き店舗に入る', 'Take vacancies'), note: t('他社が撤退した空き店舗に、取り分が伸びるなら入る', 'Moves into vacated rival stores when it grows your share'), miss: t('空いたまま', 'Left empty') },
   // 段 G：カスタマーサポート
   { id: 'reply', dept: 'support', icon: '🎧', name: t('問い合わせの返事', 'Answering inquiries'), note: t('届いた問い合わせに、中身に合う返事（謝る・返金・代わりの品）を選んで返す', 'Answers inquiries with the reply that fits (apologize, refund or a substitute)'), miss: t('期限切れ', 'Expired') },
+  // 段 H2：法務（Epic の町）
+  { id: 'renew', dept: 'legal', icon: '📜', name: t('契約と特許の見直し', 'Contract & patent upkeep'), note: t('仕入れの契約が切れたら結び直し、売れている復刻品の特許が切れそうなら更新する（真似されそうな復刻品は出願する）', 'Re-signs the supply contract when it ends, renews patents on selling revivals before they lapse (and files for revivals about to be copied)'), miss: t('切れていた', 'Lapsed') },
 ];
 export const DUTY: Record<DutyId, DutyDef> = Object.fromEntries(DUTIES.map((d) => [d.id, d])) as Record<DutyId, DutyDef>;
 /** 部門の業務（並びは DUTIES の順。業務の無い部門は空＝部長の提案と補正だけ） */
@@ -3301,3 +3398,13 @@ export const MKT_MASTERY = () => [
 /** 掛け合わせの予告（効き目は段 I。表示だけ） */
 export const CROSS_MKT_CS = () => t('掛け合わせ（マーケ × カスタマーサポート）：ファンのコミュニティ — 炎上の被害 半分・リピーター +15%（両方の理解度 10 で開く・準備中）', 'Cross panel (Marketing × Customer Support): fan community — half the backlash damage, regulars +15% (opens at understanding 10 in both; coming soon)');
 export const CROSS_HR_MKT = () => t('掛け合わせ（人事 × マーケ）：採用マーケ — 雇う候補 +2・カリスマ +5 相当の候補（両方の理解度 10 で開く・準備中）', 'Cross panel (HR × Marketing): recruiting marketing — +2 candidates, as if charisma +5 (opens at understanding 10 in both; coming soon)');
+
+/** 法務の奥義（理解度 15・25・40。効き目は段 I。表示だけ。ロードマップ 4-8） */
+export const LEGAL_MASTERY = () => [
+  t('奥義 1：契約で不利な条項を受けない（準備中）', 'Mastery 1: never accept a bad clause (coming soon)'),
+  t('奥義 2：特許の期間 2 倍（準備中）', 'Mastery 2: patents last twice as long (coming soon)'),
+  t('奥義 3：裁判で負けない（準備中）', 'Mastery 3: never lose a trial (coming soon)'),
+];
+/** 掛け合わせの予告（法務。効き目は段 I。表示だけ。特許そのものは法務のパネルで開く＝二重にしない） */
+export const CROSS_RND_LEGAL = () => t('掛け合わせ（R&D × 法務）：特許の取得 — 研究の成果を守り、使用料を受け取る力が上がる（両方の理解度 10 で開く・準備中）', 'Cross panel (R&D × Legal): patent strategy — stronger protection and royalties for your research (opens at understanding 10 in both; coming soon)');
+export const CROSS_SALES_LEGAL = () => t('掛け合わせ（営業 × 法務）：有利な契約の雛形 — 契約の条項を 1 つ多く選べる（両方の理解度 10 で開く・段 I・準備中）', 'Cross panel (Sales × Legal): favorable contract templates — pick one more clause (opens at understanding 10 in both; stage I; coming soon)');

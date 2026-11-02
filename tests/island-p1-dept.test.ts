@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ACCT_SKILLS, CS_SKILLS, GA_SKILLS, MKT_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
+import { ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
 import { deptLevel, deptNews, deptOpen, deptReady, menuDepts, menuLayout, nextMark } from '../src/island/p1/dept';
 import { deserializeP1, newP1, serializeP1 } from '../src/island/p1/model';
 import { DEPT_LAYOUT, EDGES, HUBPOS, HUB_BOX, KNOTPOS, POS, RING_OUT, SLACK, UNPLACED, groupOf } from '../src/island/p1/treelayout';
@@ -35,9 +35,9 @@ describe('部門の定義（DEPTS）', () => {
 });
 
 describe('パネルの部門の割り振り', () => {
-  it('すべてのパネルに部門がある。法務はパネルなし（営業は段 C の 6 枚・経理は段 F の 6 枚・カスタマーサポートは段 G の 4 枚）、総務は人材の枝の職場の環境のもの（段 F の 3 枚を足して 12 枚）', () => {
+  it('すべてのパネルに部門がある。法務は段 H2 の 4 枚（営業は段 C の 6 枚・経理は段 F の 6 枚・カスタマーサポートは段 G の 4 枚）、総務は人材の枝の職場の環境のもの（段 F の 3 枚を足して 12 枚）', () => {
     for (const k of SKILLS) expect(DEPT[deptOf(k)], k.id).toBeTruthy();
-    expect(DEPT_SKILLS.legal).toHaveLength(0);
+    expect(DEPT_SKILLS.legal.map((k) => k.id)).toEqual(LEGAL_SKILLS.map((k) => k.id));
     expect(DEPT_SKILLS.support.map((k) => k.id)).toEqual(CS_SKILLS.map((k) => k.id));
     for (const k of [...CS_SKILLS, ...MKT_SKILLS]) expect([k.branch, k.tier], k.id).toEqual(['shop', 'U']);
     for (const k of MKT_SKILLS) expect(deptOf(k), k.id).toBe('marketing');
@@ -65,9 +65,14 @@ describe('パネルの部門の割り振り', () => {
   it('効き目・値段・先に要るパネル・外周のランク・エンブレムの条件は、割り振り前と同じ', () => {
     // 段 C で足した営業のパネル（営業の枝）・段 E2 で足した人事のパネル（HR_SKILLS）・段 F の経理と総務のパネルは除いて比べる
     // 段 G のカスタマーサポート・マーケのパネル（CS_SKILLS・MKT_SKILLS）も除く
-    expect(SKILLS.filter((k) => k.branch !== 'sales' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k)).map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
+    // 段 H2 の法務のパネル（法務の枝）も除く。M&A の遊びに合わせて見直した Epic の 2 枚（M&A 部門・工芸の工房の買収）は効き目だけを比べから外す
+    expect(SKILLS.filter((k) => k.branch !== 'sales' && k.branch !== 'legal' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k)).map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
     for (const b of BEFORE) {
       const k = SKILL[b.id as string];
+      if (b.id === 'e_ops_1' || b.id === 'e_tech_2') {
+        expect([k.name, k.cost, rpCost(k), k.cat, k.requires, k.tier], k.id).toEqual([b.name, b.cost, b.rp, b.cat, b.requires, b.tier]);
+        continue;
+      }
       const now = { id: k.id, name: k.name, note: k.note, cost: k.cost, rp: rpCost(k), cat: k.cat, max: maxLv(k) === Infinity ? 'inf' : maxLv(k), lv5: maxLv(k) >= 5 && maxLv(k) !== Infinity ? levelCost(k, 5) : null, requires: k.requires ?? [], reqLv: k.reqLv ?? null, anyOf: k.anyOf ?? null, brand: k.brand ?? null, tier: k.tier ?? 'C', emblem: k.emblem ?? null, big: !!k.big, train: k.train ?? null, fx: k.fx ?? null, up: k.up ?? null, shown: shownOf(k) };
       expect(JSON.parse(JSON.stringify(now)), k.id).toEqual(b);
     }
@@ -170,7 +175,7 @@ describe('部門のお知らせ（トースト）', () => {
 
 describe('セーブ（版 11）', () => {
   it('新しいゲームは版 11。版 10 の古いセーブは、取ったパネル・レベルがそのまま版 11 になり、届いていた節目はまとめて出さない', () => {
-    expect(newP1(1).v).toBe(18);
+    expect(newP1(1).v).toBe(19);
     const s = newP1(2);
     s.skills = ['host', 'display', 'vmd', 'golden', 'jig', 'lounge', 'shift'];
     s.skillLv = { host: 5, jig: 3 };
@@ -179,7 +184,7 @@ describe('セーブ（版 11）', () => {
     delete o.flags.depts;
     delete o.flags.deptMarks;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(18);
+    expect(back.v).toBe(19);
     expect(back.skills).toEqual(s.skills);
     expect(back.skillLv).toEqual(s.skillLv);
     expect(deptLevel(back, 'logistics')).toBe(5 + 1 + 3);

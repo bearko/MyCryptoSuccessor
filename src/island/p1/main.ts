@@ -106,7 +106,6 @@ import {
   openHire,
   openInvest,
   openMA,
-  openLegal,
   openMissions,
   openPayroll,
   openRanking,
@@ -135,6 +134,8 @@ import { openGrowth } from './growthui';
 import { openCharisma } from './hrui';
 import { openGa, openTax } from './acctui';
 import { openForecast, openInbox, openPr, openSat } from './csui';
+import { legalToasts, openContract, openLegalMA, openPatents, openSuits, type LegalHooks } from './legalui';
+import { startDeal } from './legal';
 import { csOn } from './cs';
 import { gradeName, gradeOf } from './mkt';
 import { taxHint, type TaxRec } from './acct';
@@ -550,7 +551,7 @@ const SUBS: Partial<Record<Menu, Sub[]>> = {
     { key: 'books', name: t('決算書', 'Statements'), note: t('四半期の P/L・B/S', 'Quarterly P/L, B/S'), go: () => openBooks(ctx) },
     { key: 'props', name: t('部長の提案', 'Proposals'), note: t('承認・却下・保留', 'Approve, reject, hold'), go: () => openProps(ctx) },
     { key: 'ceo', name: t('経営者', 'Executive'), note: t('カリスマ度・雇える格', 'Charisma, hiring rank'), go: () => openCharisma(ctx) },
-    { key: 'ma', name: 'M&A', note: t('買収・提携（準備中）', 'Deals (coming soon)'), go: () => openMA(ctx) },
+    { key: 'ma', name: 'M&A', note: t('他社の買収（法務・Epic の町）', 'Acquisitions (Legal, Epic towns)'), go: () => (menuDepts(s).includes('legal') ? openLegalScreen('ma') : openMA(ctx)) },
   ],
   hr: [
     { key: 'staff', name: t('ヒーローの配置', 'Assign heroes'), note: t('4 つの仕事に置く', 'Four jobs'), go: () => openStaff(ctx) },
@@ -586,8 +587,13 @@ const SUBS: Partial<Record<Menu, Sub[]>> = {
     { key: 'books', name: t('決算書', 'Statements'), note: t('P/L・B/S・コストと助言', 'P/L, B/S, costs, advice'), go: () => openBooks(ctx) },
   ],
   general: [{ key: 'env', name: t('疲れと職場の環境', 'Fatigue & workplace'), note: t('疲れ・休ませる・設備', 'Fatigue, rest, facilities'), go: () => openGaScreen() }],
-  // 法務（段 H1：Epic の町に進出すると開く）。中身は次の更新（段 H2：契約・特許・争い・M&A）の札だけ
-  legal: [{ key: 'legal', name: t('契約・特許・争い', 'Contracts, patents, disputes'), note: t('次の更新', 'Next update'), go: () => openLegal(ctx) }],
+  // 法務（段 H1：Epic の町に進出すると開く。段 H2 で中身：M&A・契約・特許・争い）
+  legal: [
+    { key: 'ma', name: 'M&A', note: t('他社の買収', 'Acquire rivals'), go: () => openLegalScreen('ma') },
+    { key: 'contract', name: t('契約', 'Contracts'), note: t('仕入れの契約・条項', 'Supply deals, clauses'), go: () => openLegalScreen('contract') },
+    { key: 'patent', name: t('特許', 'Patents'), note: t('復刻品を守る・使用料', 'Protect revivals, royalties'), go: () => openLegalScreen('patent') },
+    { key: 'suit', name: t('争い', 'Disputes'), note: t('訴え・裁判・和解', 'Suits, trials, settling'), go: () => openLegalScreen('suit') },
+  ],
   systems: [
     { key: 'invest', name: t('設備投資', 'Investment'), note: t('建物ごとの設備', 'Per-building upgrades'), go: () => openInvest(ctx), needs: 'workshop' },
     { key: 'pace', name: t('進行速度', 'Game speed'), note: t('標準・1.5 倍・2 倍', 'Normal, 1.5×, 2×'), go: () => openPace() },
@@ -1308,6 +1314,14 @@ function renderPop() {
     notes: () => (closePop(), openNotes(ctx)),
     present: () => startPresent(),
     museum: () => (closePop(), openMuseum(ctx)),
+    // 段 H2：他社の店の「買収の打診」（Epic の町）
+    ma: (rid) => {
+      closePop();
+      const d = startDeal(s, rid);
+      if (typeof d !== 'string') toast(t(`🤝 買収を打診した（返事は数日後）`, `🤝 Acquisition approach sent (reply in a few days)`));
+      save();
+      openLegalScreen('ma', rid);
+    },
   });
   popTitle.textContent = title;
   popBody.replaceChildren(body);
@@ -1850,7 +1864,7 @@ function arrive(target: string, fresh: boolean, manager: number | null, reset: b
   const resetPage: TutPage[] = reset ? [{ text: t('ここからまた一から！ でも[[研究ポイント]]とヒーローはそのまま。被災した町は、ヒーローに[[復興]]を任せることもできるよ。', 'Starting over from here! But your [[research points]] and heroes are still with you. You can leave the ruined towns’ [[recovery]] to a hero.') }] : [];
   // Rare の町 ①：Rare の町に初めて着いたとき、商圏の取り合いの 1 枚
   if (fresh && d.tier === 'R') resetPage.push({ text: RARE_TEASER() });
-  // 段 H1：Epic の町に初めて着いたとき、骨董の需要の紹介と次の更新（他社の買収）の予告を 1 枚
+  // 段 H1：Epic の町に初めて着いたとき、骨董の需要の紹介と他社の買収（段 H2：M&A）の一言を 1 枚
   if (fresh && d.tier === 'E') resetPage.push({ text: EPIC_TEASER() });
   // 被災した町に初めて戻ったとき（1 回だけ）
   const ruinPage: TutPage[] = !fresh && ruinsOf(s).length && !s.flags.ruinTalk ? [{ text: t('[[廃墟]]をタップすると修繕できるよ。手で直すほうが安上がり！', 'Tap a [[ruin]] to repair it. Fixing it by hand is cheaper!') }] : [];
@@ -3625,7 +3639,7 @@ function deptChecks() {
   else if (!hadAcct && s.flags.depts?.includes('accounting')) newDeptBanner('accounting');
   // カスタマーサポート（段 G。経理・総務より後に開いたとき＝段 G の前のセーブで Uncommon にいる）
   else if (!hadCs && s.flags.depts?.includes('support')) newDeptBanner('support');
-  // 法務（段 H1。Epic の町に初めて進出）：部門の演出と紹介だけ（中身は次の更新）
+  // 法務（段 H1。Epic の町に初めて進出）：部門の演出と紹介（段 H2 で中身：M&A・契約・特許・争い）
   else if (!hadLegal && s.flags.depts?.includes('legal')) newDeptBanner('legal');
   save();
 }
@@ -3677,7 +3691,7 @@ function csTalk() {
     () => goSub('support', 'inbox'),
   );
 }
-/** 法務の部門の紹介（マインちゃん。Epic の町に初めて進出したあと 1 回だけ。段 H1 は紹介だけで、中身は次の更新） */
+/** 法務の部門の紹介（マインちゃん。Epic の町に初めて進出したあと 1 回だけ。段 H2：M&A・契約・特許・争い） */
 function legalTalk() {
   // 災害の演出・到着の案内が終わってから（同じときに 2 つの会話を重ねない）
   if (s.flags.legalTalk || !s.flags.depts?.includes('legal') || tutStep() || root.querySelector('.isl-modal, .isl-disaster') || sheetOpen() || placing || s.tier !== 'E' || needsIntro() || pendingReset(s) || moving) return;
@@ -3685,8 +3699,8 @@ function legalTalk() {
   save();
   talk(
     LEGAL_INTRO().map((text) => ({ text })),
-    t('法務を開く', 'Open Legal'),
-    () => goSub('legal', 'legal'),
+    t('M&A を開く', 'Open M&A'),
+    () => goSub('legal', 'ma'),
   );
 }
 const csHooks = () => ({ skills: () => panelsOf('support'), sat: () => openSatScreen(), inbox: () => openInboxScreen(), pr: () => openPrScreen() });
@@ -3711,6 +3725,14 @@ function openTaxScreen() {
 /** 総務 → 疲れと職場の環境 */
 function openGaScreen() {
   openGa(ctx, { invest: () => openInvest(ctx), skills: () => panelsOf('general') });
+}
+/** 法務の画面（M&A・契約・特許・争い）。どの画面からもほかの 3 つへ行ける */
+const legalHooks = (): LegalHooks => ({ skills: () => panelsOf('legal'), ma: () => openLegalScreen('ma'), contract: () => openLegalScreen('contract'), patent: () => openLegalScreen('patent'), suit: () => openLegalScreen('suit') });
+function openLegalScreen(k: 'ma' | 'contract' | 'patent' | 'suit', rid?: string) {
+  if (k === 'ma') openLegalMA(ctx, legalHooks(), rid);
+  else if (k === 'contract') openContract(ctx, legalHooks());
+  else if (k === 'patent') openPatents(ctx, legalHooks());
+  else openSuits(ctx, legalHooks());
 }
 /** その部門のパネル（スキルツリーのその枝へ） */
 function panelsOf(d: DeptId) {
@@ -4075,6 +4097,8 @@ function advance(days: number) {
     if (r.missions.length) sfx.play('mission');
     if (r.leveled?.length) levelNews(r.leveled);
     if (r.hr) hrNews(r.hr);
+    // 法務（段 H2）：M&A の話の進み・特許の審査が終わった
+    if (r.legal) for (const x of legalToasts(r.legal)) toast(x);
     for (const g of r.grew) toast(t(`${heroName(g.hero)}の ${g.stat.toUpperCase()} が 1 上がりました（バイトの経験）`, `${heroName(g.hero)}’s ${g.stat.toUpperCase()} rose by 1 (part-time work)`));
     if (r.procLv) {
       toast(t(`調達ランクが Lv.${r.procLv} に上がりました`, `Buying rank is now Lv.${r.procLv}`));
@@ -4269,7 +4293,7 @@ let quarterTax: TaxRec | null = null;
 let quarterNew: number | null = null;
 
 /** 月次報告の画面からほかの画面へ */
-const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), openProps: () => openProps(ctx), openPay: () => openPayroll(ctx), openCs: () => openInboxScreen(), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
+const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), openProps: () => openProps(ctx), openPay: () => openPayroll(ctx), openCs: () => openInboxScreen(), openLegal: () => openLegalScreen('ma'), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
 
 function showReport(r: NonNullable<ReturnType<typeof step>['report']>) {
   speed = 0;

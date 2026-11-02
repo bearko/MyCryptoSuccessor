@@ -122,6 +122,7 @@ import { acctMonth, deduct, panelKind, priceMul, type AcctState, type TaxRec } f
 import { fatigueMul } from './ga';
 import { csDay, csMonth, visitMul, type CsReport, type CsState } from './cs';
 import { gradeArea, gradeHire, prNews } from './mkt';
+import { acqMonth, boughtHere, legalDay, legalMonth, maClose, noteGranted, patentBlocks, patentStopped, supplyCut, type LegalDay, type LegalReport, type LegalState, type TownMA } from './legal';
 import { canHireRarity, charismaOf, hireCap, initMorale, moraleAdd, moraleAvg, moraleDay, moraleMul, newHrMonth, syncCharisma, wantsToQuit, type HrDay, type HrMonth } from './hr';
 
 export type Ground = 'grass' | 'road';
@@ -267,6 +268,8 @@ export interface AreaState {
   closed: number;
   took: number;
   mine: Record<number, number>;
+  /** M&A（段 H2。Epic の町）：打診中の話・買った会社・引き継いだ商売・元のオーナーの戻り（legal.ts。無ければまだ M&A をしていない） */
+  ma?: TownMA;
 }
 
 export interface Rank {
@@ -337,6 +340,8 @@ export interface Report {
   deleg?: DelegReport;
   /** カスタマーサポートと炎上（段 G。Uncommon 以上の町の報告だけ）：問い合わせ・返事・期限切れ・満足度・炎上のおそれ・炎上 */
   cs?: CsReport;
+  /** 法務（段 H2）：成立した買収・引き継いだ商売の売上・特許（審査が終わった・切れた・止めた追随・使用料）・裁判・仕入れの契約で安くなったぶん */
+  legal?: LegalReport;
 }
 
 export interface Flags {
@@ -414,7 +419,7 @@ export interface Flags {
   acctTalk?: boolean;
   /** カスタマーサポートの紹介（マインちゃん。Uncommon の町に初めて進出したあと、経理・総務の紹介のあとに 1 回。段 G） */
   csTalk?: boolean;
-  /** 法務の部門の紹介（マインちゃん。Epic の町に初めて進出したあと 1 回。段 H1。中身は次の更新） */
+  /** 法務の部門の紹介（マインちゃん。Epic の町に初めて進出したあと 1 回。段 H1 で足し、段 H2 で中身の紹介に） */
   legalTalk?: boolean;
 }
 
@@ -423,7 +428,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19;
   kind: 'p1';
   seed: number;
   n: number;
@@ -605,6 +610,11 @@ export interface P1State {
    * 広報の良いニュースと最後に発表した日。会社のもの（災害でも残る）。無ければ満足度は CS.start・受け箱は空から（企業の格はブランド力から数える）
    */
   cs?: CsState;
+  /**
+   * 法務（段 H2・版 19。legal.ts）：仕入れの契約・特許・訴え・分割の支払い・払いきれていないお金・法務の経験・今月の記録。会社のもの（災害でも残る）。
+   * 町ごとの M&A は商圏（area.ma）に。無ければ契約・特許・裁判・M&A は空
+   */
+  legal?: LegalState;
 }
 
 /** ランクアップの災害 1 回の記録（演出・自動プレイの計測） */
@@ -750,7 +760,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 18,
+    v: 19,
     kind: 'p1',
     seed,
     n,
@@ -894,7 +904,7 @@ function populate(s: P1State) {
 }
 
 /** 道路に面した空き地のうち、ほかの店（自社・他社）からいちばん離れた所（少し揺らす）に置く */
-function placeSpread(s: P1State, id: string, r: () => number, owner: Owner): boolean {
+export function placeSpread(s: P1State, id: string, r: () => number, owner: Owner): boolean {
   const stores = s.buildings.filter((b) => b.owner !== 'town' && b.owner !== 'me');
   let best: [number, number, Dir] | null = null;
   let bestV = -Infinity;
@@ -1553,7 +1563,7 @@ export const partMax = (s: P1State, uid: number) => SHOP.partTimeMax + 2 * invLv
 function syncSlots(s: P1State) {
   while (myWorkshop(s) && s.slots.length < benchCount(s)) s.slots.push({ sku: null, worker: null, progress: 0, running: false, repeat: true });
 }
-function syncShop(s: P1State, b: PBuilding) {
+export function syncShop(s: P1State, b: PBuilding) {
   const sh = (s.shops[b.uid] ??= { uid: b.uid, shelves: [], staff: null, part: 0, storage: {}, shelf: {}, sat: 1, carry: {}, rev: 0, cost: 0, last: null, aw: AWARE.start });
   while (sh.shelves.length < shelfCount(s, b)) sh.shelves.push(null);
 }
@@ -1602,7 +1612,9 @@ export const matPrice = (s: P1State, m: Mat) =>
         0.2,
         cut(s, 'bulk', 0.15) * cut(s, 'bulk2', 0.1) * cut(s, 'b_partner', 0.15) * cut(s, 'abc', 0.05) * cut(s, 'contract', 0.05) * cut(s, 'direct', 0.1) * cut(s, 'd_buy', 0.1) * Math.max(0.2, 1 - upOf(s, `route_${m}`, 0.08)) * fxCut(s, 'matPrice'),
       ) *
-      (isCheap(s, m) ? CHEAP_RATE : 1),
+      (isCheap(s, m) ? CHEAP_RATE : 1) *
+      // 段 H2：仕入れの契約（Epic の町。期間で −4〜10%・独占で −3% 足す）
+      (1 - supplyCut(s)),
   );
 
 /** 月に買える素材の数の上限（ランクとスキル） */
@@ -2686,7 +2698,8 @@ export function refillDue(s: P1State, v: AreaVacant): boolean {
 function refillBy(s: P1State, was: string): { r: RivalState; back: boolean } | null {
   const big = (xs: RivalState[]) => [...xs].sort((x, y) => y.base - x.base)[0];
   const live = s.rivals.filter((r) => !r.gone);
-  const gone = s.rivals.filter((r) => r.gone);
+  // 段 H2：M&A で買った会社は、空き店舗の入れ替わりで戻ってこない（競業避止が無ければ、決まった月に自分で戻る。legal.ts）
+  const gone = s.rivals.filter((r) => r.gone && !boughtHere(s, r.id));
   const r1 = big(live.filter((r) => r.id !== was));
   if (r1) return { r: r1, back: false };
   const r2 = big(gone.filter((r) => r.id !== was)) ?? big(gone);
@@ -3011,6 +3024,8 @@ export interface DayResult {
   leveled?: LevelUp[];
   /** 人事（段 E2）：辞めたいの予告・思いとどまった・辞めた人と、カリスマ度が上がった */
   hr?: HrDay;
+  /** 法務（段 H2）：M&A の話の進み（打診の返事・調査の終わり・提示の返事）・審査が終わった特許 */
+  legal?: LegalDay;
 }
 
 // ---------------------------------------------------------------- ヒーローの育成（段 E1。hero.ts・docs/ISLAND_PHASE1.md「ヒーローの育成」）
@@ -3412,6 +3427,12 @@ export function step(s: P1State): DayResult {
 
   // POS レジ：きのう売れた数
   if (!s.holdSales) s.yday = today;
+  // 法務（段 H2。Epic の町）：M&A の話の段・特許の審査・引き継いだ商売（買った店のエクステ以外の売上）
+  const lg = legalDay(s);
+  if (lg) {
+    res.legal = lg;
+    noteGranted(s, lg.granted);
+  }
   // カスタマーサポート（段 G。Uncommon 以上の町）：品切れの日・閉まっていた日を数え、期限の切れた問い合わせを消す
   const expired = csDay(s);
   if (expired) delegMiss(s, 'reply', expired);
@@ -3523,7 +3544,10 @@ export function endMonth(s: P1State): Report {
   s.money -= upkeep + wages;
   spend(s, 'upkeep', upkeep);
   spend(s, 'wages', wages);
-  const revenue = Object.values(s.monthSales).reduce<number>((a, v) => a + (v ?? 0), 0);
+  // 法務（段 H2）：引き継いだ商売の今月の売上（買った店のエクステ以外の売上。商品ごとの売上の内訳には入れない）
+  const revenue = Object.values(s.monthSales).reduce<number>((a, v) => a + (v ?? 0), 0) + acqMonth(s);
+  // 法務（段 H2）：成立した買収の店が自社の店になる（相手は町から消え、この月のランキングにも出ない）
+  const closed = s.area?.ma ? maClose(s, month) : [];
   const rivals: Record<string, number> = {};
   for (const r of s.rivals) rivals[r.id] = rivalBase(s, r) + (s.rivalSales[r.id] ?? 0);
   const area = areaRanking(s, revenue, rivals);
@@ -3586,6 +3610,16 @@ export function endMonth(s: P1State): Report {
       s.alone[p.key] = 0;
       continue;
     }
+    // 特許（段 H2：Epic の町）：特許の間は、他社が追随しない（貸していれば追随を許す）。真似を止めた月は数える（止めた他社は無効の訴えをすることも）
+    if (patentBlocks(s, p.key)) {
+      if (p.relic && sold && n === 0 && s.recipes?.[p.key]?.sold != null) s.alone[p.key] = Math.max(entryAfter, s.alone[p.key] ?? 0);
+      if ((s.alone[p.key] ?? 0) >= entryAfter) {
+        const next = s.rivals.filter((r) => !r.gone && !((r.sells[p.key] ?? 0) > 0) && !r.quit?.includes(p.key)).sort((a, b) => rivals[a.id] - rivals[b.id])[0];
+        patentStopped(s, p.key, next?.id ?? null);
+      }
+      s.alone[p.key] = Math.min(entryAfter - 1, s.alone[p.key] ?? 0);
+      continue;
+    }
     // 独占が切れた月の締め（まだどこも真似していない）：独占の月数が ENTRY_AFTER より短くても、ここで 1 社目（v13：monopolyMonths 3）
     if (p.relic && sold && n === 0 && s.recipes?.[p.key]?.sold != null) s.alone[p.key] = Math.max(entryAfter, s.alone[p.key] ?? 0);
     if ((s.alone[p.key] ?? 0) >= entryAfter) {
@@ -3642,6 +3676,8 @@ export function endMonth(s: P1State): Report {
   for (const k of Object.keys(s.demand)) s.demand[k] = (s.demand[k] ?? 0) * (1 + MARKET_GROWTH);
   // 商圏の取り合い（Rare の町 ②）：撤退と空き店舗
   if (s.area) report.trade = areaMonth(s);
+  // 法務（段 H2）：元のオーナーの戻り・分割の支払い・使用料・切れた特許・裁判の進み
+  legalMonth(s, report, closed);
 
   // 制覇：TOP_STREAK か月続けて 1 位（docs/ISLAND_PHASE1.md「制覇」）。他社の反撃：1 位を取った月から MARKET.rallyMonths か月
   const prev = s.reports.length ? s.reports[s.reports.length - 1].rank : null;
@@ -3893,7 +3929,7 @@ export function date(s: Pick<P1State, 'day' | 'open'>) {
 export const daysToClose = (s: Pick<P1State, 'day' | 'open'>) => (s.open === null ? DAYS : DAYS - ((s.day - s.open) % DAYS));
 
 /** 今月これまでの売上 */
-export const monthRevenue = (s: P1State) => Object.values(s.monthSales).reduce<number>((a, v) => a + (v ?? 0), 0);
+export const monthRevenue = (s: P1State) => Object.values(s.monthSales).reduce<number>((a, v) => a + (v ?? 0), 0) + acqMonth(s);
 
 /**
  * 商品を作るのに、まだ足りないもの（いちばん先に要るもの 1 つ）。無ければ null。
@@ -4115,7 +4151,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -4183,7 +4219,8 @@ export function deserializeP1(json: string): P1State | null {
       s.brandPeak = Math.max(s.brandPeak ?? 0, s.brand ?? 0);
       s.brand = Math.min(s.brand ?? 0, brandCap(s));
     }
-    s.v = 18;
+    // 版 18 → 19（段 H2：Epic の町 ②）：契約・特許・裁判（s.legal）と町ごとの M&A（area.ma）は空から（はじめて使うときに作る）
+    s.v = 19;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);

@@ -14,6 +14,7 @@ import { closeQuarter, dedCap, dedRate } from '../../src/island/p1/acct';
 import { fatigueMul } from '../../src/island/p1/ga';
 import { centerRate, inquiriesFor, newCs, putPower, refundCost, repeatMul } from '../../src/island/p1/cs';
 import { gradeBrand, horizon, prGain } from '../../src/island/p1/mkt';
+import { clauseSlots, ddDays, keepRate, offerChance, patentDays, suitChance } from '../../src/island/p1/legal';
 import { emptyLedger } from '../../src/island/p1/company';
 import { areaShares, deserializeP1 as fromSave, newP1 as freshTown, newStorePull, rivalStores, serializeP1 as toSave, vacantCost } from '../../src/island/p1/model';
 import { HERO_GROWTH, ADS, DIG_BALANCE, DIG_SITES, HIRE_POOL, INVEST, INVESTS, MONEY_PANELS, P1B, PRODUCT, RESEARCH_NEED, SKILL, aptitude, isResearch, relicKey, sku, skuParts, type DigFxKind, type FxKind, type Mat, type Skill, type Sku, type Task } from '../../src/island/p1/data';
@@ -573,7 +574,26 @@ export const SKILL_SPEC: Record<string, SkillSpec> = {
   sa_road: { expect: [], check: 'probe', probe: { name: 'Rare の町の自社の取り分（0.1% 単位）', f: (s) => Math.round(rareShare(s) * 1000), better: 'up' }, note: 'Rare の町（他社の店のとなりに自社の店 2 軒）' },
   sa_edge: { expect: [], check: 'probe', probe: { name: 'Rare の町の自社の取り分（0.1% 単位）', f: (s) => Math.round(rareShare(s) * 1000), better: 'up' }, note: 'Rare の町（他社の店のとなりに自社の店 2 軒）' },
   sa_nego: { expect: [], check: 'probe', probe: { name: '空き店舗に入る費用（G）', f: (s) => vacantCost(s), better: 'down' } },
+  // 法務（段 H2）：Epic の町の M&A・契約・特許・争い（SCM の段には出ない数。legal.ts）。M&A の遊びに合わせて見直した Epic の 2 枚（M&A 部門・工芸の工房の買収）も
+  lg_template: { expect: [], check: 'probe', probe: { name: '通せる契約の条項の数', f: (s) => clauseSlots(s), better: 'up' } },
+  lg_patent: { expect: [], check: 'probe', probe: { name: '特許の期間（日）', f: (s) => patentDays(s), better: 'up' }, note: '審査の日数 −25% も' },
+  lg_dd: { expect: [], check: 'probe', probe: { name: 'M&A の調査の日数', f: (s) => ddDays(s), better: 'down' }, note: '調査で訴えの種まで見える' },
+  lg_counsel: { expect: [], check: 'probe', probe: { name: '訴えられた裁判の勝ちの見込み（%・証拠なし）', f: (s) => Math.round(suitChance(s, { side: 'def', evidence: false }) * 100), better: 'up' } },
+  e_ops_1: { expect: [], check: 'probe', probe: { name: 'Epic の町の他社が「ふつう」の提示を受ける見込み（%）', f: (s) => epicOffer(s), better: 'up' }, note: 'ヒトシタウン（種 5）の 2 番目に大きい他社' },
+  e_tech_2: { expect: [], check: 'probe', probe: { name: '買った店から引き継ぐ商売の割合（%・店員ごと）', f: (s) => Math.round(keepRate(s, true) * 100), better: 'up' } },
 };
+/** 段 H2：Epic のパネルのうち、監査で測るもの（法務のパネルと、M&A に合わせて見直した 2 枚） */
+const LEGAL_AUDIT = ['lg_template', 'lg_patent', 'lg_dd', 'lg_counsel', 'e_ops_1', 'e_tech_2'];
+/** M&A 部門の監査：Epic の町（ヒトシタウン・種 5）の、2 番目に大きい他社への「ふつう」の提示の受ける見込み */
+let EPIC_TOWN: string | null = null;
+function epicOffer(s: P1State): number {
+  EPIC_TOWN ??= toSave(freshTown(5, 'E', 'e1'));
+  const e = fromSave(EPIC_TOWN)!;
+  e.skills = [...s.skills];
+  e.skillLv = { ...s.skillLv };
+  const rid = [...e.rivals].sort((a, b) => b.base - a.base)[1].id;
+  return Math.round(offerChance(e, rid, 'mid') * 100);
+}
 /** 繰越の損失の監査：Uncommon の会社で、赤字の四半期（−200,000 G）のあと黒字の四半期（+300,000 G）に払う税 */
 function carryProbe(s: P1State): number {
   const x = { ...s, tier: 'U' as const, money: 1e9, acct: undefined } as P1State;
@@ -630,6 +650,8 @@ const rings = (s: P1State) => void (s.flags.rings = ['U', 'R']);
 /** そのパネルの監査の表の行：手で書いた SKILL_SPEC、無ければ fx の最初の種類から。Epic・Legendary は対象外（まだ遊べない） */
 export function specOf(k: Skill): SkillSpec | undefined {
   const tier = skillTier(k);
+  // 段 H2：法務のパネルと、M&A に合わせて見直した Epic の 2 枚は、Epic の町の遊びの数（probe）で測る（ほかの Epic・Legendary のパネルは対象外のまま）
+  if (LEGAL_AUDIT.includes(k.id)) return SKILL_SPEC[k.id];
   if (tier === 'E' || tier === 'L') return { expect: [], out: `まだ遊べない（${tier === 'E' ? 'Epic' : 'Legendary'} のセクタが無い）` };
   // 発掘の枝：SCM の段には効かない（発掘の速さ・深さ・研究の進み）。効き目は vitest で全部確かめる
   if (k.branch === 'dig') return { expect: [], out: '発掘（tests/island-p1-dig2b.test.ts で確認）' };

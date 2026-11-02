@@ -48,7 +48,7 @@ const TIER_NOTE: Record<SectorDef['tier'], string> = {
   C: t('いまと同じくらいの広さと商売敵。出店許可申請の費用も軽い。', 'About the same size and rivals as now. The permit is cheap.'),
   U: t('地図が広く、商売敵の規模が大きい。1 位を取ると、他社がセールで巻き返してくる。Common の商品は相手にされにくいので、エクステのランクアップが鍵（SCM の強化を楽しむセクタ）。', 'A wider map with bigger rivals who strike back with sales when you take #1. Common goods barely sell here, so ranking up your extensions is key.'),
   R: t('他社のお店が乱立する、栄えた市場。お客さんは近くの店へ行くので、店の場所で商圏を取り合う。他社の店を撤退させ、空いた店舗にすかさず出店しよう（営業の部門が開く）。', 'A crowded, thriving market. Customers shop nearby, so you fight over trade areas with where you build. Drive rival stores out and move into the vacancies (the Sales department opens).'),
-  E: t('Rare よりさらに大きな商売敵が店を並べる大きな市場（商圏の取り合いもある）。Epic の復刻品と、ダンジョンで掘ってきた骨董がよく売れる。法務の部門が開く（他社を M&A で買収できるのは次の更新）。', 'A big market where even larger rivals line up their stores (trade areas too). Epic revivals and antiques from your dungeon digs sell well. The Legal department opens (acquiring rivals through M&A comes in the next update).'),
+  E: t('Rare よりさらに大きな商売敵が店を並べる大きな市場（商圏の取り合いもある）。Epic の復刻品と、ダンジョンで掘ってきた骨董がよく売れる。法務の部門が開き、他社を M&A で買収できる町。', 'A big market where even larger rivals line up their stores (trade areas too). Epic revivals and antiques from your dungeon digs sell well. The Legal department opens, and you can acquire rivals through M&A.'),
   L: t('ブランド力で売る総力戦。街そのものを作り変える（準備中）。', 'A brand-power showdown where you reshape the city (coming soon).'),
 };
 

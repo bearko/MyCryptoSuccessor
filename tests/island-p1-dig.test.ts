@@ -638,7 +638,9 @@ describe('スキルツリーの 2 区分', () => {
     const money = SKILLS.filter((k) => !isResearch(k));
     // ＋段 C：営業のお金パネル 4 枚（SALES_MONEY）・段 E2：人事のお金パネル 2 枚（HR_MONEY）・段 F：経理 3 枚（ACCT_MONEY）・総務 2 枚（GA_MONEY）・
     // 段 G：カスタマーサポート 1 枚（CS_MONEY）・マーケ 2 枚（MKT_MONEY）
-    expect(money).toHaveLength(35 + 17 + 1 + 4 + 2 + 3 + 2 + 1 + 2);
+    // 段 H2：法務 2 枚（LEGAL_MONEY）
+    expect(money).toHaveLength(35 + 17 + 1 + 4 + 2 + 3 + 2 + 1 + 2 + 2);
+    expect(money.filter((k) => k.branch === 'legal').map((k) => k.id)).toEqual(['lg_patent', 'lg_counsel']);
     expect(money.filter((k) => CS_MONEY.includes(k.id) || MKT_MONEY.includes(k.id)).map((k) => k.id)).toEqual(['cs_center', 'mk_press', 'mk_ci']);
     expect(money.filter((k) => ACCT_MONEY.includes(k.id) || GA_MONEY.includes(k.id)).map((k) => k.id)).toEqual(['ac_deprec', 'ac_cost', 'ac_upkeep', 'ga_canteen', 'ga_nap']);
     expect(money.filter((k) => HR_MONEY.includes(k.id)).map((k) => k.id)).toEqual(['hr_career', 'hr_paytable']);
@@ -661,7 +663,7 @@ describe('スキルツリーの 2 区分', () => {
       expect(rpCost(k), k.id).toBeGreaterThan(0);
     }
     expect(SKILLS.filter((k) => k.inf).length).toBe(3);
-    expect(SKILLS.filter(isResearch).length).toBe(SKILLS.length - 35 - 17 - 1 - 4 - 2 - 3 - 2 - 1 - 2);
+    expect(SKILLS.filter(isResearch).length).toBe(SKILLS.length - 35 - 17 - 1 - 4 - 2 - 3 - 2 - 1 - 2 - 2);
   });
 
   it('RP の値段：Common 平均 50 前後（20〜80）・Uncommon 平均 120 前後・Rare 以降 2.5 倍ずつ・大きめの研究パネルは約 2.5 倍・人材の募集は 30', () => {
@@ -763,7 +765,7 @@ describe('調査依頼状', () => {
 describe('セーブ', () => {
   it('新しいゲームは版 6・30 RP。発掘の進み・許可・研究ノートはセーブに残る', () => {
     const s = run(site());
-    expect([s.v, s.rp]).toEqual([18, 30]);
+    expect([s.v, s.rp]).toEqual([19, 30]);
     breakCell(s, 0, 0);
     endRun(s);
     s.research[1011] = 3;
@@ -795,7 +797,7 @@ describe('セーブ', () => {
     const m0 = o.money;
     const old = deserializeP1(JSON.stringify(o))!;
     // 版 1 → 2 → 3 → 4 → 5 と順に移す
-    expect(old.v).toBe(18);
+    expect(old.v).toBe(19);
     expect(old.dig!.sites).toHaveLength(4);
     expect(old.skills).toEqual(expect.arrayContaining(['host', 'golden', 'jig', 'lounge', 'd_shop']));
     expect([lvOf(old, 'host'), lvOf(old, 'golden'), lvOf(old, 'lounge'), lvOf(old, 'd_shop')]).toEqual([3, 1, 1, 1]);
@@ -835,7 +837,7 @@ describe('セーブ', () => {
     o.tablets = ['tab_c1'];
     o.presented = [];
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(18);
+    expect(back.v).toBe(19);
     expect(back.rp).toBe(333);
     expect(back.research).toEqual({ [found]: 11, 1011: 4 });
     expect(back.tablets).toEqual(['tab_c1']);
