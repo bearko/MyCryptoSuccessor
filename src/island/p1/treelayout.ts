@@ -160,7 +160,7 @@ function needOf(key: string, list: Skill[]): number {
 }
 
 /** 外周だけにパネルのある、あとから足した部門（収まる幅だけ。余りの角度を取らない） */
-const NARROW: DeptId[] = ['sales', 'accounting', 'support'];
+const NARROW: DeptId[] = ['sales', 'accounting', 'support', 'legal'];
 /** 部門の枝の配置 */
 export const DEPT_LAYOUT = {} as Record<DeptId, DeptLayout>;
 export const GROUPS: Group[] = [];
@@ -186,13 +186,16 @@ export let SLACK = 0;
   }
   // 段 C：営業の枝（パネルの無い細い枝だったもの）が広がったぶんは、ほかのパネルの無い部門の枝から分けてもらう
   // （パネルのある部門の枝の幅・角度を前と変えない）。段 F の経理も同じ
-  const grown = items.filter((x) => NARROW.includes(x.d) && x.d !== 'support' && x.g).reduce((a, x) => a + (x.need - EMPTY_W), 0);
-  const empty = items.filter((x) => !x.g);
+  // 段 H2：法務にもパネルができた（Epic の外周だけ）。段 G のときの法務の幅（下の「2 本ぶんの幅」から CS の幅を引いた残り）を下限にして、
+  // パネルが収まる幅がそれより広いぶんだけ、ほかの枝の余りの角度から分けてもらう
+  const lg = items.find((x) => x.d === 'legal' && x.g);
+  const grown = items.filter((x) => NARROW.includes(x.d) && x.d !== 'support' && x.d !== 'legal' && x.g).reduce((a, x) => a + (x.need - EMPTY_W), 0);
+  const empty = items.filter((x) => !x.g || x === lg);
   // 段 G：カスタマーサポートにパネルができて、パネルの無い枝は法務だけになった。段 F のとき（パネルの無い 2 本で分けた細さ）の 2 本ぶんの幅を、
   // カスタマーサポート（収まる幅）と法務（残り）で分ける（ほかの部門の枝の幅・角度を前と変えない）
   const cs = items.find((x) => x.d === 'support' && x.g);
   const pair = 2 * Math.max(0.08, EMPTY_W - grown / 2);
-  if (grown > 0 && empty.length) for (const x of empty) x.need = Math.max(0.08, (cs ? pair - cs.need : pair / 2) / (cs ? empty.length : 1));
+  if (grown > 0 && empty.length) for (const x of empty) x.need = Math.max(x === lg ? x.need : 0.08, (cs ? pair - cs.need : pair / 2) / (cs ? empty.length : 1));
   const total = items.reduce((a, x) => a + x.need, 0);
   SLACK = Math.PI * 2 - total;
   const nAll = items.reduce((a, x) => a + x.n, 0);
@@ -217,7 +220,7 @@ export let SLACK = 0;
   for (const g of GROUPS) g.a += rot;
   for (const L of Object.values(DEPT_LAYOUT)) L.angle = ((L.angle + L.w / 2 + rot) * 180) / Math.PI;
   // 段 G：法務（パネルの無い枝）の札は、段 F のときと同じ向きに残す（カスタマーサポートが広がったぶん、法務の枝の真ん中が隣の人事へ寄って、札がパネルに近づかないように）
-  if (cs && grown > 0) for (const x of empty) DEPT_LAYOUT[x.d].angle -= (((cs.need - pair / 2) / 2) * 180) / Math.PI;
+  if (cs && grown > 0) for (const x of empty) if (!x.g) DEPT_LAYOUT[x.d].angle -= (((cs.need - pair / 2) / 2) * 180) / Math.PI;
   // パネルの無い部門は、細い枝の先に札（隣どうしは互い違いの距離）
   let k = 0;
   for (const d of DEPTS) {

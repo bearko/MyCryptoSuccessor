@@ -13,6 +13,7 @@ import { delegReportText } from './delegui';
 import { clearCondText, digMet, digReportLine, digReportText, presentNeedText, presentReady, rebuildText, reviveReportText, type DigSummary } from './digmeet';
 import { t } from '../../i18n';
 import { csReportText } from './csui';
+import { legalReportText } from './legalui';
 import { assetUrl } from '../../render/images';
 import { PRODUCT, TOP_STREAK, sku } from './data';
 import { jamOf, myShops, whatIf, type P1State, type Report, type Stage } from './model';
@@ -72,6 +73,8 @@ export interface ReportHooks {
   openPay?: () => void;
   /** カスタマーサポート（「お客さんの声」の導線。段 G） */
   openCs?: () => void;
+  /** 法務（「⚖ 法務」の導線。段 H2） */
+  openLegal?: () => void;
   /** 効果音 */
   sfx?: (k: 'sale' | 'win' | 'levelup' | 'check' | 'report' | 'drum' | 'error') => void;
 }
@@ -685,6 +688,21 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
         if (!notable) line.classList.add('is-quiet');
         c4.append(line);
         if (notable) body.classList.add('has-cs');
+      }
+      // 法務（段 H2。Epic の町）：成立した買収・引き継いだ商売・特許（止めた真似・使用料）・裁判（1 行にまとめる）
+      const lgt = legalReportText(r);
+      if (lgt) {
+        const line = h('div', 'isl-rp-dig isl-rp-legal');
+        const txt = h('span', 'isl-rp-dig-text');
+        txt.append(h('b', '', t('⚖ 法務', '⚖ Legal')), h('span', 'is-long', lgt[0]), h('span', 'is-short', lgt[1]));
+        line.append(txt);
+        if (hooks.openLegal) line.append(btn(t('法務', 'Legal'), () => hooks.openLegal?.(), 'isl-rp-go'));
+        // スマホ：買収が成立した月・裁判の判決・新しい訴えの月だけ出す（報告を 1 画面に収める）
+        const notable = !!r.legal && (r.legal.closed.length > 0 || r.legal.newSuits > 0 || r.legal.won > 0 || r.legal.lost > 0);
+        if (notable) line.classList.add('is-warn');
+        else line.classList.add('is-quiet');
+        c4.append(line);
+        if (notable) body.classList.add('has-legal');
       }
       cards.push(c4);
 

@@ -108,7 +108,7 @@ export function panelKind(id: string): DedKind {
  */
 export function monthBase(s: Pick<P1State, 'tier'>, l: Ledger | undefined, managedU = 0): number {
   if (!l) return managedU;
-  const here = (s.tier ?? 'C') !== 'C' ? l.sales - l.mats - l.wages - l.part - l.upkeep - l.ads + l.side + l.other + (l.museum ?? 0) : 0;
+  const here = (s.tier ?? 'C') !== 'C' ? l.sales - l.mats - l.wages - l.part - l.upkeep - l.ads + l.side + l.other + (l.museum ?? 0) + (l.legal ?? 0) : 0;
   return here + managedU;
 }
 /**

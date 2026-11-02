@@ -2,6 +2,7 @@
  * 部門（ロードマップ段 B：部門の土台）。DOM なし（main.ts・tree.ts とテストが使う）。
  * 11 部門の理解度・開く時期・下の帯のメニューの並び。docs/ISLAND_PHASE1.md「部門」・docs/SUCCESSOR_ROADMAP.md「部門の土台」。
  * 理解度の節目：チームリーダー（3）・事業部長（8）は段 D で置けるようになった（deleg.ts）。奥義（15・25・40）は「準備中」として見せるだけ。
+ * 法務の理解度は、パネルに加えて契約・特許・M&A・裁判の経験（s.legal.xp）でも上がる（段 H2）。
  */
 import { t } from '../../i18n';
 import { DEPT, DEPTS, DEPT_GROUPS, DEPT_MARKS, DEPT_SKILLS, ROAD_NOW, deptMarkNote, isResearch, type DeptGroup, type DeptId, type RoadStage, type Tier } from './data';
@@ -15,13 +16,15 @@ const STAGES: RoadStage[] = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
  * 部門の理解度：その部門で取ったパネルの Lv の合計（研究パネルは取ったら 1、お金パネルは Lv の数、無限の強化パネルは Lv）。
  * 研究への寄付は開放するパネルではないので数えない
  */
-export function deptLevel(s: Pick<P1State, 'skills' | 'skillLv'>, d: DeptId): number {
+export function deptLevel(s: Pick<P1State, 'skills' | 'skillLv'> & Partial<Pick<P1State, 'legal'>>, d: DeptId): number {
   let n = 0;
   for (const k of DEPT_SKILLS[d]) {
     if (k.donate) continue;
     const lv = lvOf(s, k.id);
     n += lv > 0 && isResearch(k) && !k.inf ? 1 : lv;
   }
+  // 段 H2：法務は、契約・特許・M&A・裁判の経験でも上がる（LEGAL.xp.max まで。legal.ts）
+  if (d === 'legal') n += s.legal?.xp ?? 0;
   return n;
 }
 

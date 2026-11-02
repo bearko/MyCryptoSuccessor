@@ -76,9 +76,13 @@ export interface Ledger {
   grant?: number;
   /** 法人税（段 F。四半期の締めの月に。以前の帳簿には無い） */
   tax?: number;
+  /** 法務の収支（段 H2）：特許の使用料・賠償金（＋）と、調査料・出願料・違約金・和解・裁判の費用（−）。以前の帳簿には無い */
+  legal?: number;
+  /** M&A（段 H2）：他社の買収に払った額（投資。分割の支払い・調べなかった隠れた借金も）。以前の帳簿には無い */
+  ma?: number;
 }
 export type LedgerKey = keyof Ledger;
-export const emptyLedger = (): Ledger => ({ sales: 0, mats: 0, wages: 0, part: 0, upkeep: 0, ads: 0, build: 0, fees: 0, side: 0, other: 0, managed: 0, museum: 0, levy: 0, grant: 0, tax: 0 });
+export const emptyLedger = (): Ledger => ({ sales: 0, mats: 0, wages: 0, part: 0, upkeep: 0, ads: 0, build: 0, fees: 0, side: 0, other: 0, managed: 0, museum: 0, levy: 0, grant: 0, tax: 0, legal: 0, ma: 0 });
 
 /** 月末の貸借対照表の材料 */
 export interface Balance {
@@ -123,9 +127,11 @@ export function pl(l: Ledger): PL {
   const gross = l.sales - l.mats;
   const sga = l.wages + l.part + l.upkeep + l.ads;
   const op = gross - sga;
-  const nonop = l.side + l.other + l.managed + (l.museum ?? 0);
+  // 段 H2：法務の収支（使用料・賠償金 − 調査料・出願料・違約金・和解）も営業外
+  const nonop = l.side + l.other + l.managed + (l.museum ?? 0) + (l.legal ?? 0);
   // 特別な出入り：投資・入国料・復興の徴収（損失）から、復興の支度金（利益）を引く
-  const special = l.build + l.fees + (l.levy ?? 0) - (l.grant ?? 0);
+  // 段 H2：M&A の買収額も特別な支出（投資）
+  const special = l.build + l.fees + (l.levy ?? 0) - (l.grant ?? 0) + (l.ma ?? 0);
   const tax = l.tax ?? 0;
   return { sales: l.sales, cogs: l.mats, gross, sga, op, nonop, special, tax, net: op + nonop - special - tax, l };
 }

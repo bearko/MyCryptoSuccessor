@@ -9,7 +9,7 @@
 import { isEn, t } from '../../i18n';
 import { heroById } from '../../game/catalog';
 import { DEF } from '../defs';
-import { ADS, DELEG, DEPT, DEPTS, DEPT_DUTIES, DUTIES, DUTY, HERO_GROWTH, INVEST, P1B, PASSIVES, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
+import { ADS, DELEG, DEPT, DEPTS, DEPT_DUTIES, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
 import { deptLevel, menuDepts } from './dept';
 import {
   DAYS,
@@ -80,6 +80,8 @@ import {
 } from './model';
 import { siteCandidates } from './trade';
 import { bestReply, fits, refundCost, reply } from './cs';
+import { filePatent, guidePrice, keepRate, legalHere, maLock, patentLock, patentOf, patentable, signSupply, startDeal, supplyLock } from './legal';
+import { copyIn } from './mkt';
 import type { SectorRec } from './company';
 
 // ---------------------------------------------------------------- 役目
@@ -240,9 +242,12 @@ export type PropAct =
   | { k: 'hire'; hero: number; task: Task; target: number | string | null }
   | { k: 'permit'; site: number }
   | { k: 'ad'; id: string }
-  | { k: 'vacant'; uid: number };
-/** 見込みの単位：G（月の粗利）・ad（宣伝の期間の粗利 − 費用）・finds（出土品の数）・share（商圏の取り分 %） */
-export type PropUnit = 'G' | 'ad' | 'finds' | 'share';
+  | { k: 'vacant'; uid: number }
+  // 段 H2：法務（特許の出願・M&A の打診）
+  | { k: 'patent'; key: string }
+  | { k: 'ma'; rid: string };
+/** 見込みの単位：G（月の粗利）・ad（宣伝の期間の粗利 − 費用）・finds（出土品の数）・share（商圏の取り分 %）・legal（法務：守る・増える月の売上） */
+export type PropUnit = 'G' | 'ad' | 'finds' | 'share' | 'legal';
 export interface Proposal {
   id: number;
   dept: DeptId;
@@ -398,6 +403,10 @@ function missOf(s: P1State, d: DutyId, rec: DutyStat) {
     case 'vacant':
       if (s.area?.vacant.length) rec.miss++;
       return;
+    case 'renew':
+      // 切れていた：Epic の町で、売れている復刻品の特許が切れているか、仕入れの契約が切れている日
+      if (legalHere(s) && ((s.legal?.supply && s.day >= s.legal.supply.end) || patentable(s).some((k) => (s.monthSales[k] ?? 0) > 0 && (patentOf(s, k)?.grant ?? null) != null && s.day >= patentOf(s, k)!.until))) rec.miss++;
+      return;
     default:
       return;
   }
@@ -415,6 +424,7 @@ const RUN: Record<DutyId, (s: P1State, r: Runner, rec: DutyStat, rnd: () => numb
   ads: doAds,
   vacant: doVacant,
   reply: doReply,
+  renew: doRenew,
 };
 /** 業務の出来の悪さを足す（期限切れの問い合わせなど、model.ts の step で数えるもの）。任せていなければ何もしない */
 export function delegMiss(s: P1State, d: DutyId, n: number) {
@@ -738,6 +748,25 @@ function doReply(s: P1State, r: Runner, rec: DutyStat, rnd: () => number) {
   }
 }
 
+/**
+ * 法務（段 H2）：契約と特許の見直し。仕入れの契約が切れたら同じ期間で結び直し、売れている復刻品の特許が切れていたら更新し、
+ * 真似されそうな（2 か月以内）売れている復刻品は出願する（手元に残すお金を残せるとき）
+ */
+function doRenew(s: P1State, r: Runner, rec: DutyStat, rnd: () => number) {
+  if (!legalHere(s)) return;
+  const L = s.legal;
+  if (L?.supply && s.day >= L.supply.end && supplyLock(s, L.supply.months, L.supply.clauses) == null) {
+    if (signSupply(s, L.supply.months, L.supply.clauses) == null) rec.acts++;
+  }
+  for (const k of patentable(s)) {
+    if ((s.monthSales[k] ?? 0) <= 0 && !(s.reports[s.reports.length - 1]?.bySeries[k] ?? 0)) continue;
+    const p = patentOf(s, k);
+    const due = p ? p.grant != null && s.day >= p.until : (copyIn(s, k) ?? 99) * errMul(rnd, r.q, 1) <= 2;
+    if (!due || patentLock(s, k) || s.money < (p ? LEGAL.patent.renew : LEGAL.patent.fee) + reserveOf(s)) continue;
+    if (filePatent(s, k) == null) rec.acts++;
+  }
+}
+
 /** 営業：空き店舗に入る */
 function doVacant(s: P1State, r: Runner, rec: DutyStat, rnd: () => number) {
   if (!s.area?.vacant.length) return;
@@ -849,6 +878,25 @@ function candidates(s: P1State, d: DeptId, ifs: () => StageIf[]): Cand[] {
         if (!finds.length) return;
         add({ act: { k: 'permit', site: k }, real: finds.length + (topic ? 3 : 0), unit: 'finds', cost: permitFee(s), dig: { tablet: tabs.length ? Math.max(...tabs) + 1 : null, finds: finds.length, topic } });
       });
+      break;
+    }
+    // 段 H2：法務の部長（Epic の町）：真似されそうな売れている復刻品の特許（この特許の期限が近い・この商品は来月真似される）・
+    // 安く買える他社（値段の目安が月の売上の何か月ぶんかが小さい会社）の打診
+    case 'legal': {
+      if (!legalHere(s)) break;
+      for (const k of patentable(s)) {
+        const sold = s.reports[s.reports.length - 1]?.bySeries[k] ?? 0;
+        if (sold <= 0 || patentLock(s, k)) continue;
+        const ci = copyIn(s, k);
+        const p = patentOf(s, k);
+        if (!p && (ci == null || ci > 2)) continue;
+        add({ act: { k: 'patent', key: k }, real: sold * 0.3, unit: 'legal', cost: p ? LEGAL.patent.renew : LEGAL.patent.fee });
+      }
+      const cheap = s.rivals.filter((x) => !maLock(s, x.id)).map((x) => ({ rid: x.id, price: guidePrice(s, x.id) })).sort((a, b) => a.price - b.price)[0];
+      if (cheap) {
+        const r0 = s.rivals.find((x) => x.id === cheap.rid)!;
+        add({ act: { k: 'ma', rid: cheap.rid }, real: Math.round((s.rivalLast?.[r0.id]?.total ?? 0) * 0.5 * keepRate(s, true)), unit: 'legal', cost: cheap.price });
+      }
       break;
     }
     case 'sales': {
@@ -964,6 +1012,12 @@ function stillOk(s: P1State, p: Proposal): boolean {
       const e = vacantErr(s, a.uid);
       return e == null || e === 'money';
     }
+    case 'patent': {
+      const e = patentLock(s, a.key);
+      return e == null || e === 'money';
+    }
+    case 'ma':
+      return maLock(s, a.rid) == null;
   }
 }
 /** はかる数（結果の比べ）：G＝段の流れの数（個／月）・ad＝今月の売上・finds＝研究ノートの数・share＝取り分（%） */
@@ -979,6 +1033,8 @@ function measure(s: P1State, p: Proposal, r?: Report): number {
       return Object.values(s.research).reduce((a, v) => a + (v ?? 0), 0);
     case 'share':
       return s.area ? areaShares(s).me * 100 : 0;
+    case 'legal':
+      return r ? r.revenue : s.reports[s.reports.length - 1]?.revenue ?? 0;
   }
 }
 export type ApproveErr = 'money' | 'rp' | 'gone' | 'none';
@@ -1001,7 +1057,7 @@ export function approve(s: P1State, id: number): ApproveErr | null {
   st.inbox = st.inbox.filter((x) => x !== p);
   if (e) return 'gone';
   const month = s.reports.length ? s.reports[s.reports.length - 1].month : 0;
-  st.done.push({ p, month, before: p.unit === 'ad' ? (s.reports[s.reports.length - 1]?.revenue ?? 0) : before });
+  st.done.push({ p, month, before: p.unit === 'ad' || p.unit === 'legal' ? (s.reports[s.reports.length - 1]?.revenue ?? 0) : before });
   return null;
 }
 export function reject(s: P1State, id: number): boolean {
@@ -1048,6 +1104,15 @@ function execute(s: P1State, a: PropAct): 'money' | 'rp' | string | null {
     case 'vacant': {
       const b = takeVacant(s, a.uid);
       return typeof b === 'string' ? b : null;
+    }
+    case 'patent': {
+      const e = filePatent(s, a.key);
+      return e === 'money' ? 'money' : e;
+    }
+    case 'ma': {
+      // 打診を始める（調査・値段の交渉は法務の画面で手で。お金は打診ではかからない）
+      const d = startDeal(s, a.rid);
+      return typeof d === 'string' ? d : null;
     }
   }
 }
@@ -1132,9 +1197,15 @@ export function actName(s: P1State, a: PropAct): string {
       return t(`「${ADS.find((x) => x.id === a.id)?.name ?? a.id}」を出す`, `Run ${ADS.find((x) => x.id === a.id)?.name ?? a.id}`);
     case 'vacant':
       return t('空き店舗に入る', 'Move into the vacant store');
+    case 'patent':
+      return t(`『${PRODUCT_NAME(a.key)}』を特許にする`, `Patent ${PRODUCT_NAME(a.key)}`);
+    case 'ma':
+      return t(`${rivalNm(a.rid)}に買収を打診する`, `Approach ${rivalNm(a.rid)} about an acquisition`);
   }
 }
 const nameOf = (id: string) => DEF[id]?.name ?? id;
+const PRODUCT_NAME = (key: string) => PRODUCT[key]?.name ?? key;
+const rivalNm = (rid: string) => rivalDef(rid)?.name ?? rid;
 /** 提案の理由と見込み（カードの本文） */
 export function propWhy(_s: P1State, p: Proposal): string {
   const by = DEPT[p.dept].name;
@@ -1151,6 +1222,10 @@ export function propWhy(_s: P1State, p: Proposal): string {
         : t(`${by}部長：この荒れ地には出土品が ${p.dig?.finds ?? 0} 個ほど眠っています${p.dig?.topic ? '（お題も）' : ''}`, `${by} head: about ${p.dig?.finds ?? 0} finds sleep here${p.dig?.topic ? ' (and a target)' : ''}`);
     case 'share':
       return t(`${by}部長：ここに出すと、町のお客さんの取り分が +${p.est.toFixed(1)}% ほど伸びます`, `${by} head: opening here grows your share by about +${p.est.toFixed(1)}%`);
+    case 'legal':
+      return p.act.k === 'ma'
+        ? t(`${by}部長：この会社は安く買えます（値段の目安 ${Math.round(p.cost).toLocaleString('en-US')} G。打診から）`, `${by} head: this company is cheap to buy (guide ${Math.round(p.cost).toLocaleString('en-US')} G; start with an approach)`)
+        : t(`${by}部長：この復刻品は真似されそうです（特許の期限が近い・来月真似される）。特許で守りましょう`, `${by} head: this revival is about to be copied (patent ending or a copy coming). Protect it with a patent`);
   }
 }
 /** 見込みの文（「見込み：月 +3,200 G（誤差 ±12%）」） */
@@ -1166,6 +1241,8 @@ export function propEst(p: Proposal): string {
       return t(`見込み：出土品 ${g(p.est)} 個ぶん（${err}）`, `Expected: ${g(p.est)} finds (${err})`);
     case 'share':
       return t(`見込み：取り分 +${p.est.toFixed(1)}%（${err}）`, `Expected: share +${p.est.toFixed(1)}% (${err})`);
+    case 'legal':
+      return t(`見込み：月の売上 +${g(p.est)} G を守る・増やす（${err}）`, `Expected: +${g(p.est)} G / mo kept or gained (${err})`);
   }
 }
 /** 提案の結果の文（翌月の報告） */
@@ -1181,6 +1258,8 @@ export function resultText(s: P1State, x: DelegReport['results'][number]): strin
       return t(`${name}：研究ノート ${g(x.real)} 個`, `${name}: notebook ${g(x.real)}`);
     case 'share':
       return t(`${name}：取り分 ${x.real >= 0 ? '+' : '−'}${Math.abs(x.real).toFixed(1)}%（見込み +${x.est.toFixed(1)}%）`, `${name}: share ${x.real >= 0 ? '+' : '−'}${Math.abs(x.real).toFixed(1)}% (expected +${x.est.toFixed(1)}%)`);
+    case 'legal':
+      return t(`${name}：売上 ${g(x.real)} G（先月から）`, `${name}: sales ${g(x.real)} G vs last month`);
   }
 }
 /** 業務の今月の出来の文（「素材切れ 2 日・注文 5 回」） */
@@ -1204,6 +1283,8 @@ export function dutyLine(d: DelegReport['duties'][number]): string {
       return t(`入った ${d.acts} 軒・空いたまま ${d.miss} 日`, `${d.acts} taken, ${d.miss} d left empty`);
     case 'reply':
       return t(`返事 ${d.acts} 件（合う返事 ${d.n}）・期限切れ ${d.miss} 件`, `${d.acts} replies (${d.n} fitting), ${d.miss} expired`);
+    case 'renew':
+      return t(`結び直し・更新・出願 ${d.acts} 件・切れていた ${d.miss} 日`, `${d.acts} renewals/filings, lapsed ${d.miss} d`);
   }
 }
 export const qText = (q: number) => t(`出来 ${pct(q)}`, `Quality ${pct(q)}`);

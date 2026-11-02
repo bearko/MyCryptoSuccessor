@@ -15,7 +15,9 @@ import { HR_OFF, baseWage, charismaOf, moraleOf, payroll, talk, toMarket } from 
 import { ACCT_OFF, quarterNow, taxPlan, taxOn } from '../../src/island/p1/acct';
 import { fatigueAvg, fatigueMul, fatigueOf, gaOn } from '../../src/island/p1/ga';
 import { CS_OFF, apologize, bestReply, putLock, putOut, reply } from '../../src/island/p1/cs';
-import { forecast, gradeOf, prLock, publish } from '../../src/island/p1/mkt';
+import { copyIn, forecast, gradeOf, prLock, publish } from '../../src/island/p1/mkt';
+import { LEGAL_OFF, clauseSlots, dealOf, filePatent, guidePrice, infringers, keepRate, legalHere, maLock, offerChance, offerLock, openSuits, patentLock, patentOf, patentable, rivalSales, sendOffer, setLicense, settle, signSupply, startDD, startDeal, sueInfringer, suitChance, supplyLock, type Clauses, type OfferLevel } from '../../src/island/p1/legal';
+import { LEGAL } from '../../src/island/p1/data';
 import { bonus as giveBonus, bonusCost, raise, raiseStep, setRest, wageMul } from '../../src/island/p1/model';
 import { CHARISMA, CS, CSM_RP, FATIGUE, FLAME, GRADE, GRADE_NAME, MORALE, PAY, TAX, deptOf } from '../../src/island/p1/data';
 // v22（段 G）：販売の枝に足したカスタマーサポート・マーケの研究パネル（CSM_RP）は、通常の「詰まりの段の枝の研究パネル」には数えない（売り場の段に効かない）
@@ -335,6 +337,11 @@ export interface RunResult {
    * 運んだ骨董の数・3 回目のあと任せた町（うち Rare の町）・研究待ちの月（Epic）・巻き返しの回数（Epic）
    */
   v23: { levy: number; grant: number; preDonate: number; lost: number; hitC: number; hitU: number; hitR: number; kept: number; delegated: number; delegatedR: number; resWaitE: number; comebackE: number };
+  /**
+   * v24（段 H2：法務と M&A）：買収の数と使った金額（隠れた借金を含む）・引き継いだ商売の売上・特許（特許になった数・止めた追随・使用料）・
+   * 訴え（受けた・起こした数・勝ち・負け・和解）・仕入れの契約（結んだ数・安くなったぶん・違約金）・3 回目の災害の前の寄付に払った額
+   */
+  v24: { ma: number; maG: number; acqRev: number; patents: number; stopped: number; royalty: number; suits: number; won: number; lost: number; settled: number; contracts: number; saved: number; penalty: number; preDonateG: number };
 }
 
 /**
@@ -1294,7 +1301,78 @@ export function policy(s: P1State, c: Ctx): Action[] {
   if (!HR_OFF.on) hrPlace(s, c, acts, budget, reserve);
   // v22（段 G）：カスタマーサポートとマーケの手（SIM_CS）
   if (!CS_OFF.on) csPlace(s, c, acts, budget, reserve, take, can, dg);
+  // v24（段 H2）：法務と M&A の手（SIM_LEGAL。Epic の町だけ）
+  legalPlace(s, c, acts, budget, reserve, take, can, dg);
   return acts;
+}
+
+/**
+ * v24（段 H2：法務と M&A）の方針（Epic の町だけ）：
+ * - 最短：使わない（Epic へ行かない）。
+ * - 通常：着いたら仕入れの契約（6 か月・違約金なし）を結び、切れたら結び直す。売れている復刻品が来月真似されそう（市場の見通しの「真似してくるまで」1 か月）なら特許に。
+ *   訴えられたら、勝ちの見込みが settle 未満なら和解。M&A は使わない（判断：通常は Epic の 1 町を自分の力で取る。手元のお金はほとんど寄付と次の準備に回る）。
+ * - 100%：仕入れの契約（12 か月・条項は通せるだけ：違約金なし → 独占）。売れている Rare・Epic の復刻品はすべて特許に（Rare の復刻品は使用料で貸す）。
+ *   特許を侵している他社は訴える。M&A：2 位以下で「引き継ぐ商売 ÷ 値段」がいちばん良い会社を、資金が値段の maMoney 倍あれば打診 → 調査 → 「ふつう」（断られたら「高く」）。
+ *   条項は 従業員の引き継ぎ → 競業避止 → 分割 の順に通せるだけ。法務のパネルはほかのパネルと同じく安い順に取る
+ */
+export const SIM_LEGAL: Record<PolicyId, { supply: number; patent: 'soon' | 'all' | null; license: boolean; ma: boolean; maMoney: number; settle: number; sue: boolean }> = {
+  rta: { supply: 0, patent: null, license: false, ma: false, maMoney: 0, settle: 0, sue: false },
+  normal: { supply: 6, patent: 'soon', license: false, ma: false, maMoney: 0, settle: 0.45, sue: false },
+  full: { supply: 12, patent: 'all', license: true, ma: true, maMoney: 2, settle: 0.4, sue: true },
+};
+/** v24 の計測の記録（買収の打診・調査・提示・断られた数） */
+const lgLog = { offers: 0, dd: 0, sent: 0, refused: 0 };
+export const legalLog = () => ({ ...lgLog });
+function legalPlace(s: P1State, c: Ctx, acts: Action[], budget: number, reserve: number, take: (id: string, keep?: number) => boolean, can: (id: string) => boolean, dg: (d: DutyId) => boolean) {
+  const P = SIM_LEGAL[c.policy];
+  if (!legalHere(s) || c.policy === 'rta') return;
+  void take;
+  void can;
+  // M&A の話（毎日）：調べてから「ふつう」、断られたら「高く」
+  const d = P.ma ? dealOf(s) : null;
+  if (d && d.stage === 'talk') {
+    if (!d.dd) acts.push({ kind: 'legal', run: () => (startDD(s, d.id) == null ? (lgLog.dd++, null) : 'none') });
+    else {
+      const slots = clauseSlots(s);
+      const c0: Clauses = {};
+      for (const k of ['staff', 'noCompete', 'split'] as (keyof Clauses)[]) if (Object.keys(c0).length < slots) c0[k] = true;
+      const lv: OfferLevel = d.refused && s.day < d.refused.until ? 'high' : 'mid';
+      if (!offerLock(s, d, lv, c0)) acts.push({ kind: 'legal', run: () => (sendOffer(s, d.id, lv, c0) == null ? (lgLog.sent++, d.refused && lgLog.refused++, null) : 'none') });
+    }
+  }
+  if (!c.monthEnd) return;
+  const L = s.legal;
+  // 仕入れの契約
+  if (P.supply && !(L?.supply && s.day < L.supply.end)) {
+    const slots = clauseSlots(s);
+    const cl = c.policy === 'full' ? { noPenalty: true, ...(slots >= 2 ? { excl: true } : {}) } : { noPenalty: true };
+    if (!supplyLock(s, P.supply, cl) && !dg('renew')) acts.push({ kind: 'legal', run: () => signSupply(s, P.supply, cl) });
+  }
+  // 特許
+  if (P.patent && !dg('renew'))
+    for (const k of patentable(s)) {
+      const sold = c.monthEnd.bySeries[k] ?? 0;
+      if (sold <= 0 || patentLock(s, k)) continue;
+      const soon = (copyIn(s, k) ?? 99) <= 1;
+      const fee = patentOf(s, k) ? LEGAL.patent.renew : LEGAL.patent.fee;
+      if ((P.patent === 'soon' && !soon) || budget < fee + reserve * 3) continue;
+      budget -= fee;
+      acts.push({ kind: 'legal', run: () => filePatent(s, k) });
+    }
+  if (P.license) for (const p of L?.patents ?? []) if (!p.license && PRODUCT[p.key]?.relic && !PRODUCT[p.key].relic!.epic) acts.push({ kind: 'legal', run: () => (setLicense(s, p.key, true) ? null : 'none') });
+  // 特許を侵している他社を訴える
+  if (P.sue) for (const p of L?.patents ?? []) for (const rid of infringers(s, p.key)) acts.push({ kind: 'legal', run: () => sueInfringer(s, p.key, rid) });
+  // 訴えられたら：勝ちの見込みが低ければ和解
+  for (const x of openSuits(s)) if (x.side === 'def' && suitChance(s, x) < P.settle) acts.push({ kind: 'legal', run: () => (settle(s, x.id) ? null : 'none') });
+  // M&A：2 位以下で「引き継ぐ商売 ÷ 値段」がいちばん良い会社
+  if (P.ma && !dealOf(s)) {
+    const best = s.rivals
+      .filter((r) => !maLock(s, r.id))
+      .map((r) => ({ r, price: guidePrice(s, r.id), gain: rivalSales(s, r) * keepRate(s, true) }))
+      .sort((a, b) => b.gain / b.price - a.gain / a.price)[0];
+    if (best && budget > best.price * P.maMoney + reserve && offerChance(s, best.r.id, 'mid') > 0)
+      acts.push({ kind: 'legal', run: () => (typeof startDeal(s, best.r.id) === 'string' ? 'none' : (lgLog.offers++, null)) });
+  }
 }
 
 /**
@@ -1388,6 +1466,16 @@ export const V22_TIER: Record<PolicyId, { total: number; C: number; U: number; R
   rta: { total: 1688, C: 768, U: 920, R: 0, R1: 0, redig: 0 },
   normal: { total: 7211, C: 3409, U: 2504, R: 1298, R1: 1298, redig: 0 },
   full: { total: 21397, C: 6927, U: 7564, R: 4084, R1: 1784, redig: 2822 },
+};
+/**
+ * v24（段 H2）：段 H2 の前の main（v23）で同じ 3 シードを回した、ランクごとの時間（秒。3 シードの平均。C はチュートリアルを含む。
+ * R1 は Rare の 1 町目（グリーン・マウス）・E1〜E3 は Epic の町ごと・redig は 100% の再発掘。levy は 3 回目の徴収額のシードごと）。
+ * 最短 1,627・1,698・1,737／通常 9,215・9,661・10,255／100% 24,451・24,748・25,118
+ */
+export const V23_TIER: Record<PolicyId, { total: number; C: number; U: number; R: number; E: number; R1: number; E1: number; E2: number; E3: number; redig: number; levy: number[] }> = {
+  rta: { total: (1627 + 1698 + 1737) / 3, C: (771 + 764 + 769) / 3, U: (857 + 935 + 969) / 3, R: 0, E: 0, R1: 0, E1: 0, E2: 0, E3: 0, redig: 0, levy: [] },
+  normal: { total: (9215 + 9661 + 10255) / 3, C: (3409 + 3415 + 3403) / 3, U: (2130 + 2344 + 3040) / 3, R: (2226 + 2218 + 1978) / 3, E: (1451 + 1685 + 1835) / 3, R1: (1397 + 1369 + 1141) / 3, E1: (1451 + 1685 + 1835) / 3, E2: 0, E3: 0, redig: 0, levy: [9173, 1457473, 3437908] },
+  full: { total: (24451 + 24748 + 25118) / 3, C: (6815 + 7036 + 6930) / 3, U: (7277 + 7865 + 7609) / 3, R: (4117 + 3638 + 4413) / 3, E: (3112 + 3021 + 3008) / 3, R1: (1837 + 1417 + 2089) / 3, E1: (1531 + 1460 + 1448) / 3, E2: (771 + 767 + 753) / 3, E3: (811 + 795 + 807) / 3, redig: (3130 + 3188 + 3158) / 3, levy: [38804676, 20779187, 10020335] },
 };
 export const V21_TOTAL: Record<PolicyId, number> = { rta: (1627 + 1635 + 1676) / 3, normal: (6831 + 7015 + 7197) / 3, full: (21703 + 21714 + 22472) / 3 };
 export const V19_TOTAL: Record<PolicyId, number> = { rta: (1835 + 1631 + 1557) / 3, normal: (7815 + 7013 + 7211) / 3, full: (20793 + 21120 + 21940) / 3 };
@@ -1815,7 +1903,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   const s = newP1(seed);
   Object.assign(csLog, { pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0 });
   const c: Ctx = { policy: p, route: routeOf(p), at: 0, lineup: [], lineupDirty: true, shopsThisMonth: 0, monthEnd: null, lastBn: null, ban: new Set(o.ban ?? []), onlyFirst: !!o.onlyFirst, dayInMonth: 0, handCarry: 0, rpMoves: 0, runLeft: 0, runsMonth: 0, divesMonth: 0, preInv: 0, preG: 0 };
-  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 }, v20: { paid: 0, saved: 0, quarters: 0, preInv: 0, preG: 0, fatigue: [], morale: [], slow: [] }, v21: { rev: 0, wages: 0, months: 0, morale: [], high: [] }, v22: { got: 0, answered: 0, auto: 0, expired: 0, good: 0, sat: [], warns: 0, flames: 0, flameMonths: 0, pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0, brandEnd: {}, gradeEnd: {} }, v23: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, hitR: 0, kept: 0, delegated: 0, delegatedR: 0, resWaitE: 0, comebackE: 0 } };
+  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 }, v20: { paid: 0, saved: 0, quarters: 0, preInv: 0, preG: 0, fatigue: [], morale: [], slow: [] }, v21: { rev: 0, wages: 0, months: 0, morale: [], high: [] }, v22: { got: 0, answered: 0, auto: 0, expired: 0, good: 0, sat: [], warns: 0, flames: 0, flameMonths: 0, pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0, brandEnd: {}, gradeEnd: {} }, v23: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, hitR: 0, kept: 0, delegated: 0, delegatedR: 0, resWaitE: 0, comebackE: 0 }, v24: { ma: 0, maG: 0, acqRev: 0, patents: 0, stopped: 0, royalty: 0, suits: 0, won: 0, lost: 0, settled: 0, contracts: 0, saved: 0, penalty: 0, preDonateG: 0 } };
   /** v19：雇ったことのあるヒーロー（はじめの 3 人も入れる。新しく来た人を数える） */
   const heroSeen = new Set(s.staff.map((x) => x.hero));
   /** v14：任せた町の担当（能力値の伸びを数える） */
@@ -2337,6 +2425,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       // v16：2 回目（Uncommon → Rare）は res.v16 に。v23：3 回目（Rare → Epic）は res.v23 に
       const rec2 = up === 'E' ? res.v23 : up === 'R' ? res.v16 : res.v14b;
       if (up) {
+        const m0 = s.money;
         for (let k = 0; k < R.donate && donateLock(s) === null; k++) {
           if (typeof donate(s) === 'string') break;
           rec2.preDonate++;
@@ -2344,6 +2433,8 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
           cur.act++;
         }
         rec2.lost = s.skills.filter((id) => SKILL[id] && !isResearch(SKILL[id])).length;
+        // v24：3 回目の災害の前の寄付に払った額（3 回目の徴収額のばらつきの確かめ）
+        if (up === 'E') res.v24.preDonateG = m0 - s.money;
       }
       const f0 = s.money;
       const e = moveTo(s, next, mgr?.hero ?? null);
@@ -2443,6 +2534,8 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   res.v23.resWaitE = res.sectors.filter((r) => r.tier === 'E').reduce((a, r) => a + r.dig.resWait, 0);
   res.v23.comebackE = res.sectors.filter((r) => r.tier === 'E').reduce((a, r) => a + r.comeback, 0);
   res.rpLeft.afterAll = Math.round(res.rpLeft.afterAll);
+  // v24（段 H2）：法務の記録（会社のもの）
+  if (s.legal) Object.assign(res.v24, { ...s.legal.tot, acqRev: Math.round(s.legal.tot.acqRev), preDonateG: res.v24.preDonateG });
   // v12：復興・ダンジョン・見つけた上のランクの遺物（研究ノート：種類と、掘った数）・展示館
   res.v12.revived = revivedDone + (s.dig?.sites.filter((x) => x.revived).length ?? 0);
   res.v12.dungeons = s.dungeons?.length ?? 0;
@@ -2503,6 +2596,9 @@ export interface Report2 {
   noHrHands?: RunResult[];
   /** v22（段 G）：カスタマーサポートとマーケを止めた 3 方針（withoutCs。段 G の前と同じ） */
   noCs?: RunResult[];
+  /** v24（段 H2）：M&A なし・特許なしの通常と 100%（withoutMA・withoutPatent） */
+  noMA?: RunResult[];
+  noPatent?: RunResult[];
   ms: number;
 }
 
@@ -2703,6 +2799,43 @@ export function tables(rep: Report2): string {
     );
   }
   out.push('');
+  // v24（段 H2）：Epic の町 ②（法務と M&A）
+  {
+    out.push('### 表 18：法務と M&A（v24。段 H2：Epic の町 ②）');
+    out.push('');
+    out.push(
+      `3 シードの平均（最小〜最大）。「v23」は段 H2 の前の main の同じ 3 シード（\`V23_TIER\`）。C・U・R は ±1%・通常の Epic 1 町は ±5% が目安。方針（\`SIM_LEGAL\`）：通常＝仕入れの契約 ${SIM_LEGAL.normal.supply} か月・真似されそうな復刻品だけ特許・M&A なし／100%＝仕入れの契約 ${SIM_LEGAL.full.supply} か月・売れている復刻品はすべて特許（Rare の復刻品は使用料で貸す）・特許の侵害を訴える・M&A（2 位以下で、引き継ぐ商売 ÷ 値段がいちばん良い会社。資金が値段の ${SIM_LEGAL.full.maMoney} 倍あるとき）。M&A の値段の目安は月の売上の ${LEGAL.ma.months[0]}〜${LEGAL.ma.months[1]} か月ぶん。「M&A なし」「特許なし」は同じ方針・シードを \`withoutMA\`・\`withoutPatent\` で回した合計。「買った店の売上の割合」は Epic の町の売上に占める引き継いだ商売の売上。「3 回目の前の寄付」は Epic へ移る直前の研究への寄付に払った額（徴収額のばらつきのもと）。`,
+    );
+    out.push('');
+    out.push('| 方針 | 合計（v23） | うち C（v23） | うち U（v23） | うち R（v23） | うち E（v23） | Epic 1 町目（v23） | Epic 2・3 町目（v23） | M&A なし | 特許なし | M&A の回数 | M&A に使った金額 | 買った店の売上の割合 | 特許 | 止めた追随 | 使用料 | 訴え（勝ち・負け・和解） | 仕入れの契約（安くなったぶん） | 3 回目の徴収額（シードごと） | 3 回目の前の寄付 | 詰まって止まるシード（本番／M&A なし／特許なし） |');
+    out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      const B = V23_TIER[p];
+      const byTier = (rs: RunResult[], tier: Tier) => mean(rs.map((x) => x.sectors.filter((r) => r.tier === tier && !r.revisit).reduce((a, r) => a + (secOf(p, r, 'left') ?? 0), 0) + (tier === 'C' ? SIM_TIME[p].tutorial : 0)));
+      const pc = (a: number, b: number) => (b > 0 ? `（${fmtH(b)}・${a >= b ? '+' : '−'}${((Math.abs(a - b) / b) * 100).toFixed(1)}%）` : '');
+      const pcm = (a: number, b: number) => (b > 0 ? `${fmtMin(a)}（${fmtMin(b)}・${a >= b ? '+' : '−'}${((Math.abs(a - b) / b) * 100).toFixed(1)}%）` : '—');
+      const secAt = (id: string) => mean(runs.map((x) => secOf(p, x.sectors.find((r) => r.id === id && !r.revisit) ?? ({} as SectorRun), 'left') ?? 0));
+      const tot = mean(runs.map(totalSec));
+      const offM = (rep.noMA ?? []).filter((r) => r.policy === p);
+      const offP = (rep.noPatent ?? []).filter((r) => r.policy === p);
+      const offCell = (xs: RunResult[]) => (xs.length ? `${fmtH(mean(xs.map(totalSec)))}（E ${fmtMin(byTier(xs, 'E'))}・${byTier(runs, 'E') >= byTier(xs, 'E') ? '+' : '−'}${((Math.abs(byTier(runs, 'E') - byTier(xs, 'E')) / Math.max(1, byTier(xs, 'E'))) * 100).toFixed(1)}%）` : '—');
+      const v = (f: (x: RunResult['v24']) => number) => runs.map((r) => f(r.v24));
+      const mr = (f: (x: RunResult['v24']) => number, fm: (n: number) => string = (n) => n.toFixed(1)) => `${fm(mean(v(f)))}（${range(v(f), (n) => fm(n))}）`;
+      const es = runs.flatMap((x) => x.sectors.filter((r) => r.tier === 'E' && !r.revisit));
+      const eRev = es.reduce((a, r) => a + r.allRev, 0);
+      const acq = runs.reduce((a, r) => a + r.v24.acqRev, 0);
+      if (!es.length) {
+        out.push(`| ${POLICY_NAME[p]} | ${fmtH(tot)}${pc(tot, B.total)} | ${fmtH(byTier(runs, 'C'))}${pc(byTier(runs, 'C'), B.C)} | ${fmtH(byTier(runs, 'U'))}${pc(byTier(runs, 'U'), B.U)} | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — | ${runs.filter((r) => !r.done).length} |`);
+        continue;
+      }
+      out.push(
+        `| ${POLICY_NAME[p]} | ${fmtH(tot)}${pc(tot, B.total)} | ${fmtH(byTier(runs, 'C'))}${pc(byTier(runs, 'C'), B.C)} | ${fmtH(byTier(runs, 'U'))}${pc(byTier(runs, 'U'), B.U)} | ${fmtH(byTier(runs, 'R'))}${pc(byTier(runs, 'R'), B.R)} | ${fmtH(byTier(runs, 'E'))}${pc(byTier(runs, 'E'), B.E)} | ${pcm(secAt('e1'), B.E1)} | ${B.E2 ? `${pcm(secAt('e2'), B.E2)}・${pcm(secAt('e3'), B.E3)}` : '—'} | ${offCell(offM)} | ${offCell(offP)} | ${mr((x) => x.ma)} | ${mr((x) => x.maG, fmtG)} | ${eRev > 0 ? `${((acq / eRev) * 100).toFixed(1)}%` : '—'} | ${mr((x) => x.patents)} | ${mr((x) => x.stopped)} | ${mr((x) => x.royalty, fmtG)} | ${mean(v((x) => x.suits)).toFixed(1)}（${mean(v((x) => x.won)).toFixed(1)}・${mean(v((x) => x.lost)).toFixed(1)}・${mean(v((x) => x.settled)).toFixed(1)}） | ${mean(v((x) => x.contracts)).toFixed(1)}（${fmtG(mean(v((x) => x.saved)))}） | ${runs.map((r) => fmtG(r.v23.levy)).join('・')}（v23：${B.levy.map(fmtG).join('・')}） | ${runs.map((r) => fmtG(r.v24.preDonateG)).join('・')} | ${runs.filter((r) => !r.done).length}／${offM.length ? offM.filter((r) => !r.done).length : '—'}／${offP.length ? offP.filter((r) => !r.done).length : '—'} |`,
+      );
+    }
+    out.push('');
+  }
   // v23（段 H1）：Epic の町 ①（3 回目のランクアップ・Epic の町・骨董の需要・ブランド力の上限）
   {
     out.push('### 表 17：Epic の町と 3 回目のランクアップ・骨董の需要（v23。段 H1：Epic の町 ①）');
@@ -3190,7 +3323,10 @@ export function runAll(seeds = SEEDS, opts: { ablation?: boolean } = {}): Report
   const noHrHands = opts.ablation ? seeds.map((seed) => withoutHrHands(() => runOnce('full', seed))) : undefined;
   // v22（段 G）：カスタマーサポートとマーケを止めた 3 方針（段 G の前と同じ）
   const noCs = opts.ablation ? (['rta', 'normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutCs(() => runOnce(p, seed)))) : undefined;
-  return { runs, ablation, noTech, noGrowth, noDeleg, noSave, noAcct, noHrHands, noCs, ms: performance.now() - t0 };
+  // v24（段 H2）：M&A なし・特許なしの通常と 100%（それぞれの効き目）
+  const noMA = opts.ablation ? (['normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutMA(() => runOnce(p, seed)))) : undefined;
+  const noPatent = opts.ablation ? (['normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutPatent(() => runOnce(p, seed)))) : undefined;
+  return { runs, ablation, noTech, noGrowth, noDeleg, noSave, noAcct, noHrHands, noCs, noMA, noPatent, ms: performance.now() - t0 };
 }
 
 /** docs/ISLAND_BALANCE.md の「自動で書く」部分を差し替える（前後の手書きの文はそのまま） */
@@ -3211,5 +3347,24 @@ export function withoutCs<T>(f: () => T): T {
     return f();
   } finally {
     CS_OFF.on = false;
+  }
+}
+
+/** v24（段 H2）：M&A を止めて回す（打診できない。比べるためだけ。終わったら戻す） */
+export function withoutMA<T>(f: () => T): T {
+  LEGAL_OFF.ma = true;
+  try {
+    return f();
+  } finally {
+    LEGAL_OFF.ma = false;
+  }
+}
+/** v24（段 H2）：特許を止めて回す（出願できず、追随も止めない。比べるためだけ。終わったら戻す） */
+export function withoutPatent<T>(f: () => T): T {
+  LEGAL_OFF.patent = true;
+  try {
+    return f();
+  } finally {
+    LEGAL_OFF.patent = false;
   }
 }

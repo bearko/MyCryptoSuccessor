@@ -17,6 +17,8 @@ import { clearRuin, isRuin, repair, repairAll, repairAllCost, repairLock, ruinsO
 import { areaShares, isVacant, newStorePull, storeRisk, takeVacant, vacantCost, vacantErr } from './model';
 import { RARE_AREA } from './data';
 import { refillHint, storeName, surveyed } from './trade';
+import { MA_LOCK_TEXT, dealOf, guidePrice, legalHere } from './legal';
+import { maTileLock } from './legalui';
 
 const pct = (v: number) => `${Math.round(v * 1000) / 10}%`;
 /**
@@ -147,6 +149,8 @@ export interface TileHooks {
   present?: () => void;
   /** 遺物の展示館の展示の画面を開く */
   museum?: () => void;
+  /** 段 H2：この会社に買収を打診する（Epic の町。法務 → M&A の画面へ） */
+  ma?: (rid: string) => void;
 }
 
 const DESC: Record<string, string> = {
@@ -649,12 +653,25 @@ function rival(ctx: Ctx, b: PBuilding, body: HTMLElement, hooks: TileHooks): HTM
   body.append(side);
 
   const acts = h('div', 'isl-row isl-pop-acts');
-  for (const label of [t('妨害工作', 'Sabotage'), t('買収提案', 'Acquisition offer')]) {
-    const x = btn(`🔒 ${label}`, () => undefined);
+  // 段 H2：Epic の町では「買収の打診」（町の 1 位は売らない・撤退・買収済み・買える数・ほかの話の途中は理由を出す）。ほかのランクの町は Epic の町で
+  if (legalHere(s)) {
+    const lock = maTileLock(s, rid);
+    const d = dealOf(s);
+    const x = btn(d?.rid === rid ? t('🤝 買収の話を見る', '🤝 View the talks') : t(`🤝 買収の打診（目安 ${money(guidePrice(s, rid))}）`, `🤝 Acquisition approach (guide ${money(guidePrice(s, rid))})`), () => hooks.ma?.(rid), lock && d?.rid !== rid ? '' : 'is-on');
+    x.disabled = !!lock && d?.rid !== rid;
+    x.dataset.focus = 'ma-tile';
+    acts.append(x);
+    body.append(acts);
+    if (lock && d?.rid !== rid) body.append(h('small', lock === MA_LOCK_TEXT.top() ? 'isl-bad' : 'isl-dim', lock));
+  } else {
+    const x = btn(t('🔒 買収の打診', '🔒 Acquisition approach'), () => undefined);
     x.disabled = true;
     acts.append(x);
+    body.append(acts, h('small', 'isl-dim', t('他社の買収（M&A）は Epic の町で、法務の部門が受け持ちます。', 'Acquiring rivals (M&A) happens in Epic towns, handled by Legal.')));
   }
-  body.append(acts, h('small', 'isl-dim', t('妨害工作と買収提案は、スキルツリーで解放する予定です（準備中）。', 'Sabotage and acquisitions will unlock in the skill tree (coming soon).')));
+  const sab = btn(t('🔒 妨害工作', '🔒 Sabotage'), () => undefined);
+  sab.disabled = true;
+  body.append(sab, h('small', 'isl-dim', t('妨害工作は次の更新で（準備中）。', 'Sabotage comes in a later update.')));
   void skuParts;
   return body;
 }
