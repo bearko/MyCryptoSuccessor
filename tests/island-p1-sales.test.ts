@@ -25,7 +25,7 @@ import {
   type P1State,
 } from '../src/island/p1/model';
 import { siteCandidates, storeName, storeRows } from '../src/island/p1/trade';
-import { runOnce, withoutAcct, withoutHr } from '../scripts/island/sim';
+import { runOnce, withoutAcct, withoutCs, withoutHr } from '../scripts/island/sim';
 import { priceMul } from '../src/island/p1/acct';
 
 const rare = (seed = 1, sector = 'r1') => newP1(seed, 'R', sector);
@@ -54,15 +54,15 @@ describe('Common・Uncommon の売れ方は前と同じ', () => {
     '最短の方針の通し（タオックス → Common → Uncommon）の月ごとの売上と他社の売上の合計が、段 C の前の main と同じ',
     () => {
       const out: Record<string, number[]> = {};
-      // 段 E2（カリスマ度・士気・給与）・段 F（税・単価・疲れ）は止めて比べる（withoutHr・withoutAcct）
-      withoutHr(() => withoutAcct(() =>
+      // 段 E2（カリスマ度・士気・給与）・段 F（税・単価・疲れ）・段 G（問い合わせ・満足度・炎上・企業の格）は止めて比べる（withoutHr・withoutAcct・withoutCs）
+      withoutCs(() => withoutHr(() => withoutAcct(() =>
         runOnce('rta', 1, {
           onMonth: (s, sector) => {
             const rep = s.reports[s.reports.length - 1];
             (out[sector] ??= []).push(Math.round(rep.revenue), Math.round(rep.area.filter((x) => !x.me).reduce((a, x) => a + x.sales, 0)));
           },
         }),
-      ));
+      )));
       const sum = Object.fromEntries(Object.entries(out).map(([k, v]) => [k, [v.length / 2, v.filter((_, i) => i % 2 === 0).reduce((a, x) => a + x, 0), v.filter((_, i) => i % 2 === 1).reduce((a, x) => a + x, 0)]]));
       // 段 C の前の main（段 E1 のヒーローの育成を含む）で同じ通しを回した値
       expect(sum).toEqual({ c1: [11, 414550, 1408802], c2: [6, 233900, 798526], u1: [21, 3617289, 13607557] });
@@ -323,7 +323,7 @@ describe('セーブ（版 12）', () => {
     s.area!.stores[2].weak = 1;
     s.area!.closed = 3;
     const back = deserializeP1(serializeP1(s))!;
-    expect(back.v).toBe(16);
+    expect(back.v).toBe(17);
     expect(back.area!.stores[2].weak).toBe(1);
     expect(back.area!.closed).toBe(3);
   });
@@ -337,7 +337,7 @@ describe('セーブ（版 12）', () => {
     const keep = new Set(o.rivals.map((r: { id: string }) => o.buildings.find((b: { owner: string }) => b.owner === r.id).uid));
     o.buildings = o.buildings.filter((b: { owner: string; uid: number }) => !o.rivals.some((r: { id: string }) => r.id === b.owner) || keep.has(b.uid));
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(16);
+    expect(back.v).toBe(17);
     expect(back.area).toBeTruthy();
     expect(back.area!.stores).toHaveLength(back.rivals.length);
     for (const r of back.rivals) expect(areaBaseMul(back, r.id)).toBeCloseTo(1, 6);
