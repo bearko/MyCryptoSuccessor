@@ -7,7 +7,7 @@
 import { t } from '../../i18n';
 import { BRAND, LETTER_NEED, MANAGER, P1B, SECTORS, TOP_STREAK, type Mat, type Tier } from './data';
 import { brandAdd, book, newLand, sectorDef, sectorState, TIER_NAME, type SectorRec } from './company';
-import { assign, ensureDig, fitEquipment, groundOf, hasLetter, letterProgress, newP1, staffOf, syncFacilities, syncGround, type P1State, type Report } from './model';
+import { assign, dropStaleArea, ensureDig, fitEquipment, groundOf, hasLetter, letterProgress, newP1, staffOf, syncFacilities, syncGround, type P1State, type Report } from './model';
 import { rankUpTier, resetForTier } from './reset';
 
 /** セクタごとに持つもの（セクタを離れるときに写しを取り、戻ったら戻す） */
@@ -174,6 +174,10 @@ export function moveTo(s: P1State, target: string, manager: number | null): Move
     s.topStreak = snap.topStreak ?? (snap.cleared ? TOP_STREAK : 0);
     s.rally = snap.rally ?? 0;
     s.comeback = snap.comeback ?? null;
+    // 商圏の取り合いは Rare の町だけ（写しに area が無い町＝Common・Uncommon で、前の Rare の町の商圏を引き継がない。
+    // Rare の町の写しに無ければ、次の日にいまの他社の店から作り直す）
+    s.area = s.tier === 'R' ? snap.area : undefined;
+    dropStaleArea(s);
     // マネージャーが投資したぶん、お客さんが増えている
     if (back.base && back.capital > 0) {
       const grow = Math.min(2, 1 + (back.capital * MANAGER.roi) / back.base.rev);

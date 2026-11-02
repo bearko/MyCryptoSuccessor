@@ -174,20 +174,40 @@ describe('カリスマ度', () => {
 });
 
 describe('士気', () => {
-  it('効き目：ふつうの帯（40〜70）は ×1。100 で ×1.1・20 未満で ×0.9。作業の速さに掛かる', () => {
+  it('効き目：ふつうの帯（40〜70）は ×1。100 で ×1.2（調整 1）・20 未満で ×0.9。作業の速さに掛かる', () => {
     expect(moraleMul({ morale: MORALE.start })).toBe(1);
     expect(moraleMul({ morale: 40 })).toBe(1);
-    expect(moraleMul({ morale: 100 })).toBeCloseTo(1.1, 6);
-    expect(moraleMul({ morale: 85 })).toBeCloseTo(1.05, 6);
+    expect(moraleMul({ morale: 100 })).toBeCloseTo(1.2, 6);
+    expect(moraleMul({ morale: 85 })).toBeCloseTo(1.1, 6);
     expect(moraleMul({ morale: 30 })).toBeCloseTo(0.95, 6);
     expect(moraleMul({ morale: 10 })).toBeCloseTo(0.9, 6);
     const s = game();
     const st = s.staff[0];
     const v0 = speed(st, 'craft', s);
     st.morale = 100;
-    expect(speed(st, 'craft', s) / v0).toBeCloseTo(1.1, 6);
+    expect(speed(st, 'craft', s) / v0).toBeCloseTo(1.2, 6);
     st.morale = 5;
     expect(speed(st, 'craft', s) / v0).toBeCloseTo(0.9, 6);
+  });
+
+  it('調整 1：士気 100 の効き目（×1.2）は、給与 1 段（作業の速さ +5%）の 4 倍。上の帯だけを強め、初めの 70 と下の帯は変えない', () => {
+    expect(MORALE.band.top).toBe(1.2);
+    expect(moraleMul({ morale: 100 }) - 1).toBeCloseTo(PAY.raiseSpeed * 4, 6);
+    // 初めの 70（チュートリアル・序盤）は ×1 のまま。70 を超えると上がり始める
+    expect(moraleMul({ morale: MORALE.start })).toBe(1);
+    expect(moraleMul({ morale: 70 })).toBe(1);
+    expect(moraleMul({ morale: 71 })).toBeGreaterThan(1);
+    expect(moraleMul({ morale: 80 })).toBeCloseTo(1 + 0.2 / 3, 6);
+    // 下の帯（20 未満で ×0.9）は前と同じ
+    expect(moraleMul({ morale: 19 })).toBeCloseTo(0.9, 6);
+    expect(moraleMul({ morale: 0 })).toBeCloseTo(0.9, 6);
+    // 速さに掛かる：士気 100 の職人は、士気 70 の職人の 1.2 倍の速さで作る
+    const s = game();
+    const st = s.staff[0];
+    st.morale = 70;
+    const v70 = speed(st, 'craft', s);
+    st.morale = 100;
+    expect(speed(st, 'craft', s) / v70).toBeCloseTo(1.2, 6);
   });
 
   it('チュートリアル（タオックスの 1 か月目）のあいだは動かない', () => {

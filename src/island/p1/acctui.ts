@@ -6,7 +6,7 @@
  */
 import { t } from '../../i18n';
 import { ACCT_MASTERY, CROSS_ACCT_GA, FATIGUE, GA_MASTERY, TAX, type DedKind } from './data';
-import { acctAdvice, acctOf, costRank, dedCap, dedRate, quarterNow, taxPlan, taxRate, topTier, type TaxRec } from './acct';
+import { acctAdvice, acctOf, costRank, taxLine, dedCap, dedRate, quarterNow, taxPlan, taxRate, topTier, type TaxRec } from './acct';
 import { type Ledger } from './company';
 import { fatigueAvg, fatigueBand, fatigueLoad, fatigueMorale, fatigueMul, fatigueOf, gaOn, envItems, type FatigueBand } from './ga';
 import { moraleOf } from './hr';
@@ -145,7 +145,7 @@ export function openTax(ctx: Ctx, hooks: { books?: () => void; skills?: () => vo
 }
 
 /** 決算書に足す札：コストの大きい順（売上に対する割合の帯）と、経理からの助言（1〜3 行） */
-export function costCard(s: P1State, l: Ledger, prev: Ledger | null, label: string): HTMLElement {
+export function costCard(s: P1State, l: Ledger, prev: Ledger | null, label: string, q?: number): HTMLElement {
   const box = h('div', 'isl-card2 isl-acct-cost');
   box.dataset.focus = 'cost-rank';
   box.append(h('h3', '', t(`コストの大きい順（${label}）`, `Costs, largest first (${label})`)));
@@ -154,7 +154,15 @@ export function costCard(s: P1State, l: Ledger, prev: Ledger | null, label: stri
   const top = rows[0]?.v || 1;
   for (const r of rows.slice(0, 7)) {
     const x = h('div', 'isl-acct-crow');
-    x.append(h('span', '', r.name), bar(r.v / top, r.key === 'tax' ? '#9fd27a' : 'var(--isl-gold)'), h('b', '', money(r.v)), h('small', 'isl-dim', l.sales > 0 ? t(`売上の ${pct(r.share)}`, `${pct(r.share)} of sales`) : '—'));
+    x.append(h('span', '', r.name), bar(r.v / top, 'var(--isl-gold)'), h('b', '', money(r.v)), h('small', 'isl-dim', l.sales > 0 ? t(`売上の ${pct(r.share)}`, `${pct(r.share)} of sales`) : '—'));
+    box.append(x);
+  }
+  // 法人税は売上と比べず、下に別の行で（税にはほかの町から回った利益のぶんも入る）
+  const tl = taxLine(s, l, q);
+  if (tl) {
+    const x = h('div', 'isl-acct-crow isl-acct-taxrow');
+    x.dataset.focus = 'tax-line';
+    x.append(h('span', '', t('法人税', 'Corporate tax')), h('b', '', money(tl.v)), h('small', 'isl-dim', t(`課税される利益の ${pct(tl.rate)}`, `${pct(tl.rate)} of taxable profit`)));
     box.append(x);
   }
   const adv = acctAdvice(s, l, prev);

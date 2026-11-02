@@ -4232,6 +4232,22 @@ button.isl-mis {
     font-size: 11px;
   }
 }
+/* 法人税の行（コストの並びの下に別の行。売上と比べない） */
+.isl-acct-crow.isl-acct-taxrow {
+  grid-template-columns: minmax(7em, 11em) auto 1fr;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.18);
+}
+@media (max-width: 599px) {
+  .isl-acct-crow.isl-acct-taxrow {
+    grid-template-columns: 7em auto 1fr;
+  }
+  .isl-acct-crow.isl-acct-taxrow small {
+    grid-column: auto;
+    margin-top: 0;
+  }
+}
 .isl-acct-advice {
   margin-top: 6px;
   padding: 8px 10px;

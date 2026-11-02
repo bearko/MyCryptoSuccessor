@@ -272,7 +272,10 @@ function upkeepSplit(s: P1State): { key: string; name: string; w: number }[] {
   if (!all) return [{ key: 'upkeep', name: t('維持費', 'Upkeep'), w: 1 }];
   return Object.entries(by).map(([k, v]) => ({ key: `up_${k}`, name: NAME[k], w: v / all }));
 }
-/** コストの大きい順（素材・給料・維持費（建物の種類ごと）・アルバイト・宣伝・法人税）。0 の行は出さない */
+/**
+ * コストの大きい順（素材・給料・維持費（建物の種類ごと）・アルバイト・宣伝）。0 の行は出さない。
+ * 法人税は入れない（税にはほかの町から回った利益のぶんも入るので、いまの町の売上で割ると大きく見えすぎる）。法人税は taxLine で別の行に
+ */
 export function costRank(s: P1State, l: Ledger): CostRow[] {
   const sales = l.sales || 0;
   const rows: { key: string; name: string; v: number }[] = [
@@ -281,12 +284,22 @@ export function costRank(s: P1State, l: Ledger): CostRow[] {
     ...upkeepSplit(s).map((x) => ({ key: x.key, name: x.name, v: Math.round(l.upkeep * x.w) })),
     { key: 'part', name: t('アルバイト', 'Part-timers'), v: l.part },
     { key: 'ads', name: t('宣伝', 'Advertising'), v: l.ads },
-    { key: 'tax', name: t('法人税', 'Corporate tax'), v: l.tax ?? 0 },
   ];
   return rows
     .filter((r) => r.v > 0)
     .map((r) => ({ ...r, share: sales > 0 ? r.v / sales : 0 }))
     .sort((a, b) => b.v - a.v);
+}
+
+/**
+ * 決算書の法人税の行（コストの並びの下に別の行で）：払った税と、その四半期の税率（「課税される利益の 20%」）。
+ * q はその四半期の番号（締めた四半期なら記録の税率と課税される利益。途中ならいまの税率）。税が 0 なら null
+ */
+export function taxLine(s: P1State, l: Ledger, q?: number): { v: number; rate: number; taxable: number | null } | null {
+  const v = l.tax ?? 0;
+  if (v <= 0) return null;
+  const rec = q != null ? acctOf(s).hist.find((x) => x.q === q) : undefined;
+  return { v, rate: rec?.rate ?? taxRate(s), taxable: rec ? rec.taxable : null };
 }
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -299,7 +312,8 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
  */
 export function acctAdvice(s: P1State, l: Ledger, prev?: Ledger | null): string[] {
   const out: string[] = [];
-  const rank = costRank(s, l).filter((r) => r.key !== 'tax');
+  // 法人税は売上と比べない（コストの並びに入れない。taxLine と同じ考え方）
+  const rank = costRank(s, l);
   const top = rank[0];
   if (top && l.sales > 0) out.push(t(`${top.name}が売上の ${pct(top.share)}（いちばん重いコスト）`, `${top.name} is ${pct(top.share)} of sales (the heaviest cost)`));
   if (prev && prev.sales > 0) {

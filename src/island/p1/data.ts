@@ -173,7 +173,8 @@ export const RARE_RIVAL: typeof UNCOMMON_RIVAL = {
  * - pull：他社の店の引き（その会社の扱う商品の強さの平均 × ランクの倍率 × pull）。その店に無い商品のお客さんも引き寄せる（買わずに帰る）
  * - branch：支店の引き（本店＝その会社の 1 軒目に対して。支店は押せば撤退させやすい）
  * - quitAt・quitMonths：他社の店の取り分が開店のときの quitAt 倍を下回る月が quitMonths か月続くと撤退（空き店舗になる）
- * - refill：空き店舗を放っておくと、この月数で別の他社が新しい店を出す
+ * - refill・refillChance・refillMax：空き店舗を放っておくと、撤退の refill か月後の締めから毎月 refillChance の確率で、refillMax か月までには必ず、
+ *   別の他社が新しい店を出す（調整 1：他社が空き地にすぐ戻ってくる）。町から撤退した会社も戻ってくる（営業している他社がほかにいないとき）
  * - vacant：空き店舗に自社が入るときの費用（その建物の値段 × cost）と工期（days 日。内装だけ）
  * - cap：他社の店の売上の上限（開店のときの取り分の cap 倍まで。まわりが撤退すると伸びる）
  * - sale：巻き返し（セール）の間、その会社の店の引き ×(1 ＋ sale × 残りの月 ÷ セールの月数)
@@ -185,7 +186,9 @@ export const RARE_AREA = {
   branch: 0.45,
   quitAt: 0.6,
   quitMonths: 2,
-  refill: 3,
+  refill: 1,
+  refillChance: 0.5,
+  refillMax: 3,
   vacant: { cost: 0.5, days: 2 },
   cap: 1.6,
   sale: 0.6,
@@ -2833,7 +2836,8 @@ export const MORALE = {
   start: 70,
   base: 55,
   rate: 0.04,
-  band: { lo: 40, hi: 70, floor: 20, top: 1.1, low: 0.9 },
+  // 調整 1（2026-11-02）：上の帯を強めた（100 で ×1.1 → ×1.2。20 未満の ×0.9・初めの 70 で ×1 は変えない）
+  band: { lo: 40, hi: 70, floor: 20, top: 1.2, low: 0.9 },
   pay: { up: 8, down: 10, lo: -20, hi: 16, cut: 8 },
   env: 2,
   envMax: 12,

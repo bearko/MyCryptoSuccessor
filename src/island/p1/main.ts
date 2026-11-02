@@ -4123,7 +4123,16 @@ function reportNews(rep: NonNullable<ReturnType<typeof step>['report']>) {
       toast(t(`🏚 ${storeName(s, q.uid, q.rid)}が撤退した！ 空き店舗にすぐ出店できる`, `🏚 ${storeName(s, q.uid, q.rid)} closed! You can move into the vacant store`));
     }
     if (tr.quit.length) sfx.play('clear');
-    for (const q of tr.refill) toast(t(`🏪 ${storeName(s, q.uid, q.rid)}が空き店舗に新しく出店した`, `🏪 ${storeName(s, q.uid, q.rid)} opened in a vacant store`));
+    // 調整 1：町から撤退した会社が戻ってきた（その会社の 1 軒目の出店は「戻ってきた」の 1 回にまとめる）
+    const back = new Set(tr.back ?? []);
+    if (back.size) {
+      const names = [...back].map(rivalName);
+      toast(t(`🔁 ${names.join('・')}が町に戻ってきた！ 空き店舗に出店して、また張り合ってくる`, `🔁 ${names.join(', ')} ${names.length > 1 ? 'are' : 'is'} back in town! Opened in vacant stores to compete again`));
+    }
+    const rest = tr.refill.filter((q) => !back.delete(q.rid));
+    // まとめて入った月は 1 つのトーストに（トーストは 3 つまでなので、「戻ってきた」が押し出されないように）
+    if (rest.length === 1) toast(t(`🏪 ${storeName(s, rest[0].uid, rest[0].rid)}が空き店舗に新しく出店した`, `🏪 ${storeName(s, rest[0].uid, rest[0].rid)} opened in a vacant store`));
+    else if (rest.length > 1) toast(t(`🏪 他社が空き店舗に ${rest.length} 軒、新しく出店した（営業）`, `🏪 Rivals opened in ${rest.length} vacant stores (Sales)`));
     for (const id of tr.gone) toast(t(`${rivalName(id)}が町から撤退した！ ライバルが 1 社減った`, `${rivalName(id)} left town! One fewer rival`));
   }
 }

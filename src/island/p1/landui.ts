@@ -605,7 +605,7 @@ export function openBooks(ctx: Ctx) {
     body.append(wrap);
     // 経理（段 F）：コストの大きい順と経理からの助言（前の四半期と比べる）
     const prev = idx > 0 ? list[idx - 1] : null;
-    body.append(costCard(s, cur.l, prev && prev.q === cur.q - 1 ? prev.l : null, cur.label));
+    body.append(costCard(s, cur.l, prev && prev.q === cur.q - 1 ? prev.l : null, cur.label, cur.q));
     if (!cur.done) body.append(h('small', 'isl-dim', t(`いまは ${inQ + 1} か月目の途中です。四半期が終わると、マインちゃんが知らせます。`, `Month ${inQ + 1} of this quarter is in progress.`)));
   });
 }

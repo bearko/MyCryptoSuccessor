@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { ACCT_MONEY, ACCT_SKILLS, DEPT_SKILLS, P1B, FATIGUE, GA_MONEY, GA_SKILLS, PRODUCT, SKILL, TAX, rpCost, sku } from '../src/island/p1/data';
 import { emptyLedger, pl, quarters } from '../src/island/p1/company';
-import { ACCT_OFF, acctAdvice, acctReset, closeQuarter, costRank, dedCap, dedRate, monthBase, priceMul, quarterNow, taxHint, taxOn, taxPlan, taxRate, topTier } from '../src/island/p1/acct';
+import { ACCT_OFF, acctAdvice, acctReset, closeQuarter, costRank, taxLine, dedCap, dedRate, monthBase, priceMul, quarterNow, taxHint, taxOn, taxPlan, taxRate, topTier } from '../src/island/p1/acct';
 import { envItems, fatigueLoad, fatigueMorale, fatigueMul, fatigueOf, gaOn } from '../src/island/p1/ga';
 import { moraleParts } from '../src/island/p1/hr';
 import { deptLevel, menuDepts } from '../src/island/p1/dept';
@@ -255,6 +255,24 @@ describe('見える化（コストの大きい順・経理からの助言）', (
     expect(acctAdvice(s, l, prev)[2]).toContain(`${(1500000).toLocaleString('en-US')} G`);
     // Common の会社：Uncommon から税がかかる
     expect(acctAdvice(newP1(1), l, null).join(' ')).toContain('20%');
+  });
+
+  it('法人税はコストの並びに入れず（売上と比べない）、別の行で「課税される利益の ○%」。助言も法人税を売上と比べない', () => {
+    const s = uTown();
+    const l = emptyLedger();
+    // ほかの町から回った利益のぶんも入って、法人税がいまの町の売上の 27% になる四半期
+    Object.assign(l, { sales: 1000000, mats: 200000, wages: 120000, upkeep: 100000, ads: 10000, part: 5000, tax: 270000 });
+    const rank = costRank(s, l);
+    expect(rank.some((r) => r.key === 'tax')).toBe(false);
+    expect(rank[0].key).toBe('mats');
+    expect(acctAdvice(s, l, null)[0]).toContain('20%');
+    expect(acctAdvice(s, l, null).join(' ')).not.toContain('法人税');
+    // 締めた四半期：記録の税率と課税される利益
+    s.acct = { cur: { base: 0, capex: 0, rnd: 0, env: 0, months: 0 }, hist: [{ q: 4, rate: 0.2, tier: 'U', base: 1500000, carry: 0, capex: 0, rnd: 0, env: 0, ded: 150000, cap: 750000, taxable: 1350000, tax: 270000, saved: 30000, paid: 270000 }], paid: 270000, saved: 30000, carry: [], owed: 0 };
+    expect(taxLine(s, l, 4)).toEqual({ v: 270000, rate: 0.2, taxable: 1350000 });
+    // 途中の四半期：いまの税率
+    expect(taxLine(s, l, 5)).toEqual({ v: 270000, rate: taxRate(s), taxable: null });
+    expect(taxLine(s, emptyLedger(), 4)).toBeNull();
   });
 });
 
