@@ -115,7 +115,7 @@ describe('Rare の町：店ごとの商圏', () => {
 });
 
 describe('撤退と空き店舗', () => {
-  it('取り分が開店のときの quitAt を下回る月が quitMonths 続くと撤退 → 空き店舗。refill か月で別の他社が入る', () => {
+  it('取り分が開店のときの quitAt を下回る月が quitMonths 続くと撤退 → 空き店舗。refill か月後から、refillMax か月までに別の他社が入る', () => {
     const s = rare();
     const x = s.area!.stores.find((y) => !y.main)!;
     const uid = x.uid;
@@ -132,9 +132,14 @@ describe('撤退と空き店舗', () => {
     expect(s.area!.vacant.map((v) => v.uid)).toContain(uid);
     expect(rivalBase(s, s.rivals.find((r) => r.id === rid)!)).toBeLessThan(before);
     expect(storeName(s, uid, rid)).toContain(rivalDef(rid)!.name);
-    // 放っておくと、別の他社が入る
+    // 放っておくと、別の他社が入る（refillMax か月までには必ず）
     let refill: { rid: string; uid: number }[] = [];
-    for (let m = 0; m < RARE_AREA.refill; m++) refill = areaMonth(s).refill;
+    let at = 0;
+    for (let m = 1; m <= RARE_AREA.refillMax && !refill.length; m++) {
+      refill = areaMonth(s).refill;
+      at = m;
+    }
+    expect(at).toBeGreaterThanOrEqual(RARE_AREA.refill);
     expect(refill.map((r) => r.uid)).toEqual([uid]);
     expect(refill[0].rid).not.toBe(rid);
     expect(b.owner).toBe(refill[0].rid);
@@ -152,6 +157,71 @@ describe('撤退と空き店舗', () => {
     expect(rivalBase(s, s.rivals.find((r) => r.id === rid)!)).toBe(0);
     const area = areaRanking(s, 0, Object.fromEntries(s.rivals.map((r) => [r.id, 1000])));
     expect(area.filter((x) => !x.me)).toHaveLength(s.rivals.length - 1);
+  });
+
+  it('調整 1：撤退のあと他社が戻る。撤退の refill か月後の締めから毎月の確率で入り、refillMax か月までに必ず。町から撤退した会社も戻ってくる', () => {
+    const s = rare();
+    const n0 = s.area!.stores.length;
+    const sells0 = Object.fromEntries(s.rivals.map((r) => [r.id, { ...r.sells }]));
+    // 全部の店を撤退させる（他社が 0 社）
+    for (const x of s.area!.stores) x.share0 = 1;
+    for (let m = 0; m < RARE_AREA.quitMonths; m++) areaMonth(s);
+    expect(s.rivals.every((r) => r.gone)).toBe(true);
+    expect(s.area!.vacant).toHaveLength(n0);
+    // 1 か月目の締め：一部の空き店舗にだけ入る（確率）。撤退した会社が戻ってくる
+    const r1 = areaMonth(s);
+    expect(RARE_AREA.refill).toBe(1);
+    expect(r1.refill.length).toBeGreaterThan(0);
+    expect(r1.refill.length).toBeLessThan(n0);
+    expect(r1.back!.length).toBeGreaterThan(0);
+    for (const id of r1.back!) {
+      const r = s.rivals.find((x) => x.id === id)!;
+      expect(r.gone).toBe(false);
+      // 扱う商品は町を作ったときのもの
+      expect(r.sells).toEqual(sells0[id]);
+      expect(rivalStores(s).some((b) => b.owner === id)).toBe(true);
+    }
+    // refillMax か月までには、空き店舗が全部埋まる（他社が 0 社のままにならない）
+    for (let m = 2; m <= RARE_AREA.refillMax; m++) areaMonth(s);
+    expect(s.area!.vacant).toHaveLength(0);
+    expect(s.buildings.filter(isVacant)).toHaveLength(0);
+    expect(rivalStores(s)).toHaveLength(n0);
+    expect(s.rivals.filter((r) => !r.gone).length).toBeGreaterThan(0);
+    // 戻った店は支店で、開店のときの取り分はいまの取り分から（その会社の売上もまた立つ）
+    for (const x of s.area!.stores) expect(x.main).toBe(false);
+    for (const r of s.rivals.filter((x) => !x.gone)) expect(rivalBase(s, r)).toBeGreaterThan(0);
+    // 同じ町・同じ日なら、同じように戻る（シードで決まる）
+    const t = rare();
+    for (const x of t.area!.stores) x.share0 = 1;
+    for (let m = 0; m < RARE_AREA.quitMonths; m++) areaMonth(t);
+    expect(areaMonth(t).refill).toEqual(r1.refill);
+  });
+
+  it('調整 1：自社が先に空き店舗に入れば、他社は入れない', () => {
+    const s = rare();
+    s.buildings.push({ uid: s.nextUid++, id: 'workshop', i: 1, j: 1, dir: 'rd', left: 0, owner: 'me' });
+    s.money = 100000;
+    const x = s.area!.stores.find((y) => !y.main)!;
+    x.share0 = 1;
+    for (let m = 0; m < RARE_AREA.quitMonths; m++) areaMonth(s);
+    expect(typeof takeVacant(s, x.uid)).toBe('object');
+    for (let m = 0; m < RARE_AREA.refillMax + 1; m++) expect(areaMonth(s).refill.map((r) => r.uid)).not.toContain(x.uid);
+    expect(s.buildings.find((b) => b.uid === x.uid)!.owner).toBe('me');
+  });
+
+  it('Rare の町の商圏は Common・Uncommon の町へ持ち込まない（セーブを読んだとき、残っていれば外して、その町の他社を戻す）', () => {
+    const r = rare();
+    const c = newP1(2, 'C', 'c2');
+    // 前の版の不具合：Rare の町から戻った Common の町に Rare の商圏が残り、その町の他社が全部撤退していた
+    c.area = r.area;
+    for (const x of c.rivals) {
+      x.gone = true;
+      x.sells = {};
+    }
+    const back = deserializeP1(serializeP1(c))!;
+    expect(back.area).toBeUndefined();
+    expect(back.rivals.every((x) => !x.gone)).toBe(true);
+    expect(back.rivals.map((x) => x.sells)).toEqual(newP1(2, 'C', 'c2').rivals.map((x) => x.sells));
   });
 
   it('空き店舗には自社がすぐ出店できる（よろず屋の値段 × vacant.cost・工期 vacant.days 日）。候補地にも出る', () => {

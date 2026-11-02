@@ -5,7 +5,7 @@
 import { t } from '../../i18n';
 import { DEF } from '../defs';
 import { RARE_AREA, rivalDef, P1B, SALES_SKILLS } from './data';
-import { allowedDirs, areaShares, has, isVacant, myShops, myShare, myStorePull, newStorePull, reachR, rivalStorePull, rivalStores, roadMul, storeRisk, vacantCost, type AreaStore, type P1State, type PBuilding } from './model';
+import { allowedDirs, areaShares, has, isVacant, myShops, myShare, myStorePull, newStorePull, reachR, rivalStorePull, rivalStores, roadMul, storeRisk, vacantCost, type AreaStore, type AreaVacant, type P1State, type PBuilding } from './model';
 import type { Dir } from '../sim';
 
 /** 支店の名前（1 軒目は本店。ほかは駅・公園の近くか、町の方角で） */
@@ -35,6 +35,18 @@ export function storeName(s: P1State, uid: number, rid?: string): string {
     const x = s.buildings.find((y) => y.uid === u);
     return x ? branchName(s, x, u === all[0]) : '';
   };
+  // Rare の町：本店は町を作ったときのその会社の 1 軒目（main）だけ。撤退した店の跡に戻ってきた店（支店）は本店と呼ばない（調整 1）
+  if (s.area) {
+    const main = s.area.stores.find((x) => x.rid === id && x.main)?.uid ?? (s.area.stores.some((x) => x.uid === uid) ? -1 : all[0]);
+    const nm = (u: number) => {
+      const x = s.buildings.find((y) => y.uid === u);
+      return x ? branchName(s, x, u === main) : '';
+    };
+    const base = nm(uid);
+    const same = all.filter((u) => nm(u) === base);
+    const k = same.indexOf(uid);
+    return `${company} ${same.length > 1 && k > 0 ? `${base} ${k + 1}` : base}`;
+  }
   const base = nameOf(uid);
   // 同じ会社に同じ支店名が 2 軒以上あれば「南町店 2」
   const same = all.filter((u) => nameOf(u) === base);
@@ -170,7 +182,24 @@ export function companyColor(s: P1State, g: string): string {
 export const salesPanels = () => SALES_SKILLS;
 /** 撤退の決まりの一文（営業の画面・ヘルプ） */
 export const quitRule = () =>
-  t(`取り分が開店のときの ${Math.round(RARE_AREA.quitAt * 100)}% を下回る月が ${RARE_AREA.quitMonths} か月続くと、その店は撤退して空き店舗になる（${RARE_AREA.refill} か月放っておくと、別の他社が入る）`, `A store below ${Math.round(RARE_AREA.quitAt * 100)}% of its opening share for ${RARE_AREA.quitMonths} months closes and leaves a vacant store (another rival moves in after ${RARE_AREA.refill} months)`);
+  t(
+    `取り分が開店のときの ${Math.round(RARE_AREA.quitAt * 100)}% を下回る月が ${RARE_AREA.quitMonths} か月続くと、その店は撤退して空き店舗になる（放っておくと ${RARE_AREA.refill} か月後の締めから毎月 ${Math.round(RARE_AREA.refillChance * 100)}% で、${RARE_AREA.refillMax} か月までには別の他社が入る。町から撤退した会社が戻ってくることもある）`,
+    `A store below ${Math.round(RARE_AREA.quitAt * 100)}% of its opening share for ${RARE_AREA.quitMonths} months closes and leaves a vacant store (left empty, a rival may move in from ${RARE_AREA.refill} month later — ${Math.round(RARE_AREA.refillChance * 100)}% each month, surely within ${RARE_AREA.refillMax} months. A rival that left town may come back)`,
+  );
+/**
+ * 空き店舗に他社が入る見込み（撤退してからの月の締めの数 v.months から）：from＝何か月後の締めから入るかもしれないか（1 なら次の締め）・by＝何か月後までには必ず入るか
+ */
+export function refillHint(v?: Pick<AreaVacant, 'months'>): { from: number; by: number } {
+  const m = v?.months ?? 0;
+  return { from: Math.max(1, RARE_AREA.refill - m), by: Math.max(1, RARE_AREA.refillMax - m) };
+}
+/** 空き店舗の見込みの一文（営業の画面のお知らせ） */
+export function refillText(v?: Pick<AreaVacant, 'months'>): string {
+  const { from, by } = refillHint(v);
+  if (from <= 1 && by <= 1) return t('次の締めで、ほかの他社が入る', 'Another rival moves in at the next close');
+  if (from <= 1) return t(`次の締めから、ほかの他社が入るかもしれない（${by} か月までに必ず）`, `Another rival may move in from the next close (surely within ${by} mo)`);
+  return t(`${from} か月後から、ほかの他社が入るかもしれない（${by} か月までに必ず）`, `Another rival may move in from ${from} mo (surely within ${by} mo)`);
+}
 /** 空き店舗の札の文 */
 export const vacantLabel = () => t('空き店舗', 'Vacant');
 /** 自社の店の名前（建物名） */

@@ -3,10 +3,10 @@
  * 撤退と空き店舗のお知らせ・営業のパネルへの近道・奥義の予告。数字は trade.ts と model.ts の「商圏の取り合い」。docs/ISLAND_PHASE1.md「営業の部門」。
  */
 import { t } from '../../i18n';
-import { RARE_AREA, SALES_MASTERY } from './data';
+import { RARE_AREA, SALES_MASTERY, rivalDef } from './data';
 import { isVacant, myShops, takeVacant, vacantCost, vacantErr, type P1State } from './model';
 import { after, open, type Ctx } from './screens';
-import { areaPaint, companyColor, companyShares, quitRule, siteCandidates, storeName, storeRows, surveyed, vacantLabel, type Candidate } from './trade';
+import { areaPaint, companyColor, companyShares, quitRule, refillText, siteCandidates, storeName, storeRows, surveyed, vacantLabel, type Candidate } from './trade';
 import { btn, h, money } from './ui';
 
 const pct = (v: number) => `${Math.round(v * 1000) / 10}%`;
@@ -174,15 +174,21 @@ export function openTrade(ctx: Ctx, hooks: { areaView: () => void; panels: () =>
     // お知らせ：今月の撤退・空き店舗
     const vac = s.buildings.filter(isVacant);
     const last = s.reports[s.reports.length - 1]?.trade;
-    if (vac.length || last?.quit.length || last?.refill.length) {
+    if (vac.length || last?.quit.length || last?.refill.length || last?.back?.length) {
       const news = h('div', 'isl-card2 isl-trade-news');
       news.append(h('h3', '', t('撤退と空き店舗', 'Closings and vacancies')));
       for (const q of last?.quit ?? []) news.append(h('p', 'isl-good', t(`🏚 ${storeName(s, q.uid, q.rid)}が撤退した（先月の締め）`, `🏚 ${storeName(s, q.uid, q.rid)} closed (last month)`)));
-      for (const q of last?.refill ?? []) news.append(h('p', 'isl-bad', t(`🏪 ${storeName(s, q.uid, q.rid)}が空き店舗に出店した`, `🏪 ${storeName(s, q.uid, q.rid)} opened in a vacant store`)));
-      for (const b of vac) {
+      for (const id of last?.back ?? []) news.append(h('p', 'isl-bad', t(`🔁 ${rivalDef(id)?.name ?? id}が町に戻ってきた（空き店舗に出店）`, `🔁 ${rivalDef(id)?.name ?? id} came back to town (into a vacant store)`)));
+      // 他社がまとめて戻った月・空き店舗が多い月は、上の数行と「ほか N 軒」に（一覧が長くなりすぎないように）
+      const MAX = 4;
+      const refills = last?.refill ?? [];
+      for (const q of refills.slice(0, MAX)) news.append(h('p', 'isl-bad', t(`🏪 ${storeName(s, q.uid, q.rid)}が空き店舗に出店した`, `🏪 ${storeName(s, q.uid, q.rid)} opened in a vacant store`)));
+      if (refills.length > MAX) news.append(h('p', 'isl-bad', t(`🏪 ほか ${refills.length - MAX} 軒に、他社が出店した`, `🏪 Rivals opened in ${refills.length - MAX} more`)));
+      for (const b of vac.slice(0, MAX)) {
         const v = s.area.vacant.find((x) => x.uid === b.uid);
-        news.append(h('p', '', t(`□ ${vacantLabel()}：あと ${Math.max(1, RARE_AREA.refill - (v?.months ?? 0))} か月で、ほかの他社が入りそう`, `□ ${vacantLabel()}: another rival may move in within ${Math.max(1, RARE_AREA.refill - (v?.months ?? 0))} mo`)));
+        news.append(h('p', '', t(`□ ${vacantLabel()}：${refillText(v)}`, `□ ${vacantLabel()}: ${refillText(v)}`)));
       }
+      if (vac.length > MAX) news.append(h('p', '', t(`□ ほかに空き店舗 ${vac.length - MAX} 軒（地図の □）`, `□ ${vac.length - MAX} more vacant stores (□ on the map)`)));
       body.append(news);
     }
 

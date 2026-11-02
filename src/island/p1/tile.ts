@@ -16,7 +16,7 @@ import { repairCostOf, repairDaysOf } from './company';
 import { clearRuin, isRuin, repair, repairAll, repairAllCost, repairLock, ruinsOf } from './reset';
 import { areaShares, isVacant, newStorePull, storeRisk, takeVacant, vacantCost, vacantErr } from './model';
 import { RARE_AREA } from './data';
-import { storeName, surveyed } from './trade';
+import { refillHint, storeName, surveyed } from './trade';
 
 const pct = (v: number) => `${Math.round(v * 1000) / 10}%`;
 /**
@@ -28,12 +28,12 @@ function vacantPop(ctx: Ctx, b: PBuilding, body: HTMLElement, hooks: TileHooks):
   const v = s.area?.vacant.find((x) => x.uid === b.uid);
   const was = v?.was ? storeName(s, b.uid, v.was) : '';
   body.append(h('p', '', was ? t(`${was}が撤退した跡の空き店舗。内装だけで、すぐ自社の店にできる。`, `A vacant store left by ${was}. A quick fit-out makes it yours.`) : t('空き店舗。内装だけで、すぐ自社の店にできる。', 'A vacant store. A quick fit-out makes it yours.')));
-  const left = Math.max(1, RARE_AREA.refill - (v?.months ?? 0));
+  const rh = refillHint(v);
   body.append(
     meta([
       [t('費用', 'Cost'), money(vacantCost(s))],
       [t('工期', 'Work'), t(`${RARE_AREA.vacant.days} 日`, `${RARE_AREA.vacant.days} days`)],
-      [t('ほかの他社が入るまで', 'Until a rival moves in'), t(`約 ${left} か月`, `~${left} mo`)],
+      [t('ほかの他社が入るまで', 'Until a rival moves in'), rh.by <= 1 ? t('次の締めで入る', 'At the next close') : rh.from <= 1 ? t(`次の締めから（${rh.by} か月までに必ず）`, `From next close (within ${rh.by} mo)`) : t(`${rh.from} か月後から（${rh.by} か月までに必ず）`, `From ${rh.from} mo (within ${rh.by} mo)`)],
     ]),
   );
   if (surveyed(s)) body.append(h('p', 'isl-good', t(`取り分の予測：この店 ${pct(areaShares(s, [{ i: b.i, j: b.j, w: newStorePull(s) }]).extra[0])}`, `Share forecast: ${pct(areaShares(s, [{ i: b.i, j: b.j, w: newStorePull(s) }]).extra[0])} for this store`)));

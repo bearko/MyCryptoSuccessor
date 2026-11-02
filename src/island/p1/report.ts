@@ -506,7 +506,7 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
         const line = h('div', 'isl-rp-trade');
         const txt = h('span', 'isl-rp-trade-text');
         const move = tr.prev != null ? `${p1(tr.prev)} → ${p1(tr.share)}` : p1(tr.share);
-        const extra = [tr.quit.length ? t(`撤退 ${tr.quit.length} 軒`, `${tr.quit.length} closed`) : '', tr.refill.length ? t(`他社が空き店舗に ${tr.refill.length} 軒`, `${tr.refill.length} vacancies refilled`) : '', tr.gone.length ? t(`町から撤退 ${tr.gone.length} 社`, `${tr.gone.length} left town`) : ''].filter(Boolean).join(t('・', ' · '));
+        const extra = [tr.quit.length ? t(`撤退 ${tr.quit.length} 軒`, `${tr.quit.length} closed`) : '', tr.refill.length ? t(`他社が空き店舗に ${tr.refill.length} 軒`, `${tr.refill.length} vacancies refilled`) : '', tr.gone.length ? t(`町から撤退 ${tr.gone.length} 社`, `${tr.gone.length} left town`) : '', tr.back?.length ? t(`町に戻った他社 ${tr.back.length} 社`, `${tr.back.length} came back`) : ''].filter(Boolean).join(t('・', ' · '));
         txt.append(h('b', '', t('🤝 商圏の取り分', '🤝 Trade-area share')), h('span', 'is-long', `${move}${extra ? t(`（${extra}）`, ` (${extra})`) : ''}`), h('span', 'is-short', `${move}${tr.quit.length ? t(`・撤退 ${tr.quit.length}`, ` · ${tr.quit.length} closed`) : ''}`));
         line.append(txt);
         if (hooks.openTrade) line.append(btn(t('営業', 'Sales'), () => hooks.openTrade?.(), 'isl-rp-go'));

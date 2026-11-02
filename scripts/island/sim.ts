@@ -87,6 +87,8 @@ import {
   nextLevelCost,
   myShops,
   myShare,
+  rivalStores,
+  craftCheck,
   myWorkshop,
   newP1,
   offeredMissions,
@@ -222,7 +224,7 @@ export interface SectorRun {
   /** v15：他社の巻き返し（Uncommon のセール）が始まった回数 */
   comeback: number;
   /** v16c（Rare の町 ②）：最後の月の締めの時点の自社の店の数・撤退させた他社の店・空き店舗に入った数・自社の取り分 */
-  area?: { shops: number; closed: number; took: number; share: number };
+  area?: { shops: number; closed: number; took: number; share: number; n0: number; rivals: number[]; companies: number[]; refill: number; back: number; zero: number };
   /** v14：100% の再発掘の周回（被災した Common の町に戻って、荒れ地を掘り直す。表の「1 町の平均」には入れない） */
   revisit?: boolean;
   /** v17（段 E1：ヒーローの育成）：離れたときのヒーローの Lv（全員） */
@@ -314,6 +316,8 @@ export interface RunResult {
    * Uncommon 以上の町の毎日の疲れの平均と士気の平均（持ち場のある人）・疲れで遅くなった割合の平均
    */
   v20: { paid: number; saved: number; quarters: number; preInv: number; preG: number; fatigue: number[]; morale: number[]; slow: number[] };
+  /** v21（調整 1）：Uncommon 以上の町の月の締めの売上・給与の合計と月の数・士気の平均（月ごと）・士気 70 以上の人の割合（月ごと） */
+  v21: { rev: number; wages: number; months: number; morale: number[]; high: number[] };
 }
 
 /**
@@ -909,12 +913,27 @@ export function policy(s: P1State, c: Ctx): Action[] {
   // v17：倉庫が 2 棟とも満杯（使わなくなった素材で埋まり、要る素材が買えない）なら、倉庫の高い棚・工房の物置の整理で置き場所を足す
   // （ヒーローの育成で流れが変わり、通常のシード 3 で置き場所が 0 のまま止まった。人なら気づいて足す手）
   if (whs >= 2 && poolFree(s) < poolCap(s) * 0.05) {
+    let more = false;
     for (const b of s.buildings.filter((x) => x.owner === 'me' && x.left <= 0 && (x.id === 'warehouse' || P1B[x.id]?.kind === 'workshop'))) {
       const id = b.id === 'warehouse' ? 'rack' : 'stockroom';
       const cost = investCost(b, id);
-      if (cost == null || budget < cost + reserve) continue;
+      if (cost == null) continue;
+      more = true;
+      if (budget < cost + reserve) continue;
       spend(cost);
       acts.push({ kind: 'invest', run: () => invest(s, b.uid, id) });
+    }
+    // 調整 1：高い棚・物置も上げきって、置き場所が使わない素材で埋まり、作業台の素材が足りずに止まっているときは、倉庫をもう 1 棟（4 棟まで）。
+    // （段 F を止めた比べの 100% のシード 3、ヤツカノタウン：布 349 個が残ったまま宝石・木材が買えず、売上 0 のまま 120 か月止まった。人なら倉庫を足す）
+    // （士気の上の帯を強めた 100% のシード 1、カスミシティ：置き場所が上限を超えたまま、できた商品を置けずに作業台が止まった）
+    // （作れない理由が「素材が足りない」か「できた商品を置く場所が無い」。100% のカスミシティでも、置き場所が上限を超えたまま作業台が止まった）
+    const starved = s.slots.some((sl) => sl.sku && sl.worker != null && !sl.running && ['mats', 'full'].includes(craftCheck(s, sl.sku, sl.worker) ?? ''));
+    if (!more && starved && whs < 4 && !s.buildings.some((b) => b.owner === 'me' && b.id === 'warehouse' && b.left > 0)) {
+      const lot = pickLot(s, 'warehouse', false);
+      if (lot && budget > P1B.warehouse.cost + reserve) {
+        spend(P1B.warehouse.cost);
+        acts.push({ kind: 'build', run: () => build(s, 'warehouse', ...lot) });
+      }
     }
   }
 
@@ -1265,6 +1284,8 @@ export function policy(s: P1State, c: Ctx): Action[] {
 /** v18（段 E2 の前の main）の合計の実時間（秒。同じ 3 シードの平均：最短 1,835・1,631・1,557／通常 6,937・7,719・7,813／100% 19,781・20,076・19,692） */
 export const V18_TOTAL: Record<PolicyId, number> = { rta: (1835 + 1631 + 1557) / 3, normal: (6937 + 7719 + 7813) / 3, full: (19781 + 20076 + 19692) / 3 };
 /** v19（段 F の前の main）の合計の実時間（秒。同じ 3 シード：最短 1,835・1,631・1,557／通常 7,815・7,013・7,211／100% 20,793・21,120・21,940） */
+/** v20（調整 1 の前の main）の合計の実時間（秒。同じ 3 シードの平均。docs/ISLAND_BALANCE.md の v20 の節） */
+export const V20_TOTAL: Record<PolicyId, number> = { rta: 1646, normal: 7014, full: 21556 };
 export const V19_TOTAL: Record<PolicyId, number> = { rta: (1835 + 1631 + 1557) / 3, normal: (7815 + 7013 + 7211) / 3, full: (20793 + 21120 + 21940) / 3 };
 export const SIM_HR: Record<PolicyId, { rest: number; raiseBelow: number; bonus: boolean }> = {
   rta: { rest: 0, raiseBelow: 0, bonus: false },
@@ -1688,7 +1709,7 @@ export interface RunOpts {
 export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   const s = newP1(seed);
   const c: Ctx = { policy: p, route: routeOf(p), at: 0, lineup: [], lineupDirty: true, shopsThisMonth: 0, monthEnd: null, lastBn: null, ban: new Set(o.ban ?? []), onlyFirst: !!o.onlyFirst, dayInMonth: 0, handCarry: 0, rpMoves: 0, runLeft: 0, runsMonth: 0, divesMonth: 0, preInv: 0, preG: 0 };
-  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 }, v20: { paid: 0, saved: 0, quarters: 0, preInv: 0, preG: 0, fatigue: [], morale: [], slow: [] } };
+  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 }, v20: { paid: 0, saved: 0, quarters: 0, preInv: 0, preG: 0, fatigue: [], morale: [], slow: [] }, v21: { rev: 0, wages: 0, months: 0, morale: [], high: [] } };
   /** v19：雇ったことのあるヒーロー（はじめの 3 人も入れる。新しく来た人を数える） */
   const heroSeen = new Set(s.staff.map((x) => x.hero));
   /** v14：任せた町の担当（能力値の伸びを数える） */
@@ -2019,6 +2040,16 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
         const r = x.baseRarity ?? 'C';
         res.v19.hired[r] = (res.v19.hired[r] ?? 0) + 1;
       }
+    // v21（調整 1）：Uncommon 以上の町の売上と給与（士気の高い帯の効き目が、給与の増えより大きいか）
+    if (d.report && (s.tier ?? 'C') !== 'C') {
+      res.v21.rev += d.report.revenue;
+      res.v21.wages += d.report.costs.wages;
+      res.v21.months++;
+      if (s.staff.length) {
+        res.v21.morale.push(s.staff.reduce((a, x) => a + moraleOf(x), 0) / s.staff.length);
+        res.v21.high.push(s.staff.filter((x) => moraleOf(x) >= MORALE.band.hi).length / s.staff.length);
+      }
+    }
     if (d.report?.hr?.avg != null) {
       res.v19.morale.push(d.report.hr.avg);
       res.v19.pay += payroll(s);
@@ -2057,7 +2088,13 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       cur.allRev += r.revenue;
       cur.relicRev += r.relic ?? 0;
       cur.relicRRev += Object.entries(r.bySeries ?? {}).reduce<number>((a, [k, v]) => a + (PRODUCT[k]?.relic?.rare ? (v ?? 0) : 0), 0);
-      if (s.area) cur.area = { shops: myShops(s).length, closed: s.area.closed, took: s.area.took, share: myShare(s) };
+      // 調整 1：他社の店の数・営業している他社の数の月ごとの推移、他社が空き店舗に入った数・町に戻った会社の数・他社が 0 社だった月
+      if (s.area) {
+        const prevA = cur.area;
+        const nRiv = rivalStores(s).length;
+        const nCo = s.rivals.filter((x) => !x.gone).length;
+        cur.area = { shops: myShops(s).length, closed: s.area.closed, took: s.area.took, share: myShare(s), n0: s.rivals.length * RARE_AREA.stores, rivals: [...(prevA?.rivals ?? []), nRiv], companies: [...(prevA?.companies ?? []), nCo], refill: (prevA?.refill ?? 0) + (r.trade?.refill.length ?? 0), back: (prevA?.back ?? 0) + (r.trade?.back?.length ?? 0), zero: (prevA?.zero ?? 0) + (nCo === 0 ? 1 : 0) };
+      }
       // v8：月の締め。RP が足りなくて止まった月＝詰まりの段に効く研究パネルがあるのに、どれも RP が足りない
       c.dayInMonth = 0;
       c.runsMonth = 0;
@@ -2323,6 +2360,8 @@ export interface Report2 {
   /** v20：節税しない通常（SIM_TAX を止める）・段 F を止めた 3 方針（withoutAcct） */
   noSave?: RunResult[];
   noAcct?: RunResult[];
+  /** v21（調整 1）：士気と給与の手を止めた 100%（3 シード） */
+  noHrHands?: RunResult[];
   ms: number;
 }
 
@@ -2522,6 +2561,36 @@ export function tables(rep: Report2): string {
     );
   }
   out.push('');
+  // v21（調整 1）：士気の高い帯の効き目と、士気と給与の手を止めた 100%
+  {
+    out.push('### 表 15：士気の高い帯と売上の伸び（v21。調整 1）');
+    out.push('');
+    out.push(
+      `3 シードの平均（最小〜最大）。士気の効き目（\`MORALE.band\`）：${MORALE.band.lo}〜${MORALE.band.hi} は ×1、100 で ×${MORALE.band.top}、${MORALE.band.floor} 未満で ×${MORALE.band.low}。「v20 の合計」は調整 1 の前の main の同じ 3 シードの平均（\`V20_TOTAL\`）。「手なし」は同じ 100% を、士気と給与の手（\`SIM_HR\`：休ませる・昇給・賞与）を止めて回した合計（\`withoutHrHands\`。辞めたいの面談だけ）。売上・給与は Uncommon 以上の町の月の締めの、1 か月あたりの平均。士気の平均と「士気 70 以上」は Uncommon 以上の町の月の締めの全員。`,
+    );
+    out.push('');
+    out.push('| 方針 | 合計 | v20 の合計 | 差 | 士気の平均（U 以上） | 士気 70 以上の人 | 手なしの合計 | 手あり − 手なし | 月の売上（手あり／手なし） | 月の給与（手あり／手なし） | 売上の増え − 給与の増え（1 か月） | 詰まって止まるシード（あり／手なし） |');
+    out.push('|---|---|---|---|---|---|---|---|---|---|---|---|');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      const tot = mean(runs.map(totalSec));
+      const base = V20_TOTAL[p];
+      const off = p === 'full' ? (rep.noHrHands ?? []) : [];
+      const d = (a: number, b: number) => `${a >= b ? '+' : '−'}${Math.round(Math.abs(a - b) / 60)} 分（${a >= b ? '+' : '−'}${((Math.abs(a - b) / b) * 100).toFixed(1)}%）`;
+      const perM = (rs: RunResult[], f: (x: RunResult['v21']) => number) => mean(rs.map((r) => f(r.v21) / Math.max(1, r.v21.months)));
+      const mor = runs.map((r) => mean(r.v21.morale));
+      const hi = runs.map((r) => mean(r.v21.high) * 100);
+      const rev = perM(runs, (x) => x.rev);
+      const wag = perM(runs, (x) => x.wages);
+      const rev0 = off.length ? perM(off, (x) => x.rev) : NaN;
+      const wag0 = off.length ? perM(off, (x) => x.wages) : NaN;
+      out.push(
+        `| ${POLICY_NAME[p]} | ${fmtH(tot)} | ${fmtH(base)} | ${d(tot, base)} | ${mean(mor).toFixed(0)}（${range(mor, (v) => v.toFixed(0))}） | ${mean(hi).toFixed(0)}% | ${off.length ? fmtH(mean(off.map(totalSec))) : '—'} | ${off.length ? `${tot >= mean(off.map(totalSec)) ? '+' : '−'}${Math.round(Math.abs(tot - mean(off.map(totalSec))) / 60)} 分` : '—'} | ${off.length ? `${fmtG(rev)}／${fmtG(rev0)}（${rev >= rev0 ? '+' : '−'}${fmtG(Math.abs(rev - rev0))}）` : fmtG(rev)} | ${off.length ? `${fmtG(wag)}／${fmtG(wag0)}（${wag >= wag0 ? '+' : '−'}${fmtG(Math.abs(wag - wag0))}）` : fmtG(wag)} | ${off.length ? `${rev - rev0 - (wag - wag0) >= 0 ? '+' : '−'}${fmtG(Math.abs(rev - rev0 - (wag - wag0)))}` : '—'} | ${runs.filter((r) => !r.done).length}／${off.length ? off.filter((r) => !r.done).length : '—'} |`,
+      );
+    }
+    out.push('');
+  }
   // v20：経理と総務（段 F）
   {
     out.push('### 表 14：経理と総務（v20。段 F）');
@@ -2613,17 +2682,17 @@ export function tables(rep: Report2): string {
   // v16c：Rare の町 ②（商圏の取り合い・撤退と空き店舗）
   out.push('### 表 11：Rare の町 ②：商圏の取り合い（v16c。段 C：営業の始まり）');
   out.push('');
-  out.push(`3 シードの平均（最小〜最大）。Rare の町の数字は制覇した月の締めの時点（\`RARE_AREA\`：距離の重み ${RARE_AREA.d0}・他社 1 社 ${RARE_AREA.stores} 軒・他社の店の引き ×${RARE_AREA.pull}・支店 ×${RARE_AREA.branch}・撤退は取り分が開店のときの ${Math.round(RARE_AREA.quitAt * 100)}% 未満が ${RARE_AREA.quitMonths} か月・空き店舗は ${RARE_AREA.refill} か月で他社が入る）。自動プレイの営業の手は \`SIM_AREA\`（空き店舗に入る → 候補地の 1 位に月 1 軒・${SIM_AREA.maxShops} 軒まで → チラシ → 営業のパネル）。「ランクの順」は Uncommon 1 町の平均 < Rare 1 町の平均。`);
+  out.push(`3 シードの平均（最小〜最大）。Rare の町の数字は制覇した月の締めの時点（\`RARE_AREA\`：距離の重み ${RARE_AREA.d0}・他社 1 社 ${RARE_AREA.stores} 軒・他社の店の引き ×${RARE_AREA.pull}・支店 ×${RARE_AREA.branch}・撤退は取り分が開店のときの ${Math.round(RARE_AREA.quitAt * 100)}% 未満が ${RARE_AREA.quitMonths} か月・空き店舗は撤退の ${RARE_AREA.refill} か月後の締めから毎月 ${Math.round(RARE_AREA.refillChance * 100)}%・${RARE_AREA.refillMax} か月までに必ず他社が入る（営業している他社がいなければ、町から撤退した会社が戻る。調整 1））。自動プレイの営業の手は \`SIM_AREA\`（空き店舗に入る → 候補地の 1 位に月 1 軒・${SIM_AREA.maxShops} 軒まで → チラシ → 営業のパネル）。「ランクの順」は Uncommon 1 町の平均 < Rare 1 町の平均（調整 1 の目標は、通常で Rare が 1 割以上長い）。「他社の店の数の推移」は 1 つ目の Rare の町（グリーン・マウス）の月の締めごとの他社の店の数（3 シードの平均。左端は町を作ったときの軒数）。`);
   out.push('');
-  out.push('| 方針 | Uncommon 1 町の平均 | Rare 1 町の平均 | Rare の制覇までの月数 | 自社の店の数 | 撤退させた他社の店 | 空き店舗に入った | 自社の取り分 | ランクの順（U < R） | 詰まって止まるシード |');
-  out.push('|---|---|---|---|---|---|---|---|---|---|');
+  out.push('| 方針 | Uncommon 1 町の平均 | Rare 1 町の平均 | R ÷ U | Rare の制覇までの月数 | 自社の店の数 | 撤退させた他社の店 | 空き店舗に入った | 他社が空き店舗に入った | 町に戻った他社 | 他社が 0 社の月 | 他社の店の数の推移（グリーン・マウス） | 自社の取り分 | ランクの順（U < R） | 詰まって止まるシード |');
+  out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const p of pols) {
     const runs = rep.runs.filter((r) => r.policy === p);
     const us = runs.flatMap((x) => x.sectors.filter((r) => r.tier === 'U' && !r.revisit));
     const rs = runs.flatMap((x) => x.sectors.filter((r) => r.tier === 'R' && !r.revisit));
     const stuck = runs.filter((x) => !x.done).length;
     if (!rs.length) {
-      out.push(`| ${POLICY_NAME[p]} | ${us.length ? fmtMin(mean(us.map((r) => secOf(p, r, 'left') ?? 0))) : '—'} | —（C＋U で止める） | — | — | — | — | — | — | ${stuck} |`);
+      out.push(`| ${POLICY_NAME[p]} | ${us.length ? fmtMin(mean(us.map((r) => secOf(p, r, 'left') ?? 0))) : '—'} | —（C＋U で止める） | — | — | — | — | — | — | — | — | — | — | — | ${stuck} |`);
       continue;
     }
     const uMin = mean(us.map((r) => secOf(p, r, 'left') ?? 0));
@@ -2634,8 +2703,15 @@ export function tables(rep: Report2): string {
       return `${mean(v).toFixed(d)}（${range(v)}）`;
     };
     const share = rs.map((r) => (r.area?.share ?? 0) * 100);
+    // 1 つ目の Rare の町の他社の店の数（月の締めごと。シードの平均。終わったシードは数えない）
+    const r1s = runs.map((x) => x.sectors.find((r) => r.tier === 'R' && !r.revisit)?.area?.rivals ?? []);
+    const len = Math.max(0, ...r1s.map((v) => v.length));
+    const trend = Array.from({ length: len }, (_, k) => {
+      const v = r1s.filter((x) => x.length > k).map((x) => x[k]);
+      return Math.round(mean(v));
+    });
     out.push(
-      `| ${POLICY_NAME[p]} | ${fmtMin(uMin)} | ${fmtMin(mean(rSec))}（${range(rSec.map((x) => x / 60), (v) => String(Math.round(v)))} 分） | ${rMonths.length ? `${mean(rMonths).toFixed(1)}（${range(rMonths)}）` : '—'} | ${a((x) => x.shops)} | ${a((x) => x.closed)} | ${a((x) => x.took)} | ${mean(share).toFixed(1)}%（${range(share, (v) => v.toFixed(1))}%） | ${uMin < mean(rSec) ? '○' : '×'}（U ${fmtMin(uMin)} ${uMin < mean(rSec) ? '<' : '≧'} R ${fmtMin(mean(rSec))}） | ${stuck} |`,
+      `| ${POLICY_NAME[p]} | ${fmtMin(uMin)} | ${fmtMin(mean(rSec))}（${range(rSec.map((x) => x / 60), (v) => String(Math.round(v)))} 分） | ×${(mean(rSec) / uMin).toFixed(2)} | ${rMonths.length ? `${mean(rMonths).toFixed(1)}（${range(rMonths)}）` : '—'} | ${a((x) => x.shops)} | ${a((x) => x.closed)} | ${a((x) => x.took)} | ${a((x) => x.refill ?? 0)} | ${a((x) => x.back ?? 0)} | ${a((x) => x.zero ?? 0)} | ${trend.length ? `${runs.find((x) => x.sectors.find((r) => r.tier === 'R')?.area)?.sectors.find((r) => r.tier === 'R')?.area?.n0 ?? '?'} → ${trend.join(' → ')}` : '—'} | ${mean(share).toFixed(1)}%（${range(share, (v) => v.toFixed(1))}%） | ${uMin < mean(rSec) ? '○' : '×'}（U ${fmtMin(uMin)} ${uMin < mean(rSec) ? '<' : '≧'} R ${fmtMin(mean(rSec))}） | ${stuck} |`,
     );
   }
   out.push('');
@@ -2853,6 +2929,16 @@ export function withoutTaxSaving<T>(f: () => T): T {
     Object.assign(SIM_TAX, saved);
   }
 }
+/** v21（調整 1）：士気と給与の手（SIM_HR）を止めて回す（休ませる・昇給・賞与をしない。辞めたいの面談だけ。比べるためだけ。終わったら戻す） */
+export function withoutHrHands<T>(f: () => T): T {
+  const saved = Object.fromEntries(Object.entries(SIM_HR).map(([k, v]) => [k, { ...v }])) as typeof SIM_HR;
+  for (const k of Object.keys(SIM_HR) as PolicyId[]) SIM_HR[k] = { rest: 0, raiseBelow: 0, bonus: false };
+  try {
+    return f();
+  } finally {
+    for (const k of Object.keys(SIM_HR) as PolicyId[]) SIM_HR[k] = saved[k];
+  }
+}
 /** v20（段 F）：経理と総務を止めて回す（税 0・単価の倍率 1・疲れが効かない。段 F の前と同じ。比べるためだけ。終わったら戻す） */
 export function withoutAcct<T>(f: () => T): T {
   ACCT_OFF.on = true;
@@ -2889,7 +2975,9 @@ export function runAll(seeds = SEEDS, opts: { ablation?: boolean } = {}): Report
   // v20：節税しない通常（決算の前の前倒しをしない）・段 F を止めた 3 方針（税 0・単価 ×1・疲れなし。段 F の前と同じ）
   const noSave = opts.ablation ? seeds.map((seed) => withoutTaxSaving(() => runOnce('normal', seed))) : undefined;
   const noAcct = opts.ablation ? (['rta', 'normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutAcct(() => runOnce(p, seed)))) : undefined;
-  return { runs, ablation, noTech, noGrowth, noDeleg, noSave, noAcct, ms: performance.now() - t0 };
+  // v21（調整 1）：士気と給与の手を止めた 100%（士気の高い帯の効き目が、給与の増えより大きいか）
+  const noHrHands = opts.ablation ? seeds.map((seed) => withoutHrHands(() => runOnce('full', seed))) : undefined;
+  return { runs, ablation, noTech, noGrowth, noDeleg, noSave, noAcct, noHrHands, ms: performance.now() - t0 };
 }
 
 /** docs/ISLAND_BALANCE.md の「自動で書く」部分を差し替える（前後の手書きの文はそのまま） */

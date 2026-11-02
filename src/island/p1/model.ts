@@ -293,7 +293,8 @@ export interface Report {
    * 商圏の取り合い（Rare の町 ②）：締めの時点の自社の取り分（町のお客さんのうち。0〜1）・先月の取り分・撤退した他社の店（会社の id と店の uid）・
    * 空き店舗に入った他社の店・町から撤退した会社
    */
-  trade?: { share: number; prev: number | null; quit: { rid: string; uid: number }[]; refill: { rid: string; uid: number }[]; gone: string[] };
+  /** back：町から撤退していて、空き店舗に戻ってきた会社（調整 1。以前の報告には無い） */
+  trade?: { share: number; prev: number | null; quit: { rid: string; uid: number }[]; refill: { rid: string; uid: number }[]; gone: string[]; back?: string[] };
   /** この月の締めで他社の巻き返し（セール）が始まった（Uncommon。その月の 2 位の会社の名前と id・月数） */
   comeback?: { by: string; rid: string; months: number; bonus: number };
   /** この月に制覇してもらったエンブレム */
@@ -2638,36 +2639,89 @@ export function storeRisk(x: AreaStore): { ratio: number; risk: number; below: b
 }
 /** 自社のいまの取り分の合計 */
 export const myShare = (s: P1State) => Object.values(s.area?.mine ?? {}).reduce((a, x) => a + x, 0);
+/** 空き店舗に他社が入るか（撤退の refill か月後から毎月 refillChance・refillMax か月で必ず）。シードと日と店で決まる（同じセーブなら同じ） */
+export function refillDue(s: P1State, v: AreaVacant): boolean {
+  if (v.months < RARE_AREA.refill) return false;
+  if (v.months >= RARE_AREA.refillMax) return true;
+  return rng((s.seed >>> 0) + s.day * 13 + v.uid * 7919)() < RARE_AREA.refillChance;
+}
+/**
+ * 空き店舗に入る他社：営業している他社のうち前の会社でない、いちばん大きい会社。いなければ、町から撤退した会社が戻ってくる
+ * （前の会社でない、いちばん大きい会社 → 前の会社）。営業している他社が前の会社だけなら、その会社
+ */
+function refillBy(s: P1State, was: string): { r: RivalState; back: boolean } | null {
+  const big = (xs: RivalState[]) => [...xs].sort((x, y) => y.base - x.base)[0];
+  const live = s.rivals.filter((r) => !r.gone);
+  const gone = s.rivals.filter((r) => r.gone);
+  const r1 = big(live.filter((r) => r.id !== was));
+  if (r1) return { r: r1, back: false };
+  const r2 = big(gone.filter((r) => r.id !== was)) ?? big(gone);
+  if (r2) return { r: r2, back: true };
+  const r3 = big(live);
+  return r3 ? { r: r3, back: false } : null;
+}
+/**
+ * 商圏の取り合いは Rare の町だけ。Rare の町から Common・Uncommon の町へ戻ったとき（とそのセーブ）に残った商圏は外し、
+ * その町で「撤退した」ことになった他社は戻す（前の版の不具合：前の Rare の町の商圏で、その町の他社が全部撤退していた）
+ */
+export function dropStaleArea(s: P1State) {
+  if (s.tier === 'R') return;
+  delete s.area;
+  for (const r of s.rivals) if (r.gone) rivalBack(s, r);
+}
+/** 町から撤退した会社が戻ってくる（扱う商品は町を作ったときのもの） */
+function rivalBack(s: P1State, r: RivalState) {
+  const T = TIERS[s.tier ?? 'C'];
+  r.gone = false;
+  r.sells = Object.fromEntries(Object.entries(rivalDef(r.id)?.sells ?? {}).map(([k, v]) => [k, (v ?? 0) * T.rival]));
+  delete r.follow;
+  delete r.pull0;
+}
 /**
  * 月の締め（Rare）：取り分が開店のときの quitAt 倍を下回った月を数え、quitMonths か月続いた店は撤退（空き店舗）。
- * 店が全部撤退した会社は町から撤退。空き店舗は refill か月で、別の他社が新しい店を出す
+ * 店が全部撤退した会社は町から撤退。空き店舗は撤退の refill か月後から毎月の確率で（refillMax か月で必ず）、別の他社が新しい店を出す。
+ * 営業している他社がいなければ、町から撤退した会社が戻ってくる（調整 1：他社が 0 社のままにならない）
  */
 export function areaMonth(s: P1State): NonNullable<Report['trade']> {
   const a = s.area!;
   areaTick(s);
   const prev = s.reports.length ? (s.reports[s.reports.length - 1].trade?.share ?? null) : null;
-  const out: NonNullable<Report['trade']> = { share: myShare(s), prev, quit: [], refill: [], gone: [] };
+  const out: NonNullable<Report['trade']> = { share: myShare(s), prev, quit: [], refill: [], gone: [], back: [] };
   // 空き店舗の月を進める（今月できた空き店舗は 0 から）・別の他社が入る
+  const before = areaShares(s).stores;
+  const added: AreaStore[] = [];
   for (const v of [...a.vacant]) {
     v.months++;
-    if (v.months < RARE_AREA.refill) continue;
     const b = s.buildings.find((x) => x.uid === v.uid);
     if (!b || !isVacant(b)) {
       a.vacant = a.vacant.filter((x) => x !== v);
       continue;
     }
-    const live = s.rivals.filter((r) => !r.gone);
-    // 別の他社（前の会社でない、いちばん大きい会社）。ほかにいなければ前の会社
-    const big = (xs: RivalState[]) => [...xs].sort((x, y) => y.base - x.base)[0];
-    const by = big(live.filter((r) => r.id !== v.was)) ?? big(live);
-    if (!by) continue;
+    if (!refillDue(s, v)) continue;
+    const pick = refillBy(s, v.was);
+    if (!pick) continue;
+    const by = pick.r;
+    if (pick.back) {
+      rivalBack(s, by);
+      out.back!.push(by.id);
+    }
     b.owner = by.id;
     a.vacant = a.vacant.filter((x) => x !== v);
     const rec: AreaStore = { uid: b.uid, rid: by.id, share0: 1, share: 0, weak: 0, main: false };
     a.stores.push(rec);
-    rec.share = areaShares(s).stores[b.uid] ?? 0;
-    rec.share0 = Math.max(1e-4, rec.share);
+    added.push(rec);
     out.refill.push({ rid: by.id, uid: b.uid });
+  }
+  // 新しい店の開店のときの取り分は、今月の出店がそろったあとの取り分。前からある他社の店は、他社どうしの出店で減ったぶんを撤退の数えに入れない
+  // （他社が戻ってきた町で、他社の店どうしの食い合いで撤退が続かないように）
+  if (added.length) {
+    const now = areaShares(s).stores;
+    for (const x of a.stores) {
+      if (added.includes(x)) {
+        x.share = now[x.uid] ?? 0;
+        x.share0 = Math.max(1e-4, x.share);
+      } else if ((before[x.uid] ?? 0) > 0) x.share0 *= Math.min(1, (now[x.uid] ?? 0) / before[x.uid]);
+    }
   }
   // 撤退：取り分が quitAt を下回った月の続き
   for (const x of [...a.stores]) {
@@ -4094,6 +4148,7 @@ export function deserializeP1(json: string): P1State | null {
     s.comeback ??= null;
     migrateEquipSkills(s);
     if (s.tier === 'R' && !s.area) initArea(s);
+    dropStaleArea(s);
     return s;
   } catch {
     return null;
