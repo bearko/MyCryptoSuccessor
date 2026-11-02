@@ -14,8 +14,11 @@ import { siteCandidates } from '../../src/island/p1/trade';
 import { HR_OFF, baseWage, charismaOf, moraleOf, payroll, talk, toMarket } from '../../src/island/p1/hr';
 import { ACCT_OFF, quarterNow, taxPlan, taxOn } from '../../src/island/p1/acct';
 import { fatigueAvg, fatigueMul, fatigueOf, gaOn } from '../../src/island/p1/ga';
+import { CS_OFF, apologize, bestReply, putLock, putOut, reply } from '../../src/island/p1/cs';
+import { forecast, gradeOf, prLock, publish } from '../../src/island/p1/mkt';
 import { bonus as giveBonus, bonusCost, raise, raiseStep, setRest, wageMul } from '../../src/island/p1/model';
-import { CHARISMA, FATIGUE, MORALE, PAY, TAX, deptOf } from '../../src/island/p1/data';
+import { CHARISMA, CS, CSM_RP, FATIGUE, FLAME, GRADE, GRADE_NAME, MORALE, PAY, TAX, deptOf } from '../../src/island/p1/data';
+// v22（段 G）：販売の枝に足したカスタマーサポート・マーケの研究パネル（CSM_RP）は、通常の「詰まりの段の枝の研究パネル」には数えない（売り場の段に効かない）
 import { approve, candidatesFor, delegatedDuties, headDepts, headLeft, headOf, leaderLeft, leaderOf, quality, runnerOf, setHead, setLeader } from '../../src/island/p1/deleg';
 import { DELEG, DEPTS, type DeptId, type DutyId } from '../../src/island/p1/data';
 import {
@@ -318,6 +321,12 @@ export interface RunResult {
   v20: { paid: number; saved: number; quarters: number; preInv: number; preG: number; fatigue: number[]; morale: number[]; slow: number[] };
   /** v21（調整 1）：Uncommon 以上の町の月の締めの売上・給与の合計と月の数・士気の平均（月ごと）・士気 70 以上の人の割合（月ごと） */
   v21: { rev: number; wages: number; months: number; morale: number[]; high: number[] };
+  /**
+   * v22（段 G：カスタマーサポートとマーケ）：届いた問い合わせ・返事（手とリーダー）・サポートセンターが受けた数・期限切れ・合う返事・
+   * Uncommon 以上の町の月の締めの満足度（月ごと）・炎上のおそれ・炎上の回数・炎上中の月・広報の発表の回数と上がったブランド力・火消し・お詫びの告知・
+   * 市場調査を見て打った宣伝・ランクの終わり（そのランクの最後の月の締め）のブランド力と企業の格
+   */
+  v22: { got: number; answered: number; auto: number; expired: number; good: number; sat: number[]; warns: number; flames: number; flameMonths: number; pr: number; prBrand: number; put: number; notice: number; ads: number; brandEnd: Partial<Record<Tier, number>>; gradeEnd: Partial<Record<Tier, number>> };
 }
 
 /**
@@ -588,7 +597,7 @@ const ok = (r: unknown) => r === null || r === true || (typeof r === 'object' &&
  */
 export const SIM_DELEG: Record<PolicyId, { on: boolean; lead: Partial<Record<DeptId, DutyId>> }> = {
   rta: { on: false, lead: {} },
-  normal: { on: true, lead: { logistics: 'shelf', hr: 'rest', rnd: 'dig', marketing: 'ads', sales: 'vacant' } },
+  normal: { on: true, lead: { logistics: 'shelf', hr: 'rest', rnd: 'dig', marketing: 'ads', sales: 'vacant', support: 'reply' } },
   full: { on: false, lead: {} },
 };
 /** v18：任せないで回す（比べるためだけ。終わったら戻す） */
@@ -605,7 +614,8 @@ export function withoutDeleg<T>(f: () => T): T {
 function delegPlace(s: P1State, c: Ctx, acts: Action[], budget: number, reserve: number, hired: boolean, setHired: () => void) {
   if (!s.reports.length) return;
   const idle = (d: DeptId) => candidatesFor(s, d).filter((x) => x.st.task == null && !x.st.resting)[0]?.st.hero ?? null;
-  const fromPool = (d: DeptId) => (has(s, 'hire') && !hired && budget > 3000 + reserve ? ([...s.hirePool].sort((a, b) => quality({ stats: heroStatsOf(b) }, d) - quality({ stats: heroStatsOf(a) }, d))[0] ?? null) : null);
+  // v22：カスタマーサポートのリーダーは待機中の人から（問い合わせは月に数件。そのために雇わない）
+  const fromPool = (d: DeptId) => (has(s, 'hire') && !hired && budget > 3000 + reserve && d !== 'support' ? ([...s.hirePool].sort((a, b) => quality({ stats: heroStatsOf(b) }, d) - quality({ stats: heroStatsOf(a) }, d))[0] ?? null) : null);
   for (const def of DEPTS) {
     const d = def.id;
     if (headLeft(s, d) === 0 && !headOf(s, d)) {
@@ -1156,7 +1166,7 @@ export function policy(s: P1State, c: Ctx): Action[] {
       }
       // v8：RP が残っていれば、詰まりの段の枝の研究パネルを説明の順（BRANCH_ORDER）→ 同じ枝の安い順に（見込みの手と合わせて RP_MOVES まで）
       if (c.policy === 'normal') {
-        const ids = [...BRANCH_ORDER[bn].filter((id) => !invOf(id)), ...SKILLS.filter((k) => k.branch === STAGE_BRANCH[bn] && isResearch(k) && !k.big).sort((a, b) => rpCost(a) - rpCost(b)).map((k) => k.id)];
+        const ids = [...BRANCH_ORDER[bn].filter((id) => !invOf(id)), ...SKILLS.filter((k) => k.branch === STAGE_BRANCH[bn] && isResearch(k) && !k.big && CSM_RP[k.id] == null).sort((a, b) => rpCost(a) - rpCost(b)).map((k) => k.id)];
         for (const id of ids) {
           if (c.rpMoves >= RP_MOVES) break;
           if (SKILL[id] && isResearch(SKILL[id]) && can(id) && take(id, 0)) c.rpMoves++;
@@ -1271,7 +1281,79 @@ export function policy(s: P1State, c: Ctx): Action[] {
   }
   // v19（段 E2）：士気と給与の手（SIM_HR）
   if (!HR_OFF.on) hrPlace(s, c, acts, budget, reserve);
+  // v22（段 G）：カスタマーサポートとマーケの手（SIM_CS）
+  if (!CS_OFF.on) csPlace(s, c, acts, budget, reserve, take, can, dg);
   return acts;
+}
+
+/**
+ * v22（段 G：カスタマーサポートとマーケ）の方針（月末に。問い合わせは月の締めに届く）：
+ * - 最短：問い合わせは放っておく（期限で消える）・炎上のおそれにも手を打たない。
+ * - 通常：問い合わせに合う返事（できなければ謝る）・炎上のおそれにお詫びの告知・カスタマーサポートのパネル（サポートセンター Lv3。お金だけ・理解度 3）を取って
+ *   チームリーダー（問い合わせの返事）に任せる（SIM_DELEG）。
+ * - 100%：通常の返事とお詫びに加えて、良いニュースを出せるたびに広報・炎上したら火消し・市場の見通しの「打ち時」（他社のセール・反撃・認知の低い商品）に、いちばん効く宣伝。
+ *   パネルはほかのパネルと同じく安い順に取る
+ */
+export const SIM_CS: Record<PolicyId, { reply: boolean; warn: boolean; panels: string[]; pr: boolean; put: boolean; ads: boolean }> = {
+  rta: { reply: false, warn: false, panels: [], pr: false, put: false, ads: false },
+  normal: { reply: true, warn: true, panels: ['cs_center', 'lv:cs_center', 'lv:cs_center'], pr: false, put: false, ads: false },
+  full: { reply: true, warn: true, panels: [], pr: true, put: true, ads: true },
+};
+/** v22：月末に数える（自動プレイの記録） */
+const csLog = { pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0 };
+function csPlace(s: P1State, c: Ctx, acts: Action[], budget: number, reserve: number, take: (id: string, keep?: number) => boolean, can: (id: string) => boolean, dg: (d: DutyId) => boolean) {
+  if (!c.monthEnd) return;
+  const C = SIM_CS[c.policy];
+  const town = (s.tier ?? 'C') !== 'C';
+  if (town && C.reply && !dg('reply'))
+    for (const q of [...(s.cs?.inbox ?? [])]) {
+      const k = bestReply(s, q);
+      acts.push({ kind: 'reply', run: () => reply(s, q.id, k === 'refund' && s.money < reserve ? 'sorry' : k) });
+    }
+  if (town && C.warn && s.cs?.warn && !s.cs.warn.done)
+    acts.push({
+      kind: 'notice',
+      run: () => {
+        const e = apologize(s);
+        if (!e) csLog.notice++;
+        return e;
+      },
+    });
+  if (town && !c.ban.size) for (const id of C.panels) if (can(id) && take(id, reserve * 2)) break;
+  if (C.put && putLock(s) === null && budget > reserve * 2)
+    acts.push({
+      kind: 'pr',
+      run: () => {
+        const e = putOut(s);
+        if (!e) csLog.put++;
+        return e;
+      },
+    });
+  if (C.pr && prLock(s) === null && budget > reserve * 2)
+    acts.push({
+      kind: 'pr',
+      run: () => {
+        const g = publish(s);
+        if (typeof g !== 'number') return g;
+        csLog.pr++;
+        csLog.prBrand += g;
+        return null;
+      },
+    });
+  if (C.ads && town && myShops(s).length) {
+    const f = forecast(s);
+    const hot = f.hints.some((x) => x.kind === 'sale' || x.kind === 'rally' || x.kind === 'known');
+    const ad = f.bestAd ? ADS.find((x) => x.id === f.bestAd!.id) : null;
+    if (hot && ad && f.bestAd!.gain > 0 && (s.ads[ad.id] ?? 0) <= 0 && budget > ad.cost + reserve * 2)
+      acts.push({
+        kind: 'ad',
+        run: () => {
+          const e = runAd(s, ad.id);
+          if (!e) csLog.ads++;
+          return e;
+        },
+      });
+  }
 }
 
 /**
@@ -1286,6 +1368,8 @@ export const V18_TOTAL: Record<PolicyId, number> = { rta: (1835 + 1631 + 1557) /
 /** v19（段 F の前の main）の合計の実時間（秒。同じ 3 シード：最短 1,835・1,631・1,557／通常 7,815・7,013・7,211／100% 20,793・21,120・21,940） */
 /** v20（調整 1 の前の main）の合計の実時間（秒。同じ 3 シードの平均。docs/ISLAND_BALANCE.md の v20 の節） */
 export const V20_TOTAL: Record<PolicyId, number> = { rta: 1646, normal: 7014, full: 21556 };
+/** v21（段 G の前の main・調整 1 のあと）の合計の実時間（秒。同じ 3 シード：最短 1,627・1,635・1,676／通常 6,831・7,015・7,197／100% 21,703・21,714・22,472） */
+export const V21_TOTAL: Record<PolicyId, number> = { rta: (1627 + 1635 + 1676) / 3, normal: (6831 + 7015 + 7197) / 3, full: (21703 + 21714 + 22472) / 3 };
 export const V19_TOTAL: Record<PolicyId, number> = { rta: (1835 + 1631 + 1557) / 3, normal: (7815 + 7013 + 7211) / 3, full: (20793 + 21120 + 21940) / 3 };
 export const SIM_HR: Record<PolicyId, { rest: number; raiseBelow: number; bonus: boolean }> = {
   rta: { rest: 0, raiseBelow: 0, bonus: false },
@@ -1708,8 +1792,9 @@ export interface RunOpts {
 
 export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   const s = newP1(seed);
+  Object.assign(csLog, { pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0 });
   const c: Ctx = { policy: p, route: routeOf(p), at: 0, lineup: [], lineupDirty: true, shopsThisMonth: 0, monthEnd: null, lastBn: null, ban: new Set(o.ban ?? []), onlyFirst: !!o.onlyFirst, dayInMonth: 0, handCarry: 0, rpMoves: 0, runLeft: 0, runsMonth: 0, divesMonth: 0, preInv: 0, preG: 0 };
-  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 }, v20: { paid: 0, saved: 0, quarters: 0, preInv: 0, preG: 0, fatigue: [], morale: [], slow: [] }, v21: { rev: 0, wages: 0, months: 0, morale: [], high: [] } };
+  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 }, v20: { paid: 0, saved: 0, quarters: 0, preInv: 0, preG: 0, fatigue: [], morale: [], slow: [] }, v21: { rev: 0, wages: 0, months: 0, morale: [], high: [] }, v22: { got: 0, answered: 0, auto: 0, expired: 0, good: 0, sat: [], warns: 0, flames: 0, flameMonths: 0, pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0, brandEnd: {}, gradeEnd: {} } };
   /** v19：雇ったことのあるヒーロー（はじめの 3 人も入れる。新しく来た人を数える） */
   const heroSeen = new Set(s.staff.map((x) => x.hero));
   /** v14：任せた町の担当（能力値の伸びを数える） */
@@ -2040,6 +2125,24 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
         const r = x.baseRarity ?? 'C';
         res.v19.hired[r] = (res.v19.hired[r] ?? 0) + 1;
       }
+    // v22（段 G）：カスタマーサポートとマーケの記録
+    if (d.report) {
+      const cr = d.report.cs;
+      if (cr) {
+        res.v22.got += cr.got;
+        res.v22.answered += cr.answered;
+        res.v22.auto += cr.auto;
+        res.v22.expired += cr.expired;
+        res.v22.good += cr.good;
+        res.v22.sat.push(cr.sat);
+        if (cr.warn) res.v22.warns++;
+        if (cr.ignited) res.v22.flames++;
+        if (cr.heat) res.v22.flameMonths++;
+      }
+      const tr = s.tier ?? 'C';
+      res.v22.brandEnd[tr] = s.brand ?? 0;
+      res.v22.gradeEnd[tr] = gradeOf(s);
+    }
     // v21（調整 1）：Uncommon 以上の町の売上と給与（士気の高い帯の効き目が、給与の増えより大きいか）
     if (d.report && (s.tier ?? 'C') !== 'C') {
       res.v21.rev += d.report.revenue;
@@ -2262,6 +2365,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
     cur.dig.left = digLeft(s);
   }
   res.days = s.day;
+  Object.assign(res.v22, { ...csLog });
   res.v20.paid = s.acct?.paid ?? 0;
   res.v20.preInv = c.preInv;
   res.v20.preG = c.preG;
@@ -2362,6 +2466,8 @@ export interface Report2 {
   noAcct?: RunResult[];
   /** v21（調整 1）：士気と給与の手を止めた 100%（3 シード） */
   noHrHands?: RunResult[];
+  /** v22（段 G）：カスタマーサポートとマーケを止めた 3 方針（withoutCs。段 G の前と同じ） */
+  noCs?: RunResult[];
   ms: number;
 }
 
@@ -2561,6 +2667,37 @@ export function tables(rep: Report2): string {
     );
   }
   out.push('');
+  // v22（段 G）：カスタマーサポートとマーケ
+  {
+    out.push('### 表 16：カスタマーサポートとマーケ（v22。段 G）');
+    out.push('');
+    out.push(
+      `3 シードの平均（最小〜最大）。問い合わせは Uncommon 以上の町だけ、先月の主力商品の品切れの日 ${CS.outPer} 日ごとに 1 件（${CS.outMax} 件まで）・閉まっていた日 ${CS.closedPer} 日ごとに 1 件（${CS.closedMax} 件まで）・値段が相場より ${Math.round(CS.priceAt * 100)}% 以上高いと 1 件。合う返事 +${CS.good}・合わない返事 +${CS.ok}・期限切れ ${CS.ignore}（期限 ${CS.expire} 日）。満足度（はじめ ${CS.start}）は来店に 100 で +${Math.round(CS.up * 100)}%・0 で −${Math.round(CS.down * 100)}%。炎上は品切れ ${FLAME.outDays} 日以上・期限切れ ${FLAME.ignored} 件以上の月が手を打たずに 2 か月続くと起き、来店 −${Math.round(FLAME.hit * 100)}%（${FLAME.months} か月で戻る）・ブランド力 −${FLAME.brand}。企業の格のしきい値（ブランド力）は ${GRADE.at.join('・')}。方針（\`SIM_CS\`）：最短＝放っておく／通常＝合う返事・お詫びの告知・サポートセンター Lv3 でリーダー（問い合わせの返事）に任せる／100%＝それに加えて広報・火消し・市場の見通しの打ち時に宣伝。「v21 の合計」は段 G の前の main の同じ 3 シードの平均（\`V21_TOTAL\`）、「段 G なし」は同じ方針・シードを \`withoutCs\` で回した合計。満足度は Uncommon 以上の町の月の締めの平均。格は、そのランクの最後の月の締めのブランド力と格。`,
+    );
+    out.push('');
+    out.push('| 方針 | 合計 | v21 の合計 | 差 | 段 G なし | 問い合わせ | 返事（手・リーダー） | センターが受けた | 期限切れ | 合う返事 | 満足度の平均 | 炎上のおそれ | 炎上 | 炎上中の月 | 広報（回・★） | 市場調査の宣伝 | 終わりの格 C | U | R | 詰まって止まるシード（本番／段 G なし） |');
+    out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      const tot = mean(runs.map(totalSec));
+      const base = V21_TOTAL[p];
+      const off = (rep.noCs ?? []).filter((r) => r.policy === p);
+      const d = (a: number, b: number) => `${a >= b ? '+' : '−'}${Math.round(Math.abs(a - b) / 60)} 分（${a >= b ? '+' : '−'}${((Math.abs(a - b) / b) * 100).toFixed(1)}%）`;
+      const v = (f: (x: RunResult['v22']) => number) => runs.map((r) => f(r.v22));
+      const mr = (f: (x: RunResult['v22']) => number) => `${mean(v(f)).toFixed(1)}（${range(v(f), (x) => x.toFixed(0))}）`;
+      const sat = runs.map((r) => (r.v22.sat.length ? mean(r.v22.sat) : NaN)).filter((x) => !Number.isNaN(x));
+      const grade = (tier: Tier) => {
+        const xs = runs.map((r) => r.v22.gradeEnd[tier]).filter((x): x is number => x != null);
+        const bs = runs.map((r) => r.v22.brandEnd[tier]).filter((x): x is number => x != null);
+        return xs.length ? `${GRADE_NAME()[Math.round(mean(xs))]}（★ ${Math.round(mean(bs))}）` : '—';
+      };
+      out.push(
+        `| ${POLICY_NAME[p]} | ${fmtH(tot)} | ${fmtH(base)} | ${d(tot, base)} | ${off.length ? `${fmtH(mean(off.map(totalSec)))}（${d(tot, mean(off.map(totalSec)))}）` : '—'} | ${mr((x) => x.got)} | ${mr((x) => x.answered)} | ${mr((x) => x.auto)} | ${mr((x) => x.expired)} | ${mr((x) => x.good)} | ${sat.length ? mean(sat).toFixed(0) : '—'} | ${mr((x) => x.warns)} | ${mr((x) => x.flames)} | ${mr((x) => x.flameMonths)} | ${mean(v((x) => x.pr)).toFixed(1)}・★ ${mean(v((x) => x.prBrand)).toFixed(0)} | ${mean(v((x) => x.ads)).toFixed(1)} | ${grade('C')} | ${grade('U')} | ${grade('R')} | ${runs.filter((r) => !r.done).length}／${off.length ? off.filter((r) => !r.done).length : '—'} |`,
+      );
+    }
+    out.push('');
+  }
   // v21（調整 1）：士気の高い帯の効き目と、士気と給与の手を止めた 100%
   {
     out.push('### 表 15：士気の高い帯と売上の伸び（v21。調整 1）');
@@ -2977,7 +3114,9 @@ export function runAll(seeds = SEEDS, opts: { ablation?: boolean } = {}): Report
   const noAcct = opts.ablation ? (['rta', 'normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutAcct(() => runOnce(p, seed)))) : undefined;
   // v21（調整 1）：士気と給与の手を止めた 100%（士気の高い帯の効き目が、給与の増えより大きいか）
   const noHrHands = opts.ablation ? seeds.map((seed) => withoutHrHands(() => runOnce('full', seed))) : undefined;
-  return { runs, ablation, noTech, noGrowth, noDeleg, noSave, noAcct, noHrHands, ms: performance.now() - t0 };
+  // v22（段 G）：カスタマーサポートとマーケを止めた 3 方針（段 G の前と同じ）
+  const noCs = opts.ablation ? (['rta', 'normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutCs(() => runOnce(p, seed)))) : undefined;
+  return { runs, ablation, noTech, noGrowth, noDeleg, noSave, noAcct, noHrHands, noCs, ms: performance.now() - t0 };
 }
 
 /** docs/ISLAND_BALANCE.md の「自動で書く」部分を差し替える（前後の手書きの文はそのまま） */
@@ -2990,4 +3129,13 @@ export function writeDoc(path: string, rep: Report2, existing: string | null) {
   else doc = `# アイランドのバランス（自動プレイの計測）\n\n${body}\n`;
   writeFileSync(path, doc);
   return doc;
+}
+/** v22（段 G）：カスタマーサポートとマーケを止めて回す（問い合わせ・満足度の効き目・炎上・広報・企業の格の効き目なし。段 G の前と同じ。比べるためだけ。終わったら戻す） */
+export function withoutCs<T>(f: () => T): T {
+  CS_OFF.on = true;
+  try {
+    return f();
+  } finally {
+    CS_OFF.on = false;
+  }
 }

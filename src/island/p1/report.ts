@@ -12,6 +12,7 @@ import { hrReportText } from './hrui';
 import { delegReportText } from './delegui';
 import { clearCondText, digMet, digReportLine, digReportText, presentNeedText, presentReady, rebuildText, reviveReportText, type DigSummary } from './digmeet';
 import { t } from '../../i18n';
+import { csReportText } from './csui';
 import { assetUrl } from '../../render/images';
 import { PRODUCT, TOP_STREAK, sku } from './data';
 import { jamOf, myShops, whatIf, type P1State, type Report, type Stage } from './model';
@@ -69,6 +70,8 @@ export interface ReportHooks {
   openProps?: () => void;
   /** 給与・労務（「士気と給与」の導線。段 E2） */
   openPay?: () => void;
+  /** カスタマーサポート（「お客さんの声」の導線。段 G） */
+  openCs?: () => void;
   /** 効果音 */
   sfx?: (k: 'sale' | 'win' | 'levelup' | 'check' | 'report' | 'drum' | 'error') => void;
 }
@@ -666,6 +669,22 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
         if (!notable) line.classList.add('is-quiet');
         c4.append(line);
         if (notable) body.classList.add('has-hr');
+      }
+      // お客さんの声（カスタマーサポートと炎上。段 G。Uncommon 以上の町）：問い合わせ・返事・期限切れ・満足度・炎上（1 行にまとめる）
+      const ct = csReportText(r);
+      if (ct) {
+        const line = h('div', 'isl-rp-dig isl-rp-cs');
+        const txt = h('span', 'isl-rp-dig-text');
+        txt.append(h('b', '', t('🎧 お客さんの声', '🎧 Customer voice')), h('span', 'is-long', ct[0]), h('span', 'is-short', ct[1]));
+        line.append(txt);
+        if (hooks.openCs) line.append(btn(t('問い合わせ', 'Inquiries'), () => hooks.openCs?.(), 'isl-rp-go'));
+        const hot = !!r.cs && (!!r.cs.warn || !!r.cs.ignited || !!r.cs.heat || r.cs.expired > 0);
+        if (hot) line.classList.add('is-warn');
+        // スマホ：炎上のおそれ・炎上・期限切れのあった月だけ出す（報告を 1 画面に収める。問い合わせが届いたことはトーストで知らせる）
+        const notable = hot;
+        if (!notable) line.classList.add('is-quiet');
+        c4.append(line);
+        if (notable) body.classList.add('has-cs');
       }
       cards.push(c4);
 

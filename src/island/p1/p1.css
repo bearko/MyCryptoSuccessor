@@ -11309,3 +11309,326 @@ button.isl-dband-lead.is-on {
     max-height: 36px;
   }
 }
+
+/* ================================================================ カスタマーサポートとマーケ（段 G） */
+/* 上の帯：炎上のおそれ・炎上中の札（ブランド力のとなり。予告か炎上のときだけ） */
+.isl-stat-flame.is-warn {
+  border-color: rgba(242, 181, 68, 0.8);
+  background: rgba(242, 181, 68, 0.16);
+}
+.isl-stat-flame.is-warn b {
+  color: var(--isl-gold);
+}
+.isl-stat-flame.is-fire {
+  border-color: rgba(255, 106, 74, 0.85);
+  background: rgba(255, 106, 74, 0.18);
+  animation: isl-flame-glow 1.6s ease-in-out infinite;
+}
+.isl-stat-flame.is-fire b {
+  color: #ff8a6a;
+}
+@keyframes isl-flame-glow {
+  50% {
+    box-shadow: 0 0 14px rgba(255, 106, 74, 0.7);
+  }
+}
+@media (max-width: 599px) {
+  .isl-stat-flame small {
+    display: none;
+  }
+}
+.isl-flame {
+  display: grid;
+  gap: 6px;
+}
+.isl-flame h3,
+.isl-mk-hints h3,
+.isl-mk-fore h3,
+.isl-mk-pr h3,
+.isl-cs-inbox h3 {
+  margin: 0;
+}
+.isl-flame.is-warn {
+  border: 2px solid var(--isl-gold);
+  background: rgba(242, 181, 68, 0.08);
+}
+.isl-flame.is-fire {
+  border: 2px solid #ff6a4a;
+  background: rgba(255, 106, 74, 0.1);
+}
+.isl-flame.is-done {
+  border: 1px solid rgba(126, 224, 143, 0.6);
+}
+.isl-flame-heat {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+.isl-cs-sat,
+.isl-cs-head {
+  display: grid;
+  gap: 6px;
+}
+.isl-cs-sat .isl-row,
+.isl-cs-head .isl-row {
+  align-items: baseline;
+  gap: 10px;
+}
+.isl-big.is-good {
+  color: var(--isl-good);
+}
+.isl-big.is-bad {
+  color: var(--isl-bad);
+}
+.isl-cs-inbox {
+  display: grid;
+  gap: 8px;
+}
+.isl-cs-q {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(127, 200, 255, 0.06);
+}
+.isl-cs-qhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.isl-cs-qhead b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.isl-cs-text {
+  margin: 0;
+  font-size: 13px;
+}
+.isl-cs-replies {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.isl-btn.isl-cs-reply {
+  display: grid;
+  gap: 1px;
+  justify-items: center;
+  padding: 6px 4px;
+  line-height: 1.2;
+}
+.isl-btn.isl-cs-reply small {
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.isl-btn.isl-cs-reply.is-fit {
+  border: 2px solid var(--isl-gold);
+}
+.isl-cs-hist {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 64px;
+  padding-top: 4px;
+}
+.isl-cs-col {
+  flex: 1;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  height: 100%;
+  min-width: 0;
+  text-align: center;
+}
+.isl-cs-col i {
+  align-self: end;
+  display: block;
+  border-radius: 3px 3px 0 0;
+  background: var(--isl-gold);
+}
+.isl-cs-col i.is-good {
+  background: var(--isl-good);
+}
+.isl-cs-col i.is-bad {
+  background: #ff6a4a;
+}
+.isl-cs-col small {
+  font-size: 10px;
+  color: var(--isl-dim);
+}
+.isl-mk-hints {
+  display: grid;
+  gap: 6px;
+}
+.isl-mk-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 6px 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.isl-mk-hint.is-hot2 {
+  border: 1px solid var(--isl-gold);
+  background: rgba(242, 181, 68, 0.08);
+}
+.isl-mk-hint span {
+  flex: 1 1 14em;
+}
+.isl-mk-tbl {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+}
+.isl-mk-row {
+  display: grid;
+  grid-template-columns: minmax(7em, 1.6fr) repeat(var(--h, 4), minmax(3em, 1fr)) minmax(6em, 1.6fr);
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.isl-mk-row.is-head {
+  color: var(--isl-dim);
+  font-size: 11px;
+}
+.isl-mk-row.is-mine {
+  background: rgba(126, 224, 143, 0.08);
+  border-radius: 6px;
+}
+.isl-mk-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.isl-mk-name b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.isl-mk-rv {
+  display: grid;
+  gap: 0;
+}
+.isl-mk-rv small {
+  font-size: 11px;
+}
+@media (max-width: 599px) {
+  .isl-mk-row {
+    grid-template-columns: 6.5em repeat(var(--h, 4), minmax(2.6em, 1fr)) 5.4em;
+    gap: 3px;
+    font-size: 12px;
+  }
+  .isl-mk-rv small {
+    font-size: 10px;
+  }
+}
+.isl-mk-grade {
+  display: grid;
+  gap: 6px;
+}
+.isl-mk-gname {
+  color: #ffd257;
+}
+.isl-mk-steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+.isl-mk-step {
+  display: grid;
+  gap: 1px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  text-align: center;
+  opacity: 0.6;
+}
+.isl-mk-step b {
+  font-size: 11px;
+  line-height: 1.2;
+}
+.isl-mk-step small {
+  font-size: 10px;
+}
+.isl-mk-step.is-on {
+  opacity: 1;
+  border-color: rgba(255, 210, 87, 0.5);
+}
+.isl-mk-step.is-now {
+  border: 2px solid var(--isl-gold);
+  background: rgba(242, 181, 68, 0.12);
+}
+.isl-mk-pr {
+  display: grid;
+  gap: 6px;
+}
+.isl-mk-news {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+@media (max-width: 599px) {
+  .isl-mk-news {
+    grid-template-columns: auto 1fr auto;
+  }
+  .isl-mk-news .isl-btn {
+    grid-column: 1 / -1;
+  }
+}
+.isl-rp-cs.is-warn .isl-rp-dig-text b {
+  color: var(--isl-bad);
+}
+@media (max-width: 599px) {
+  .isl-rp-cs.is-quiet {
+    display: none;
+  }
+  .is-report.has-cs .isl-rp-chart {
+    max-height: 74px;
+  }
+  .is-report.has-cs.has-lv .isl-rp-chart,
+  .is-report.has-cs.has-deleg .isl-rp-chart,
+  .is-report.has-cs.has-hr .isl-rp-chart {
+    max-height: 52px;
+  }
+  .is-report.has-cs.has-deleg.has-lv .isl-rp-chart,
+  .is-report.has-cs.has-hr.has-deleg .isl-rp-chart {
+    max-height: 36px;
+  }
+}
+/* スマホ：炎上の札は上の帯に足さず、ブランド力の札の小さな印に（上の帯を混み合わせない） */
+@media (max-width: 599px) {
+  .isl-stat-flame {
+    display: none !important;
+  }
+  .isl-stat-brand.has-warn b::after {
+    content: ' ⚠';
+    color: var(--isl-gold);
+  }
+  .isl-stat-brand.has-fire {
+    border-color: rgba(255, 106, 74, 0.85);
+    animation: isl-flame-glow 1.6s ease-in-out infinite;
+  }
+  .isl-stat-brand.has-fire b::after {
+    content: ' 🔥';
+  }
+}
+@media (max-width: 599px) {
+  /* 自社の行は背景の色で分かるので、スマホでは「自社」の札を出さない（商品の名前を切らない） */
+  .isl-mk-name .isl-tag {
+    display: none;
+  }
+}

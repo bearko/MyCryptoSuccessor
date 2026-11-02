@@ -6,6 +6,8 @@ import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { BRAND, DIG_SITES, MANAGER, RESET, RIVAL_TUNE, SECTORS, SKILLS, TIERS, aptitude, fundsOf, grantOf, type SectorDef } from './data';
 import { costCard } from './acctui';
+import { gradeName, gradeNext, gradeOf } from './mkt';
+import { flameCard } from './csui';
 import { quarterNow } from './acct';
 import { CAPITAL, TIER_NAME, brandPull, delegateCostOf, emptyLedger, managerRate, pl, quarters, revivePerMonth, RUIN, sectorDef, sectorState, sumLedger, tierLabel, type Balance, type Ledger, type RuinLike, type SectorState } from './company';
 import { crowned, letterLockOf, hasBusiness, lastRank, letterLocked, moveTo, recOf, type MoveErr } from './land';
@@ -670,8 +672,14 @@ export function openBrand(ctx: Ctx) {
   open(ctx, t('ブランド力', 'Brand power'), (body) => {
     const s = ctx.s();
     const v = s.brand ?? 0;
+    // 段 G：炎上のおそれ・炎上中の札（スマホは上の帯のブランド力の札の印から来る）
+    const fc = flameCard(ctx, s);
+    if (fc) body.append(fc);
     const top = h('div', 'isl-card2 isl-brand-top');
     top.append(h('small', 'isl-dim', t('いまのブランド力', 'Brand power')), h('b', 'isl-brand-big', `★ ${v}`), h('small', 'isl-good', t(`売り場の強さ +${Math.round((brandPull(v, lvMul(s, 'd_ops')) - 1) * 100)}%（最大 +${Math.round(BRAND.pullCap * (1 + lvMul(s, 'd_ops')) * 100)}%）`, `Shop pull +${Math.round((brandPull(v, lvMul(s, 'd_ops')) - 1) * 100)}% (max +${Math.round(BRAND.pullCap * (1 + lvMul(s, 'd_ops')) * 100)}%)`)));
+    // 段 G：企業の格（ブランド力から決まる段。くわしくはマーケ → 広報と企業の格）
+    const nx = gradeNext(s);
+    top.append(h('small', 'isl-dim', nx ? t(`企業の格：${gradeName(gradeOf(s))}（次の「${nx.name}」まで あと ${nx.need}）`, `Standing: ${gradeName(gradeOf(s))} (${nx.need} more to “${nx.name}”)`) : t(`企業の格：${gradeName(gradeOf(s))}`, `Standing: ${gradeName(gradeOf(s))}`)));
     body.append(top);
     // ブランド力が要るスキル
     const sk = h('div', 'isl-card2');

@@ -6,7 +6,7 @@ import { t } from '../../i18n';
 import { allSeries, heroById } from '../../game/catalog';
 import { DEF } from '../defs';
 import { cells, type Dir } from '../sim';
-import { book, brandAdd, brandPull, emptyLedger, newBooks, newLand, reviveMonth, reviveScale, ruinCount, runSector, sectorProfile, type BrandEv, type Books, type Land, type LedgerKey, type ReviveMonth, type RuinLike } from './company';
+import { book, brandAdd, brandPull, emptyLedger, newBooks, newLand, reviveMonth, reviveScale, ruinCount, runSector, sectorDef, sectorProfile, type BrandEv, type Books, type Land, type LedgerKey, type ReviveMonth, type RuinLike } from './company';
 import {
   ADS,
   levelCost,
@@ -112,9 +112,11 @@ import {
   type PromoItem,
 } from './data';
 import { addXp, baseStats, initGrowth, levelForXp, passiveMul, passiveSum, promoteStaff, syncGrowth, type LevelUp, type PromoErr } from './hero';
-import { delegDay, delegMonth, headFx, roleXp, sectorApprove, type DelegReport, type DelegState } from './deleg';
+import { delegDay, delegMiss, delegMonth, headFx, roleXp, sectorApprove, type DelegReport, type DelegState } from './deleg';
 import { acctMonth, deduct, panelKind, priceMul, type AcctState, type TaxRec } from './acct';
 import { fatigueMul } from './ga';
+import { csDay, csMonth, visitMul, type CsReport, type CsState } from './cs';
+import { gradeArea, gradeHire, prNews } from './mkt';
 import { canHireRarity, charismaOf, hireCap, initMorale, moraleAdd, moraleAvg, moraleDay, moraleMul, newHrMonth, syncCharisma, wantsToQuit, type HrDay, type HrMonth } from './hr';
 
 export type Ground = 'grass' | 'road';
@@ -328,6 +330,8 @@ export interface Report {
   rebuild?: { id: string; fixed: number; all: number; plus: number; rev: number; fund: number; out: boolean; hero: number | null }[];
   /** 担当の報告（任せ方の 4 段。段 D）：リーダー・部長の業務の出来・届いた提案・先月の提案の結果 */
   deleg?: DelegReport;
+  /** カスタマーサポートと炎上（段 G。Uncommon 以上の町の報告だけ）：問い合わせ・返事・期限切れ・満足度・炎上のおそれ・炎上 */
+  cs?: CsReport;
 }
 
 export interface Flags {
@@ -401,6 +405,8 @@ export interface Flags {
   salesTalk?: boolean;
   /** 経理・総務の紹介（マインちゃん。Uncommon の町に初めて進出したあと 1 回。段 F） */
   acctTalk?: boolean;
+  /** カスタマーサポートの紹介（マインちゃん。Uncommon の町に初めて進出したあと、経理・総務の紹介のあとに 1 回。段 G） */
+  csTalk?: boolean;
 }
 
 export interface P1State {
@@ -408,7 +414,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17;
   kind: 'p1';
   seed: number;
   n: number;
@@ -585,6 +591,11 @@ export interface P1State {
    * 払いきれなかった税・決算の前のお知らせ。会社のもの（災害でも残る）。無ければ税の記録は 0 から
    */
   acct?: AcctState;
+  /**
+   * カスタマーサポートとマーケ（段 G・版 17。cs.ts・mkt.ts）：顧客満足度・問い合わせの受け箱・今月の品切れと閉まっていた日・炎上のおそれと炎上・
+   * 広報の良いニュースと最後に発表した日。会社のもの（災害でも残る）。無ければ満足度は CS.start・受け箱は空から（企業の格はブランド力から数える）
+   */
+  cs?: CsState;
 }
 
 /** ランクアップの災害 1 回の記録（演出・自動プレイの計測） */
@@ -725,7 +736,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 16,
+    v: 17,
     kind: 'p1',
     seed,
     n,
@@ -943,7 +954,8 @@ const uncommonHeroes = () =>
   (uncommons ??= ([...(heroById.values() as Iterable<unknown>)] as { id: number; rarity?: string; stats?: unknown }[]).filter((h) => h.rarity === 'Uncommon' && h.stats).map((h) => h.id));
 
 /** 雇える候補の数：3 人（採用枠の拡大で 4・憧れの職場で 5） */
-export const hireSlots = (s: P1State) => (has(s, 'b_scout') ? 5 : has(s, 'slots') ? 4 : 3);
+/** 雇える候補の数（段 G：企業の格で上乗せ。カリスマ度＝雇えるレアリティとは別の軸） */
+export const hireSlots = (s: P1State) => (has(s, 'b_scout') ? 5 : has(s, 'slots') ? 4 : 3) + gradeHire(s);
 /**
  * 雇える候補（毎月入れ替わる）。人事（段 E2）：カリスマ度で雇えるレアリティまで（憧れの職場のアンコモンは 15・ヘッドハンティングのレアは 35 から）。
  * カリスマ度が Epic・Legendary のしきい値に届くと、いちばん上のレアリティのヒーローが 1 人来る（格の候補）。
@@ -2394,7 +2406,8 @@ export function capture(s: P1State, key: string, offers: Offer[]): number[] {
   const ec = has(s, 'ec');
   const ecFloor = Math.min(1, MARKET_EC.floor * lvMul(s, 'ec'));
   // 客注・取り寄せ：自社のお店に来るお客さん +10%（＋汎用のエリアの需要）
-  const meMul = 1 + 0.1 * lvMul(s, 'order') + fxSum(s, 'demand');
+  // 段 G：顧客満足度（リピーター）と炎上（Uncommon 以上の町だけ。cs.ts の visitMul）
+  const meMul = (1 + 0.1 * lvMul(s, 'order') + fxSum(s, 'demand')) * visitMul(s);
   const w = offers.map(() => 0);
   const groups = [...new Set(offers.map((o) => o.g))];
   for (const k of list) {
@@ -2522,8 +2535,8 @@ export function myStorePull(s: P1State, b: PBuilding): number {
   if (!sh || b.left > 0) return 0;
   let best = 0;
   for (const x of sh.shelves) if (x && !unsellableHere(s, skuParts(x)[0])) best = Math.max(best, pull(s, b, sh, x, 'in'));
-  // 営業部長の補正（段 D）
-  return best * (sh.aw ?? 1) * localMul(s) * (1 + headFx(s, 'sales'));
+  // 営業部長の補正（段 D）・企業の格（段 G。小さく）
+  return best * (sh.aw ?? 1) * localMul(s) * (1 + headFx(s, 'sales')) * gradeArea(s);
 }
 /** 新しく出す店の引きの見込み（いまの自社の店の平均。店が無ければ、よろず屋に店員がいるとき） */
 export function newStorePull(s: P1State): number {
@@ -2574,7 +2587,7 @@ function areaFrac(s: P1State, offers: AreaOffer[]): number[] {
 function captureR(s: P1State, key: string, offers: Offer[]): number[] {
   if (!offers.length) return [];
   const demand = (s.demand[key] ?? 0) * MARKET.pot;
-  const meMul = 1 + 0.1 * lvMul(s, 'order') + fxSum(s, 'demand');
+  const meMul = (1 + 0.1 * lvMul(s, 'order') + fxSum(s, 'demand')) * visitMul(s);
   const selling = new Set(offers.filter((o) => o.g !== 'me').map((o) => o.g));
   const sinks: AreaOffer[] = rivalStores(s)
     .filter((b) => !selling.has(b.owner))
@@ -3031,6 +3044,8 @@ export function step(s: P1State): DayResult {
         if (b.id === 'workshop') syncSlots(s);
         if (P1B[b.id]?.kind === 'shop') {
           syncShop(s, b);
+          // 広報の良いニュース（段 G。Uncommon の町に出店してから）
+          if (s.open !== null) prNews(s, 'shop', t(`新しいお店（${DEF[b.id]?.name ?? b.id}）を開いた`, `Opened a new shop (${DEF[b.id]?.name ?? b.id})`));
           if (s.open === null) {
             s.open = s.day;
             s.rivalSales = Object.fromEntries(s.rivals.map((r) => [r.id, 0]));
@@ -3292,6 +3307,7 @@ export function step(s: P1State): DayResult {
     if (!s.dev.includes(s.lab.key)) s.dev.push(s.lab.key);
     res.developed.push(s.lab.key);
     brandAdd(s, BRAND.uncommon, t(`${PRODUCT[s.lab.key]?.name ?? s.lab.key}のアンコモンを開発`, `Developed an Uncommon ${PRODUCT[s.lab.key]?.name ?? s.lab.key}`));
+    prNews(s, 'product', t(`『${PRODUCT[s.lab.key]?.name ?? s.lab.key}』のアンコモンを発売`, `Launched the Uncommon ${PRODUCT[s.lab.key]?.name ?? s.lab.key}`));
     s.lab = null;
   }
 
@@ -3375,6 +3391,9 @@ export function step(s: P1State): DayResult {
 
   // POS レジ：きのう売れた数
   if (!s.holdSales) s.yday = today;
+  // カスタマーサポート（段 G。Uncommon 以上の町）：品切れの日・閉まっていた日を数え、期限の切れた問い合わせを消す
+  const expired = csDay(s);
+  if (expired) delegMiss(s, 'reply', expired);
 
   // スタミナ（休憩室・福利厚生で回復 +50% ずつ。減り方は drainOf。SCM の数字の稼働率 uptime と同じ式）
   const restRate = restRateOf(s);
@@ -3627,6 +3646,7 @@ export function endMonth(s: P1State): Report {
   // 汎用の効き目：ブランド力が月に +N（IR・ESG 経営など）
   const fxb = Math.round(fxSum(s, 'brand'));
   if (fxb > 0) brandAdd(s, fxb, t('ブランドの取り組み（スキル）', 'Brand initiatives (skills)'));
+  const wasCleared = !!s.cleared;
   // 制覇：はじめて制覇した月にエンブレムを 1 つ（2 か月続けて 1 位 かつ 研究成果を発表済み）
   if (won && !s.cleared) {
     s.emblem = (s.emblem ?? 0) + 1;
@@ -3635,6 +3655,10 @@ export function endMonth(s: P1State): Report {
     gainItem(s, HERO_GROWTH.items.clear[s.tier ?? 'C']);
   }
   if (won) s.cleared = true;
+  // 広報の良いニュース（段 G）：町の制覇
+  if (won && !wasCleared) prNews(s, 'clear', t(`${sectorDef(s.sector ?? 'c1').name}を制覇`, `Conquered ${sectorDef(s.sector ?? 'c1').name}`));
+  // カスタマーサポートと炎上（段 G）：先月の数字から問い合わせ・満足度・炎上のおそれと炎上
+  csMonth(s, report);
   // OJT：担当のある人の、担当に効く能力が +1（上限 100）
   if (has(s, 'ojt')) report.ojt = ojtMonth(s);
   // 人事（段 E2）：士気の平均・辞めたい・思いとどまった・辞めた・カリスマ度（チュートリアルの 1 か月目は出さない）
@@ -3949,6 +3973,8 @@ export function openRelic(s: P1State, ext: number): string | null {
   if (s.recipes[p.key]) return null;
   s.recipes[p.key] = { at: s.day };
   relicDemand(s);
+  // 広報の良いニュース（段 G）：復刻品のレシピ
+  prNews(s, 'product', t(`復刻品『${p.name}』を発売`, `Launched the revival ${p.name}`));
   return p.key;
 }
 /** Rare の復刻品のレシピが開く時期：会社として Rare の町に進出した（Rare の町 ①） */
@@ -4049,7 +4075,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -4108,7 +4134,9 @@ export function deserializeP1(json: string): P1State | null {
     // お知らせ済みのカリスマ度はいまの値に（読み込んだとたんにトーストを出さない）
     // 版 15 → 16（段 F：経理と総務）：税の記録（s.acct）は 0 から。四半期は次の区切り（会社の月が 3 の倍数になる締め）から。
     // 疲れはいまのスタミナの見せ方なので、移すものは無い
-    s.v = 16;
+    // 版 16 → 17（段 G：カスタマーサポートとマーケ）：顧客満足度は CS.start・問い合わせの受け箱は空・炎上の予告は無し（s.cs は、はじめて使うときに作る）。
+    // 企業の格はブランド力から数えるので、移すものは無い
+    s.v = 17;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);
@@ -6492,6 +6520,8 @@ export function present(s: P1State): { rp: number; letter: Tier | null; conquere
   const sector = s.dig!.sector;
   const tier = digTierOf(sector)!;
   s.presented.push(sector);
+  // 広報の良いニュース（段 G）
+  prNews(s, 'present', t(`${sectorDef(sector).name}で研究成果を発表`, `Presented findings in ${sectorDef(sector).name}`));
   const v = RP_GAIN[tier].present;
   gainRp(s, v);
   // ヒーローの育成：研究成果の発表で強化アイテム（そのランクの昇格の証）
@@ -6507,6 +6537,7 @@ export function present(s: P1State): { rp: number; letter: Tier | null; conquere
     s.emblem = (s.emblem ?? 0) + 1;
     gainItem(s, HERO_GROWTH.items.clear[s.tier ?? 'C']);
     brandAdd(s, BRAND.sectorTop, t('ランドセクタを制覇（2 か月続けて 1 位＋研究成果の発表）', 'Conquered the land sector (#1 two months running + findings presented)'));
+    prNews(s, 'clear', t(`${sectorDef(s.sector ?? 'c1').name}を制覇`, `Conquered ${sectorDef(s.sector ?? 'c1').name}`));
     conquered = true;
   }
   return { rp: v, letter, conquered };

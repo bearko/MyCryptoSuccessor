@@ -12,7 +12,7 @@ import { icon } from '../../ui/dom';
 import { DEF, artId } from '../defs';
 import { effectDone, image, loading, pick, waterFrame, type Camera, type Effect } from '../render';
 import { cells, type Dir } from '../sim';
-import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, HERO_RARITY, MORALE, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO, ACCT_INTRO } from './data';
+import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, HERO_RARITY, MORALE, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO, ACCT_INTRO, CS_INTRO } from './data';
 import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
 import { bandText } from './deleg';
 import { openDeleg, openProps } from './delegui';
@@ -133,6 +133,9 @@ import { openSide } from './side';
 import { openGrowth } from './growthui';
 import { openCharisma } from './hrui';
 import { openGa, openTax } from './acctui';
+import { openForecast, openInbox, openPr, openSat } from './csui';
+import { csOn } from './cs';
+import { gradeName, gradeOf } from './mkt';
 import { taxHint, type TaxRec } from './acct';
 import { quitLeft, type HrDay } from './hr';
 import { IslandSfx } from './sfx';
@@ -347,6 +350,11 @@ statDate.append(dateText, monthBar);
 const statBrand = h('button', 'isl-stat isl-stat-btn isl-stat-brand');
 statBrand.type = 'button';
 statBrand.addEventListener('click', () => openBrand(ctx));
+// 炎上のおそれ・炎上中の札（段 G。ブランド力のとなり。予告か炎上のときだけ）。押すと顧客満足度の画面（手を打つボタン）
+const statFlame = h('button', 'isl-stat isl-stat-btn isl-stat-flame');
+statFlame.type = 'button';
+statFlame.hidden = true;
+statFlame.addEventListener('click', () => openSatScreen());
 // いまいるランドセクタ（関所を開いたあと）。押すとランドマップ
 const statSector = h('button', 'isl-stat isl-stat-btn isl-stat-sector');
 statSector.type = 'button';
@@ -404,7 +412,7 @@ const speedBtns = SPEEDS.map((v) =>
 );
 const speedBox = h('div', 'isl-speed');
 speedBox.append(...speedBtns);
-hud.append(statMoney, statBrand, statSales, statRank, statSector, statDate, h('div', 'isl-spacer'), speedBox);
+hud.append(statMoney, statBrand, statFlame, statSales, statRank, statSector, statDate, h('div', 'isl-spacer'), speedBox);
 
 /** 流れの案内：売れたけれど、店内のレジでまだ払っていない額（上の帯にはまだ出さない） */
 let tourUnpaid = 0;
@@ -474,6 +482,19 @@ function renderHud() {
   }
   const lb = t('ブランド力', 'Brand');
   statBrand.innerHTML = `<small>${lb}</small><b>★ ${s.brand ?? 0}</b>`;
+  // 段 G：企業の格（札の説明に。上の帯は混み合わせない）・炎上のおそれ／炎上中の札
+  statBrand.title = t(`ブランド力 ${s.brand ?? 0}・企業の格「${gradeName(gradeOf(s))}」`, `Brand ${s.brand ?? 0} · standing: ${gradeName(gradeOf(s))}`);
+  const fl = s.cs?.flame;
+  const fw = s.cs?.warn;
+  statFlame.hidden = !csOn(s) || (!fl && (!fw || !!fw.done));
+  // スマホは上の帯に札を足さず、ブランド力の札に小さな印（⚠・🔥）。押すとブランド力の画面（上に炎上の札）
+  statBrand.classList.toggle('has-warn', !statFlame.hidden && !fl);
+  statBrand.classList.toggle('has-fire', !statFlame.hidden && !!fl);
+  if (!statFlame.hidden) {
+    statFlame.className = `isl-stat isl-stat-btn isl-stat-flame ${fl ? 'is-fire' : 'is-warn'}`;
+    statFlame.replaceChildren(h('small', '', fl ? t('炎上中', 'Backlash') : t('炎上のおそれ', 'Risk')), h('b', '', fl ? `🔥 ${Math.round(fl.heat * 100)}%` : '⚠'));
+    statFlame.title = fl ? t('炎上中：来店とブランド力が下がっています。広報の火消し・合う返事で早くおさまる', 'Backlash: visits and brand are down. Damage control and fitting replies cool it') : t('炎上のおそれ：このまま次の締めを迎えると炎上します。お詫びの告知か、中身を直そう', 'Backlash risk: it will blow up at the next close. Post an apology or fix the cause');
+  }
   statSector.hidden = !s.land;
   if (s.land && shownSector !== s.land.cur) {
     showSectorName(s.land.cur, shownSector != null);
@@ -547,6 +568,14 @@ const SUBS: Partial<Record<Menu, Sub[]>> = {
     { key: 'missions', name: t('依頼', 'Requests'), note: t('受ける・報酬', 'Accept, rewards'), go: () => openMissions(ctx) },
     { key: 'data', name: t('市場調査データ', 'Market data'), note: t('売れ筋・ニーズ', 'Demand and sellers'), go: () => openData(ctx) },
     { key: 'ranking', name: t('企業ランキング', 'Ranking'), note: t('エリア・ランド・世界', 'Area, land, world'), go: () => openRanking(ctx) },
+    // 段 G：市場の見通し（需要と他社の先読み・宣伝の打ち時）と、広報と企業の格
+    { key: 'outlook', name: t('市場の見通し', 'Market outlook'), note: t('需要と他社の先読み', 'Demand and rivals ahead'), go: () => openOutlook() },
+    { key: 'pr', name: t('広報と企業の格', 'PR & standing'), note: t('良いニュース・火消し・格', 'Good news, damage control, standing'), go: () => openPrScreen() },
+  ],
+  // カスタマーサポート（段 G：Uncommon の町に進出すると開く）：問い合わせと顧客満足度
+  support: [
+    { key: 'inbox', name: t('問い合わせ', 'Inquiries'), note: t('返事を選ぶ・期限', 'Choose replies, deadlines'), go: () => openInboxScreen() },
+    { key: 'sat', name: t('顧客満足度', 'Satisfaction'), note: t('満足度・効き目・炎上', 'Satisfaction, effects, backlash'), go: () => openSatScreen() },
   ],
   // 営業（段 C：Rare の町に進出すると開く）：商圏の取り合い
   sales: [{ key: 'area', name: t('商圏の取り合い', 'Trade areas'), note: t('取り分・他社の店・候補地', 'Shares, rival stores, sites'), go: () => openTradeScreen() }],
@@ -3569,6 +3598,7 @@ function renderAll() {
   deptChecks();
   salesTalk();
   acctTalk();
+  csTalk();
   // 撤退した他社の店のシャッター：報告・画面を閉じて地図が見えたら
   if (pendingShutter.length && !root.querySelector('.isl-modal, .isl-rp-reveal') && !sheetOpen()) playShutters();
 }
@@ -3576,6 +3606,7 @@ function renderAll() {
 function deptChecks() {
   const had = s.flags.depts?.includes('sales');
   const hadAcct = s.flags.depts?.includes('accounting');
+  const hadCs = s.flags.depts?.includes('support');
   const news = deptNews(s);
   if (!news.length) return;
   for (const n of news) toast(n);
@@ -3583,6 +3614,8 @@ function deptChecks() {
   if (!had && s.flags.depts?.includes('sales')) newDeptBanner('sales');
   // 経理・総務（段 F。Uncommon の町に初めて進出）
   else if (!hadAcct && s.flags.depts?.includes('accounting')) newDeptBanner('accounting');
+  // カスタマーサポート（段 G。経理・総務より後に開いたとき＝段 G の前のセーブで Uncommon にいる）
+  else if (!hadCs && s.flags.depts?.includes('support')) newDeptBanner('support');
   save();
 }
 /** 「新しい部門」の演出：画面の真ん中に部門のアイコンと名前（光って消える） */
@@ -3621,6 +3654,32 @@ function acctTalk() {
     t('経理を開く', 'Open Accounting'),
     () => goSub('accounting', 'tax'),
   );
+}
+/** カスタマーサポートの紹介（マインちゃん。Uncommon の町に初めて進出したあと 1 回だけ。経理・総務の紹介のあと） */
+function csTalk() {
+  if (s.flags.csTalk || !s.flags.acctTalk || !s.flags.depts?.includes('support') || tutStep() || root.querySelector('.isl-modal') || sheetOpen() || placing || (s.tier ?? 'C') === 'C') return;
+  s.flags.csTalk = true;
+  save();
+  talk(
+    CS_INTRO().map((text) => ({ text })),
+    t('問い合わせを開く', 'Open inquiries'),
+    () => goSub('support', 'inbox'),
+  );
+}
+const csHooks = () => ({ skills: () => panelsOf('support'), sat: () => openSatScreen(), inbox: () => openInboxScreen(), pr: () => openPrScreen() });
+/** カスタマーサポート → 問い合わせ・顧客満足度 */
+function openInboxScreen() {
+  openInbox(ctx, csHooks());
+}
+function openSatScreen() {
+  openSat(ctx, csHooks());
+}
+/** マーケ → 市場の見通し・広報と企業の格 */
+function openOutlook() {
+  openForecast(ctx, { skills: () => panelsOf('marketing'), ads: () => openAds(ctx) });
+}
+function openPrScreen() {
+  openPr(ctx, { ...csHooks(), skills: () => panelsOf('marketing') });
 }
 /** 経理 → 税と節税 */
 function openTaxScreen() {
@@ -4105,6 +4164,16 @@ function reportNews(rep: NonNullable<ReturnType<typeof step>['report']>) {
     else if (kind === 'copy') toast(plain(t(`${who}が「${what}」を真似しはじめた`, `${who} started copying “${what}”`)));
     else toast(plain(t(`${who}が[[${what}]]を売り始めた`, `${who} started selling [[${what}]]`)));
   }
+  // カスタマーサポート（段 G）：問い合わせが届いた・炎上のおそれ・炎上
+  const cr = rep.cs;
+  if (cr) {
+    const fresh = cr.got - cr.auto;
+    if (fresh > 0) toast(t(`🎧 問い合わせが ${fresh} 件届いた（カスタマーサポート → 問い合わせ）`, `🎧 ${fresh} new inquir${fresh > 1 ? 'ies' : 'y'} (Customer Support → Inquiries)`));
+    if (cr.ignited) {
+      toast(t('🔥 炎上！ 来店とブランド力が下がった。広報の火消しと、合う返事で早くおさまる', '🔥 Backlash! Visits and brand are down. Damage control and fitting replies cool it'));
+      sfx.play('error');
+    } else if (cr.warn && !s.cs?.warn?.done) toast(cr.warn === 'out' ? t('⚠ 炎上のおそれ：品切れが続いている。今月も続くと炎上（顧客満足度の画面で手を打てる）', '⚠ Backlash risk: sell-outs keep happening. Another month and it blows up (act from Satisfaction)') : t('⚠ 炎上のおそれ：問い合わせを放っておいた。今月も続くと炎上（顧客満足度の画面で手を打てる）', '⚠ Backlash risk: ignored inquiries. Another month and it blows up (act from Satisfaction)'));
+  }
   // OJT：担当のある人の能力が上がった
   if (rep.ojt) toast(t(`OJT：${rep.ojt} 人の能力が 1 上がりました`, `OJT: ${rep.ojt} staff gained +1 in a stat`));
   // 他社の反撃：1 位を取った月から、他社が宣伝を始める
@@ -4177,7 +4246,7 @@ let quarterTax: TaxRec | null = null;
 let quarterNew: number | null = null;
 
 /** 月次報告の画面からほかの画面へ */
-const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), openProps: () => openProps(ctx), openPay: () => openPayroll(ctx), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
+const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), openProps: () => openProps(ctx), openPay: () => openPayroll(ctx), openCs: () => openInboxScreen(), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
 
 function showReport(r: NonNullable<ReturnType<typeof step>['report']>) {
   speed = 0;

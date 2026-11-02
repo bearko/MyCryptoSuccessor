@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { baseOf } from '../scripts/island/audit';
-import { ACCT_SKILLS, GA_SKILLS, BRANCHES, HR_SKILLS, LV_COST, SKILL, SKILLS, isResearch, levelCost, lvMulOf, maxLv, shownOf, sku } from '../src/island/p1/data';
+import { ACCT_SKILLS, CS_SKILLS, GA_SKILLS, MKT_SKILLS, BRANCHES, HR_SKILLS, LV_COST, SKILL, SKILLS, isResearch, levelCost, lvMulOf, maxLv, shownOf, sku } from '../src/island/p1/data';
 import { craftDays, deserializeP1, gainSkill, fxSum, levelLock, levelUp, lvOf, matPrice, newP1, serializeP1, setLevel, skillPull, whatIf, type P1State } from '../src/island/p1/model';
 
 const rich = (seed = 5): P1State => {
@@ -138,7 +138,8 @@ describe('外周のボリューム（Uncommon 以降）', () => {
       // 営業の枝（段 C。Rare の外周 6 枚）も別に数える（tests/island-p1-sales.test.ts）
       // 段 E2 の人事のパネル（HR_SKILLS。Uncommon の外周 2 枚）も別に数える（tests/island-p1-e2.test.ts）
       // 段 F の経理・総務のパネル（ACCT_SKILLS・GA_SKILLS。Uncommon の外周 9 枚）も別に数える（tests/island-p1-acct.test.ts）
-      const all = SKILLS.filter((k) => k.tier === tier && k.branch !== 'dig' && k.branch !== 'sales' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k));
+      // 段 G のカスタマーサポート・マーケのパネル（CS_SKILLS・MKT_SKILLS。Uncommon の外周 9 枚）も別に数える（tests/island-p1-cs-mkt.test.ts）
+      const all = SKILLS.filter((k) => k.tier === tier && k.branch !== 'dig' && k.branch !== 'sales' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k));
       const n = all.filter((k) => !k.big).length;
       expect(n, tier).toBeGreaterThanOrEqual(52);
       expect(n, tier).toBeLessThanOrEqual(60);

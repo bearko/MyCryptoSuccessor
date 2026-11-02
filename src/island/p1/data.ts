@@ -1863,6 +1863,35 @@ export const GA_SKILLS: Skill[] = [
 /** 総務のお金パネル（Lv1〜5） */
 export const GA_MONEY = ['ga_canteen', 'ga_nap'];
 SKILLS.push(...ACCT_SKILLS, ...GA_SKILLS);
+/**
+ * カスタマーサポートのパネル（段 G。Uncommon の外周・販売の枝のうちカスタマーサポートの部門。docs/ISLAND_PHASE1.md「カスタマーサポート」）。効き目は cs.ts。
+ * 研究パネル 3 枚（FAQ・返品の決まり・満足度の調査）・お金パネル 1 枚（CS_MONEY。Lv1〜5：サポートセンター）。
+ * 研究パネルの RP は決め打ち（CSM_RP）：ほかの販売の枝の研究パネルの値段を動かさない
+ */
+export const CS_SKILLS: Skill[] = [
+  { id: 'cs_center', branch: 'shop', tier: 'U', name: t('サポートセンター', 'Support center'), note: t('届いた問い合わせの 30% をセンターが自動で受ける（出来 75%。Lv ごとに +10%）', 'The center answers 30% of new inquiries on its own (75% quality; +10% per Lv)'), cost: 16000, show: [{ label: t('自動で受ける割合', 'Auto-handled'), v: 0.3, unit: '%', at: [0.3, 0.4, 0.5, 0.6, 0.7], bare: true }] },
+  { id: 'cs_faq', branch: 'shop', tier: 'U', name: t('FAQ（よくある質問）', 'FAQ page'), note: t('届く問い合わせ −30%（よくある質問は自分で調べてもらう）', 'Inquiries −30% (customers find common answers themselves)'), cost: 0, requires: ['cs_center'] },
+  { id: 'cs_policy', branch: 'shop', tier: 'U', name: t('返品の決まり', 'Return policy'), note: t('返金の費用 −40%・返事の期限 14 → 21 日', 'Refunds cost 40% less; reply deadline 14 → 21 days'), cost: 0, requires: ['cs_center'] },
+  { id: 'cs_survey', branch: 'shop', tier: 'U', name: t('満足度の調査', 'Satisfaction survey'), note: t('合う返事で上がる顧客満足度 +30%・満足度が来店に効く分 ×1.5（何がお客さんに響くかが分かる）', 'Satisfaction from a fitting reply +30%; satisfaction’s effect on visits ×1.5 (learn what customers value)'), cost: 0, requires: ['cs_faq'] },
+];
+/** カスタマーサポートのお金パネル（Lv1〜5） */
+export const CS_MONEY = ['cs_center'];
+/**
+ * マーケの段 G のパネル（Uncommon の外周・販売の枝のうちマーケの部門。docs/ISLAND_PHASE1.md「マーケ（市場調査・広報・企業の格）」）。効き目は mkt.ts・cs.ts。
+ * 研究パネル 3 枚（市場調査の部署・需要の読み・危機管理の手引き）・お金パネル 2 枚（MKT_MONEY。Lv1〜5：プレスリリース・コーポレートアイデンティティ）
+ */
+export const MKT_SKILLS: Skill[] = [
+  { id: 'mk_research', branch: 'shop', tier: 'U', name: t('市場調査の部署', 'Research desk'), note: t('市場の見通しが 1 → 2 か月先まで・他社の売れ筋が見える', 'Market outlook 1 → 2 months ahead; shows rivals’ best-sellers'), cost: 0 },
+  { id: 'mk_forecast', branch: 'shop', tier: 'U', name: t('需要の読み', 'Demand modeling'), note: t('市場の見通しが 3 か月先まで・他社が真似してくる時期の予報が見える', 'Market outlook 3 months ahead; forecasts when rivals will copy your goods'), cost: 0, requires: ['mk_research'] },
+  { id: 'mk_press', branch: 'shop', tier: 'U', name: t('プレスリリース', 'Press releases'), note: t('広報で良いニュースを出したときのブランド力 +30%（Lv ごとに +25%）', 'Brand gained from good-news releases +30% (+25% per Lv)'), cost: 18000, requires: ['mk_research'], show: [{ label: t('良いニュースのブランド力', 'Brand from good news'), v: 0.3, unit: '%' }] },
+  { id: 'mk_crisis', branch: 'shop', tier: 'U', name: t('危機管理の手引き', 'Crisis manual'), note: t('火消しの効き目 ×1.5・お詫びの告知の費用 −50%', 'Damage control ×1.5; apology notices cost 50% less'), cost: 0, requires: ['mk_press'] },
+  { id: 'mk_ci', branch: 'shop', tier: 'U', name: t('コーポレートアイデンティティ', 'Corporate identity'), note: t('企業の格を決めるブランド力 +10%（Lv ごとに +25%）', 'Brand counted for your company standing +10% (+25% per Lv)'), cost: 30000, requires: ['mk_press'], show: [{ label: t('格のブランド力', 'Brand for standing'), v: 0.1, unit: '%' }] },
+];
+/** マーケの段 G のお金パネル（Lv1〜5） */
+export const MKT_MONEY = ['mk_press', 'mk_ci'];
+/** 段 G の研究パネルの RP（決め打ち。Uncommon の研究パネルの範囲 60〜180 の中） */
+export const CSM_RP: Record<string, number> = { cs_faq: 70, cs_policy: 110, cs_survey: 150, mk_research: 80, mk_forecast: 130, mk_crisis: 160 };
+SKILLS.push(...CS_SKILLS, ...MKT_SKILLS);
 SKILLS.push(...INF_SKILLS, DONATE);
 /** 無限の強化パネルの id */
 export const INF_PANELS = INF_SKILLS.map((k) => k.id);
@@ -1895,7 +1924,7 @@ export const START_RP = 30;
 export const RP_PER_DUST = 40;
 const RP_FIXED: Record<string, number> = { hire: START_RP };
 {
-  const money = new Set([...Object.values(MONEY_PANELS).flatMap((x) => Object.values(x)), ...DIG_PANELS, DONATE.id, ...SALES_MONEY, ...HR_MONEY, ...ACCT_MONEY, ...GA_MONEY]);
+  const money = new Set([...Object.values(MONEY_PANELS).flatMap((x) => Object.values(x)), ...DIG_PANELS, DONATE.id, ...SALES_MONEY, ...HR_MONEY, ...ACCT_MONEY, ...GA_MONEY, ...CS_MONEY, ...MKT_MONEY]);
   const byId = new Map(SKILLS.map((k) => [k.id, k]));
   const tierOf = (k: Skill) => k.tier ?? 'C';
   // 同じランクの中の深さ（先に要るパネルのうち、同じランクのものをたどった最長の数）
@@ -1917,14 +1946,14 @@ const RP_FIXED: Record<string, number> = { hire: START_RP };
     const P = RP_PRICE[tier];
     const round = (v: number) => Math.max(P.step, Math.round(v / P.step) * P.step);
     for (const b of new Set(SKILLS.map((k) => k.branch))) {
-      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null && ACCT_RP[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
+      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null && ACCT_RP[k.id] == null && CSM_RP[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
       list.forEach((k, i) => (k.rp = round(P.lo + ((P.hi - P.lo) * (list.length > 1 ? i : 0)) / Math.max(1, list.length - 1))));
       // 1 枚だけの枝は真ん中の値段
       if (list.length === 1) list[0].rp = round((P.lo + P.hi) / 2);
     }
     for (const k of SKILLS) if (tierOf(k) === tier && k.big) k.rp = P.big;
   }
-  for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP, ...ACCT_RP })) if (byId.get(id)) byId.get(id)!.rp = v;
+  for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP, ...ACCT_RP, ...CSM_RP })) if (byId.get(id)) byId.get(id)!.rp = v;
   // 無限の強化パネル：Lv1 の値段（Lv2 からは infCost）
   for (const k of INF_SKILLS) k.rp = infCost(1);
   // 研究パネルはレベルなし（効き目は Lv1 の値）：Lv2 からの効き目は持たない
@@ -1966,8 +1995,8 @@ export type DeptId = 'logistics' | 'sales' | 'strategy' | 'rnd' | 'hr' | 'system
 export type DeptGroup = 'biz' | 'strat' | 'admin' | 'base';
 /** ロードマップの段（docs/SUCCESSOR_ROADMAP.md「ロードマップ」）。部門の中身（遊び）ができる段 */
 export type RoadStage = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J';
-/** いまできている段（段 F：経理と総務）。中身ができる段がこれ以下の部門だけメニューに出る */
-export const ROAD_NOW: RoadStage = 'F';
+/** いまできている段（段 G：カスタマーサポートとマーケ）。中身ができる段がこれ以下の部門だけメニューに出る */
+export const ROAD_NOW: RoadStage = 'G';
 export interface DeptDef {
   id: DeptId;
   name: string;
@@ -2028,6 +2057,9 @@ export const DEPT_MOVE: Record<string, DeptId> = Object.fromEntries([
   ...['lounge', 'shift', 'welfare', 'u_people_5', 'r_people_5', 'e_people_3', 'e_people_7', 'l_people_3', 'l_people_6', ...GA_SKILLS.map((k) => k.id)].map((id) => [id, 'general']),
   // 段 F：経理のパネル（経営の枝のうち経理）
   ...ACCT_SKILLS.map((k) => [k.id, 'accounting']),
+  // 段 G：カスタマーサポートのパネル・マーケの段 G のパネル（販売の枝のうち）
+  ...CS_SKILLS.map((k) => [k.id, 'support']),
+  ...MKT_SKILLS.map((k) => [k.id, 'marketing']),
 ]) as Record<string, DeptId>;
 for (const k of SKILLS) k.dept = DEPT_MOVE[k.id] ?? BRANCH_DEPT[k.branch];
 /** パネルの部門 */
@@ -2038,7 +2070,7 @@ export const DEPT_SKILLS: Record<DeptId, Skill[]> = Object.fromEntries(DEPTS.map
 // ---------------------------------------------------------------- 任せ方の 4 段（ロードマップ段 D。docs/ISLAND_PHASE1.md「任せ方」）
 
 /** チームリーダーに任せられる業務（部門ごと。理解度 3 から 1 つずつ） */
-export type DutyId = 'order' | 'craft' | 'shelf' | 'swap' | 'rest' | 'dig' | 'ads' | 'vacant';
+export type DutyId = 'order' | 'craft' | 'shelf' | 'swap' | 'rest' | 'dig' | 'ads' | 'vacant' | 'reply';
 export interface DutyDef {
   id: DutyId;
   dept: DeptId;
@@ -2059,6 +2091,8 @@ export const DUTIES: DutyDef[] = [
   { id: 'dig', dept: 'rnd', icon: '⛏', name: t('荒れ地の採掘', 'Wasteland digging'), note: t('発掘作業をしていない日に、許可のある荒れ地を少しずつ掘る（お題は自分で掘る）', 'Digs permitted wastelands a little on days you are not digging (targets are left to you)'), miss: t('掘った', 'Dug') },
   { id: 'ads', dept: 'marketing', icon: '📣', name: t('宣伝の出し直し', 'Ad renewals'), note: t('切れた宣伝を、効き目の見込みが費用より大きければ出し直す', 'Re-runs expired ads when the expected lift beats the cost'), miss: t('切れていた', 'Lapsed') },
   { id: 'vacant', dept: 'sales', icon: '🏚', name: t('空き店舗に入る', 'Take vacancies'), note: t('他社が撤退した空き店舗に、取り分が伸びるなら入る', 'Moves into vacated rival stores when it grows your share'), miss: t('空いたまま', 'Left empty') },
+  // 段 G：カスタマーサポート
+  { id: 'reply', dept: 'support', icon: '🎧', name: t('問い合わせの返事', 'Answering inquiries'), note: t('届いた問い合わせに、中身に合う返事（謝る・返金・代わりの品）を選んで返す', 'Answers inquiries with the reply that fits (apologize, refund or a substitute)'), miss: t('期限切れ', 'Expired') },
 ];
 export const DUTY: Record<DutyId, DutyDef> = Object.fromEntries(DUTIES.map((d) => [d.id, d])) as Record<DutyId, DutyDef>;
 /** 部門の業務（並びは DUTIES の順。業務の無い部門は空＝部長の提案と補正だけ） */
@@ -2903,3 +2937,121 @@ export const GA_MASTERY = () => [
 ];
 /** 掛け合わせの予告（経理 × 総務。効き目は段 I。表示だけ） */
 export const CROSS_ACCT_GA = () => t('掛け合わせ（経理 × 総務）：節税になる設備投資 — 設備の費用の 30% を税から引く（両方の理解度 10 で開く・準備中）', 'Cross panel (Accounting × General Affairs): tax-saving capex — 30% of upgrade costs off your tax (opens at understanding 10 in both; coming soon)');
+
+// ---------------------------------------------------------------- カスタマーサポートとマーケ（ロードマップ段 G。docs/ISLAND_PHASE1.md「カスタマーサポート」「マーケ（市場調査・広報・企業の格）」「炎上」）
+
+/** 問い合わせの中身：品切れ・値段が高い・お店が閉まっていた */
+export type InqKind = 'out' | 'price' | 'closed';
+/** 返事：謝る・返金・代わりの品 */
+export type ReplyKind = 'sorry' | 'refund' | 'swap';
+/** 問い合わせごとに合う返事（品切れ → 代わりの品・値段 → 返金・閉まっていた → 謝る） */
+export const REPLY_FIT: Record<InqKind, ReplyKind> = { out: 'swap', price: 'refund', closed: 'sorry' };
+/**
+ * カスタマーサポート（段 G。計算は cs.ts）。Uncommon 以上の町だけ（Common の町・タオックスのチュートリアルには問い合わせが来ない）。
+ * - start：顧客満足度のはじめ（古いセーブも）。drift：月の締めごとに start へ戻る割合。
+ * - 問い合わせ（先月の実際の数字から、月の締めに）：品切れの日 outPer 日ごとに 1 件（outMax まで）・お店が閉まっていた日 closedPer 日ごとに 1 件（closedMax まで）・
+ *   自社の値段が町の相場より priceAt 以上高いと 1 件（priceAt2 以上で 2 件）。受け箱は inboxMax 件まで。
+ * - 返事の期限 expire 日（返品の決まりで policyDays）。合う返事 good・合わない返事 ok・期限切れ ignore（満足度の点）。
+ * - 返金：その町の並べている商品の平均の単価 × refundUnits（refundMin より少なくしない。返品の決まりで −policyCut）。代わりの品：在庫から swapUnits 個（いちばん安い商品）。
+ * - 効き目：来店（リピーター）が start より上は (満足度 − start) ÷ (100 − start) × up、下は (満足度 − start) ÷ start × down。満足度の調査で ×survey。
+ *   ブランド力：月の締めで満足度が brandHi 以上なら +1、brandLo 以下なら −1。
+ * - FAQ：届く問い合わせ −faq。サポートセンター：届いた問い合わせの center.base（Lv ごとに +perLv）を自動で受ける（出来 center.q）。満足度の調査：合う返事 +care・来店に効く分 ×survey
+ */
+export const CS = {
+  start: 60,
+  drift: 0.2,
+  outPer: 2,
+  outMax: 3,
+  closedPer: 3,
+  closedMax: 2,
+  priceAt: 0.12,
+  priceAt2: 0.3,
+  inboxMax: 8,
+  expire: 14,
+  policyDays: 21,
+  good: 6,
+  ok: 1,
+  ignore: -3,
+  refundUnits: 2,
+  refundMin: 300,
+  policyCut: 0.4,
+  swapUnits: 2,
+  up: 0.06,
+  down: 0.04,
+  survey: 1.5,
+  brandHi: 80,
+  brandLo: 30,
+  faq: 0.3,
+  center: { base: 0.3, perLv: 0.1, q: 0.75 },
+  care: 0.3,
+};
+/**
+ * 炎上（段 G。計算は cs.ts。Uncommon 以上の町だけ）：
+ * - 起きるもの：品切れが outDays 日以上の月・期限切れの問い合わせが ignored 件以上の月。1 か月目は「炎上のおそれ」の予告（札）、
+ *   手を打たずに 2 か月続くと炎上。手を打つ＝お詫びの告知（notice。危機管理の手引きで −50%）か、その月のうちに中身を直す（品切れを減らす・返事をする）。
+ * - 起きると：来店 −hit（熱さ 1 のとき。熱さは月の締めごとに 1 ÷ months ずつ下がり、months か月で消える）・ブランド力 −brand（熱さが下がるのに合わせて戻る）・全員の士気 −morale。
+ * - 早く戻す：広報の火消し（putCost。熱さ −put。危機管理の手引きで ×1.5。putCool 日に 1 回）・合う返事 1 件で熱さ −reply。
+ * - 費用はランク（Uncommon 以上）の決め打ち
+ */
+export const FLAME = {
+  outDays: 5,
+  ignored: 2,
+  hit: 0.06,
+  months: 3,
+  brand: 12,
+  morale: 3,
+  put: 0.4,
+  putCool: 15,
+  reply: 0.05,
+  crisis: 1.5,
+  notice: { C: 0, U: 3000, R: 8000, E: 20000, L: 50000 } as Record<Tier, number>,
+  putCost: { C: 0, U: 5000, R: 12000, E: 30000, L: 80000 } as Record<Tier, number>,
+};
+/** 広報で出せる良いニュースの種類：町の制覇・研究成果の発表・新商品・新しいお店 */
+export type PrKind = 'clear' | 'present' | 'product' | 'shop';
+/**
+ * 広報（段 G。計算は mkt.ts。Uncommon の町に出店してから）：実際に起きた良いニュースを発表するとブランド力が上がる。
+ * gain：種類ごとのブランド力（プレスリリースで +press、Lv で ×1.25）。cool：次の発表まで（日）。keep：ニュースが古くなるまで（日）・max：持っておける数。cost：1 回の費用（ランク）
+ */
+export const PR = {
+  gain: { clear: 8, present: 5, product: 4, shop: 2 } as Record<PrKind, number>,
+  press: 0.3,
+  cool: 30,
+  keep: 60,
+  max: 4,
+  cost: { C: 0, U: 2000, R: 5000, E: 12000, L: 30000 } as Record<Tier, number>,
+};
+/**
+ * 企業の格（段 G。計算は mkt.ts）：ブランド力から決まる段（無名 → 地元の店 → 地域の有名店 → 全国ブランド → 世界ブランド）。
+ * at：段のしきい値（ブランド力。コーポレートアイデンティティで、数えるブランド力 +ci（Lv で ×1.25））。docs/ISLAND_BALANCE.md の v22 で決めた。
+ * 効き目（小さく）：area＝Rare の町の自社の店の引き +area × 段・hire＝雇える候補の数（段ごと）。カリスマ度（雇えるレアリティ）とは別の軸
+ */
+export const GRADE = {
+  at: [0, 100, 250, 450, 800],
+  ci: 0.1,
+  area: 0.03,
+  hire: [0, 0, 1, 1, 2],
+};
+/** 企業の格の名前（段の順） */
+export const GRADE_NAME = () => [t('無名', 'Unknown'), t('地元の店', 'Local shop'), t('地域の有名店', 'Regional name'), t('全国ブランド', 'National brand'), t('世界ブランド', 'Global brand')];
+
+/** カスタマーサポートの紹介（Uncommon の町に初めて進出したあと。main.ts の会話。経理・総務の紹介のあと） */
+export const CS_INTRO = () => [
+  t('新しい部門：[[カスタマーサポート]]！ Uncommon の町では、お客さんから[[問い合わせ]]が届くよ。', 'New department: [[Customer Support]]! In Uncommon towns, customers send you [[inquiries]].'),
+  t('中身に合う返事（品切れ → [[代わりの品]]・値段 → [[返金]]・閉まっていた → [[謝る]]）をすると[[顧客満足度]]が上がって、お客さんがまた来てくれる。', 'Reply to fit (sold out → [[substitute]], price → [[refund]], closed → [[apology]]) and [[satisfaction]] rises, bringing customers back.'),
+  t('放っておくと満足度が下がって、続くと[[炎上]]することも。月の締めに届くから、受け箱を見てみよう！', 'Ignore them and satisfaction drops — keep it up and you may face a [[backlash]]. They arrive at the monthly close; check the inbox!'),
+];
+/** カスタマーサポート・マーケの奥義（理解度 15・25・40。効き目は段 I。表示だけ） */
+export const CS_MASTERY = () => [
+  t('奥義 1：問い合わせからリピーターが生まれる（準備中）', 'Mastery 1: inquiries turn into regulars (coming soon)'),
+  t('奥義 2：炎上を未然に防ぐ（準備中）', 'Mastery 2: backlashes are stopped before they start (coming soon)'),
+  t('奥義 3：顧客満足度が下がらない（準備中）', 'Mastery 3: satisfaction never drops (coming soon)'),
+];
+export const MKT_MASTERY = () => [
+  t('奥義 1：企業の格が 1 段上に見える（準備中）', 'Mastery 1: your standing looks one rank higher (coming soon)'),
+  t('奥義 2：炎上が起きにくい（準備中）', 'Mastery 2: backlashes are rarer (coming soon)'),
+  t('奥義 3：宣伝の効き目が切れない（準備中）', 'Mastery 3: ads never wear off (coming soon)'),
+];
+/** 掛け合わせの予告（効き目は段 I。表示だけ） */
+export const CROSS_MKT_CS = () => t('掛け合わせ（マーケ × カスタマーサポート）：ファンのコミュニティ — 炎上の被害 半分・リピーター +15%（両方の理解度 10 で開く・準備中）', 'Cross panel (Marketing × Customer Support): fan community — half the backlash damage, regulars +15% (opens at understanding 10 in both; coming soon)');
+export const CROSS_HR_MKT = () => t('掛け合わせ（人事 × マーケ）：採用マーケ — 雇う候補 +2・カリスマ +5 相当の候補（両方の理解度 10 で開く・準備中）', 'Cross panel (HR × Marketing): recruiting marketing — +2 candidates, as if charisma +5 (opens at understanding 10 in both; coming soon)');

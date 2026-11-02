@@ -7,7 +7,7 @@
  * docs/ISLAND_PHASE1.md「スキルツリー」「部門」。
  */
 import { t } from '../../i18n';
-import { DEPTS, DEPT_SKILLS, GA_SKILLS, SKILLS, deptOf, type Branch, type DeptId, type Skill, type Tier } from './data';
+import { CS_SKILLS, DEPTS, DEPT_SKILLS, GA_SKILLS, MKT_SKILLS, SKILLS, deptOf, type Branch, type DeptId, type Skill, type Tier } from './data';
 import { ROW_CAP } from './skillsx';
 
 /** スキルのランク（外周）。無ければ C */
@@ -111,7 +111,8 @@ export const RING_EDGE = { C: 0 } as Record<Tier, number>;
  * 外周の並びの入れ替え（id → 並びの何番目に置くか）。根もとから線が伸びるパネル（先に要るものが無い）を、
  * 内側のパネルを横切らない場所へ
  */
-const OUTER_AT: Record<string, number> = { u_dig_mat: 3 };
+// 段 G：マーケの Uncommon の外周にパネルが増えたので、ブランドの看板（物流の Rare の外周へ線が伸びる）を物流の側の端へ（線がマーケのパネルを横切らないように）
+const OUTER_AT: Record<string, number> = { u_dig_mat: 3, b_sign: 3 };
 function outerOf(list: Skill[], tier: Tier): Skill[] {
   const out = [...list.filter((k) => tierOf(k) === tier && !k.big && !k.donate), ...list.filter((k) => tierOf(k) === tier && k.big)];
   for (const [id, at] of Object.entries(OUTER_AT)) {
@@ -128,7 +129,8 @@ function outerOf(list: Skill[], tier: Tier): Skill[] {
   for (const tier of OUTER) {
     const cap = ROW_CAP[tier as Exclude<Tier, 'C'>];
     r = Math.max(r, (GAP * (cap - 1) + 1.15) / SPAN);
-    const rows = Math.max(1, ...OLD_BR.map((br) => Math.ceil(outerOf(SKILLS.filter((k) => k.branch === br), tier).length / (br === 'dig' ? 3 : cap))));
+    // 段 G で販売の枝に足したカスタマーサポート・マーケのパネルは数えない（半径を前と変えない。部門の枝の幅で収める）
+    const rows = Math.max(1, ...OLD_BR.map((br) => Math.ceil(outerOf(SKILLS.filter((k) => k.branch === br && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k)), tier).length / (br === 'dig' ? 3 : cap))));
     RING_EDGE[tier] = r - 0.85;
     RING_R[tier] = r;
     RING_ROWS[tier] = Array.from({ length: rows }, (_, k) => r + STEP * k);
@@ -158,7 +160,7 @@ function needOf(key: string, list: Skill[]): number {
 }
 
 /** 外周だけにパネルのある、あとから足した部門（収まる幅だけ。余りの角度を取らない） */
-const NARROW: DeptId[] = ['sales', 'accounting'];
+const NARROW: DeptId[] = ['sales', 'accounting', 'support'];
 /** 部門の枝の配置 */
 export const DEPT_LAYOUT = {} as Record<DeptId, DeptLayout>;
 export const GROUPS: Group[] = [];
@@ -177,15 +179,20 @@ export let SLACK = 0;
     for (const [key, branch, skills] of parts) {
       const g: Group = { key, dept: d.id, branch, a: 0, w: 0, skills };
       // 営業（段 C。Rare の外周だけ）・経理（段 F。Uncommon の外周だけ）は、収まる幅だけ（余りの角度を取らない＝ほかの枝の幅を前と変えない）。
-      // 総務は段 F で足した 3 枚（GA_SKILLS）を余りの数に入れない（ほかの枝の幅を前と変えない）
-      items.push({ d: d.id, g, need: needOf(key, skills), n: NARROW.includes(d.id) ? 0 : skills.filter((k) => !GA_SKILLS.includes(k)).length });
+      // 総務は段 F で足した 3 枚（GA_SKILLS）・マーケは段 G で足した 5 枚（MKT_SKILLS）を余りの数に入れない（ほかの枝の幅を前と変えない）。
+      // カスタマーサポート（段 G。Uncommon の外周だけ）は営業・経理と同じく収まる幅だけ
+      items.push({ d: d.id, g, need: needOf(key, skills), n: NARROW.includes(d.id) ? 0 : skills.filter((k) => !GA_SKILLS.includes(k) && !MKT_SKILLS.includes(k)).length });
     }
   }
   // 段 C：営業の枝（パネルの無い細い枝だったもの）が広がったぶんは、ほかのパネルの無い部門の枝から分けてもらう
   // （パネルのある部門の枝の幅・角度を前と変えない）。段 F の経理も同じ
-  const grown = items.filter((x) => NARROW.includes(x.d) && x.g).reduce((a, x) => a + (x.need - EMPTY_W), 0);
+  const grown = items.filter((x) => NARROW.includes(x.d) && x.d !== 'support' && x.g).reduce((a, x) => a + (x.need - EMPTY_W), 0);
   const empty = items.filter((x) => !x.g);
-  if (grown > 0 && empty.length) for (const x of empty) x.need = Math.max(0.08, EMPTY_W - grown / empty.length);
+  // 段 G：カスタマーサポートにパネルができて、パネルの無い枝は法務だけになった。段 F のとき（パネルの無い 2 本で分けた細さ）の 2 本ぶんの幅を、
+  // カスタマーサポート（収まる幅）と法務（残り）で分ける（ほかの部門の枝の幅・角度を前と変えない）
+  const cs = items.find((x) => x.d === 'support' && x.g);
+  const pair = 2 * Math.max(0.08, EMPTY_W - grown / 2);
+  if (grown > 0 && empty.length) for (const x of empty) x.need = Math.max(0.08, (cs ? pair - cs.need : pair / 2) / (cs ? empty.length : 1));
   const total = items.reduce((a, x) => a + x.need, 0);
   SLACK = Math.PI * 2 - total;
   const nAll = items.reduce((a, x) => a + x.n, 0);
@@ -209,6 +216,8 @@ export let SLACK = 0;
   const rot = (LOGI_AT * Math.PI) / 180 - (logi.angle + logi.w / 2);
   for (const g of GROUPS) g.a += rot;
   for (const L of Object.values(DEPT_LAYOUT)) L.angle = ((L.angle + L.w / 2 + rot) * 180) / Math.PI;
+  // 段 G：法務（パネルの無い枝）の札は、段 F のときと同じ向きに残す（カスタマーサポートが広がったぶん、法務の枝の真ん中が隣の人事へ寄って、札がパネルに近づかないように）
+  if (cs && grown > 0) for (const x of empty) DEPT_LAYOUT[x.d].angle -= (((cs.need - pair / 2) / 2) * 180) / Math.PI;
   // パネルの無い部門は、細い枝の先に札（隣どうしは互い違いの距離）
   let k = 0;
   for (const d of DEPTS) {

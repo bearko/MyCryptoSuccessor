@@ -5,6 +5,7 @@
  * docs/ISLAND_PHASE1.md「ランドマップとセクタ」。
  */
 import { t } from '../../i18n';
+import { csMove } from './cs';
 import { BRAND, LETTER_NEED, MANAGER, P1B, SECTORS, TOP_STREAK, type Mat, type Tier } from './data';
 import { brandAdd, book, newLand, sectorDef, sectorState, TIER_NAME, type SectorRec } from './company';
 import { assign, dropStaleArea, ensureDig, fitEquipment, groundOf, hasLetter, letterProgress, newP1, staffOf, syncFacilities, syncGround, type P1State, type Report } from './model';
@@ -227,6 +228,8 @@ export function moveTo(s: P1State, target: string, manager: number | null): Move
     land.mine.push(target);
     brandAdd(s, BRAND.enter[def.tier], t(`${def.name}に出店`, `Opened in ${def.name}`));
   }
+  // カスタマーサポート（段 G）：前の町の問い合わせ・炎上のおそれは消える（顧客満足度・炎上の熱さは会社のもの）
+  csMove(s);
   s.ground = groundOf(s.n);
   // 復興した荒れ地の小道
   syncGround(s);

@@ -12,6 +12,8 @@ import { writeFileSync } from 'node:fs';
 import { careerMul, charismaOf, moraleTarget, quitNotice } from '../../src/island/p1/hr';
 import { closeQuarter, dedCap, dedRate } from '../../src/island/p1/acct';
 import { fatigueMul } from '../../src/island/p1/ga';
+import { centerRate, inquiriesFor, newCs, putPower, refundCost, repeatMul } from '../../src/island/p1/cs';
+import { gradeBrand, horizon, prGain } from '../../src/island/p1/mkt';
 import { emptyLedger } from '../../src/island/p1/company';
 import { areaShares, deserializeP1 as fromSave, newP1 as freshTown, newStorePull, rivalStores, serializeP1 as toSave, vacantCost } from '../../src/island/p1/model';
 import { HERO_GROWTH, ADS, DIG_BALANCE, DIG_SITES, HIRE_POOL, INVEST, INVESTS, MONEY_PANELS, P1B, PRODUCT, RESEARCH_NEED, SKILL, aptitude, isResearch, relicKey, sku, skuParts, type DigFxKind, type FxKind, type Mat, type Skill, type Sku, type Task } from '../../src/island/p1/data';
@@ -525,6 +527,16 @@ export const SKILL_SPEC: Record<string, SkillSpec> = {
   ac_rnd: { expect: [], check: 'probe', probe: { name: '研究開発の差し引き（%）', f: (s) => Math.round(dedRate(s, 'rnd') * 100), better: 'up' } },
   ac_carry: { expect: [], check: 'probe', probe: { name: '赤字の四半期のあとの税（Uncommon・−200,000 G → +300,000 G）', f: (s) => carryProbe(s), better: 'down' } },
   ga_check: { expect: [], check: 'probe', probe: { name: '疲れ 85% の人の働きの速さ（Uncommon・%）', f: (s) => Math.round(fatigueMul({ ...s, tier: 'U' }, { stamina: s.staff[0].stats.hp * 0.15, stats: s.staff[0].stats }) * 100), better: 'up' } },
+  // カスタマーサポート・マーケ（段 G）：問い合わせ・満足度・広報・企業の格（SCM の段には出ない数。cs.ts・mkt.ts）
+  cs_faq: { expect: [], check: 'probe', probe: { name: '届く問い合わせ（Uncommon・品切れ 6 日・閉まっていた 6 日）', f: (s) => inquiriesFor({ ...s, tier: 'U', cs: newCs() } as P1State, 6, 6).length, better: 'down' } },
+  cs_center: { expect: [], check: 'probe', probe: { name: 'サポートセンターが自動で受ける割合（%）', f: (s) => Math.round(centerRate(s) * 100), better: 'up' } },
+  cs_policy: { expect: [], check: 'probe', probe: { name: '返金の費用（G）', f: (s) => refundCost(s), better: 'down' }, note: '返事の期限も 14 → 21 日' },
+  cs_survey: { expect: [], check: 'probe', probe: { name: '満足度 80 のときの来店の倍率（Uncommon・0.1% 単位）', f: (s) => Math.round(repeatMul({ ...s, tier: 'U', cs: { ...newCs(), sat: 80 } } as P1State) * 1000), better: 'up' }, note: '合う返事の満足度 +30% も' },
+  mk_research: { expect: [], check: 'probe', probe: { name: '市場の見通しの月数', f: (s) => horizon(s), better: 'up' }, note: '他社の売れ筋も見える' },
+  mk_forecast: { expect: [], check: 'probe', probe: { name: '市場の見通しの月数', f: (s) => horizon(s), better: 'up' }, note: '他社が真似してくる時期の予報も' },
+  mk_press: { expect: [], check: 'probe', probe: { name: '町の制覇のニュースで上がるブランド力', f: (s) => prGain(s, 'clear'), better: 'up' } },
+  mk_crisis: { expect: [], check: 'probe', probe: { name: '火消しで下がる炎上の熱さ（%）', f: (s) => Math.round(putPower(s) * 100), better: 'up' }, note: 'お詫びの告知の費用 −50% も' },
+  mk_ci: { expect: [], check: 'probe', probe: { name: 'ブランド力 200 の会社の格に数えるブランド力', f: (s) => gradeBrand({ ...s, brand: 200 }), better: 'up' } },
   d_people: { expect: ['craft'], after: (s) => replace('craft')(s), setup: undefined, note: '雇うときの能力（後だけ雇う。前も同じ人を雇う）' },
   // 経営
   pace1: { expect: [], out: '進行速度（遊ぶ速さ）。段の数字には効かない' },

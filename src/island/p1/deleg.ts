@@ -79,6 +79,7 @@ import {
   type StageIf,
 } from './model';
 import { siteCandidates } from './trade';
+import { bestReply, fits, refundCost, reply } from './cs';
 import type { SectorRec } from './company';
 
 // ---------------------------------------------------------------- 役目
@@ -413,7 +414,15 @@ const RUN: Record<DutyId, (s: P1State, r: Runner, rec: DutyStat, rnd: () => numb
   dig: () => undefined,
   ads: doAds,
   vacant: doVacant,
+  reply: doReply,
 };
+/** 業務の出来の悪さを足す（期限切れの問い合わせなど、model.ts の step で数えるもの）。任せていなければ何もしない */
+export function delegMiss(s: P1State, d: DutyId, n: number) {
+  const r = runnerOf(s, d);
+  if (!r || n <= 0) return;
+  const rec = (D(s).stat[d] ??= { acts: 0, miss: 0, n: 0 });
+  rec.miss += n;
+}
 
 /** 作業台で作っている（作る予定の）商品 */
 const madeSkus = (s: P1State): Sku[] => [...new Set([...s.slots.map((sl) => sl.sku), ...Object.values(s.deleg?.pend ?? {})].filter((x): x is Sku => !!x))];
@@ -707,6 +716,21 @@ function doAds(s: P1State, r: Runner, rec: DutyStat, rnd: () => number) {
       rec.acts++;
       rec.miss += st.adWait[a.id] ?? 0;
       delete st.adWait[a.id];
+    }
+  }
+}
+
+/**
+ * カスタマーサポート：問い合わせの返事（段 G）。見直しの日に、受け箱の問い合わせへ返事をする。
+ * 出来の確率で中身に合う返事（返金はお金を手元に残せるとき・代わりの品は在庫があるとき）、外れたら謝る。n は合う返事の数
+ */
+function doReply(s: P1State, r: Runner, rec: DutyStat, rnd: () => number) {
+  for (const q of [...(s.cs?.inbox ?? [])]) {
+    let k = rnd() < r.q ? bestReply(s, q) : 'sorry';
+    if (k === 'refund' && s.money < refundCost(s) + reserveOf(s)) k = 'sorry';
+    if (reply(s, q.id, k) == null) {
+      rec.acts++;
+      if (fits(q, k)) rec.n++;
     }
   }
 }
@@ -1175,6 +1199,8 @@ export function dutyLine(d: DelegReport['duties'][number]): string {
       return t(`出し直し ${d.acts} 回・切れていた ${d.miss} 日`, `${d.acts} renewals, lapsed ${d.miss} d`);
     case 'vacant':
       return t(`入った ${d.acts} 軒・空いたまま ${d.miss} 日`, `${d.acts} taken, ${d.miss} d left empty`);
+    case 'reply':
+      return t(`返事 ${d.acts} 件（合う返事 ${d.n}）・期限切れ ${d.miss} 件`, `${d.acts} replies (${d.n} fitting), ${d.miss} expired`);
   }
 }
 export const qText = (q: number) => t(`出来 ${pct(q)}`, `Quality ${pct(q)}`);
