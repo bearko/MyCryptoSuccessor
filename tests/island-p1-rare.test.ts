@@ -5,7 +5,7 @@
  * Rare の復刻品（Rare 進出後に研究 Lv3 で開く・Uncommon より高い）・Rare の他社・古いセーブ。
  */
 import { describe, expect, it } from 'vitest';
-import { DIG_BALANCE, DIG_SITES, DUNGEON_FINDS, MARKET_SERIES, PRODUCTS, RARE_RIVAL, RELICS, RESEARCH_NEED, RESET, RP_GAIN, SECTORS, TABLETS, TIERS, UNCOMMON, fundsOf, grantOf, relicOf, relicSells, rivalsOf, seriesOf, sku, skuPrice } from '../src/island/p1/data';
+import { DIG_BALANCE, DIG_SITES, DIG_THEME, DUNGEON_FINDS, MARKET_SERIES, PRODUCTS, RARE_RIVAL, RELICS, RESEARCH_NEED, RESET, RP_GAIN, SECTORS, TABLETS, TIERS, UNCOMMON, fundsOf, grantOf, relicOf, relicSells, rivalsOf, seriesOf, sku, skuPrice } from '../src/island/p1/data';
 import { sectorProfile } from '../src/island/p1/company';
 import { RUIN, sectorState } from '../src/island/p1/company';
 import { letterLock, letterLockOf, letterLocked, moveTo, recOf } from '../src/island/p1/land';
@@ -199,7 +199,7 @@ describe('3. Rare の発掘', () => {
       for (const x of tabs) expect(x.soon).toBeUndefined();
       // ダンジョンの上のランクは Epic・Legendary
       expect(Object.keys(DUNGEON_FINDS[id])).toEqual(['E', 'L']);
-      expect(topicsPage(id)).toContain('Lime が荒れたわけ');
+      expect(topicsPage(id)).toContain(`[[${DIG_THEME[id]}]]の跡`);
     }
     // お題・石板・発表の RP は Uncommon の 2.5 倍。出土品 1 個ぶんは同じ
     expect(RP_GAIN.R).toEqual({ first: RP_GAIN.C.first, lv: RP_GAIN.C.lv, topic: 250, tablet: 125, present: 375 });

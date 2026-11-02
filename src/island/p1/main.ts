@@ -12,13 +12,12 @@ import { icon } from '../../ui/dom';
 import { DEF, artId } from '../defs';
 import { effectDone, image, loading, pick, waterFrame, type Camera, type Effect } from '../render';
 import { cells, type Dir } from '../sim';
-import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, EPIC_TEASER, LEGAL_INTRO, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, HERO_RARITY, MORALE, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO, ACCT_INTRO, CS_INTRO } from './data';
+import { BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, LEGAL_INTRO, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, HERO_RARITY, MORALE, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO, ACCT_INTRO, CS_INTRO } from './data';
 import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
 import { bandText } from './deleg';
 import { openDeleg, openProps } from './delegui';
-import { autoText, cardsCompany, cardsDay, cardsMonth, demoDraft, enqueue, nextPop, takeAuto } from './card';
+import { autoText, cardInbox, cardsCompany, cardsDay, cardsMonth, demoDraft, enqueue, nextPop, takeAuto } from './card';
 import { cardNav, showCard } from './cardui';
-import { bestSell } from './moves';
 import {
   allowedDirs,
   digSite,
@@ -32,8 +31,6 @@ import {
   DAYS,
   deserializeP1,
   doorOf,
-  myWarehouses,
-  poolFree,
   ground,
   roadPath,
   wholesaler,
@@ -43,9 +40,6 @@ import {
   myWorkshop,
   newP1,
   occupant,
-  recommend,
-  needFor,
-  gapOf,
   relocate,
   serializeP1,
   step,
@@ -65,16 +59,9 @@ import {
   buildKnown,
   gateOf,
   gateToll,
-  clearGoal,
   openGate,
   has,
   hotCells,
-  rivalMonthGuess,
-  adBoost,
-  market,
-  trainingOf,
-  invLv,
-  jamOf,
   type Report as P1Report,
   extName,
   present,
@@ -114,16 +101,13 @@ import {
   openMissions,
   openPayroll,
   openRanking,
-  openShop,
   openStaff,
-  openWorkshop,
   makeInWorkshop,
   refreshSheet,
   rivalName,
   sheetOpen,
   type Ctx,
   mineTip,
-  mineSay,
   shopScene,
   shopSceneSale,
   open as openSheet,
@@ -143,14 +127,16 @@ import { legalToasts, openContract, openLegalMA, openPatents, openSuits, type Le
 import { startDeal } from './legal';
 import { csOn } from './cs';
 import { gradeName, gradeOf } from './mkt';
-import { taxHint, type TaxRec } from './acct';
+import { taxHint } from './acct';
 import { quitLeft, type HrDay } from './hr';
 import { IslandSfx } from './sfx';
 import { tileContent } from './tile';
 import { closeDig, digOpen, digRect, extIcon, openDig, openNotes, refreshDig, refreshTimer, showEndCard } from './digui';
-import { BRANCH_TIP, MEET_FOUND, MEET_LINES, canPresent, clearWaitTip, chiefHome, chiefOf, digMet, digSummary, digTips, letterToGet, lettersLeft, meetReady, meetTip, presentAfter, presentNeedText, presentPages, topicsPage, type DigTip } from './digmeet';
+import { MEET_FOUND, MEET_LINES, canPresent, chiefHome, digMet, chiefOf, digSummary, letterToGet, lettersLeft, meetReady, meetTip, presentAfter, presentPages } from './digmeet';
+import { CHIP_SRC, CLEAR_LINE, HIRE_LINES, RP_LINE, DUNGEON_LINE, GATE_LINES, LAND_CLEAR_LINE, MUSEUM_LINE, RANK_LINES, RELIC_LINE, REVIVE_LINE, SIDE_LINES, TOUR, arrivalPages, bubbleKind, chipOf, deptTalkNext, introPages, needsIntro, talkWaits, type ArrivePage, type TalkUi, type TourEv, type TourPhase } from './mine';
+import type { Stage } from './model';
 import { openBooks, openBrand, openLand, openRankUp, startMove } from './landui';
-import { pendingReset, rankUpTier, repairAllCost, ruinsOf } from './reset';
+import { pendingReset, rankUpTier } from './reset';
 import { playDisaster } from './disaster';
 import { brandAdd, sectorDef, sectorState, tierLabel, TIER_NAME } from './company';
 import { camShift, enteredSector, gridDelta, layerOf, needLine, sectorBadges, switchSector, type SectorBadge } from './world';
@@ -323,7 +309,7 @@ const ctx: Ctx = {
     if (s.flags.delegateTalk) return;
     s.flags.delegateTalk = true;
     save();
-    mineSay(ctx, t('任せた町は、支援金のぶんだけ毎月直していってくれるよ。[[お題]]と[[出土品]]は自分で掘りに行こう。', 'The town you left in charge gets rebuilt each month as far as the funds go. Go dig the [[targets]] and [[finds]] yourself.'));
+    // 段 UI2：画面の下のマインちゃんの一言はやめた（ランドマップの復興の札に進みが出る）
   },
   skills: (focus) => openSkills(ctx, focus),
   rpNoted: () => (rpSeen = s.rp ?? 0),
@@ -408,6 +394,44 @@ function showSectorName(id: string, animate: boolean) {
   } else sectorNames.replaceChildren();
   sectorNames.append(nb);
 }
+/**
+ * 段 UI2：「詰まり」の札（上の帯。いまの SCM の詰まりの段のアイコンと 1〜2 語）。2 か月目からの地図の吹き出しの代わり。
+ * 押すと、その段のヒーローの提案のカード（受け箱にあれば）か、SCM ダッシュボード（④ 販売なら販売の内訳）。工房・お店がまだ無ければ建築へ
+ */
+const statJam = h('button', 'isl-stat isl-stat-btn isl-stat-jam');
+statJam.type = 'button';
+statJam.hidden = true;
+const JAM_ICON: Record<Stage, string> = { buy: '📦', craft: '🔨', haul: '🛒', sell: '🏪' };
+const JAM_NAME = (k: Stage) => ({ buy: t('① 調達', '① Buy'), craft: t('② 製造', '② Craft'), haul: t('③ 物流', '③ Haul'), sell: t('④ 販売', '④ Sell') })[k];
+statJam.addEventListener('click', () => {
+  const c = chipOf(s);
+  if (!c) return;
+  if (c.k !== 'jam') {
+    openBuildTab();
+    return;
+  }
+  const src = CHIP_SRC[c.stage];
+  const card = src ? cardInbox(s).find((x) => x.src === src) : undefined;
+  if (card) showCard(ctx, card, { done: cardDone, open: cardOpen });
+  else openSupply(ctx, { breakdown: c.stage === 'sell' });
+});
+let jamKey = '';
+function renderJam() {
+  const c = chipOf(s);
+  statJam.hidden = !c;
+  if (!c) return;
+  const key = c.k === 'jam' ? `jam:${c.stage}` : c.k;
+  if (key === jamKey) return;
+  jamKey = key;
+  statJam.classList.toggle('is-build', c.k !== 'jam');
+  if (c.k === 'jam') {
+    statJam.replaceChildren(h('small', '', t('詰まり', 'Jam')), h('b', '', `${JAM_ICON[c.stage]} ${JAM_NAME(c.stage)}`));
+    statJam.title = t('いちばんの詰まり。押すと、担当の提案か SCM ダッシュボード', 'The biggest jam. Tap for the proposal or the SCM dashboard');
+  } else {
+    statJam.replaceChildren(h('small', '', t('次の一手', 'Next')), h('b', '', c.k === 'ws' ? t('🔨 工房', '🔨 Workshop') : t('🏪 お店', '🏪 Shop')));
+    statJam.title = t('押すと建築', 'Tap to build');
+  }
+}
 const SPEEDS = [0, 1, 4];
 const speedBtns = SPEEDS.map((v) =>
   btn(v === 0 ? '⏸' : v === 1 ? '▶' : '⏩', () => {
@@ -427,7 +451,7 @@ const speedBtns = SPEEDS.map((v) =>
 );
 const speedBox = h('div', 'isl-speed');
 speedBox.append(...speedBtns);
-hud.append(statMoney, statBrand, statFlame, statSales, statRank, statSector, statDate, h('div', 'isl-spacer'), speedBox);
+hud.append(statMoney, statBrand, statFlame, statSales, statRank, statSector, statDate, statJam, h('div', 'isl-spacer'), speedBox);
 
 /** 流れの案内：売れたけれど、店内のレジでまだ払っていない額（上の帯にはまだ出さない） */
 let tourUnpaid = 0;
@@ -534,6 +558,7 @@ function renderHud() {
   speedBtns.forEach((b, k) => b.classList.toggle('is-on', SPEEDS[k] === speed));
   // 見習い期間で時間を止めている段・月末ポーズのあいだは、速さのボタンを薄く（押しても進まない）
   speedBox.classList.toggle('is-off', tutHold() || !!s.monthPause);
+  renderJam();
 }
 
 // ---------------------------------------------------------------- 下の帯：事業別メニュー
@@ -703,10 +728,7 @@ function unlockHire() {
     renderAll();
     if (tutStep()?.id === 'hire')
       talk(
-        [
-          { text: t('[[人材登用]]がアンロックされたよ！ これでヒーローを雇えるね。', '[[Recruiting]] is unlocked! Now we can hire heroes.') },
-          { text: t('さっそく、素材を買い付けてくれる[[調達]]が得意なヒーローを雇おう！', 'Let’s hire a hero who’s good at [[buying]] materials right away!') },
-        ],
+        HIRE_LINES().map((text) => ({ text })),
         t('人材登用を開く', 'Open recruiting'),
         () => goSub('hr', 'hire'),
       );
@@ -1367,18 +1389,6 @@ function focusWaste(k: number) {
   if (!m) return;
   tween = { x0: cam.x, y0: cam.y, x1: (m[0] - m[1]) * 100, y1: (m[0] + m[1]) * 55, t0: performance.now(), z0: cam.zoom, z1: innerWidth < 600 ? 0.75 : 1, dur: 800 };
 }
-/** 荒れ地 k の吹き出しを開く（助言のボタン） */
-function showWaste(k: number) {
-  if (k === DUNGEON) k = s.dig?.dungeon?.site ?? -1;
-  const sp = wasteSpots(s.sector ?? 'c1')[k];
-  if (!sp) return;
-  closeSheet();
-  menu = null;
-  sub = null;
-  openPop(sp[0], sp[1]);
-  renderAll();
-}
-
 /** 発掘許可を申請する（荒れ地の吹き出し）：許可が下りたら判子がポンと押される */
 function askPermit(k: number) {
   const r = applyPermit(s, k);
@@ -1527,11 +1537,11 @@ function townFxNow() {
     if (fx0.kind === 'revive' && !s.flags.reviveTalk) {
       s.flags.reviveTalk = true;
       save();
-      talk([{ text: t('荒れ地がきれいな土地になったね！ [[復興]]した土地には建物を建てられるし、住む人も増えるよ。', 'The wasteland is clean, open land now! You can build on [[revived]] land, and more people will live here.') }], t('わかった', 'Got it'), next);
+      talk([{ text: REVIVE_LINE() }], t('わかった', 'Got it'), next);
     } else if (fx0.kind === 'dungeon' && !s.flags.dungeonTalk) {
       s.flags.dungeonTalk = true;
       save();
-      talk([{ text: t('荒れ地の底に[[ダンジョン]]があった！ 入るたびに中が変わって、奥ほど珍しい遺物が眠っているよ。入り口をタップして潜ってみよう！', 'A [[dungeon]] lay beneath the wasteland! It changes every visit, and rarer relics sleep deeper down. Tap the entrance and dive in!') }], t('わかった', 'Got it'), next);
+      talk([{ text: DUNGEON_LINE() }], t('わかった', 'Got it'), next);
     } else next();
     renderAll();
   }, 2900);
@@ -1542,7 +1552,7 @@ function museumTalkOnce() {
   if (s.flags.museumTalk || s.museum?.at || !buildCatOpen(s, 'relic') || !calm()) return;
   s.flags.museumTalk = true;
   save();
-  talk([{ text: t('復興した土地に[[遺物の展示館]]を建てよう！ 掘った遺物を飾ると、お客さんが見に来てくれるよ。', 'Build a [[relic museum]] on the revived land! Display the relics you dug up and visitors will come to see them.') }], t('建築を開く', 'Open Build'), () => {
+  talk([{ text: MUSEUM_LINE() }], t('建築を開く', 'Open Build'), () => {
     buildCat = 'relic';
     openBuildTab();
   });
@@ -1668,7 +1678,7 @@ function relicTalkOnce(end: RunEnd) {
   save();
   const ext = p.relic.ext;
   talk(
-    [{ text: t('遺物を研究したら、昔の Lime の作り方が分かったよ！ [[復刻品]]は、しばらくはどこの会社も作れない。いまのうちに売り込もう！', 'Researching the relic taught us how old Lime made it! For a while no other company can make this [[revival]]. Sell it while you can!'), el: () => extIcon(ext, 64) }],
+    [{ text: RELIC_LINE(), el: () => extIcon(ext, 64) }],
     t('工房で作る', 'Make it'),
     () => makeRelic(key),
   );
@@ -1740,12 +1750,6 @@ function updateMarks() {
   }
   const p = toScreen(home.i, home.j);
   chiefEl.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y - 120 * cam.zoom)}px) translate(-50%, -100%)`;
-}
-
-/** 町の長の家へカメラを寄せて、家の吹き出しを開く */
-function showChief() {
-  const home = chiefHome(s);
-  if (home) openPop(home.i, home.j);
 }
 
 /** 研究成果の発表：マインちゃんと町の長の会話（3 枚）→ RP（present）→ 調査依頼状を受け取る演出（4 枚目） */
@@ -1825,12 +1829,7 @@ function payGate() {
   const g = gateOf(s);
   if (g) centerOn(g.i, g.j);
   talk(
-    [
-      { text: t(`通行料 ${money(toll)} を納めて、[[関所]]が開いたよ！`, `You paid the ${money(toll)} toll and the [[gate]] is open!`) },
-      { text: t('この先には、いくつもの[[ランドセクタ]]が広がっているよ。新しいお客さんと、新しいライバルが待っているはず！', 'Beyond lie many [[land sectors]], with new customers and new rivals!') },
-      { text: t('ほかのセクタに出店すると、ここは[[セクター長]]に任せることになるよ。能力の高いヒーローほど、上手に運営してくれるんだ。', 'When you open in another sector, a [[sector head]] runs this one. Stronger heroes run it better.') },
-      { text: t('まずは[[ランドマップ]]を見てみよう！', 'Let’s look at the [[land map]]!') },
-    ],
+    GATE_LINES(toll).map((text) => ({ text })),
     t('ランドマップへ', 'To the land map'),
     () => openLand(ctx),
   );
@@ -1871,62 +1870,21 @@ function afterMove(target: string, fresh: boolean, manager: number | null) {
   moving = false;
   arrive(target, fresh, manager, false);
 }
-/** 移ったあとの案内（到着の案内・戻ってきた・マネージャー）。reset：ランクアップの災害のあと（最初の 1 枚に「ここからまた一から！」） */
+/** 移ったあとの案内（到着の案内・戻ってきた・マネージャー。文は mine.ts の arrivalPages）。reset：ランクアップの災害のあと */
 function arrive(target: string, fresh: boolean, manager: number | null, reset: boolean) {
-  const d = sectorDef(target);
-  const resetPage: TutPage[] = reset ? [{ text: t('ここからまた一から！ でも[[研究ポイント]]とヒーローはそのまま。被災した町は、ヒーローに[[復興]]を任せることもできるよ。', 'Starting over from here! But your [[research points]] and heroes are still with you. You can leave the ruined towns’ [[recovery]] to a hero.') }] : [];
-  // Rare の町 ①：Rare の町に初めて着いたとき、商圏の取り合いの 1 枚
-  if (fresh && d.tier === 'R') resetPage.push({ text: RARE_TEASER() });
-  // 段 H1：Epic の町に初めて着いたとき、骨董の需要の紹介と他社の買収（段 H2：M&A）の一言を 1 枚
-  if (fresh && d.tier === 'E') resetPage.push({ text: EPIC_TEASER() });
-  // 被災した町に初めて戻ったとき（1 回だけ）
-  const ruinPage: TutPage[] = !fresh && ruinsOf(s).length && !s.flags.ruinTalk ? [{ text: t('[[廃墟]]をタップすると修繕できるよ。手で直すほうが安上がり！', 'Tap a [[ruin]] to repair it. Fixing it by hand is cheaper!') }] : [];
-  if (ruinPage.length) s.flags.ruinTalk = true;
-  // はじめてのセクタ（最初のタオックスのほか）：到着の案内（目標 → 違い → 最初の一手）
-  if (needsIntro()) {
-    const pages = [...resetPage, ...introPages()];
-    if (manager != null) pages.splice(pages.length - 1, 0, managerPage(manager));
-    moving = false;
-    showIntro(pages);
+  const a = arrivalPages(s, { target, fresh, manager, reset });
+  if (a.ruin) s.flags.ruinTalk = true;
+  moving = false;
+  // 部門の紹介は、到着の案内の日には出さない（1 日に 1 つずつ。mine.ts の deptTalkNext）
+  s.flags.talkDay = s.day;
+  save();
+  if (a.intro) {
+    showIntro(a.pages);
     renderAll();
     return;
   }
-  moving = false;
   renderAll();
-  const pages: TutPage[] = [];
-  if (fresh) {
-    pages.push({ text: t(`[[${d.name}]]の出店許可がおりたよ！ ここは${tierLabel(d.tier)}。`, `We got the permit for [[${d.name}]]! It is a ${tierLabel(d.tier)}.`) });
-    if (d.tier !== 'C') pages.push({ text: t('ここは商売敵が大きくて、Common の商品はあまり相手にされないんだ。アンコモンを並べられるように、エクステのランクアップを急ごう！', 'Rivals are big here and Common goods barely sell. Rank up your extensions to Uncommon!') });
-    pages.push({ text: t('建物はセクタごと。まずはここに[[工房]]を建てて、お店を開こう。資金・ヒーロー・スキルは会社でいっしょだよ。', 'Buildings belong to each sector. Build a [[workshop]] and a shop here first. Funds, heroes and skills are shared.') });
-  } else if (ruinsOf(s).length) pages.push({ text: t(`[[${d.name}]]に戻ってきたよ。災害で壊れた建物が[[廃墟]]のまま残っている…（${ruinsOf(s).length} 軒）`, `Back in [[${d.name}]]. The buildings wrecked by the disaster still stand as [[ruins]]… (${ruinsOf(s).length})`) });
-  else pages.push({ text: t(`[[${d.name}]]に戻ってきたよ。建物も担当も、離れたときのままだよ。`, `Back in [[${d.name}]]. Buildings and jobs are as you left them.`) });
-  pages.unshift(...resetPage);
-  pages.push(...ruinPage);
-  if (manager != null) pages.push(managerPage(manager));
-  talk(pages, t('はじめよう！', 'Let’s go!'), () => renderAll());
-}
-
-const managerPage = (manager: number): TutPage => ({ text: t(`前のセクタは[[${heroName(manager)}]]に任せたよ。月ごとの結果はトーストと「ランドマップ」、お金の流れは「決算書」で見られるよ。`, `[[${heroName(manager)}]] runs the previous sector. See monthly results on the land map and money flows in Statements.`) });
-
-/** いまのセクタの到着の案内をまだ見ていない（最初のセクタ・タオックスは最初のチュートリアルがあるので出さない） */
-const needsIntro = () => {
-  const id = s.sector ?? 'c1';
-  return id !== 'c1' && sectorDef(id).profile.intro.length > 0 && !(s.flags.sectorIntro ?? []).includes(id);
-};
-
-/** 到着の案内 3 枚（目標 → 違い → 最初の一手）。目標の枚には 1 位の他社の月の売上の見込み */
-function introPages(): TutPage[] {
-  const d = sectorDef(s.sector ?? 'c1');
-  const top = Math.max(0, ...Object.values(rivalMonthGuess(s)));
-  const intro = d.profile.intro;
-  // お題の 1 枚（発掘と出会ったあと。最初の一手の前）：お題のエクステの絵（未発見はシルエット）
-  const topic = digMet(s) ? topicsPage(d.id) : null;
-  return [
-    { text: intro[0].split('{top}').join(money(Math.round(top / 100) * 100)) },
-    ...intro.slice(1, -1).map((text) => ({ text })),
-    ...(topic ? [{ text: topic, el: () => topicsEl(d.id) }] : []),
-    { text: introFirstStep(d.tier as Tier, has(s, 'pot')) },
-  ];
+  talk(a.pages.map((pg) => ({ text: pg.text })), t('はじめよう！', 'Let’s go!'), () => renderAll());
 }
 
 /** お題のエクステの絵の並び（到着の案内・研究成果の発表）。未発見はシルエットと「？？？」 */
@@ -1943,16 +1901,17 @@ function topicsEl(sector: string): HTMLElement {
   return row;
 }
 
-/** 到着の案内を出す。最初の一手が工房なら、閉じたら建築を開く。2 枚目（リサーチ）には「市場データを開く」ボタン */
-function showIntro(pages: TutPage[]) {
+/** 到着の案内を出す。最初の一手が工房なら、閉じたら建築を開く。2 枚目（リサーチ）には「市場データを開く」ボタン、お題の枚にはお題の絵 */
+function showIntro(pages: ArrivePage[]) {
   const id = s.sector ?? 'c1';
   const ws = s.buildings.some((b) => b.owner === 'me' && b.id === 'workshop');
+  s.flags.talkDay = s.day;
   const seen = () => {
     s.flags.sectorIntro = [...new Set([...(s.flags.sectorIntro ?? []), id])];
     save();
     renderAll();
   };
-  const withData = pages.map((pg): TutPage => (isResearchPage(pg.text) ? { ...pg, button: [t('市場データを開く', 'Open market data'), () => (seen(), openData(ctx))] } : pg));
+  const withData = pages.map((pg): TutPage => (pg.kind === 'research' ? { text: pg.text, button: [t('市場データを開く', 'Open market data'), () => (seen(), openData(ctx))] } : pg.kind === 'topic' ? { text: pg.text, el: () => topicsEl(id) } : { text: pg.text }));
   talk(withData, ws ? t('はじめよう！', 'Let’s go!') : t('建築を開く', 'Open Build'), () => {
     seen();
     if (!ws) openBuildTab();
@@ -1962,16 +1921,16 @@ function showIntro(pages: TutPage[]) {
 /** 会話も画面も開いていないとき：到着の案内（古いセーブ・途中で閉じたとき）と、ランド制覇のお祝い */
 function sectorChecks() {
   if (moving || placing || pop || tour || sheetOpen() || root.querySelector('.isl-modal, .isl-rp-reveal, .isl-picker')) return;
-  if (needsIntro()) {
-    showIntro(introPages());
+  if (needsIntro(s)) {
+    showIntro(introPages(s));
     return;
   }
   const lands: [Tier, 'landCommon' | 'landUncommon' | 'landRare' | 'landEpic', string, string][] = [
-    ['C', 'landCommon', t('Common ランド制覇！', 'Common lands conquered!'), t(`Common の ${playable('C').length} つのセクタすべてで 1 位になったよ！ 次は Uncommon のセクタで、アンコモンを並べて 1 位を目指そう。`, `You were #1 in all ${playable('C').length} Common sectors! Next, aim for #1 in the Uncommon sectors with Uncommon goods.`)],
-    ['U', 'landUncommon', t('Uncommon ランド制覇！', 'Uncommon lands conquered!'), t(`Uncommon の ${playable('U').length} つのセクタすべてで 1 位になったよ！ 次は Rare のセクタで、アンコモンと Rare の復刻品で 1 位を目指そう。`, `You were #1 in all ${playable('U').length} Uncommon sectors! Next, aim for #1 in the Rare sectors with Uncommons and Rare revivals.`)],
-    ['R', 'landRare', t('Rare ランド制覇！', 'Rare lands conquered!'), t(`Rare の ${playable('R').length} つのセクタすべてで 1 位になったよ！ 次は Epic のセクタで、Epic の復刻品と骨董で 1 位を目指そう。`, `You were #1 in all ${playable('R').length} Rare sectors! Next, aim for #1 in the Epic sectors with Epic revivals and antiques.`)],
+    ['C', 'landCommon', t('Common ランド制覇！', 'Common lands conquered!'), LAND_CLEAR_LINE('C', playable('C').length)],
+    ['U', 'landUncommon', t('Uncommon ランド制覇！', 'Uncommon lands conquered!'), LAND_CLEAR_LINE('U', playable('U').length)],
+    ['R', 'landRare', t('Rare ランド制覇！', 'Rare lands conquered!'), LAND_CLEAR_LINE('R', playable('R').length)],
     // 段 H1：Epic の 3 町すべてで 👑
-    ['E', 'landEpic', t('Epic ランド制覇！', 'Epic lands conquered!'), t(`Epic の ${playable('E').length} つのセクタすべてで 1 位になったよ！ ランドの真ん中の Legendary の都は、まだ雲の向こう。`, `You were #1 in all ${playable('E').length} Epic sectors! The Legendary capital at the heart of the land is still beyond the clouds.`)],
+    ['E', 'landEpic', t('Epic ランド制覇！', 'Epic lands conquered!'), LAND_CLEAR_LINE('E', playable('E').length)],
   ];
   for (const [tier, flag, title, body] of lands) {
     if (s.flags[flag] || !landCleared(s, tier)) continue;
@@ -2323,10 +2282,15 @@ function tutTick() {
   if (cur?.sheetTalk && sheetOpen() && !s.flags.craftTalk && !root.querySelector('.isl-modal') && !root.querySelector('.isl-picker') && cur.done(s, tutSeen)) {
     s.flags.craftTalk = true;
     save();
-    talk(cur.sheetTalk.pages, cur.sheetTalk.ok, () => {
-      closeSheet();
-      renderAll();
-    });
+    talk(
+      cur.sheetTalk.pages,
+      cur.sheetTalk.ok,
+      () => {
+        closeSheet();
+        renderAll();
+      },
+      { over: true },
+    );
     return;
   }
   let moved = false;
@@ -2394,7 +2358,7 @@ function tutTick() {
       }
       const rp = s.rp ?? 0;
       // 最後の 1 枚（「行ってみよう！」＝次にすること）の前に入れる
-      pages.splice(Math.max(0, pages.length - 1), 0, { text: t(`人材の募集は[[研究ポイント]]で開くパネルだよ。私の前の世界の研究ノートから、[[${rp} RP]] を持ってきたんだ！`, `Recruiting is unlocked with [[research points]]. I brought [[${rp} RP]] from my research notes from my old world!`), show: 'gift', gift: { icon: '📜', title: `${rp} RP`, note: t('マインちゃんの研究ノート', 'Mine-chan’s research notes') } });
+      pages.splice(Math.max(0, pages.length - 1), 0, { text: RP_LINE(rp), show: 'gift', gift: { icon: '📜', title: `${rp} RP`, note: t('マインちゃんの研究ノート', 'Mine-chan’s research notes') } });
     }
     talk(pages, st.intro.ok, () => {
       const a = actOf(st, s);
@@ -2410,11 +2374,7 @@ function sideIntro() {
   s.flags.side = true;
   save();
   talk(
-    [
-      { text: t('資金が少なくなってきたね……。このままだと、素材もお給料も払えなくなっちゃう。', 'Funds are getting low… At this rate we can’t pay for materials or wages.') },
-      { text: t('そんなときは、ヒーローに[[他店でバイト]]してもらおう！ 日給がもらえて、腕が上がることもあるよ。', 'When that happens, send heroes to [[work part-time]] at other stores! They earn a daily wage and might even improve.') },
-      { text: t('「人事」→「他店でバイト」か、地図の他社のお店から頼めるよ。', 'Use HR → Part-time, or tap a rival store on the map.') },
-    ],
+    SIDE_LINES().map((text) => ({ text })),
     t('バイトを探す', 'Find work'),
     () => goSub('hr', 'side'),
   );
@@ -2422,28 +2382,6 @@ function sideIntro() {
 
 // ---------------------------------------------------------------- 初売上までの流れの案内（①調達 → ②製造 → ③物流 → ④販売。スキップできない）
 
-type TourKey = 'intro' | 'buy' | 'craft' | 'haul' | 'look' | 'inside' | 'end';
-type TourEv = 'made' | 'dropped' | 'sold';
-interface TourStage {
-  key: TourKey;
-  label: string;
-  /** はじめの一言・できごとのあとの一言 */
-  say: string;
-  then?: string;
-  /** 待つできごと（無ければ一言を読む時間だけ） */
-  wait?: TourEv;
-  /** ゲームの速さ（できごとを待つあいだ） */
-  speed: number;
-}
-const TOUR: TourStage[] = [
-  { key: 'intro', label: '', say: t('準備ばっちり！ ここから、エクステが売れるまでの流れを一緒に見てみよう。', 'All set! Let’s watch how an Extension gets from start to sale.'), speed: 0 },
-  { key: 'buy', label: t('① 調達', '① Buy'), say: t('まずは[[① 調達]]。卸問屋から、工房へ素材が届くよ。', 'First, [[① Buy]]: materials travel from the wholesaler to the workshop.'), then: t('素材がないと、工房は何も作れないんだ。', 'Without materials, the workshop can’t make anything.'), speed: 0.3 },
-  { key: 'craft', label: t('② 製造', '② Craft'), say: t('[[② 製造]]。職人が作業台でセンスを作っているよ。建物のまわりの輪が一周したら、できあがり！', '[[② Craft]]: the crafter is making Sensu. When the ring around the building completes, a batch is done!'), then: t('できた！ 作るには、何日か時間がかかるんだね。', 'Done! Crafting takes a few days.'), wait: 'made', speed: 1 },
-  { key: 'haul', label: t('③ 物流', '③ Haul'), say: t('[[③ 物流]]。運搬係が工房を出て、道路を通ってお店まで荷車を押していくよ。', '[[③ Haul]]: the hauler leaves the workshop and pushes the cart along the road to the shop.'), then: t('お店に着いた！ 遠いお店ほど、運ぶのに日数がかかるよ。', 'Delivered! The farther the shop, the longer it takes.'), wait: 'dropped', speed: 0.5 },
-  { key: 'look', label: t('④ 販売', '④ Sell'), say: t('[[④ 販売]]。お店に注目！ 届いた商品を目当てに、お客さんが入っていくよ。', '[[④ Sell]]: watch the shop! Customers are heading in.'), then: t('[[お店]]をタップして、中をのぞいてみよう！', 'Tap the [[shop]] to look inside!'), speed: 0 },
-  { key: 'inside', label: t('④ 販売', '④ Sell'), say: t('店員が商品を棚に並べて、お客さんを待っているよ。お客さんが手に取って、レジに来るかな？', 'The clerk shelves the goods and waits. Will a customer pick one up and pay?'), then: t('売れた！ お客さんがレジでお金を払ってくれて、はじめて売上になるんだ。', 'Sold! Sales only happen when a customer pays at the register.'), wait: 'sold', speed: 2 },
-  { key: 'end', label: '', say: t('① 調達 → ② 製造 → ③ 物流 → ④ 販売。どれか 1 つでも止まると、売上も止まるよ。', '① Buy → ② Craft → ③ Haul → ④ Sell. If any one stops, sales stop too.'), speed: 0 },
-];
 /** できごとを待つ長さの上限（来なければ先へ） */
 const TOUR_WAIT = 45000;
 
@@ -2453,7 +2391,6 @@ let tourReport: Parameters<typeof showReport>[0] | null = null;
  *   say（はじめの一言。時間は止まる。押すと見守りへ）→ watch（できごとを待つ。時間が進む）→ then（できごとのあとの一言。時間は止まる。押すと次の段）。
  * 待つできごとが無い段は say → then を飛ばして、押すと次の段。
  */
-type TourPhase = 'say' | 'watch' | 'then';
 let tour: { k: number; t0: number; ev: number | null; phase: TourPhase; deliver?: { t0: number; dur: number; hero: number; mat: Mat }; last?: number; tap?: HTMLButtonElement; inside?: HTMLElement } | null = null;
 const tourEl = h('div', 'isl-tour');
 tourEl.hidden = true;
@@ -2736,10 +2673,44 @@ function tourRender() {
 }
 
 /**
- * マインちゃんの会話：1 枚 1 メッセージ。押すと次の枚、最後の枚は ok のボタン。
- * 開いているあいだは時間が止まる（.isl-modal）。
+ * マインちゃんの会話：1 枚 1 メッセージ（1 枚 60 字まで。mine.ts の TALK_MAX）。押すと次の枚、最後の枚は ok のボタン。
+ * 開いているあいだは時間が止まる（.isl-modal）。暗幕で、できるのはセリフ送り（タップ・クリック・スペース／Enter）と最後の枚のボタンだけ。
+ * 段 UI2：ほかの会話・カード・月次報告・画面が開いているあいだは待って、閉じたら出す（mine.ts の talkWaits）。
+ * over：チュートリアルの「画面を開いたままの説明」（画面の上に出す）
  */
-function talk(pages: TutPage[], ok: string, then: () => void) {
+const talkQ: { pages: TutPage[]; ok: string; then: () => void; over: boolean }[] = [];
+/** いまの画面の様子（会話を待たせるか。mine.ts の TalkUi） */
+function uiNow(): TalkUi {
+  return {
+    talk: !!root.querySelector('.isl-talk'),
+    card: !!root.querySelector('.isl-cardm'),
+    report: !!root.querySelector('.isl-rp-reveal, .is-report-sheet, .is-dsum'),
+    sheet: sheetOpen(),
+    modal: !!root.querySelector('.isl-modal'),
+    placing: !!placing,
+    tour: !!tour,
+    disaster: !!root.querySelector('.isl-disaster'),
+    moving,
+  };
+}
+function talk(pages: TutPage[], ok: string, then: () => void, opt: { over?: boolean } = {}) {
+  const over = !!opt.over;
+  if (talkQ.length || talkWaits(uiNow(), over)) {
+    talkQ.push({ pages, ok, then, over });
+    return;
+  }
+  showTalk(pages, ok, then);
+}
+/** 待たせていた会話を、出せるようになったら出す（毎フレーム） */
+function flushTalk() {
+  const x = talkQ[0];
+  if (!x || talkWaits(uiNow(), x.over)) return;
+  talkQ.shift();
+  showTalk(x.pages, x.ok, x.then);
+}
+/** 会話のセリフ送り（スペース・Enter）：いちばん上の会話の「次へ」か、最後の枚のボタン */
+const talkKeys = new WeakMap<HTMLElement, () => void>();
+function showTalk(pages: TutPage[], ok: string, then: () => void) {
   const m = h('div', 'isl-modal isl-talk');
   const stage = h('div', 'isl-talk-stage');
   const box = h('div', 'isl-talk-box');
@@ -2776,7 +2747,7 @@ function talk(pages: TutPage[], ok: string, then: () => void) {
     face.hidden = pg.who == null;
     box.classList.toggle('is-who', pg.who != null);
     if (pg.who != null) {
-      face.replaceChildren(heroIcon(pg.who, 64));
+      face.replaceChildren(heroIcon(pg.who, innerWidth < 600 ? 72 : 96));
       name.textContent = pg.role ? `${pg.role} ${heroName(pg.who)}` : heroName(pg.who);
     } else name.textContent = t('マインちゃん', 'Mine-chan');
     text.replaceChildren(rich(pg.text));
@@ -2796,14 +2767,15 @@ function talk(pages: TutPage[], ok: string, then: () => void) {
           extra[1]();
         }, 'is-on isl-talk-extra'),
       );
-    foot.append(
-      last
-        ? btn(ok, () => {
-            m.remove();
-            then();
-          }, 'is-on')
-        : btn(t('次へ ▶', 'Next ▶'), () => next()),
-    );
+    const go = last
+      ? btn(ok, () => {
+          m.remove();
+          then();
+        }, 'is-on')
+      : btn(t('次へ ▶', 'Next ▶'), () => next());
+    foot.append(go);
+    // スペース・Enter：最後の枚はボタン（「○○を開く」）、ほかは次の枚へ
+    talkKeys.set(m, () => (last ? go.click() : next()));
   };
   const next = () => {
     if (k < pages.length - 1) {
@@ -2811,8 +2783,8 @@ function talk(pages: TutPage[], ok: string, then: () => void) {
       show();
     }
   };
-  // 文のあたりを押しても次へ（最後の枚はボタンで）
-  box.addEventListener('click', (e) => {
+  // 箱でも暗幕でも、押すと次へ（最後の枚はボタンで）
+  m.addEventListener('click', (e) => {
     if (!(e.target instanceof HTMLButtonElement)) next();
   });
   show();
@@ -2868,31 +2840,16 @@ function cycleEl(): HTMLElement {
 }
 
 /**
- * 2 か所目以降のセクタのリサーチの案内（docs/ISLAND_PHASE1.md「商品と技」）。
- * このセクタの gap（まだ誰も売っていない商品）をまだ作っても並べてもいないあいだだけ出す。
+ * 地図の吹き出し（段 UI2：チュートリアルと、発掘との出会いの「押す場所」の案内だけ。mine.ts の bubbleKind）。
+ * 2 か月目からのほかの助言（月末ポーズの「次の月へ」・販売の詰まり・依頼・税・発掘の助言など）は出さない。
+ * 詰まりは上の帯の「詰まり」の札（chipOf）、次の一手はヒーローの提案のカード（段 UI1）、月末ポーズは懐中時計のボタンの光りで知らせる
  */
-function researchTip(): { text: string; action?: [string, () => void] } | null {
-  const here = s.sector ?? 'c1';
-  if (!s.land || s.land.mine[0] === here) return null;
-  if (!(s.flags.dataSeen ?? []).includes(here)) return { text: t('この町ではもう他店が売っている商品が多いよ。[[市場データ]]で、まだ誰も売っていない商品を探そう！', 'Other shops here already sell many goods. Use the [[market data]] to find goods nobody sells yet!'), action: [t('市場データを開く', 'Open market data'), () => openData(ctx)] };
-  const gap = gapOf(s);
-  const started = s.slots.some((sl) => sl.sku && gap.includes(skuParts(sl.sku)[0])) || myShops(s).some((b) => s.shops[b.uid].shelves.some((x) => x && gap.includes(skuParts(x)[0])));
-  if (started) return null;
-  const rec = recommend(s);
-  const need = needFor(s, rec);
-  const name = PRODUCT[rec].name;
-  const tr = need?.kind === 'tech' ? trainingOf(s, need.skill) : null;
-  if (tr) return { text: t(`${heroName(tr.hero)}が[[${SKILL[tr.id].name}]]を修行中だよ（あと ${tr.left} 日）。身につけたら「${name}」を作れるよ。それまでに素材とお店の準備をしよう！`, `${heroName(tr.hero)} is training in [[${SKILL[tr.id].name}]] (${tr.left} d left). Then you can make ${name}. Get materials and shops ready meanwhile!`), action: [t('スキルツリーを開く', 'Open skills'), () => openSkills(ctx, tr.id)] };
-  if (need?.kind === 'tech') return { text: t(`「${name}」が売れそう。まずは[[${SKILL[need.skill].name}]]を研究しよう（スキルツリーの物流の枝の技）。`, `${name} looks promising. First research [[${SKILL[need.skill].name}]] (Crafts in the skill tree’s Logistics branch).`), action: [t('スキルツリーを開く', 'Open skills'), () => openSkills(ctx, need.skill)] };
-  if (need?.kind === 'route') return { text: t(`「${name}」には[[${MATS[need.mat].name}]]が要るよ。スキルツリーで[[${SKILL[need.skill].name}]]を研究しよう。`, `${name} needs [[${MATS[need.mat].name}]]. Research [[${SKILL[need.skill].name}]] in the skill tree.`), action: [t('スキルツリーを開く', 'Open skills'), () => openSkills(ctx, need.skill)] };
-  if (need?.kind === 'dev' && s.dev.length && !s.lab) return { text: t(`「${name}」を[[商品開発]]でアンコモンにしよう（R&D → 商品開発）。`, `Develop ${name} into an Uncommon in [[Product development]] (R&D → Products).`), action: [t('商品開発を開く', 'Open products'), () => openDev(ctx)] };
-  return null;
-}
-
-function tutorial(): { text: string; action?: [string, () => void] } {
-  const tk = tutOf(s);
-  if (tk < TUT_DONE && TUT[tk]) {
-    const st = TUT[tk];
+function tutorial(): { text: string; action?: [string, () => void] } | null {
+  // 古いセーブ（tut の無いもの）も tutOf で見る
+  const kind = tutOf(s) < TUT_DONE ? 'tut' : bubbleKind(s);
+  if (kind === 'tut') {
+    const st = TUT[tutOf(s)];
+    if (!st) return null;
     // 下の帯のタブ → サブタブを自分で押してもらう段：いま押すところを 1 つずつ
     if (st.lesson) {
       const [hm, hk] = hlOf(st, s).split(':') as [Menu, string];
@@ -2904,186 +2861,10 @@ function tutorial(): { text: string; action?: [string, () => void] } {
     const a = actOf(st, s);
     return { text: st.say(s), action: a ? [a[0], () => tutGo(a[1])] : undefined };
   }
-  // 月末ポーズ：まず来月の計画、それから「次の月に進む」。1 回目の 1 位の月は、ゴール（2 か月続けて 1 位）までの距離を先に
-  // 発掘 v2 の 5 段目：1 位を 2 か月続けたのに研究成果の発表がまだ（制覇まで：発表）
-  const waitTip = clearWaitTip(s);
-  if (s.monthPause && waitTip) return { text: waitTip, action: canPresent(s) ? [t('町の長の家へ', 'To the town head'), () => showChief()] : [t('次の月へ進む', 'Next month'), nextMonth] };
-  if (s.monthPause && !s.cleared && (s.topStreak ?? 0) > 0 && s.reports.at(-1)?.rank === 1) return { text: firstTopTip(), action: [t('次の月へ進む', 'Next month'), nextMonth] };
-  if (s.monthPause) return { text: t('ダッシュボードやスキルツリーで来月の計画を立てたら、右下の[[懐中時計]]を押して次の月へ進もう！', 'Plan next month in the dashboard or skill tree, then press the [[pocket watch]] at the bottom right to start the next month!'), action: [t('次の月へ進む', 'Next month'), nextMonth] };
-  // 発掘との出会いの途中（工房をタップ → 発掘場／スキルツリーの研究パネル）
-  const meet = meetTip(s);
+  // 発掘との出会いの途中（光っている荒れ地をタップ → 発掘する → スキルツリーの研究パネル）
+  const meet = kind === 'meet' && !s.monthPause ? meetTip(s) : null;
   if (meet) return { text: meet, action: (s.flags.digMeet === 'tap' || s.flags.digMeet === 'open') && !s.digRun ? [t('荒れ地の場所へ', 'To the wasteland'), () => focusWaste(meetSite())] : undefined };
-  // 発掘の助言（digmeet.ts の digTips。tier ごとに、いまの並びの決まった所へ）
-  const dig = digTips(s).filter((x) => !(digOpen() && x.key !== 'present'));
-  const digAt = (tier: DigTip['tier']) => {
-    const x = dig.find((d) => d.tier === tier);
-    return x ? { text: x.text, action: digAct(x) } : null;
-  };
-  const ws = s.buildings.find((b) => b.owner === 'me' && b.id === 'workshop');
-  const shops = s.buildings.filter((b) => b.owner === 'me' && P1B[b.id]?.kind === 'shop');
-  const rec = PRODUCT[recommend(s)].name;
-  // 被災した町（発掘 v2 の 7 段目）：工房かお店がまだ廃墟のまま → 廃墟をタップして修繕（建て直すより安い）
-  const ruins = ruinsOf(s);
-  if (ruins.length && (!ws || !shops.length)) {
-    const first = ruins.find((b) => b.id === 'workshop' && !ws) ?? ruins.find((b) => P1B[b.id]?.kind === 'shop') ?? ruins[0];
-    const all = repairAllCost(s);
-    return {
-      text: t(`災害で壊れた[[廃墟]]が ${ruins.length} 軒あるよ。タップして修繕すれば、建て直すより安く元に戻せる（全部で ${money(all.cost)}）。`, `${ruins.length} buildings lie in [[ruins]] after the disaster. Tap one to repair it — cheaper than rebuilding (${money(all.cost)} for all).`),
-      action: [t('廃墟を見る', 'See the ruins'), () => openPop(first.i, first.j)],
-    };
-  }
-  if (!ws && s.land && s.land.mine.length > 1 && s.sector !== s.land.mine[0]) return { text: t('このセクタにも[[工房]]を建てましょう。建物はセクタごとです。「経営企画」→「建築」から、道路に面した空き地へ。', 'Build a [[workshop]] in this sector too — buildings belong to each sector. Strategy → Build, then a lot facing a road.'), action: [t('建築を開く', 'Open Build'), openBuildTab] };
-  if (!ws) return { text: t('新天地へようこそ！まずは先代から引き継いだ「工房」を建てましょう。下の「経営企画」→「建築」から工房を選び、道路に面した空き地へ。入口は道路の方にしか向けられません。', 'Welcome to the new land! First, build the workshop you inherited from your predecessor: Strategy → Build, then place it on a lot facing a road — the entrance can only face the road.'), action: [t('建築を開く', 'Open Build'), openBuildTab] };
-  if (ws.left > 0) return { text: t('工房の工事中です。⏩ で時間を早められます。地図のマスを押すと、建物の詳しい情報が見られます。', 'The workshop is under construction. ⏩ speeds things up. Tap any tile on the map for details.') };
-  // 他社の巻き返し（Uncommon のセール中）：2 位の会社が伸びてくるので、ほかの助言より先に（ランキングで差を見る）
-  const sale = saleTip();
-  if (sale) return { text: sale, action: [t('ランキングを見る', 'Open ranking'), () => openRanking(ctx)] };
-  // 2 か所目以降：市場データ → 勧めた商品の技 → 素材のルート（→ Uncommon は魔法の釜・商品開発）の順に導く
-  const research = researchTip();
-  if (research) return research;
-  // 新商品の認知：並べているのにまだ知られていない商品があって、宣伝をしていない
-  const unknown = adBoost(s) > 0 ? null : market(s).filter((r) => r.mine && r.known < AWARE_GOODS.low).sort((a, b) => a.known - b.known)[0];
-  if (unknown) return { text: t(`新しい商品はまだ知られていないよ（「${unknown.p.name}」の認知 ${Math.round(unknown.known * 100)}%）。[[宣伝]]で早く広めよう！`, `New items aren’t known yet (${unknown.p.name}: ${Math.round(unknown.known * 100)}% known). Spread the word with [[ads]]!`), action: [t('宣伝を開く', 'Open ads'), () => openAds(ctx)] };
-  // Uncommon のセクタ：Common の商品は売れにくいので、まずアンコモンを開発
-  if ((s.tier ?? 'C') !== 'C' && !s.dev.length && !s.lab) {
-    if (!has(s, 'pot')) return { text: t('ここではアンコモンが要るよ。スキルツリーの[[魔法の釜]]を先に開放しよう（物流の枝の ② 製造）。', 'Uncommons are needed here. Unlock the [[Magic pot]] in the skill tree first (Logistics branch, ② Craft).'), action: [t('スキルツリーを開く', 'Open skills'), () => openSkills(ctx, 'craft')] };
-    return { text: t('[[商品開発]]でアンコモンを作ろう（R&D → 商品開発）。', 'Make an Uncommon in [[Product development]] (R&D → Products).'), action: [t('商品開発を開く', 'Open products'), () => openDev(ctx)] };
-  }
-  if (!s.flags.data) return { text: t('[[市場データ]]で、売れ筋と、まだ誰も売っていない商品が分かるよ（「マーケティング」→「市場調査データ」）。', 'The [[market data]] shows what sells and what nobody sells yet (Marketing → Market data).'), action: [t('データを見る', 'Open data'), () => openData(ctx)] };
-  if (!shops.length) return { text: t(`データによると「${rec}」がよさそう！次はお店（よろず屋）を建てましょう。道路に面した場所に。`, `The data says ${rec} looks promising! Next, build a shop (General store) facing a road.`), action: [t('建築を開く', 'Open Build'), openBuildTab] };
-  if (shops.every((b) => b.left > 0)) return { text: t('お店の工事中です。開店した日から 1 か月目の営業が始まります。その間に工房で商品を作り始めましょう。', 'The shop is being built. Your first business month starts the day it opens. Start crafting meanwhile.'), action: [t('工房を開く', 'Open workshop'), () => openWorkshop(ctx)] };
-  const crafting = s.slots.some((sl) => sl.running);
-  const stockAny = Object.values(s.stock).some((n) => (n ?? 0) > 0) || s.trips.length > 0 || myShops(s).some((b) => Object.values(s.shops[b.uid].storage).some((n) => (n ?? 0) > 0) || Object.values(s.shops[b.uid].shelf).some((n) => (n ?? 0) > 0));
-  if (!crafting && !stockAny) return { text: t(`工房で「${rec}」を作りましょう。職人はバランスの良い MCHアーティストが向いています。`, `Make ${rec} in the workshop. The well-balanced MCH Artist is the best crafter.`), action: [t('工房を開く', 'Open workshop'), () => openWorkshop(ctx)] };
-  if (!s.staff.some((x) => x.task === 'transport')) return { text: t('できた商品をお店へ運ぶ人を決めましょう（「人事」→「ヒーローの配置」）。運搬は PHY の高い MCHウォーリアーが得意です。', 'Choose who hauls goods to the shop (HR → Assign heroes). MCH Warrior, with high PHY, is the best hauler.'), action: [t('配置を開く', 'Open staff'), () => openStaff(ctx)] };
-  const shop = myShops(s)[0];
-  const sh = shop ? s.shops[shop.uid] : null;
-  if (sh && !sh.shelves[0]) return { text: t(`お店で、主力商品を「${rec}」に、店員を決めましょう。販売は INT の高い MCHタクティシャンが得意です。`, `In the shop, set ${rec} as the main product and choose a clerk. MCH Tactician, with high INT, sells best.`), action: [t('お店を開く', 'Open shop'), () => shop && openShop(ctx, shop.uid)] };
-  const closed = myShops(s).find((b) => s.shops[b.uid].staff == null && s.shops[b.uid].part === 0);
-  if (closed) return { text: t(`${DEF[closed.id].name}に店員がいないので休業中です。店員かアルバイトを決めましょう。販売は INT の高いヒーローが得意です。`, `${DEF[closed.id].name} is closed: nobody on the floor. Choose a clerk or part-timer. High-INT heroes sell best.`), action: [t('お店を開く', 'Open shop'), () => openShop(ctx, closed.uid)] };
-  if (poolFree(s) <= 4 && !myWarehouses(s).length && !s.buildings.some((b) => b.owner === 'me' && b.id === 'warehouse')) return { text: t(`工房の物置（${STORE.base} 個）がいっぱいです。このままでは素材を買えず、できた商品も置けません。「建築」で倉庫を建てましょう。`, `The workshop stockroom (${STORE.base}) is full: you can’t buy materials or store goods. Build a warehouse under Build.`), action: [t('建築を開く', 'Open Build'), openBuildTab] };
-  const digHigh = digAt('high');
-  if (digHigh) return digHigh;
-  if (MISSIONS.some((m) => s.missions[m.id] === 'done')) return { text: t('依頼を達成しました！「マーケティング」→「依頼」で報酬を受け取りましょう。', 'You completed a request! Claim the reward under Marketing → Requests.'), action: [t('依頼を開く', 'Open requests'), () => openMissions(ctx)] };
-  if (s.money <= SIDE.rescue && !s.staff.some((x) => x.task === 'side'))
-    return { text: t('資金が少なくなってきたね。ヒーローに[[他店でバイト]]してもらえば、日給でお金を稼げるよ。腕が上がることもあるんだ！', 'Funds are running low. Send a hero to [[work part-time]] at another store for a daily wage. They might even improve!'), action: [t('バイトを探す', 'Find work'), () => goSub('hr', 'side')] };
-  if (!activeMissions(s).length && !MISSIONS.some((m) => s.missions[m.id] === 'claimed')) return { text: t('町の人から[[依頼]]が届いているよ。「マーケティング」→「依頼」で受けてみよう！', 'People in town sent you [[requests]]. Accept one under Marketing → Requests!'), action: [t('依頼を開く', 'Open requests'), () => openMissions(ctx)] };
-  if (!s.reports.length) return { text: t('準備ができました！お店を開いた日から 1 か月ごとに売上を締めます。流れが詰まっていないかは「物流」→「サプライチェーン」で確かめられます。', 'All set! Sales close every month from the day your shop opened. Check for bottlenecks under Logistics → Supply chain.'), action: [t('サプライチェーンを見る', 'Open supply chain'), () => openSupply(ctx)] };
-  // 1 か月たってから
-  const low = (Object.keys(MATS) as (keyof typeof MATS)[]).find((m) => s.slots.some((sl) => sl.sku && PRODUCT[skuParts(sl.sku)[0]].recipe[skuParts(sl.sku)[1]][m] && (s.mats[m] ?? 0) < 10));
-  const buyer = s.staff.some((x) => x.task === 'buy');
-  if (low && !buyer) return { text: t(`${MATS[low].name}が残り少なくなっています。「物流」→「調達」で調達係を決めると、月の量を毎日自動で買い付けてくれます。`, `${MATS[low].name} is running low. Assign a buyer under Logistics → Buy to purchase the monthly amounts automatically.`), action: [t('調達を開く', 'Open buy'), () => openBuy(ctx)] };
-  if (low) return { text: t(`${MATS[low].name}が残り少なくなっています。「調達」で月の量を増やすか、いますぐ買い足しましょう（月の上限に注意）。`, `${MATS[low].name} is running low. Raise its monthly amount under Buy or buy some now (mind the monthly limit).`), action: [t('調達を開く', 'Open buy'), () => openBuy(ctx)] };
-  if (s.staff.some((x) => x.resting)) return { text: t('休んでいる従業員がいます。「人事」→「給与・労務」の賞与ですぐ元気にできます。人手が足りないときは「人材登用」で雇えます。', 'Someone is resting. A bonus (HR → Pay & welfare) refreshes them at once; hire more under Recruiting.'), action: [t('給与・労務を開く', 'Open pay'), () => openPayroll(ctx)] };
-  const digMid = digAt('mid');
-  if (digMid) return digMid;
-  const last = s.reports[s.reports.length - 1];
-  // 1 位を 2 か月続けたのに発表がまだ：お題を集めて町の長に発表すれば制覇
-  if (waitTip) return { text: waitTip, action: canPresent(s) ? [t('町の長の家へ', 'To the town head'), () => showChief()] : digWasteAct() };
-  // 1 回目の 1 位：ゴールは 2 か月続けて 1 位（いま 1 / 2）＋研究成果の発表。他社の反撃中
-  if (!s.cleared && (s.topStreak ?? 0) > 0 && last?.rank === 1) return { text: firstTopTip(), action: [t('ランキングを見る', 'Open ranking'), () => openRanking(ctx)] };
-  // タオックスの前半：作業台が 1 台のままなら、2 台にすると作る数が倍（工房の設備投資）。通常のプレイが遅い主因（docs/ISLAND_BALANCE.md）
-  const wsB = myWorkshop(s);
-  // 段 UI1：詰まりの段に合わせる。販売が詰まりなら、作業台より先に「棚を増やして別の商品」（いちばん効く販売の手）を
-  const jamNow = myShops(s).length ? jamOf(s) : null;
-  if ((s.sector ?? 'c1') === 'c1' && !s.cleared && jamNow === 'sell') {
-    const m = sellTipMove();
-    if (m && m.act?.k === 'stock' && m.uid != null) {
-      const uid = m.uid;
-      return {
-        text: m.act.add
-          ? t(`④ 販売が詰まり。[[棚]]を増やして「${PRODUCT[m.key ?? '']?.name ?? ''}」も並べると、月 +${Math.round(m.units)} 個売れるよ（お店 → [[設備投資]]）。`, `④ Sell is the jam. Add a [[shelf]] and stock ${PRODUCT[m.key ?? '']?.name ?? ''} for +${Math.round(m.units)} a month (Shop → [[Capital investment]]).`)
-          : t(`④ 販売が詰まり。棚に「${PRODUCT[m.key ?? '']?.name ?? ''}」を並べると、月 +${Math.round(m.units)} 個売れるよ。`, `④ Sell is the jam. Stock ${PRODUCT[m.key ?? '']?.name ?? ''} for +${Math.round(m.units)} a month.`),
-        action: [t('お店を開く', 'Open shop'), () => openShop(ctx, uid)],
-      };
-    }
-  }
-  if ((s.sector ?? 'c1') === 'c1' && !s.cleared && wsB && invLv(wsB, 'bench') === 0 && jamNow === 'craft')
-    return { text: t('[[作業台]]を 2 台にすると、作る数が倍になるよ（工房 → [[設備投資]]）。', 'Two [[workbenches]] double what you make (Workshop → [[Capital investment]]).'), action: [t('工房を開く', 'Open workshop'), () => openWorkshop(ctx, true)] };
-  if (s.cleared && !s.gateOpen) return { text: t(`2 か月続けてエリア 1 位、制覇おめでとう！ランドのふちの[[関所]]は、通行料 ${money(gateToll(s))} で開通できるよ。開けると、となりのランドセクタへ進めるんだ。`, `Congratulations — #1 two months running, the sector is yours! The [[gate]] at the edge of the land opens for a ${money(gateToll(s))} toll and leads to the next land sector.`), action: [t('関所を見る', 'View the gate'), () => showGate()] };
-  if (quarterNew) {
-    const q = quarterNew;
-    const tx = quarterTax;
-    if (tx)
-      return {
-        text: tx.saved > 0 ? t(`第 ${q} 四半期の[[法人税]]は ${money(tx.paid)}。節税で ${money(tx.saved)} 減らせたよ！`, `Q${q} [[corporate tax]]: ${money(tx.paid)}. Savings cut ${money(tx.saved)}!`) : t(`第 ${q} 四半期の[[法人税]]は ${money(tx.paid)}。締めの前に投資すると、税が減るよ！`, `Q${q} [[corporate tax]]: ${money(tx.paid)}. Investing before the close lowers it!`), action: [t('税と節税を見る', 'Open tax'), () => ((quarterNew = null), (quarterTax = null), openTaxScreen())] };
-    return { text: t(`第 ${q} 四半期の[[決算書]]が出たよ。売上と利益、お金の残りを確かめよう！`, `Your Q${q} [[statements]] are ready. Check sales, profit and cash!`), action: [t('決算書を見る', 'Open statements'), () => ((quarterNew = null), openBooks(ctx))] };
-  }
-  const digLow = digAt('low');
-  if (digLow) return digLow;
-  if (s.land && s.land.mine.length === 1) return { text: t('関所の先は[[ランドマップ]]で見られるよ。ほかの Common セクタなら、出店許可の費用も軽いんだ。', 'See what lies beyond the gate on the [[land map]]. Other Common sectors have cheap permits.'), action: [t('ランドマップを開く', 'Open land map'), () => openLand(ctx)] };
-  if (!Object.keys(s.intel).length) {
-    const top = last.area.find((x) => !x.me);
-    return { text: t(`いまエリア ${last.rank} 位。他社のお店をタップすると「調査」で売上の中身が分かります。まずは${top?.name ?? '他社'}を調べてみましょう。`, `You are #${last.rank} in the area. Tap a rival store to research its sales. Try ${top?.name ?? 'a rival'} first.`) };
-  }
-  if (last.rank > 1) return { text: t(`いまエリア ${last.rank} 位。1 位の${last.area[0].name}を抜くには、棚や作業台を増やしたり（お店／工房の設備投資）、アンコモンで単価を上げたり（商品開発）、宣伝したりしましょう。`, `You are #${last.rank} in the area. To pass ${last.area[0].name}, add shelves and benches (shop / workshop investment), raise prices with Uncommons (products) or advertise.`), action: [t('工房を開く', 'Open workshop'), () => openWorkshop(ctx)] };
-  return { text: t('いい調子です！', 'Nice work!') };
-}
-
-/**
- * 1 回目の 1 位の一言（いま 1 / 2）。制覇には研究成果の発表も要る（発掘 v2 の 5 段目）ので、まだなら条件を 2 つとも言う。
- * 他社の反撃中はそれも
- */
-function firstTopTip(): string {
-  const g = clearGoal(s);
-  const rally = (s.rally ?? 0) > 0;
-  // 他社の巻き返し（Uncommon のセール中）：いちばん先に言う（2 位の会社が伸びてくる）
-  const sale = saleTip();
-  if (sale) return sale;
-  if (!g.present && g.res)
-    // Uncommon（発掘 v2 の 7 段目）：発表にはお題と、この町で掘った数も
-    return t(`1 位になったね！制覇の条件は[[2 か月続けて 1 位]]（いま ${g.streak} / ${TOP_STREAK}）と[[研究成果の発表]]（${presentNeedText(g)[0]}）。${rally ? '他社の反撃に負けず、' : ''}来月も守って、荒れ地も掘ろう！`, `You are #1! To conquer: [[#1 two months in a row]] (${g.streak} / ${TOP_STREAK}) and [[present your findings]] (${presentNeedText(g)[0]}). ${rally ? 'Beat the rivals’ push, ' : ''}hold on next month and keep digging!`);
-  if (!g.present)
-    return t(`1 位になったね！制覇の条件は[[2 か月続けて 1 位]]（いま ${g.streak} / ${TOP_STREAK}）と[[研究成果の発表]]（お題 ${g.got} / ${g.all}）。${rally ? '他社の反撃に負けず、' : ''}来月も守って、お題もそろえよう！`, `You are #1! To conquer: [[#1 two months in a row]] (${g.streak} / ${TOP_STREAK}) and [[present your findings]] (targets ${g.got} / ${g.all}). ${rally ? 'Beat the rivals’ push, ' : ''}hold on next month and find the targets!`);
-  return rally
-    ? t(`1 位になったね！ゴールは[[2 か月続けて 1 位]]（いま ${g.streak} / ${TOP_STREAK}）。他社が反撃中だけど、来月も守り切れたら制覇だよ！`, `You are #1! The goal is [[#1 two months in a row]] (${g.streak} / ${TOP_STREAK}). Rivals are fighting back — hold on next month and the sector is yours!`)
-    : t(`1 位になったね！ゴールは[[2 か月続けて 1 位]]（いま ${g.streak} / ${TOP_STREAK}）。来月も守り切れたら制覇だよ！`, `You are #1! The goal is [[#1 two months in a row]] (${g.streak} / ${TOP_STREAK}). Hold on next month and the sector is yours!`);
-}
-/**
- * 他社の巻き返し（Uncommon のセール中）の一言：セールをしている会社と残りの月、制覇までの「いま n / 2」。
- * セールが無ければ null
- */
-function saleTip(): string | null {
-  const c = s.comeback;
-  if (!c || c.left <= 0) return null;
-  const who = rivalName(c.rid);
-  const g = clearGoal(s);
-  return (s.topStreak ?? 0) > 0
-    ? t(`[[${who}]]がセールで巻き返してきた！（あと ${c.left} か月）棚・宣伝・新商品で引き離して、1 位を守ろう（制覇まで いま ${g.streak} / ${TOP_STREAK}）！`, `[[${who}]] is fighting back with a sale! (${c.left} mo left) Pull ahead with shelves, ads and new goods and hold #1 (${g.streak} / ${TOP_STREAK})!`)
-    : t(`[[${who}]]がセールで巻き返してきた！（あと ${c.left} か月）セールは月ごとに弱まるから、棚・宣伝・新商品で 1 位を取り返そう！`, `[[${who}]] is fighting back with a sale! (${c.left} mo left) The sale fades each month — win #1 back with shelves, ads and new goods!`);
-}
-/** 荒れ地を見る（許可のある掘りかけの荒れ地。無ければ 1 か所目） */
-function digWasteAct(): [string, () => void] | undefined {
-  const d = s.dig;
-  if (!d) return undefined;
-  const k = d.sites.findIndex((x) => x.permit && !x.done);
-  return [t('荒れ地を見る', 'View wasteland'), () => showWaste(k >= 0 ? k : d.cur)];
-}
-
-/** 発掘の助言のボタン */
-function digAct(x: DigTip): [string, () => void] {
-  if (x.key === 'present') return [t('町の長の家へ', 'To the town head'), () => showChief()];
-  if (x.key === 'branch')
-    return [
-      t('発掘の枝を見る', 'View Digging branch'),
-      () => {
-        s.flags.digBranch = 'seen';
-        save();
-        openSkills(ctx, 'dig_ext');
-      },
-    ];
-  if (x.key === 'letter' || x.key === 'letter-need') return [t('ランドマップを開く', 'Open land map'), () => openLand(ctx)];
-  if (x.key === 'copied') return [t('販売管理', 'Sales'), () => openSales(ctx)];
-  if (x.key === 'permit') return [t('荒れ地を見る', 'View wasteland'), () => showWaste(x.site ?? 0)];
-  if (x.key === 'relic')
-    return [
-      t('荒れ地へ', 'To the wasteland'),
-      () => {
-        showWaste(x.site ?? s.dig?.cur ?? 0);
-        focusWaste(x.site ?? s.dig?.cur ?? 0);
-      },
-    ];
-  return [t('荒れ地を見る', 'View wasteland'), () => showWaste(x.site ?? s.dig?.cur ?? 0)];
+  return null;
 }
 
 /** いまの段の会話をまだ出していない（クリアの演出のあいだ）：次の段の吹き出し・光る場所は、会話のあとで出す */
@@ -3094,18 +2875,6 @@ function introPending(): boolean {
   // 自分で押してもらう段で会話が無いもの（前の段の会話の続き）：クリアの演出と一拍のあいだは、吹き出しと光る場所を出さない
   if (st.lesson && !st.intro && performance.now() < tutIntroAfter) return true;
   return (!!st.intro || !!st.autoGo) && tutIntro !== k;
-}
-
-/** 吹き出しの販売の手（重いので、日と資金が変わったときだけ計算し直す） */
-let sellTipKey = '';
-let sellTipVal: ReturnType<typeof bestSell> = null;
-function sellTipMove() {
-  const key = `${s.sector}:${s.day}:${s.money}:${s.buildings.length}:${s.skills.length}`;
-  if (key !== sellTipKey) {
-    sellTipKey = key;
-    sellTipVal = bestSell(s);
-  }
-  return sellTipVal;
 }
 
 /**
@@ -3139,17 +2908,17 @@ cardNav.open = cardOpen;
 function renderAdvisor() {
   advisor.style.display = placing || sheetOpen() || pop || !guideOn || introPending() || (digOpen() && !RAIL.matches) ? 'none' : '';
   const tip = tutorial();
+  if (!tip) {
+    advisor.hidden = true;
+    hiddenTip = '';
+    return;
+  }
   if (tip.text === hiddenTip) return;
   advisor.hidden = false;
   const p = h('p');
   p.append(rich(tip.text));
   p.addEventListener('click', () => {
     hiddenTip = tip.text;
-    // 発掘の枝の一言（1 回だけ）：閉じたら出し終えた
-    if (tip.text === BRANCH_TIP() && s.flags.digBranch === 'new') {
-      s.flags.digBranch = 'seen';
-      save();
-    }
     advisor.hidden = true;
   });
   bubbleBox.replaceChildren(p);
@@ -3695,10 +3464,7 @@ function renderAll() {
   layout();
   sectorChecks();
   deptChecks();
-  salesTalk();
-  acctTalk();
-  csTalk();
-  legalTalk();
+  deptTalk();
   // 撤退した他社の店のシャッター：報告・画面を閉じて地図が見えたら
   if (pendingShutter.length && !root.querySelector('.isl-modal, .isl-rp-reveal') && !sheetOpen()) playShutters();
 }
@@ -3736,50 +3502,31 @@ function newDeptBanner(d: DeptId) {
   setTimeout(() => el.classList.add('is-out'), 2600);
   setTimeout(() => el.remove(), 3200);
 }
-/** 営業の部門の紹介（マインちゃん。Rare の町に初めて進出したあと 1 回だけ。到着の案内が終わってから） */
-function salesTalk() {
-  if (s.flags.salesTalk || !s.area || !s.flags.depts?.includes('sales') || tutStep() || root.querySelector('.isl-modal') || sheetOpen() || placing) return;
-  s.flags.salesTalk = true;
-  save();
-  talk(
-    SALES_INTRO().map((text) => ({ text })),
-    t('営業を開く', 'Open Sales'),
-    () => goSub('sales', 'area'),
-  );
-}
-/** 経理・総務の紹介（マインちゃん。Uncommon の町に初めて進出したあと 1 回だけ。到着の案内が終わってから） */
-function acctTalk() {
-  if (s.flags.acctTalk || !s.flags.depts?.includes('accounting') || tutStep() || root.querySelector('.isl-modal') || sheetOpen() || placing || (s.tier ?? 'C') === 'C') return;
-  s.flags.acctTalk = true;
-  save();
-  talk(
-    ACCT_INTRO().map((text) => ({ text })),
-    t('経理を開く', 'Open Accounting'),
-    () => goSub('accounting', 'tax'),
-  );
-}
-/** カスタマーサポートの紹介（マインちゃん。Uncommon の町に初めて進出したあと 1 回だけ。経理・総務の紹介のあと） */
-function csTalk() {
-  if (s.flags.csTalk || !s.flags.acctTalk || !s.flags.depts?.includes('support') || tutStep() || root.querySelector('.isl-modal') || sheetOpen() || placing || (s.tier ?? 'C') === 'C') return;
-  s.flags.csTalk = true;
-  save();
-  talk(
-    CS_INTRO().map((text) => ({ text })),
-    t('問い合わせを開く', 'Open inquiries'),
-    () => goSub('support', 'inbox'),
-  );
-}
-/** 法務の部門の紹介（マインちゃん。Epic の町に初めて進出したあと 1 回だけ。段 H2：M&A・契約・特許・争い） */
-function legalTalk() {
-  // 災害の演出・到着の案内が終わってから（同じときに 2 つの会話を重ねない）
-  if (s.flags.legalTalk || !s.flags.depts?.includes('legal') || tutStep() || root.querySelector('.isl-modal, .isl-disaster') || sheetOpen() || placing || s.tier !== 'E' || needsIntro() || pendingReset(s) || moving) return;
-  s.flags.legalTalk = true;
-  save();
-  talk(
-    LEGAL_INTRO().map((text) => ({ text })),
-    t('M&A を開く', 'Open M&A'),
-    () => goSub('legal', 'ma'),
-  );
+/**
+ * 部門の紹介（マインちゃん。営業・経理と総務・カスタマーサポート・法務。そのランクの町に初めて進出したあと 1 回ずつ）。
+ * 段 UI2：到着の案内・災害の演出・移動が終わってから、1 日に 1 つずつ（Uncommon に着いた日に 12 枚続いていた。mine.ts の deptTalkNext）
+ */
+function deptTalk() {
+  const k = deptTalkNext(s, uiNow(), { intro: needsIntro(s), reset: !!pendingReset(s) });
+  if (!k) return;
+  s.flags.talkDay = s.day;
+  if (k === 'sales') {
+    s.flags.salesTalk = true;
+    save();
+    talk(SALES_INTRO().map((text) => ({ text })), t('営業を開く', 'Open Sales'), () => goSub('sales', 'area'));
+  } else if (k === 'acct') {
+    s.flags.acctTalk = true;
+    save();
+    talk(ACCT_INTRO().map((text) => ({ text })), t('経理を開く', 'Open Accounting'), () => goSub('accounting', 'tax'));
+  } else if (k === 'cs') {
+    s.flags.csTalk = true;
+    save();
+    talk(CS_INTRO().map((text) => ({ text })), t('問い合わせを開く', 'Open inquiries'), () => goSub('support', 'inbox'));
+  } else {
+    s.flags.legalTalk = true;
+    save();
+    talk(LEGAL_INTRO().map((text) => ({ text })), t('M&A を開く', 'Open M&A'), () => goSub('legal', 'ma'));
+  }
 }
 const csHooks = () => ({ skills: () => panelsOf('support'), sat: () => openSatScreen(), inbox: () => openInboxScreen(), pr: () => openPrScreen() });
 /** カスタマーサポート → 問い合わせ・顧客満足度 */
@@ -3969,6 +3716,23 @@ canvas.addEventListener(
 );
 addEventListener('keydown', (e) => {
   if ((e.target as HTMLElement)?.tagName === 'SELECT') return;
+  // 段 UI2：会話のあいだは、セリフ送り（スペース・Enter）だけ。ほかのキー（Esc・R・時間の ⏸）は効かない
+  const talking = [...root.querySelectorAll<HTMLElement>('.isl-talk')].pop();
+  if (talking) {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      talkKeys.get(talking)?.();
+    }
+    return;
+  }
+  // 流れの案内も、タップで進む一言のときはスペース・Enter で進む
+  if (tour) {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      tourEl.querySelector<HTMLElement>('.isl-tour-box.is-click')?.click();
+    }
+    return;
+  }
   if (e.key === 'Escape') {
     placing = null;
     closePop();
@@ -4360,17 +4124,11 @@ function companyNews(c: NonNullable<ReturnType<typeof step>['company']>) {
     toast(acct ? t(`第 ${c.quarter} 四半期の決算が出ました（経理 → 決算書）`, `Q${c.quarter} statements are ready (Accounting → Statements)`) : t(`第 ${c.quarter} 四半期の決算が出ました（経営企画 → 決算書）`, `Q${c.quarter} statements are ready (Strategy → Statements)`));
     // 経理（段 F）：四半期の税の報告
     if (c.tax) toast(c.tax.saved > 0 ? t(`🧾 第 ${c.tax.q} 四半期の法人税 ${money(c.tax.paid)}（節税で −${money(c.tax.saved)}）`, `🧾 Q${c.tax.q} corporate tax ${money(c.tax.paid)} (saved ${money(c.tax.saved)})`) : t(`🧾 第 ${c.tax.q} 四半期の法人税 ${money(c.tax.paid)}`, `🧾 Q${c.tax.q} corporate tax ${money(c.tax.paid)}`));
-    quarterNew = c.quarter;
-    quarterTax = c.tax ?? null;
   }
   // 経理（段 F）：決算の 1 か月前のお知らせ（あと ○○ G 投資すると、税が △△ G 減る）
   const hint = taxHint(s);
   if (hint) toast(hint);
 }
-/** 見ていない四半期の税の報告（マインちゃんの一言） */
-let quarterTax: TaxRec | null = null;
-/** 見ていない四半期の決算（マインちゃんが勧める） */
-let quarterNew: number | null = null;
 
 /** 月次報告の画面からほかの画面へ */
 const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), openProps: () => openProps(ctx), openPay: () => openPayroll(ctx), openCs: () => openInboxScreen(), openLegal: () => openLegalScreen('ma'), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
@@ -4395,12 +4153,8 @@ function afterReport() {
   } else if (!s.flags.ranking) {
     s.flags.ranking = true;
     save();
-    modal(
-      t('企業ランキングを紹介します', 'Meet the company ranking'),
-      t('はじめての売上報告、おつかれさまでした！会社の月の売上は「企業ランキング」で、エリア別・ランド別・世界全体と比べられます（「マーケティング」→「企業ランキング」、上の順位を押しても開けます）。まずは、同じエリアに出店している同業他社を月の売上で抜いて、エリア 1 位を 2 か月続けて守る（制覇）のが目標です！', 'Well done on your first sales report! The company ranking compares monthly sales by area, by land and worldwide (Marketing → Ranking, or tap your rank at the top). Your goal: beat the rival retailers in your area and hold #1 for two months in a row!'),
-      [[t('ランキングを見る', 'Open ranking'), () => openRanking(ctx), 'is-on']],
-      true,
-    );
+    // 段 UI2：もとは顔つきのモーダル（151 字）。会話 2 枚に
+    talk(RANK_LINES().map((text) => ({ text })), t('ランキングを見る', 'Open ranking'), () => openRanking(ctx));
   } else if (s.cleared && !s.flags.clearSeen) {
     clearModal();
   } else {
@@ -4413,7 +4167,7 @@ function afterReport() {
 function clearModal() {
   s.flags.clearSeen = true;
   save();
-  modal(t('フェーズ 1 クリア！', 'Phase 1 cleared!'), t(`2 か月続けてエリアで売上 1 位、研究成果も発表して、このセクタを制覇しました！新天地での実績は十分です。ランドのふちの関所は、通行料 ${money(gateToll(s))} を納めると開通し、となりのランドセクタへ進めます。`, `#1 in area sales two months running, findings presented — you conquered this sector! You have made your name in the new land. The gate at the edge of the land opens for a ${money(gateToll(s))} toll and leads to the next land sector.`), [[t('関所を見る', 'View the gate'), () => ((speed = 1), showGate(), renderHud()), 'is-on'], [t('続ける', 'Keep going'), () => ((speed = 1), renderHud())]], true);
+  modal(t('フェーズ 1 クリア！', 'Phase 1 cleared!'), plain(CLEAR_LINE(gateToll(s))), [[t('関所を見る', 'View the gate'), () => ((speed = 1), showGate(), renderHud()), 'is-on'], [t('続ける', 'Keep going'), () => ((speed = 1), renderHud())]], true);
 }
 
 /**
@@ -4442,6 +4196,7 @@ function frame(now: number) {
   }
   renderNext();
   maybeCard(now);
+  if (talkQ.length) flushTalk();
   // 発掘作業の残り時間（現実の秒。ゲームの速さに寄らない）
   if (s.digRun) {
     if (speed === 0) speed = 1;

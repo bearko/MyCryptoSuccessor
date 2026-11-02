@@ -36,6 +36,7 @@ import {
   rivalsOf,
   seriesOf,
   skuPrice,
+  DIG_THEME,
 } from '../src/island/p1/data';
 import { RUIN, brandAdd, brandCap, sectorDef, sectorState } from '../src/island/p1/company';
 import { letterLock, letterLockOf, letterLocked, moveTo, recOf } from '../src/island/p1/land';
@@ -273,7 +274,7 @@ describe('3. Epic の発掘', () => {
       expect(SECTOR_CHIEF[id]).toBeGreaterThan(15000);
       // ダンジョンの上のランクは Legendary だけ
       expect(Object.keys(DUNGEON_FINDS[id])).toEqual(['L']);
-      expect(topicsPage(id)).toContain('立て直そう');
+      expect(topicsPage(id)).toContain(`[[${DIG_THEME[id]}]]の跡`);
       // Epic の町の荒れ地の Epic の出土品はふつうの大きさ（2 × 2 は上のランクの大きな遺物だけ）
       expect(findSize({ kind: 'ext', id: d.finds[0] }, 'E')).toEqual([1, 1]);
       const L = digLayouts(id)[0];

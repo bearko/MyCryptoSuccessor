@@ -19,6 +19,7 @@ import { pickHero, rankEl } from './heroui';
 import { adjacent } from './world';
 import { after, open, type Ctx } from './screens';
 import { btn, h, heroIcon, heroName, money, rich } from './ui';
+import { DONATE_LINE } from './mine';
 
 // ---------------------------------------------------------------- ランドマップ
 
@@ -214,7 +215,8 @@ export function openRankUp(ctx: Ctx, target: string) {
     mi.src = assetUrl('mch/Image/Characters/navi_ain_speak_00_talk.png');
     mi.alt = '';
     const p = h('p');
-    p.append(rich(t('お金は徴収されちゃう。進出の前に[[研究への寄付]]で研究ポイントに変えておくと、あとで役に立つよ！', 'Your funds will be levied. Turn them into research points with a [[research donation]] before you go — it will pay off later!')));
+    // 段 UI2：1 行・30 字まで
+    p.append(rich(DONATE_LINE()));
     say.append(mi, p, btn(t('寄付パネルを開く', 'Open the donation panel'), () => ctx.skills?.('dig_donate')));
     body.append(say);
     const row = h('div', 'isl-row isl-rankup-acts');

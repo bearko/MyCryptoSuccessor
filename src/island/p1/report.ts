@@ -10,7 +10,7 @@
  */
 import { hrReportText } from './hrui';
 import { delegReportText } from './delegui';
-import { clearCondText, digMet, digReportLine, digReportText, presentNeedText, presentReady, rebuildText, reviveReportText, type DigSummary } from './digmeet';
+import { clearCondText, digMet, digReportLine, digReportText, presentReady, rebuildText, reviveReportText, type DigSummary } from './digmeet';
 import { t } from '../../i18n';
 import { csReportText } from './csui';
 import { legalReportText } from './legalui';
@@ -21,6 +21,7 @@ import { moveUp, sellBigUp } from './scm';
 import { bestSell } from './moves';
 import { closeSheet, open, type Ctx } from './screens';
 import { btn, h, heroName, money, rich, select, skuIcon } from './ui';
+import { ZERO_LINE } from './mine';
 
 const STAGE_NAME: Record<Stage, string> = { buy: t('① 調達', '① Buy'), craft: t('② 製造', '② Craft'), haul: t('③ 物流', '③ Haul'), sell: t('④ 販売', '④ Sell') };
 const STAGE_ICON: Record<Stage, string> = { buy: '🧱', craft: '🔨', haul: '🛒', sell: '🏪' };
@@ -363,7 +364,8 @@ function reveal(ctx: Ctx, r: Report, hooks: ReportHooks, top1: boolean, alive: (
     const mi = h('img', 'isl-rp-mine');
     mi.src = assetUrl('mch/Image/Characters/navi_ain_speak_00_talk.png');
     mi.alt = '';
-    say.append(mi, h('p', '', t('今月は売れなかった…。商品がお店に届いているか、店員がいるかを確かめよう。', 'Nothing sold this month… Check that goods reach the shop and that someone is on the floor.')));
+    // 段 UI2：1 行・30 字まで
+    say.append(mi, h('p', '', ZERO_LINE()));
     box.append(say);
     hooks.sfx?.('check');
     phase = 'ready';
@@ -555,31 +557,25 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       if (me > 0) gap = t(`次の順位（${me} 位の${r.area[me - 1].name}）まで あと ${money(Math.max(0, r.area[me - 1].sales - mySales))}`, `${money(Math.max(0, r.area[me - 1].sales - mySales))} to #${me} (${r.area[me - 1].name})`);
       else if (me === 0 && r.area.length > 1) gap = t(`2 位の${r.area[1].name}との差 ${money(Math.max(0, mySales - r.area[1].sales))}（守り切ろう！）`, `${money(Math.max(0, mySales - r.area[1].sales))} ahead of #2 ${r.area[1].name} — hold on!`);
       if (streak > 0 && !conquered) {
-        // 1 回目の 1 位：マインちゃんの一言（来月も守れば制覇）と、2 位との差を 1 行に（スマホで報告を 1 画面に収める）
+        // 1 回目の 1 位：制覇までの一言（来月も守れば制覇）と、2 位との差を 1 行に（スマホで報告を 1 画面に収める）。
+        // 段 UI2：マインちゃんの顔はやめて、短い 1 行（30 字まで）だけ
         const say = h('div', 'isl-rp-say');
-        const mi = h('img', 'isl-rp-mine');
-        mi.src = assetUrl('mch/Image/Characters/navi_ain_speak_00_talk.png');
-        mi.alt = '';
         const p = h('p');
         // 発表がまだなら、制覇の 2 つ目の条件（研究成果の発表）を言う
         const g = r.goal;
         // スマホは短い文（条件の数は上の札にあるので繰り返さない。マインちゃんと 1 行に収める）
-        const [sayLong, sayShort] =
+        const sayShort =
           waiting && g
             ? presentReady(g)
-              ? [t('あとは[[町の長]]に研究成果を発表すれば[[制覇]]だよ！', 'Present your findings to the [[town head]] and it is [[yours]]!'), t('あとは[[町の長]]に発表すれば[[制覇]]！', 'Present to the [[town head]] to [[conquer]]!')]
-              : [t(`あとは研究成果の発表で[[制覇]]！ ${presentNeedText(g)[0]}`, `Present your findings to [[conquer]]! ${presentNeedText(g)[0]}`), t('あとは研究成果の発表で[[制覇]]！', 'Present your findings to [[conquer]]!')]
+              ? t('あとは[[町の長]]に発表すれば[[制覇]]！', 'Present to the [[town head]] to [[conquer]]!')
+              : t('あとは研究成果の発表で[[制覇]]！', 'Present your findings to [[conquer]]!')
             : g && !g.present
               ? g.res
-                ? [t(`来月も守って、発表の条件もそろえよう（${presentNeedText(g)[0]}）！`, `Hold on next month and meet the presenting conditions (${presentNeedText(g)[0]})!`), t('来月も守って、発表の条件もそろえよう！', 'Hold on and meet the presenting conditions!')]
-                : [t(`来月も守って、お題もそろえよう（${g.got} / ${g.all}）！`, `Hold on next month and find the targets (${g.got} / ${g.all})!`), t('来月も守って、お題もそろえよう！', 'Hold on and find the targets!')]
-              : [t('来月も守り切れたら[[制覇]]だよ！', 'Hold on next month and the sector is [[yours]]!'), t('来月も守り切れたら[[制覇]]だよ！', 'Hold on next month and the sector is [[yours]]!')];
-        const sl = h('span', 'is-long');
-        sl.append(rich(sayLong));
-        const ss = h('span', 'is-short');
-        ss.append(rich(sayShort));
-        p.append(sl, ss);
-        say.append(mi, p);
+                ? t('来月も守って、発表の条件もそろえよう！', 'Hold on and meet the presenting conditions!')
+                : t('来月も守って、お題もそろえよう！', 'Hold on and find the targets!')
+              : t('来月も守り切れたら[[制覇]]だよ！', 'Hold on next month and the sector is [[yours]]!');
+        p.append(rich(sayShort));
+        say.append(p);
         if (me === 0 && r.area.length > 1) say.append(h('small', 'isl-rp-lead', t(`2 位との差 ${money(Math.max(0, mySales - r.area[1].sales))}`, `${money(Math.max(0, mySales - r.area[1].sales))} ahead of #2`)));
         c2.append(say);
         body.classList.add('has-say');
@@ -622,12 +618,8 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       // ---- ④ 【KPI ③】サプライチェーン管理
       const c4 = h('div', 'isl-card2 isl-rp-card');
       c4.append(cardHead(t('KPI ③', 'KPI 3'), false, t('サプライチェーン管理', 'Supply chain'), btn(t('分析：SCM ダッシュボード', 'Analyze: SCM'), () => hooks.openSupply(), 'isl-rp-go'), t('（SCM）', ' (SCM)')));
-      const note = h('small', 'isl-rp-bnnote');
-      note.append(
-        h('span', 'is-long', t('詰まり＝ひと月に流せる数がいちばん少ない段（SCM ダッシュボードと同じ）', 'Jam = the stage that can move the fewest per month (same as the SCM dashboard)')),
-        h('span', 'is-short', t('詰まり＝ひと月に流せる数が最少の段（SCM と同じ）', 'Jam = fewest per month (same as SCM)')),
-      );
-      c4.append(flowRow(s, r), note);
+      // 段 UI2：詰まりの定義の 1 行はやめて、直し方の 1 行だけ（SCM ダッシュボードの上に 1 回だけ書いてある）
+      c4.append(flowRow(s, r));
       const hint = h('p', 'isl-rp-hint');
       const long = h('span', 'is-long');
       const short = h('span', 'is-short');

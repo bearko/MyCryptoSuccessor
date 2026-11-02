@@ -456,47 +456,33 @@ const rv = (id: string, name: string, sells: Partial<Record<string, number>>, ba
 /** 3 枚目（最初の一手）：工房から */
 const FIRST_WS = t('まずは[[工房]]を建て直そう。建物はセクタごとだよ。', 'First, rebuild your [[workshop]]. Buildings belong to each sector.');
 /** Uncommon の 3 枚目：魔法の釜がまだのとき */
-const FIRST_POT = t('スキルツリーの[[魔法の釜]]を開放すると[[商品開発]]ができるよ。まずは[[工房]]からね。', 'Unlock the [[Magic pot]] in the skill tree to do [[product development]]. Start with the [[workshop]].');
+const FIRST_POT = t('まずは[[工房]]から。スキルツリーの[[魔法の釜]]で[[商品開発]]ができるよ。', 'Start with the [[workshop]]. The [[Magic pot]] in the skill tree unlocks [[product development]].');
 
 /** 2 枚目（リサーチ）：基礎の商品はもう他店が売っている → 市場データで、まだ誰も売っていない商品を探す */
-const RESEARCH = t('この町では[[センス]]や[[鋏]]はもう他店が売っている。[[市場データ]]で、まだ誰も売っていない商品を探そう！', 'Here, other shops already sell [[Sensu]] and [[Scissors]]. Use the [[market data]] to find goods nobody sells yet!');
-const RESEARCH_U = t('ここは Uncommon ランドで、基礎の商品はもう他店が売っている。[[市場データ]]で、まだ誰も売っていない商品を探して[[アンコモン]]にしよう！', 'This is an Uncommon land, and other shops already sell the basic goods. Use the [[market data]] to find goods nobody sells yet, and make them [[Uncommon]]!');
-const RESEARCH_R = t('ここは Rare ランド。[[市場データ]]で、まだ誰も売っていない商品を探して[[アンコモン]]か Rare の[[復刻品]]で勝負しよう！', 'This is a Rare land. Use the [[market data]] to find goods nobody sells yet, and compete with [[Uncommons]] or Rare [[revivals]]!');
-const RESEARCH_E = t('ここは Epic ランド。[[市場データ]]で、まだ誰も売っていない商品を探して、Epic の[[復刻品]]と[[骨董]]で勝負しよう！', 'This is an Epic land. Use the [[market data]] to find goods nobody sells yet, and compete with Epic [[revivals]] and [[antiques]]!');
+const RESEARCH = t('[[センス]]や[[鋏]]はもう他店が売っている。[[市場データ]]で、まだ誰も売っていない商品を探そう！', 'Rivals already sell [[Sensu]] and [[Scissors]]. Find goods nobody sells yet in the [[market data]]!');
+const RESEARCH_U = t('基礎の商品はもう他店が売っている。[[市場データ]]で空いている商品を探して[[アンコモン]]にしよう！', 'Rivals already sell the basics. Find an open item in the [[market data]] and make it [[Uncommon]]!');
+const RESEARCH_R = t('[[市場データ]]で空いている商品を探して、[[アンコモン]]か Rare の[[復刻品]]で勝負しよう！', 'Find an open item in the [[market data]] and compete with [[Uncommons]] or Rare [[revivals]]!');
+const RESEARCH_E = t('[[市場データ]]で空いている商品を探して、Epic の[[復刻品]]と[[骨董]]で勝負しよう！', 'Find an open item in the [[market data]] and compete with Epic [[revivals]] and [[antiques]]!');
 /** 到着の案内の 2 枚目（リサーチ）か。main.ts が「市場データを開く」ボタンを付ける */
 export const isResearchPage = (text: string) => text === RESEARCH || text === RESEARCH_U || text === RESEARCH_R || text === RESEARCH_E;
-/**
- * Epic の町に着いたときの 1 枚（段 H1。Rare の RARE_TEASER にあたる）：骨董の需要の紹介と、他社の買収（段 H2：M&A）の一言
- */
-export const EPIC_TEASER = () =>
-  t(
-    'この町では、ダンジョンで掘ってきた古いエクステの[[復刻品]]が[[骨董]]として高く売れる。倉庫に貯めておいたぶんも、そのまま棚に並べられるよ！ それに Epic の町では、他社の店をタップすると[[買収の打診]]ができるの。',
-    'In this town, revivals of old extensions you dug up in dungeons sell high as [[antiques]]. The ones you kept in storage can go straight onto the shelves! And in Epic towns, tap a rival store to make an [[acquisition offer]].',
-  );
 /** 法務の部門の紹介（Epic の町に初めて進出して、法務の部門が開いたとき。段 H2 で中身ができた：M&A・契約・特許・争い） */
 export const LEGAL_INTRO = () => [
-  t('新しい部門：[[法務]]！ 他社の[[買収（M&A）]]・卸問屋との[[契約]]・復刻品の[[特許]]・[[争いごと]]を受け持つ部門だよ。', 'New department: [[Legal]]! It handles [[acquisitions (M&A)]], [[contracts]] with wholesalers, [[patents]] on revivals, and [[disputes]].'),
-  t('[[M&A]]では、1 位でない他社を[[調査]]して値段を交渉し、店ごと買い取れる。高いけれど、お金で時間を買える勝ち筋だよ。', 'With [[M&A]] you [[investigate]] a rival that is not #1, negotiate a price, and buy it stores and all. Costly, but it buys you time.'),
-  t('復刻品を[[特許]]にすると他社が真似できない。仕入れの[[契約]]で素材も安くなる。まずは法務の画面を見てみよう！', 'A [[patent]] keeps rivals from copying a revival, and a supply [[contract]] makes materials cheaper. Have a look at the Legal screens!'),
+  t('新しい部門：[[法務]]！ 他社の[[買収（M&A）]]・[[契約]]・[[特許]]・[[争いごと]]を受け持つよ。', 'New department: [[Legal]]! It handles [[M&A]], [[contracts]], [[patents]] and [[disputes]].'),
+  t('[[M&A]]で 1 位でない他社を店ごと買える。[[特許]]で復刻品を守り、[[契約]]で素材を安く。まずは法務の画面へ！', '[[M&A]] buys a non-#1 rival, stores and all. [[Patents]] guard revivals; [[contracts]] cut material costs. See Legal!'),
 ];
-/** Rare の町に着いたときの一言（Rare の町 ② の予告。到着の案内の前に 1 枚） */
-export const RARE_TEASER = () => t('この町は他社の店がひしめいている。お客さんは[[近くの店]]へ行くから、1 軒では町じゅうには売れない。店の場所で[[商圏]]を取り合おう！', 'Rival stores crowd this town. Customers go to [[nearby stores]], so one shop can’t sell to the whole town. Fight over [[trade areas]] with where you build!');
 /** 営業の部門の紹介（Rare の町に初めて進出して、営業の部門が開いたとき。main.ts の会話） */
 export const SALES_INTRO = () => [
-  t('新しい部門：[[営業]]！ 他社の店から[[お客さんを奪う]]のが営業の仕事だよ。', 'New department: [[Sales]]! Its job is to [[win customers]] from rival stores.'),
-  t(`[[営業]]の画面で、店ごとの[[商圏]]（取り分）と、他社の店の[[撤退の危険]]が見えるよ。取り分が開店のときの ${Math.round(RARE_AREA.quitAt * 10)} 割を切った月が ${RARE_AREA.quitMonths} か月続くと撤退して、[[空き店舗]]になるの。`, `The [[Sales]] screen shows each store’s [[trade area]] (share) and how close rival stores are to [[closing]]. A store under ${Math.round(RARE_AREA.quitAt * 100)}% of its opening share for ${RARE_AREA.quitMonths} months closes and leaves a [[vacant store]].`),
-  t('空き店舗には安く・すぐ出店できる。まずは[[出店の候補地]]の上位に店を出してみよう！', 'You can move into a vacant store cheaply and fast. Start by building at the top [[candidate sites]]!'),
+  t('新しい部門：[[営業]]！ 他社の店から[[お客さんを奪う]]のが仕事だよ。画面で店ごとの[[商圏]]が見えるの。', 'New department: [[Sales]]! It [[wins customers]] from rivals. Its screen shows each store’s [[trade area]].'),
+  t(`取り分が開店時の ${Math.round(RARE_AREA.quitAt * 10)} 割を切って ${RARE_AREA.quitMonths} か月続くと、他社の店は撤退して[[空き店舗]]に。安く・すぐ出店できるよ！`, `A rival under ${Math.round(RARE_AREA.quitAt * 100)}% of its opening share for ${RARE_AREA.quitMonths} months closes, leaving a cheap [[vacant store]]!`),
 ];
 
 /** 経理・総務の紹介（Uncommon の町に初めて進出して、2 つの部門が開いたとき。main.ts の会話。段 F） */
 export const ACCT_INTRO = () => [
-  t('新しい部門：[[経理]]と[[総務]]！ Uncommon からは、四半期ごとに利益へ[[法人税]]がかかるよ。', 'New departments: [[Accounting]] and [[General Affairs]]! From Uncommon on, quarterly profit pays [[corporate tax]].'),
-  t('そのぶん町の物価が高くて、単価も高いの。締めの前に[[設備]]や[[研究]]に投資すると、そのぶん税が減る（[[節税]]）よ。', 'Prices here are higher too. Investing in [[upgrades]] or [[research]] before the close lowers the tax ([[tax savings]]).'),
-  t('[[総務]]ではヒーローの[[疲れ]]が見える。疲れが溜まると働きと士気が落ちるから、早めに休ませよう！', 'In [[General Affairs]] you can see heroes’ [[fatigue]]. Tired heroes work slower and lose morale, so rest them early!'),
+  t('新しい部門：[[経理]]と[[総務]]！ ここからは四半期ごとに利益へ[[法人税]]がかかるよ。', 'New departments: [[Accounting]] and [[General Affairs]]! Quarterly profit now pays [[corporate tax]].'),
+  t('締めの前に[[設備]]や[[研究]]へ投資すると税が減るよ。[[総務]]ではヒーローの[[疲れ]]が見えるの。', 'Investing in [[upgrades]] or [[research]] before the close lowers the tax. [[General Affairs]] shows heroes’ [[fatigue]].'),
 ];
 /** 1 枚目（目標）：ようこそ ＋ エリア 1 位 ＋ 1 位の他社の月の売上（{top}） */
-const goal = (name: string) =>
-  t(`[[${name}]]へようこそ！ 目標は[[2 か月続けてエリア 1 位]]、他社 4 社のうち 1 位の月の売上は約 {top} だよ。`, `Welcome to [[${name}]]! The goal: [[#1 in the area two months running]]. There are 4 rivals; the leader makes about {top} a month.`);
+const goal = (name: string) => t(`[[${name}]]へようこそ！ 目標は[[2 か月続けてエリア 1 位]]。1 位の他社は月 約 {top}。`, `Welcome to [[${name}]]! The goal: [[#1 in the area two months running]]. The leader makes about {top} a month.`);
 
 /**
  * ランド「はじまりの国 Lime」の 21 セクタ（docs/ISLAND_PHASE1.md「ランドマップとセクタ」）。
@@ -3401,9 +3387,8 @@ export const GRADE_NAME = () => [t('無名', 'Unknown'), t('地元の店', 'Loca
 
 /** カスタマーサポートの紹介（Uncommon の町に初めて進出したあと。main.ts の会話。経理・総務の紹介のあと） */
 export const CS_INTRO = () => [
-  t('新しい部門：[[カスタマーサポート]]！ Uncommon の町では、お客さんから[[問い合わせ]]が届くよ。', 'New department: [[Customer Support]]! In Uncommon towns, customers send you [[inquiries]].'),
-  t('中身に合う返事（品切れ → [[代わりの品]]・値段 → [[返金]]・閉まっていた → [[謝る]]）をすると[[顧客満足度]]が上がって、お客さんがまた来てくれる。', 'Reply to fit (sold out → [[substitute]], price → [[refund]], closed → [[apology]]) and [[satisfaction]] rises, bringing customers back.'),
-  t('放っておくと満足度が下がって、続くと[[炎上]]することも。月の締めに届くから、受け箱を見てみよう！', 'Ignore them and satisfaction drops — keep it up and you may face a [[backlash]]. They arrive at the monthly close; check the inbox!'),
+  t('新しい部門：[[カスタマーサポート]]！ 月の締めに、お客さんから[[問い合わせ]]が届くよ。', 'New department: [[Customer Support]]! Customers send [[inquiries]] at each monthly close.'),
+  t('合う返事で[[顧客満足度]]が上がる。放っておくと[[炎上]]することも。受け箱を見てみよう！', 'Fitting replies raise [[satisfaction]]. Ignore them and a [[backlash]] may follow. Check the inbox!'),
 ];
 /** カスタマーサポート・マーケの奥義（理解度 15・25・40。効き目は段 I。表示だけ） */
 export const CS_MASTERY = () => [

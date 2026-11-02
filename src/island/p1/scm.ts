@@ -4,13 +4,12 @@
  * その場でヒーローの割り当て・スキル・雇う・建てる画面へ行けるようにする（docs/ISLAND_PHASE1.md「SCM ダッシュボード」）。
  */
 import { t } from '../../i18n';
-import { assetUrl } from '../../render/images';
 import { DEF } from '../defs';
 import { INVEST, MAT_KEYS, MATS, MARKET, PRODUCT, SKILL, SKILLS, TRANSPORT, isResearch, rpCost, skuPrice, type Mat, type Sku } from './data';
 import { clearGoal, has, invest, MAX_HAULERS, skillLock, type PBuilding, jamOf, hasRoute, oneWay, shopArea, craftCheck, craftDays, learn, matDays, monthRevenue, myShops, myWorkshop, nextJam, poolCap, poolFree, poolUsed, sellInfo, speed, stageCaps, staffOf, storageCap, assign, whatIf, type GoodsWhy, type P1State, type SellInfo, type SellWhy, type Stage, type StageIf, type WhatIf } from './model';
 import { pickHero, slot, TASK_NAME } from './heroui';
 import { clearCondText } from './digmeet';
-import { after, mineSay, mineTip, open, openAds, openBuy, openData, openHire, openShop, openStaff, openWorkshop, SHELF_TIP, type Ctx } from './screens';
+import { after, mineTip, open, openAds, openBuy, openData, openHire, openShop, openStaff, openWorkshop, type Ctx } from './screens';
 import { openSkills } from './tree';
 import { bestSell, goodsName, shopMonthly, type SellMove } from './moves';
 import { execute } from './deleg';
@@ -204,7 +203,6 @@ function whatIfUp(ctx: Ctx, s: P1State, w: WhatIf): { label: string; sub: string
           }
           after(ctx);
           openShop(ctx, w.uid);
-          if (!e) mineSay(ctx, SHELF_TIP());
         },
       };
     }
@@ -262,7 +260,6 @@ export function sellBigUp(ctx: Ctx, s: P1State, m: SellMove): Up {
     after(ctx);
     if (m.act.k === 'stock' && m.uid != null) {
       openShop(ctx, m.uid);
-      if (m.act.add) mineSay(ctx, SHELF_TIP());
     }
   };
   const nm = m.key ? goodsName(m.key) : '';
@@ -500,6 +497,8 @@ export function openSupply(ctx: Ctx, opt: { breakdown?: boolean } = {}) {
   let toBreakdown = !!opt.breakdown;
   open(ctx, t('SCM ダッシュボード', 'SCM dashboard'), (body) => {
     const s = ctx.s();
+    // 段 UI2：SCM の中の字は 12px 以上（p1.css の .is-scm）
+    body.classList.add('is-scm');
     mineTip(ctx, 'scm', body);
     const caps = stageCaps(s);
     const ws = myWorkshop(s);
@@ -593,10 +592,8 @@ export function openSupply(ctx: Ctx, opt: { breakdown?: boolean } = {}) {
     const bn = scmJam(s);
 
     // ---------------------------------------------------------------- 見出し：ボトルネック
+    // 段 UI2：見出しのマインちゃんの顔はやめた（詰まりの段の名前と、その段の状態の 1 行）
     const top = h('div', `isl-scm-head is-${issues[bn].lamp}`);
-    const mine = h('img', 'isl-scm-mine');
-    mine.src = assetUrl('mch/Image/Characters/navi_ain_speak_00_talk.png');
-    mine.alt = '';
     const words = h('div');
     words.append(
       h('small', '', t('いまの詰まり（ボトルネック）', 'Current jam (bottleneck)')),
@@ -614,7 +611,7 @@ export function openSupply(ctx: Ctx, opt: { breakdown?: boolean } = {}) {
       c.append(h('span', 'is-long', long), h('span', 'is-short', short));
       kpi.append(c);
     }
-    top.append(mine, words, kpi);
+    top.append(words, kpi);
     body.append(top);
 
     // ---------------------------------------------------------------- 数字の見方（スマホでは折りたたみ）
@@ -672,7 +669,6 @@ export function openSupply(ctx: Ctx, opt: { breakdown?: boolean } = {}) {
       head.append(h('b', '', `${STAGE[k].n} ${STAGE[k].name}`));
       if (k === bn) head.append(h('span', 'isl-scm-jam', t('詰まり', 'Jam')));
       c.append(head);
-      c.append(h('small', 'isl-scm-sumlabel', t('ひと月に流せる数（個）', 'Per month (pcs)')));
       c.append(h('b', `isl-scm-sumnum ${caps[k].stopped ? 'is-stop' : ''}`, caps[k].stopped ? t('止まっている', 'Stopped') : `${caps[k].perMonth}`));
       c.append(bar(caps[k].stopped ? 0 : caps[k].perMonth / max, k === bn ? 'var(--isl-bad)' : issues[k].lamp === 'warn' ? 'var(--isl-gold)' : 'var(--isl-good)'));
       if (k === bn && gain) {
@@ -706,7 +702,8 @@ export function openSupply(ctx: Ctx, opt: { breakdown?: boolean } = {}) {
       c.addEventListener('click', () => cards[k]?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
       sum.append(c);
     });
-    body.append(sum);
+    // 段 UI2：「ひと月に流せる数（個）」は 4 つの列で繰り返さず、上に 1 回だけ
+    body.append(h('small', 'isl-scm-sumcap', t('数字＝ひと月に流せる数（個）', 'Numbers = units per month')), sum);
     // 次に細くなる段：いまの詰まりを 30% 太くしたら、次はどこが詰まるか
     const nx = nextJam(s, caps);
     const nextEl = h('p', `isl-scm-next ${nx.same ? 'is-same' : ''}`);
