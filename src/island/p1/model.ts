@@ -424,6 +424,8 @@ export interface Flags {
   csTalk?: boolean;
   /** 法務の部門の紹介（マインちゃん。Epic の町に初めて進出したあと 1 回。段 H1 で足し、段 H2 で中身の紹介に） */
   legalTalk?: boolean;
+  /** 段 UI2：到着の案内か部門の紹介を最後に出した日（部門の紹介は 1 日に 1 つずつ。無くてもよい項目なのでセーブの版は変えない） */
+  talkDay?: number;
 }
 
 export interface P1State {

@@ -213,13 +213,13 @@ describe('町の長と研究成果の発表', () => {
 
   it('到着の案内のお題の 1 枚：「この町の荒れ地には、栄えていた頃の[[〇〇]]が眠っているはず。お題は 3 つ（Uncommon は 4 つ）」', () => {
     expect(Object.keys(DIG_THEME).sort()).toEqual(Object.keys(DIG_SITES).sort());
-    expect(topicsPage('c2')).toContain(`荒れ地には、栄えていた頃の[[${DIG_THEME.c2}]]が眠っているはず。お題は 3 つ`);
+    expect(topicsPage('c2')).toContain(`荒れ地には[[${DIG_THEME.c2}]]が眠っているはず。お題 3 つ`);
     // Uncommon（7 段目）：お題 4 つと、この町の出土品 2 種をこの町で 10 個ずつ
-    expect(topicsPage('u1')).toContain('お題 4 つと、この町の出土品 2 種を[[この町で 10 個ずつ]]');
+    expect(topicsPage('u1')).toContain('お題 4 つと出土品 2 種を[[この町で 10 個ずつ]]');
     // Rare（Rare の町 ①）：Lime が荒れたわけ。お題 4 つと、この町の出土品 2 種をこの町で 12 個ずつ
-    expect(topicsPage('r1')).toContain('お題 4 つと、この町の出土品 2 種を[[この町で 12 個ずつ]]');
+    expect(topicsPage('r1')).toContain('お題 4 つと出土品 2 種を[[この町で 12 個ずつ]]');
     // Epic（段 H1）：裂けた大地を人々がどう立て直そうとしたか。この町で 14 個ずつ
-    expect(topicsPage('e1')).toContain('お題 4 つと、この町の出土品 2 種を[[この町で 14 個ずつ]]');
+    expect(topicsPage('e1')).toContain('お題 4 つと出土品 2 種を[[この町で 14 個ずつ]]');
     expect(topicsPage('l1')).toBeNull();
   });
 });

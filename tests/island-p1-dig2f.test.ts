@@ -356,7 +356,7 @@ describe('4. Uncommon のお題に、この町で掘った数（v14：研究 Lv 
     s.day += DAYS;
     const rep = endMonth(s);
     expect(rep.goal).toEqual({ present: false, got: 1, all: 4, res: [1, 2, 10] });
-    expect(topicsPage('u1')).toContain('この町の出土品 2 種を[[この町で 10 個ずつ]]');
+    expect(topicsPage('u1')).toContain('出土品 2 種を[[この町で 10 個ずつ]]');
   });
 
   it('Common は今のまま（お題だけ）。研究 Lv の条件は無い', () => {

@@ -32,17 +32,17 @@ export function meetReady(s: P1State, idleDays: number): boolean {
 
 /** 出会いの会話（国の役所からの手紙。セリフ 1〜3。1 枚 2 文・最後は次にすること） */
 export const MEET_LINES = (): string[] => [
-  t('[[国の役所]]から手紙が届いたよ！ Lime は国策を変えて、いま[[復興]]の真っ最中なんだって。', 'A letter from the [[national office]]! Lime changed its policy and is in the middle of a [[revival]].'),
-  t('町の[[荒れ地]]を掘って整地すれば、建物を建てられるようになる。昔の Lime が栄えていた頃の[[遺物]]も眠っているかも！', 'Dig and level the town’s [[wastelands]] and they become buildable. [[Relics]] from Lime’s golden age may lie beneath!'),
+  t('[[国の役所]]から手紙が届いたよ！ Lime はいま[[復興]]の真っ最中なんだって。', 'A letter from the [[national office]]! Lime is in the middle of a [[revival]].'),
+  t('[[荒れ地]]を掘って整地すれば、建物を建てられる。昔の[[遺物]]も眠っているかも！', 'Dig and level the [[wastelands]] and you can build there. Old [[relics]] may lie beneath!'),
   t('1 か所目の[[発掘許可]]をもらったよ。光っている荒れ地をタップして、掘ってみよう！', 'We got our first [[dig permit]]. Tap the glowing wasteland and start digging!'),
 ];
 /** 最初の発掘作業が終わったあと（セリフ 4） */
-export const MEET_FOUND = (): string => t('遺物の[[エクステ]]を見つけると[[研究ポイント]]が貯まるよ。スキルツリーの研究パネルを開いてみよう！', 'Finding relic [[extensions]] earns [[research points]]. Try opening a research panel in the skill tree!');
+export const MEET_FOUND = (): string => t('遺物を見つけると[[研究ポイント]]が貯まるよ。スキルツリーの研究パネルを開こう！', 'Relics earn [[research points]]. Open a research panel in the skill tree!');
 
 /** 出会いの最初の発掘作業のあいだ、発掘画面のマインちゃんの一言（壁の掘り方） */
-export const MEET_WALL = (): string => t('壁のマスをタップすると、手前の土から 1 枚ずつはがれるよ。ひびの隙間に何か見えたら、そこを掘ってみよう！', 'Tap a cell in the wall to peel the soil off one layer at a time. If you glimpse something through a crack, dig there!');
+export const MEET_WALL = (): string => t('壁をタップ！ ひびの奥に何か見えたら掘ってみよう！', 'Tap the wall! If something shows in a crack, dig there!');
 /** 初めて覗き見が出たとき（1 回だけ。作業を止めない小さな吹き出し） */
-export const PEEK_TIP = (): string => t('ひびの隙間に何か見える！ そのマスを掘り進めよう。', 'Something shows through the cracks! Keep digging that cell.');
+export const PEEK_TIP = (): string => t('ひびの奥に何か見える！ そこを掘り進めよう。', 'Something shows in the crack! Keep digging there.');
 /** 出会いの途中の、地図のマインちゃんの一言（いまやること） */
 export function meetTip(s: Pick<P1State, 'flags' | 'dig' | 'digRun'>): string | null {
   const ph = s.flags.digMeet;
@@ -127,7 +127,7 @@ export function presentPages(s: P1State): { text: string; who: number | null }[]
   const left = lettersLeft(s);
   const after = L ? NEXT[L.tier] : undefined;
   return [
-    { who: null, text: t(`[[町の長]]、この町の荒れ地からお題が ${n} つそろいました！ 研究の成果を聞いてください。`, `[[Town head]], we found all ${n} targets in this town’s wastelands! Please hear our findings.`) },
+    { who: null, text: t(`[[町の長]]、荒れ地からお題が ${n} つそろいました！ 研究の成果を聞いてください。`, `[[Town head]], we found all ${n} targets! Please hear our findings.`) },
     {
       who: chief,
       text:
@@ -137,20 +137,20 @@ export function presentPages(s: P1State): { text: string; who: number | null }[]
             ? t('9 つのランドの品が、ひとつの地層から…。Lime は昔、ほかの国と[[交易]]でつながっていたのだな。', 'Goods of nine lands in one stratum… Long ago, Lime was linked to other lands by [[trade]].')
             : tier === 'R'
               ? // Rare の町 ①：Lime がなぜ荒れたのか（奪い合い・掘りすぎた大地・9 つに裂けた大地）
-                t('奪い合い、掘りすぎて、大地は 9 つに裂けた…。Lime が荒れたのは、[[栄えすぎた]]からだったのか。', 'Fighting over customers, digging too deep, until the earth split in nine… Lime fell to ruin because it [[thrived too much]].')
+                t('奪い合い、掘りすぎて、大地は 9 つに裂けた…。Lime が荒れたのは[[栄えすぎた]]からか。', 'Fighting, digging too deep, until the earth split in nine… Lime fell because it [[thrived too much]].')
               : // Epic の町 ①（段 H1）：裂けたあと、Lime の人々が何を残し、どう立て直そうとしたか
-                t('数え合い、分け合い、種を守り、霧の向こうへ灯を送った…。Lime を立て直したのは、[[分け合う心]]だったのか。', 'They counted each other, shared what they had, saved the seeds and sent light beyond the mist… What rebuilt Lime was the [[will to share]].'),
+                t('分け合い、種を守り、霧の向こうへ灯を送った…。Lime を立て直したのは[[分け合う心]]か。', 'They shared, saved the seeds and sent light beyond the mist… What rebuilt Lime was the [[will to share]].'),
     },
     {
       who: chief,
       text:
         left > 0 && after
-          ? t(`あと ${left} つ、別の町でも研究を発表してくれ。そうしたら[[${letterName(after)}]]を書こう。`, `Present your research in ${left} more town${left > 1 ? 's' : ''}. Then I’ll write you a [[${letterName(after)}]].`)
+          ? t(`あと ${left} つ、別の町でも研究を発表してくれ。そうしたら[[${letterName(after)}]]を書こう。`, `Present in ${left} more town${left > 1 ? 's' : ''}. Then I’ll write you a [[${letterName(after)}]].`)
           : next
             ? next === 'L'
-              ? t(`その研究、ランドの真ん中の都でも続けてくれ。[[${letterName(next)}]]を書いておこう（Legendary の都はまだ雲の向こうだがな）。`, `Carry this research to the capital at the heart of the land. I’ll write you a [[${letterName(next)}]] (though the Legendary capital is still beyond the clouds).`)
-              : t(`その研究、もっと大きな町でも続けてくれ。[[${letterName(next)}]]を書いておこう。`, `Carry this research to bigger towns. I’ll write you a [[${letterName(next)}]].`)
-            : t('礼に、町の古い記録を見せよう。Lime の復興の足しにしてくれ。', 'As thanks, let me show you the town’s old records. Put them to work for Lime’s revival.'),
+              ? t(`都でも研究を続けてくれ。[[${letterName(next)}]]を書こう。Legendary の都はまだ雲の向こうだがな。`, `Carry this research to the capital. Here is a [[${letterName(next)}]] — though the Legendary capital is still beyond the clouds.`)
+              : t(`その研究、もっと大きな町でも続けてくれ。[[${letterName(next)}]]を書いておこう。`, `Carry this research to bigger towns. Here is a [[${letterName(next)}]].`)
+            : t('礼に、町の古い記録を見せよう。Lime の復興の足しにしてくれ。', 'As thanks, here are the town’s old records. Use them for Lime’s revival.'),
     },
   ];
 }
@@ -164,13 +164,13 @@ export function presentAfter(letter: Tier | null, left = 0, conquered = false, t
   const town = TIER_NAME[tier];
   if (conquered && !letter)
     return left > 0
-      ? t(`[[制覇]]おめでとう！ 次は別の ${town} の町で研究を発表すると、[[調査依頼状]]がもらえるよ（あと ${left} つ）。`, `[[Conquered]]! Present in another ${town} town next to get the [[survey request]] (${left} to go).`)
+      ? t(`[[制覇]]おめでとう！ 別の ${town} の町でも発表すると[[調査依頼状]]がもらえるよ（あと ${left} つ）。`, `[[Conquered]]! Present in another ${town} town for the [[survey request]] (${left} to go).`)
       : t('[[制覇]]おめでとう！ 1 位を守りながら、次のセクタの準備をしよう！', '[[Conquered]]! Keep #1 and get ready for the next sector!');
-  if (left > 0) return t(`あと ${left} つ、別の ${town} の町で研究を発表すると[[調査依頼状]]がもらえるよ。いまは研究ポイントでスキルを開こう！`, `Present in ${left} more ${town} town${left > 1 ? 's' : ''} to get the [[survey request]]. For now, spend research points on skills!`);
-  if (letter === 'U') return t('[[調査依頼状]]で、Uncommon のセクタに出店できるようになったよ。お金がたまったら、ランドマップから出店しよう！', 'With the [[survey request]], you can open in Uncommon sectors. Once you have the funds, open there from the land map!');
-  if (letter === 'R') return t('[[Rare の調査依頼状]]で、Rare のセクタに進出できるようになったよ。進出すると 2 回目の災害と[[徴収]]が起きるから、先に[[研究への寄付]]をしておこう！', 'With the [[Rare survey request]] you can expand into Rare sectors. Expanding brings a second disaster and [[levy]], so make a [[research donation]] first!');
-  if (letter === 'E') return t('[[Epic の調査依頼状]]で、Epic のセクタに進出できるようになったよ。進出すると 3 回目の災害と[[徴収]]が起きるから、先に[[研究への寄付]]をしておこう！ 倉庫の[[骨董]]は失わずに運べるよ。', 'With the [[Epic survey request]] you can expand into Epic sectors. Expanding brings a third disaster and [[levy]], so make a [[research donation]] first! The [[antiques]] in storage come along safely.');
-  if (letter === 'L') return t('[[Legendary の調査依頼状]]をもらったよ。Legendary の都はまだ雲の向こう。まずは研究ポイントでスキルを開こう！', 'We got a [[Legendary survey request]]. The Legendary capital is still beyond the clouds. For now, spend research points on skills!');
+  if (left > 0) return t(`あと ${left} つ、別の ${town} の町で発表すると[[調査依頼状]]がもらえるよ。`, `Present in ${left} more ${town} town${left > 1 ? 's' : ''} to get the [[survey request]].`);
+  if (letter === 'U') return t('[[調査依頼状]]で、Uncommon のセクタに出店できるよ。ランドマップから進もう！', 'With the [[survey request]] you can open in Uncommon sectors. Go via the land map!');
+  if (letter === 'R') return t('[[Rare の調査依頼状]]で Rare のセクタに進出できるよ。災害と[[徴収]]の前に[[研究への寄付]]を！', 'The [[Rare survey request]] opens Rare sectors. Before the disaster and [[levy]], make a [[research donation]]!');
+  if (letter === 'E') return t('[[Epic の調査依頼状]]で Epic のセクタに進出できるよ。[[徴収]]の前に[[研究への寄付]]を。[[骨董]]は運べるよ。', 'The [[Epic survey request]] opens Epic sectors. Donate before the [[levy]]; [[antiques]] come along.');
+  if (letter === 'L') return t('[[Legendary の調査依頼状]]をもらったよ。Legendary の都はまだ雲の向こう。', 'We got a [[Legendary survey request]]. The Legendary capital is still beyond the clouds.');
   return t('[[研究ポイント]]が貯まったね。スキルツリーの研究パネルを開こう！', 'Your [[research points]] grew. Open a research panel in the skill tree!');
 }
 
@@ -185,14 +185,12 @@ export function topicsPage(sector: string): string | null {
   const tier = sectorDef(sector).tier;
   const R = tier === 'C' || tier === 'U' || tier === 'R' || tier === 'E' ? DIG_BALANCE.presentRes[tier] : undefined;
   // Epic の町 ①（段 H1）：Epic の荒れ地には、裂けたあとに人々が立て直そうとした跡が眠っている
-  if (R && tier === 'E')
-    return t(`この町の荒れ地には、裂けた大地を人々がどう立て直そうとしたか――[[${theme}]]の跡が眠っているはず。お題 ${n} つと、この町の出土品 ${R.n} 種を[[この町で ${R.dug} 個ずつ]]掘り出したら[[町の長]]に発表しよう！`, `This town’s wastelands should hold the traces of how people tried to rebuild the split land: [[${theme}]]. Find the ${n} targets and dig up ${R.n} of this town’s finds [[${R.dug} times each here]], then present to the [[town head]]!`);
-  // Rare の町 ①：Rare の荒れ地には、Lime が荒れたわけが眠っている
-  if (R && tier === 'R')
-    return t(`この町の荒れ地には、Lime が荒れたわけ――[[${theme}]]の跡が眠っているはず。お題 ${n} つと、この町の出土品 ${R.n} 種を[[この町で ${R.dug} 個ずつ]]掘り出したら[[町の長]]に発表しよう！`, `This town’s wastelands should hold the traces of why Lime fell: [[${theme}]]. Find the ${n} targets and dig up ${R.n} of this town’s finds [[${R.dug} times each here]], then present to the [[town head]]!`);
+  // 段 UI2：1 枚 60 字に収める（Rare・Epic の町の謂れは、発表の会話で町の長が話す）
+  if (R && (tier === 'E' || tier === 'R'))
+    return t(`荒れ地に[[${theme}]]の跡が眠るはず。お題 ${n} つと出土品 ${R.n} 種を[[この町で ${R.dug} 個ずつ]]掘ったら[[町の長]]に発表！`, `The wastelands hold traces of [[${theme}]]. Find ${n} targets and ${R.n} finds [[${R.dug} each here]], then present to the [[town head]]!`);
   if (R)
-    return t(`この町の荒れ地には、栄えていた頃の[[${theme}]]が眠っているはず。お題 ${n} つと、この町の出土品 ${R.n} 種を[[この町で ${R.dug} 個ずつ]]掘り出したら[[町の長]]に発表しよう！`, `This town’s wastelands should hold [[${theme}]] from Lime’s golden age. Find the ${n} targets and dig up ${R.n} of this town’s finds [[${R.dug} times each here]], then present to the [[town head]]!`);
-  return t(`この町の荒れ地には、栄えていた頃の[[${theme}]]が眠っているはず。お題は ${n} つ、そろったら[[町の長]]に発表しよう！`, `This town’s wastelands should hold [[${theme}]] from Lime’s golden age. There are ${n} targets — once you have them all, present to the [[town head]]!`);
+    return t(`荒れ地に[[${theme}]]が眠るはず。お題 ${n} つと出土品 ${R.n} 種を[[この町で ${R.dug} 個ずつ]]掘ったら[[町の長]]に発表！`, `The wastelands hold [[${theme}]]. Find ${n} targets and ${R.n} finds [[${R.dug} each here]], then present to the [[town head]]!`);
+  return t(`この町の荒れ地には[[${theme}]]が眠っているはず。お題 ${n} つがそろったら[[町の長]]に発表しよう！`, `This town’s wastelands hold [[${theme}]]. Find all ${n} targets, then present to the [[town head]]!`);
 }
 
 // ---------------------------------------------------------------- マインちゃんの助言（発掘）
@@ -216,9 +214,9 @@ export const DIG_TIP_ORDER: DigTipKey[] = ['present', 'relic', 'copied', 'presen
 /** 発掘の枝が雲から出たあとの 1 回だけの一言（流れを止めない助言） */
 export const BRANCH_TIP = () => t('[[発掘]]の枝ができたよ！ お金で[[追加申請]]をすると、1 回の発掘が長くなる。', 'A [[Digging]] branch appeared! Spend funds on [[Extra dig time]] to make each dig run longer.');
 /** 再発掘（ランクアップの災害のあと）で初めて RP が入ったとき（発掘画面の中に出す。発掘 v2 の 7 段目） */
-export const AGAIN_TIP = () => t('前より楽に掘れるね！ [[研究ポイント]]もまた入るよ。', 'Digging is easier than before! And [[research points]] come in again.');
+export const AGAIN_TIP = () => t('前より楽に掘れるね！ [[研究ポイント]]もまた入るよ。', 'Easier than before! [[Research points]] come in again.');
 /** 「深い層の許可が要る」マスを初めて押したとき（発掘場のパネルの中に出す） */
-export const DEEP_TIP = () => t('この奥の層は国の許可が要るんだ。スキルツリーの[[深い層の許可]]で掘れるようになるよ。', 'Deeper layers need the nation’s permit. Get the [[Deep-layer permit]] in the skill tree to dig there.');
+export const DEEP_TIP = () => t('奥の層は、スキルツリーの[[深い層の許可]]で掘れるよ。', 'Deeper layers need the [[Deep-layer permit]] in the skill tree.');
 /** 許可のある荒れ地を、この日数のあいだ掘っていなければ「15 秒だけ掘ってみよう」 */
 export const DIG_IDLE_DAYS = 10;
 

@@ -242,21 +242,6 @@ export function mineTip(ctx: Ctx, screen: string, body: HTMLElement) {
   requestAnimationFrame(dockPad);
 }
 
-/**
- * 画面の下のマインちゃんの一言（チュートリアルの外。その場のひとこと）。✕ で閉じる。
- * 例：依頼を受けた時点で条件を満たしていたとき「もう達成しているね！」。
- */
-export function mineSay(ctx: Ctx, text: string) {
-  const d = dockEl(ctx.root);
-  d.text.replaceChildren(rich(text));
-  d.el.classList.remove('is-new');
-  void d.el.offsetWidth;
-  d.el.classList.add('is-new');
-  dockShown = text;
-  dockClosed = '';
-  d.el.hidden = false;
-  requestAnimationFrame(dockPad);
-}
 
 /**
  * 作る数：0〜手持ちの素材で作れる最大個数のバーと、数の直接入力。右に「自動製造」（素材があるかぎり作り続ける。オンならバーは使えない）。
@@ -1436,33 +1421,16 @@ export function openData(ctx: Ctx) {
     const all = market(s);
     const rows = [...all].sort((a, b) => Number(b.p.key === rec) - Number(a.p.key === rec) || Number(b.gap) - Number(a.gap) || Number(a.saturated) - Number(b.saturated) || val(b) - val(a));
     const maxD = Math.max(1, ...rows.map((r) => r.demand));
+    // 段 UI2：上のマインちゃんの一言はやめた（おすすめの商品は、行の「マインちゃんのおすすめ」の札と並びの 1 番目で分かる）
     const recRow = all.find((r) => r.p.key === rec);
-    const tip = h('div', 'isl-mine-tip');
-    const mi = h('img');
-    mi.src = assetUrl('mch/Image/Characters/navi_ain_speak_00_talk.png');
-    mi.alt = '';
     const need = recRow?.need;
-    const first = (s.sector ?? 'c1') === 'c1' && !s.land;
-    tip.append(
-      mi,
-      h(
-        'p',
-        '',
-        first
-          ? t(`「${PRODUCT[rec].name}」は国民の需要が大きいのに、まだ扱っている会社が少ないみたい。最初の主力商品にぴったりです！`, `${PRODUCT[rec].name} is in high demand, yet few companies sell it. A perfect first main product!`)
-          : need
-            ? t(`「${PRODUCT[rec].name}」が売れそう。まだ誰も売っていないよ！ まずは ${needText(need, s)} から。`, `${PRODUCT[rec].name} looks promising — nobody sells it yet! First: ${needText(need, s)}.`)
-            : t(`「${PRODUCT[rec].name}」が売れそう。まだ誰も売っていないから、工房で作って並べよう！`, `${PRODUCT[rec].name} looks promising — nobody sells it yet. Make it and stock it!`),
-      ),
-    );
-    body.append(tip);
     const rb = rallyBadge(s);
     if (rb) body.append(rb);
     /** 市場データから工房へ：その商品を作るものとして選んだ状態で工房を開く（工房が無ければトースト） */
     const makeIt = (key: string) => makeInWorkshop(ctx, key);
     if (need && need.kind !== 'dev' && ctx.skills) {
       const go = need.skill;
-      body.append(btn(t('スキルツリーで見る', 'Open skill tree'), () => ctx.skills?.(go), 'is-on'));
+      body.append(btn(t(`「${PRODUCT[rec].name}」の準備：${needText(need, s)}`, `Get ${PRODUCT[rec].name} ready: ${needText(need, s)}`), () => ctx.skills?.(go), 'is-on'));
     } else if (recRow && !need) body.append(btn(t(`「${PRODUCT[rec].name}」を工房で作る`, `Make ${PRODUCT[rec].name} in the workshop`), () => makeIt(rec), 'is-on isl-data-make'));
     const table = h('div', 'isl-data');
     const head = h('div', 'isl-data-row is-head');
@@ -1866,7 +1834,7 @@ export function openMissions(ctx: Ctx) {
             // 受けた時点で条件を満たしていた：その場で達成。報酬は「報酬を受け取る」で
             after(ctx);
             ctx.sfx?.('mission');
-            mineSay(ctx, t('もう達成しているね！ さすが！', 'You have already done it! Nice work!'));
+            ctx.toast(t('もう達成しているね！ 報酬を受け取ろう', 'Already done! Claim the reward'));
             return;
           } else if (!e) ctx.toast(t(`「${m.title}」を受けました。右上のミッションに出ます`, `Accepted “${m.title}”. It shows under Missions at the top right`));
           after(ctx);
@@ -1891,9 +1859,6 @@ export function openMissions(ctx: Ctx) {
 }
 
 // ---------------------------------------------------------------- システム（設備投資）
-
-/** 棚を増やした直後のマインちゃんの一言（次の手：空いた棚に別の商品を並べる） */
-export const SHELF_TIP = () => t('棚が 1 つ空いたよ！ 空いた棚に[[市場データ]]の商品を並べよう。別の商品を並べると、そのぶん売上が増えるよ。', 'A shelf is free! Stock it with an item from the [[market data]]. A different item adds its own sales.');
 
 /** 工房・お店の画面のいちばん下の「設備投資」の欄 */
 export function investCard(ctx: Ctx, b: PBuilding, note: string): HTMLElement {
@@ -1922,8 +1887,6 @@ export function investList(ctx: Ctx, b: PBuilding, onDone: () => void): HTMLElem
       ctx.save();
       ctx.refresh();
       onDone();
-      // 棚を増やしたら、次の手（空いた棚に別の商品）をマインちゃんが促す
-      if (!e && x.id === 'shelves') mineSay(ctx, SHELF_TIP());
     }, cost == null ? '' : 'is-on');
     go.disabled = cost == null || s.money < cost || b.left > 0;
     row.append(name, go);

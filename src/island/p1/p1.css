@@ -12210,3 +12210,249 @@ button.isl-dband-lead.is-on {
 #isl-ui:has(.isl-cardm) .isl-toasts {
   visibility: hidden;
 }
+
+/* ================================================================ 段 UI2：マインちゃんのメッセージ（セリフだけ・1 枚 60 字・広い箱と大きい字） */
+/* 会話の箱：PC は 720px まで、スマホは左右 12px の余白で横いっぱい。マインちゃんは箱の左上から大きくのぞく。文は箱の幅いっぱい */
+.isl-modal.isl-talk {
+  padding: 16px 12px calc(var(--foot-h, 0px) + 16px);
+  cursor: pointer;
+}
+.isl-modal.isl-talk > .isl-talk-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: min(720px, 100%);
+  min-height: 190px;
+  margin-top: 112px;
+  padding: 12px 22px 12px;
+}
+.isl-modal.isl-talk > .isl-talk-stage:not([hidden]) + .isl-talk-box {
+  margin-top: 104px;
+}
+.isl-modal.isl-talk .isl-talk-mine {
+  position: absolute;
+  left: 6px;
+  bottom: calc(100% - 40px);
+  width: 120px;
+  height: 160px;
+  margin: 0;
+}
+.isl-modal.isl-talk .isl-talk-who {
+  position: absolute;
+  left: 14px;
+  bottom: calc(100% - 28px);
+}
+.isl-modal.isl-talk .isl-talk-name {
+  align-self: flex-start;
+  margin-left: 124px;
+  padding: 2px 12px;
+  font-size: 15px;
+}
+.isl-modal.isl-talk .isl-talk-box.is-who .isl-talk-name {
+  margin-left: 116px;
+}
+.isl-modal.isl-talk .isl-talk-text {
+  margin: 8px 0 6px;
+  font-size: 21px;
+  line-height: 1.75;
+  letter-spacing: 0.02em;
+}
+.isl-modal.isl-talk .isl-talk-foot {
+  margin-top: auto;
+}
+.isl-modal.isl-talk .isl-talk-foot .isl-dim {
+  font-size: 14px;
+}
+.isl-modal.isl-talk .isl-talk-foot .isl-btn {
+  min-height: 44px;
+  padding: 0 20px;
+  font-size: 16px;
+}
+@media (max-width: 599px) {
+  .isl-modal.isl-talk {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .isl-modal.isl-talk > .isl-talk-box {
+    width: 100%;
+    min-height: 196px;
+    margin-top: 92px;
+    padding: 10px 16px 10px;
+  }
+  .isl-modal.isl-talk > .isl-talk-stage:not([hidden]) + .isl-talk-box {
+    margin-top: 84px;
+  }
+  .isl-modal.isl-talk .isl-talk-mine {
+    left: 4px;
+    bottom: calc(100% - 32px);
+    width: 96px;
+    height: 128px;
+  }
+  .isl-modal.isl-talk .isl-talk-who {
+    left: 10px;
+    bottom: calc(100% - 22px);
+  }
+  .isl-modal.isl-talk .isl-talk-name {
+    margin-left: 98px;
+    font-size: 14px;
+  }
+  .isl-modal.isl-talk .isl-talk-box.is-who .isl-talk-name {
+    margin-left: 90px;
+  }
+  .isl-modal.isl-talk .isl-talk-text {
+    margin: 6px 0 4px;
+    font-size: 18px;
+    line-height: 1.7;
+    letter-spacing: 0;
+  }
+  .isl-modal.isl-talk .isl-talk-foot .isl-btn {
+    min-height: 42px;
+    padding: 0 16px;
+    font-size: 15px;
+  }
+}
+/* 高さの低いスマホ（360×740 など）：マインちゃんを少し小さく */
+@media (max-width: 599px) and (max-height: 760px) {
+  .isl-modal.isl-talk > .isl-talk-box {
+    margin-top: 76px;
+  }
+  .isl-modal.isl-talk .isl-talk-mine {
+    width: 84px;
+    height: 112px;
+  }
+  .isl-modal.isl-talk .isl-talk-name {
+    margin-left: 86px;
+  }
+}
+/* 流れの案内（チュートリアル）の箱も、同じ大きさの字に */
+.isl-tour-box {
+  width: min(720px, 100%);
+  grid-template-columns: 120px 1fr;
+}
+.isl-tour-box .isl-talk-mine {
+  width: 120px;
+  height: 160px;
+  margin-top: -56px;
+}
+.isl-tour-box .isl-talk-text {
+  font-size: 21px;
+  line-height: 1.7;
+}
+.isl-tour-wait {
+  font-size: 14px;
+}
+@media (max-width: 599px) {
+  .isl-tour-box {
+    width: 100%;
+    grid-template-columns: 84px 1fr;
+  }
+  .isl-tour-box .isl-talk-mine {
+    width: 84px;
+    height: 112px;
+    margin-top: -40px;
+  }
+  .isl-tour-box .isl-talk-text {
+    font-size: 18px;
+  }
+}
+/* 地図の吹き出し（チュートリアルと発掘との出会いだけ）・画面の下の一言・上に残る「いまやること」：字を大きく（12px 未満を無くす） */
+.isl-bubble p {
+  font-size: 16px;
+}
+.isl-remind b {
+  font-size: 12px;
+}
+.isl-remind span {
+  font-size: 13px;
+}
+@media (max-width: 599px) {
+  .isl-bubble p {
+    font-size: 15px;
+  }
+}
+/* 上の帯の「詰まり」の札（2 か月目から。地図の吹き出しの代わり）。押すと担当の提案のカードか SCM */
+.isl-stat-jam {
+  border-color: var(--isl-bad);
+  box-shadow: inset 0 0 0 1px rgba(232, 92, 92, 0.35);
+}
+.isl-stat-jam b {
+  color: #ff9a8a;
+  white-space: nowrap;
+}
+.isl-stat-jam.is-build {
+  border-color: var(--isl-gold);
+  box-shadow: none;
+}
+.isl-stat-jam.is-build b {
+  color: #ffd257;
+}
+.isl-stat-jam[hidden] {
+  display: none;
+}
+/* 月末ポーズ：文の代わりに、懐中時計のボタンが光って脈打つ */
+.isl-next-month {
+  animation:
+    isl-next-pulse 1.6s ease-in-out infinite alternate,
+    isl-next-glow 1.1s ease-in-out infinite alternate;
+}
+@keyframes isl-next-glow {
+  from {
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5), 0 0 10px rgba(242, 181, 68, 0.35);
+  }
+  to {
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5), 0 0 30px 6px rgba(255, 210, 87, 0.85);
+  }
+}
+.isl-next-month.is-gone {
+  animation: none;
+}
+/* SCM ダッシュボード：見出しのマインちゃんの顔をやめた（1 列に）。「ひと月に流せる数（個）」は 4 つの列の上に 1 回だけ */
+.isl-scm-head {
+  grid-template-columns: 1fr;
+}
+.isl-scm-sumcap {
+  display: block;
+  margin: 8px 2px 2px;
+  color: var(--isl-dim);
+  font-size: 12px;
+}
+/* 月次報告：1 回目の 1 位の一言（マインちゃんの顔をやめて 1 行） */
+.isl-rp-say p {
+  font-size: 13px;
+}
+/* SCM ダッシュボードの中の字は 12px 以上（12px 未満だったところ。スマホで 4 つの列が並ぶ所も） */
+.isl-sheet-body.is-scm .isl-scm-ups small,
+.isl-sheet-body.is-scm .isl-scm-ups b,
+.isl-sheet-body.is-scm .isl-scm-up small,
+.isl-sheet-body.is-scm .isl-scm-up b,
+.isl-sheet-body.is-scm .isl-scm-ups .is-short,
+.isl-sheet-body.is-scm .isl-scm-sum-arrow,
+.isl-sheet-body.is-scm .isl-scm-jam,
+.isl-sheet-body.is-scm .isl-scm-gain span,
+.isl-sheet-body.is-scm .isl-scm-next,
+.isl-sheet-body.is-scm .isl-scm-next b,
+.isl-sheet-body.is-scm .isl-sellx-lim small,
+.isl-sheet-body.is-scm .isl-sellx-min,
+.isl-sheet-body.is-scm .isl-sellx-if small,
+.isl-sheet-body.is-scm .isl-sellx-table th,
+.isl-sheet-body.is-scm .isl-sellx-table small,
+.isl-sheet-body.is-scm .isl-sellx-note,
+.isl-sheet-body.is-scm .isl-slot-label,
+.isl-sheet-body.is-scm .isl-slot-hint,
+.isl-sheet-body.is-scm .isl-scm-cap,
+.isl-sheet-body.is-scm .isl-chip small,
+.isl-sheet-body.is-scm .isl-trip-end,
+.isl-sheet-body.is-scm .isl-scm-pipe small,
+.isl-sheet-body.is-scm .isl-rankv small,
+.isl-sheet-body.is-scm .isl-scm-bench small,
+.isl-sheet-body.is-scm .isl-field small,
+.isl-sheet-body.is-scm .isl-scm-area,
+.isl-sheet-body.is-scm .isl-scm-skill small {
+  font-size: 12px;
+}
+@media (max-width: 599px) {
+  .isl-sheet-body.is-scm .isl-scm-up {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}

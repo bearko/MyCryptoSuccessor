@@ -1218,7 +1218,8 @@ export function openSkills(ctx: Ctx, focus?: string) {
         mi.src = assetUrl('mch/Image/Characters/navi_ain_speak_00_talk.png');
         mi.alt = '';
         const p = h('p');
-        p.append(rich(t(`[[${tierArea(fx.tier)}]]が開いた！ 外周のパネルが取れるようになったよ。🏅 エンブレムが要るものもあるから、セクタを制覇して集めよう`, `The [[${tierArea(fx.tier)}]] is open! Outer panels are now available. Some need 🏅 emblems, so conquer sectors to collect them`)));
+        // 段 UI2：1 行・30 字まで（エンブレムが要るパネルは、パネルの札に 🏅 が出る）
+        p.append(rich(t(`[[${tierArea(fx.tier)}]]が開いた！ 外周のパネルが取れるよ`, `The [[${tierArea(fx.tier)}]] is open! Outer panels are available`)));
         const ok = btn(t('OK', 'OK'), () => {
           ringFx = null;
           after(ctx);

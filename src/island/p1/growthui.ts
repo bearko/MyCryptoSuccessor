@@ -133,8 +133,8 @@ export function playPromotion(root: HTMLElement, hero: number, from: HeroRarity,
   mi.alt = '';
   const line =
     to === 'LL'
-      ? t(`すごい……！ ${heroName(hero)}が[[リミテッド・レジェンド]]に！ 伝説の、そのまた上だよ！`, `Amazing…! ${heroName(hero)} is now [[Limited Legendary]] — beyond legend!`)
-      : t(`${heroName(hero)}が${HERO_RARITY[to].name}に昇格！ 上限 Lv が ${HERO_GROWTH.cap[to]} に上がって、パッシブも強くなったよ。`, `${heroName(hero)} is now ${HERO_RARITY[to].name}! Level cap is ${HERO_GROWTH.cap[to]}, and passives got stronger.`);
+      ? t(`すごい！ ${heroName(hero)}が[[リミテッド・レジェンド]]に！`, `Amazing! ${heroName(hero)} is now [[Limited Legendary]]!`)
+      : t(`${heroName(hero)}が${HERO_RARITY[to].name}に昇格！ 上限 Lv ${HERO_GROWTH.cap[to]}`, `${heroName(hero)} is now ${HERO_RARITY[to].name}! Level cap ${HERO_GROWTH.cap[to]}`);
   const p = h('p');
   p.textContent = line.replace(/\[\[(.+?)\]\]/g, '$1');
   say.append(mi, p);
