@@ -98,7 +98,9 @@ describe('関所の先：ランドセクタ', () => {
     expect(sectorState(land, 'u1')).toBe('open');
     expect(sectorState(land, 'r1')).toBe('open');
     expect(letterLocked(s, 'r1')).toBe(true);
-    expect(sectorState(land, 'e1')).toBe('cloud');
+    // 段 H1：Epic は開いていて、出店には Epic の調査依頼状が要る
+    expect(sectorState(land, 'e1')).toBe('open');
+    expect(letterLocked(s, 'e1')).toBe(true);
     expect(sectorState(land, 'l1')).toBe('cloud');
     land.mine.push('u1', 'u2');
     expect(sectorState(land, 'r1')).toBe('open');

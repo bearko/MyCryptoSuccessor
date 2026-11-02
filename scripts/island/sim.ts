@@ -5,7 +5,7 @@
  * ゲームの数値（data.ts・式）は変えない。ここは計測だけ。
  */
 import { writeFileSync } from 'node:fs';
-import { HERO_GROWTH, HERO_RARITIES, aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier, RARE_AREA } from '../../src/island/p1/data';
+import { HERO_GROWTH, HERO_RARITIES, aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, isAntique, areaTuneOf, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier, RARE_AREA, EPIC_RIVAL, ANTIQUE, BRAND_CAP } from '../../src/island/p1/data';
 import { managerApt, RUIN, sectorDef, type RuinLike } from '../../src/island/p1/company';
 import { crowned, moveFee, moveTo } from '../../src/island/p1/land';
 import { delegate, rankUpTier, repairAll, reviveView } from '../../src/island/p1/reset';
@@ -219,6 +219,9 @@ export interface SectorRun {
   relicRev: number;
   /** v16b：うち Rare の復刻品（売れるシリーズ） */
   relicRRev: number;
+  /** v23（段 H1）：うち Epic の復刻品・骨董（その町で骨董として売れた復刻品） */
+  relicERev?: number;
+  antRev?: number;
   /** v9：発掘（打った数：手・自動（発掘隊）・発破、作業の回数・許可の数、入った RP、研究パネルを開けた枚数、RP が足りなくて止まった月） */
   dig: DigRec;
   /** 月ごとの締め（順位・売上・資金・ボトルネック） */
@@ -327,6 +330,11 @@ export interface RunResult {
    * 市場調査を見て打った宣伝・ランクの終わり（そのランクの最後の月の締め）のブランド力と企業の格
    */
   v22: { got: number; answered: number; auto: number; expired: number; good: number; sat: number[]; warns: number; flames: number; flameMonths: number; pr: number; prBrand: number; put: number; notice: number; ads: number; brandEnd: Partial<Record<Tier, number>>; gradeEnd: Partial<Record<Tier, number>> };
+  /**
+   * v23（段 H1：Epic の町 ①・3 回目のランクアップ）：3 回目の徴収額・支度金・移る前の寄付・失ったお金のパネル・被災した町の数（C・U・R）・
+   * 運んだ骨董の数・3 回目のあと任せた町（うち Rare の町）・研究待ちの月（Epic）・巻き返しの回数（Epic）
+   */
+  v23: { levy: number; grant: number; preDonate: number; lost: number; hitC: number; hitU: number; hitR: number; kept: number; delegated: number; delegatedR: number; resWaitE: number; comebackE: number };
 }
 
 /**
@@ -519,6 +527,8 @@ function chooseLineup(s: P1State, c: Ctx): Sku[] {
   const nU = uCrafters(s).length;
   // Rare の町 ①：Rare の復刻品は 1 段上の職人（DIG_BALANCE.relic.rare.minCraft）が要る
   const nR = crew(s).filter((x) => aptitude(x.stats, 'craft') >= DIG_BALANCE.relic.rare.minCraft).length;
+  // v23（段 H1）：Epic の復刻品はさらに 1 段上の職人（DIG_BALANCE.relic.epic.minCraft）
+  const nE = crew(s).filter((x) => aptitude(x.stats, 'craft') >= DIG_BALANCE.relic.epic.minCraft).length;
   const cands: { x: Sku; units: number; margin: number; key: string }[] = [];
   // v10c：通常・100% は、開いた復刻品も並べる候補に（遺物のランクだけ。技・魔法の釜・商品開発は要らない）
   for (const p of c.policy === 'rta' ? PRODUCTS : productsOf(s)) {
@@ -532,6 +542,7 @@ function chooseLineup(s: P1State, c: Ctx): Sku[] {
       if (!routesOk(s, x)) continue;
       if (r === 'U' && (p.relic ? nU === 0 : !has(s, 'pot') || !s.dev.includes(p.key) || nU === 0)) continue;
       if (p.relic?.rare && nR === 0) continue;
+      if (p.relic?.epic && nE === 0) continue;
       const pull = r === 'U' ? UNCOMMON.pull : TIERS[tier].commonPull;
       const perBench = ((30 * 0.85) / craftDays(s, x)) * batchOf(x);
       const units = Math.min(est * pull, perBench);
@@ -1369,6 +1380,15 @@ export const V18_TOTAL: Record<PolicyId, number> = { rta: (1835 + 1631 + 1557) /
 /** v20（調整 1 の前の main）の合計の実時間（秒。同じ 3 シードの平均。docs/ISLAND_BALANCE.md の v20 の節） */
 export const V20_TOTAL: Record<PolicyId, number> = { rta: 1646, normal: 7014, full: 21556 };
 /** v21（段 G の前の main・調整 1 のあと）の合計の実時間（秒。同じ 3 シード：最短 1,627・1,635・1,676／通常 6,831・7,015・7,197／100% 21,703・21,714・22,472） */
+/**
+ * v23（段 H1）：段 H1 の前の main（v22）で同じ 3 シードを回した、ランクごとの時間（秒。3 シードの平均。C はチュートリアルを含む。
+ * R1 は Rare の 1 町目（グリーン・マウス）・redig は 100% の再発掘）。Common〜Rare の時間が変わらないかの比べ
+ */
+export const V22_TIER: Record<PolicyId, { total: number; C: number; U: number; R: number; R1: number; redig: number }> = {
+  rta: { total: 1688, C: 768, U: 920, R: 0, R1: 0, redig: 0 },
+  normal: { total: 7211, C: 3409, U: 2504, R: 1298, R1: 1298, redig: 0 },
+  full: { total: 21397, C: 6927, U: 7564, R: 4084, R1: 1784, redig: 2822 },
+};
 export const V21_TOTAL: Record<PolicyId, number> = { rta: (1627 + 1635 + 1676) / 3, normal: (6831 + 7015 + 7197) / 3, full: (21703 + 21714 + 22472) / 3 };
 export const V19_TOTAL: Record<PolicyId, number> = { rta: (1835 + 1631 + 1557) / 3, normal: (7815 + 7013 + 7211) / 3, full: (20793 + 21120 + 21940) / 3 };
 export const SIM_HR: Record<PolicyId, { rest: number; raiseBelow: number; bonus: boolean }> = {
@@ -1774,8 +1794,9 @@ export function routeOf(p: PolicyId): string[] {
   // v13：Uncommon の調査依頼状は Common の 2 つの町の発表で届くので、最短も Common をもう 1 つ（出店許可のいちばん安い町）
   if (p === 'rta') return ['c1', byFee('C')[0], byFee('U')[0]];
   // v16（Rare の町 ①）：通常は Uncommon の 2 町で発表 → Rare の依頼状 → Rare の 1 町。100% は Rare の FULL_RARE 町まで
-  if (p === 'normal') return ['c1', ...byFee('C').slice(0, 2), ...byFee('U').slice(0, 2), ...byFee('R').slice(0, 1)];
-  return ['c1', ...byFee('C'), ...byFee('U'), ...byFee('R').slice(0, FULL_RARE)];
+  // v23（段 H1：Epic の町 ①）：通常は Rare の 2 町で発表 → Epic の依頼状 → Epic の 1 町（3 回目の災害）。100% は Rare の FULL_RARE 町 → Epic の 3 町
+  if (p === 'normal') return ['c1', ...byFee('C').slice(0, 2), ...byFee('U').slice(0, 2), ...byFee('R').slice(0, 2), ...byFee('E').slice(0, 1)];
+  return ['c1', ...byFee('C'), ...byFee('U'), ...byFee('R').slice(0, FULL_RARE), ...byFee('E')];
 }
 
 // ---------------------------------------------------------------- 1 回の自動プレイ
@@ -1794,7 +1815,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   const s = newP1(seed);
   Object.assign(csLog, { pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0 });
   const c: Ctx = { policy: p, route: routeOf(p), at: 0, lineup: [], lineupDirty: true, shopsThisMonth: 0, monthEnd: null, lastBn: null, ban: new Set(o.ban ?? []), onlyFirst: !!o.onlyFirst, dayInMonth: 0, handCarry: 0, rpMoves: 0, runLeft: 0, runsMonth: 0, divesMonth: 0, preInv: 0, preG: 0 };
-  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 }, v20: { paid: 0, saved: 0, quarters: 0, preInv: 0, preG: 0, fatigue: [], morale: [], slow: [] }, v21: { rev: 0, wages: 0, months: 0, morale: [], high: [] }, v22: { got: 0, answered: 0, auto: 0, expired: 0, good: 0, sat: [], warns: 0, flames: 0, flameMonths: 0, pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0, brandEnd: {}, gradeEnd: {} } };
+  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 }, v20: { paid: 0, saved: 0, quarters: 0, preInv: 0, preG: 0, fatigue: [], morale: [], slow: [] }, v21: { rev: 0, wages: 0, months: 0, morale: [], high: [] }, v22: { got: 0, answered: 0, auto: 0, expired: 0, good: 0, sat: [], warns: 0, flames: 0, flameMonths: 0, pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0, brandEnd: {}, gradeEnd: {} }, v23: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, hitR: 0, kept: 0, delegated: 0, delegatedR: 0, resWaitE: 0, comebackE: 0 } };
   /** v19：雇ったことのあるヒーロー（はじめの 3 人も入れる。新しく来た人を数える） */
   const heroSeen = new Set(s.staff.map((x) => x.hero));
   /** v14：任せた町の担当（能力値の伸びを数える） */
@@ -1895,7 +1916,10 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
         if (delegate(s, id, hero, fund) != null) continue;
         if (!chosen.includes(id)) {
           chosen.push(id);
-          if ((s.resets?.length ?? 0) >= 2) {
+          if ((s.resets?.length ?? 0) >= 3) {
+            res.v23.delegated++;
+            if (sectorDef(id).tier === 'R') res.v23.delegatedR++;
+          } else if ((s.resets?.length ?? 0) >= 2) {
             res.v16.delegated++;
             if (sectorDef(id).tier === 'U') res.v16.delegatedU++;
           } else res.v14b.delegated++;
@@ -2191,12 +2215,15 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       cur.allRev += r.revenue;
       cur.relicRev += r.relic ?? 0;
       cur.relicRRev += Object.entries(r.bySeries ?? {}).reduce<number>((a, [k, v]) => a + (PRODUCT[k]?.relic?.rare ? (v ?? 0) : 0), 0);
+      // v23：Epic の復刻品・骨董の売上
+      cur.relicERev = (cur.relicERev ?? 0) + Object.entries(r.bySeries ?? {}).reduce<number>((a, [k, v]) => a + (PRODUCT[k]?.relic?.epic && !isAntique(PRODUCT[k], s.tier ?? 'C') ? (v ?? 0) : 0), 0);
+      cur.antRev = (cur.antRev ?? 0) + Object.entries(r.bySeries ?? {}).reduce<number>((a, [k, v]) => a + (isAntique(PRODUCT[k], s.tier ?? 'C') ? (v ?? 0) : 0), 0);
       // 調整 1：他社の店の数・営業している他社の数の月ごとの推移、他社が空き店舗に入った数・町に戻った会社の数・他社が 0 社だった月
       if (s.area) {
         const prevA = cur.area;
         const nRiv = rivalStores(s).length;
         const nCo = s.rivals.filter((x) => !x.gone).length;
-        cur.area = { shops: myShops(s).length, closed: s.area.closed, took: s.area.took, share: myShare(s), n0: s.rivals.length * RARE_AREA.stores, rivals: [...(prevA?.rivals ?? []), nRiv], companies: [...(prevA?.companies ?? []), nCo], refill: (prevA?.refill ?? 0) + (r.trade?.refill.length ?? 0), back: (prevA?.back ?? 0) + (r.trade?.back?.length ?? 0), zero: (prevA?.zero ?? 0) + (nCo === 0 ? 1 : 0) };
+        cur.area = { shops: myShops(s).length, closed: s.area.closed, took: s.area.took, share: myShare(s), n0: s.rivals.length * areaTuneOf(s.tier).stores, rivals: [...(prevA?.rivals ?? []), nRiv], companies: [...(prevA?.companies ?? []), nCo], refill: (prevA?.refill ?? 0) + (r.trade?.refill.length ?? 0), back: (prevA?.back ?? 0) + (r.trade?.back?.length ?? 0), zero: (prevA?.zero ?? 0) + (nCo === 0 ? 1 : 0) };
       }
       // v8：月の締め。RP が足りなくて止まった月＝詰まりの段に効く研究パネルがあるのに、どれも RP が足りない
       c.dayInMonth = 0;
@@ -2307,8 +2334,8 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       revivedDone += s.dig?.sites.filter((x) => x.revived).length ?? 0;
       res.v12.best = Math.max(res.v12.best, s.dig?.dungeon?.best ?? 0);
       // v14：ランクアップの進出の前に、余ったお金で研究への寄付（どうせ徴収されるので、押せるだけ。上限 R.donate 回）
-      // v16：2 回目（Uncommon → Rare）は res.v16 に
-      const rec2 = up === 'R' ? res.v16 : res.v14b;
+      // v16：2 回目（Uncommon → Rare）は res.v16 に。v23：3 回目（Rare → Epic）は res.v23 に
+      const rec2 = up === 'E' ? res.v23 : up === 'R' ? res.v16 : res.v14b;
       if (up) {
         for (let k = 0; k < R.donate && donateLock(s) === null; k++) {
           if (typeof donate(s) === 'string') break;
@@ -2327,6 +2354,12 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
         if (up === 'R') {
           res.v16.hitC = Object.keys(rr.ruins).filter((id) => sectorDef(id).tier === 'C').length;
           res.v16.hitU = Object.keys(rr.ruins).filter((id) => sectorDef(id).tier === 'U').length;
+        }
+        if (up === 'E') {
+          res.v23.hitC = Object.keys(rr.ruins).filter((id) => sectorDef(id).tier === 'C').length;
+          res.v23.hitU = Object.keys(rr.ruins).filter((id) => sectorDef(id).tier === 'U').length;
+          res.v23.hitR = Object.keys(rr.ruins).filter((id) => sectorDef(id).tier === 'R').length;
+          res.v23.kept = Object.values(rr.keep ?? {}).reduce((a, n) => a + n, 0);
         }
       } else res.spend.fees += Math.max(0, f0 - s.money);
       if (e) {
@@ -2407,6 +2440,8 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   res.v14b.resWaitU = res.sectors.filter((r) => r.tier === 'U').reduce((a, r) => a + r.dig.resWait, 0);
   res.v16.resWaitR = res.sectors.filter((r) => r.tier === 'R').reduce((a, r) => a + r.dig.resWait, 0);
   res.v16.comebackR = res.sectors.filter((r) => r.tier === 'R').reduce((a, r) => a + r.comeback, 0);
+  res.v23.resWaitE = res.sectors.filter((r) => r.tier === 'E').reduce((a, r) => a + r.dig.resWait, 0);
+  res.v23.comebackE = res.sectors.filter((r) => r.tier === 'E').reduce((a, r) => a + r.comeback, 0);
   res.rpLeft.afterAll = Math.round(res.rpLeft.afterAll);
   // v12：復興・ダンジョン・見つけた上のランクの遺物（研究ノート：種類と、掘った数）・展示館
   res.v12.revived = revivedDone + (s.dig?.sites.filter((x) => x.revived).length ?? 0);
@@ -2500,10 +2535,10 @@ export function tables(rep: Report2): string {
   out.push('');
   out.push('### 表 2：方針ごとの合計と、憲章の目標との差');
   out.push('');
-  out.push('合計は、着いてから次のセクタへ移るまで（制覇のあと資金をためる月も含む）＋ チュートリアル。v16：Rare（通常は 1 町・100% は Rare の町も）を足した。Epic 以降は未実装。v14：「再発掘」は 100% が最後に被災した Common の町を回って掘り直した時間（合計に入る。「うち Common」には入れない）。「目安」は C＋U の目安のまま（Rare ができたので、Lime 全体の長さで測り直す。v16 の節）。');
+  out.push('合計は、着いてから次のセクタへ移るまで（制覇のあと資金をためる月も含む）＋ チュートリアル。v16：Rare（通常は 1 町・100% は Rare の町も）を足した。v23：Epic（通常は Rare 2 町 → Epic 1 町・100% は Epic 3 町）を足した。Legendary は未実装。v14：「再発掘」は 100% が最後に被災した Common の町を回って掘り直した時間（合計に入る。「うち Common」には入れない）。「目安」は C＋U の目安のまま（Rare ができたので、Lime 全体の長さで測り直す。v16 の節）。');
   out.push('');
-  out.push('| 方針 | 回ったセクタ | 合計の月数（ゲーム内） | 行動の数 | 合計の実時間 | うち Common | うち Uncommon | うち再発掘（v14） | うち Rare（v16） | 憲章の目標（Lime 全体） | 目標の配分での C＋U の目安 | 差 |');
-  out.push('|---|---|---|---|---|---|---|---|---|---|---|---|');
+  out.push('| 方針 | 回ったセクタ | 合計の月数（ゲーム内） | 行動の数 | 合計の実時間 | うち Common | うち Uncommon | うち再発掘（v14） | うち Rare（v16） | うち Epic（v23） | 憲章の目標（Lime 全体） | 目標の配分での C＋U の目安 | 差 |');
+  out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   const target: Record<PolicyId, { label: string; cu: [number, number] }> = {
     // rta：1 セクタ 15 分 × C1・U1（Common やや短め）→ 25〜30 分
     rta: { label: '2 h（C〜L）', cu: [25 * 60, 30 * 60] },
@@ -2525,7 +2560,7 @@ export function tables(rep: Report2): string {
     const m = mean(tot);
     const diff = m < tg.cu[0] ? `目安より ${fmtMin(tg.cu[0] - m)} 短い` : m > tg.cu[1] ? `目安より ${fmtMin(m - tg.cu[1])} 長い` : '目安の範囲';
     out.push(
-      `| ${POLICY_NAME[p]} | 制覇 ${visited.toFixed(1)} / ${routeOf(p).length}（完走 ${done}/${runs.length}） | ${mean(months).toFixed(1)}（${range(months.map((v) => Math.round(v)))}） | ${Math.round(mean(acts))} | ${fmtH(m)}（${range(tot, fmtH)}） | ${fmtH(mean(byTier('C')))} | ${fmtH(mean(byTier('U')))} | ${mean(redig) > 0 ? fmtH(mean(redig)) : '—'} | ${mean(byTier('R')) > 0 ? fmtH(mean(byTier('R'))) : '—'} | ${tg.label} | ${fmtH(tg.cu[0])}〜${fmtH(tg.cu[1])} | ${diff} |`,
+      `| ${POLICY_NAME[p]} | 制覇 ${visited.toFixed(1)} / ${routeOf(p).length}（完走 ${done}/${runs.length}） | ${mean(months).toFixed(1)}（${range(months.map((v) => Math.round(v)))}） | ${Math.round(mean(acts))} | ${fmtH(m)}（${range(tot, fmtH)}） | ${fmtH(mean(byTier('C')))} | ${fmtH(mean(byTier('U')))} | ${mean(redig) > 0 ? fmtH(mean(redig)) : '—'} | ${mean(byTier('R')) > 0 ? fmtH(mean(byTier('R'))) : '—'} | ${mean(byTier('E')) > 0 ? fmtH(mean(byTier('E'))) : '—'} | ${tg.label} | ${fmtH(tg.cu[0])}〜${fmtH(tg.cu[1])} | ${diff} |`,
     );
   }
   out.push('');
@@ -2534,8 +2569,8 @@ export function tables(rep: Report2): string {
   out.push('');
   out.push('1 セクタの平均は「着いてから離れるまで」（Common はタオックスを含む。チュートリアルは含まない）。「タオックスを除く」は 2 か所目からの Common。「発表待ち」は 1 位を 2 か月続けたのに研究成果の発表がまだで制覇にならなかった月の締め（制覇まで・回ったセクタの合計）。');
   out.push('');
-  out.push('| 方針 | Common 1 セクタの平均 | うちタオックスを除く | Uncommon 1 セクタの平均 | Rare 1 セクタの平均（v16） | ランクの順（C < U < R） | 発表待ちの月（合計） | 最後に残った RP | C・U の研究パネルを全部開けたあとに入った RP（そのときのセクタ） |');
-  out.push('|---|---|---|---|---|---|---|---|---|');
+  out.push('| 方針 | Common 1 セクタの平均 | うちタオックスを除く | Uncommon 1 セクタの平均 | Rare 1 セクタの平均（v16） | Epic 1 セクタの平均（v23） | ランクの順（C < U < R < E） | 発表待ちの月（合計） | 最後に残った RP | C・U の研究パネルを全部開けたあとに入った RP（そのときのセクタ） |');
+  out.push('|---|---|---|---|---|---|---|---|---|---|');
   for (const p of pols) {
     const runs = rep.runs.filter((r) => r.policy === p);
     const per = (f: (r: SectorRun) => boolean) => {
@@ -2546,10 +2581,11 @@ export function tables(rep: Report2): string {
     const c2 = per((r) => r.tier === 'C' && r.id !== 'c1' && !r.revisit);
     const u = per((r) => r.tier === 'U');
     const rr = per((r) => r.tier === 'R');
+    const ee = per((r) => r.tier === 'E' && !r.revisit);
     const at = runs.map((x) => x.rpLeft.allAt).filter((v): v is string => !!v);
-    const order = c != null && u != null ? (c < u ? (rr == null ? '○（C < U）' : u < rr ? '○' : '×（U ≧ R）') : '×（C ≧ U）') : '—';
+    const order = c != null && u != null ? (c < u ? (rr == null ? '○（C < U）' : u < rr ? (ee == null || rr < ee ? '○' : '×（R ≧ E）') : '×（U ≧ R）') : '×（C ≧ U）') : '—';
     out.push(
-      `| ${POLICY_NAME[p]} | ${c != null ? fmtMin(c) : '—'} | ${c2 != null ? fmtMin(c2) : '—'} | ${u != null ? fmtMin(u) : '—'} | ${rr != null ? fmtMin(rr) : '—'} | ${order} | ${mean(runs.map((x) => x.sectors.reduce((a, r) => a + r.dig.waitPresent, 0))).toFixed(1)} | ${Math.round(mean(runs.map((x) => x.rpLeft.end))).toLocaleString('en-US')} | ${at.length ? `${Math.round(mean(runs.map((x) => x.rpLeft.afterAll))).toLocaleString('en-US')}（${[...new Set(at)].map(sectorName).join('・')}。${at.length}/${runs.length}）` : '—（全部は開けない）'} |`,
+      `| ${POLICY_NAME[p]} | ${c != null ? fmtMin(c) : '—'} | ${c2 != null ? fmtMin(c2) : '—'} | ${u != null ? fmtMin(u) : '—'} | ${rr != null ? fmtMin(rr) : '—'} | ${ee != null ? fmtMin(ee) : '—'} | ${order} | ${mean(runs.map((x) => x.sectors.reduce((a, r) => a + r.dig.waitPresent, 0))).toFixed(1)} | ${Math.round(mean(runs.map((x) => x.rpLeft.end))).toLocaleString('en-US')} | ${at.length ? `${Math.round(mean(runs.map((x) => x.rpLeft.afterAll))).toLocaleString('en-US')}（${[...new Set(at)].map(sectorName).join('・')}。${at.length}/${runs.length}）` : '—（全部は開けない）'} |`,
     );
   }
   out.push('');
@@ -2667,6 +2703,44 @@ export function tables(rep: Report2): string {
     );
   }
   out.push('');
+  // v23（段 H1）：Epic の町 ①（3 回目のランクアップ・Epic の町・骨董の需要・ブランド力の上限）
+  {
+    out.push('### 表 17：Epic の町と 3 回目のランクアップ・骨董の需要（v23。段 H1：Epic の町 ①）');
+    out.push('');
+    out.push(
+      `3 シードの平均（最小〜最大）。Epic へ初めて進出するとき（3 回目のランクアップ）に、Common・Uncommon・Rare の全セクタが被災し、所持金を全額徴収 → 支度金 ${RESET.grantE.toLocaleString('en-US')} G（\`RESET.grantE\`）。倉庫の骨董は失わずに運ぶ（自動プレイは Rare の町で売れない復刻品を作らないので、運ぶ骨董はいつも 0）。Epic の他社は ×${EPIC_RIVAL.base}（町の倍率：${Object.entries(EPIC_RIVAL.town).map(([k, v]) => `${sectorDef(k).name} ×${v}`).join('・')}。ランクの倍率 ×${TIERS.E.rival} に掛ける）。骨董は復刻品の値段 ×${ANTIQUE.price}・需要 ×${ANTIQUE.demand}。「v22」は段 H1 の前の main の同じ 3 シード（\`V22_TIER\`。通常の R は Rare の 1 町目＝グリーン・マウス。v23 の通常は Rare を 2 町回る）。「骨董の割合」「Epic の復刻品の割合」は Epic の町の売上に占める割合。ブランド力の上限は ${(['C', 'U', 'R', 'E'] as Tier[]).map((x) => `${x} ${BRAND_CAP[x]}`).join('・')}。最短は C＋U で止める。`,
+    );
+    out.push('');
+    out.push('| 方針 | 合計 | うち C（v22） | うち U（v22） | うち R（v22） | うち Rare 1 町目（v22） | うち E | Epic 1 町の平均 | Rare 1 町の平均 | Epic の制覇までの月数 | 3 回目の徴収額 | 支度金 | 被災した町（C・U・R） | 任せた町（うち R） | Epic の研究待ち | 巻き返し（Epic） | Epic の町の売上（1 町） | 骨董の割合 | Epic の復刻品の割合 | 終わりの格 E | 詰まって止まるシード |');
+    out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      const B = V22_TIER[p];
+      const byTier = (tier: Tier) => mean(runs.map((x) => x.sectors.filter((r) => r.tier === tier && !r.revisit).reduce((a, r) => a + (secOf(p, r, 'left') ?? 0), 0) + (tier === 'C' ? SIM_TIME[p].tutorial : 0)));
+      const pc = (a: number, b: number) => (b > 0 ? `（${fmtH(b)}・${a >= b ? '+' : '−'}${((Math.abs(a - b) / b) * 100).toFixed(1)}%）` : '');
+      const r1 = mean(runs.map((x) => secOf(p, x.sectors.find((r) => r.id === 'r1' && !r.revisit) ?? ({} as SectorRun), 'left') ?? 0));
+      const es = runs.flatMap((x) => x.sectors.filter((r) => r.tier === 'E' && !r.revisit));
+      const rs = runs.flatMap((x) => x.sectors.filter((r) => r.tier === 'R' && !r.revisit));
+      const v = (f: (x: RunResult['v23']) => number) => runs.map((r) => f(r.v23));
+      const mr = (f: (x: RunResult['v23']) => number, d = 1, fm: (n: number) => string = (n) => n.toFixed(d)) => `${fm(mean(v(f)))}（${range(v(f), d ? (n) => String(Math.round(n)) : fm)}）`;
+      const eMonths = es.filter((r) => r.months != null).map((r) => r.months!);
+      const eRev = es.reduce((a, r) => a + r.allRev, 0);
+      const ant = es.reduce((a, r) => a + (r.antRev ?? 0), 0);
+      const er = es.reduce((a, r) => a + (r.relicERev ?? 0), 0);
+      const pct = (x: number) => (eRev > 0 ? `${((x / eRev) * 100).toFixed(1)}%` : '—');
+      const ge = runs.map((r) => r.v22.gradeEnd.E).filter((x): x is number => x != null);
+      const be = runs.map((r) => r.v22.brandEnd.E).filter((x): x is number => x != null);
+      if (!es.length) {
+        out.push(`| ${POLICY_NAME[p]} | ${fmtH(mean(runs.map(totalSec)))} | ${fmtH(byTier('C'))}${pc(byTier('C'), B.C)} | ${fmtH(byTier('U'))}${pc(byTier('U'), B.U)} | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — | ${runs.filter((r) => !r.done).length} |`);
+        continue;
+      }
+      out.push(
+        `| ${POLICY_NAME[p]} | ${fmtH(mean(runs.map(totalSec)))} | ${fmtH(byTier('C'))}${pc(byTier('C'), B.C)} | ${fmtH(byTier('U'))}${pc(byTier('U'), B.U)} | ${fmtH(byTier('R'))}${pc(byTier('R'), B.R)} | ${fmtMin(r1)}（${fmtMin(B.R1)}・${r1 >= B.R1 ? '+' : '−'}${((Math.abs(r1 - B.R1) / B.R1) * 100).toFixed(1)}%） | ${fmtH(byTier('E'))} | ${fmtMin(mean(es.map((r) => secOf(p, r, 'left') ?? 0)))} | ${fmtMin(mean(rs.map((r) => secOf(p, r, 'left') ?? 0)))} | ${eMonths.length ? `${mean(eMonths).toFixed(1)}（${range(eMonths)}）` : '制覇できない'}${eMonths.length < es.length ? `（制覇 ${eMonths.length}/${es.length}）` : ''} | ${mr((x) => x.levy, 0, fmtG)} | ${mr((x) => x.grant, 0, fmtG)} | ${mr((x) => x.hitC)}・${mr((x) => x.hitU)}・${mr((x) => x.hitR)} | ${mr((x) => x.delegated)}（${mr((x) => x.delegatedR)}） | ${mr((x) => x.resWaitE)} | ${mr((x) => x.comebackE)} | ${fmtG(eRev / es.length)} | ${pct(ant)} | ${pct(er)} | ${ge.length ? `${GRADE_NAME()[Math.round(mean(ge))]}（★ ${Math.round(mean(be))}）` : '—'} | ${runs.filter((r) => !r.done).length} |`,
+      );
+    }
+    out.push('');
+  }
   // v22（段 G）：カスタマーサポートとマーケ
   {
     out.push('### 表 16：カスタマーサポートとマーケ（v22。段 G）');
@@ -2675,8 +2749,8 @@ export function tables(rep: Report2): string {
       `3 シードの平均（最小〜最大）。問い合わせは Uncommon 以上の町だけ、先月の主力商品の品切れの日 ${CS.outPer} 日ごとに 1 件（${CS.outMax} 件まで）・閉まっていた日 ${CS.closedPer} 日ごとに 1 件（${CS.closedMax} 件まで）・値段が相場より ${Math.round(CS.priceAt * 100)}% 以上高いと 1 件。合う返事 +${CS.good}・合わない返事 +${CS.ok}・期限切れ ${CS.ignore}（期限 ${CS.expire} 日）。満足度（はじめ ${CS.start}）は来店に 100 で +${Math.round(CS.up * 100)}%・0 で −${Math.round(CS.down * 100)}%。炎上は品切れ ${FLAME.outDays} 日以上・期限切れ ${FLAME.ignored} 件以上の月が手を打たずに 2 か月続くと起き、来店 −${Math.round(FLAME.hit * 100)}%（${FLAME.months} か月で戻る）・ブランド力 −${FLAME.brand}。企業の格のしきい値（ブランド力）は ${GRADE.at.join('・')}。方針（\`SIM_CS\`）：最短＝放っておく／通常＝合う返事・お詫びの告知・サポートセンター Lv3 でリーダー（問い合わせの返事）に任せる／100%＝それに加えて広報・火消し・市場の見通しの打ち時に宣伝。「v21 の合計」は段 G の前の main の同じ 3 シードの平均（\`V21_TOTAL\`）、「段 G なし」は同じ方針・シードを \`withoutCs\` で回した合計。満足度は Uncommon 以上の町の月の締めの平均。格は、そのランクの最後の月の締めのブランド力と格。`,
     );
     out.push('');
-    out.push('| 方針 | 合計 | v21 の合計 | 差 | 段 G なし | 問い合わせ | 返事（手・リーダー） | センターが受けた | 期限切れ | 合う返事 | 満足度の平均 | 炎上のおそれ | 炎上 | 炎上中の月 | 広報（回・★） | 市場調査の宣伝 | 終わりの格 C | U | R | 詰まって止まるシード（本番／段 G なし） |');
-    out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+    out.push('| 方針 | 合計 | v21 の合計 | 差 | 段 G なし | 問い合わせ | 返事（手・リーダー） | センターが受けた | 期限切れ | 合う返事 | 満足度の平均 | 炎上のおそれ | 炎上 | 炎上中の月 | 広報（回・★） | 市場調査の宣伝 | 終わりの格 C | U | R | E | 詰まって止まるシード（本番／段 G なし） |');
+    out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
     for (const p of pols) {
       const runs = rep.runs.filter((r) => r.policy === p);
       if (!runs.length) continue;
@@ -2693,7 +2767,7 @@ export function tables(rep: Report2): string {
         return xs.length ? `${GRADE_NAME()[Math.round(mean(xs))]}（★ ${Math.round(mean(bs))}）` : '—';
       };
       out.push(
-        `| ${POLICY_NAME[p]} | ${fmtH(tot)} | ${fmtH(base)} | ${d(tot, base)} | ${off.length ? `${fmtH(mean(off.map(totalSec)))}（${d(tot, mean(off.map(totalSec)))}）` : '—'} | ${mr((x) => x.got)} | ${mr((x) => x.answered)} | ${mr((x) => x.auto)} | ${mr((x) => x.expired)} | ${mr((x) => x.good)} | ${sat.length ? mean(sat).toFixed(0) : '—'} | ${mr((x) => x.warns)} | ${mr((x) => x.flames)} | ${mr((x) => x.flameMonths)} | ${mean(v((x) => x.pr)).toFixed(1)}・★ ${mean(v((x) => x.prBrand)).toFixed(0)} | ${mean(v((x) => x.ads)).toFixed(1)} | ${grade('C')} | ${grade('U')} | ${grade('R')} | ${runs.filter((r) => !r.done).length}／${off.length ? off.filter((r) => !r.done).length : '—'} |`,
+        `| ${POLICY_NAME[p]} | ${fmtH(tot)} | ${fmtH(base)} | ${d(tot, base)} | ${off.length ? `${fmtH(mean(off.map(totalSec)))}（${d(tot, mean(off.map(totalSec)))}）` : '—'} | ${mr((x) => x.got)} | ${mr((x) => x.answered)} | ${mr((x) => x.auto)} | ${mr((x) => x.expired)} | ${mr((x) => x.good)} | ${sat.length ? mean(sat).toFixed(0) : '—'} | ${mr((x) => x.warns)} | ${mr((x) => x.flames)} | ${mr((x) => x.flameMonths)} | ${mean(v((x) => x.pr)).toFixed(1)}・★ ${mean(v((x) => x.prBrand)).toFixed(0)} | ${mean(v((x) => x.ads)).toFixed(1)} | ${grade('C')} | ${grade('U')} | ${grade('R')} | ${grade('E')} | ${runs.filter((r) => !r.done).length}／${off.length ? off.filter((r) => !r.done).length : '—'} |`,
       );
     }
     out.push('');

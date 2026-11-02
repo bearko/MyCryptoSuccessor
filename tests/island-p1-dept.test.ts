@@ -97,7 +97,8 @@ describe('開く部門とメニュー', () => {
     const s = newP1(1);
     expect(menuDepts(s)).toEqual(['marketing', 'logistics', 'systems', 'rnd', 'hr', 'strategy']);
     for (const d of ['accounting', 'general', 'support', 'sales', 'legal'] as const) expect(deptOpen(s, d), d).toBe(false);
-    expect(deptReady('legal')).toBe(false);
+    // 段 H1：法務の中身（部門の演出と紹介・次の更新の札）ができた（Epic に出店すると開く）
+    expect(deptReady('legal')).toBe(true);
     // 段 C：営業の中身はできた（Rare に出店すると開く）。段 F：経理・総務・段 G：CS の中身もできた（Uncommon に出店すると開く）
     for (const d of ['sales', 'accounting', 'general', 'support'] as const) expect(deptReady(d), d).toBe(true);
   });
@@ -169,7 +170,7 @@ describe('部門のお知らせ（トースト）', () => {
 
 describe('セーブ（版 11）', () => {
   it('新しいゲームは版 11。版 10 の古いセーブは、取ったパネル・レベルがそのまま版 11 になり、届いていた節目はまとめて出さない', () => {
-    expect(newP1(1).v).toBe(17);
+    expect(newP1(1).v).toBe(18);
     const s = newP1(2);
     s.skills = ['host', 'display', 'vmd', 'golden', 'jig', 'lounge', 'shift'];
     s.skillLv = { host: 5, jig: 3 };
@@ -178,7 +179,7 @@ describe('セーブ（版 11）', () => {
     delete o.flags.depts;
     delete o.flags.deptMarks;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(17);
+    expect(back.v).toBe(18);
     expect(back.skills).toEqual(s.skills);
     expect(back.skillLv).toEqual(s.skillLv);
     expect(deptLevel(back, 'logistics')).toBe(5 + 1 + 3);

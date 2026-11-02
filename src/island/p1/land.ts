@@ -6,7 +6,7 @@
  */
 import { t } from '../../i18n';
 import { csMove } from './cs';
-import { BRAND, LETTER_NEED, MANAGER, P1B, SECTORS, TOP_STREAK, type Mat, type Tier } from './data';
+import { BRAND, LETTER_NEED, MANAGER, P1B, SECTORS, TOP_STREAK, hasArea, type Mat, type Sku, type Tier } from './data';
 import { brandAdd, book, newLand, sectorDef, sectorState, TIER_NAME, type SectorRec } from './company';
 import { assign, dropStaleArea, ensureDig, fitEquipment, groundOf, hasLetter, letterProgress, newP1, staffOf, syncFacilities, syncGround, type P1State, type Report } from './model';
 import { rankUpTier, resetForTier } from './reset';
@@ -94,7 +94,7 @@ export const moveFee = (s: Pick<P1State, 'land'>, id: string) => (s.land && sect
 /**
  * 調査依頼状が無いので出店できない理由（ランドマップ・隣のセクタの札・進出のボタン・助言で同じ文）。tier は出店したいセクタのランク。
  * 発掘 v2 の 5 段目：Uncommon の調査依頼状は Common の 2 つの町で発表したら（LETTER_NEED）。「いま 1 / 2」。
- * Rare の町 ①：Rare の調査依頼状は Uncommon の 2 つの町で発表したら（同じ流儀）
+ * Rare の町 ①：Rare の調査依頼状は Uncommon の 2 つの町で発表したら（同じ流儀）。段 H1：Epic の調査依頼状は Rare の 2 つの町で発表したら
  */
 export function letterLock(s: Pick<P1State, 'presented' | 'letters'>, tier: Tier = 'U'): string {
   const [a, b] = letterProgress(s, tier) ?? [LETTER_NEED, LETTER_NEED];
@@ -160,7 +160,7 @@ export function moveTo(s: P1State, target: string, manager: number | null): Move
   if (!business) rec.base = undefined;
   rec.snap = JSON.parse(JSON.stringify(Object.fromEntries(SECTOR_KEYS.map((k) => [k, s[k as keyof P1State]]))));
   // ランクアップの災害：すべてのセクタの建物が廃墟に・所持金は全額徴収 → 支度金・お金のパネルは未取得へ（reset.ts）
-  if (up) resetForTier(s, up, target);
+  const reset = up ? resetForTier(s, up, target) : null;
 
   // ---- 行き先へ
   const back = land.recs[target];
@@ -175,9 +175,9 @@ export function moveTo(s: P1State, target: string, manager: number | null): Move
     s.topStreak = snap.topStreak ?? (snap.cleared ? TOP_STREAK : 0);
     s.rally = snap.rally ?? 0;
     s.comeback = snap.comeback ?? null;
-    // 商圏の取り合いは Rare の町だけ（写しに area が無い町＝Common・Uncommon で、前の Rare の町の商圏を引き継がない。
-    // Rare の町の写しに無ければ、次の日にいまの他社の店から作り直す）
-    s.area = s.tier === 'R' ? snap.area : undefined;
+    // 商圏の取り合いは Rare・Epic の町だけ（写しに area が無い町＝Common・Uncommon で、前の Rare・Epic の町の商圏を引き継がない。
+    // Rare・Epic の町の写しに無ければ、次の日にいまの他社の店から作り直す）
+    s.area = hasArea(s.tier) ? snap.area : undefined;
     dropStaleArea(s);
     // マネージャーが投資したぶん、お客さんが増えている
     if (back.base && back.capital > 0) {
@@ -226,6 +226,8 @@ export function moveTo(s: P1State, target: string, manager: number | null): Move
       book(s, 'fees', fee);
     }
     land.mine.push(target);
+    // 段 H1：災害で失わずに運んできた骨董は、新しい町の倉庫へ（Epic の町ではそのまま棚に並べられる）
+    for (const [k, n] of Object.entries(reset?.keep ?? {})) s.stock[k as Sku] = (s.stock[k as Sku] ?? 0) + n;
     brandAdd(s, BRAND.enter[def.tier], t(`${def.name}に出店`, `Opened in ${def.name}`));
   }
   // カスタマーサポート（段 G）：前の町の問い合わせ・炎上のおそれは消える（顧客満足度・炎上の熱さは会社のもの）

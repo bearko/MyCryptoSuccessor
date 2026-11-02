@@ -215,15 +215,15 @@ describe('3. Rare の発掘', () => {
     expect(presentPages(s)[1].text).toContain('栄えすぎた');
     expect(present(s)).toMatchObject({ rp: 375, letter: null });
     const t2 = townAt('r2', 'R', ['r1']);
-    expect(presentPages(t2)[2].text).toContain('Epic の町はまだ雲の向こう');
+    expect(presentPages(t2)[2].text).toContain('[[Epic の調査依頼状]]');
     expect(present(t2)).toMatchObject({ letter: 'E' });
-    // Epic はまだ雲の向こう（出店できない）
-    expect(SECTORS.filter((x) => x.tier === 'E').every((x) => x.cloud)).toBe(true);
+    // 段 H1：Epic の町は開いた（依頼状で出店できる。tests/island-p1-epic.test.ts）
+    expect(SECTORS.filter((x) => x.tier === 'E').every((x) => !x.cloud)).toBe(true);
   });
 });
 
 describe('4. Rare の復刻品', () => {
-  const rare = RELICS.filter((p) => p.relic!.rare);
+  const rare = RELICS.filter((p) => p.relic!.rare && !p.relic!.epic);
   const unc = RELICS.filter((p) => p.relic!.rank === 'U' && !p.relic!.rare);
 
   it('Rare の荒れ地の出土品とダンジョンの Rare のエクステに 1 つずつ。値段は Uncommon の復刻品より高い（合わせて ×5）', () => {
@@ -278,11 +278,11 @@ describe('5. セーブ（版 10）', () => {
     const o = JSON.parse(serializeP1(s));
     o.v = 9;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(17);
+    expect(back.v).toBe(18);
     expect(back.letters).toEqual(['U', 'R']);
     expect(letterProgress(back, 'R')).toBeNull();
     // 新しいゲームは版 10
-    expect(newP1(1).v).toBe(17);
+    expect(newP1(1).v).toBe(18);
     void setLevel;
   });
 });
@@ -298,15 +298,14 @@ describe('6. 売れるシリーズ（Rare の町では新しいシリーズ。�
     const b = new Set(dungeonUp.map(seriesOf));
     expect([...a].filter((k) => b.has(k))).toEqual([]);
     // ダンジョンの Rare はいまの数のまま（セクタごと pick 種）
-    for (const [id, x] of Object.entries(DUNGEON_FINDS)) if (!id.startsWith('r')) expect(x.R, id).toHaveLength(DIG_BALANCE.dungeon.pick);
-    // 市場：Rare は荒れ地のシリーズ。Epic・Legendary は準備中で、骨董の需要にダンジョンの Rare 以上のシリーズ
+    for (const [id, x] of Object.entries(DUNGEON_FINDS)) if (id.startsWith('c') || id.startsWith('u')) expect(x.R, id).toHaveLength(DIG_BALANCE.dungeon.pick);
+    // 市場：Rare は荒れ地のシリーズ。段 H1：Epic は荒れ地のシリーズと骨董の需要（ダンジョンの Rare 以上のシリーズ）。Legendary は準備中
     expect(new Set(MARKET_SERIES.R.relics)).toEqual(a);
     expect(MARKET_SERIES.C.relics).toBeUndefined();
     expect(MARKET_SERIES.U.relics).toBeUndefined();
-    for (const k of ['E', 'L'] as const) {
-      expect(MARKET_SERIES[k].soon).toBe(true);
-      for (const e of dungeonUp) expect(MARKET_SERIES[k].antique).toContain(seriesOf(e));
-    }
+    expect(MARKET_SERIES.E.soon).toBeUndefined();
+    expect(MARKET_SERIES.L.soon).toBe(true);
+    for (const k of ['E', 'L'] as const) for (const e of dungeonUp) expect(MARKET_SERIES[k].antique).toContain(seriesOf(e));
   });
 
   it('ダンジョン由来の Rare の復刻品は、レシピは開くが Rare の町では売れない（需要 0・棚に並べられない・札「この町では売れない」）', () => {

@@ -96,8 +96,8 @@ export const canPresent = (s: P1State) => digMet(s) && presentLock(s) === null;
  * 発表で受け取る調査依頼状のランク（Common → U・Uncommon → R。もう持っていれば null）。
  * Common は 2 つのセクタで発表したら（LETTER_NEED）なので、この発表で数がそろうときだけ 'U'
  */
-/** 発表で受け取る依頼状のランク（Common → U・Uncommon → R・Rare → E（枠だけ）） */
-const NEXT: Partial<Record<Tier, Tier>> = { C: 'U', U: 'R', R: 'E' };
+/** 発表で受け取る依頼状のランク（Common → U・Uncommon → R・Rare → E・Epic → L（枠だけ）） */
+const NEXT: Partial<Record<Tier, Tier>> = { C: 'U', U: 'R', R: 'E', E: 'L' };
 export function letterToGet(s: P1State): Tier | null {
   const L = s.dig ? digLayout(s.dig.sector, 0, s.dig.round ?? 0) : null;
   if (!L) return null;
@@ -135,8 +135,11 @@ export function presentPages(s: P1State): { text: string; who: number | null }[]
           ? t('見事だ…。荒れ地の下には、栄えていた頃の Lime の[[職人の町]]が眠っていたのだな。', 'Remarkable… Beneath the wasteland lies the [[crafters’ town]] of Lime’s golden age.')
           : tier === 'U'
             ? t('9 つのランドの品が、ひとつの地層から…。Lime は昔、ほかの国と[[交易]]でつながっていたのだな。', 'Goods of nine lands in one stratum… Long ago, Lime was linked to other lands by [[trade]].')
-            : // Rare の町 ①：Lime がなぜ荒れたのか（奪い合い・掘りすぎた大地・9 つに裂けた大地）
-              t('奪い合い、掘りすぎて、大地は 9 つに裂けた…。Lime が荒れたのは、[[栄えすぎた]]からだったのか。', 'Fighting over customers, digging too deep, until the earth split in nine… Lime fell to ruin because it [[thrived too much]].'),
+            : tier === 'R'
+              ? // Rare の町 ①：Lime がなぜ荒れたのか（奪い合い・掘りすぎた大地・9 つに裂けた大地）
+                t('奪い合い、掘りすぎて、大地は 9 つに裂けた…。Lime が荒れたのは、[[栄えすぎた]]からだったのか。', 'Fighting over customers, digging too deep, until the earth split in nine… Lime fell to ruin because it [[thrived too much]].')
+              : // Epic の町 ①（段 H1）：裂けたあと、Lime の人々が何を残し、どう立て直そうとしたか
+                t('数え合い、分け合い、種を守り、霧の向こうへ灯を送った…。Lime を立て直したのは、[[分け合う心]]だったのか。', 'They counted each other, shared what they had, saved the seeds and sent light beyond the mist… What rebuilt Lime was the [[will to share]].'),
     },
     {
       who: chief,
@@ -144,8 +147,8 @@ export function presentPages(s: P1State): { text: string; who: number | null }[]
         left > 0 && after
           ? t(`あと ${left} つ、別の町でも研究を発表してくれ。そうしたら[[${letterName(after)}]]を書こう。`, `Present your research in ${left} more town${left > 1 ? 's' : ''}. Then I’ll write you a [[${letterName(after)}]].`)
           : next
-            ? next === 'E'
-              ? t(`その研究、もっと先の町でも続けてくれ。[[${letterName(next)}]]を書いておこう（Epic の町はまだ雲の向こうだがな）。`, `Carry this research further. I’ll write you an [[${letterName(next)}]] (though Epic towns are still beyond the clouds).`)
+            ? next === 'L'
+              ? t(`その研究、ランドの真ん中の都でも続けてくれ。[[${letterName(next)}]]を書いておこう（Legendary の都はまだ雲の向こうだがな）。`, `Carry this research to the capital at the heart of the land. I’ll write you a [[${letterName(next)}]] (though the Legendary capital is still beyond the clouds).`)
               : t(`その研究、もっと大きな町でも続けてくれ。[[${letterName(next)}]]を書いておこう。`, `Carry this research to bigger towns. I’ll write you a [[${letterName(next)}]].`)
             : t('礼に、町の古い記録を見せよう。Lime の復興の足しにしてくれ。', 'As thanks, let me show you the town’s old records. Put them to work for Lime’s revival.'),
     },
@@ -166,7 +169,8 @@ export function presentAfter(letter: Tier | null, left = 0, conquered = false, t
   if (left > 0) return t(`あと ${left} つ、別の ${town} の町で研究を発表すると[[調査依頼状]]がもらえるよ。いまは研究ポイントでスキルを開こう！`, `Present in ${left} more ${town} town${left > 1 ? 's' : ''} to get the [[survey request]]. For now, spend research points on skills!`);
   if (letter === 'U') return t('[[調査依頼状]]で、Uncommon のセクタに出店できるようになったよ。お金がたまったら、ランドマップから出店しよう！', 'With the [[survey request]], you can open in Uncommon sectors. Once you have the funds, open there from the land map!');
   if (letter === 'R') return t('[[Rare の調査依頼状]]で、Rare のセクタに進出できるようになったよ。進出すると 2 回目の災害と[[徴収]]が起きるから、先に[[研究への寄付]]をしておこう！', 'With the [[Rare survey request]] you can expand into Rare sectors. Expanding brings a second disaster and [[levy]], so make a [[research donation]] first!');
-  if (letter === 'E') return t('[[Epic の調査依頼状]]をもらったよ。Epic の町はまだ雲の向こう。まずは研究ポイントでスキルを開こう！', 'We got an [[Epic survey request]]. Epic towns are still beyond the clouds. For now, spend research points on skills!');
+  if (letter === 'E') return t('[[Epic の調査依頼状]]で、Epic のセクタに進出できるようになったよ。進出すると 3 回目の災害と[[徴収]]が起きるから、先に[[研究への寄付]]をしておこう！ 倉庫の[[骨董]]は失わずに運べるよ。', 'With the [[Epic survey request]] you can expand into Epic sectors. Expanding brings a third disaster and [[levy]], so make a [[research donation]] first! The [[antiques]] in storage come along safely.');
+  if (letter === 'L') return t('[[Legendary の調査依頼状]]をもらったよ。Legendary の都はまだ雲の向こう。まずは研究ポイントでスキルを開こう！', 'We got a [[Legendary survey request]]. The Legendary capital is still beyond the clouds. For now, spend research points on skills!');
   return t('[[研究ポイント]]が貯まったね。スキルツリーの研究パネルを開こう！', 'Your [[research points]] grew. Open a research panel in the skill tree!');
 }
 
@@ -179,7 +183,10 @@ export function topicsPage(sector: string): string | null {
   if (!theme || !n) return null;
   // Uncommon（発掘 v2 の 7 段目）：発表にはお題と、この町の出土品 N 種を、この町で M 個ずつ掘り出すことも
   const tier = sectorDef(sector).tier;
-  const R = tier === 'C' || tier === 'U' || tier === 'R' ? DIG_BALANCE.presentRes[tier] : undefined;
+  const R = tier === 'C' || tier === 'U' || tier === 'R' || tier === 'E' ? DIG_BALANCE.presentRes[tier] : undefined;
+  // Epic の町 ①（段 H1）：Epic の荒れ地には、裂けたあとに人々が立て直そうとした跡が眠っている
+  if (R && tier === 'E')
+    return t(`この町の荒れ地には、裂けた大地を人々がどう立て直そうとしたか――[[${theme}]]の跡が眠っているはず。お題 ${n} つと、この町の出土品 ${R.n} 種を[[この町で ${R.dug} 個ずつ]]掘り出したら[[町の長]]に発表しよう！`, `This town’s wastelands should hold the traces of how people tried to rebuild the split land: [[${theme}]]. Find the ${n} targets and dig up ${R.n} of this town’s finds [[${R.dug} times each here]], then present to the [[town head]]!`);
   // Rare の町 ①：Rare の荒れ地には、Lime が荒れたわけが眠っている
   if (R && tier === 'R')
     return t(`この町の荒れ地には、Lime が荒れたわけ――[[${theme}]]の跡が眠っているはず。お題 ${n} つと、この町の出土品 ${R.n} 種を[[この町で ${R.dug} 個ずつ]]掘り出したら[[町の長]]に発表しよう！`, `This town’s wastelands should hold the traces of why Lime fell: [[${theme}]]. Find the ${n} targets and dig up ${R.n} of this town’s finds [[${R.dug} times each here]], then present to the [[town head]]!`);
@@ -280,6 +287,14 @@ export function digTips(s: P1State): DigTip[] {
       out.push({ key: 'letter', tier: 'low', text: t('[[Rare の調査依頼状]]があるから、Rare のセクタに進出できるよ。進出すると 2 回目の災害と[[徴収]]が起きるから、先に[[研究への寄付]]でお金を研究ポイントに変えておこう！', 'With the [[Rare survey request]] you can expand into Rare sectors. Expanding brings a second disaster and [[levy]], so turn spare funds into research points with a [[research donation]] first!') });
     else if (d && s.presented.includes(d.sector) && presentedOf(s, 'U') > 0)
       out.push({ key: 'letter-need', tier: 'low', text: t(`Rare へは[[調査依頼状]]が要るよ。Uncommon の ${letterNeed('U')} つの町で研究を発表しよう（いま ${presentedOf(s, 'U')} / ${letterNeed('U')}）。`, `Rare sectors need a [[survey request]]. Present findings in ${letterNeed('U')} Uncommon towns (now ${presentedOf(s, 'U')} / ${letterNeed('U')}).`) });
+  }
+  // 段 H1：Rare の 2 つの町で発表すると Epic の調査依頼状。持っているのに Epic へ進出していない／あと少し（Rare のセクタにいるあいだ）
+  const inE = (s.land?.mine ?? []).some((id) => sectorDef(id).tier === 'E') || s.tier === 'E';
+  if (s.tier === 'R' && s.land && !inE) {
+    if (hasLetter(s, 'E'))
+      out.push({ key: 'letter', tier: 'low', text: t('[[Epic の調査依頼状]]があるから、Epic のセクタに進出できるよ。進出すると 3 回目の災害と[[徴収]]が起きるから、先に[[研究への寄付]]でお金を研究ポイントに変えておこう！', 'With the [[Epic survey request]] you can expand into Epic sectors. Expanding brings a third disaster and [[levy]], so turn spare funds into research points with a [[research donation]] first!') });
+    else if (d && s.presented.includes(d.sector) && presentedOf(s, 'R') > 0)
+      out.push({ key: 'letter-need', tier: 'low', text: t(`Epic へは[[調査依頼状]]が要るよ。Rare の ${letterNeed('R')} つの町で研究を発表しよう（いま ${presentedOf(s, 'R')} / ${letterNeed('R')}）。`, `Epic sectors need a [[survey request]]. Present findings in ${letterNeed('R')} Rare towns (now ${presentedOf(s, 'R')} / ${letterNeed('R')}).`) });
   }
   // 発掘の枝が雲から出たあと、1 回だけ（発掘のパネルを 1 枚でも開けたら出さない）
   if (s.flags.digBranch === 'new' && !DIG_PANELS.some((id) => has(s, id))) out.push({ key: 'branch', tier: 'low', text: BRANCH_TIP() });

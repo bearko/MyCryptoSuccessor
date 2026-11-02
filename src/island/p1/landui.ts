@@ -4,14 +4,14 @@
  */
 import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
-import { BRAND, DIG_SITES, MANAGER, RESET, RIVAL_TUNE, SECTORS, SKILLS, TIERS, aptitude, fundsOf, grantOf, type SectorDef } from './data';
+import { BRAND, BRAND_CAP, DIG_SITES, MANAGER, RESET, RIVAL_TUNE, SECTORS, SKILLS, TIERS, aptitude, fundsOf, grantOf, type SectorDef } from './data';
 import { costCard } from './acctui';
 import { gradeName, gradeNext, gradeOf } from './mkt';
 import { flameCard } from './csui';
 import { quarterNow } from './acct';
-import { CAPITAL, TIER_NAME, brandPull, delegateCostOf, emptyLedger, managerRate, pl, quarters, revivePerMonth, RUIN, sectorDef, sectorState, sumLedger, tierLabel, type Balance, type Ledger, type RuinLike, type SectorState } from './company';
+import { CAPITAL, TIER_NAME, brandCap, brandPull, topTierOf, delegateCostOf, emptyLedger, managerRate, pl, quarters, revivePerMonth, RUIN, sectorDef, sectorState, sumLedger, tierLabel, type Balance, type Ledger, type RuinLike, type SectorState } from './company';
 import { crowned, letterLockOf, hasBusiness, lastRank, letterLocked, moveTo, recOf, type MoveErr } from './land';
-import { delegate, delegateLock, fundShort, rankUpTier, reviveView } from './reset';
+import { antiquesHeld, delegate, delegateLock, fundShort, rankUpTier, reviveView } from './reset';
 import { balance, clearGoal, clearWaiting, date, lvMul, staffOf, type P1State } from './model';
 import { sectorHeadOk } from './deleg';
 import { clearCondText } from './digmeet';
@@ -48,7 +48,7 @@ const TIER_NOTE: Record<SectorDef['tier'], string> = {
   C: t('いまと同じくらいの広さと商売敵。出店許可申請の費用も軽い。', 'About the same size and rivals as now. The permit is cheap.'),
   U: t('地図が広く、商売敵の規模が大きい。1 位を取ると、他社がセールで巻き返してくる。Common の商品は相手にされにくいので、エクステのランクアップが鍵（SCM の強化を楽しむセクタ）。', 'A wider map with bigger rivals who strike back with sales when you take #1. Common goods barely sell here, so ranking up your extensions is key.'),
   R: t('他社のお店が乱立する、栄えた市場。お客さんは近くの店へ行くので、店の場所で商圏を取り合う。他社の店を撤退させ、空いた店舗にすかさず出店しよう（営業の部門が開く）。', 'A crowded, thriving market. Customers shop nearby, so you fight over trade areas with where you build. Drive rival stores out and move into the vacancies (the Sales department opens).'),
-  E: t('他社を M&A で買収できるセクタ（準備中）。', 'Acquire rivals through M&A (coming soon).'),
+  E: t('Rare よりさらに大きな商売敵が店を並べる大きな市場（商圏の取り合いもある）。Epic の復刻品と、ダンジョンで掘ってきた骨董がよく売れる。法務の部門が開く（他社を M&A で買収できるのは次の更新）。', 'A big market where even larger rivals line up their stores (trade areas too). Epic revivals and antiques from your dungeon digs sell well. The Legal department opens (acquiring rivals through M&A comes in the next update).'),
   L: t('ブランド力で売る総力戦。街そのものを作り変える（準備中）。', 'A brand-power showdown where you reshape the city (coming soon).'),
 };
 
@@ -198,6 +198,10 @@ export function openRankUp(ctx: Ctx, target: string) {
       t('ダンジョンの最深記録・研究への寄付の回数', 'Deepest dungeon record and donation count'),
     ])
       ul2.append(h('li', '', x));
+    // 段 H1：行き先のランクで骨董として売れる復刻品は、倉庫ごと新しい町へ運ぶ（災害で失わない）
+    const ant = antiquesHeld(s, d.tier);
+    if (ant.n > 0) ul2.append(h('li', 'isl-good', t(`倉庫の骨董 ${ant.n} 個（${ant.kinds} 種）：新しい町の倉庫へ運ぶ。${TIER_NAME[d.tier]} の町でそのまま並べられる`, `${ant.n} antiques in storage (${ant.kinds} kinds): moved to the new town’s storage, ready for ${TIER_NAME[d.tier]}-town shelves`)));
+    else if (d.tier === 'E') ul2.append(h('li', 'isl-dim', t('骨董（ダンジョンの Rare 以上の復刻品）は、作って倉庫に置いておけば失わずに運べる（いまは 0 個）', 'Antiques (revivals of dungeon Rare-and-up relics) kept in storage come along safely (none now)')));
     keep.append(ul2);
     cols.append(lose, keep);
     body.append(cols);
@@ -677,6 +681,19 @@ export function openBrand(ctx: Ctx) {
     if (fc) body.append(fc);
     const top = h('div', 'isl-card2 isl-brand-top');
     top.append(h('small', 'isl-dim', t('いまのブランド力', 'Brand power')), h('b', 'isl-brand-big', `★ ${v}`), h('small', 'isl-good', t(`売り場の強さ +${Math.round((brandPull(v, lvMul(s, 'd_ops')) - 1) * 100)}%（最大 +${Math.round(BRAND.pullCap * (1 + lvMul(s, 'd_ops')) * 100)}%）`, `Shop pull +${Math.round((brandPull(v, lvMul(s, 'd_ops')) - 1) * 100)}% (max +${Math.round(BRAND.pullCap * (1 + lvMul(s, 'd_ops')) * 100)}%)`)));
+    // 段 H1：ブランド力の上限（出店したいちばん上のランクで決まる。上のランクの町に出店すると上がる）
+    const cap = brandCap(s);
+    const top0 = topTierOf(s);
+    const up = (['U', 'R', 'E', 'L'] as const).find((x) => BRAND_CAP[x] > cap);
+    top.append(
+      h(
+        'small',
+        v >= cap ? 'isl-warn' : 'isl-dim',
+        up
+          ? t(`上限 ★ ${cap}（${TIER_NAME[top0]}。${TIER_NAME[up]} の町に出店すると ★ ${BRAND_CAP[up]} に）`, `Cap ★ ${cap} (${TIER_NAME[top0]}; ★ ${BRAND_CAP[up]} once you open in a ${TIER_NAME[up]} town)`)
+          : t(`上限 ★ ${cap}`, `Cap ★ ${cap}`),
+      ),
+    );
     // 段 G：企業の格（ブランド力から決まる段。くわしくはマーケ → 広報と企業の格）
     const nx = gradeNext(s);
     top.append(h('small', 'isl-dim', nx ? t(`企業の格：${gradeName(gradeOf(s))}（次の「${nx.name}」まで あと ${nx.need}）`, `Standing: ${gradeName(gradeOf(s))} (${nx.need} more to “${nx.name}”)`) : t(`企業の格：${gradeName(gradeOf(s))}`, `Standing: ${gradeName(gradeOf(s))}`)));

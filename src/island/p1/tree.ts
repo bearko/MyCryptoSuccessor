@@ -578,7 +578,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       // 数えるのは開いているエリアのパネル（閉じた外周は目標なので数えない）。パネルの無い部門は鍵の札
       const mine = SKILLS.filter((k) => deptOf(k) === d.id && !k.sealed && !k.soon && !k.donate && ringOpen(s, skillTier(k)));
       const got = mine.filter((k) => has(s, k.id)).length;
-      c.append(h('b', '', `${d.icon} ${d.short}`), h('small', '', L.groups.length ? t(`理解度 ${deptLevel(s, d.id)}・${got}/${mine.length}`, `Lv ${deptLevel(s, d.id)} · ${got}/${mine.length}`) : `🔒 ${deptLockText(d.id)}`));
+      c.append(h('b', '', `${d.icon} ${d.short}`), h('small', '', L.groups.length ? t(`理解度 ${deptLevel(s, d.id)}・${got}/${mine.length}`, `Lv ${deptLevel(s, d.id)} · ${got}/${mine.length}`) : deptOpen(s, d.id) ? t('パネルは次の更新', 'Panels next update') : `🔒 ${deptLockText(d.id)}`));
       c.title = d.name;
       c.addEventListener('click', () => {
         const p = deptCenter(d.id);
@@ -958,7 +958,9 @@ export function openSkills(ctx: Ctx, focus?: string) {
         hub.style.top = `${p.y}px`;
         hub.style.setProperty('--br', L.color);
         setBurst(hub, HUBPOS.get(d.id)!);
-        if (empty) hub.append(h('b', '', `🔒 ${d.name}`), h('small', '', deptLockText(d.id)));
+        // 段 H1：法務は Epic に進出すると開くが、パネルは次の更新（鍵ではなく「次の更新」の札）
+        if (empty && deptOpen(s, d.id)) hub.append(h('b', '', `${d.icon} ${d.name}`), h('small', '', t('パネルは次の更新', 'Panels next update')));
+        else if (empty) hub.append(h('b', '', `🔒 ${d.name}`), h('small', '', deptLockText(d.id)));
         else {
           hub.append(h('b', '', `${d.short} ${deptLevel(s, d.id)}`));
           if (!deptOpen(s, d.id)) hub.append(h('small', '', `🔒 ${deptLockText(d.id)}`));

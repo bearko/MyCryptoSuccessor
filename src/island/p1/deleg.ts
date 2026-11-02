@@ -494,6 +494,8 @@ export function lineupFor(s: P1State, q: number, rnd: () => number): { plan: (Sk
   const crew = s.staff.filter((x) => x.task !== 'manager' && x.task !== 'lead');
   const nU = crew.filter((x) => aptOf(s, x, 'craft') >= UNCOMMON.minCraft).length;
   const nR = crew.filter((x) => aptOf(s, x, 'craft') >= DIG_BALANCE.relic.rare.minCraft).length;
+  // Epic の復刻品（段 H1）はさらに 1 段上の職人
+  const nE = crew.filter((x) => aptOf(s, x, 'craft') >= DIG_BALANCE.relic.epic.minCraft).length;
   const cands: { x: Sku; key: string; score: number; noisy: number }[] = [];
   const monthIdx = Math.floor(s.day / DAYS);
   void rnd;
@@ -505,6 +507,7 @@ export function lineupFor(s: P1State, q: number, rnd: () => number): { plan: (Sk
       if (!Object.keys(recipeOf(x)).every((m) => hasRoute(s, m as Mat))) continue;
       if (rr === 'U' && (p.relic ? nU === 0 : !has(s, 'pot') || !s.dev.includes(p.key) || nU === 0)) continue;
       if (p.relic?.rare && nR === 0) continue;
+      if (p.relic?.epic && nE === 0) continue;
       if (p.relic && !s.recipes?.[p.key]) continue;
       // 見込み：知られていない新商品は、知られたときの売れ方で（市場データのおすすめと同じ見方。並べれば認知は育つ）
       const est = Math.max(rr === 'U' ? 4 : 1, sellEstimate(s, p.key, rr) / Math.max(0.25, knownOf(s, p.key)));

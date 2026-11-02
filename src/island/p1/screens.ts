@@ -374,7 +374,7 @@ const CRAFT_ERR: Record<string, string> = {
 const craftErr = (x: Sku, e: string, s?: P1State) =>
   (e === 'tech' ? techNeed(skuParts(x)[0], s) : null) ??
   // Rare の復刻品（Rare の町 ①）は 1 段上の職人
-  (e === 'skill' && PRODUCT[skuParts(x)[0]]?.relic?.rare ? t(`Rare の復刻品には製造の適性 ${relicMinCraft(skuParts(x)[0])} 以上の職人が要ります`, `Rare revivals need a crafter with aptitude ${relicMinCraft(skuParts(x)[0])}+`) : null) ??
+  (e === 'skill' && PRODUCT[skuParts(x)[0]]?.relic?.rare ? t(`${PRODUCT[skuParts(x)[0]]?.relic?.epic ? 'Epic' : 'Rare'} の復刻品には製造の適性 ${relicMinCraft(skuParts(x)[0])} 以上の職人が要ります`, `${PRODUCT[skuParts(x)[0]]?.relic?.epic ? 'Epic' : 'Rare'} revivals need a crafter with aptitude ${relicMinCraft(skuParts(x)[0])}+`) : null) ??
   CRAFT_ERR[e] ??
   e;
 
@@ -630,7 +630,7 @@ export function pickShelf(ctx: Ctx, uid: number, k: number, done: () => void, mo
     note: t('工房で作っているエクステを並べましょう。他社が少なく需要の大きいものほど売れます。', 'Shelve what your workshop makes. Items with high demand and few rivals sell best.'),
     // この町で売れない商品（売れるシリーズに無い復刻品）：灰色にして、押すと止める
     blocked: (x) => unsellableHere(s, skuParts(x)[0]),
-    onBlocked: (x) => ctx.toast(t(`${skuName(x)}：${UNSELLABLE_TEXT()}`, `${skuName(x)}: ${UNSELLABLE_TEXT()}`)),
+    onBlocked: (x) => ctx.toast(t(`${skuName(x)}：${UNSELLABLE_TEXT(skuParts(x)[0])}`, `${skuName(x)}: ${UNSELLABLE_TEXT(skuParts(x)[0])}`)),
     onPick: (v) => {
       changeShelf(s, uid, k, v, moved);
       done();
@@ -1783,6 +1783,31 @@ export function openMA(ctx: Ctx) {
       card.append(h('b', '', name), h('small', '', note), h('small', 'isl-dim', t('スキルツリーで解放（準備中）', 'Skill tree (coming soon)')));
       body.append(card);
     }
+  });
+}
+
+/**
+ * 法務（段 H1：Epic の町に進出すると部門が開く。中身は次の更新＝段 H2：契約・特許・争い・M&A）。いまは札だけ
+ */
+export function openLegal(ctx: Ctx) {
+  open(ctx, t('法務', 'Legal'), (body) => {
+    const head = h('div', 'isl-card2 isl-legal-soon');
+    head.append(
+      h('b', 'isl-gold', t('⚖ 法務の部門ができた！（中身は次の更新）', '⚖ The Legal department is here! (contents in the next update)')),
+      h('p', 'isl-dim', t('Epic の町では、他社との約束ごとや争いが大きくなる。法務は、契約・特許・争いごとを受け持ち、いつか他社の買収（M&A）も手がける部門だよ。', 'In Epic towns, deals and disputes with rivals grow bigger. Legal handles contracts, patents and disputes — and, one day, acquisitions (M&A).')),
+    );
+    body.append(head);
+    for (const [name, note] of [
+      [t('契約', 'Contracts'), t('卸・仕入れ・買収の契約に条項（違約金・独占・期間）を選ぶ', 'Pick clauses (penalties, exclusivity, terms) for supply, wholesale and acquisition deals')],
+      [t('特許', 'Patents'), t('復刻品を特許にすると、他社が真似できない・使用料が入る', 'Patent a revival so rivals cannot copy it, and earn royalties')],
+      [t('争い', 'Disputes'), t('他社からの訴えと、こちらからの訴え。裁判は数か月の勝負', 'Suits from rivals and suits you file. A trial is a months-long fight')],
+      [t('M&A（他社の買収）', 'M&A (acquiring rivals)'), t('Epic の町の他社を買い取り、店ごと自社にする', 'Buy an Epic-town rival and make its stores yours')],
+    ]) {
+      const card = h('div', 'isl-skill is-locked');
+      card.append(h('b', '', name), h('small', '', note), h('small', 'isl-dim', t('次の更新', 'Next update')));
+      body.append(card);
+    }
+    body.append(h('p', 'isl-dim', t('法務の奥義（予告）：契約で不利な条項を受けない／特許の期間 2 倍／裁判で負けない', 'Legal mastery (preview): never accept a bad clause / patents last twice as long / never lose a trial')));
   });
 }
 

@@ -278,8 +278,9 @@ describe('企業の格', () => {
   it('ブランド力のしきい値で段が決まる（無名 → 地元の店 → 地域の有名店 → 全国ブランド → 世界ブランド）。CI で数えるブランド力が上がる', () => {
     const s = newP1(1, 'U', 'u1');
     const at = (b: number) => ((s.brand = b), gradeOf(s));
-    expect(GRADE.at).toEqual([0, 100, 250, 450, 800]);
-    expect([at(0), at(99), at(100), at(249), at(250), at(449), at(450), at(799), at(800), at(999)]).toEqual([0, 0, 1, 1, 2, 2, 3, 3, 4, 4]);
+    // 段 H1（v23）：世界ブランドは 800 → 1,000（Epic の町に出店してから届く）
+    expect(GRADE.at).toEqual([0, 100, 250, 450, 1000]);
+    expect([at(0), at(99), at(100), at(249), at(250), at(449), at(450), at(999), at(1000), at(1200)]).toEqual([0, 0, 1, 1, 2, 2, 3, 3, 4, 4]);
     s.brand = 230;
     expect(gradeOf(s)).toBe(1);
     gainSkill(s, 'mk_ci');
@@ -293,7 +294,7 @@ describe('企業の格', () => {
     s.brand = 250;
     expect(gradeHire(s)).toBe(1);
     expect(hireSlots(s)).toBe(n0 + 1);
-    s.brand = 900;
+    s.brand = 1000;
     expect(hireSlots(s)).toBe(n0 + 2);
     CS_OFF.on = true;
     try {
@@ -356,7 +357,7 @@ describe('セーブ（版 17）', () => {
     C.inbox = inquiriesFor(s, 4, 0);
     C.warn = { cause: 'out', day: s.day };
     const back = deserializeP1(serializeP1(s))!;
-    expect(back.v).toBe(17);
+    expect(back.v).toBe(18);
     expect(satOf(back)).toBe(77);
     expect(back.cs!.inbox).toHaveLength(2);
     expect(back.cs!.warn?.cause).toBe('out');
@@ -369,7 +370,7 @@ describe('セーブ（版 17）', () => {
     o.v = 16;
     delete o.cs;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(17);
+    expect(back.v).toBe(18);
     expect(satOf(back)).toBe(CS.start);
     expect(csOf(back).inbox).toEqual([]);
     expect(csOf(back).warn).toBeNull();
