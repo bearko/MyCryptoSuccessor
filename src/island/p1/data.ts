@@ -55,7 +55,7 @@ export interface ProductDef {
   /** この商品が主役になる最小のランク（無ければ C）。それより下のセクタでは需要が無く、市場データにも出さない */
   tier?: Tier;
   /** 復刻品（発掘 v2 の 3 段目）：もとの遺物（エクステの id）・作るランク（出たセクタのランク）。docs/ISLAND_PHASE1.md「3. 復刻品」 */
-  relic?: { ext: number; rank: Rar; rare?: boolean };
+  relic?: { ext: number; rank: Rar; rare?: boolean; epic?: boolean };
 }
 
 export const PRODUCTS: ProductDef[] = [
@@ -193,10 +193,34 @@ export const RARE_AREA = {
   cap: 1.6,
   sale: 0.6,
 };
+/**
+ * Epic の同業他社の強さ（段 H1：Epic の町 ①。docs/ISLAND_PHASE1.md「Epic の町 ①」・docs/ISLAND_BALANCE.md の v23）。RARE_RIVAL と同じ形で、
+ * Epic のセクタだけに掛かる（ランクの倍率 TIERS.E.rival ×5 にさらに掛ける）。入り口のヒトシタウン（e1）は 1、ほかの町は town の倍率。
+ * 自動プレイで壁にならない値（通常が Epic の 1 町・100% が 3 町を制覇できる）にした
+ */
+export const EPIC_RIVAL: typeof UNCOMMON_RIVAL = {
+  base: 15,
+  town: { e2: 2, e3: 2 },
+  growth: 0.015,
+  baseCap: 1.1,
+  entryAfter: 3,
+  sale: { target: 1.3, min: 0.15, months: 3, cool: 1, max: 2 },
+};
+/**
+ * Epic の町の商圏の取り合い（段 H1。RARE_AREA と同じ式・同じ項目）。Epic の地図は 26 × 26 マスと Rare（21）より広いので、
+ * 距離の重み d0 を広さに合わせて少し伸ばした（Rare 1.3 → 1.6 マス。1 軒で届く町の割合が Rare と同じくらい）。ほかは Rare と同じ
+ */
+export const EPIC_AREA: typeof RARE_AREA = { ...RARE_AREA, d0: 1.6 };
+/** そのランクの商圏の取り合いの数字（Rare・Epic。ほかのランクには商圏の取り合いが無い） */
+export const AREA_TUNE: Partial<Record<Tier, typeof RARE_AREA>> = { R: RARE_AREA, E: EPIC_AREA };
+/** 商圏の取り合いがあるランクか（Rare・Epic） */
+export const hasArea = (tier?: Tier) => !!AREA_TUNE[tier ?? 'C'];
+/** そのランクの商圏の数字（取り合いの無いランクは Rare の数字。表示用） */
+export const areaTuneOf = (tier?: Tier) => AREA_TUNE[tier ?? 'C'] ?? RARE_AREA;
 /** 営業の奥義の予告（理解度 15。効き目は段 I。表示だけ） */
 export const SALES_MASTERY = () => t('奥義 1：撤退した他社の土地を、出店許可なしで取れる（準備中）', 'Mastery 1: take over land left by a closed rival with no permit (coming soon)');
-/** そのランクの他社の強さ（Uncommon・Rare。Common は null） */
-export const RIVAL_TUNE: Partial<Record<Tier, typeof UNCOMMON_RIVAL>> = { U: UNCOMMON_RIVAL, R: RARE_RIVAL };
+/** そのランクの他社の強さ（Uncommon・Rare・Epic。Common は null） */
+export const RIVAL_TUNE: Partial<Record<Tier, typeof UNCOMMON_RIVAL>> = { U: UNCOMMON_RIVAL, R: RARE_RIVAL, E: EPIC_RIVAL };
 
 // ---------------------------------------------------------------- 建てられる建物
 
@@ -324,7 +348,8 @@ export const GATE = { mult: 1, round: 1000, at: [15, 8] as [number, number] };
  * 売り場の強さが brand × pullPer だけ上がる（最大 pullCap）。スキルツリーにブランド力が要るパネルがある。
  */
 export const BRAND = {
-  max: 999,
+  /** すべてのランクの上限（段 H1 から、いまの上限は出店したいちばん上のランクで決まる：BRAND_CAP） */
+  max: 1600,
   log: 30,
   pullPer: 0.001,
   pullCap: 0.3,
@@ -345,6 +370,12 @@ export const BRAND = {
   /** 不祥事（妨害工作がばれた など。いまはまだ起きない） */
   scandal: 60,
 };
+/**
+ * ブランド力の上限（段 H1：段 G の未解決「100% で Common のうちに 999 に届く」）。会社として出店したいちばん上のランクで決まる
+ * （上のランクの町に出店すると上限が上がる＝伸びしろが残る）。売り場の強さはブランド力 300（BRAND.pullCap ÷ pullPer）で頭打ち、
+ * カリスマ度は 400 で頭打ちなので、Common の上限 400 でも売れ方と雇えるレアリティは前と同じ。docs/ISLAND_BALANCE.md の v23
+ */
+export const BRAND_CAP: Record<Tier, number> = { C: 400, U: 600, R: 800, E: 1200, L: 1600 };
 
 /** ランドセクタのランク（地図の広さ・他社の強さ・お客さんの多さ・Common の商品の売れにくさ・出店許可申請の費用） */
 export type Tier = 'C' | 'U' | 'R' | 'E' | 'L';
@@ -431,8 +462,22 @@ const FIRST_POT = t('スキルツリーの[[魔法の釜]]を開放すると[[�
 const RESEARCH = t('この町では[[センス]]や[[鋏]]はもう他店が売っている。[[市場データ]]で、まだ誰も売っていない商品を探そう！', 'Here, other shops already sell [[Sensu]] and [[Scissors]]. Use the [[market data]] to find goods nobody sells yet!');
 const RESEARCH_U = t('ここは Uncommon ランドで、基礎の商品はもう他店が売っている。[[市場データ]]で、まだ誰も売っていない商品を探して[[アンコモン]]にしよう！', 'This is an Uncommon land, and other shops already sell the basic goods. Use the [[market data]] to find goods nobody sells yet, and make them [[Uncommon]]!');
 const RESEARCH_R = t('ここは Rare ランド。[[市場データ]]で、まだ誰も売っていない商品を探して[[アンコモン]]か Rare の[[復刻品]]で勝負しよう！', 'This is a Rare land. Use the [[market data]] to find goods nobody sells yet, and compete with [[Uncommons]] or Rare [[revivals]]!');
+const RESEARCH_E = t('ここは Epic ランド。[[市場データ]]で、まだ誰も売っていない商品を探して、Epic の[[復刻品]]と[[骨董]]で勝負しよう！', 'This is an Epic land. Use the [[market data]] to find goods nobody sells yet, and compete with Epic [[revivals]] and [[antiques]]!');
 /** 到着の案内の 2 枚目（リサーチ）か。main.ts が「市場データを開く」ボタンを付ける */
-export const isResearchPage = (text: string) => text === RESEARCH || text === RESEARCH_U || text === RESEARCH_R;
+export const isResearchPage = (text: string) => text === RESEARCH || text === RESEARCH_U || text === RESEARCH_R || text === RESEARCH_E;
+/**
+ * Epic の町に着いたときの 1 枚（段 H1。Rare の RARE_TEASER にあたる）：骨董の需要の紹介と、次の更新（段 H2：他社の買収）の予告の 1 行
+ */
+export const EPIC_TEASER = () =>
+  t(
+    'この町では、ダンジョンで掘ってきた古いエクステの[[復刻品]]が[[骨董]]として高く売れる。倉庫に貯めておいたぶんも、そのまま棚に並べられるよ！ いつか、この町で[[他社を買収できる]]日が来る…（次の更新）',
+    'In this town, revivals of old extensions you dug up in dungeons sell high as [[antiques]]. The ones you kept in storage can go straight onto the shelves! Someday, you will be able to [[acquire rivals]] here… (next update)',
+  );
+/** 法務の部門の紹介（Epic の町に初めて進出して、法務の部門が開いたとき。段 H1 は部門の演出と紹介だけ。中身は段 H2） */
+export const LEGAL_INTRO = () => [
+  t('新しい部門：[[法務]]！ 他社との[[契約]]・復刻品の[[特許]]・[[争いごと]]を受け持つ部門だよ。', 'New department: [[Legal]]! It handles [[contracts]] with rivals, [[patents]] on revivals, and [[disputes]].'),
+  t('中身は[[次の更新]]で届くよ。Epic の町では、契約を結んだり、他社を[[買収]]したりできるようになるの。いまは部門の札だけ見ておいてね。', 'The contents arrive in the [[next update]]: in Epic towns you will sign contracts and [[acquire]] rivals. For now, just have a look at the department.'),
+];
 /** Rare の町に着いたときの一言（Rare の町 ② の予告。到着の案内の前に 1 枚） */
 export const RARE_TEASER = () => t('この町は他社の店がひしめいている。お客さんは[[近くの店]]へ行くから、1 軒では町じゅうには売れない。店の場所で[[商圏]]を取り合おう！', 'Rival stores crowd this town. Customers go to [[nearby stores]], so one shop can’t sell to the whole town. Fight over [[trade areas]] with where you build!');
 /** 営業の部門の紹介（Rare の町に初めて進出して、営業の部門が開いたとき。main.ts の会話） */
@@ -822,10 +867,81 @@ export const SECTORS: SectorDef[] = [
       intro: [goal(t('ネコツ・バメ', 'Nekotsu Bame')), RESEARCH_R, FIRST_POT],
     },
   },
-  // ---------------------------------------------------------------- Epic・Legendary（雲の向こう）
-  { id: 'e1', tier: 'E', name: t('ヒトシタウン', 'Hitoshi Town'), fee: 0, at: [25, 10], grid: [0, 0], cloud: true, profile: { tag: t('他社を買収できる町', 'A town where you can acquire rivals'), intro: [] } },
-  { id: 'e2', tier: 'E', name: t('ヌコカントリー', 'Nuko Country'), fee: 0, at: [50, 10], grid: [1, 0], cloud: true, profile: { tag: t('他社を買収できる町', 'A town where you can acquire rivals'), intro: [] } },
-  { id: 'e3', tier: 'E', name: t('クリプト・サン・シティ', 'Crypto Sun City'), fee: 0, at: [75, 10], grid: [2, 0], cloud: true, profile: { tag: t('他社を買収できる町', 'A town where you can acquire rivals'), intro: [] } },
+  // ---------------------------------------------------------------- Epic（e1〜e3。段 H1：Epic の町 ①）
+  // 基礎の 5 つは Rare と同じく、どれも他社 2 社以上が扱う。gap の商品・Epic の復刻品・骨董（ダンジョンの Rare 以上）は他社の sells に入れない（勝ち筋）。
+  // 商圏の取り合い（EPIC_AREA）も Rare と同じく効く。入国料は Rare（60〜90 万 G）より高い（Epic への初進出はランクアップなので取らない）
+  {
+    id: 'e1',
+    tier: 'E',
+    name: t('ヒトシタウン', 'Hitoshi Town'),
+    fee: 1200000,
+    at: [25, 10],
+    grid: [0, 0],
+    profile: {
+      rivals: [
+        rv('yoriai', t('寄り合い百貨', 'Yoriai Department'), { Sensu: 1.3, Lantern: 1.3, Scissors: 1.2, Mallet: 1.1 }, 17000, 'import', 0.2),
+        rv('hitoshi', t('ヒトシ商会', 'Hitoshi Trading'), { 'Node-Doll': 1.4, Ribbon: 1.2, Sensu: 1 }, 15000, 'general_store', 0.16),
+        rv('wakeai', t('分け合い市場', 'Sharing Market'), { Mallet: 1.3, Lantern: 1.1, Knife: 1 }, 13000, 'greengrocer', 0.13),
+        rv('chobo', t('帳面屋', 'Ledger House'), { Scissors: 1.3, Quill: 1.2, 'Node-Doll': 1 }, 12000, 'watch', 0.11),
+      ],
+      gap: ['Hat', 'JapaneseDoll'],
+      demand: { Hat: 1.6, JapaneseDoll: 1.6 },
+      cheap: ['cloth'],
+      routesOpen: true,
+      homes: 1.1,
+      tag: t('裂けた大地から人々が集まり、分け合って立て直した町。布が安く、帽子と人形の店がない', 'Where people gathered after the land split and rebuilt by sharing. Cloth is cheap; no one sells hats or dolls'),
+      intro: [goal(t('ヒトシタウン', 'Hitoshi Town')), RESEARCH_E, FIRST_POT],
+    },
+  },
+  {
+    id: 'e2',
+    tier: 'E',
+    name: t('ヌコカントリー', 'Nuko Country'),
+    fee: 1400000,
+    at: [50, 10],
+    grid: [1, 0],
+    profile: {
+      rivals: [
+        rv('nuko', t('ヌコ物産', 'Nuko Produce'), { Sensu: 1.3, Mallet: 1.3, 'Node-Doll': 1.1, Lantern: 1 }, 16000, 'import', 0.18),
+        rv('hatakeya', t('畑の大店', 'Field Emporium'), { Scissors: 1.3, Sensu: 1.1, Ribbon: 1 }, 14000, 'general_store', 0.15),
+        rv('tanemori', t('種守商店', 'Seedkeeper Store'), { Lantern: 1.2, Mallet: 1, Knife: 1.1, Hat: 1 }, 12500, 'greengrocer', 0.14),
+        rv('komichi', t('こみち雑貨', 'Komichi Goods'), { Scissors: 1.2, 'Node-Doll': 1.2, Compass: 1 }, 11500, 'watch', 0.11),
+      ],
+      gap: ['Chair', 'Parasol'],
+      demand: { Chair: 1.6, Parasol: 1.6 },
+      cheap: ['wood', 'clay'],
+      routesOpen: true,
+      homes: 0.9,
+      haul: 1.1,
+      tag: t('守られた種から畑を立て直した、のどかな国。木材と粘土が安く、家具と傘の店がない', 'A quiet land whose fields grew back from saved seeds. Wood and clay are cheap; no one sells furniture or parasols'),
+      intro: [goal(t('ヌコカントリー', 'Nuko Country')), RESEARCH_E, FIRST_POT],
+    },
+  },
+  {
+    id: 'e3',
+    tier: 'E',
+    name: t('クリプト・サン・シティ', 'Crypto Sun City'),
+    fee: 1600000,
+    at: [75, 10],
+    grid: [2, 0],
+    profile: {
+      rivals: [
+        rv('taiyo', t('太陽百貨', 'Sun Department'), { Lantern: 1.4, Sensu: 1.3, Mallet: 1.2, Scissors: 1.2, Hat: 1 }, 18000, 'import', 0.21),
+        rv('tomoshibi', t('ともしび商会', 'Tomoshibi Trading'), { Lantern: 1.3, 'Node-Doll': 1.3, Knife: 1 }, 15000, 'general_store', 0.16),
+        rv('kirimukou', t('霧の向こう屋', 'Beyond-the-Mist'), { Sensu: 1.2, Scissors: 1.3, Ribbon: 1, Chair: 1 }, 13000, 'greengrocer', 0.13),
+        rv('tounomoto', t('塔のふもと商店', 'Towerfoot Store'), { Mallet: 1.1, 'Node-Doll': 1, Compass: 1, Quill: 1 }, 12000, 'watch', 0.12),
+      ],
+      gap: ['MusicBox', 'Goblet', 'Monocle'],
+      demand: { MusicBox: 1.5, Goblet: 1.5, Monocle: 1.4 },
+      routesOpen: true,
+      homes: 1.3,
+      rivalMul: 1.15,
+      ads: 1.3,
+      tag: t('霧の向こうへ灯を送る太陽の塔の都。Epic いちばんの大都市で、オルゴールとガラス細工の店がない', 'The city of the sun tower that sends light beyond the mist. The biggest Epic city; no one sells music boxes or glasswork'),
+      intro: [goal(t('クリプト・サン・シティ', 'Crypto Sun City')), RESEARCH_E, FIRST_POT],
+    },
+  },
+  // ---------------------------------------------------------------- Legendary（雲の向こう）
   { id: 'l1', tier: 'L', name: t('ヤマピーキングダム', 'Yamapi Kingdom'), fee: 0, at: [50, 23], grid: [0, 0], cloud: true, profile: { tag: t('ブランド力で売る、ランドいちばんの都', 'The capital of the land, won by brand power'), intro: [] } },
 ];
 
@@ -1429,6 +1545,8 @@ export const DIG_BALANCE: {
      * 工期・作る職人の製造の適性（Uncommon の UNCOMMON.minCraft より 1 段上）・材料の足し（宝石 gem 個と、Uncommon の素材 more 個）
      */
     rare: { price: number; days: [number, number]; minCraft: number; gem: number; more: number };
+    /** Epic の復刻品（段 H1：Epic の町 ①）：Rare の復刻品から 1 段上（売値・工期・職人の製造の適性・材料の足し） */
+    epic: { price: number; days: [number, number]; minCraft: number; gem: number; more: number };
   };
   /**
    * 復興（発掘 v2 の 4 段目。docs/ISLAND_PHASE1.md「4. 復興・ダンジョン・展示館」）：掘りきった荒れ地 1 か所で、そのセクタの家の数 × homes の家が増え、
@@ -1485,7 +1603,8 @@ export const DIG_BALANCE: {
     U: { first: 15, lv: [8, 15, 20, 25], topic: 100, tablet: 50, present: 150 },
     // Rare の町 ①：お題・石板・発表は Uncommon の 2.5 倍（Common 40/20/60 → Uncommon 100/50/150 と同じ伸び）。研究パネルの値段も 2.5 倍
     R: { first: 15, lv: [8, 15, 20, 25], topic: 250, tablet: 125, present: 375 },
-    E: { first: 15, lv: [8, 15, 20, 25], topic: 0, tablet: 0, present: 0 },
+    // Epic の町 ①（段 H1）：お題・石板・発表は Rare の 2.5 倍（研究パネルの値段 rpPrice.E も Rare の 2.5 倍）。出土品 1 個ぶんは変えない
+    E: { first: 15, lv: [8, 15, 20, 25], topic: 625, tablet: 312, present: 937 },
     L: { first: 15, lv: [8, 15, 20, 25], topic: 0, tablet: 0, present: 0 },
   },
   // 地層の硬さ（層ごと・手前 → 奥。1 打の強さ 1 のときに打つ回数の範囲）。v11：正面の壁を手前から奥へ。奥ほど硬い
@@ -1509,11 +1628,20 @@ export const DIG_BALANCE: {
       [5, 6],
       [6, 7],
     ],
+    // Epic の町 ①（段 H1）：Rare から 1 段上（層が 1 枚多く、どの層も 1 硬い）
+    E: [
+      [4, 5],
+      [5, 5],
+      [5, 6],
+      [6, 7],
+      [7, 8],
+      [8, 9],
+    ],
   },
   // 荒れ地 1 か所の正面の壁（横 7 × 縦 9。スマホの縦長の全画面に合う形）
-  wall: { C: [7, 9], U: [7, 9], R: [7, 9] },
+  wall: { C: [7, 9], U: [7, 9], R: [7, 9], E: [7, 9] },
   // 壁に埋まっているもの（マス × 層 1 枚あたり）。v10 の断面（Common 140 マス・Uncommon 168 マス × エクステ 24%・素材 14%）と、1 か所の出土の数がそろうように
-  odds: { C: { ext: 0.178, mat: 0.104 }, U: { ext: 0.16, mat: 0.093 }, R: { ext: 0.14, mat: 0.09 } },
+  odds: { C: { ext: 0.178, mat: 0.104 }, U: { ext: 0.16, mat: 0.093 }, R: { ext: 0.14, mat: 0.09 }, E: { ext: 0.125, mat: 0.08 } },
   // 自動発掘：適性の速さ 1.0 で 1 日に打つ回数
   autoPerDay: 3,
   // 発掘のスキルツリー（仮。Lv が上がるほど levelCost で ×2・×3.5・×5.5・×8）
@@ -1556,8 +1684,8 @@ export const DIG_BALANCE: {
     lamp: [1, 2, 3, 3, 3],
     hint: 2,
     // 深い層の許可：掘れる層の数（Lv0〜5）。ダンジョンの深さは DIG_BALANCE.dungeon.deep
-    // Rare：Lv2 で 3 層目・Lv3 で 4 層目・Lv4 で 5 層目
-    deep: { C: [2, 3, 3, 3, 3, 3], U: [2, 2, 3, 4, 4, 4], R: [2, 2, 3, 4, 5, 5] },
+    // Rare：Lv2 で 3 層目・Lv3 で 4 層目・Lv4 で 5 層目。Epic：Lv5 で 6 層目（1 段上）
+    deep: { C: [2, 3, 3, 3, 3, 3], U: [2, 2, 3, 4, 4, 4], R: [2, 2, 3, 4, 5, 5], E: [2, 2, 3, 4, 5, 6] },
     // 研究の目利き：研究 Lv の上限（Lv0〜5）と、深い層ほど研究が進みやすい倍率（層 n で 1 + 0.25 × (n − 1) × 倍率 個ぶん）
     cap: [3, 4, 5, 5, 5, 5],
     deepMul: [0, 0, 0, 1, 1.5, 2],
@@ -1580,13 +1708,14 @@ export const DIG_BALANCE: {
   sessionSec: 15,
   repeatMs: 170,
   // 発掘許可の申請料（仮。セクタの 1 か所目は無料）
-  permitFee: { C: 2000, U: 8000, R: 20000 },
+  permitFee: { C: 2000, U: 8000, R: 20000, E: 50000 },
   // 自動プレイ：1 秒に 4 打
   simTapsPerSec: 4,
   // お題の層（v13）
-  topicLayer: { C: [1, 2, 2], U: [2, 3, 3, 3], R: [2, 3, 4, 4] },
+  topicLayer: { C: [1, 2, 2], U: [2, 3, 3, 3], R: [2, 3, 4, 4], E: [3, 4, 5, 5] },
   // 復刻品：研究 Lv3 で開く・売値 ×1.25・独占 4 か月・需要 12 個（gap の商品の平均 20.5 の 0.6 倍）・3〜4 日・1 ロット 4 個（アンコモンは半分）
-  relic: { openLv: 3, priceMul: 1.05, monopolyMonths: 3, demandBase: 12, days: [3, 4], batch: 4, rare: { price: 5, days: [4, 5], minCraft: 40, gem: 1, more: 2 } },
+  // Epic の復刻品（段 H1）：Rare から 1 段上（売値 ×10・工期 5〜6 日・製造の適性 48・宝石 +1・布か紙 +2）
+  relic: { openLv: 3, priceMul: 1.05, monopolyMonths: 3, demandBase: 12, days: [3, 4], batch: 4, rare: { price: 5, days: [4, 5], minCraft: 40, gem: 1, more: 2 }, epic: { price: 10, days: [5, 6], minCraft: 48, gem: 1, more: 2 } },
   // 復興：家の数の +6%（46 軒の町で +3 軒）・地図に描く住宅は 2 軒まで
   revive: { homes: 0.06, houses: 2 },
   dungeon: {
@@ -1617,6 +1746,14 @@ export const DIG_BALANCE: {
         [6, 7],
         [7, 8],
         [8, 9],
+      ],
+      E: [
+        [5, 5],
+        [5, 6],
+        [6, 7],
+        [7, 8],
+        [8, 9],
+        [9, 10],
       ],
     },
     // 掘れる層（深い層の許可 Lv0〜5）：Lv1〜3 で 3 層・Lv4 で 5 層・Lv5 で 6 層（荒れ地を掘りきるには Common で Lv1・Uncommon で Lv3 が要る）
@@ -1651,6 +1788,15 @@ export const DIG_BALANCE: {
         [0.7, 0.25, 0.05, 0],
         [0.62, 0.3, 0.08, 0],
       ],
+      // Epic のセクタ（1 つ上＝Legendary だけ。2 つ上・3 つ上は無い）
+      E: [
+        [1, 0, 0, 0],
+        [1, 0, 0, 0],
+        [0.94, 0.06, 0, 0],
+        [0.85, 0.15, 0, 0],
+        [0.8, 0.2, 0, 0],
+        [0.74, 0.26, 0, 0],
+      ],
     },
     pick: 9,
   },
@@ -1662,7 +1808,8 @@ export const DIG_BALANCE: {
   buyRp: { cost: 20000, grow: 1.15, step: 100, rp: 100 },
   // Uncommon の発表：お題に加えて、そのセクタの出土品 2 種を、この町の荒れ地で 10 個ずつ掘り出す（v14：研究 Lv3 → この町で掘った数。町の荒れ地に埋まっている数は、多い 2 種で 18〜27 個）。Common は お題だけ
   // Rare の町 ①：出土品 2 種を この町で 12 個ずつ（層が 1 枚多いので、多い 2 種で 20〜30 個埋まっている）
-  presentRes: { U: { n: 2, dug: 10 }, R: { n: 2, dug: 12 } },
+  // Epic の町 ①（段 H1）：出土品 2 種を この町で 14 個ずつ（層がさらに 1 枚多い）
+  presentRes: { U: { n: 2, dug: 10 }, R: { n: 2, dug: 12 }, E: { n: 2, dug: 14 } },
 };
 
 /**
@@ -1677,20 +1824,28 @@ export const RESET = {
    * （Rare の町 ①。自動プレイで決めた。docs/ISLAND_BALANCE.md の v16）
    */
   grantR: 60000,
+  /**
+   * 3 回目のランクアップ（Rare → Epic への初進出）の支度金（段 H1）。Epic の町で工房とお店 1 軒・はじめの素材・ひと月ぶんの給与が出せる額
+   * （自動プレイで決めた。docs/ISLAND_BALANCE.md の v23）
+   */
+  grantE: 150000,
   /** 手で直す：元の建物の値段の rate（最低 min G）・元の工期の days 倍（最低 1 日） */
   repair: { rate: 0.4, min: 1000, days: 0.4 },
   /**
    * ヒーローに任せる（復興支援金）：修繕の値段 × costMul（割高）・1 か月に直せる数（担当の能力値の平均 apt が lo 未満で 1・hi 未満で 2・それ以上で 3）・
    * 送る額の選択肢（G）
    */
-  delegate: { costMul: 1.5, lo: 35, hi: 55, perMonth: [1, 2, 3] as [number, number, number], funds: [10000, 30000, 80000] as [number, number, number], fundsU: [20000, 50000, 120000] as [number, number, number] },
+  delegate: { costMul: 1.5, lo: 35, hi: 55, perMonth: [1, 2, 3] as [number, number, number], funds: [10000, 30000, 80000] as [number, number, number], fundsU: [20000, 50000, 120000] as [number, number, number], fundsR: [40000, 100000, 240000] as [number, number, number] },
   /** 復興の担当の伸び：毎月、能力値の低い順に stats 個を +lo〜hi（上限 100。OJT の 3 倍くらい） */
   grow: { stats: 2, lo: 2, hi: 3 },
 };
-/** 行き先のランクの復興の支度金（Uncommon 30,000 G・Rare RESET.grantR） */
-export const grantOf = (tier: Tier) => (tier === 'C' || tier === 'U' ? RESET.grant : RESET.grantR);
-/** 被災した町に送る復興支援金の選択肢（町のランクで。Uncommon の町は修繕の合計が大きいので大きめ。必要金額ではない） */
-export const fundsOf = (tier: Tier): [number, number, number] => (tier === 'C' ? RESET.delegate.funds : RESET.delegate.fundsU);
+/** 行き先のランクの復興の支度金（Uncommon 30,000 G・Rare RESET.grantR・Epic RESET.grantE） */
+export const grantOf = (tier: Tier) => (tier === 'C' || tier === 'U' ? RESET.grant : tier === 'R' ? RESET.grantR : RESET.grantE);
+/**
+ * 被災した町に送る復興支援金の選択肢（町のランクで。Uncommon の町は修繕の合計が大きいので大きめ。必要金額ではない）。
+ * Rare の町（段 H1：3 回目の災害）は、修繕の合計（Rare の町は建物が多く、お店 5〜8 軒・倉庫・工房で 8〜15 万 G ほど）から 2 倍の段
+ */
+export const fundsOf = (tier: Tier): [number, number, number] => (tier === 'C' ? RESET.delegate.funds : tier === 'U' ? RESET.delegate.fundsU : RESET.delegate.fundsR);
 
 // ---------------------------------------------------------------- 発掘の枝（9 本目。発掘 v2 の 2 段目）
 
@@ -1995,8 +2150,11 @@ export type DeptId = 'logistics' | 'sales' | 'strategy' | 'rnd' | 'hr' | 'system
 export type DeptGroup = 'biz' | 'strat' | 'admin' | 'base';
 /** ロードマップの段（docs/SUCCESSOR_ROADMAP.md「ロードマップ」）。部門の中身（遊び）ができる段 */
 export type RoadStage = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J';
-/** いまできている段（段 G：カスタマーサポートとマーケ）。中身ができる段がこれ以下の部門だけメニューに出る */
-export const ROAD_NOW: RoadStage = 'G';
+/**
+ * いまできている段（段 H1：Epic の町 ①）。中身ができる段がこれ以下の部門だけメニューに出る。
+ * 法務（stage 'H'）は段 H1 では部門の演出と紹介だけ（中身は「次の更新」の札。契約・特許・争いと M&A は段 H2）
+ */
+export const ROAD_NOW: RoadStage = 'H';
 export interface DeptDef {
   id: DeptId;
   name: string;
@@ -2230,8 +2388,8 @@ export const MOVE = { rate: 0.5, min: 2000, days: 0.5, refund: 0.3 };
 
 // ---------------------------------------------------------------- 地層の発掘と研究ポイント（docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」）
 
-/** 発掘場のあるランク（Common・Uncommon・Rare。Epic 以降は雲の向こう） */
-export type DigTier = 'C' | 'U' | 'R';
+/** 発掘場のあるランク（Common・Uncommon・Rare・Epic。Legendary は雲の向こう） */
+export type DigTier = 'C' | 'U' | 'R' | 'E';
 export interface Stratum {
   name: string;
   /** 1 マスの硬さ（打つ回数。1 打の強さ 1 のとき）の範囲 */
@@ -2283,6 +2441,21 @@ export const DIG: Record<DigTier, { w: number; h: number; layers: Stratum[]; mat
       { name: t('9 つの境目', 'Border of the nine'), hard: DIG_BALANCE.hard.R[4], color: '#28233a' },
     ],
   },
+  // Epic の町 ①（段 H1）：裂けたあと、Lime の人々が何を残し、どう立て直そうとしたか（灰の下の寄り合い・埋め戻した土・灯の土台）。色は仮（docs/ISLAND_ART_TODO.md）
+  E: {
+    w: DIG_BALANCE.wall.E[0],
+    h: DIG_BALANCE.wall.E[1],
+    mat: 2,
+    mats: ['cloth', 'paper', 'gem'],
+    layers: [
+      { name: t('灰をかぶった道', 'Ash-covered road'), hard: DIG_BALANCE.hard.E[0], color: '#7a7470' },
+      { name: t('寄り合いの広場の跡', 'Old gathering square'), hard: DIG_BALANCE.hard.E[1], color: '#6a6052' },
+      { name: t('埋め戻した土', 'Refilled earth'), hard: DIG_BALANCE.hard.E[2], color: '#5b4a3c' },
+      { name: t('古い畑の畝', 'Old furrows'), hard: DIG_BALANCE.hard.E[3], color: '#4a4436' },
+      { name: t('灯の土台', 'Footing of the beacon'), hard: DIG_BALANCE.hard.E[4], color: '#3d3448' },
+      { name: t('裂け目のふた', 'Lid on the rift'), hard: DIG_BALANCE.hard.E[5], color: '#241d33' },
+    ],
+  },
 };
 /**
  * ダンジョンの壁（発掘 v2 の 4 段目。セクタで最後に掘りきった荒れ地の底から見つかる。入るたびに作り直す）：横 7 × 縦 9 × 奥行き 6 層。
@@ -2300,6 +2473,7 @@ export const DUNGEON_DIG: Record<DigTier, { w: number; h: number; layers: Stratu
   C: { w: DIG_BALANCE.dungeon.wall[0], h: DIG_BALANCE.dungeon.wall[1], mat: DIG.C.mat, mats: DIG.C.mats, layers: DUNGEON_LAYERS().map((x, k) => ({ ...x, hard: DIG_BALANCE.dungeon.hard.C[k] })) },
   U: { w: DIG_BALANCE.dungeon.wall[0], h: DIG_BALANCE.dungeon.wall[1], mat: DIG.U.mat, mats: DIG.U.mats, layers: DUNGEON_LAYERS().map((x, k) => ({ ...x, hard: DIG_BALANCE.dungeon.hard.U[k] })) },
   R: { w: DIG_BALANCE.dungeon.wall[0], h: DIG_BALANCE.dungeon.wall[1], mat: DIG.R.mat, mats: DIG.R.mats, layers: DUNGEON_LAYERS().map((x, k) => ({ ...x, hard: DIG_BALANCE.dungeon.hard.R[k] })) },
+  E: { w: DIG_BALANCE.dungeon.wall[0], h: DIG_BALANCE.dungeon.wall[1], mat: DIG.E.mat, mats: DIG.E.mats, layers: DUNGEON_LAYERS().map((x, k) => ({ ...x, hard: DIG_BALANCE.dungeon.hard.E[k] })) },
 };
 /**
  * 荒れ地（未開拓エリア）：発掘場のあるセクタの地図に 2 × 2 マスを 4 か所。1 か所が 1 つの発掘場。
@@ -2308,8 +2482,8 @@ export const DUNGEON_DIG: Record<DigTier, { w: number; h: number; layers: Stratu
 export const WASTE = { count: 4, size: 2 };
 /** 壁に埋まっているものの割合（マス × 層 1 枚あたり。お題・石板のほかに）：エクステ・素材。残りは土だけ */
 export const DIG_ODDS = DIG_BALANCE.odds;
-/** 石板を置く層（Common 1 枚・Uncommon 2 枚・Rare 2 枚） */
-export const TABLET_LAYERS: Record<DigTier, number[]> = { C: [2], U: [1, 3], R: [1, 3] };
+/** 石板を置く層（Common 1 枚・Uncommon 2 枚・Rare 2 枚・Epic 2 枚） */
+export const TABLET_LAYERS: Record<DigTier, number[]> = { C: [2], U: [1, 3], R: [1, 3], E: [2, 4] };
 /** 発掘隊（仕事「発掘」）：発掘作業のあいだだけ、適性の速さ 1.0 で 1 日に打つ回数（手で掘るほうが速い） */
 export const DIG_AUTO = { perDay: DIG_BALANCE.autoPerDay };
 /** 発破：Lv1 の火薬代（G。仮。Lv で安くなる：model.ts の blastCost） */
@@ -2352,6 +2526,12 @@ export const DIG_SITES: Record<string, { topics: number[]; finds: number[] }> = 
   r2: { topics: [3039, 3045, 3172, 3095], finds: [3129, 3151, 3154, 3157, 3176, 3055, 3058, 3178, 3131, 3105] },
   r3: { topics: [3042, 3034, 3108, 3050], finds: [3011, 3099, 3152, 3183, 3081, 3018, 3086, 3092, 3132, 3179] },
   r4: { topics: [3047, 3046, 3038, 3122], finds: [3019, 3089, 3093, 3155, 3160, 3113, 3186, 3016, 3008, 3017] },
+  // Epic（段 H1）：裂けたあと、Lime の人々が何を残し、どう立て直そうとしたか（寄り合いの丘と分け合いの帳面・守られた種の畑・霧へ灯を送る太陽の塔）。
+  // カタログの Epic のエクステ（真の再販・いまの商品のシリーズを除く）。お題も出土品も、どのダンジョン（Rare 以上）の出土品ともシリーズで重ならない
+  // （骨董の需要＝ダンジョンのシリーズと分ける。Rare の荒れ地のシリーズの Epic 版が多い：Rare の町で掘ったものの「その先」）
+  e1: { topics: [4008, 4016, 4050, 4111], finds: [4036, 4095, 4172, 4105, 4017, 4113, 4151, 4154, 4157, 4055] },
+  e2: { topics: [4041, 4163, 4191, 4034], finds: [4159, 4184, 4139, 4112, 4131, 4023, 4005, 4020, 4092, 4108] },
+  e3: { topics: [4143, 4046, 4038, 4121], finds: [4047, 4122, 4019, 4089, 4093, 4155, 4160, 4039, 4045, 4042] },
 };
 
 /** エクステの id → シリーズの key（catalog.json の series.key。カタログに無ければ「#id」） */
@@ -2408,11 +2588,15 @@ export const DUNGEON_FINDS: Record<string, Partial<Record<Tier, number[]>>> = ((
   const notR = (xs: number[]) => xs.filter((id) => !rSeries.has(seriesOf(id)));
   // Epic・Legendary も同じ（シリーズの単位で重ならない。Epic の町の骨董の需要はダンジョンのシリーズだけ）
   const pools: Partial<Record<Tier, number[]>> = { U: uFinds, R: notR(byRar('R')), E: notR(byRar('E')), L: notR(byRar('L')) };
+  // Epic の町 ①（段 H1）：Epic のセクタのダンジョン（奥は Legendary だけ）は、Epic の荒れ地のシリーズも除く（骨董の需要とシリーズで重ならない）。
+  // Common〜Rare のセクタのダンジョンは前のまま（選ぶ元の並びを変えない＝出土品が変わらない）
+  const eSeries = new Set(Object.entries(DIG_SITES).filter(([id]) => id.startsWith('e')).flatMap(([, x]) => [...x.topics, ...x.finds]).map((e) => seriesOf(e)));
   const out: Record<string, Partial<Record<Tier, number[]>>> = {};
   for (const id of Object.keys(DIG_SITES)) {
-    // Rare のセクタ：上のランクは Epic・Legendary（2 × 2）
-    const ups: Tier[] = id.startsWith('r') ? ['E', 'L'] : id.startsWith('u') ? ['R', 'E', 'L'] : ['U', 'R', 'E'];
-    out[id] = Object.fromEntries(ups.map((r) => [r, shuffle(pools[r] ?? [], `dungeon:${id}:${r}`).slice(0, DIG_BALANCE.dungeon.pick).sort((a, b) => a - b)]));
+    // Rare のセクタ：上のランクは Epic・Legendary（2 × 2）。Epic のセクタ：Legendary だけ
+    const ups: Tier[] = id.startsWith('e') ? ['L'] : id.startsWith('r') ? ['E', 'L'] : id.startsWith('u') ? ['R', 'E', 'L'] : ['U', 'R', 'E'];
+    const poolOf = (r: Tier) => (id.startsWith('e') ? (pools[r] ?? []).filter((x) => !eSeries.has(seriesOf(x))) : (pools[r] ?? []));
+    out[id] = Object.fromEntries(ups.map((r) => [r, shuffle(poolOf(r), `dungeon:${id}:${r}`).slice(0, DIG_BALANCE.dungeon.pick).sort((a, b) => a - b)]));
   }
   return out;
 })();
@@ -2467,19 +2651,33 @@ export function rareRelicRecipe(ext: number): Partial<Record<Mat, number>> {
   out[extra] = (out[extra] ?? 0) + R.more;
   return out;
 }
+/**
+ * Epic の復刻品のレシピ（段 H1：Epic の町 ①）：Rare の復刻品のレシピから 1 段上（宝石をもう DIG_BALANCE.relic.epic.gem 個・布か紙をもう more 個）。
+ * 数はおよそ 15 個（Rare の復刻品 12 個）
+ */
+export function epicRelicRecipe(ext: number): Partial<Record<Mat, number>> {
+  const E = DIG_BALANCE.relic.epic;
+  const out: Partial<Record<Mat, number>> = { ...rareRelicRecipe(ext) };
+  out.gem = (out.gem ?? 0) + E.gem;
+  const um = DIG.U.mats.filter((m) => m !== 'gem');
+  const extra = um[(relicHash(ext) >>> 5) % um.length];
+  out[extra] = (out[extra] ?? 0) + E.more;
+  return out;
+}
 /** 同じランクのいまの商品の平均の値段（Common の商品。アンコモンは SKU の値段で ×UNCOMMON.price） */
 const AVG_PRICE = PRODUCTS.filter((p) => !p.tier).reduce((a, p) => a + p.price, 0) / PRODUCTS.filter((p) => !p.tier).length;
 /** 復刻品 1 つの定義（遺物の id・出たセクタのランク） */
-function relicDef(ext: number, rank: Rar, rare = false): ProductDef {
+function relicDef(ext: number, rank: Rar, rare = false, epic = false): ProductDef {
   const hsh = relicHash(ext);
   const B = DIG_BALANCE.relic;
   const [ja, en] = relicName(ext);
-  // 値段：平均 × 1.25 を中心に ±10%（遺物ごとに少しずつ違う）。Rare の復刻品は SKU（アンコモンの格）の ×UNCOMMON.price に加えて、合わせて ×rare.price になるように
-  const mul = rare ? B.rare.price / UNCOMMON.price : 1;
+  // 値段：平均 × 1.25 を中心に ±10%（遺物ごとに少しずつ違う）。Rare の復刻品は SKU（アンコモンの格）の ×UNCOMMON.price に加えて、合わせて ×rare.price になるように。
+  // Epic の復刻品（段 H1）は合わせて ×epic.price
+  const mul = epic ? B.epic.price / UNCOMMON.price : rare ? B.rare.price / UNCOMMON.price : 1;
   const price = Math.round((AVG_PRICE * B.priceMul * mul * (0.9 + 0.1 * (hsh % 3))) / 10) * 10;
-  const recipe = rare ? rareRelicRecipe(ext) : relicRecipe(ext, rank);
-  const days = rare ? B.rare.days : B.days;
-  return { key: relicKey(ext), name: t(`復刻 ${ja}`, `Revival ${en}`), ext: { C: ext, U: ext }, price, batch: B.batch, days: days[(hsh >>> 3) % days.length], recipe: { C: recipe, U: recipe }, demand: B.demandBase, relic: { ext, rank, ...(rare ? { rare: true } : {}) } };
+  const recipe = epic ? epicRelicRecipe(ext) : rare ? rareRelicRecipe(ext) : relicRecipe(ext, rank);
+  const days = epic ? B.epic.days : rare ? B.rare.days : B.days;
+  return { key: relicKey(ext), name: t(`復刻 ${ja}`, `Revival ${en}`), ext: { C: ext, U: ext }, price, batch: B.batch, days: days[(hsh >>> 3) % days.length], recipe: { C: recipe, U: recipe }, demand: B.demandBase, relic: { ext, rank, ...(rare ? { rare: true } : {}), ...(epic ? { epic: true } : {}) } };
 }
 /**
  * 復刻品（発掘で出るエクステ 1 つにつき 1 つ。DIG_SITES の全セクタの topics と finds）。ランクは出たセクタのランク。
@@ -2496,6 +2694,10 @@ export const RELICS: ProductDef[] = (() => {
   // Rare の町 ①：Rare の復刻品（Rare の荒れ地の出土品と、Common・Uncommon のダンジョンの奥で出る Rare のエクステ）。作るのはアンコモンの格（SKU は :U）で、値段・材料・工期は 1 段上
   const rare = [...Object.entries(DIG_SITES).filter(([sec]) => SECTORS.find((x) => x.id === sec)?.tier === 'R').flatMap(([, d]) => [...d.topics, ...d.finds]), ...Object.values(DUNGEON_FINDS).flatMap((x) => x.R ?? [])];
   for (const id of rare) if (!out.has(id) && !own.has(id % 1000)) out.set(id, relicDef(id, 'U', true));
+  // Epic の町 ①（段 H1）：Epic の復刻品（Epic の荒れ地の出土品と、Common〜Rare のダンジョンの奥で出る Epic のエクステ）。Rare と同じくアンコモンの格（:U）で、
+  // 値段・材料・工期・職人は Rare からさらに 1 段上。Legendary の復刻品はまだ無い（Legendary の都で）
+  const epic = [...Object.entries(DIG_SITES).filter(([sec]) => SECTORS.find((x) => x.id === sec)?.tier === 'E').flatMap(([, d]) => [...d.topics, ...d.finds]), ...Object.values(DUNGEON_FINDS).flatMap((x) => x.E ?? [])];
+  for (const id of epic) if (!out.has(id) && !own.has(id % 1000)) out.set(id, relicDef(id, 'U', true, true));
   return [...out.values()];
 })();
 for (const p of RELICS) PRODUCT[p.key] = p;
@@ -2505,7 +2707,8 @@ for (const p of RELICS) PRODUCT[p.key] = p;
  * - Common・Uncommon：制限なし（いまの商品・復刻品がいまどおり売れる）。
  * - Rare：Rare の 4 町の荒れ地（お題・出土品）のシリーズの Rare の復刻品だけが売れる。いまの商品（Common は commonPull のまま）・
  *   Common・Uncommon の復刻品はいまどおり。Common・Uncommon のダンジョンで出た Rare のシリーズは入れない（Rare の町では売れない）。
- * - Epic・Legendary（まだ無い。soon）：これまでの各ダンジョンで掘った Rare 以上のシリーズを「骨董の需要」（antique）として入れる前提のデータだけ。
+ * - Epic（段 H1）：Epic の 3 町の荒れ地のシリーズの Epic の復刻品・Rare の荒れ地のシリーズの Rare の復刻品 ＋ これまでの各ダンジョンで掘った
+ *   Rare 以上のシリーズの「骨董の需要」（antique。値段と需要は ANTIQUE）。Legendary（まだ無い。soon）は骨董のデータだけ。
  * relics・antique はシリーズの key。町ごとの違いは無し（ランクの単位で決める）
  */
 export interface SeriesMarket {
@@ -2519,22 +2722,46 @@ export interface SeriesMarket {
 export const MARKET_SERIES: Record<Tier, SeriesMarket> = (() => {
   const uniq = (xs: number[]) => [...new Set(xs.map((e) => seriesOf(e)))].sort();
   const rDig = uniq(Object.entries(DIG_SITES).filter(([id]) => id.startsWith('r')).flatMap(([, d]) => [...d.topics, ...d.finds]));
-  // 骨董の需要：Common・Uncommon・Rare のダンジョンの奥で出る Rare 以上のシリーズ
+  const eDig = uniq(Object.entries(DIG_SITES).filter(([id]) => id.startsWith('e')).flatMap(([, d]) => [...d.topics, ...d.finds]));
+  // 骨董の需要：これまでの各ダンジョン（Common・Uncommon・Rare・Epic のセクタ）の奥で出る Rare 以上のシリーズ（荒れ地のシリーズとは重ならない）
   const antique = uniq(Object.values(DUNGEON_FINDS).flatMap((x) => [...(x.R ?? []), ...(x.E ?? []), ...(x.L ?? [])]));
-  return { C: {}, U: {}, R: { relics: rDig }, E: { soon: true, antique }, L: { soon: true, antique } };
+  // Epic の町 ①（段 H1）：Epic の町では、Epic の荒れ地のシリーズの Epic の復刻品・Rare の荒れ地のシリーズの Rare の復刻品（前のランクの復刻品）・骨董が売れる
+  return { C: {}, U: {}, R: { relics: rDig }, E: { relics: [...new Set([...rDig, ...eDig])].sort(), antique }, L: { soon: true, antique } };
 })();
-/** その復刻品が、そのランクの町で売れるか（Rare 以上の復刻品だけ市場で決まる。ほかはいつも売れる） */
+/** 復刻品のランク（Rare 以上の復刻品：Rare・Epic。ほかは null） */
+export const relicTier = (p: Pick<ProductDef, 'relic'> | undefined): Tier | null => (p?.relic?.epic ? 'E' : p?.relic?.rare ? 'R' : null);
+/** その復刻品が、そのランクの町で骨董として売れるか（段 H1：ダンジョンで掘った Rare 以上のシリーズ。Epic 以上の町だけ） */
+export function isAntique(p: Pick<ProductDef, 'relic'> | undefined, tier: Tier): boolean {
+  if (!p?.relic?.rare) return false;
+  const m = MARKET_SERIES[tier];
+  if (m.soon || !m.antique || !m.relics) return false;
+  return m.antique.includes(seriesOf(p.relic.ext));
+}
+/**
+ * その復刻品が、そのランクの町で売れるか（Rare 以上の復刻品だけ市場で決まる。ほかはいつも売れる）。
+ * 町より上のランクの復刻品（Rare の町の Epic の復刻品）は、シリーズが同じでもその町では売れない
+ */
 export function relicSells(p: Pick<ProductDef, 'relic'> | undefined, tier: Tier): boolean {
   if (!p?.relic?.rare) return true;
   const m = MARKET_SERIES[tier];
   if (m.soon || !m.relics) return true;
+  const order: Tier[] = ['C', 'U', 'R', 'E', 'L'];
+  if (order.indexOf(relicTier(p) ?? 'R') > order.indexOf(tier)) return false;
   const k = seriesOf(p.relic.ext);
   return m.relics.includes(k) || (m.antique ?? []).includes(k);
 }
+/**
+ * 骨董の値段と需要（段 H1：Epic の町の骨董の需要）：その復刻品の値段 × price・需要（復刻品 1 種の需要）× demand。
+ * 骨董は「掘ってきた人へのご褒美」：1 個は高いが、1 種の需要は復刻品より少ない（Epic の町の売上の柱は Epic の復刻品と商品）。docs/ISLAND_BALANCE.md の v23
+ */
+export const ANTIQUE = { price: 1.2, demand: 0.3 };
 /** その遺物（エクステの id）の復刻品。無ければ undefined */
 export const relicOf = (ext: number): ProductDef | undefined => PRODUCT[relicKey(ext)];
 
-/** 石板（読み物）。Common：栄えていた頃の Lime の職人の町／Uncommon：Lime がほかの国とつながって交易していた頃（9 つのランドの謎は伏線）／Rare：Lime がなぜ荒れたのか（9 つのランドの謎に一歩近づく） */
+/**
+ * 石板（読み物）。Common：栄えていた頃の Lime の職人の町／Uncommon：Lime がほかの国とつながって交易していた頃（9 つのランドの謎は伏線）／
+ * Rare：Lime がなぜ荒れたのか（9 つのランドの謎に一歩近づく）／Epic：裂けたあと、Lime の人々が何を残し、どう立て直そうとしたか
+ */
 export interface Tablet {
   id: string;
   sector: string;
@@ -2571,6 +2798,13 @@ export const TABLETS: Tablet[] = [
   { id: 'tab_r3b', sector: 'r3', title: t('裂け目', 'The rift'), text: t('ある夜、坑道の奥から大地が裂けた。裂け目は 9 つに広がり、ランドとランドを引き離した。', 'One night the earth split open from deep in the mines. The rift spread nine ways and pulled the lands apart.') },
   { id: 'tab_r4a', sector: 'r4', title: t('最後の船', 'The last ship'), text: t('最後の船がこの港を出たとき、海の向こうのルビーの灯は、もう霧の中だった。Lime は独りになった。', 'When the last ship left this harbor, the lights of Ruby across the sea were already lost in the mist. Lime was alone.') },
   { id: 'tab_r4b', sector: 'r4', title: t('もう一度ここから', 'From here, once more'), text: t('残った人々は町を捨てず、職人の技を紙に書き残した。いつか誰かが、もう一度ここから始められるように。', 'Those who stayed did not abandon the town. They wrote down the crafters’ skills, so that someday someone could begin again from here.') },
+  // Epic（段 H1：Epic の町 ①）：裂けたあと、Lime の人々が何を残し、どう立て直そうとしたか（集まって数え合う・分け合う・種を守る・掘りすぎない・灯をともす・返事）
+  { id: 'tab_e1a', sector: 'e1', title: t('寄り合いの鐘', 'The gathering bell'), text: t('裂けた夜が明けると、残った人々はこの丘に集まった。鐘を鳴らし、名前を呼び合って、ひとりずつ数えた。', 'When the night of the rift was over, those who were left gathered on this hill. They rang a bell, called each other’s names, and counted everyone, one by one.') },
+  { id: 'tab_e1b', sector: 'e1', title: t('分け合いの帳面', 'The sharing ledger'), text: t('人々は一冊の帳面に、持っている道具と食べ物を書き出した。足りない人には、ある人が分けた。奪い合いは、もうしないと決めた。', 'They listed every tool and every bit of food in a single ledger. Whoever had, shared with whoever lacked. They decided never to fight over things again.') },
+  { id: 'tab_e2a', sector: 'e2', title: t('守られた種', 'The saved seeds'), text: t('畑は裂け目に呑まれたが、ひと袋の種だけは残った。人々はそれを 9 つに分け、いつか会うランドのぶんも取っておいた。', 'The fields fell into the rift, but one bag of seeds was saved. They split it nine ways, keeping shares for the lands they hoped to meet again.') },
+  { id: 'tab_e2b', sector: 'e2', title: t('掘りすぎない約束', 'The promise not to over-dig'), text: t('「土は借りもの。掘ったら埋め戻す」――畑の石に刻まれた約束。Lime の人々は、栄えすぎた昔をくり返さないと誓った。', '“The earth is only lent to us. What you dig, fill back in.” — a promise carved on a field stone. Lime’s people swore never to repeat the days of too much.') },
+  { id: 'tab_e3a', sector: 'e3', title: t('太陽の塔', 'The sun tower'), text: t('人々は町でいちばん高い塔に灯をともした。霧の向こうのルビーやストロベリーのランドに、Lime がまだここにいると知らせるために。', 'They lit a beacon atop the tallest tower in town, to tell Ruby, Strawberry and the other lands beyond the mist that Lime was still here.') },
+  { id: 'tab_e3b', sector: 'e3', title: t('返事の光', 'An answering light'), text: t('ある晩、霧の向こうで小さな光がまたたいた。返事だったのかもしれない。9 つのランドは、まだ同じ空の下にある。', 'One night, a small light flickered beyond the mist. Perhaps it was an answer. The nine lands still lie under the same sky.') },
 ];
 export const TABLET: Record<string, Tablet> = Object.fromEntries(TABLETS.map((x) => [x.id, x]));
 
@@ -2597,6 +2831,10 @@ export const SECTOR_CHIEF: Record<string, number> = {
   r2: 14011, // マルクス（奪い合いの市）
   r3: 14007, // トーマス・エジソン（掘りすぎた坑道）
   r4: 14052, // フランシス・ドレーク（最後の船の港）
+  // Epic（RepS。段 H1）
+  e1: 15008, // 坂本龍馬（人と人をつないで立て直した町）
+  e2: 15011, // 卑弥呼（種と土への祈り・掘りすぎない約束）
+  e3: 15027, // ガリレオ・ガリレイ（空を見上げ、霧の向こうへ灯を送る塔）
 };
 
 /** 到着の案内の「この町の地層には[[〇〇]]が眠っているはず」（docs/ISLAND_PHASE1.md「お題・発表・調査依頼状」） */
@@ -2618,10 +2856,13 @@ export const DIG_THEME: Record<string, string> = {
   r2: t('奪い合いの市', 'the market of rivalry'),
   r3: t('掘りすぎた坑道', 'the over-dug mines'),
   r4: t('最後の船の港', 'the harbor of the last ship'),
+  e1: t('人々が集まった寄り合いの丘', 'the hill where people gathered'),
+  e2: t('守られた種の畑', 'the fields of the saved seeds'),
+  e3: t('霧へ灯を送る太陽の塔', 'the sun tower that sends light into the mist'),
 };
 
-/** 発掘の依頼の報酬（RP。セクタの id の頭の文字＝ランク：Common 40・Uncommon 80・Rare 200） */
-export const DIG_REQUEST_RP: Record<string, number> = { c: 40, u: 80, r: 200 };
+/** 発掘の依頼の報酬（RP。セクタの id の頭の文字＝ランク：Common 40・Uncommon 80・Rare 200・Epic 500） */
+export const DIG_REQUEST_RP: Record<string, number> = { c: 40, u: 80, r: 200, e: 500 };
 /** 発掘の依頼（セクタに 1 つ）：古い〇〇を掘り出す（お題以外の出土品から）。報酬は RP（Common 40・Uncommon 80・Rare 200） */
 export const DIG_REQUEST: Record<string, { ext: number; name: string; from: string }> = {
   c1: { ext: 1111, name: t('懐中時計', 'Pocket Watch'), from: t('タオックスの町内会', 'Taox council') },
@@ -2641,6 +2882,9 @@ export const DIG_REQUEST: Record<string, { ext: number; name: string; from: stri
   r2: { ext: 3105, name: t('女優鏡', 'Hollywood Mirror'), from: t('霞の市の芝居小屋', 'The haze-market playhouse') },
   r3: { ext: 3086, name: t('ステラアンモナイト', 'Stella Ammonite'), from: t('坑道の地質学者', 'A mine geologist') },
   r4: { ext: 3016, name: t('ウィズダムスクロール', 'Wisdom Scrolls'), from: t('港の記録係', 'The harbor archivist') },
+  e1: { ext: 4172, name: t('ワニ革財布', 'Crocodile Leather Wallet'), from: t('分け合いの帳面の係', 'The keeper of the sharing ledger') },
+  e2: { ext: 4184, name: t('光合成オオスカシバ', 'Photosynthetic Clearwing Moth'), from: t('畑の虫の博士', 'A field-insect scholar') },
+  e3: { ext: 4160, name: t('月明かりのハンギングアクアリウム', 'Moonlit Hanging Aquarium'), from: t('太陽の塔の灯守', 'The keeper of the sun tower’s light') },
 };
 
 // ---------------------------------------------------------------- 商品開発・宣伝・調査・依頼・給与
@@ -3024,10 +3268,12 @@ export const PR = {
 /**
  * 企業の格（段 G。計算は mkt.ts）：ブランド力から決まる段（無名 → 地元の店 → 地域の有名店 → 全国ブランド → 世界ブランド）。
  * at：段のしきい値（ブランド力。コーポレートアイデンティティで、数えるブランド力 +ci（Lv で ×1.25））。docs/ISLAND_BALANCE.md の v22 で決めた。
- * 効き目（小さく）：area＝Rare の町の自社の店の引き +area × 段・hire＝雇える候補の数（段ごと）。カリスマ度（雇えるレアリティ）とは別の軸
+ * 段 H1（v23）：世界ブランドを 800 → 1000 に。ブランド力の上限（BRAND_CAP）が Rare まで 800 なので、世界ブランドは Epic の町に出店してから
+ * （CI を Lv5 まで上げても Rare の上限 800 × 1.2 ＝ 960 で届かない）。地元の店・地域の有名店・全国ブランドは前のまま（通常・最短の Common〜Rare の格は変わらない）。
+ * 効き目（小さく）：area＝Rare・Epic の町の自社の店の引き +area × 段・hire＝雇える候補の数（段ごと）。カリスマ度（雇えるレアリティ）とは別の軸
  */
 export const GRADE = {
-  at: [0, 100, 250, 450, 800],
+  at: [0, 100, 250, 450, 1000],
   ci: 0.1,
   area: 0.03,
   hire: [0, 0, 1, 1, 2],

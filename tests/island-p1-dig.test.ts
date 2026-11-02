@@ -122,8 +122,8 @@ const findIn = (L: DigLayout, f: (it: DigItem) => boolean) => L.finds.find((x) =
 const digSectors = Object.keys(DIG_SITES);
 
 describe('荒れ地（未開拓エリア）の配置', () => {
-  it('発掘場のある 17 セクタ（C 8・U 5・R 4）に 2 × 2 の荒れ地が 4 か所（合計 16 マス）。重ならない・地図の内側・道路に面していない。Epic 以降は無し', () => {
-    expect(digSectors).toHaveLength(17);
+  it('発掘場のある 20 セクタ（C 8・U 5・R 4・E 3）に 2 × 2 の荒れ地が 4 か所（合計 16 マス）。重ならない・地図の内側・道路に面していない。Legendary は無し', () => {
+    expect(digSectors).toHaveLength(20);
     for (const id of digSectors) {
       const sp = wasteSpots(id);
       expect(sp, id).toHaveLength(WASTE.count);
@@ -141,7 +141,7 @@ describe('荒れ地（未開拓エリア）の配置', () => {
       // 4 つの象限に 1 つずつ（画面で見た向きの名前が全部ちがう）
       expect(new Set(sp.map((_, k) => wasteName(id, k))).size, id).toBe(4);
     }
-    expect(wasteSpots('e1')).toEqual([]);
+    expect(wasteSpots('l1')).toEqual([]);
     expect(wasteName('c1', 0)).toBe('北の荒れ地');
   });
 
@@ -188,7 +188,7 @@ describe('荒れ地（未開拓エリア）の配置', () => {
 });
 
 describe('荒れ地の正面の壁（発掘場）', () => {
-  it('Common は横 7 × 縦 9 × 奥行き 3 層、Uncommon は 4 層、Rare は 5 層が 4 か所。Epic 以降は無い', () => {
+  it('Common は横 7 × 縦 9 × 奥行き 3 層、Uncommon は 4 層、Rare は 5 層、Epic は 6 層が 4 か所。Legendary は無い', () => {
     const c = digLayouts('c1');
     expect(c).toHaveLength(4);
     for (const L of c) expect([L.tier, L.w, L.h, L.depth, L.cells.length, L.cells[0].hard.length]).toEqual(['C', 7, 9, 3, 63, 3]);
@@ -196,8 +196,9 @@ describe('荒れ地の正面の壁（発掘場）', () => {
     expect(u).toHaveLength(4);
     for (const L of u) expect([L.tier, L.w, L.h, L.depth]).toEqual(['U', 7, 9, 4]);
     for (const L of digLayouts('r1')) expect([L.tier, L.w, L.h, L.depth]).toEqual(['R', 7, 9, 5]);
-    expect(digLayout('e1')).toBeNull();
-    expect(newP1(1, 'E', 'e1').dig).toBeNull();
+    for (const L of digLayouts('e1')) expect([L.tier, L.w, L.h, L.depth]).toEqual(['E', 7, 9, 6]);
+    expect(digLayout('l1')).toBeNull();
+    expect(newP1(1, 'L', 'l1').dig).toBeNull();
   });
 
   it('配置はセクタの種から決まり、ゲームの種が違っても同じ（何度遊んでも同じ配置）', () => {
@@ -219,7 +220,7 @@ describe('荒れ地の正面の壁（発掘場）', () => {
         if (topics.length) {
           const tid = (topics[0].item as { id: number }).id;
           expect(L.topic).toBe(tid);
-          expect(topics[0].layer, `${id} ${tid}`).toBe(DIG_BALANCE.topicLayer[id.startsWith('r') ? 'R' : id.startsWith('u') ? 'U' : 'C'][DIG_SITES[id].topics.indexOf(tid)]);
+          expect(topics[0].layer, `${id} ${tid}`).toBe(DIG_BALANCE.topicLayer[id.startsWith('e') ? 'E' : id.startsWith('r') ? 'R' : id.startsWith('u') ? 'U' : 'C'][DIG_SITES[id].topics.indexOf(tid)]);
           all.push(tid);
         } else expect(L.topic).toBeNull();
         // お題以外の出土品は、そのセクタの finds から（何度も出る）
@@ -238,7 +239,8 @@ describe('荒れ地の正面の壁（発掘場）', () => {
       expect(tabs.length, id).toBe(Ls[0].tier === 'C' ? 1 : 2);
       // 1 か所の出土品の数は、v10 の断面（Common 140 マス・Uncommon 168 マス × エクステ 24%・素材 14%）と同じくらい
       const per = (k: DigItem['kind']) => Ls.flatMap((L) => L.finds).filter((f) => f.item.kind === k).length / Ls.length;
-      const old = Ls[0].tier === 'C' ? 140 : 168;
+      // Epic（段 H1）は層が 6 枚で、1 枚あたりの割合を少し下げた（1 か所の数は Rare より少し多い）
+      const old = Ls[0].tier === 'C' ? 140 : Ls[0].tier === 'E' ? 190 : 168;
       expect(per('ext'), id).toBeGreaterThan(old * 0.24 * 0.75);
       expect(per('ext'), id).toBeLessThan(old * 0.24 * 1.3);
       expect(per('mat'), id).toBeGreaterThan(old * 0.14 * 0.65);
@@ -253,10 +255,10 @@ describe('荒れ地の正面の壁（発掘場）', () => {
     for (const t of topics) expect(finds.has(t)).toBe(false);
     for (const [id, x] of Object.entries(DIG_SITES)) {
       expect([x.topics.length, x.finds.length], id).toEqual(id.startsWith('c') ? [3, 8] : [4, 10]);
-      for (const e of [...x.topics, ...x.finds]) expect(Math.floor(e / 1000), `${id} ${e}`).toBe(id.startsWith('c') ? 1 : id.startsWith('u') ? 2 : 3);
+      for (const e of [...x.topics, ...x.finds]) expect(Math.floor(e / 1000), `${id} ${e}`).toBe(id.startsWith('c') ? 1 : id.startsWith('u') ? 2 : id.startsWith('r') ? 3 : 4);
     }
-    // 石板は C 8 枚・U 10 枚・R 8 枚（Rare の町 ①。準備中の枠は無くなった）
-    expect(TABLETS.filter((x) => !x.soon)).toHaveLength(26);
+    // 石板は C 8 枚・U 10 枚・R 8 枚（Rare の町 ①）・E 6 枚（段 H1）
+    expect(TABLETS.filter((x) => !x.soon)).toHaveLength(32);
     expect(TABLETS.filter((x) => x.soon)).toHaveLength(0);
   });
 
@@ -626,7 +628,7 @@ describe('発掘隊（仕事「発掘」）', () => {
   });
 
   it('発掘場の無いセクタでは発掘の仕事に就けない', () => {
-    const s = newP1(1, 'E', 'e1');
+    const s = newP1(1, 'L', 'l1');
     expect(assign(s, 10001, 'dig')).toBe('no-site');
   });
 });
@@ -761,7 +763,7 @@ describe('調査依頼状', () => {
 describe('セーブ', () => {
   it('新しいゲームは版 6・30 RP。発掘の進み・許可・研究ノートはセーブに残る', () => {
     const s = run(site());
-    expect([s.v, s.rp]).toEqual([17, 30]);
+    expect([s.v, s.rp]).toEqual([18, 30]);
     breakCell(s, 0, 0);
     endRun(s);
     s.research[1011] = 3;
@@ -793,7 +795,7 @@ describe('セーブ', () => {
     const m0 = o.money;
     const old = deserializeP1(JSON.stringify(o))!;
     // 版 1 → 2 → 3 → 4 → 5 と順に移す
-    expect(old.v).toBe(17);
+    expect(old.v).toBe(18);
     expect(old.dig!.sites).toHaveLength(4);
     expect(old.skills).toEqual(expect.arrayContaining(['host', 'golden', 'jig', 'lounge', 'd_shop']));
     expect([lvOf(old, 'host'), lvOf(old, 'golden'), lvOf(old, 'lounge'), lvOf(old, 'd_shop')]).toEqual([3, 1, 1, 1]);
@@ -833,7 +835,7 @@ describe('セーブ', () => {
     o.tablets = ['tab_c1'];
     o.presented = [];
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(17);
+    expect(back.v).toBe(18);
     expect(back.rp).toBe(333);
     expect(back.research).toEqual({ [found]: 11, 1011: 4 });
     expect(back.tablets).toEqual(['tab_c1']);

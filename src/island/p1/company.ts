@@ -4,7 +4,7 @@
  * docs/ISLAND_PHASE1.md「ブランド力」「ランドマップとセクタ」「決算書」。
  */
 import { t } from '../../i18n';
-import { BRAND, MANAGER, P1B, RESET, SECTORS, type Stats, type Tier } from './data';
+import { BRAND, BRAND_CAP, MANAGER, P1B, RESET, SECTORS, type Stats, type Tier } from './data';
 
 // ---------------------------------------------------------------- ブランド力
 
@@ -14,11 +14,24 @@ export interface BrandEv {
   why: string;
 }
 
-/** ブランド力を上げ下げする（0〜BRAND.max）。履歴は新しい順に BRAND.log 件 */
-export function brandAdd(s: { brand?: number; brandLog?: BrandEv[]; day: number; brandPeak?: number }, d: number, why: string) {
+type BrandHolder = { brand?: number; brandLog?: BrandEv[]; day: number; brandPeak?: number; tier?: Tier; land?: { mine: string[] } };
+const CAP_ORDER: Tier[] = ['C', 'U', 'R', 'E', 'L'];
+/** 会社として出店したいちばん上のランク（いまの町と出店したセクタ） */
+export function topTierOf(s: { tier?: Tier; land?: { mine: string[] } }): Tier {
+  let k = CAP_ORDER.indexOf(s.tier ?? 'C');
+  for (const id of s.land?.mine ?? []) k = Math.max(k, CAP_ORDER.indexOf(SECTORS.find((x) => x.id === id)?.tier ?? 'C'));
+  return CAP_ORDER[Math.max(0, k)];
+}
+/**
+ * ブランド力の上限（段 H1：出店したいちばん上のランクで決まる。BRAND_CAP。Common 400 → Uncommon 600 → Rare 800 → Epic 1,200 → Legendary 1,600。
+ * BRAND.max はすべてのランクの上限）
+ */
+export const brandCap = (s: { tier?: Tier; land?: { mine: string[] } }) => Math.min(BRAND.max, BRAND_CAP[topTierOf(s)]);
+/** ブランド力を上げ下げする（0〜いまの上限 brandCap）。履歴は新しい順に BRAND.log 件。上限より上にいるときは上がらない（下がるのはそのまま） */
+export function brandAdd(s: BrandHolder, d: number, why: string) {
   if (!d) return;
   const before = s.brand ?? 0;
-  s.brand = Math.max(0, Math.min(BRAND.max, before + d));
+  s.brand = d > 0 ? Math.max(before, Math.min(brandCap(s), before + d)) : Math.max(0, before + d);
   // いちばん高かった値（カリスマ度のブランドの分。段 E2。下がっても減らない）
   s.brandPeak = Math.max(s.brandPeak ?? 0, s.brand);
   const real = s.brand - before;

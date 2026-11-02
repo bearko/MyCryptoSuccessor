@@ -15,9 +15,9 @@
 import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { icon } from '../../ui/dom';
-import { PRODUCT, TABLET, type Mat } from './data';
+import { PRODUCT, TABLET, type Mat, type Tier } from './data';
 import { RARITY_JA } from '../../game/catalog';
-import { assign, blast, blastCost, blastSize, dig, digRepeatMs, digSite, drill, drillLen, DRILL_FUEL, extName, extRank, extRarity, hasBlast, hasDrill, layersOf, rareRelicsOpen, sessionSec, type DigErr, type DigHit, type DigItem, type DigLayout, type RunEnd } from './model';
+import { assign, blast, blastCost, blastSize, dig, digRepeatMs, digSite, drill, drillLen, DRILL_FUEL, extName, extRank, extRarity, hasBlast, hasDrill, layersOf, epicRelicsOpen, rareRelicsOpen, sessionSec, type DigErr, type DigHit, type DigItem, type DigLayout, type RunEnd } from './model';
 import { DEEP_LOCK, DUNGEON_TAB, EPIC_VALUE_TEXT, RARE_RELIC_NOTE, seriesTag, anyPeek, autoDiggers, biggestFx, cellView, crewCount, digBlock, digErrText, digRec, digSpec, digSpecText, digStatus, dungeonNotes, findLabel, fxOf, gotLines, lockedLayer, nextLvText, noteEntries, noteTablets, noteTabs, noteTotals, relicLine, runBar, stars, type CellView } from './digview';
 import { AGAIN_TIP, DEEP_TIP, MEET_WALL, PEEK_TIP } from './digmeet';
 import { pickHero } from './heroui';
@@ -1036,12 +1036,12 @@ export function openNotes(ctx: Ctx, o: { fromDig?: DigHooks; sector?: string } =
       if (!noteTab) return;
       // ダンジョン：入り口が見つかったセクタごとに、奥で出る上のランクの遺物（未発見はシルエット）
       if (noteTab === DUNGEON_TAB) {
-        body.append(h('p', 'isl-dim isl-note-dnote', RARE_RELIC_NOTE(rareRelicsOpen(s))));
+        body.append(h('p', 'isl-dim isl-note-dnote', RARE_RELIC_NOTE(rareRelicsOpen(s), epicRelicsOpen(s))));
         for (const d of dungeonNotes(s)) {
           body.append(h('h4', 'isl-note-h', d.best != null ? t(`${d.name}のダンジョン（最深 ${d.best} 層）`, `${d.name} dungeon (deepest ${d.best})`) : t(`${d.name}のダンジョン`, `${d.name} dungeon`)));
           for (const r of d.ranks) {
             const g = h('div', 'isl-note-grid');
-            for (const e of r.items) g.append(noteCard(e, r.tier, rareRelicsOpen(s)));
+            for (const e of r.items) g.append(noteCard(e, r.tier, rareRelicsOpen(s), epicRelicsOpen(s), s.tier));
             const rn = RARITY_JA[TIER_RARITY[r.tier]];
             body.append(h('small', `isl-note-rank is-${r.tier}`, t(`${rn}（奥の層ほど出やすい）`, `${rn} (more likely deeper)`)), g);
           }
@@ -1053,11 +1053,11 @@ export function openNotes(ctx: Ctx, o: { fromDig?: DigHooks; sector?: string } =
       // お題（上の層から）
       body.append(h('h4', 'isl-note-h', t('お題（各層に 1 つ。そろえて町の長に発表）', 'Targets (one per layer; find all and present)')));
       const tg = h('div', 'isl-note-grid');
-      for (const e of list.filter((x) => x.topic)) tg.append(noteCard(e, undefined, rareRelicsOpen(s)));
+      for (const e of list.filter((x) => x.topic)) tg.append(noteCard(e, undefined, rareRelicsOpen(s), epicRelicsOpen(s), s.tier));
       body.append(tg);
       body.append(h('h4', 'isl-note-h', t('出土品（何度も出る。重なるほど研究 Lv が上がる）', 'Finds (repeat finds raise research level)')));
       const fg = h('div', 'isl-note-grid');
-      for (const e of list.filter((x) => !x.topic)) fg.append(noteCard(e, undefined, rareRelicsOpen(s)));
+      for (const e of list.filter((x) => !x.topic)) fg.append(noteCard(e, undefined, rareRelicsOpen(s), epicRelicsOpen(s), s.tier));
       body.append(fg);
       // 石板（読み物）
       body.append(h('h4', 'isl-note-h', t('石板', 'Tablets')));
@@ -1102,17 +1102,18 @@ function closeNotes() {
   x?.click();
 }
 
-function noteCard(e: ReturnType<typeof noteEntries>[number], tier?: string, rareOpen = false): HTMLElement {
+function noteCard(e: ReturnType<typeof noteEntries>[number], tier?: string, rareOpen = false, epicOpen = false, here?: Tier): HTMLElement {
   const c = h('div', `isl-note-card ${e.n ? '' : 'is-unknown'} ${e.topic ? 'is-topic' : ''} ${tier ? `is-r${tier}` : ''}`);
   if (e.topic) c.append(h('span', 'isl-note-topic', t('お題', 'Target')));
   const pic = h('span', 'isl-note-pic');
   pic.append(extIcon(e.id, 64));
   c.append(pic, h('b', 'isl-note-name', e.n ? e.name : t('？？？', '???')), h('span', `isl-note-stars ${e.lv >= 5 ? 'is-max' : ''}`, stars(e.lv)), h('small', 'isl-dim', nextLvText(e)));
   // 復刻品：研究 Lv3 でレシピ（見つけたものだけ）
-  const rl = e.n ? relicLine(e, rareOpen) : null;
+  const rl = e.n ? relicLine(e, rareOpen, epicOpen) : null;
   if (rl) c.append(h('small', `isl-note-relic ${rl[1] ? 'is-on' : ''}`, rl[0]));
   // 売れるシリーズの札（Rare の復刻品のあるエクステ。見つけたものだけ）
-  const sg = e.n ? seriesTag(e.id) : null;
+  // 段 H1：Epic の町の中では「骨董として人気」「Epic の町で売れる」（緑）
+  const sg = e.n ? seriesTag(e.id, here === 'E' ? 'E' : undefined) : null;
   if (sg) c.append(h('small', `isl-note-series ${sg[1] ? 'is-good' : 'is-bad'}`, sg[0]));
   if (e.n) c.title = t(`研究 Lv${e.lv}（掘った数 ${e.n}）`, `Research Lv${e.lv} (dug ${e.n})`);
   return c;

@@ -80,7 +80,8 @@ function lotOf(s: P1State, id: string): [number, number, 'rd' | 'ld' | 'lu' | 'r
 describe('復刻品のデータ', () => {
   it('発掘で出るエクステ 1 つに 1 つ（いまの 17 商品とキーが重ならない）。ランクは出たセクタのランク（Rare はアンコモンの格で作る Rare の復刻品）', () => {
     // Rare の町 ①：Rare の荒れ地の出土品と、ダンジョンの奥で出る Rare のエクステにも復刻品
-    const ids = new Set([...Object.values(DIG_SITES).flatMap((d) => [...d.topics, ...d.finds]), ...Object.values(DUNGEON_FINDS).flatMap((x) => x.R ?? [])]);
+    // 段 H1：Epic の荒れ地の出土品と、ダンジョンの奥で出る Epic のエクステにも（Epic の復刻品）
+    const ids = new Set([...Object.values(DIG_SITES).flatMap((d) => [...d.topics, ...d.finds]), ...Object.values(DUNGEON_FINDS).flatMap((x) => [...(x.R ?? []), ...(x.E ?? [])])]);
     expect(RELICS).toHaveLength(ids.size);
     for (const p of RELICS) {
       expect(isRelic(p.key)).toBe(true);
@@ -88,6 +89,7 @@ describe('復刻品のデータ', () => {
       expect(PRODUCT[p.key]).toBe(p);
       expect(p.relic!.rank).toBe(p.relic!.ext < 2000 ? 'C' : 'U');
       expect(!!p.relic!.rare).toBe(p.relic!.ext >= 3000);
+      expect(!!p.relic!.epic).toBe(p.relic!.ext >= 4000);
       expect(p.tech).toBeUndefined();
     }
     expect(relicOf(1122)?.name).toContain('復刻');

@@ -559,7 +559,7 @@ function rival(ctx: Ctx, b: PBuilding, body: HTMLElement, hooks: TileHooks): HTM
   // 商圏の取り合い（Rare の町 ②）：この店の取り分と撤退の危険
   const ar = s.area?.stores.find((x) => x.uid === b.uid);
   if (ar) {
-    const r = storeRisk(ar);
+    const r = storeRisk(ar, s);
     stat(grid, t('この店の商圏の取り分', 'This store’s share'), t(`${pct(ar.share)}（開店 ${pct(ar.share0)}）`, `${pct(ar.share)} (open ${pct(ar.share0)})`), r.below ? 'is-good' : '');
     stat(grid, t('撤退の危険', 'Closing risk'), r.below ? t(`あり（あと ${Math.max(1, RARE_AREA.quitMonths - ar.weak)} か月）`, `Yes (${Math.max(1, RARE_AREA.quitMonths - ar.weak)} mo)`) : t('なし', 'None'), r.below ? 'is-good' : '');
   }

@@ -12,7 +12,7 @@ import { icon } from '../../ui/dom';
 import { DEF, artId } from '../defs';
 import { effectDone, image, loading, pick, waterFrame, type Camera, type Effect } from '../render';
 import { cells, type Dir } from '../sim';
-import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, HERO_RARITY, MORALE, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO, ACCT_INTRO, CS_INTRO } from './data';
+import { AWARE_GOODS, BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, TOP_STREAK, introFirstStep, isResearchPage, RARE_TEASER, EPIC_TEASER, LEGAL_INTRO, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, HERO_RARITY, MORALE, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO, ACCT_INTRO, CS_INTRO } from './data';
 import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
 import { bandText } from './deleg';
 import { openDeleg, openProps } from './delegui';
@@ -106,6 +106,7 @@ import {
   openHire,
   openInvest,
   openMA,
+  openLegal,
   openMissions,
   openPayroll,
   openRanking,
@@ -585,6 +586,8 @@ const SUBS: Partial<Record<Menu, Sub[]>> = {
     { key: 'books', name: t('決算書', 'Statements'), note: t('P/L・B/S・コストと助言', 'P/L, B/S, costs, advice'), go: () => openBooks(ctx) },
   ],
   general: [{ key: 'env', name: t('疲れと職場の環境', 'Fatigue & workplace'), note: t('疲れ・休ませる・設備', 'Fatigue, rest, facilities'), go: () => openGaScreen() }],
+  // 法務（段 H1：Epic の町に進出すると開く）。中身は次の更新（段 H2：契約・特許・争い・M&A）の札だけ
+  legal: [{ key: 'legal', name: t('契約・特許・争い', 'Contracts, patents, disputes'), note: t('次の更新', 'Next update'), go: () => openLegal(ctx) }],
   systems: [
     { key: 'invest', name: t('設備投資', 'Investment'), note: t('建物ごとの設備', 'Per-building upgrades'), go: () => openInvest(ctx), needs: 'workshop' },
     { key: 'pace', name: t('進行速度', 'Game speed'), note: t('標準・1.5 倍・2 倍', 'Normal, 1.5×, 2×'), go: () => openPace() },
@@ -1757,8 +1760,8 @@ function showLetter(rp: number, letter: Tier | null, chief: number | null, left 
     card.append(crown);
   }
   if (letter) {
-    // 調査依頼状の仮の絵：MCH のエクステ「スクロール」（Uncommon）・「エリートスクロール」（Rare）・「ウィズダムスクロール」（Epic）。docs/ISLAND_ART_TODO.md
-    const icon = letter === 'U' ? 1016 : letter === 'R' ? 2016 : 3016;
+    // 調査依頼状の仮の絵：MCH のエクステ「スクロール」（Uncommon）・「エリートスクロール」（Rare）・「ウィズダムスクロール」（Epic）・「大唐西域記」（Legendary。段 H1）。docs/ISLAND_ART_TODO.md
+    const icon = letter === 'U' ? 1016 : letter === 'R' ? 2016 : letter === 'E' ? 3016 : 5016;
     card.append(extIcon(icon, 128), h('b', 'isl-letter-name', t(`${TIER_NAME[letter]} の調査依頼状`, `${TIER_NAME[letter]} survey request`)));
     if (chief != null) card.append(h('small', 'isl-dim', t(`町の長 ${heroName(chief)}より`, `From town head ${heroName(chief)}`)));
   }
@@ -1774,7 +1777,7 @@ function showLetter(rp: number, letter: Tier | null, chief: number | null, left 
   modal(
     conquered ? t('👑 研究成果を発表して制覇！', '👑 Findings presented — sector conquered!') : letter ? t('📜 調査依頼状を受け取った！', '📜 Survey request received!') : t('研究成果を発表した！', 'Findings presented!'),
     body,
-    letter === 'U' || letter === 'R' ? [[t('ランドマップを見る', 'Open land map'), then(() => openLand(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]] : [[t('スキルツリーを開く', 'Open skills'), then(() => openSkills(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]],
+    letter === 'U' || letter === 'R' || letter === 'E' ? [[t('ランドマップを見る', 'Open land map'), then(() => openLand(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]] : [[t('スキルツリーを開く', 'Open skills'), then(() => openSkills(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]],
     true,
   );
   root.querySelector('.isl-modal:last-of-type')?.classList.add('is-letter');
@@ -1845,8 +1848,10 @@ function afterMove(target: string, fresh: boolean, manager: number | null) {
 function arrive(target: string, fresh: boolean, manager: number | null, reset: boolean) {
   const d = sectorDef(target);
   const resetPage: TutPage[] = reset ? [{ text: t('ここからまた一から！ でも[[研究ポイント]]とヒーローはそのまま。被災した町は、ヒーローに[[復興]]を任せることもできるよ。', 'Starting over from here! But your [[research points]] and heroes are still with you. You can leave the ruined towns’ [[recovery]] to a hero.') }] : [];
-  // Rare の町 ①：Rare の町に初めて着いたとき、次の更新（他店から客を奪う出店）の予告を 1 枚
+  // Rare の町 ①：Rare の町に初めて着いたとき、商圏の取り合いの 1 枚
   if (fresh && d.tier === 'R') resetPage.push({ text: RARE_TEASER() });
+  // 段 H1：Epic の町に初めて着いたとき、骨董の需要の紹介と次の更新（他社の買収）の予告を 1 枚
+  if (fresh && d.tier === 'E') resetPage.push({ text: EPIC_TEASER() });
   // 被災した町に初めて戻ったとき（1 回だけ）
   const ruinPage: TutPage[] = !fresh && ruinsOf(s).length && !s.flags.ruinTalk ? [{ text: t('[[廃墟]]をタップすると修繕できるよ。手で直すほうが安上がり！', 'Tap a [[ruin]] to repair it. Fixing it by hand is cheaper!') }] : [];
   if (ruinPage.length) s.flags.ruinTalk = true;
@@ -1934,10 +1939,12 @@ function sectorChecks() {
     showIntro(introPages());
     return;
   }
-  const lands: [Tier, 'landCommon' | 'landUncommon' | 'landRare', string, string][] = [
+  const lands: [Tier, 'landCommon' | 'landUncommon' | 'landRare' | 'landEpic', string, string][] = [
     ['C', 'landCommon', t('Common ランド制覇！', 'Common lands conquered!'), t(`Common の ${playable('C').length} つのセクタすべてで 1 位になったよ！ 次は Uncommon のセクタで、アンコモンを並べて 1 位を目指そう。`, `You were #1 in all ${playable('C').length} Common sectors! Next, aim for #1 in the Uncommon sectors with Uncommon goods.`)],
     ['U', 'landUncommon', t('Uncommon ランド制覇！', 'Uncommon lands conquered!'), t(`Uncommon の ${playable('U').length} つのセクタすべてで 1 位になったよ！ 次は Rare のセクタで、アンコモンと Rare の復刻品で 1 位を目指そう。`, `You were #1 in all ${playable('U').length} Uncommon sectors! Next, aim for #1 in the Rare sectors with Uncommons and Rare revivals.`)],
-    ['R', 'landRare', t('Rare ランド制覇！', 'Rare lands conquered!'), t(`Rare の ${playable('R').length} つのセクタすべてで 1 位になったよ！ Epic の町は、まだ雲の向こう。`, `You were #1 in all ${playable('R').length} Rare sectors! The Epic towns are still beyond the clouds.`)],
+    ['R', 'landRare', t('Rare ランド制覇！', 'Rare lands conquered!'), t(`Rare の ${playable('R').length} つのセクタすべてで 1 位になったよ！ 次は Epic のセクタで、Epic の復刻品と骨董で 1 位を目指そう。`, `You were #1 in all ${playable('R').length} Rare sectors! Next, aim for #1 in the Epic sectors with Epic revivals and antiques.`)],
+    // 段 H1：Epic の 3 町すべてで 👑
+    ['E', 'landEpic', t('Epic ランド制覇！', 'Epic lands conquered!'), t(`Epic の ${playable('E').length} つのセクタすべてで 1 位になったよ！ ランドの真ん中の Legendary の都は、まだ雲の向こう。`, `You were #1 in all ${playable('E').length} Epic sectors! The Legendary capital at the heart of the land is still beyond the clouds.`)],
   ];
   for (const [tier, flag, title, body] of lands) {
     if (s.flags[flag] || !landCleared(s, tier)) continue;
@@ -3599,6 +3606,7 @@ function renderAll() {
   salesTalk();
   acctTalk();
   csTalk();
+  legalTalk();
   // 撤退した他社の店のシャッター：報告・画面を閉じて地図が見えたら
   if (pendingShutter.length && !root.querySelector('.isl-modal, .isl-rp-reveal') && !sheetOpen()) playShutters();
 }
@@ -3607,6 +3615,7 @@ function deptChecks() {
   const had = s.flags.depts?.includes('sales');
   const hadAcct = s.flags.depts?.includes('accounting');
   const hadCs = s.flags.depts?.includes('support');
+  const hadLegal = s.flags.depts?.includes('legal');
   const news = deptNews(s);
   if (!news.length) return;
   for (const n of news) toast(n);
@@ -3616,6 +3625,8 @@ function deptChecks() {
   else if (!hadAcct && s.flags.depts?.includes('accounting')) newDeptBanner('accounting');
   // カスタマーサポート（段 G。経理・総務より後に開いたとき＝段 G の前のセーブで Uncommon にいる）
   else if (!hadCs && s.flags.depts?.includes('support')) newDeptBanner('support');
+  // 法務（段 H1。Epic の町に初めて進出）：部門の演出と紹介だけ（中身は次の更新）
+  else if (!hadLegal && s.flags.depts?.includes('legal')) newDeptBanner('legal');
   save();
 }
 /** 「新しい部門」の演出：画面の真ん中に部門のアイコンと名前（光って消える） */
@@ -3664,6 +3675,18 @@ function csTalk() {
     CS_INTRO().map((text) => ({ text })),
     t('問い合わせを開く', 'Open inquiries'),
     () => goSub('support', 'inbox'),
+  );
+}
+/** 法務の部門の紹介（マインちゃん。Epic の町に初めて進出したあと 1 回だけ。段 H1 は紹介だけで、中身は次の更新） */
+function legalTalk() {
+  // 災害の演出・到着の案内が終わってから（同じときに 2 つの会話を重ねない）
+  if (s.flags.legalTalk || !s.flags.depts?.includes('legal') || tutStep() || root.querySelector('.isl-modal, .isl-disaster') || sheetOpen() || placing || s.tier !== 'E' || needsIntro() || pendingReset(s) || moving) return;
+  s.flags.legalTalk = true;
+  save();
+  talk(
+    LEGAL_INTRO().map((text) => ({ text })),
+    t('法務を開く', 'Open Legal'),
+    () => goSub('legal', 'legal'),
   );
 }
 const csHooks = () => ({ skills: () => panelsOf('support'), sat: () => openSatScreen(), inbox: () => openInboxScreen(), pr: () => openPrScreen() });

@@ -89,8 +89,9 @@ describe('正面の壁：手前から 1 枚ずつ', () => {
 
   it('奥の層ほど硬い（Common：表土 1・粘土層 1〜2・岩盤 2〜3／Uncommon：2〜3・3・3〜4・4〜5。v13）。面の色も奥ほど暗い', () => {
     // Rare の町 ①：Rare は Uncommon から 1 段上（5 層）
-    expect(DIG_BALANCE.hard).toEqual({ C: [[1, 1], [1, 2], [2, 3]], U: [[2, 3], [3, 3], [3, 4], [4, 5]], R: [[3, 4], [4, 4], [4, 5], [5, 6], [6, 7]] });
-    for (const t of ['C', 'U', 'R'] as const) {
+    // 段 H1：Epic は Rare から 1 段上（6 層）
+    expect(DIG_BALANCE.hard).toEqual({ C: [[1, 1], [1, 2], [2, 3]], U: [[2, 3], [3, 3], [3, 4], [4, 5]], R: [[3, 4], [4, 4], [4, 5], [5, 6], [6, 7]], E: [[4, 5], [5, 5], [5, 6], [6, 7], [7, 8], [8, 9]] });
+    for (const t of ['C', 'U', 'R', 'E'] as const) {
       const lum = (hex: string) => [1, 3, 5].reduce((a, i) => a + parseInt(hex.slice(i, i + 2), 16), 0);
       const ls = DIG[t].layers;
       for (let n = 1; n < ls.length; n++) {
@@ -334,7 +335,7 @@ describe('セーブ：版 4 → 5（上から掘る断面 → 正面の壁）', 
 
   it('掘りかけは新しい壁で作り直す。許可・掘りきりの印はそのまま（掘りきった荒れ地は全部いちばん奥まで）', () => {
     const s = v4();
-    expect(s.v).toBe(17);
+    expect(s.v).toBe(18);
     const d = s.dig!;
     expect(d.sites.map((x) => [x.permit, x.done])).toEqual([
       [true, false],

@@ -6,7 +6,7 @@ import { t } from '../../i18n';
 import { allSeries, heroById } from '../../game/catalog';
 import { DEF } from '../defs';
 import { cells, type Dir } from '../sim';
-import { book, brandAdd, brandPull, emptyLedger, newBooks, newLand, reviveMonth, reviveScale, ruinCount, runSector, sectorDef, sectorProfile, type BrandEv, type Books, type Land, type LedgerKey, type ReviveMonth, type RuinLike } from './company';
+import { book, brandAdd, brandCap, brandPull, emptyLedger, newBooks, newLand, reviveMonth, reviveScale, ruinCount, runSector, sectorDef, sectorProfile, type BrandEv, type Books, type Land, type LedgerKey, type ReviveMonth, type RuinLike } from './company';
 import {
   ADS,
   levelCost,
@@ -48,6 +48,11 @@ import {
   UNCOMMON_RIVAL,
   RIVAL_TUNE,
   RARE_AREA,
+  areaTuneOf,
+  hasArea,
+  ANTIQUE,
+  isAntique,
+  relicTier,
   BUILD_CATS,
   BRAND,
   TIERS,
@@ -365,6 +370,8 @@ export interface Flags {
   landUncommon?: boolean;
   /** Rare ランド制覇のお祝いを見た（Rare の町 ①） */
   landRare?: boolean;
+  /** Epic ランド制覇のお祝いを見た（段 H1：Epic の町 ①） */
+  landEpic?: boolean;
   /** 市場データを開いたセクタ（id）。2 か所目以降のリサーチの案内に使う */
   dataSeen?: string[];
   /** スキルツリーの開いた外周（U・R・E・L）。そのランクのセクタに出店したあと、ツリーを開いたときの演出で開く */
@@ -407,6 +414,8 @@ export interface Flags {
   acctTalk?: boolean;
   /** カスタマーサポートの紹介（マインちゃん。Uncommon の町に初めて進出したあと、経理・総務の紹介のあとに 1 回。段 G） */
   csTalk?: boolean;
+  /** 法務の部門の紹介（マインちゃん。Epic の町に初めて進出したあと 1 回。段 H1。中身は次の更新） */
+  legalTalk?: boolean;
 }
 
 export interface P1State {
@@ -414,7 +423,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18;
   kind: 'p1';
   seed: number;
   n: number;
@@ -607,6 +616,11 @@ export interface ResetRec {
   levy: number;
   grant: number;
   ruins: Record<string, number>;
+  /**
+   * 災害で失わずに、行き先の町の倉庫へ運んだ骨董（段 H1：行き先のランクで骨董として売れる復刻品。SKU → 個数）。
+   * 被災した町の倉庫・お店の裏・棚にあったもの（Rare の町では売れないので貯めておいたもの）
+   */
+  keep?: Record<string, number>;
   /** 演出（サインとハンコ）を見た */
   seen?: boolean;
 }
@@ -736,7 +750,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 17,
+    v: 18,
     kind: 'p1',
     seed,
     n,
@@ -791,8 +805,8 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
     ...extras(),
   };
   populate(s);
-  // Rare の町 ②：他社の店ごとの商圏（開店のときの取り分）
-  if (tier === 'R') initArea(s);
+  // Rare の町 ②：他社の店ごとの商圏（開店のときの取り分）。Epic の町にも（段 H1）
+  if (hasArea(tier)) initArea(s);
   s.hirePool = pickHires(s);
   return s;
 }
@@ -807,9 +821,10 @@ export const tierOk = (p: ProductDef, tier: Tier) => TIER_ORDER.indexOf(p.tier ?
 export function baseDemand(p: ProductDef, tier: Tier, prof?: SectorProfile): number {
   if (!tierOk(p, tier)) return 0;
   // 復刻品：どのセクタでも売れる（昔の Lime の品として人気）。ランクの需要 × 町の大きさ（家の数）に比例。
-  // ただし Rare 以上の復刻品は、そのランクの町の売れるシリーズ（MARKET_SERIES）に無ければ需要 0（売れない）
+  // ただし Rare 以上の復刻品は、そのランクの町の売れるシリーズ（MARKET_SERIES）に無ければ需要 0（売れない）。
+  // 骨董（段 H1：Epic の町のダンジョンの Rare 以上のシリーズ）は 1 種の需要が少ない（ANTIQUE.demand。値段は priceOf で高く）
   if (p.relic && !relicSells(p, tier)) return 0;
-  if (p.relic) return p.demand * TIERS[tier].demand * (prof?.homes ?? 1);
+  if (p.relic) return p.demand * TIERS[tier].demand * (prof?.homes ?? 1) * (isAntique(p, tier) ? ANTIQUE.demand : 1);
   const niche = p.tech && !prof?.gap?.includes(p.key) ? MARKET.niche : 1;
   return p.demand * TIERS[tier].demand * (prof?.demand?.[p.key] ?? 1) * niche;
 }
@@ -872,9 +887,9 @@ function populate(s: P1State) {
   const nHomes = Math.round(46 * ((s.n * s.n) / (N * N)) * (sectorProfile(s).homes ?? 1));
   for (let k = 0; k < nHomes; k++) placeTown(s, homes[Math.floor(r() * homes.length)], r, 'town');
   // Rare の町 ②：他社の店が乱立する町。1 社 RARE_AREA.stores 軒（2 軒目からは、ほかの店から離れた所。住宅のあと＝住宅の並びは前と同じ）
-  if (s.tier === 'R') {
+  if (hasArea(s.tier)) {
     const rr = rng(s.seed + 977);
-    for (let k = 1; k < RARE_AREA.stores; k++) for (const rv of rivalsOf(s.sector)) placeSpread(s, rv.store, rr, rv.id);
+    for (let k = 1; k < areaTuneOf(s.tier).stores; k++) for (const rv of rivalsOf(s.sector)) placeSpread(s, rv.store, rr, rv.id);
   }
 }
 
@@ -1997,8 +2012,8 @@ export const recipeOf = (x: Sku) => {
   return PRODUCT[k].recipe[r];
 };
 
-/** 復刻品を作る職人の製造の適性（アンコモンの格は UNCOMMON.minCraft・Rare の復刻品はそれより 1 段上） */
-export const relicMinCraft = (key: string) => (PRODUCT[key]?.relic?.rare ? DIG_BALANCE.relic.rare.minCraft : UNCOMMON.minCraft);
+/** 復刻品を作る職人の製造の適性（アンコモンの格は UNCOMMON.minCraft・Rare の復刻品はそれより 1 段上・Epic の復刻品はさらに 1 段上（段 H1）） */
+export const relicMinCraft = (key: string) => (PRODUCT[key]?.relic?.epic ? DIG_BALANCE.relic.epic.minCraft : PRODUCT[key]?.relic?.rare ? DIG_BALANCE.relic.rare.minCraft : UNCOMMON.minCraft);
 /** その職人で作れるか（レアリティ・材料・設備） */
 export function craftCheck(s: P1State, x: Sku, worker: number | null): string | null {
   const [k, r] = skuParts(x);
@@ -2502,10 +2517,12 @@ const rallyMul = (s: P1State) => ((s.rally ?? 0) > 0 ? 1 + (MARKET.rally - 1) * 
 /** 撤退した他社の店の跡（空き店舗）の持ち主 */
 export const VACANT = 'vacant';
 export const isVacant = (b: { owner: Owner }) => b.owner === VACANT;
-/** Rare の町の来やすさ（RARE_AREA.d0 マスで半分） */
-export const reachR = (d: number) => 1 / (1 + (d / RARE_AREA.d0) ** 2);
-/** 地図の商圏の塗りの来やすさ（Rare の町は RARE_AREA.d0。ほかは MARKET.d0） */
-export const reachOf = (s: Pick<P1State, 'area'>, d: number) => (s.area ? reachR(d) : reach(d));
+/** いまの町の商圏の取り合いの数字（Rare は RARE_AREA・Epic は EPIC_AREA。段 H1） */
+export const AR = (s: Pick<P1State, 'tier'>) => areaTuneOf(s.tier);
+/** Rare・Epic の町の来やすさ（d0 マスで半分。Rare は RARE_AREA.d0・Epic は EPIC_AREA.d0） */
+export const reachR = (d: number, d0 = RARE_AREA.d0) => 1 / (1 + (d / d0) ** 2);
+/** 地図の商圏の塗りの来やすさ（Rare・Epic の町はそのランクの d0。ほかは MARKET.d0） */
+export const reachOf = (s: Pick<P1State, 'area' | 'tier'>, d: number) => (s.area ? reachR(d, AR(s).d0) : reach(d));
 /** 営業のパネル：地域密着（自社の店の引き +10%）・ロードサイド（自社の店の商圏の距離 +15%）・差別化の売り場（他社の店の引き −6%）・撤退の交渉（空き店舗の費用 −20%） */
 export const localMul = (s: P1State) => 1 + 0.1 * lvMul(s, 'sa_local');
 export const roadMul = (s: P1State) => 1 + 0.15 * lvMul(s, 'sa_road');
@@ -2518,16 +2535,16 @@ export const rivalStores = (s: P1State) => {
 /** 他社の店の引きの倍率（Rare）：巻き返しのセール中（残りの月に比例して弱まる）・差別化の売り場 */
 export function rivalAreaMul(s: P1State, rid: string): number {
   const c = s.comeback;
-  const sale = c && c.rid === rid && c.left > 0 ? 1 + RARE_AREA.sale * Math.min(1, c.left / saleOf(s).months) : 1;
+  const sale = c && c.rid === rid && c.left > 0 ? 1 + AR(s).sale * Math.min(1, c.left / saleOf(s).months) : 1;
   return sale * edgeMul(s);
 }
 /** 他社の店の本店・支店の引きの倍率（本店 1・支店 RARE_AREA.branch） */
-export const storeMul = (s: P1State, uid: number) => (s.area?.stores.find((x) => x.uid === uid)?.main === false ? RARE_AREA.branch : 1);
+export const storeMul = (s: P1State, uid: number) => (s.area?.stores.find((x) => x.uid === uid)?.main === false ? AR(s).branch : 1);
 /** 他社の店の引き（扱う商品の強さの平均 × ランクの倍率 × RARE_AREA.pull × 本店・支店 × 反撃・セール・差別化）。uid が無ければ本店として */
 export function rivalStorePull(s: P1State, rid: string, uid?: number): number {
   const v = Object.values(rivalDef(rid)?.sells ?? {}).filter((x): x is number => (x ?? 0) > 0);
   const mean = v.length ? v.reduce((a, x) => a + x, 0) / v.length : 1;
-  return RARE_AREA.pull * mean * TIERS[s.tier ?? 'R'].rival * rallyMul(s) * rivalAreaMul(s, rid) * (uid != null ? storeMul(s, uid) : 1);
+  return AR(s).pull * mean * TIERS[s.tier ?? 'R'].rival * rallyMul(s) * rivalAreaMul(s, rid) * (uid != null ? storeMul(s, uid) : 1);
 }
 /** 自社の店の引き（棚の商品のうち、いちばん強い売り場の強さ × 認知度 × 地域密着）。工事中・棚が空・売れない商品だけなら 0 */
 export function myStorePull(s: P1State, b: PBuilding): number {
@@ -2559,6 +2576,7 @@ function areaFrac(s: P1State, offers: AreaOffer[]): number[] {
   const ec = has(s, 'ec');
   const ecFloor = Math.min(1, MARKET_EC.floor * lvMul(s, 'ec'));
   const road = roadMul(s);
+  const d0 = AR(s).d0;
   const w = offers.map(() => 0);
   const groups = [...new Set(offers.map((o) => o.g))];
   const gmax: Record<string, number> = {};
@@ -2566,7 +2584,7 @@ function areaFrac(s: P1State, offers: AreaOffer[]): number[] {
   for (const k of list) {
     offers.forEach((o, n) => {
       const d = Math.abs(o.i - k.i) + Math.abs(o.j - k.j);
-      const r0 = reachR(o.g === 'me' ? d / road : d);
+      const r0 = reachR(o.g === 'me' ? d / road : d, d0);
       w[n] = o.w * (o.g === 'me' && ec ? Math.max(ecFloor, r0) : r0);
     });
     for (const g of groups) gmax[g] = gsum[g] = 0;
@@ -2642,21 +2660,24 @@ export function areaBaseMul(s: P1State, rid: string): number {
   if (!a) return 1;
   const sum0 = a.sum0[rid] ?? 0;
   if (sum0 <= 0) return 0;
-  return a.stores.filter((x) => x.rid === rid).reduce((v, x) => v + Math.min(RARE_AREA.cap * x.share0, x.share), 0) / sum0;
+  const cap = AR(s).cap;
+  return a.stores.filter((x) => x.rid === rid).reduce((v, x) => v + Math.min(cap * x.share0, x.share), 0) / sum0;
 }
 /** 店の取り分の割合（いま ÷ 開店のとき）と、撤退の危険（0〜1：取り分が quitAt を下回った月の続き ÷ quitMonths。下回っていなければ 0） */
-export function storeRisk(x: AreaStore): { ratio: number; risk: number; below: boolean } {
+export function storeRisk(x: AreaStore, s?: Pick<P1State, 'tier'>): { ratio: number; risk: number; below: boolean } {
+  const A = s ? AR(s) : RARE_AREA;
   const ratio = x.share / x.share0;
-  const below = ratio < RARE_AREA.quitAt;
-  return { ratio, below, risk: below ? Math.min(1, (x.weak + 1) / RARE_AREA.quitMonths) : 0 };
+  const below = ratio < A.quitAt;
+  return { ratio, below, risk: below ? Math.min(1, (x.weak + 1) / A.quitMonths) : 0 };
 }
 /** 自社のいまの取り分の合計 */
 export const myShare = (s: P1State) => Object.values(s.area?.mine ?? {}).reduce((a, x) => a + x, 0);
 /** 空き店舗に他社が入るか（撤退の refill か月後から毎月 refillChance・refillMax か月で必ず）。シードと日と店で決まる（同じセーブなら同じ） */
 export function refillDue(s: P1State, v: AreaVacant): boolean {
-  if (v.months < RARE_AREA.refill) return false;
-  if (v.months >= RARE_AREA.refillMax) return true;
-  return rng((s.seed >>> 0) + s.day * 13 + v.uid * 7919)() < RARE_AREA.refillChance;
+  const A = AR(s);
+  if (v.months < A.refill) return false;
+  if (v.months >= A.refillMax) return true;
+  return rng((s.seed >>> 0) + s.day * 13 + v.uid * 7919)() < A.refillChance;
 }
 /**
  * 空き店舗に入る他社：営業している他社のうち前の会社でない、いちばん大きい会社。いなければ、町から撤退した会社が戻ってくる
@@ -2674,11 +2695,11 @@ function refillBy(s: P1State, was: string): { r: RivalState; back: boolean } | n
   return r3 ? { r: r3, back: false } : null;
 }
 /**
- * 商圏の取り合いは Rare の町だけ。Rare の町から Common・Uncommon の町へ戻ったとき（とそのセーブ）に残った商圏は外し、
+ * 商圏の取り合いは Rare・Epic の町だけ。Rare・Epic の町から Common・Uncommon の町へ戻ったとき（とそのセーブ）に残った商圏は外し、
  * その町で「撤退した」ことになった他社は戻す（前の版の不具合：前の Rare の町の商圏で、その町の他社が全部撤退していた）
  */
 export function dropStaleArea(s: P1State) {
-  if (s.tier === 'R') return;
+  if (hasArea(s.tier)) return;
   delete s.area;
   for (const r of s.rivals) if (r.gone) rivalBack(s, r);
 }
@@ -2738,9 +2759,9 @@ export function areaMonth(s: P1State): NonNullable<Report['trade']> {
   }
   // 撤退：取り分が quitAt を下回った月の続き
   for (const x of [...a.stores]) {
-    const { below } = storeRisk(x);
+    const { below } = storeRisk(x, s);
     x.weak = below ? x.weak + 1 : 0;
-    if (x.weak < RARE_AREA.quitMonths) continue;
+    if (x.weak < AR(s).quitMonths) continue;
     const b = s.buildings.find((y) => y.uid === x.uid);
     if (b) b.owner = VACANT;
     a.stores = a.stores.filter((y) => y !== x);
@@ -2760,7 +2781,7 @@ export function areaMonth(s: P1State): NonNullable<Report['trade']> {
   return out;
 }
 /** 空き店舗に入る費用（建物の値段 × RARE_AREA.vacant.cost。撤退の交渉で −20%／Lv の倍率。内装だけ） */
-export const vacantCost = (s: P1State, kind = 'general_store') => Math.round((P1B[kind]?.cost ?? 0) * RARE_AREA.vacant.cost * Math.max(0.2, 1 - 0.2 * lvMul(s, 'sa_nego')));
+export const vacantCost = (s: P1State, kind = 'general_store') => Math.round((P1B[kind]?.cost ?? 0) * AR(s).vacant.cost * Math.max(0.2, 1 - 0.2 * lvMul(s, 'sa_nego')));
 /** 空き店舗に入れるか（理由。null なら入れる） */
 export function vacantErr(s: P1State, uid: number, kind = 'general_store'): PlaceErr | null {
   const b = s.buildings.find((x) => x.uid === uid);
@@ -2781,7 +2802,7 @@ export function takeVacant(s: P1State, uid: number, kind = 'general_store'): PBu
   deduct(s, 'capex', cost);
   b.id = kind;
   b.owner = 'me';
-  b.left = RARE_AREA.vacant.days;
+  b.left = AR(s).vacant.days;
   delete b.inv;
   if (s.area) {
     s.area.vacant = s.area.vacant.filter((x) => x.uid !== uid);
@@ -3343,7 +3364,7 @@ export function step(s: P1State): DayResult {
   const today: Partial<Record<string, number>> = {};
   syncRelics(s);
   // 商圏の取り合い（Rare の町 ②）：古いセーブ・ほかのセクタの写しから戻った Rare の町は、いまの他社の店から作り直す
-  if (s.tier === 'R' && !s.area) initArea(s);
+  if (hasArea(s.tier) && !s.area) initArea(s);
   areaTick(s);
   for (const p of productsOf(s)) {
     const mine = s.holdSales ? [] : myOffers(s, p.key, true);
@@ -3558,6 +3579,11 @@ export function endMonth(s: P1State): Report {
     // 復刻品の独占のあいだは、どの他社も真似しない（数えるのは続ける。切れた月の締めで 1 社目が真似を始める）
     if (p.relic && monopolyLeft(s, p.key) > 0) {
       s.alone[p.key] = Math.min(entryAfter, s.alone[p.key] ?? 0);
+      continue;
+    }
+    // 骨董（段 H1：Epic の町のダンジョン由来の Rare 以上の復刻品）は、他社が手に入れられないので真似しない（Epic の他社の sells に入れない）
+    if (antiqueHere(s, p.key)) {
+      s.alone[p.key] = 0;
       continue;
     }
     // 独占が切れた月の締め（まだどこも真似していない）：独占の月数が ENTRY_AFTER より短くても、ここで 1 社目（v13：monopolyMonths 3）
@@ -3967,8 +3993,9 @@ function relicDemand(s: P1State) {
 export function openRelic(s: P1State, ext: number): string | null {
   const p = relicOf(ext);
   if (!p || researchLv(s.research?.[ext] ?? 0) < DIG_BALANCE.relic.openLv) return null;
-  // Rare の復刻品は、Rare の町に進出してから（Rare の町 ①。研究 Lv3 のまま待っていたものは、進出したときに syncRelics で開く）
-  if (p.relic?.rare && !rareRelicsOpen(s)) return null;
+  // Rare の復刻品は、Rare の町に進出してから（Rare の町 ①。研究 Lv3 のまま待っていたものは、進出したときに syncRelics で開く）。
+  // Epic の復刻品は、Epic の町に進出してから（段 H1。同じ流儀）
+  if (p.relic?.rare && !relicTierOpen(s, relicTier(p) ?? 'R')) return null;
   s.recipes ??= {};
   if (s.recipes[p.key]) return null;
   s.recipes[p.key] = { at: s.day };
@@ -3977,8 +4004,17 @@ export function openRelic(s: P1State, ext: number): string | null {
   prNews(s, 'product', t(`復刻品『${p.name}』を発売`, `Launched the revival ${p.name}`));
   return p.key;
 }
+/** 会社としてそのランク（以上）の町に進出したことがある（いまいる町・出店したセクタ） */
+export const tierEntered = (s: Pick<P1State, 'land' | 'tier'>, tier: Tier) => {
+  const k = TIER_ORDER.indexOf(tier);
+  return TIER_ORDER.indexOf(s.tier ?? 'C') >= k || (s.land?.mine ?? []).some((id) => TIER_ORDER.indexOf(SECTORS.find((x) => x.id === id)?.tier ?? 'C') >= k);
+};
 /** Rare の復刻品のレシピが開く時期：会社として Rare の町に進出した（Rare の町 ①） */
-export const rareRelicsOpen = (s: Pick<P1State, 'land' | 'tier'>) => s.tier === 'R' || (s.land?.mine ?? []).some((id) => SECTORS.find((x) => x.id === id)?.tier === 'R');
+export const rareRelicsOpen = (s: Pick<P1State, 'land' | 'tier'>) => tierEntered(s, 'R');
+/** Epic の復刻品のレシピが開く時期：会社として Epic の町に進出した（段 H1：Epic の町 ①） */
+export const epicRelicsOpen = (s: Pick<P1State, 'land' | 'tier'>) => tierEntered(s, 'E');
+/** そのランクの復刻品（Rare・Epic）のレシピが開く時期になった */
+export const relicTierOpen = (s: Pick<P1State, 'land' | 'tier'>, tier: Tier) => (tier === 'E' ? epicRelicsOpen(s) : rareRelicsOpen(s));
 /** 研究 Lv3 以上なのにまだ開いていない復刻品を開き、このセクタの需要をそろえる（以前のセーブ・セクタの移動） */
 export function syncRelics(s: P1State) {
   s.recipes ??= {};
@@ -4047,9 +4083,9 @@ export function relicMarket(s: P1State): RelicRow[] {
 }
 /** まだ開いていない復刻品のうち、研究 Lv が高い順（市場データの「研究 Lv3 で開く」のシルエット） */
 export function relicsSoon(s: Pick<P1State, 'recipes' | 'research'> & Partial<Pick<P1State, 'land' | 'tier'>>, n = 3): { p: ProductDef; lv: number }[] {
-  // Rare の復刻品は、Rare の町に進出してから（それまでは「もうすぐ」に出さない）
-  const rare = rareRelicsOpen({ land: s.land, tier: s.tier });
-  return RELICS.filter((p) => !s.recipes?.[p.key] && (s.research?.[p.relic!.ext] ?? 0) > 0 && (!p.relic!.rare || rare))
+  // Rare の復刻品は、Rare の町に進出してから（それまでは「もうすぐ」に出さない）。Epic の復刻品は Epic の町に進出してから
+  const at = { land: s.land, tier: s.tier };
+  return RELICS.filter((p) => !s.recipes?.[p.key] && (s.research?.[p.relic!.ext] ?? 0) > 0 && (!p.relic!.rare || relicTierOpen(at, relicTier(p) ?? 'R')))
     .map((p) => ({ p, lv: researchLv(s.research[p.relic!.ext] ?? 0) }))
     .sort((a, b) => b.lv - a.lv || a.p.key.localeCompare(b.p.key))
     .slice(0, n);
@@ -4057,8 +4093,12 @@ export function relicsSoon(s: Pick<P1State, 'recipes' | 'research'> & Partial<Pi
 
 export const skuOf = (key: string, r: Rar = 'C') => sku(key, r);
 /** 売るときの値段（スキル「プレミアム価格」で +15%） */
-/** 値段（段 F：Uncommon からの町は × priceMul） */
-export const priceOf = (s: P1State, x: Sku) => Math.round(skuPrice(x) * priceMul(s) * (1 + 0.15 * lvMul(s, 'b_premium')) * (has(s, 'dyn') && sellersOf(s, skuParts(x)[0]) <= 1 ? 1 + 0.08 * lvMul(s, 'dyn') : 1) * (1 + fxSum(s, 'price')));
+/** 値段（段 F：Uncommon からの町は × priceMul。段 H1：Epic の町の骨董は × ANTIQUE.price） */
+export const priceOf = (s: P1State, x: Sku) => Math.round(skuPrice(x) * priceMul(s) * antiqueMul(s, skuParts(x)[0]) * (1 + 0.15 * lvMul(s, 'b_premium')) * (has(s, 'dyn') && sellersOf(s, skuParts(x)[0]) <= 1 ? 1 + 0.08 * lvMul(s, 'dyn') : 1) * (1 + fxSum(s, 'price')));
+/** この町で骨董として売れる商品（段 H1：Epic の町で、ダンジョンで掘った Rare 以上のシリーズの復刻品） */
+export const antiqueHere = (s: Pick<P1State, 'tier'>, key: string) => isAntique(PRODUCT[key], s.tier ?? 'C');
+/** 骨董の値段の倍率（この町で骨董なら ANTIQUE.price。ほかは 1） */
+export const antiqueMul = (s: Pick<P1State, 'tier'>, key: string) => (antiqueHere(s, key) ? ANTIQUE.price : 1);
 /** そのお店で売るときの値段（セット販売：2 種類以上並べているお店で +5%） */
 export function priceAt(s: P1State, x: Sku, sh: ShopState | null): number {
   const kinds = sh ? new Set(sh.shelves.filter((y) => !!y)).size : 0;
@@ -4075,7 +4115,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -4136,7 +4176,14 @@ export function deserializeP1(json: string): P1State | null {
     // 疲れはいまのスタミナの見せ方なので、移すものは無い
     // 版 16 → 17（段 G：カスタマーサポートとマーケ）：顧客満足度は CS.start・問い合わせの受け箱は空・炎上の予告は無し（s.cs は、はじめて使うときに作る）。
     // 企業の格はブランド力から数えるので、移すものは無い
-    s.v = 17;
+    // 版 17 → 18（段 H1：Epic の町 ①）：Epic の町が遊べるように。Epic に出店済みのセーブは無い。Rare の 2 つの町で発表して受け取っていた
+    // Epic の調査依頼状はそのまま残す（そのまま Epic へ出店できる）。倉庫の骨董（ダンジョン由来の Rare 以上の復刻品）はそのまま。
+    // ブランド力の上限が出店したいちばん上のランクで決まるようになった（BRAND_CAP）ので、上限より上のブランド力は上限に（いちばん高かった値＝カリスマ度の分は残す）
+    if (o.v < 18) {
+      s.brandPeak = Math.max(s.brandPeak ?? 0, s.brand ?? 0);
+      s.brand = Math.min(s.brand ?? 0, brandCap(s));
+    }
+    s.v = 18;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);
@@ -4175,7 +4222,7 @@ export function deserializeP1(json: string): P1State | null {
     // 版 8 → 9（発掘 v2 の 8 段目）：他社の巻き返しは無し（0）から
     s.comeback ??= null;
     migrateEquipSkills(s);
-    if (s.tier === 'R' && !s.area) initArea(s);
+    if (hasArea(s.tier) && !s.area) initArea(s);
     dropStaleArea(s);
     return s;
   } catch {
@@ -5125,10 +5172,10 @@ function strSeed(x: string): number {
   return h >>> 0;
 }
 
-/** 発掘場のあるセクタ（Common・Uncommon・Rare で出土品の決まったセクタ）のランク。無ければ null */
+/** 発掘場のあるセクタ（Common・Uncommon・Rare・Epic で出土品の決まったセクタ）のランク。無ければ null */
 export function digTierOf(sector: string): DigTier | null {
   const tier = SECTORS.find((x) => x.id === sector)?.tier;
-  return DIG_SITES[sector] && (tier === 'C' || tier === 'U' || tier === 'R') ? tier : null;
+  return DIG_SITES[sector] && (tier === 'C' || tier === 'U' || tier === 'R' || tier === 'E') ? tier : null;
 }
 
 // ---------------------------------------------------------------- 荒れ地（未開拓エリア）
@@ -5219,10 +5266,15 @@ export function extRarity(id: number): string {
 /** エクステのランク（C・U・R・E・L。カタログのレアリティから） */
 const RARITY_TIER: Record<string, Tier> = { Common: 'C', Uncommon: 'U', Rare: 'R', Epic: 'E', Legendary: 'L' };
 export const extRank = (id: number): Tier => RARITY_TIER[extRarity(id)] ?? 'C';
-/** 埋まっているものの大きさ（横 × 縦）：Epic 以上のエクステは 2 × 2（4 マス）、ほかは 1 × 1 */
-export function findSize(it: DigItem): [number, number] {
+/**
+ * 埋まっているものの大きさ（横 × 縦）：Epic 以上のエクステは 2 × 2（4 マス）、ほかは 1 × 1。
+ * tier（壁のセクタのランク）を渡すと、そのランクまでのエクステは 1 × 1（段 H1：Epic の町の荒れ地の Epic の出土品はふつうの大きさ。
+ * 2 × 2 は「本来このセクタでは手に入らない」上のランクの大きな遺物）。Common〜Rare のセクタは前のまま
+ */
+export function findSize(it: DigItem, tier?: Tier): [number, number] {
   if (it.kind !== 'ext') return [1, 1];
   const r = extRarity(it.id);
+  if (tier && TIER_UP.indexOf(extRank(it.id)) <= TIER_UP.indexOf(tier)) return [1, 1];
   return r === 'Epic' || r === 'Legendary' ? [2, 2] : [1, 1];
 }
 /** 埋まっているものの範囲のマス（k） */
@@ -5236,7 +5288,7 @@ export const findCells = (L: Pick<DigLayout, 'w'>, f: Pick<DigFind, 'x' | 'y' | 
  * 配置（digLayouts）と、4 段目のダンジョンの奥の Epic（2 × 2）・テストで使う
  */
 export function placeFind(L: DigLayout, item: DigItem, x: number, y: number, layer: number): DigFind | null {
-  const size = findSize(item);
+  const size = findSize(item, L.tier);
   if (x < 0 || y < 0 || x + size[0] > L.w || y + size[1] > L.h || layer < 0 || layer >= L.depth) return null;
   const f: DigFind = { item, x, y, size, layer };
   const cells = findCells(L, f);
@@ -5306,7 +5358,7 @@ export function digLayouts(sector: string, round = 0): DigLayout[] {
     const L: DigLayout = { sector, tier, site: sk, w: D.w, h: D.h, depth, cells, finds: [], at: new Array<number>(D.w * D.h * depth).fill(-1), topic: tk != null ? site.topics[tk] : null };
     // 空いている所（その層で、範囲のどのマスにもまだ何も無い）にランダムに
     const putSomewhere = (item: DigItem, layer: number) => {
-      const [sw, sh] = findSize(item);
+      const [sw, sh] = findSize(item, tier);
       for (let guard = 0; guard < 200; guard++) {
         const x = Math.floor(r() * (D.w - sw + 1));
         const y = Math.floor(r() * (D.h - sh + 1));
@@ -5324,7 +5376,7 @@ export function digLayouts(sector: string, round = 0): DigLayout[] {
         const roll = r();
         const item: DigItem | null = roll < odds.ext ? { kind: 'ext', id: pick(site.finds) } : roll < odds.ext + odds.mat ? { kind: 'mat', mat: pick(matBag), n: D.mat } : null;
         if (!item || L.at[k * depth + layer] >= 0) continue;
-        const f: DigFind = { item, x: k % D.w, y: Math.floor(k / D.w), size: findSize(item), layer };
+        const f: DigFind = { item, x: k % D.w, y: Math.floor(k / D.w), size: findSize(item, tier), layer };
         if (findCells(L, f).every((c) => c < D.w * D.h && L.at[c * depth + layer] < 0) && f.x + f.size[0] <= D.w) placeFind(L, item, f.x, f.y, layer);
       }
     out.push(L);
@@ -5389,7 +5441,7 @@ export function dungeonLayout(sector: string, runs: number): DigLayout | null {
         item = { kind: 'ext', id: pick(pool.length ? pool : site.finds) };
       } else if (roll < B.odds.ext + B.odds.mat) item = { kind: 'mat', mat: pick(matBag), n: D.mat };
       if (!item || L.at[k * depth + layer] >= 0) continue;
-      const f: DigFind = { item, x: k % D.w, y: Math.floor(k / D.w), size: findSize(item), layer };
+      const f: DigFind = { item, x: k % D.w, y: Math.floor(k / D.w), size: findSize(item, tier), layer };
       if (f.x + f.size[0] <= D.w && f.y + f.size[1] <= D.h && findCells(L, f).every((c) => L.at[c * depth + layer] < 0)) placeFind(L, item, f.x, f.y, layer);
     }
   }
@@ -6448,8 +6500,8 @@ export function digDepthLayer(s: Pick<P1State, 'dig'>): number {
   if (!L || !st) return 0;
   return Math.min(L.depth - 1, Math.max(0, ...st.depth));
 }
-/** 発表すると受け取る調査依頼状（Common → Uncommon・Uncommon → Rare。Rare → Epic は枠だけ：Epic の町はまだ雲の向こう） */
-const NEXT_TIER: Partial<Record<Tier, Tier>> = { C: 'U', U: 'R', R: 'E' };
+/** 発表すると受け取る調査依頼状（Common → Uncommon・Uncommon → Rare・Rare → Epic。Epic → Legendary は枠だけ：Legendary の都はまだ雲の向こう） */
+const NEXT_TIER: Partial<Record<Tier, Tier>> = { C: 'U', U: 'R', R: 'E', E: 'L' };
 /** research：お題はそろったが、出土品の条件（Uncommon。この町で掘った数）が足りない */
 export type PresentErr = 'no-site' | 'not-yet' | 'research' | 'done';
 /** その町の荒れ地（ダンジョンを除く）で、この周回に掘り出した数（発掘 v2 の 7 段目） */
@@ -6526,7 +6578,7 @@ export function present(s: P1State): { rp: number; letter: Tier | null; conquere
   gainRp(s, v);
   // ヒーローの育成：研究成果の発表で強化アイテム（そのランクの昇格の証）
   gainItem(s, HERO_GROWTH.items.present[tier]);
-  // 調査依頼状：そのランクの 2 つのセクタで発表したら（LETTER_NEED。Common → U・Uncommon → R・Rare → E（枠だけ））
+  // 調査依頼状：そのランクの 2 つのセクタで発表したら（LETTER_NEED。Common → U・Uncommon → R・Rare → E・Epic → L（枠だけ））
   const next = NEXT_TIER[tier] ?? null;
   const letter = next && !s.letters.includes(next) && presentedOf(s, tier) >= letterNeed(tier) ? next : null;
   if (letter) s.letters.push(letter);
@@ -6603,7 +6655,7 @@ export function ensureDig(s: P1State) {
   if (s.dig && s.buildings) syncRevive(s);
 }
 /** 版 3 の断面（横 7・上から掘る形）の、層ごとの行数 */
-const OLD_ROWS: Record<DigTier, number[]> = { C: [7, 7, 6], U: [6, 6, 6, 6], R: [] };
+const OLD_ROWS: Record<DigTier, number[]> = { C: [7, 7, 6], U: [6, 6, 6, 6], R: [], E: [] };
 /** 版 3・4 の断面（上から掘る形）で崩していた、いちばん深い層の数（掘れる層の下限に残す。版 3 → 4 の移し替えで使う） */
 export function oldDigDeep(s: Pick<P1State, 'dig'>): Partial<Record<DigTier, number>> {
   const out: Partial<Record<DigTier, number>> = {};

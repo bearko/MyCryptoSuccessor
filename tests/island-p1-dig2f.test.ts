@@ -138,9 +138,10 @@ describe('1. RP はレアリティで変わらない', () => {
       expect(v).toBeGreaterThanOrEqual(avgU * DIG_BALANCE.relic.priceMul * 0.88);
       expect(v).toBeLessThanOrEqual(avgU * DIG_BALANCE.relic.priceMul * 1.12);
     }
-    // Rare の町 ①：Rare の復刻品は Rare のエクステだけ（作るのはアンコモンの格）。Epic 以上の復刻品はまだ無い
+    // Rare の町 ①：Rare の復刻品は Rare のエクステ（作るのはアンコモンの格）。段 H1：Epic の復刻品は Epic のエクステ。Legendary の復刻品はまだ無い
     expect(RELICS.every((p) => p.relic!.rank === 'C' || p.relic!.rank === 'U')).toBe(true);
-    expect(RELICS.filter((p) => p.relic!.rare).every((p) => extRank(p.relic!.ext) === 'R')).toBe(true);
+    expect(RELICS.filter((p) => p.relic!.rare && !p.relic!.epic).every((p) => extRank(p.relic!.ext) === 'R')).toBe(true);
+    expect(RELICS.filter((p) => p.relic!.epic).every((p) => extRank(p.relic!.ext) === 'E')).toBe(true);
   });
 });
 
@@ -302,7 +303,7 @@ describe('3. 研究への寄付（お金で RP・回数の上限なし）', () =
     donate(s);
     donate(s);
     const back = deserializeP1(serializeP1(s))!;
-    expect([back.v, donations(back), nextDonateCost(back)]).toEqual([17, 2, 26400]);
+    expect([back.v, donations(back), nextDonateCost(back)]).toEqual([18, 2, 26400]);
   });
 });
 
@@ -315,7 +316,7 @@ describe('4. Uncommon のお題に、この町で掘った数（v14：研究 Lv 
   };
   it('お題がそろっても、出土品 2 種をこの町で 10 個ずつ掘っていなければ鍵（research）。会社の研究 Lv は数えない。そろえば発表できる（RP。Rare の依頼状は 2 つ目の町で）', () => {
     const s = uTown();
-    expect(DIG_BALANCE.presentRes).toEqual({ U: { n: 2, dug: 10 }, R: { n: 2, dug: 12 } });
+    expect(DIG_BALANCE.presentRes).toEqual({ U: { n: 2, dug: 10 }, R: { n: 2, dug: 12 }, E: { n: 2, dug: 14 } });
     expect(presentLock(s)).toBe('research');
     expect(presentRes(s)).toMatchObject({ have: 0, need: 2, dug: 10 });
     expect(present(s)).toBe('research');
@@ -377,7 +378,7 @@ describe('5. 古いセーブ（版 6 → 7）', () => {
     o.v = 6;
     delete o.rpBuys;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(17);
+    expect(back.v).toBe(18);
     expect(donations(back)).toBe(0);
     for (const id of INF_PANELS) expect(lvOf(back, id)).toBe(0);
     expect(presentLock(back)).toBe('done');

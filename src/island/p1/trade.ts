@@ -5,7 +5,7 @@
 import { t } from '../../i18n';
 import { DEF } from '../defs';
 import { RARE_AREA, rivalDef, P1B, SALES_SKILLS } from './data';
-import { allowedDirs, areaShares, has, isVacant, myShops, myShare, myStorePull, newStorePull, reachR, rivalStorePull, rivalStores, roadMul, storeRisk, vacantCost, type AreaStore, type AreaVacant, type P1State, type PBuilding } from './model';
+import { AR, allowedDirs, areaShares, has, isVacant, myShops, myShare, myStorePull, newStorePull, reachR, rivalStorePull, rivalStores, roadMul, storeRisk, vacantCost, type AreaStore, type AreaVacant, type P1State, type PBuilding } from './model';
 import type { Dir } from '../sim';
 
 /** 支店の名前（1 軒目は本店。ほかは駅・公園の近くか、町の方角で） */
@@ -75,7 +75,7 @@ export function storeRows(s: P1State): StoreRow[] {
   if (!a) return [];
   return a.stores
     .map((x: AreaStore): StoreRow => {
-      const r = storeRisk(x);
+      const r = storeRisk(x, s);
       return { uid: x.uid, rid: x.rid, name: storeName(s, x.uid, x.rid), share: x.share, share0: x.share0, ratio: r.ratio, risk: r.risk, weak: x.weak, below: r.below };
     })
     .sort((p, q) => q.risk - p.risk || p.ratio - q.ratio);
@@ -153,13 +153,14 @@ export function areaPaint(s: P1State): ({ g: string; v: number } | null)[] {
     ...rivalStores(s).map((b) => ({ i: b.i, j: b.j, w: rivalStorePull(s, b.owner, b.uid), g: b.owner })),
   ].filter((o) => o.w > 0);
   const road = roadMul(s);
+  const d0 = AR(s).d0;
   for (let j = 0; j < s.n; j++)
     for (let i = 0; i < s.n; i++) {
       const best: Record<string, number> = {};
       let sum = 0.3;
       for (const o of offers) {
         const d = Math.abs(o.i - i) + Math.abs(o.j - j);
-        const v = o.w * reachR(o.g === 'me' ? d / road : d);
+        const v = o.w * reachR(o.g === 'me' ? d / road : d, d0);
         best[o.g] = Math.max(best[o.g] ?? 0, v);
       }
       for (const v of Object.values(best)) sum += v;

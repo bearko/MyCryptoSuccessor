@@ -7,7 +7,7 @@
 import { DEF } from '../defs';
 import { cells } from '../sim';
 import { acctReset } from './acct';
-import { MANAGER, P1B, SECTORS, SKILL, grantOf, isResearch, type Tier } from './data';
+import { MANAGER, P1B, PRODUCT, SECTORS, SKILL, grantOf, isAntique, isResearch, skuParts, type Sku, type Tier } from './data';
 import { book, delegateCostOf, repairCostOf, repairDaysOf, repairOrder, ruinCount, RUIN, sectorDef, type Land, type RuinLike, type SectorRec } from './company';
 import { assign, newDig, reviveMul, spend, staffOf, wasteSpots, type DigState, type P1State, type PBuilding, type ResetRec } from './model';
 
@@ -30,6 +30,32 @@ export function rankUpTier(s: Pick<P1State, 'land'>, target: string): Tier | nul
   const tier = sectorDef(target).tier;
   const top = Math.max(...land.mine.map((id) => rankOf(sectorDef(id).tier)));
   return rankOf(tier) > top ? tier : null;
+}
+
+/** 写し（またはいまの町）の在庫のうち、そのランクの町で骨董として売れる復刻品（SKU → 個数）。倉庫・お店の裏・棚 */
+function antiquesIn(x: { stock?: unknown; shops?: unknown }, tier: Tier, out: Record<string, number> = {}): Record<string, number> {
+  const add = (k: string, n: number | undefined) => {
+    if (!n || n <= 0 || !isAntique(PRODUCT[skuParts(k as Sku)[0]], tier)) return;
+    out[k] = (out[k] ?? 0) + n;
+  };
+  for (const [k, n] of Object.entries((x.stock as Record<string, number> | undefined) ?? {})) add(k, n);
+  for (const sh of Object.values((x.shops as Record<string, { shelf?: Record<string, number>; storage?: Record<string, number> }> | undefined) ?? {})) {
+    for (const [k, n] of Object.entries(sh.shelf ?? {})) add(k, n);
+    for (const [k, n] of Object.entries(sh.storage ?? {})) add(k, n);
+  }
+  return out;
+}
+/**
+ * 会社が持っている骨董（段 H1）：そのランク（ふつうは Epic）の町で骨董として売れる復刻品の数。いまの町と、出店したセクタの写しの合計。
+ * 進出の確認の画面の「残るもの」（災害でも倉庫ごと新しい町へ運ぶ）
+ */
+export function antiquesHeld(s: P1State, tier: Tier): { n: number; kinds: number; items: Record<string, number> } {
+  const items: Record<string, number> = {};
+  const cur = s.land?.cur ?? s.sector;
+  antiquesIn(s, tier, items);
+  for (const id of s.land?.mine ?? []) if (id !== cur && s.land?.recs[id]?.snap) antiquesIn(s.land.recs[id].snap!, tier, items);
+  const n = Object.values(items).reduce((a, x) => a + x, 0);
+  return { n, kinds: Object.keys(items).length, items };
 }
 
 /** 初めて上のランクへ進出したときの、セクタの写しの作り直し（建物は廃墟・荒れ地は作り直し・在庫は 0）。廃墟の数 */
@@ -85,7 +111,8 @@ function ruinSnap(snap: Record<string, unknown>, sector: string, round: number):
  *   2 回目（Uncommon → Rare）は、Common・Uncommon のすべての町が被災する（出店したセクタすべて）
  * - お金で開けたパネルは未取得へ（研究パネル・無限の強化パネル・研究への寄付の回数は残る）。お金のパネルの修行は取りやめ
  * - ヒーローは残る（能力値・Lv）。仕事の割り当ては外す（セクタマネージャーはそのまま：被災した町の復興の担当の第一候補）
- * - すべてのセクタの写し：建物は廃墟・荒れ地は作り直し・在庫は 0。お題・石板・出土品はまた埋まっている（この周回で初めて見つけたぶんの RP がまた入る）
+ * - すべてのセクタの写し：建物は廃墟・荒れ地は作り直し・在庫は 0。お題・石板・出土品はまた埋まっている（この周回で初めて見つけたぶんの RP がまた入る）。
+ *   ただし行き先のランクで骨董として売れる復刻品（段 H1）は、行き先の町の倉庫へ運ぶ（rec.keep）
  * - 展示館が廃墟（荒れ地に戻る）になったら、飾っていた遺物は研究ノートに戻る
  * - 研究ノート・研究 Lv・レシピ・制覇・エンブレム・ブランド力・調査依頼状・ランドマップ・最深記録は残る
  */
@@ -129,11 +156,15 @@ export function resetForTier(s: P1State, tier: Tier, to: string): ResetRec {
   for (const st of s.staff) if (st.task !== 'manager' && st.task !== 'train' && st.task !== 'lead') assign(s, st.hero, null);
   // 周回：この周回で見つけた記録だけ消す（研究 Lv・レシピは残る）
   s.loop = { n: (s.loop?.n ?? 0) + 1, found: [], tablets: [] };
+  // 骨董（段 H1）：行き先のランクで骨董として売れる復刻品は、災害で失わずに行き先の町の倉庫へ運ぶ（land.ts の moveTo が新しい町に入れる）。
+  // 骨董はダンジョンで掘った分だけの「ご褒美」なので、3 回目の災害でまとめて消えて遊びが空振りにならないように（判断）
+  const keep: Record<string, number> = {};
   // すべてのセクタ（出店したセクタの写し）
   const ruins: Record<string, number> = {};
   for (const id of land.mine) {
     const rec = land.recs[id];
     if (!rec?.snap) continue;
+    antiquesIn(rec.snap, tier, keep);
     const n = ruinSnap(rec.snap, id, s.loop.n);
     ruins[id] = n;
     rec.jobs = undefined;
@@ -146,7 +177,7 @@ export function resetForTier(s: P1State, tier: Tier, to: string): ResetRec {
     s.museum.items = [];
     s.museum.lv = 0;
   }
-  const rec: ResetRec = { day: s.day, tier, to, levy, grant, ruins };
+  const rec: ResetRec = { day: s.day, tier, to, levy, grant, ruins, ...(Object.keys(keep).length ? { keep } : {}) };
   (s.resets ??= []).push(rec);
   return rec;
 }
