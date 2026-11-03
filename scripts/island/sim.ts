@@ -641,7 +641,7 @@ const ok = (r: unknown) => r === null || r === true || (typeof r === 'object' &&
 /** v25（段 UI1）：通常の方針がヒーローからの提案のカードを受ける（比べるときだけ止める） */
 export const SIM_CARDS = { on: true };
 /** v30（段 UI5d）：倉庫が 85% を超えたら、建てる前にいまある倉庫を強化する（false で以前どおり 2 棟まで建てる。比べ用） */
-const SIM_RACK_FIRST = process.env.SIM_RACK_FIRST !== '0';
+const SIM_RACK_FIRST = process.env.SIM_RACK_FIRST === '1';
 export const SIM_DELEG: Record<PolicyId, { on: boolean; lead: Partial<Record<DeptId, DutyId>> }> = {
   rta: { on: false, lead: {} },
   normal: { on: true, lead: { logistics: 'shelf', hr: 'rest', rnd: 'dig', marketing: 'ads', sales: 'vacant', support: 'reply' } },
