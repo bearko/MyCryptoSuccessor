@@ -76,7 +76,9 @@ const LOCAL = ['craft', 'transport', 'shop', 'buy', 'intel'];
 /** マネージャーの自動指名：適性のいちばん高い待機中のヒーロー（いなければ、離れると外れる仕事の人） */
 export function pickManager(s: P1State): number | null {
   const by = (xs: P1State['staff']) => [...xs].sort((a, b) => aptitude(b.stats, 'manager') - aptitude(a.stats, 'manager'))[0]?.hero ?? null;
-  return by(s.staff.filter((x) => x.task == null)) ?? by(s.staff.filter((x) => x.task && LOCAL.includes(x.task)));
+  // 段 UI5b：役職（事業部長）のある人はセクター長に回さない（兼任しない）。いなければ前のまま
+  const free = s.staff.filter((x) => !x.heads?.length);
+  return by(free.filter((x) => x.task == null)) ?? by(free.filter((x) => x.task && LOCAL.includes(x.task))) ?? by(s.staff.filter((x) => x.task == null)) ?? by(s.staff.filter((x) => x.task && LOCAL.includes(x.task)));
 }
 
 export interface SwitchResult {

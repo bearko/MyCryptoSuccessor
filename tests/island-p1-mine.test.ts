@@ -132,7 +132,7 @@ describe('Uncommon に着いた日', () => {
     expect(a.pages.filter((p) => p.kind === 'research')).toHaveLength(1);
     expect(a.pages.filter((p) => p.kind === 'topic')).toHaveLength(1);
   });
-  it('部門の紹介は、到着の案内の日には出ず、1 日に 1 つずつ（経理と総務 → 次の日にカスタマーサポート）', () => {
+  it('部門の紹介は、到着の案内の日には出ず、1 日に 1 つずつ（下の帯の説明 → 経理と総務 → 次の日にカスタマーサポート）', () => {
     const s = arrivedU();
     // 到着の案内がまだ（needsIntro）・災害の演出がまだのあいだは出さない
     expect(deptTalkNext(s, freeUi(), { intro: true, reset: false })).toBeNull();
@@ -143,6 +143,12 @@ describe('Uncommon に着いた日', () => {
     // 到着の案内の会話が出ているあいだも出さない（重ならない）
     s.day++;
     expect(deptTalkNext(s, { ...freeUi(), talk: true }, { intro: false, reset: false })).toBeNull();
+    // 段 UI5b：下の帯がグループの帯になった（部門が 7 つ以上）の説明がいちばん先
+    expect(deptTalkNext(s, freeUi(), { intro: false, reset: false })).toBe('foot');
+    s.flags.footTalk = true;
+    s.flags.talkDay = s.day;
+    expect(deptTalkNext(s, freeUi(), { intro: false, reset: false })).toBeNull();
+    s.day++;
     expect(deptTalkNext(s, freeUi(), { intro: false, reset: false })).toBe('acct');
     s.flags.acctTalk = true;
     s.flags.talkDay = s.day;
@@ -191,6 +197,8 @@ describe('会話を待たせる（月次報告・カード・画面）', () => {
     s.flags.talkDay = s.day - 1;
     expect(deptTalkNext(s, { ...freeUi(), report: true, sheet: true }, { intro: false, reset: false })).toBeNull();
     expect(deptTalkNext(s, { ...freeUi(), card: true, modal: true }, { intro: false, reset: false })).toBeNull();
+    expect(deptTalkNext(s, freeUi(), { intro: false, reset: false })).toBe('foot');
+    s.flags.footTalk = true;
     expect(deptTalkNext(s, freeUi(), { intro: false, reset: false })).toBe('acct');
   });
 });

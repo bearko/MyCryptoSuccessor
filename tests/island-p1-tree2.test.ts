@@ -138,6 +138,12 @@ describe('外周（ランクのエリア）', () => {
     expect(openRing(s, 'U')).toBe(false);
     expect(ringOpen(s, 'U')).toBe(true);
     expect(ringsDue(s)).toEqual([]);
+    // 段 UI5b：つながりの見直し（treelinks.ts）で、ブランドの看板の先に要るものはマーケの束の中のパネル。手前から順に取る
+    const chain = (id: string) => {
+      for (const r of SKILL[id].requires ?? []) chain(r);
+      if (!s.skills.includes(id) && id !== 'b_sign') expect(learn(s, id), id).toBeNull();
+    };
+    chain('b_sign');
     expect(learn(s, 'b_sign')).toBeNull();
     // フラグはセーブに残る
     expect(ringOpen(deserializeP1(serializeP1(s))!, 'U')).toBe(true);
