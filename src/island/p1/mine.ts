@@ -15,6 +15,7 @@ import { digMet, meetTip, topicsPage } from './digmeet';
 import { has, jamOf, stallOf, myShops, myWorkshop, rivalMonthGuess, type P1State, type Stage } from './model';
 import { ruinsOf } from './reset';
 import { menuDepts } from './dept';
+import { budgetOpen } from './budget';
 
 /** 会話の 1 枚の字数の上限（空白と [[ ]] を除く） */
 export const TALK_MAX = 60;
@@ -209,7 +210,7 @@ export const freeUi = (): TalkUi => ({ talk: false, card: false, report: false, 
 export const talkWaits = (ui: TalkUi, over = false) => ui.talk || ui.card || ui.report || ui.disaster || ui.moving || (!over && (ui.sheet || ui.modal || ui.placing || ui.tour));
 
 /** 部門の紹介の会話 */
-export type DeptTalk = 'acct' | 'cs' | 'sales' | 'legal' | 'foot';
+export type DeptTalk = 'acct' | 'cs' | 'sales' | 'legal' | 'foot' | 'budget';
 
 /**
  * 次に出してよい部門の紹介（無ければ null）。
@@ -225,11 +226,18 @@ export function deptTalkNext(s: P1State, ui: TalkUi, o: { intro: boolean; reset:
   if (!s.flags.footTalk && menuDepts(s).length > 6) return 'foot';
   if (!s.flags.legalTalk && depts.includes('legal') && tier === 'E') return 'legal';
   if (!s.flags.salesTalk && !!s.area && depts.includes('sales')) return 'sales';
+  // 段 I1：Rare に届いたら「予算で任せる」の紹介（営業の紹介のあと）
+  if (!s.flags.budgetTalk && s.flags.salesTalk && budgetOpen(s)) return 'budget';
   if (!s.flags.acctTalk && depts.includes('accounting') && tier !== 'C') return 'acct';
   if (!s.flags.csTalk && s.flags.acctTalk && depts.includes('support') && tier !== 'C') return 'cs';
   return null;
 }
 
+/** 段 I1：予算で任せるの紹介（2 枚・60 字まで） */
+export const BUDGET_TALK = () => [
+  t('Rare まで来たね！ここからは[[全部の部門]]に部長を置いて、[[月の予算]]を渡して任せられるよ。', 'You made it to Rare! Now you can put a head in [[every department]] and hand them a [[monthly budget]].'),
+  t('部長は予算と[[従業員]]の手で施策を打つの。足りないときは「予算を増やして」って頼みに来るよ。', 'Heads spend it on moves with their [[staff]]. When it runs short, they’ll come asking for more.'),
+];
 /**
  * 段 UI5b：下の帯がグループの帯になったときのマインちゃんの説明（2 枚・60 字まで）。会話のあと、人事の入っているグループ（管理）を光らせる（main.ts の footGuide）
  */

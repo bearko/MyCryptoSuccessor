@@ -2427,6 +2427,33 @@ export const DELEG = {
   sector: { need: 3, ready: false, invest: 0.1, max: 2 },
 };
 /**
+ * 段 I1：Rare からの「予算で任せる」（budget.ts・budgetui.ts。docs/SUCCESSOR_ROADMAP.md「段 I1 の実装」）。数字はここ 1 か所。
+ * - from：会社がこのランクの町に出店したら開く（全部門に理解度に関係なく部長を置け、部長に月の予算を渡せる）。
+ * - rate：予算の段（小 S・中 M・大 L）＝ いまの町の先月の売上 × 割合（部門ごと）。floor：会社の格ごとの下限。round：丸め。max：数字で決めるときの上限。
+ *   余った予算は会社に戻る（お金を取り分けない。部長が使ってよい上限）。自動プレイ（通常）はどの部門も「中」。
+ * - perHead：部長が 1 か月に予算の中で実行する施策の数の上限（見込みの大きい順）。
+ * - crew：部門の従業員（ヒーローではない人数の数字）。wage：1 人 1 日の給料（お店の従業員と同じく毎日払う）・labor：1 人の月の労力（人日）・
+ *   cap：はじめの上限（プレイヤーが決める）・capMax：上限の上限・idle：労力が 1 人ぶん以上余った月がこの数つづくと、部長が 1 人減らす。
+ * - hand：部長自身の手（人日／月）＝ base ＋ star ×（★ − 1）。
+ * - eff：予算の効き（同じ施策を安く・少ない労力で）＝ 1 ＋ star ×（★ − 1）＋ 史実の適性（fit）。費用は ÷ 効き、労力も ÷ 効き。
+ * - labor：施策（いまの手）ごとの労力（人日）。無い手は def。
+ * - ask：予算の使い切り（spent：使った割合）・成果なし（idle：施策を打てない月がこの数つづく）。
+ */
+export const BUDGET = {
+  from: 'R' as Tier,
+  rate: { S: 0.02, M: 0.05, L: 0.1 } as Record<'S' | 'M' | 'L', number>,
+  floor: { C: 20_000, U: 20_000, R: 20_000, E: 50_000, L: 80_000 } as Record<Tier, number>,
+  round: 1000,
+  max: 9_999_000,
+  perHead: 1,
+  crew: { wage: 100, labor: 20, cap: 2, capMax: 20, idle: 2 },
+  hand: { base: 8, star: 4 },
+  eff: { star: 0.04, fit: { S: 0.04, A: 0.02, B: 0.01, C: 0, D: -0.02 } as Record<'S' | 'A' | 'B' | 'C' | 'D', number> },
+  labor: { invest: 4, build: 12, skill: 6, level: 4, hire: 3, permit: 6, ad: 3, vacant: 10, patent: 8, ma: 15, stock: 4, part: 2, famous: 3, assign: 1, order: 2, staff: 2 } as Record<string, number>,
+  laborDef: 4,
+  ask: { spent: 0.95, idle: 2 },
+};
+/**
  * 提案・報告のカード（段 UI1。card.ts・cardui.ts。docs/ISLAND_PHASE1.md「提案・報告のカード」）：時間を止めて選ばせるカードの出る数と、
  * ヒーローの読みの確かさ（★）。効き目・値段はいまの手のまま（ここはカードの出し方だけ）
  */
