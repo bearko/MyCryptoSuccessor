@@ -151,7 +151,8 @@ describe('2. 失うもの・残るもの', () => {
     expect(SKILL[MONEY].cat).toBe('money');
     expect(s.skills.includes(MONEY)).toBe(false);
     expect(s.skillLv[MONEY]).toBeUndefined();
-    expect(s.skills.includes('dig_power')).toBe(false);
+    // 発掘のパネル（ツルハシの鍛え直し）は研究パネル（RP）になったので残る（2026-11-03）
+    expect(s.skills.includes('dig_power')).toBe(true);
     expect(s.skills.includes(RESEARCH)).toBe(true);
     expect(s.skills.every((id) => !SKILL[id] || isResearch(SKILL[id]))).toBe(true);
     // 行き先の町は新しい区画（在庫・素材はその町のはじめ）

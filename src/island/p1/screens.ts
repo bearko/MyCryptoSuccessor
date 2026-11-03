@@ -125,6 +125,7 @@ import { rolesCard } from './delegui';
 import { adGain } from './moves';
 import { craftable, shopInvestOrder } from './orders';
 import { charismaCard, charismaNeeds, openPayroll as openPayrollHr } from './hrui';
+import { hireEmptyLines } from './hr';
 
 export interface Ctx {
   s: () => P1State;
@@ -1425,7 +1426,8 @@ export function openStaff(ctx: Ctx) {
 
 // ---------------------------------------------------------------- 人材登用
 
-export function openHire(ctx: Ctx) {
+/** opts.charisma=false：まとめた画面（候補の一覧 → カリスマ）の前の部分。カリスマの札は後ろの部分（経営者）に 1 つだけ出す */
+export function openHire(ctx: Ctx, opts: { charisma?: boolean } = {}) {
   open(ctx, t('人材登用', 'Recruiting'), (body) => {
     const s = ctx.s();
     mineTip(ctx, 'hire', body);
@@ -1442,10 +1444,15 @@ export function openHire(ctx: Ctx) {
       }
       body.append(h('p', 'isl-dim', t('雇えるヒーローは毎月入れ替わります。グラフは仕事ごとの向き不向き（G〜S のランクと 100 までの数）です。', 'Candidates change every month. The chart shows aptitude per job (rank G–S and a number up to 100).')));
       // 経営者のカリスマ度（段 E2）：雇えるレアリティ（チュートリアルの 1 か月目は出さない）
-      if (s.reports.length || (s.sector ?? 'c1') !== 'c1') {
-        body.append(charismaCard(s));
-        for (const x of charismaNeeds(s)) body.append(h('p', 'isl-warn', x));
+      // 候補が 0 人のときは、理由と次の一手（カリスマ度の内訳・いちばん近い上げ方）
+      const why = hireEmptyLines(s);
+      if (why.length) {
+        const box = h('div', 'isl-card2 isl-hire-empty');
+        why.forEach((x, k) => box.append(h('p', k === 0 ? 'isl-warn' : 'isl-dim', x)));
+        body.append(box);
       }
+      if ((s.reports.length || (s.sector ?? 'c1') !== 'c1') && opts.charisma !== false) body.append(charismaCard(s));
+      if (s.reports.length || (s.sector ?? 'c1') !== 'c1') for (const x of charismaNeeds(s)) body.append(h('p', 'isl-warn', x));
       // チュートリアル（調達係を雇う段）：調達にいちばん向いている人に印
       const recBuy = ctx.step?.() === 'hire' && !s.staff.some((x) => ![10001, 10002, 10003].includes(x.hero)) ? [...s.hirePool].sort((a, b) => aptitude(heroStats(b), 'buy') - aptitude(heroStats(a), 'buy'))[0] : null;
       const grid = h('div', 'isl-hire-grid');

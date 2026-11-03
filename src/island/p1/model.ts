@@ -31,6 +31,7 @@ import {
   TABLET_LAYERS,
   TABLETS,
   isResearch,
+  digMaxLv,
   researchLv,
   rpCost,
   type DigTier,
@@ -638,6 +639,8 @@ export interface ResetRec {
    * 被災した町の倉庫・お店の裏・棚にあったもの（Rare の町では売れないので貯めておいたもの）
    */
   keep?: Record<string, number>;
+  /** この災害で引き継いだ研究パネル（RP で開けたもの。お金で開けたパネルだけが未取得に戻る。スキルツリーの「引き継ぎ」の印） */
+  kept?: string[];
   /** 演出（サインとハンコ）を見た */
   seen?: boolean;
 }
@@ -982,7 +985,7 @@ export const wageOf = (hero: number) => {
 
 /** アンコモンのヒーロー（スキル「憧れの職場」で雇える候補に入る） */
 let uncommons: number[] | null = null;
-const uncommonHeroes = () =>
+export const uncommonHeroes = () =>
   (uncommons ??= ([...(heroById.values() as Iterable<unknown>)] as { id: number; rarity?: string; stats?: unknown }[]).filter((h) => h.rarity === 'Uncommon' && h.stats).map((h) => h.id));
 
 /** 雇える候補の数：3 人（採用枠の拡大で 4・憧れの職場で 5） */
@@ -996,10 +999,20 @@ export const hireSlots = (s: P1State) => (has(s, 'b_scout') ? 5 : has(s, 'slots'
 export function pickHires(s: P1State): number[] {
   const r = rng(s.seed + s.reports.length * 7919 + (s.books?.months.length ?? 0) * 31);
   const v = charismaOf(s);
-  const scout = has(s, 'b_scout') && canHireRarity(s, 'U', v);
+  // アンコモンの候補：カリスマ度が Uncommon の上限（10）に届いていれば来る（以前は憧れの職場 b_scout も要った。RP のパネルでは災害で消えないが、カリスマ度だけで足りる）。
+  // 憧れの職場は、候補を 5 人にして、アンコモンが雇えるときは必ず 1 人アンコモンを入れる
+  const uncommonOn = canHireRarity(s, 'U', v);
   const free = (id: number) => heroById.has(id) && !s.staff.some((x) => x.hero === id);
-  const pool = [...HIRE_POOL, ...(scout ? uncommonHeroes() : [])].filter(free);
+  const pool = [...HIRE_POOL, ...(uncommonOn ? uncommonHeroes() : [])].filter(free);
   const out: number[] = [];
+  if (has(s, 'b_scout') && uncommonOn) {
+    const us = uncommonHeroes().filter(free);
+    if (us.length) {
+      const pick = us[Math.floor(r() * us.length)];
+      out.push(pick);
+      pool.splice(pool.indexOf(pick), 1);
+    }
+  }
   // ヘッドハンティング：レアのヒーローを 1 人（カリスマ度 35 から）
   if (has(s, 'headhunt') && canHireRarity(s, 'R', v)) {
     const rp = rareHeroes().filter(free);
@@ -1817,6 +1830,22 @@ export const LEARNABLE = () => SKILLS.filter((k) => !skillSoon(k) && !k.donate);
 export type SkillLock = 'done' | 'training' | 'hidden' | 'sealed' | 'soon' | 'ring' | 'requires' | 'brand' | 'emblem' | 'rp' | 'money' | 'donate';
 /** 先に要るパネル（requires と、そのレベル reqLv）がそろっている */
 export const requiresMet = (s: P1State, k: Skill) => !k.requires?.some((r) => !has(s, r) || lvOf(s, r) < (k.reqLv?.[r] ?? 1)) && anyOfMet(k, (r) => has(s, r));
+/**
+ * 引き継いだ研究パネルか（災害のとき持っていた RP のパネル。古いセーブで記録が無いときは、手前のパネルが外れている RP のパネル）。
+ * 効き目は「持っているか」だけで決まる（手前のパネルがそろっているかは見ない）ので、引き継いだパネルはそのまま効く
+ */
+export function carriedRp(s: Pick<P1State, 'skills' | 'skillLv' | 'resets'>, id: string): boolean {
+  const k = SKILL[id];
+  if (!k || !isResearch(k) || !s.skills.includes(id) || !s.resets?.length) return false;
+  if (s.resets.some((r) => r.kept?.includes(id))) return true;
+  return !requiresMet(s as P1State, k);
+}
+/** 引き継いだ研究パネルの手前で、いま持っていないもの（お金パネルなど。開けると線がつながる）。名前 */
+export function missingFront(s: Pick<P1State, 'skills' | 'skillLv'>, id: string): string[] {
+  const k = SKILL[id];
+  return (k?.requires ?? []).filter((r) => !s.skills.includes(r) || lvOf(s, r) < (k.reqLv?.[r] ?? 1));
+}
+
 export function skillLock(s: P1State, k: Skill): SkillLock | null {
   if (k.donate) return 'donate';
   if (has(s, k.id)) return 'done';
@@ -1977,6 +2006,9 @@ export function gainSkill(s: P1State, id: string) {
   if (id === 'd_buy') for (const m of Object.keys(MATS) as Mat[]) if (!s.routes.includes(m)) s.routes.push(m);
   syncSlots(s);
   for (const b of myShops(s)) syncShop(s, b);
+  // 発掘の枝のパネルは研究パネル（レベルなし）：開いたら、以前の最大レベルの効き目（Lv5）で入る
+  const dk = SKILL[id];
+  if (dk && dk.branch === 'dig' && isResearch(dk) && !dk.inf && !dk.donate) s.skillLv = { ...(s.skillLv ?? {}), [id]: digMaxLv(dk) };
   if (id === 'dig_study') syncResearchCap(s);
 }
 
@@ -4215,6 +4247,11 @@ export function deserializeP1(json: string): P1State | null {
     // 以前のセーブ：セクタ・ブランド力・帳簿・ランド
     // 流れの案内の途中で閉じたときに、売らないままにならないように
     s.holdSales = false;
+    // 発掘の枝のパネルは研究パネルになった：以前のセーブの途中のレベルのパネルは、最大レベルの効き目に（もうレベルは上げられない）
+    for (const id of s.skills) {
+      const dk = SKILL[id];
+      if (dk && dk.branch === 'dig' && isResearch(dk) && !dk.inf && !dk.donate && lvOf(s, id) < digMaxLv(dk)) s.skillLv = { ...(s.skillLv ?? {}), [id]: digMaxLv(dk) };
+    }
     s.sector ??= 'c1';
     s.tier ??= 'C';
     s.brand ??= 0;

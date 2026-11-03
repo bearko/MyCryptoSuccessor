@@ -28,7 +28,7 @@ import { CARD } from '../../src/island/p1/data';
 /** v25：通常の方針が受けるカードの手の名前（表 19） */
 const TAKE_NAME: Record<string, string> = { shelf: '棚 +1 と商品', goods: '品ぞろえの入れ替え', invest: '設備投資', part: 'アルバイト', famous: '名物店主', permit: '発掘許可', ad: '宣伝' };
 /** v25：カードの出どころの名前（表 19） */
-const SRC_NAME: Record<CardSrc, string> = { clerk: '店員', crafter: '職人', buyer: '調達係', idle: '手の空いた人', head: '部長', cs: '問い合わせ', flame: '炎上の予告', quit: '辞めたい', tax: '経理の助言', rally: '巻き返し・反撃' };
+const SRC_NAME: Record<CardSrc, string> = { hr: '人事（雇う）', clerk: '店員', crafter: '職人', buyer: '調達係', idle: '手の空いた人', head: '部長', cs: '問い合わせ', flame: '炎上の予告', quit: '辞めたい', tax: '経理の助言', rally: '巻き返し・反撃' };
 import {
   promote,
   takeVacant,
@@ -405,6 +405,11 @@ const RTA_MORE_U = ['slots', 'b_scout'];
 export function digStep(s: P1State, id: string): { cost: number; run: () => string | null } | null {
   const k = SKILL[id];
   const lv = lvOf(s, id);
+  // 発掘のパネルは研究パネル（RP で開く・レベルなし）：資金は要らない（RP が足りているものだけ）
+  if (isResearch(k)) {
+    if (lv > 0 || skillLock(s, k) !== null) return null;
+    return { cost: 0, run: () => learn(s, id) };
+  }
   if (lv === 0) {
     const e = skillLock(s, k);
     if (e !== null && e !== 'money') return null;
