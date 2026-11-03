@@ -20,7 +20,8 @@ import { bandText } from './deleg';
 import { headHooks, openDeleg, openProps } from './delegui';
 import { openHeadTalk } from './headtalkui';
 import { HEAD_OPEN_TALK, HEAD_PICK_TALK, headTalkDue, talkMode } from './headtalk';
-import { openTrophies, trophyPop, trophyTick } from './trophyui';
+import { openTrophies, trophyEl, trophyTick } from './trophyui';
+import type { TrophyDef } from './trophy';
 import { autoText, cardInbox, cardsCompany, cardsDay, cardsMonth, demoDraft, diploDraft, enqueue, eventDraft, markSeen, nextPop, takeAuto } from './card';
 import { duoPages } from './duo';
 import { cardNav, showCard } from './cardui';
@@ -3762,10 +3763,32 @@ function trophyCheck() {
   const key = `${s.day}|${!!s.flags.headEver}|${!!s.flags.landEpic}|${!!s.cleared}|${Object.keys(s.duo?.found ?? {}).length}`;
   if (key === trophyKey) return;
   trophyKey = key;
-  for (const d of trophyTick(s)) {
-    trophyPop(root, d);
-    sfx.play('win');
+  trophyQ.push(...trophyTick(s));
+  trophyFlush();
+}
+/** 取ったトロフィーの帯の順番待ち：そのときのトースト・カード・会話・発掘画面が消えてから 1 つずつ（トーストの列に入れるので、あとのトーストとも重ならない） */
+const trophyQ: TrophyDef[] = [];
+let trophyWait = 0;
+function trophyFlush() {
+  if (!trophyQ.length || trophyWait) return;
+  if (toasts.querySelector('.isl-toast') || holdToasts() || digOpen()) {
+    trophyWait = window.setTimeout(() => {
+      trophyWait = 0;
+      trophyFlush();
+    }, 400);
+    return;
   }
+  const d = trophyQ.shift()!;
+  const e = trophyEl(d);
+  e.dataset.text = d.id;
+  toasts.append(e);
+  placeToasts();
+  sfx.play('win');
+  trophyWait = window.setTimeout(() => {
+    e.remove();
+    trophyWait = 0;
+    trophyFlush();
+  }, 4000);
 }
 /** 段 UI6：初めて部長を任命するとき（候補を選ぶ前）のマインちゃんの一言。画面の上に出す */
 headHooks.first = (go) => talk(HEAD_PICK_TALK().map((text) => ({ text })), t('部長を選ぶ', 'Pick a head'), go, { over: true });

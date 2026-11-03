@@ -23,14 +23,15 @@ export function trophyTick(s: P1State): TrophyDef[] {
   return got;
 }
 
-/** 取ったときの帯（画面の上。4 秒で消える） */
-export function trophyPop(root: HTMLElement, d: TrophyDef) {
-  const el = h('div', 'isl-tr-pop');
+/**
+ * 取ったときの帯（トーストの列に入れる：トーストと縦に並ぶので重ならない。main.ts が、そのときのトーストが消えてから出す）
+ */
+export function trophyEl(d: TrophyDef): HTMLElement {
+  const el = h('div', 'isl-toast isl-tr-pop');
   const txt = h('span');
   txt.append(h('small', '', t('🏆 トロフィーを手に入れた！', '🏆 Trophy unlocked!')), h('b', '', d.name()));
   el.append(h('i', '', d.icon), txt);
-  root.append(el);
-  setTimeout(() => el.remove(), 4200);
+  return el;
 }
 
 const dateText = (iso: string) => {
