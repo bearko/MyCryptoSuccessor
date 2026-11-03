@@ -1,0 +1,199 @@
+{
+  "id": 2048,
+  "name_ja": "ルノワール",
+  "name_en": "Pierre-Auguste Renoir",
+  "kind": "historical",
+  "era": "1841–1919（19 世紀後半〜20 世紀初め）",
+  "region": "フランス（リモージュ・パリ・カーニュ）",
+  "summary_ja": "フランスの画家。リモージュの仕立て屋の家に生まれ、少年のころから陶器の絵付け職人として働いた。グレールの画室でモネらと知り合い、1869 年にはモネと並んで『ラ・グルヌイエール』を描いて印象派の技法を切り開いた。印象派展に出品し、1876 年の第 2 回展では批評家に酷評されたが、第 3 回展に『ムーラン・ド・ラ・ギャレット』などを出して、日々の暮らしのきらめく光と色を描いた。1881 年のイタリア旅行のあと、形と構図のしっかりした古典的な作風へ移り、のちに明るい色の時期へ進んだ。1900 年にレジオン・ドヌール勲章を受けた。晩年は南仏カーニュに移り、手の痛みに苦しみながら描き続け、1919 年に亡くなった。",
+  "facts": [
+    {
+      "ja": "1841 年 2 月 25 日、リモージュに生まれた。父は仕立て屋、母はお針子だった。",
+      "src": "https://etchings.arts.gla.ac.uk/catalogue/biog/?nid=RenoA"
+    },
+    {
+      "ja": "1854 年から陶器の工房で絵付け職人の見習いをし、夜学で素描を学んだ。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=2380"
+    },
+    {
+      "ja": "グレールの画室でモネらと出会い、1869 年にモネとともに『ラ・グルヌイエール』を描いた。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=2380"
+    },
+    {
+      "ja": "1876 年の第 2 回印象派展で、出品作が批評家に「腐りかけた肉の山」と酷評された。",
+      "src": "https://etchings.arts.gla.ac.uk/catalogue/biog/?nid=RenoA"
+    },
+    {
+      "ja": "1877 年の第 3 回印象派展に『ムーラン・ド・ラ・ギャレット』を出品した。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=2380"
+    },
+    {
+      "ja": "1880 年代半ばに印象派から離れ、肖像や人物画で、より形のしっかりした描き方に移った。",
+      "src": "https://www.britannica.com/print/article/498200"
+    },
+    {
+      "ja": "1881〜82 年のイタリア旅行のあと、作品に古典的な重みが増した。",
+      "src": "https://etchings.arts.gla.ac.uk/catalogue/biog/?nid=RenoA"
+    },
+    {
+      "ja": "1900 年にレジオン・ドヌール勲章を受けた。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=2380"
+    },
+    {
+      "ja": "1903 年に南仏カーニュ・シュル・メールに移り、手の痛み（リウマチ）に苦しんだ。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=2380"
+    },
+    {
+      "ja": "1919 年 12 月 3 日、カーニュで亡くなった。",
+      "src": "https://www.britannica.com/print/article/498200"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "次男ジャン（1894 年生まれ）は映画監督になった。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=2380"
+    },
+    {
+      "ja": "1883 年、画商デュラン＝リュエルの画廊で初めての個展を開いた。",
+      "src": "https://etchings.arts.gla.ac.uk/catalogue/biog/?nid=RenoA"
+    }
+  ],
+  "strengths_ja": [
+    "明るい色づかい",
+    "人の楽しげな姿をとらえる目",
+    "職人としての手の確かさ",
+    "描き続ける根気"
+  ],
+  "weaknesses_ja": [
+    "行き詰まると作風ごと迷い込む",
+    "新しい試みは批評家に酷評されやすい"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "C",
+      "why": "方針づくりの記録は無い。"
+    },
+    "logistics": {
+      "g": "D",
+      "why": "物の流れにかかわる記録は無い。"
+    },
+    "sales": {
+      "g": "B",
+      "why": "画商の画廊で個展を開き、販路を得た。"
+    },
+    "marketing": {
+      "g": "A",
+      "why": "人々の楽しい集いを明るい色で描き、見る人を引きつけた。"
+    },
+    "support": {
+      "g": "B",
+      "why": "人物画で人の柔らかな表情をとらえた（応対の記録ではない）。"
+    },
+    "systems": {
+      "g": "C",
+      "why": "仕組み化の記録は無い。"
+    },
+    "rnd": {
+      "g": "B",
+      "why": "仲間と新しい描き方を試し、印象派の技法を切り開いた。"
+    },
+    "legal": {
+      "g": "D",
+      "why": "契約や争いの記録は無い。"
+    },
+    "hr": {
+      "g": "C",
+      "why": "人を育てた記録は乏しい。"
+    },
+    "general": {
+      "g": "C",
+      "why": "働く環境づくりの記録は無い。"
+    },
+    "accounting": {
+      "g": "D",
+      "why": "お金の管理の記録は無い。"
+    },
+    "sector_head": {
+      "g": "C",
+      "why": "組織を率いた記録は無い。"
+    },
+    "shop": {
+      "g": "B",
+      "why": "人の楽しげな姿を描いた画家で、明るい店の雰囲気づくりに合う。"
+    },
+    "craft": {
+      "g": "S",
+      "why": "陶器の絵付け職人から出発し、手の痛みに苦しんでも晩年まで描き続けた。"
+    },
+    "buyer": {
+      "g": "C",
+      "why": "買い付けの記録は無い。"
+    },
+    "digger": {
+      "g": "D",
+      "why": "発掘の記録は無い。"
+    }
+  },
+  "best_roles": [
+    "craft",
+    "marketing",
+    "shop"
+  ],
+  "personality_ja": "職人の家から出た、手仕事を大事にする人。描くものは人々の楽しい時間で、明るく温かい。仲間と並んで描いて新しいやり方を見つける一方、行き詰まると思い切って描き方を変える。体が痛んでも筆を置かない粘り強さがある。",
+  "speech": {
+    "first_person": "僕",
+    "second_person_to_owner": "社長",
+    "tone_ja": "気さくで温かい。色や光のたとえが多い。",
+    "tics_ja": [
+      "いい光だね",
+      "楽しいものを描こう",
+      "手を動かせば見えてくる"
+    ],
+    "lines": {
+      "greet": [
+        "ルノワールです。この工房、光がいいね。",
+        "社長、まずは筆と絵の具を見せてくれる？"
+      ],
+      "propose": [
+        "店の飾りをもっと明るい色にしよう。人が集まる。",
+        "楽しい日を描いた品を並べよう。客が笑顔になる。"
+      ],
+      "approved": [
+        "ありがとう。さっそく手を動かすよ。"
+      ],
+      "rejected": [
+        "そうか……じゃあ描き方を変えてみる。"
+      ],
+      "tired": [
+        "手が痛む。少し休ませてほしい。"
+      ],
+      "success": [
+        "見て、みんな笑ってる。いい光だ。"
+      ]
+    }
+  },
+  "relations": [
+    {
+      "id": 3028,
+      "name_ja": "モネ",
+      "ja": "グレールの画室で知り合い、1869 年にはともに『ラ・グルヌイエール』を描いた印象派の仲間。"
+    },
+    {
+      "id": 4021,
+      "name_ja": "ゴッホ",
+      "ja": "同時代の画家。ゴッホがパリで明るい色彩に触れた時期の、印象派の画家の一人。"
+    }
+  ],
+  "mch": {
+    "attributes_ja": "美術; フランス",
+    "passive": "ムーラン・ド・ラ・ギャレットの舞踏会：1877 年の第 3 回印象派展に出品した代表作の題。"
+  },
+  "cautions_ja": [
+    "子孫が実在する。私生活（恋人・家族）の話はゲーム内でふざけて扱わない。"
+  ],
+  "sources": [
+    "https://www.britannica.com/print/article/498200",
+    "https://etchings.arts.gla.ac.uk/catalogue/biog/?nid=RenoA",
+    "https://japanknowledge.com/introduction/keyword.html?i=2380"
+  ]
+}

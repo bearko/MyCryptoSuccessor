@@ -1,0 +1,209 @@
+{
+  "id": 4009,
+  "name_ja": "伊達政宗",
+  "name_en": "Masamune Date",
+  "kind": "historical",
+  "era": "1567–1636（戦国時代〜江戸時代初め）",
+  "region": "日本（米沢・会津・岩出山・仙台）",
+  "summary_ja": "奥州の戦国大名で、仙台藩の祖。米沢に伊達輝宗の長男として生まれ、幼いころ疱瘡（天然痘）で右目の視力を失い、のちに「独眼竜」と呼ばれた。1584 年に家督を継ぎ、翌年には父が二本松義継に連れ去られる事件で父を失った。1589 年の摺上原の戦いで蘆名氏を破って南奥州の大半を手にしたが、1590 年の小田原攻めに遅れて参じて豊臣秀吉に臣従し、先祖伝来の地を取り上げられて岩出山に移された。朝鮮出兵にも加わった。秀吉の死後は徳川家康に従い、仙台を領地として与えられ、城と城下町を築いた。1613 年には家康の許しを得て支倉常長をスペインとローマへ送った。大坂の陣にも出陣し、1636 年に亡くなり、霊廟の瑞鳳殿に眠る。",
+  "facts": [
+    {
+      "ja": "1567 年 9 月 5 日、米沢で伊達輝宗の長男として生まれた。",
+      "src": "https://www.chise.org/ipns/en.wikipedia-on-ipfs.org/wiki/Date_Masamune"
+    },
+    {
+      "ja": "幼いころ疱瘡で右目の視力を失った。",
+      "src": "https://www.chise.org/ipns/en.wikipedia-on-ipfs.org/wiki/Date_Masamune"
+    },
+    {
+      "ja": "1584 年、父・輝宗から家督を継いだ。",
+      "src": "https://www.chise.org/ipns/en.wikipedia-on-ipfs.org/wiki/Date_Masamune"
+    },
+    {
+      "ja": "1585 年、父が二本松義継に連れ去られ、その騒ぎの中で父も義継も亡くなった。",
+      "src": "https://www.chise.org/ipns/en.wikipedia-on-ipfs.org/wiki/Date_Masamune"
+    },
+    {
+      "ja": "1589 年、摺上原の戦いで蘆名氏を破り、黒川城を本拠とした。",
+      "src": "https://www.chise.org/ipns/en.wikipedia-on-ipfs.org/wiki/Date_Masamune"
+    },
+    {
+      "ja": "1590 年の小田原攻めに遅れて参じ、豊臣秀吉に許されたが、翌年に先祖伝来の地を失い岩出山に移された。",
+      "src": "https://www.chise.org/ipns/en.wikipedia-on-ipfs.org/wiki/Date_Masamune"
+    },
+    {
+      "ja": "1600 年、徳川家康から仙台の領地を与えられ、1604 年に家臣とその家族約 5 万 2 千人とともに仙台へ移った。",
+      "src": "https://www.chise.org/ipns/en.wikipedia-on-ipfs.org/wiki/Date_Masamune"
+    },
+    {
+      "ja": "仙台城を築き、城下町を発展させた。",
+      "src": "https://www.city.sendai.jp/museum/kidscorner/kids-08/index.html"
+    },
+    {
+      "ja": "1613 年、家康の許しを得て、支倉常長を大使とする使節をスペインへ送った。",
+      "src": "https://www.mofa.go.jp/mofaj/annai/page5_000234.html"
+    },
+    {
+      "ja": "1636 年 6 月 27 日、68 歳で亡くなった。霊廟は瑞鳳殿。",
+      "src": "https://www.chise.org/ipns/en.wikipedia-on-ipfs.org/wiki/Date_Masamune"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "右目をどう失ったかははっきりせず、自ら取り出した、片倉小十郎がえぐり出したなどの話が伝わる。",
+      "src": "https://www.chise.org/ipns/en.wikipedia-on-ipfs.org/wiki/Date_Masamune"
+    },
+    {
+      "ja": "小田原に遅れて参じたとき、秀吉は「使い道がある」と言って命を助けたとされる。",
+      "src": "https://www.chise.org/ipns/en.wikipedia-on-ipfs.org/wiki/Date_Masamune"
+    },
+    {
+      "ja": "家康は 100 万石を約束したとも伝わるが、仙台藩の石高は約 64 万石だった。",
+      "src": "https://www.chise.org/ipns/en.wikipedia-on-ipfs.org/wiki/Date_Masamune"
+    }
+  ],
+  "strengths_ja": [
+    "大胆な決断",
+    "時流を読む政治の勘",
+    "海外にまで目を向ける構想力",
+    "文化への関心"
+  ],
+  "weaknesses_ja": [
+    "野心が強く、天下人に疑われやすい",
+    "危ない橋を渡りがち"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "A",
+      "why": "家康に付いて仙台の領地を得、海外への使節まで送った。"
+    },
+    "logistics": {
+      "g": "B",
+      "why": "5 万人を超える家臣団の仙台への移住を行った。"
+    },
+    "sales": {
+      "g": "A",
+      "why": "秀吉・家康という天下人と渡り合い、家を保った。"
+    },
+    "marketing": {
+      "g": "A",
+      "why": "「独眼竜」の名で知られ、印象的なふるまいの話が多く残る。"
+    },
+    "support": {
+      "g": "C",
+      "why": "家臣や領民のなだめ役の記録は乏しい。"
+    },
+    "systems": {
+      "g": "B",
+      "why": "城下町の仕組みを整えた。"
+    },
+    "rnd": {
+      "g": "B",
+      "why": "海外への使節を送り、新しい知識や交易を求めた。"
+    },
+    "legal": {
+      "g": "B",
+      "why": "天下人の疑いを切り抜けた。"
+    },
+    "hr": {
+      "g": "B",
+      "why": "大きな家臣団を率いた。"
+    },
+    "general": {
+      "g": "B",
+      "why": "城と城下町を整えた。"
+    },
+    "accounting": {
+      "g": "B",
+      "why": "大藩を治めたが、会計の細かな記録は今回の出典では乏しい。"
+    },
+    "sector_head": {
+      "g": "S",
+      "why": "仙台に城と城下町を築き、仙台藩を丸ごと治めた。"
+    },
+    "shop": {
+      "g": "C",
+      "why": "客商売の記録は無い。"
+    },
+    "craft": {
+      "g": "C",
+      "why": "ものづくりの記録は今回の出典では無い。"
+    },
+    "buyer": {
+      "g": "A",
+      "why": "スペインへの使節を送り、遠い国との交易を探った。"
+    },
+    "digger": {
+      "g": "C",
+      "why": "発掘の記録は無い。"
+    }
+  },
+  "best_roles": [
+    "sector_head",
+    "strategy",
+    "sales"
+  ],
+  "personality_ja": "大胆で負けず嫌い。天下人を相手にしても機を見て危ない橋を渡り、言葉と度胸で切り抜ける。遠い海の向こうにまで目を向ける構想の大きさがある一方、野心の強さから疑われることも多かった。芸術を好み、見せ方にもこだわる。",
+  "speech": {
+    "first_person": "俺",
+    "second_person_to_owner": "社長",
+    "tone_ja": "威勢がよく、少し芝居がかった物言い。大きな話を好む。",
+    "tics_ja": [
+      "面白い、やってやろう",
+      "遅れて出ても勝てばよい",
+      "海の向こうを見よ"
+    ],
+    "lines": {
+      "greet": [
+        "伊達政宗だ。この町、派手に盛り立ててやる。",
+        "社長、まずは城下……いや、商店街を見せてくれ。"
+      ],
+      "propose": [
+        "海の向こうへ使いを出そう。新しい取引先がいる。",
+        "ここは大手の側に付く。いずれ町ごと手に入る。"
+      ],
+      "approved": [
+        "よし！ 派手にいくぞ。"
+      ],
+      "rejected": [
+        "……ふん。ならば機を待つまでよ。"
+      ],
+      "tired": [
+        "さすがに疲れた。歌でも詠んで休む。"
+      ],
+      "success": [
+        "見たか、これが独眼竜のやり方よ。"
+      ]
+    }
+  },
+  "relations": [
+    {
+      "id": 2026,
+      "name_ja": "豊臣秀吉",
+      "ja": "1590 年の小田原攻めに遅れて参じて臣従し、領地を取り上げられた。"
+    },
+    {
+      "id": 3044,
+      "name_ja": "徳川家康",
+      "ja": "秀吉の死後に家康に従い、仙台の領地を与えられた。娘は家康の子・松平忠輝に嫁いだ。"
+    },
+    {
+      "id": 3025,
+      "name_ja": "真田幸村",
+      "ja": "大坂夏の陣の道明寺の戦いで、伊達勢は真田信繁の軍と戦った。"
+    }
+  ],
+  "mch": {
+    "attributes_ja": "戦国; 隻眼",
+    "passive": "独眼竜：右目の視力を失ったことからついたあだ名。"
+  },
+  "cautions_ja": [
+    "右目の障害にまつわる呼び名。障害をからかう扱いをしない。",
+    "子孫や、伊達家ゆかりの団体が今もある。"
+  ],
+  "sources": [
+    "https://www.chise.org/ipns/en.wikipedia-on-ipfs.org/wiki/Date_Masamune",
+    "https://www.mofa.go.jp/mofaj/annai/page5_000234.html",
+    "https://www.city.sendai.jp/museum/kidscorner/kids-08/index.html"
+  ]
+}

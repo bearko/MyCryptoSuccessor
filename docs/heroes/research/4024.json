@@ -1,0 +1,76 @@
+{
+  "id": 4024,
+  "name_ja": "岳飛",
+  "name_en": "Yue Fei",
+  "kind": "historical",
+  "era": "1103–1142（北宋末〜南宋初め）",
+  "region": "中国（相州湯陰。現在の河南省）",
+  "summary_ja": "南宋初めの武将で、中国で最も名高い将軍・国民的英雄の一人。1126年に金（女真）が華北を攻めて都の開封を落とし、宋が南に逃れて南宋を立て直す中で、散った兵を集めて鍛え、規律の厳しい「岳家軍」を作った。南方の丘陵で騎兵が動きにくいことを生かして金の進撃を止め、長江・淮河の南の地を取り戻し、さらに北の失地回復を目指した。しかし和平を進める宰相秦檜らと対立し、前線から呼び戻されて兵権を奪われ、1141年に投獄、1142年に処刑された。のちに名誉を回復され、秦檜は売国の臣とされた。母が背に「尽忠報国」の字を刺したという話は広く知られた伝承である。",
+  "facts": [
+    { "ja": "1103年、相州湯陰（現在の河南省）で生まれた。", "src": "https://www.britannica.com/biography/Yue-Fei" },
+    { "ja": "1126年に金が華北を攻めて開封を落とし、宋が南へ逃れて南宋を立て直す中で軍を率いるようになった。", "src": "https://www.britannica.com/biography/Yue-Fei" },
+    { "ja": "散った兵を集めて鍛え、作物を荒らしたり無理に値切ったりする兵を厳しく罰する規律の軍（岳家軍）を作った。", "src": "https://www.chiculture.org.hk/en/china-five-thousand-years/1911" },
+    { "ja": "南中国の丘陵で騎兵が動きにくいことを生かして金の進撃を止め、長江・淮河以南の地を取り戻した。", "src": "https://www.britannica.com/biography/Yue-Fei" },
+    { "ja": "和平派の秦檜らに反対され、度重なる命令で前線から呼び戻された。", "src": "https://www.chiculture.org.hk/en/china-five-thousand-years/1911" },
+    { "ja": "1141年に投獄され、1142年1月に39歳で処刑され、その後、北方の地を手放す和議が結ばれた。", "src": "https://www.britannica.com/biography/Yue-Fei" },
+    { "ja": "1162年に名誉を回復され、亡くなっていた秦檜は物語の中で裏切り者とされた。", "src": "https://thechinaproject.com/2021/01/27/the-evolving-hero-status-of-the-executed-general-yue-fei/" },
+    { "ja": "杭州・西湖のほとりの岳飛の墓には、秦檜夫妻らが後ろ手に縛られてひざまずく鉄像が置かれている。", "src": "https://thechinaproject.com/2021/01/27/the-evolving-hero-status-of-the-executed-general-yue-fei/" },
+    { "ja": "英雄としての評価は時代の政治状況によって変化してきた。", "src": "https://thechinaproject.com/2021/01/27/the-evolving-hero-status-of-the-executed-general-yue-fei/" }
+  ],
+  "anecdotes": [
+    { "ja": "出征を前に母を案じる岳飛に、母が背へ「尽忠報国」の字を刺して送り出したと伝わる（伝承）。", "src": "https://www.chiculture.org.hk/en/china-five-thousand-years/1911" },
+    { "ja": "幼いころ洪水を母とともに大きな甕に入って逃れたという話があるが、伝説とみられる。", "src": "https://thechinaproject.com/2021/01/27/the-evolving-hero-status-of-the-executed-general-yue-fei/" },
+    { "ja": "撤退を命じる12通もの急な命令を受け、勝利目前と訴えながらも従ったと伝えられる。", "src": "https://www.chiculture.org.hk/en/china-five-thousand-years/1911" }
+  ],
+  "strengths_ja": ["規律ある組織づくり", "兵の育成", "地形を生かした戦術", "忠誠心"],
+  "weaknesses_ja": ["妥協を嫌い朝廷の方針と衝突した", "政争・根回しに弱かった"],
+  "aptitude": {
+    "strategy": { "g": "A", "why": "地形を生かして金の進撃を止め、失地回復の構想を持った。" },
+    "logistics": { "g": "A", "why": "軍を長期の遠征で各地へ動かし続けた。" },
+    "sales": { "g": "C", "why": "交渉より正面からの勝負を好んだ。" },
+    "marketing": { "g": "B", "why": "後世、国民的英雄として語り継がれる。" },
+    "support": { "g": "A", "why": "兵に民の物を奪わせない軍紀で、地域の信頼を得た。" },
+    "systems": { "g": "B", "why": "賞罰のはっきりした軍の仕組みを作った。" },
+    "rnd": { "g": "C", "why": "研究の記録は無い。" },
+    "legal": { "g": "C", "why": "無実の罪に問われた際、身を守る手立てを持たなかった。" },
+    "hr": { "g": "S", "why": "敗残の兵を集めて鍛え直し、規律ある精強な軍に育てた。" },
+    "general": { "g": "A", "why": "兵の規律と暮らしを厳しく整えた。" },
+    "accounting": { "g": "B", "why": "軍の財の管理の記録は少ない。" },
+    "sector_head": { "g": "A", "why": "一方面の軍を任され、広い地域を取り戻した。" },
+    "shop": { "g": "C", "why": "対面の接客の記録は無い。" },
+    "craft": { "g": "C", "why": "ものづくりの記録は無い。" },
+    "buyer": { "g": "C", "why": "買い付けの記録は無い。" },
+    "digger": { "g": "B", "why": "自ら最前線に立つ胆力がある。" }
+  },
+  "best_roles": ["hr", "sector_head", "logistics"],
+  "personality_ja": "国への忠誠を何より重んじ、規律に厳しく、民を傷つけない軍を理想とした。一度決めた目標には一途で、妥協を嫌う。その真っすぐさゆえに和平派と対立し、命を落とした。ゲームでは、熱く実直で、部下の育成に力を注ぐ人物として描く。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "実直で熱のこもった丁寧語。規律と忠誠を語る。",
+    "tics_ja": ["規律こそ力です", "必ず取り戻します", "民の物には手を出さぬ"],
+    "lines": {
+      "greet": ["岳鵬挙、着任しました。忠を尽くして働きます", "規律ある組織こそ強い。そう信じています"],
+      "propose": ["取引先に無理を強いるのは禁じましょう。信頼が先です", "今こそ攻め時です。失った商圏を取り戻しましょう"],
+      "approved": ["ありがたい！必ず成果でお返しします"],
+      "rejected": ["…命とあらば従います。ただ悔いは残ります"],
+      "tired": ["鎧を解いて、少し眠らせてください"],
+      "success": ["皆がよく働いてくれました。誇らしい限りです"]
+    }
+  },
+  "relations": [],
+  "mch": {
+    "attributes_ja": "戦術; 中国; 長柄武器",
+    "passive": "尽忠報国：母が背に刺したと伝わる言葉で、岳飛の忠誠の象徴とされる（伝承）。"
+  },
+  "cautions_ja": [
+    "無実の罪で処刑された悲劇の人物。処刑や拷問を演出に使わない。",
+    "秦檜への憎悪の表現（跪く像に唾を吐くなど）をゲームで再現しない。",
+    "「民族英雄」としての評価は時代や政治で揺れてきたため、一方の立場に寄せない。"
+  ],
+  "sources": [
+    "https://www.britannica.com/biography/Yue-Fei",
+    "https://www.chiculture.org.hk/en/china-five-thousand-years/1911",
+    "https://thechinaproject.com/2021/01/27/the-evolving-hero-status-of-the-executed-general-yue-fei/"
+  ]
+}

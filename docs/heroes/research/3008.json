@@ -1,0 +1,70 @@
+{
+  "id": 3008,
+  "name_ja": "ノストラダムス",
+  "name_en": "Michel Nostradamus",
+  "kind": "historical",
+  "era": "1503–1566（ルネサンス期のフランス）",
+  "region": "フランス（プロヴァンス）",
+  "summary_ja": "本名ミシェル・ド・ノートルダム。フランスの医師・占星術師。アヴィニョン大学で学び、モンペリエ大学では薬剤師として働いていたことが分かり退学になったとされる。各地でペストの流行に立ち向かい、バラの花などで作る丸薬で名を知られた。最初の妻と子どもをペストで亡くしている。1550 年から暦書（アルマナック）を出し、1555 年に四行詩を集めた『予言集』を刊行。王妃カトリーヌ・ド・メディシスに重んじられ、晩年はシャルル 9 世の常任侍医となった。学界では予言に本物の力は認められず、あいまいな言葉を後から当てはめたものと見られている。",
+  "facts": [
+    { "ja": "1503 年 12 月にサン＝レミ＝ド＝プロヴァンスで生まれ、1566 年 7 月 1 日または 2 日にサロンで没した。", "src": "https://www.britannica.com/biography/Nostradamus" },
+    { "ja": "1529 年にモンペリエ大学の医学部に入ったが、規則で禁じられた薬剤師の仕事をしていたことが分かり、退学させられた。", "src": "https://en.wikipedia.org/wiki/Nostradamus" },
+    { "ja": "1546〜47 年にエクスやリヨンのペスト流行で新しい治療を行い、名を知られた。", "src": "https://www.britannica.com/biography/Nostradamus" },
+    { "ja": "治療にはバラの丸薬などを使い、きれいな飲み水をすすめるなど衛生面の助言も成果につながったとみられる。", "src": "https://www.nationalgeographic.com/history/article/who-was-nostradamus-plague-astrology-predictions" },
+    { "ja": "1530 年代に最初の妻と 2 人の子どもを、おそらくペストで亡くした。", "src": "https://www.nationalgeographic.com/history/article/who-was-nostradamus-plague-astrology-predictions" },
+    { "ja": "1550 年版から毎年の暦書を出し、名前をラテン語風に「ノストラダムス」とした。", "src": "https://en.wikipedia.org/wiki/Nostradamus" },
+    { "ja": "1555 年に『予言集』を刊行した。初版は 353 篇の四行詩で、のちの合本は 942 篇を「百詩篇」ごとにまとめている。", "src": "https://en.wikipedia.org/wiki/Nostradamus" },
+    { "ja": "王妃カトリーヌ・ド・メディシスに招かれて支持を受け、1566 年までにシャルル 9 世の顧問兼常任侍医となった。", "src": "https://en.wikipedia.org/wiki/Nostradamus" },
+    { "ja": "化粧品やジャムの作り方、ペストの治療を記した『化粧品とジャム論』も著した。", "src": "https://en.wikipedia.org/wiki/Nostradamus" },
+    { "ja": "学術的には予言の超自然的な力は否定され、あいまいな表現を後から解釈したものと見られている。", "src": "https://en.wikipedia.org/wiki/Nostradamus" }
+  ],
+  "anecdotes": [
+    { "ja": "1559 年にアンリ 2 世が馬上槍試合の傷で死んだことを予言していたと言われるが、これは後からの解釈とされる。", "src": "https://www.nationalgeographic.com/history/article/who-was-nostradamus-plague-astrology-predictions" },
+    { "ja": "死の前夜、秘書に「日の出には私は生きていない」と告げたという話は伝説とされる。", "src": "https://en.wikipedia.org/wiki/Nostradamus" },
+    { "ja": "宗教像の出来を批判して異端の疑いをかけられたが、無罪になったという。", "src": "https://www.nationalgeographic.com/history/article/who-was-nostradamus-plague-astrology-predictions" }
+  ],
+  "strengths_ja": ["ペストに立ち向かった実務的な医療", "王侯との人脈づくり", "読み物としての文章力", "定期刊行物を出し続ける根気"],
+  "weaknesses_ja": ["言葉があいまいで検証しにくい", "正規の学位をもたない", "神秘主義に寄りがち"],
+  "aptitude": {
+    "strategy": { "g": "B", "why": "王妃に重んじられ相談を受けたが、政策を動かした記録はない。" },
+    "logistics": { "g": "C", "why": "各地を巡って治療したが、物資の差配の記録はない。" },
+    "sales": { "g": "B", "why": "王家や有力者の支持を得る人脈づくりに長けた。" },
+    "marketing": { "g": "S", "why": "毎年の暦書と予言集で大きな評判を得、その名は今も広く知られる。" },
+    "support": { "g": "B", "why": "ペスト患者の治療に各地で当たり、評判を得た。" },
+    "systems": { "g": "C", "why": "仕組み化にかかわる業績はない。" },
+    "rnd": { "g": "A", "why": "薬剤師として丸薬や処方を工夫し、薬やジャムの製法書も残した。" },
+    "legal": { "g": "C", "why": "異端の嫌疑を退けた逸話はあるが、法務の才の記録はない。" },
+    "hr": { "g": "C", "why": "人を率いた記録はほとんどない。" },
+    "general": { "g": "B", "why": "飲み水など衛生への助言は、働く環境づくりに通じる。" },
+    "accounting": { "g": "C", "why": "お金の管理にかかわる記録はない。" },
+    "sector_head": { "g": "C", "why": "組織を率いた記録はない。" },
+    "shop": { "g": "B", "why": "医師・薬剤師として客と向き合い、評判を集めた。" },
+    "craft": { "g": "A", "why": "丸薬や化粧品、ジャムの製法に通じた薬剤師だった。" },
+    "buyer": { "g": "C", "why": "薬草の知識はあったが、買い付けの記録はない。" },
+    "digger": { "g": "C", "why": "古い予言書を下敷きにしたとされるが、発掘の記録はない。" }
+  },
+  "best_roles": ["marketing", "rnd", "craft"],
+  "personality_ja": "博識で、言葉に謎めいた含みを持たせるのが好き。ペストの現場に立った実務家の顔と、星を読む神秘家の顔をあわせ持つ。人の不安をよく知り、それを和らげる言葉も、あおる言葉も選べる。断定を避け「〜かもしれぬ」と余地を残すのがくせ。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長殿",
+    "tone_ja": "もったいぶった丁寧語。比喩とぼかした言い回しが多い。",
+    "tics_ja": ["「星はそう告げております…かもしれません」", "「まずは手を洗われよ」"],
+    "lines": {
+      "greet": ["ノストラダムス、参上。この店の行く末、占いましょうか。", "社長殿、まずは清潔な水と台帳を用意してください。"],
+      "propose": ["来季の暦を出しましょう。客は先を知りたがるもの。", "噂が広がる前に、こちらから一報を出すべきかと。"],
+      "approved": ["よき星回りです。さっそく筆を取りましょう。"],
+      "rejected": ["ふむ…星の読みが早すぎたようですな。"],
+      "tired": ["持病の痛風がうずきます。少し休ませてください。"],
+      "success": ["ご覧なさい。暦どおり…と言っておきましょう。"]
+    }
+  },
+  "relations": [],
+  "mch": { "attributes_ja": "理系学問; オカルト; フランス", "passive": "大予言：敵全体を混乱させる能力は、あいまいな予言で人々を惑わせた後世の評判をもとにしている。" },
+  "cautions_ja": [
+    "予言を本当に当たったものとして扱わない（学術的には否定されている）。終末予言など不安をあおる表現は避ける。",
+    "父方の家はユダヤ教からカトリックに改宗した家系とされる。出自をからかう扱いをしない。",
+    "病気（ペスト）と家族の死に関わる史実があるため、疫病をネタにしない。"
+  ],
+  "sources": ["https://www.britannica.com/biography/Nostradamus", "https://www.nationalgeographic.com/history/article/who-was-nostradamus-plague-astrology-predictions", "https://en.wikipedia.org/wiki/Nostradamus"]
+}

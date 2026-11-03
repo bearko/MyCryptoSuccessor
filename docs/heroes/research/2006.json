@@ -1,0 +1,197 @@
+{
+  "id": 2006,
+  "name_ja": "アルキメデス",
+  "name_en": "Archimedes",
+  "kind": "historical",
+  "era": "前 290〜280 年ごろ–前 212/211 年（ヘレニズム時代）",
+  "region": "シチリア島シラクサ（古代ギリシャの植民市）",
+  "summary_ja": "シチリア島シラクサの数学者・発明家。天文学者ペイディアスの子とされ、当時の学問の中心アレクサンドリアで学んだ。水を汲み上げる「アルキメデスのらせん」や浮力の原理、てこの原理で知られ、正 96 角形を使って円周率の範囲を示し、宇宙を満たす砂粒の数まで見積もった。その証明は当時の幾何学の最高水準と評される。第二次ポエニ戦争でシラクサがカルタゴ側についてローマに 2 年以上包囲されると、防衛の兵器を考案したが、落城の際にローマ兵に殺された。風呂で「ヘウレーカ（分かった）」と叫んだ話や、「私の円を乱すな」という最期の言葉は、確かではない伝承である。",
+  "facts": [
+    {
+      "ja": "前 290〜280 年ごろシチリアのシラクサに生まれ、前 212/211 年にシラクサで没した。",
+      "src": "https://WWW.Britannica.com/summary/Archimedes"
+    },
+    {
+      "ja": "父ペイディアスは天文学者で、本人は当時の学問の中心アレクサンドリアで学んだ。",
+      "src": "https://mathshistory.st-andrews.ac.uk/Strick/Archimedes.pdf"
+    },
+    {
+      "ja": "水を汲み上げる「アルキメデスのらせん」と、浮力の原理（アルキメデスの原理）が主な発見とされる。",
+      "src": "https://WWW.Britannica.com/summary/Archimedes"
+    },
+    {
+      "ja": "てこの原理を定式化し、滑車などの簡単な機械を作った。",
+      "src": "https://mathshistory.st-andrews.ac.uk/Strick/Archimedes.pdf"
+    },
+    {
+      "ja": "正六角形から正 96 角形まで辺を増やして、円周率が 3 10/71 と 3 1/7 の間にあることを示した。",
+      "src": "https://mathshistory.st-andrews.ac.uk/Strick/Archimedes.pdf"
+    },
+    {
+      "ja": "『砂粒を数える者』で、宇宙ほどの大きさの球を満たす砂粒を約 10 の 64 乗個と見積もった。",
+      "src": "https://mathshistory.st-andrews.ac.uk/Strick/Archimedes.pdf"
+    },
+    {
+      "ja": "その証明は大胆で独創的であり、円周率の近似は中世の後まで改善されなかった。",
+      "src": "https://WWW.Britannica.com/summary/Archimedes"
+    },
+    {
+      "ja": "ローマ軍に 2 年以上包囲されたシラクサを守るための兵器を作った。",
+      "src": "https://mathshistory.st-andrews.ac.uk/Strick/Archimedes.pdf"
+    },
+    {
+      "ja": "第二次ポエニ戦争でカルタゴと結んだシラクサが落ちたとき、ローマ兵に殺された。",
+      "src": "https://mathshistory.st-andrews.ac.uk/Strick/Archimedes.pdf"
+    },
+    {
+      "ja": "1906 年に見つかったパリンプセスト（上書きされた写本）に、著作の一部が残っていた。",
+      "src": "https://mathshistory.st-andrews.ac.uk/Strick/Archimedes.pdf"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "入浴中に浮力の原理に気づいたという有名な話は伝説で、本当かどうかは分からない。",
+      "src": "https://mathshistory.st-andrews.ac.uk/Strick/Archimedes.pdf"
+    },
+    {
+      "ja": "最期の言葉は「私の円を乱すな」だったと言われるが、確かではない。",
+      "src": "https://mathshistory.st-andrews.ac.uk/Strick/Archimedes.pdf"
+    },
+    {
+      "ja": "球と円柱の体積の比が 2 対 3 であることを誇りにし、前 75 年にキケロがその図が刻まれた墓を見たと伝えた。",
+      "src": "https://mathshistory.st-andrews.ac.uk/Strick/Archimedes.pdf"
+    }
+  ],
+  "strengths_ja": [
+    "独創的な数学の力",
+    "原理を道具に変える工夫",
+    "大きな数も恐れない見積もり"
+  ],
+  "weaknesses_ja": [
+    "考えごとに没頭して周りが見えない",
+    "人を率いる記録は乏しい"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "C",
+      "why": "町の防衛に知恵を貸したが、方針を決めた記録は無い。"
+    },
+    "logistics": {
+      "g": "B",
+      "why": "水を汲み上げるらせんや滑車で、物を運ぶ仕組みをつくった。"
+    },
+    "sales": {
+      "g": "D",
+      "why": "交渉の記録は無い。"
+    },
+    "marketing": {
+      "g": "D",
+      "why": "宣伝にかかわる記録は無い。"
+    },
+    "support": {
+      "g": "C",
+      "why": "人の相談に乗った記録は乏しい。"
+    },
+    "systems": {
+      "g": "A",
+      "why": "てこや滑車の原理を道具の仕組みにまとめた。"
+    },
+    "rnd": {
+      "g": "S",
+      "why": "浮力の原理や円周率の近似など、後世に残る発見をした。"
+    },
+    "legal": {
+      "g": "D",
+      "why": "契約や争いの記録は無い。"
+    },
+    "hr": {
+      "g": "C",
+      "why": "人を育てた記録は乏しい。"
+    },
+    "general": {
+      "g": "B",
+      "why": "包囲された町を守る設備を考えた。"
+    },
+    "accounting": {
+      "g": "B",
+      "why": "砂粒の数を見積もるなど、大きな数の計算を得意とした。"
+    },
+    "sector_head": {
+      "g": "C",
+      "why": "町を治めた記録は無い。"
+    },
+    "shop": {
+      "g": "D",
+      "why": "客あしらいの記録は無い。"
+    },
+    "craft": {
+      "g": "A",
+      "why": "機械や兵器を自ら設計して作った。"
+    },
+    "buyer": {
+      "g": "C",
+      "why": "買い付けの記録は無い。"
+    },
+    "digger": {
+      "g": "B",
+      "why": "失われた著作が上書き写本から見つかった人物で、古いものを読み解く知恵に通じる。"
+    }
+  },
+  "best_roles": [
+    "rnd",
+    "craft",
+    "systems"
+  ],
+  "personality_ja": "考えごとに夢中になると周りが見えなくなる、根っからの研究者。原理が分かると子どものように喜び、すぐ道具に変えたくなる。大きな数や難しい問題ほど燃える。自分の発見には誇りを持ち、きれいな証明を何より大切にする。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "理屈っぽく熱っぽい。数字や比でものを言い、ひらめくと声が大きくなる。",
+    "tics_ja": [
+      "ヘウレーカ！（浴場で浮力に気づいたときの言葉として伝わる）",
+      "計算してみよう",
+      "比で言えば……"
+    ],
+    "lines": {
+      "greet": [
+        "アルキメデスだ。支点さえあれば、何でも動かしてみせよう。",
+        "社長、まずこの店の重さを量らせてくれ。"
+      ],
+      "propose": [
+        "らせんで水を上げるように、品を倉庫の上へ運ぼう。",
+        "てこを使えば、一人で三人分の荷が動く。"
+      ],
+      "approved": [
+        "よし、図面は今夜のうちに引いておく。"
+      ],
+      "rejected": [
+        "……ふむ。では別の証明を考えよう。"
+      ],
+      "tired": [
+        "湯に浸かってくる。答えはだいたい湯の中にある。"
+      ],
+      "success": [
+        "ヘウレーカ！計算どおりだ！"
+      ]
+    }
+  },
+  "relations": [
+    {
+      "id": 4047,
+      "name_ja": "ハンニバル",
+      "ja": "アルキメデスが命を落としたシラクサの陥落は、ハンニバルのカルタゴがローマと戦った第二次ポエニ戦争の中の出来事。"
+    }
+  ],
+  "mch": {
+    "attributes_ja": "理系学問; ギリシャ",
+    "passive": "ヘウレーカ！ヘウレーカ！：入浴中に浮力の原理に気づいて叫んだという伝説の言葉から。"
+  },
+  "cautions_ja": [
+    "戦争の中で殺された人物で、最期を軽く扱わない。",
+    "入浴の話や最期の言葉など、有名な逸話の多くは後世の伝承であり、史実として書かない。"
+  ],
+  "sources": [
+    "https://WWW.Britannica.com/summary/Archimedes",
+    "https://mathshistory.st-andrews.ac.uk/Strick/Archimedes.pdf"
+  ]
+}

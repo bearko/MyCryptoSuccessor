@@ -1,0 +1,75 @@
+{
+  "id": 4044,
+  "name_ja": "ファーブル",
+  "name_en": "Jean-Henri Fabre",
+  "kind": "historical",
+  "era": "1823–1915（19 世紀〜20 世紀初め）",
+  "region": "フランス（アヴェロン生まれ、南仏プロヴァンスで活動）",
+  "summary_ja": "『昆虫記』（Souvenirs entomologiques）で知られるフランスの博物学者・教師。貧しい家に生まれ、ほとんど独学で学んで教員資格を取り、カルパントラ、コルシカのアジャクシオ、アヴィニョンの学校で物理や化学を教えた。ハチやコガネムシ、バッタなどの行動を、野外で長い時間をかけて観察し、狩りバチが獲物を麻痺させる行動から、虫の生まれつきの「本能」を描き出した。1866 年には茜（アカネ）から色素を取り出す研究もした。1879 年から約 30 年かけて『昆虫記』全 10 巻を出し、晩年はセリニャンの家「アルマス」で暮らして 1915 年に亡くなった。進化論は受け入れなかったが、ダーウィンは彼を「たぐいまれな観察者」と評した。",
+  "facts": [
+    { "ja": "1823 年 12 月、フランス南部アヴェロンのサン＝レオンに生まれた（生まれた日は資料により 21 日・22 日と異なる）。", "src": "https://www.britannica.com/print/article/199782" },
+    { "ja": "家が貧しく、ほとんど独学で学び、19 歳で初等教員の資格を取った。", "src": "https://en.wikipedia.org/wiki/Jean-Henri_Fabre" },
+    { "ja": "カルパントラ、コルシカのアジャクシオ、アヴィニョンの学校で教えた。", "src": "https://www.britannica.com/print/article/199782" },
+    { "ja": "1855 年にムカデ類の生殖器官と発生についての論文をまとめた。", "src": "https://en.wikipedia.org/wiki/Jean-Henri_Fabre" },
+    { "ja": "1866 年、茜（アカネ）から色素を取り出した。のちにアリザリンとわかり、生物の染色に使われた。", "src": "https://www.britannica.com/print/article/199782" },
+    { "ja": "ハチ・甲虫・バッタ類を研究し、狩りバチが獲物を麻痺させる観察から、虫の生まれつきの本能を描いた。", "src": "https://www.britannica.com/print/article/199782" },
+    { "ja": "1879 年に『昆虫記』の第 1 巻を出し、1909 年の第 10 巻まで書き継いだ。", "src": "https://en.wikipedia.org/wiki/Jean-Henri_Fabre" },
+    { "ja": "晩年をプロヴァンスの家「アルマス」で過ごし、いまは博物館として家と標本が残る。", "src": "https://www.lindahall.org/about/news/scientist-of-the-day/jean-henri-fabre/" },
+    { "ja": "進化論は受け入れなかったが、ダーウィンは彼の仕事を重んじ「たぐいまれな観察者」と書いた。", "src": "https://en.wikipedia.org/wiki/Jean-Henri_Fabre" },
+    { "ja": "1915 年 10 月 11 日、セリニャン＝デュ＝コンタで亡くなった。", "src": "https://www.britannica.com/print/article/199782" }
+  ],
+  "anecdotes": [
+    { "ja": "マツノギョウレツケムシを植木鉢のふちで輪にして行進させ、先頭のいない行列が約 7 日間回り続けたと書き残した。", "src": "https://www.lindahall.org/about/news/scientist-of-the-day/jean-henri-fabre/" },
+    { "ja": "『昆虫記』は虫の伝記のような語り口で、「まったく新しい動物学の散文」と評される。", "src": "https://www.lindahall.org/about/news/scientist-of-the-day/jean-henri-fabre/" },
+    { "ja": "1951 年に伝記映画がつくられ、1956 年にフランスで記念切手が出た。", "src": "https://en.wikipedia.org/wiki/Jean-Henri_Fabre" }
+  ],
+  "strengths_ja": ["根気強い観察", "わかりやすく書いて伝える力", "独学の粘り", "身近なものから発見する目"],
+  "weaknesses_ja": ["自説に頑固（進化論を受け入れなかった）", "華やかな場や駆け引きは苦手", "お金に苦労した"],
+  "aptitude": {
+    "strategy": { "g": "C", "why": "全体の方針を決める役の記録は無い。" },
+    "logistics": { "g": "C", "why": "物の流れにかかわる記録は無い。" },
+    "sales": { "g": "C", "why": "交渉ごとの記録は乏しい。" },
+    "marketing": { "g": "A", "why": "『昆虫記』や多くの教科書で、科学を一般の人に広めた。" },
+    "support": { "g": "B", "why": "長く教師を務め、人にわかりやすく伝えた。" },
+    "systems": { "g": "B", "why": "同じ観察を繰り返して確かめる、決まった手順を大切にした。" },
+    "rnd": { "g": "S", "why": "長年の野外観察で虫の本能を描き、茜の色素も取り出した。" },
+    "legal": { "g": "D", "why": "契約や争いごとにかかわる記録は無い。" },
+    "hr": { "g": "B", "why": "教師として長く若い人を教えた。" },
+    "general": { "g": "C", "why": "職場づくりの記録は無い。" },
+    "accounting": { "g": "C", "why": "貧しさに苦しんだ記録はあるが、会計の記録は無い。" },
+    "sector_head": { "g": "D", "why": "組織を任された記録は無い。" },
+    "shop": { "g": "C", "why": "客と向き合う役の記録は無い。" },
+    "craft": { "g": "B", "why": "自分で実験の道具を用意して観察した。" },
+    "buyer": { "g": "C", "why": "買い付けの記録は無い。" },
+    "digger": { "g": "A", "why": "野や庭で虫を探し出し、何日も追い続けた現場の人だった。" }
+  },
+  "best_roles": ["rnd", "digger", "marketing"],
+  "personality_ja": "小さな生きものに心から夢中になれる、根気の人。派手さはないが、毎日同じ場所で同じものを見つめ続け、そこに物語を見つける。人に教えるのが好きで、難しいことをやさしい言葉で伝える。自分の目で確かめたこと以外は信じない頑固さもある。",
+  "speech": {
+    "first_person": "わたし",
+    "second_person_to_owner": "社長さん",
+    "tone_ja": "穏やかで語りかけるよう。小さな発見を楽しそうに話す、先生らしい口調。",
+    "tics_ja": ["まず、よく見てみましょう", "自分の目で確かめるまでは", "おや、面白い"],
+    "lines": {
+      "greet": ["ファーブルです。まずは現場をじっくり見せてください。", "社長さん、この町の客の行列、毎朝観察しますよ。"],
+      "propose": ["一週間、同じ店先を見続けさせてください。", "客は前の人について歩く。導く先頭を置きましょう。"],
+      "approved": ["ありがとう。では、ノートを新しくしましょう。"],
+      "rejected": ["まだ観察が足りませんでしたね。出直します。"],
+      "tired": ["少し庭に出てきます。虫を眺めれば元気が出ます。"],
+      "success": ["ほら、思ったとおり。見続けた甲斐がありました。"]
+    }
+  },
+  "relations": [
+    { "id": 4028, "name_ja": "ダーウィン", "ja": "ダーウィンはファーブルを「たぐいまれな観察者」と評し、1880 年には礼状を送って実験を提案した。ファーブルは進化論を受け入れなかった。" }
+  ],
+  "mch": {
+    "attributes_ja": "理系学問; フランス",
+    "passive": "動物行動学：虫の行動と本能を観察した『昆虫記』の研究に重なる。"
+  },
+  "cautions_ja": [],
+  "sources": [
+    "https://www.britannica.com/print/article/199782",
+    "https://en.wikipedia.org/wiki/Jean-Henri_Fabre",
+    "https://www.lindahall.org/about/news/scientist-of-the-day/jean-henri-fabre/"
+  ]
+}

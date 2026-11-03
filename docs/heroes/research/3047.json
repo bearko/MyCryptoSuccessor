@@ -1,0 +1,196 @@
+{
+  "id": 3047,
+  "name_ja": "アッティラ",
+  "name_en": "Attila",
+  "kind": "historical",
+  "era": "?–453（5 世紀・西ローマ帝国末期）",
+  "region": "中央ヨーロッパ（フン族の王国、現在のハンガリー平原を中心）",
+  "summary_ja": "434 年から 453 年までフン族の王。はじめは兄ブレダと共同で治め、兄が 445 年ごろに姿を消してからは単独で君臨した（その経緯ははっきりしない）。東ローマ帝国と条約を結んで毎年の貢納を取り立て、支払いが止まると 441 年以降バルカン半島に攻め込み、さらに重い条件をのませた。451 年にはガリアへ、452 年にはイタリアへ侵攻し、教皇レオ 1 世と会見したのちに撤退した。翌 453 年、婚礼の夜に亡くなった。東ローマの使節に同行したプリスクスの記録では、客には金銀の器で豪華な料理を出しながら、自分は木の皿で肉だけを食べ木の杯で飲み、衣服も飾らない質素な人物として描かれる。後世の伝説では「神の鞭」と呼ばれ、ゲルマンの英雄叙事詩にも登場する。",
+  "facts": [
+    {
+      "ja": "434 年から 453 年までフン族の王で、445 年までは兄ブレダと共同で統治した。",
+      "src": "https://www.britannica.com/print/article/42236"
+    },
+    {
+      "ja": "共同統治の初めに東ローマ帝国と条約を結び、毎年の支払いを課した。",
+      "src": "https://www.ebsco.com/research-starters/history/analysis-dining-attila-hun"
+    },
+    {
+      "ja": "東ローマが支払いを止めると 441 年に攻め込み、443 年までに勝って支払い額を引き上げさせた。",
+      "src": "https://www.ebsco.com/research-starters/history/analysis-dining-attila-hun"
+    },
+    {
+      "ja": "447 年にも再び侵攻し、さらに厳しい条約を結ばせたのち西方へ向かった。",
+      "src": "https://www.ebsco.com/research-starters/history/analysis-dining-attila-hun"
+    },
+    {
+      "ja": "449 年、東ローマの使節団にプリスクスが加わり、アッティラの宮廷での宴の様子を書き残した。",
+      "src": "https://www.ebsco.com/research-starters/history/analysis-dining-attila-hun"
+    },
+    {
+      "ja": "451 年のガリア遠征ではローマと西ゴートの連合軍に大きな損害を受けた。",
+      "src": "https://ebsco.com/research-starters/history/attila-hun-invades-italy"
+    },
+    {
+      "ja": "452 年にイタリアへ侵攻し、マントヴァ近くの川で教皇レオ 1 世と会見したのち撤退した（会話の記録は残っていない）。",
+      "src": "https://ebsco.com/research-starters/history/attila-hun-invades-italy"
+    },
+    {
+      "ja": "453 年、婚礼の夜に亡くなった。",
+      "src": "https://ebsco.com/research-starters/history/attila-hun-invades-italy"
+    },
+    {
+      "ja": "『ニーベルンゲンの歌』ではエッツェル、アイスランドのサガではアトリとして登場する。",
+      "src": "https://www.britannica.com/print/article/42236"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "プリスクスによれば、客は金銀の器でもてなされたが、アッティラ自身は木の皿で肉だけを食べ、木の杯で飲んだ。",
+      "src": "https://sourcebooks.web.fordham.edu/source/attila1.asp"
+    },
+    {
+      "ja": "同じ記録では、衣服は清潔であるだけで飾りがなく、剣や馬具にも金や宝石を付けなかったとされる。",
+      "src": "https://sourcebooks.web.fordham.edu/source/attila1.asp"
+    },
+    {
+      "ja": "宴の余興のあいだも表情を変えなかったと記されている。",
+      "src": "https://www.ebsco.com/research-starters/history/analysis-dining-attila-hun"
+    },
+    {
+      "ja": "同時代人から「神の鞭」と呼ばれたとされるが、この呼び名は後世の伝承として広まった面が大きい。",
+      "src": "https://ebsco.com/research-starters/history/attila-hun-invades-italy"
+    }
+  ],
+  "strengths_ja": [
+    "強気の交渉で条件を引き上げる力",
+    "自分には質素で節度がある",
+    "大勢の部族をまとめる統率力",
+    "動じない落ち着き"
+  ],
+  "weaknesses_ja": [
+    "力で押す手法に頼りがち",
+    "破られた約束には容赦がない",
+    "撤退の判断が外から読みにくい"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "A",
+      "why": "東西ローマを相手に攻める先と時期を選び、20 年近く優位を保った。"
+    },
+    "logistics": {
+      "g": "B",
+      "why": "バルカンからガリア・イタリアまで大軍を動かしたが、補給の詳細は不明。"
+    },
+    "sales": {
+      "g": "A",
+      "why": "条約の破棄を突いて支払い額を何度も引き上げさせた。"
+    },
+    "marketing": {
+      "g": "C",
+      "why": "名は轟いたが恐れによるもので、好感を得る宣伝ではない。"
+    },
+    "support": {
+      "g": "D",
+      "why": "相手をなだめる対応をした記録はない。"
+    },
+    "systems": {
+      "g": "C",
+      "why": "貢納の仕組みは作ったが、制度の整備は記録が乏しい。"
+    },
+    "rnd": {
+      "g": "D",
+      "why": "研究や発明にかかわった記録はない。"
+    },
+    "legal": {
+      "g": "B",
+      "why": "プリスクスは、彼が自ら訴えを聞き裁く様子を書いている。"
+    },
+    "hr": {
+      "g": "B",
+      "why": "多くの部族を従え、息子に部族の統治を任せた。"
+    },
+    "general": {
+      "g": "B",
+      "why": "自分の暮らしは質素で、無駄を嫌う姿勢が記録に残る。"
+    },
+    "accounting": {
+      "g": "B",
+      "why": "金の支払いを条約で取り立てた。質素で浪費しない。"
+    },
+    "sector_head": {
+      "g": "A",
+      "why": "広い地域の諸部族を一人で束ねた。"
+    },
+    "shop": {
+      "g": "D",
+      "why": "客を和ませる接客の場面は記録にない。"
+    },
+    "craft": {
+      "g": "D",
+      "why": "ものづくりの記録はない。"
+    },
+    "buyer": {
+      "g": "B",
+      "why": "相手の弱みを突いて有利な条件を引き出した。"
+    },
+    "digger": {
+      "g": "C",
+      "why": "遠征で各地を動いたが、探索の記録ではない。"
+    }
+  },
+  "best_roles": [
+    "sales",
+    "sector_head",
+    "strategy"
+  ],
+  "personality_ja": "自分には厳しく質素で、飾りや贅沢を好まない。表情を崩さず、相手の約束違反を見逃さずに強く出る。交渉の席では一歩も引かない。自ら訴えを聞いて裁く威厳ある王として記録に残る。口数は少なく、決めたら速い。仕事には厳格さを求める。",
+  "speech": {
+    "first_person": "わし",
+    "second_person_to_owner": "社長",
+    "tone_ja": "短く重い言葉で話す。飾らず無駄口をきかないが、交渉の話になると押しが強い",
+    "tics_ja": [
+      "約束は守らせる",
+      "飾りはいらん",
+      "条件を上げるぞ"
+    ],
+    "lines": {
+      "greet": [
+        "アッティラだ。交渉の席を用意しろ。",
+        "飾りはいらん。仕事を見せてもらおう。"
+      ],
+      "propose": [
+        "先方は納期を破った。条件を引き上げる。",
+        "この取引先、支払いを渋っている。詰めるぞ。"
+      ],
+      "approved": [
+        "よし。明日には答えを持ってくる。"
+      ],
+      "rejected": [
+        "そうか。ならば別の道で攻める。"
+      ],
+      "tired": [
+        "……木の杯で一杯やって休む。"
+      ],
+      "success": [
+        "先方が折れた。約束は守らせた。"
+      ]
+    }
+  },
+  "relations": [],
+  "mch": {
+    "attributes_ja": "指導者; ヨーロッパ; アジア",
+    "passive": "フン族の大王：フン族の王として諸部族を率いた史実にちなむ。"
+  },
+  "cautions_ja": [
+    "侵攻・略奪・都市の破壊にかかわる人物。暴力を美化せず、ゲーム内では「強気の交渉役」にとどめる。",
+    "ハンガリーなどでは国民的な伝承の英雄として扱われることもあり、民族的な侮蔑表現にしない。",
+    "ブレダの死や婚礼の夜の死の経緯は史料が乏しく、断定しない。"
+  ],
+  "sources": [
+    "https://www.britannica.com/print/article/42236",
+    "https://www.ebsco.com/research-starters/history/analysis-dining-attila-hun",
+    "https://ebsco.com/research-starters/history/attila-hun-invades-italy",
+    "https://sourcebooks.web.fordham.edu/source/attila1.asp"
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "id": 4004,
+  "name_ja": "佐々木小次郎",
+  "name_en": "Kojiro Sasaki",
+  "kind": "historical",
+  "era": "?–1612（安土桃山時代〜江戸時代初め）",
+  "region": "日本（出身は越前説・周防説あり。豊前小倉で活動したとされる）",
+  "summary_ja": "安土桃山時代から江戸時代初めの剣客。生年も出身もはっきりせず、越前国とも周防国ともいわれる。富田勢源や鐘捲自斎に剣を学んだとされ、「巌流」と号した。諸国を武者修行して長い太刀を使う秘剣「燕返し」を編み出したと伝えられ、小倉藩主・細川忠興に仕えたともいう。1612 年（慶長 17 年）、関門海峡の船島で宮本武蔵と試合をして敗れたと伝えられ、島はのちに彼の流派名にちなんで「巌流島」と呼ばれるようになった。ただし決闘の経緯や年齢には諸説あり、講談や小説で老人として描かれることもあるなど、伝説に包まれた人物で、確かな史料は少ない。",
+  "facts": [
+    { "ja": "安土桃山時代から江戸初期の剣客で、生年は不明。出身は越前国説と周防国説がある。", "src": "https://japanknowledge.com/introduction/keyword.html?i=1617" },
+    { "ja": "富田勢源や鐘捲自斎に剣を学んだとされ、流派は富田流の系統、自らは「巌流」と号した。", "src": "https://japanknowledge.com/introduction/keyword.html?i=1617" },
+    { "ja": "小倉藩主・細川忠興に仕えたとされる。", "src": "https://japanknowledge.com/introduction/keyword.html?i=1617" },
+    { "ja": "1612 年（慶長 17 年）、船島で宮本武蔵と試合をして敗れたと伝えられる。", "src": "https://japanknowledge.com/introduction/keyword.html?i=1617" },
+    { "ja": "島の正式名は船島で、敗れた小次郎をしのぶ人々が彼の流派にちなんで「巌流島」と呼ぶようになった。", "src": "https://yamaguchi-tourism.jp/spot/detail_10426.html" },
+    { "ja": "武蔵の養子・宮本伊織が 1654 年に建てた碑に、船島での小次郎との試合が記されている。", "src": "https://www.city.kitakyushu.lg.jp/kokurakita/file_0080.html" },
+    { "ja": "北九州市小倉北区の手向山には小次郎の碑があり、1951 年に建て替えられた。", "src": "https://www.city.kitakyushu.lg.jp/kokurakita/file_0080.html" },
+    { "ja": "決闘の背景や小次郎の年齢には諸説あり、確かなことは分かっていない。", "src": "https://japanknowledge.com/introduction/keyword.html?i=1617" }
+  ],
+  "anecdotes": [
+    { "ja": "伝承では、長い太刀を用いる秘剣「燕返し」を編み出したという。", "src": "https://japanknowledge.com/introduction/keyword.html?i=1617" },
+    { "ja": "講談や小説では老人として描かれることもあり、人物像は作品ごとに大きく違う。", "src": "https://japanknowledge.com/introduction/keyword.html?i=1617" },
+    { "ja": "小倉では毎年 4 月 13 日（決闘の日とされる）に近い日曜日に「武蔵小次郎まつり」が開かれている。", "src": "https://www.city.kitakyushu.lg.jp/kokurakita/file_0080.html" }
+  ],
+  "strengths_ja": ["一つの技を極める集中力", "自ら技を編み出す工夫", "剣を教える指南役の経験（とされる）", "名を残すほどの存在感"],
+  "weaknesses_ja": ["史料が少なく、実像が分からない", "一つの勝負にすべてを賭けがち", "型へのこだわりが強い"],
+  "aptitude": {
+    "strategy": { "g": "C", "why": "全体の方針を立てた記録はない。" },
+    "logistics": { "g": "D", "why": "段取りにかかわった記録はない。" },
+    "sales": { "g": "C", "why": "交渉の記録はない。" },
+    "marketing": { "g": "B", "why": "島の名に流派名が残るほど、名が語り継がれた。" },
+    "support": { "g": "C", "why": "応対にかかわる記録はない。" },
+    "systems": { "g": "C", "why": "剣の型を体系化したとされるが、詳細は不明。" },
+    "rnd": { "g": "A", "why": "伝承では、秘剣「燕返し」を自ら編み出した。" },
+    "legal": { "g": "D", "why": "取り決めや争いの調停の記録はない。" },
+    "hr": { "g": "B", "why": "細川家で剣を教える立場にあったとされる。" },
+    "general": { "g": "C", "why": "環境づくりの記録はない。" },
+    "accounting": { "g": "D", "why": "お金の管理の記録はない。" },
+    "sector_head": { "g": "C", "why": "組織を率いた記録はない。" },
+    "shop": { "g": "C", "why": "接客の記録はない。" },
+    "craft": { "g": "A", "why": "一つの技を磨き続ける姿勢は職人に通じる（伝承による）。" },
+    "buyer": { "g": "C", "why": "長い太刀を使いこなす道具へのこだわりはあるが、記録は乏しい。" },
+    "digger": { "g": "C", "why": "諸国を修行して回ったとされる。" }
+  },
+  "best_roles": ["craft", "rnd", "hr"],
+  "personality_ja": "史料が少なく実像は不明。伝承からは、一つの技を極めることに打ち込み、美しく鋭い技にこだわる求道者の姿が浮かぶ。誇り高く、勝負の場には全力で臨む。教える立場にもあったとされ、技を言葉で伝えることもできる。",
+  "speech": {
+    "first_person": "拙者",
+    "second_person_to_owner": "社長殿",
+    "tone_ja": "静かで凛とした武士の口調。言葉は少なく、技と美しさにこだわる",
+    "tics_ja": ["一太刀で決める", "技は磨いてこそ", "燕のように、返す"],
+    "lines": {
+      "greet": ["佐々木小次郎、参上。工房の技を磨こう。", "社長殿、拙者に一つの品を極めさせてくれ。"],
+      "propose": ["この工程、無駄が多い。一太刀で決めたい。", "返しの一手を加えれば、品が見違える。"],
+      "approved": ["かたじけない。すぐ取りかかる。"],
+      "rejected": ["……そうか。技をさらに磨いて出直す。"],
+      "tired": ["刀も人も、研ぎ直しが要る。少し休む。"],
+      "success": ["見事に決まった。燕のごとく。"]
+    }
+  },
+  "relations": [
+    { "id": 5032, "name_ja": "宮本武蔵", "ja": "1612 年、船島（巌流島）で試合をして敗れたと伝えられる相手。" }
+  ],
+  "mch": {
+    "attributes_ja": "決闘; 江戸",
+    "passive": "燕返し：伝承で小次郎が編み出したとされる秘剣の名にちなむ。"
+  },
+  "cautions_ja": [
+    "史料が非常に少なく、生年・出身・人物像の多くは伝承や後世の創作。史実のように断定しない。",
+    "小説・映画・漫画などで作られた人物像やセリフを写さない。",
+    "決闘での死を笑いや軽いネタにしない。"
+  ],
+  "sources": [
+    "https://japanknowledge.com/introduction/keyword.html?i=1617",
+    "https://www.city.kitakyushu.lg.jp/kokurakita/file_0080.html",
+    "https://yamaguchi-tourism.jp/spot/detail_10426.html"
+  ]
+}

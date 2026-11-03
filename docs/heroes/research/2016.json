@@ -1,0 +1,200 @@
+{
+  "id": 2016,
+  "name_ja": "アナスタシア",
+  "name_en": "Anastasia",
+  "kind": "historical",
+  "era": "1901–1918（帝政ロシア末期）",
+  "region": "ロシア帝国",
+  "summary_ja": "ロシア皇帝ニコライ 2 世と皇后アレクサンドラの末娘（四女）。家族や家庭教師の記録では、活発で機知に富み、いたずら好きで演技の才があったとされ、「シュヴィブジク（小さないたずらっ子）」と呼ばれた。第一次世界大戦中は姉マリアとともに病院で負傷兵を見舞った。1917 年の革命後、一家は軟禁され、トボリスク、エカテリンブルクへ移されて、1918 年 7 月 17 日に家族とともに殺害された。埋葬地が長く不明だったため生存説が広まり、名乗り出る者も現れたが、のちの DNA 鑑定で否定され、2009 年に 1918 年の死が確かめられた。ロシア正教会は一家を聖人（受難者）としている。",
+  "facts": [
+    {
+      "ja": "1901 年 6 月 18 日、皇帝ニコライ 2 世と皇后アレクサンドラの末娘として生まれ、姉 3 人（オリガ・タチアナ・マリア）と弟アレクセイがいた。",
+      "src": "https://en.wikipedia.org/wiki/Grand_Duchess_Anastasia_Nikolaevna_of_Russia"
+    },
+    {
+      "ja": "家族や家庭教師は、活発で機知に富み、いたずら好きで演技の才があったと記している。",
+      "src": "https://en.wikipedia.org/wiki/Grand_Duchess_Anastasia_Nikolaevna_of_Russia"
+    },
+    {
+      "ja": "第一次世界大戦中、赤十字の看護師になるには幼かったため、姉マリアとツァールスコエ・セローの病院で負傷兵を見舞った。",
+      "src": "https://en.wikipedia.org/wiki/Grand_Duchess_Anastasia_Nikolaevna_of_Russia"
+    },
+    {
+      "ja": "皇帝の子どもたちはラスプーチンを友人とみなし、アナスタシアは 1916 年 12 月の彼の葬儀に参列した。",
+      "src": "https://en.wikipedia.org/wiki/Grand_Duchess_Anastasia_Nikolaevna_of_Russia"
+    },
+    {
+      "ja": "1917 年に一家はツァールスコエ・セローで軟禁され、シベリアのトボリスク、エカテリンブルクのイパチェフ館へと移された。",
+      "src": "https://en.wikipedia.org/wiki/Grand_Duchess_Anastasia_Nikolaevna_of_Russia"
+    },
+    {
+      "ja": "1918 年 7 月 17 日、17 歳で家族とともにボリシェヴィキに殺害された。",
+      "src": "https://en.wikipedia.org/wiki/Grand_Duchess_Anastasia_Nikolaevna_of_Russia"
+    },
+    {
+      "ja": "1994 年に報告された DNA 鑑定で、エカテリンブルク近郊の墓から両親と娘 3 人が確認されたが、アレクセイと娘 1 人の遺骨は見つからなかった。",
+      "src": "https://www.psu.edu/news/research/story/anastasia-story"
+    },
+    {
+      "ja": "残る 2 人の遺骨は 2007 年に見つかり、2009 年の DNA 鑑定で身元が確かめられ、アナスタシアが 1918 年に亡くなったことが確定した。",
+      "src": "https://en.wikipedia.org/wiki/Grand_Duchess_Anastasia_Nikolaevna_of_Russia"
+    },
+    {
+      "ja": "アナスタシアを名乗った最も有名な人物アンナ・アンダーソンは、1994 年の DNA 鑑定でロマノフ家と無関係と示された。",
+      "src": "https://www.psu.edu/news/research/story/anastasia-story"
+    },
+    {
+      "ja": "ロシア正教会は 2000 年に一家を受難者として列聖した（在外ロシア正教会は 1981 年に致命者として列聖）。",
+      "src": "https://en.wikipedia.org/wiki/Grand_Duchess_Anastasia_Nikolaevna_of_Russia"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "ドイツ語由来の「シュヴィブジク（小さないたずらっ子）」というあだ名で呼ばれた。",
+      "src": "https://en.wikipedia.org/wiki/Grand_Duchess_Anastasia_Nikolaevna_of_Russia"
+    },
+    {
+      "ja": "石を詰めた雪玉を投げて姉タチアナを倒してしまったことがあるという。",
+      "src": "https://en.wikipedia.org/wiki/Grand_Duchess_Anastasia_Nikolaevna_of_Russia"
+    },
+    {
+      "ja": "埋葬地が不明だったため生存説が数十年語られ、映画や舞台の題材にもなったが、科学的な鑑定で否定された。",
+      "src": "https://en.wikipedia.org/wiki/Grand_Duchess_Anastasia_Nikolaevna_of_Russia"
+    }
+  ],
+  "strengths_ja": [
+    "明るさとユーモア",
+    "演技の才",
+    "場を和ませる力",
+    "負傷者を見舞う思いやり"
+  ],
+  "weaknesses_ja": [
+    "いたずらが度を越すことがある",
+    "若く、実務の経験はほとんどない"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "D",
+      "why": "17 歳で亡くなり、方針を決める立場についたことはない。"
+    },
+    "logistics": {
+      "g": "D",
+      "why": "物流にかかわる経験は伝わらない。"
+    },
+    "sales": {
+      "g": "C",
+      "why": "人懐こさはあるが、交渉の経験はない。"
+    },
+    "marketing": {
+      "g": "A",
+      "why": "演技の才と明るさで人の目を引いたと家族や教師が記している。"
+    },
+    "support": {
+      "g": "A",
+      "why": "大戦中に病院で負傷兵を見舞い、励ました。"
+    },
+    "systems": {
+      "g": "D",
+      "why": "仕組みづくりにかかわる経験はない。"
+    },
+    "rnd": {
+      "g": "C",
+      "why": "研究にかかわる事績は伝わらない。"
+    },
+    "legal": {
+      "g": "D",
+      "why": "契約や争いごとにかかわる経験はない。"
+    },
+    "hr": {
+      "g": "B",
+      "why": "いたずらとユーモアで周りを和ませ、士気を上げる力がある。"
+    },
+    "general": {
+      "g": "B",
+      "why": "家族の中で場を明るくする役回りだった。"
+    },
+    "accounting": {
+      "g": "D",
+      "why": "お金の管理にかかわる経験はない。"
+    },
+    "sector_head": {
+      "g": "D",
+      "why": "組織を率いた経験はない。"
+    },
+    "shop": {
+      "g": "A",
+      "why": "人懐こく明るい人柄は客と向き合う仕事に向く。"
+    },
+    "craft": {
+      "g": "C",
+      "why": "ものづくりの記録ははっきりしない。"
+    },
+    "buyer": {
+      "g": "C",
+      "why": "買い付けの経験はない。"
+    },
+    "digger": {
+      "g": "C",
+      "why": "発掘や探索にかかわる経験はない。"
+    }
+  },
+  "best_roles": [
+    "support",
+    "shop",
+    "marketing"
+  ],
+  "personality_ja": "好奇心いっぱいで、周りを笑わせるのが好きな末っ子気質。お芝居やいたずらで場を明るくするが、傷ついた人には素直に寄り添う優しさもある。かしこまった場は少し苦手。年上にも物おじせず話しかける。仲間が落ち込んでいると、真っ先に冗談で笑わせにいく。",
+  "speech": {
+    "first_person": "わたし",
+    "second_person_to_owner": "社長さん",
+    "tone_ja": "明るく茶目っ気のある敬語。くだけた言い回しが混じり、よく笑う。",
+    "tics_ja": [
+      "ふふっ",
+      "ちょっとしたいたずらです",
+      "まかせてくださいな"
+    ],
+    "lines": {
+      "greet": [
+        "アナスタシアです！楽しい職場にしますね。",
+        "社長さん、よろしくお願いしますっ。"
+      ],
+      "propose": [
+        "お客さまへのお便り、わたしが書きます！",
+        "お店で小さな劇をやったら人が来ますよ。"
+      ],
+      "approved": [
+        "やった！さっそく準備しますね。"
+      ],
+      "rejected": [
+        "むう……じゃあ別の手を考えます。"
+      ],
+      "tired": [
+        "ちょっとだけお昼寝してもいいですか？"
+      ],
+      "success": [
+        "ふふっ、みんな笑顔になりましたね！"
+      ]
+    }
+  },
+  "relations": [
+    {
+      "id": 4046,
+      "name_ja": "ラスプーチン",
+      "ja": "皇帝一家と親しく、子どもたちから友人とみなされていた。アナスタシアは 1916 年に彼の葬儀に参列した。"
+    }
+  ],
+  "mch": {
+    "attributes_ja": "政治; 女性; オカルト; ロシア",
+    "passive": "幻の生存者：名前は長く語られた生存説（伝説）にちなむが、史実では DNA 鑑定により 1918 年の死が確かめられている。"
+  },
+  "cautions_ja": [
+    "17 歳で家族とともに殺害された実在の少女なので、死や処刑をネタにした台詞・演出にしない。",
+    "ロシア正教会では一家が聖人（受難者）とされているので、信仰への配慮が要る。",
+    "生存説やなりすましは DNA 鑑定で否定されているので、生き延びた設定を史実として扱わない。",
+    "ロマノフ家の血縁にあたる人々が今もいる。"
+  ],
+  "sources": [
+    "https://en.wikipedia.org/wiki/Grand_Duchess_Anastasia_Nikolaevna_of_Russia",
+    "https://www.psu.edu/news/research/story/anastasia-story"
+  ]
+}

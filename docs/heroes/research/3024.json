@@ -1,0 +1,69 @@
+{
+  "id": 3024,
+  "name_ja": "ルーベンス",
+  "name_en": "Peter Paul Rubens",
+  "kind": "historical",
+  "era": "1577–1640（バロック期）",
+  "region": "フランドル（アントウェルペン。現在のベルギー）",
+  "summary_ja": "フランドルの画家。ドイツのジーゲンに生まれ、10 歳からアントウェルペンで育った。修業の後、約 8 年間イタリアで古代やルネサンスの美術を学び、ミケランジェロやティツィアーノ、カラヴァッジョに刺激を受けた。1609 年にアルブレヒト大公とイサベル大公妃の宮廷画家となり、注文の多さから弟子と助手を抱える大工房を組織した。油彩の下絵を助手に渡して大作を仕上げさせ、ヤン・ブリューゲルとの共作も多い。6 か国語を話し、イサベルの名代として外交の場にも立ち、スペイン王フェリペ 4 世から貴族に叙せられた。イングランドのホワイトホール宮殿バンケティング・ハウスの天井画も手がけた。",
+  "facts": [
+    { "ja": "1577 年にドイツのジーゲンに生まれ、10 歳からアントウェルペンで暮らした。1640 年 5 月に没した。", "src": "https://www.nationalgallery.org.uk/artists/peter-paul-rubens" },
+    { "ja": "約 8 年間イタリアに滞在し、古代やルネサンスの美術を学んだ。", "src": "https://www.nationalgallery.org.uk/artists/peter-paul-rubens" },
+    { "ja": "イタリアではミケランジェロ、ティツィアーノ、カラヴァッジョに刺激を受け、ローマで成功した。", "src": "https://www.mauritshuis.nl/en/our-collection/our-masters/peter-paul-rubens" },
+    { "ja": "1609 年にアルブレヒト大公とイサベル大公妃の宮廷画家となった。", "src": "https://www.nationalgallery.org.uk/artists/peter-paul-rubens" },
+    { "ja": "注文が多すぎて一人ではこなせず、弟子と助手を抱える大きな工房を組織した。", "src": "https://www.nationalgallery.org.uk/artists/peter-paul-rubens" },
+    { "ja": "宮廷画家として組合の規則を免れ、自分で描いた油彩の下絵（モデッロ）をもとに助手に大作を描かせた。", "src": "https://www.mauritshuis.nl/en/our-collection/our-masters/peter-paul-rubens" },
+    { "ja": "ヤン・ブリューゲル（父）と約 25 点の作品を共作し、人物はルーベンス、風景と動物はブリューゲルが描いた。", "src": "https://www.mauritshuis.nl/en/our-collection/our-masters/peter-paul-rubens" },
+    { "ja": "6 か国語を話し、イサベルの名代としてフランスやイングランドで外交交渉にあたった。", "src": "https://www.mauritshuis.nl/en/our-collection/our-masters/peter-paul-rubens" },
+    { "ja": "1624 年にスペイン王フェリペ 4 世から貴族の特許状を受けた。", "src": "https://www.nationalgallery.org.uk/artists/peter-paul-rubens" },
+    { "ja": "ホワイトホールのバンケティング・ハウスの天井画のために、1628〜30 年ごろ下絵を描いた。", "src": "https://www.tate.org.uk/art/artworks/rubens-the-apotheosis-of-james-i-and-other-studies-multiple-sketch-for-the-banqueting-t12919" }
+  ],
+  "anecdotes": [
+    { "ja": "朝 4 時に起きて夕方 5 時まで描き、体力を保つため乗馬をしたと伝えられる。", "src": "https://www.nationalgallery.org.uk/artists/peter-paul-rubens" },
+    { "ja": "宝石や古代彫刻、貨幣、さらにエジプトのミイラまで集めた収集家だった。", "src": "https://www.nationalgallery.org.uk/artists/peter-paul-rubens" },
+    { "ja": "魅力的で礼儀正しく、「世慣れた人」と評された。", "src": "https://www.mauritshuis.nl/en/our-collection/our-masters/peter-paul-rubens" }
+  ],
+  "strengths_ja": ["大工房を回す組織力", "多作を支える仕組みづくり", "外交と語学", "共同制作の分担", "社交性"],
+  "weaknesses_ja": ["仕事を抱え込みすぎる（未完の大事業もある）", "晩年の痛風"],
+  "aptitude": {
+    "strategy": { "g": "B", "why": "宮廷の名代として外交を担ったが、組織の大方針を決めた記録はない。" },
+    "logistics": { "g": "A", "why": "大量の注文を工房で分担し、祭壇画などの大作を次々に納めた。" },
+    "sales": { "g": "S", "why": "6 か国語で外交交渉にあたり、旅先でも新しい注文を次々に得た。" },
+    "marketing": { "g": "A", "why": "ヨーロッパ中の王侯から注文を集める名声を築いた。" },
+    "support": { "g": "B", "why": "魅力的で礼儀正しい人柄と評された。" },
+    "systems": { "g": "S", "why": "油彩の下絵を助手に渡して大作を仕上げる、分業の仕組みを確立した。" },
+    "rnd": { "g": "B", "why": "イタリアで古代やルネサンスの美術を研究し、自分の様式を築いた。" },
+    "legal": { "g": "B", "why": "宮廷の名代として和平などの外交交渉に関わった。" },
+    "hr": { "g": "A", "why": "多くの弟子と助手を抱え、役割を分けて育てた。" },
+    "general": { "g": "B", "why": "自宅をイタリア風の邸宅に改装し、工房の環境を整えた。" },
+    "accounting": { "g": "B", "why": "工房を事業として成り立たせたが、帳簿の記録までは確認していない。" },
+    "sector_head": { "g": "A", "why": "大工房を率い、宮廷画家として一つの拠点を任された。" },
+    "shop": { "g": "B", "why": "王侯の注文主と直接向き合う社交性があった。" },
+    "craft": { "g": "A", "why": "ヨーロッパの宮廷が求めた、色彩豊かで技巧に富む画家だった。" },
+    "buyer": { "g": "A", "why": "宝石・古代彫刻・貨幣などを集めた目利きの収集家だった。" },
+    "digger": { "g": "B", "why": "古代の遺物や珍品に強い関心を持ち、集めていた。" }
+  },
+  "best_roles": ["systems", "sales", "sector_head"],
+  "personality_ja": "勤勉で規則正しく、社交的で礼儀正しい。大きな仕事を仲間と分け合って仕上げるのが得意で、弟子や協力者の持ち味を生かす。教養が深く、どの国の相手とも打ち解ける。仕事を引き受けすぎるきらいがある。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "上品で快活な丁寧語。段取りと分担の話が多い。",
+    "tics_ja": ["「下絵は私が描きましょう」", "「分ければ、早く美しく」"],
+    "lines": {
+      "greet": ["ルーベンスです。工房ごとお引き受けしますよ。", "社長、まずは仕事の割り振りを見せてください。"],
+      "propose": ["下絵は私、仕上げは助手に。三倍こなせます。", "隣国の店とは私が話しましょう。言葉は通じます。"],
+      "approved": ["承知しました。明朝四時から取りかかります。"],
+      "rejected": ["なるほど。では、別の構図を考えましょう。"],
+      "tired": ["今日は筆が重い。乗馬で気分を変えてきます。"],
+      "success": ["皆で仕上げた傑作です。見事でしょう？"]
+    }
+  },
+  "relations": [
+    { "id": 2023, "name_ja": "ミケランジェロ", "ja": "ルーベンスはイタリア滞在中にミケランジェロの作品に学び、刺激を受けた。" },
+    { "id": 5005, "name_ja": "レオナルド・ダ・ビンチ", "ja": "ルーベンスはレオナルドの壁画『アンギアーリの戦い』を模写したことで知られる（先人の作品に学んだ関係）。" }
+  ],
+  "mch": { "attributes_ja": "美術; ヨーロッパ", "passive": "黄金の工房：味方全体の素早さを上げる能力は、弟子と助手を束ねて大作を次々に仕上げた大工房にちなむ。" },
+  "cautions_ja": [],
+  "sources": ["https://www.nationalgallery.org.uk/artists/peter-paul-rubens", "https://www.mauritshuis.nl/en/our-collection/our-masters/peter-paul-rubens", "https://www.tate.org.uk/art/artworks/rubens-the-apotheosis-of-james-i-and-other-studies-multiple-sketch-for-the-banqueting-t12919"]
+}

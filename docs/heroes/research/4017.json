@@ -1,0 +1,79 @@
+{
+  "id": 4017,
+  "name_ja": "キュリー夫人",
+  "name_en": "Marie Curie",
+  "kind": "historical",
+  "era": "1867–1934（19 世紀後半〜20 世紀前半）",
+  "region": "ポーランド（ワルシャワ）→フランス（パリ）",
+  "summary_ja": "放射能研究の先駆者。ロシア支配下のワルシャワで貧しい教師の家に生まれ、非合法の「移動大学」で学び、家庭教師として姉の留学費を支えた後、1891年にパリへ出た。夫ピエールとともにポロニウムとラジウムを発見し、「放射能」の語を用いた。1903年に女性として初めてノーベル賞（物理学）を受け、1911年に化学賞も受けた。夫の事故死後、パリ大学初の女性教授となる。第一次大戦では移動式X線装置（プチ・キュリー）を組織し、女性助手を育てて多くの負傷兵の診断を支えた。名誉や金銭に淡白で、賞金を周囲に分け、レジオン・ドヌール勲章を辞退した。長年の被曝が関係するとみられる再生不良性貧血で亡くなった。",
+  "facts": [
+    { "ja": "1867年11月7日、ロシア支配下のワルシャワで生まれた。", "src": "https://en.wikipedia.org/wiki/Marie_Curie" },
+    { "ja": "非合法の「移動大学」で学び、家庭教師として働いて姉のパリでの医学修業を支えた。", "src": "https://www.sciencehistory.org/education/scientific-biographies/marie-sklodowska-curie" },
+    { "ja": "1891年にパリへ移り、物理学（1893年）と数学（1894年）の学位を得た。", "src": "https://en.wikipedia.org/wiki/Marie_Curie" },
+    { "ja": "1898年、祖国にちなんでポロニウムと名づけた元素を、同年末にラジウムを発表した。", "src": "https://en.wikipedia.org/wiki/Marie_Curie" },
+    { "ja": "1903年、ピエール・キュリー、ベクレルとともにノーベル物理学賞を受け、女性初の受賞者となった。", "src": "https://www.sciencehistory.org/education/scientific-biographies/marie-sklodowska-curie" },
+    { "ja": "1906年に夫が事故死した後、パリ大学初の女性教授となった。", "src": "https://en.wikipedia.org/wiki/Marie_Curie" },
+    { "ja": "1911年にノーベル化学賞を受け、2つのノーベル賞を受けた最初の人物となった。", "src": "https://www.sciencehistory.org/education/scientific-biographies/marie-sklodowska-curie" },
+    { "ja": "第一次大戦中、移動式X線装置（プチ・キュリー）を組織し、女性助手を育てて負傷兵の診断を支えた。", "src": "https://en.wikipedia.org/wiki/Marie_Curie" },
+    { "ja": "1934年7月4日、被曝が関係するとみられる再生不良性貧血で亡くなった。", "src": "https://en.wikipedia.org/wiki/Marie_Curie" },
+    { "ja": "1995年、自身の業績によってパンテオンに葬られた最初の女性となった。", "src": "https://en.wikipedia.org/wiki/Marie_Curie" }
+  ],
+  "anecdotes": [
+    { "ja": "研究が自由に進むよう、ラジウム分離法の特許を取らなかったと伝わる（当時の法では特許は夫名義になったとの指摘もある）。", "src": "https://en.wikipedia.org/wiki/Marie_Curie" },
+    { "ja": "ノーベル賞の賞金の多くを友人・家族・学生に分け、贈り物や賞金は研究機関に回すよう求めた。", "src": "https://en.wikipedia.org/wiki/Marie_Curie" },
+    { "ja": "アインシュタインは彼女を「名声によって損なわれなかった、おそらく唯一の人」と評したと伝わる。", "src": "https://en.wikipedia.org/wiki/Marie_Curie" },
+    { "ja": "何トンものウラン鉱石から、わずか0.1グラムほどのラジウム塩を取り出した。", "src": "https://www.sciencehistory.org/education/scientific-biographies/marie-sklodowska-curie" }
+  ],
+  "strengths_ja": ["粘り強さ", "精密な実験", "名誉に流されない誠実さ", "人材の育成"],
+  "weaknesses_ja": ["自分の健康を後回しにしがち", "宣伝や駆け引きには関心が薄い"],
+  "aptitude": {
+    "strategy": { "g": "B", "why": "研究所の設立など長期の方針を立てたが、全社経営の記録は無い。" },
+    "logistics": { "g": "A", "why": "大戦中に移動式X線装置を各地の前線へ配備する体制を組織した。" },
+    "sales": { "g": "C", "why": "交渉より研究を優先した。" },
+    "marketing": { "g": "C", "why": "名声には淡白で、宣伝には関心が薄かった。" },
+    "support": { "g": "B", "why": "負傷兵の診断を支える赤十字の放射線部門を率いた。" },
+    "systems": { "g": "A", "why": "装置を車に積んで現場へ届ける仕組みを作り、運用を広げた。" },
+    "rnd": { "g": "S", "why": "新元素を2つ発見し、物理学と化学でノーベル賞を受けた。" },
+    "legal": { "g": "C", "why": "特許を取らず研究の自由を選んだ。" },
+    "hr": { "g": "A", "why": "女性を放射線技師の助手として育て、研究所で後進を育てた。" },
+    "general": { "g": "B", "why": "研究所の運営を担ったが、被曝の危険への対策は当時不十分だった。" },
+    "accounting": { "g": "C", "why": "質素だが、賞金を人に分けるなど蓄財には関心が薄い。" },
+    "sector_head": { "g": "B", "why": "ラジウム研究所を率いた。" },
+    "shop": { "g": "C", "why": "対面の接客よりも研究室向き。" },
+    "craft": { "g": "A", "why": "大量の鉱石を手作業で精製し続けた根気と手技がある。" },
+    "buyer": { "g": "C", "why": "研究用の鉱石の入手に苦労した記録はあるが、買い付けの才は不明。" },
+    "digger": { "g": "A", "why": "何トンもの鉱石から微量の物質を取り出した粘りは発掘の現場向き。" }
+  },
+  "best_roles": ["rnd", "craft", "hr"],
+  "personality_ja": "目標を決めたらあきらめない粘り強さと、事実を何より重んじる誠実さを持つ。名誉や金銭には淡白で、成果は研究と社会のために使うべきだと考えた。物静かだが、困難な状況でも周囲を説得し動かす芯の強さがあり、女性科学者の道を切り開いた。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "落ち着いた丁寧語。数字と事実で話し、感情は控えめ。",
+    "tics_ja": ["確かめましょう", "名誉より成果を", "数値はうそをつきません"],
+    "lines": {
+      "greet": ["マリーです。まず現場とデータを見せてください", "研究室があれば、どこでも働けます"],
+      "propose": ["試料をもっと集めましょう。根気よく精製すれば出ます", "装置を車に積めば、現場へ直接届けられます"],
+      "approved": ["ありがとう。結果でお応えします"],
+      "rejected": ["分かりました。条件を変えて、もう一度測ります"],
+      "tired": ["少しだけ休みます。でも実験ノートは手放しません"],
+      "success": ["数値がきれいに出ました。皆の根気のおかげです"]
+    }
+  },
+  "relations": [
+    { "id": 5010, "name_ja": "アインシュタイン", "ja": "同時代の物理学者で、アインシュタインは彼女を名声に損なわれない人だと評したと伝わる。" }
+  ],
+  "mch": {
+    "attributes_ja": "理系学問; 女性; ヨーロッパ",
+    "passive": "プチ・キュリー：第一次大戦で彼女が組織した移動式X線装置の通称。負傷兵を救った史実が、味方を回復・強化する効果と重なる。"
+  },
+  "cautions_ja": [
+    "放射線被曝による健康被害（死因に関係）を軽く扱わない。放射性物質を手軽なものとして描かない。",
+    "1911年の私生活をめぐる報道騒動は取り上げない。",
+    "ポーランド出身であることを尊重し、フランス人とだけ紹介しない。"
+  ],
+  "sources": [
+    "https://en.wikipedia.org/wiki/Marie_Curie",
+    "https://www.sciencehistory.org/education/scientific-biographies/marie-sklodowska-curie"
+  ]
+}

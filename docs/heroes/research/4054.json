@@ -1,0 +1,203 @@
+{
+  "id": 4054,
+  "name_ja": "菅原道真",
+  "name_en": "Sugawara no Michizane",
+  "kind": "historical",
+  "era": "845–903（平安時代前期）",
+  "region": "日本（京都、讃岐、筑前の大宰府）",
+  "summary_ja": "平安時代前期の学者・漢詩人・政治家で、死後に「天神」としてまつられ、いまは学問の神として信仰される。学者の家に生まれ、5 歳で和歌を詠んだと伝わる。870 年に官吏の道に入り、文章博士を経て、886 年から讃岐守を務めた。宇多天皇に重く用いられて急速に昇進し、894 年には遣唐大使に任じられ、派遣の見直しを提言した。歴史書『日本三代実録』の編纂も事実上率いた。901 年、藤原時平に皇位をめぐるたくらみを疑われて大宰府へ左遷され、903 年にその地で亡くなった。都を発つ前に詠んだ「東風吹かば」の梅の歌が名高い。死後に続いた疫病や落雷が祟りとされ、北野天満宮が建てられ、やがて天神として学問の神となった。",
+  "facts": [
+    {
+      "ja": "845 年、代々学者を出す家に生まれた。祖父は国の学校で歴史を教え、父は私塾を開いていた。",
+      "src": "https://en.wikipedia.org/wiki/Sugawara_no_Michizane"
+    },
+    {
+      "ja": "870 年に試験を経て官吏の道に入り、877 年に文章博士となった。",
+      "src": "https://en.wikipedia.org/wiki/Sugawara_no_Michizane"
+    },
+    {
+      "ja": "886 年に讃岐守となり、890 年まで 4 年の任期を務めた。",
+      "src": "https://en.wikipedia.org/wiki/Sugawara_no_Michizane"
+    },
+    {
+      "ja": "888 年の阿衡の紛議で、学者と天皇をかばって藤原基経に意見書を送り、宇多天皇の信頼を得た。",
+      "src": "https://en.wikipedia.org/wiki/Sugawara_no_Michizane"
+    },
+    {
+      "ja": "894 年に遣唐大使に任じられたが、唐の政情の不安を理由に、派遣を見直すよう提言した。",
+      "src": "https://www.bunka.go.jp/prmagazine/rensai/bunkazai/bunkazai_144.html"
+    },
+    {
+      "ja": "891 年から急速に昇進し、897 年に正三位に達した。",
+      "src": "https://en.wikipedia.org/wiki/Sugawara_no_Michizane"
+    },
+    {
+      "ja": "大蔵善行とともに、六国史の最後の『日本三代実録』の編纂を事実上率いた。",
+      "src": "https://en.wikipedia.org/wiki/Sugawara_no_Michizane"
+    },
+    {
+      "ja": "900 年、漢詩集『菅家文草』を醍醐天皇に献じた。",
+      "src": "https://en.wikipedia.org/wiki/Sugawara_no_Michizane"
+    },
+    {
+      "ja": "901 年、藤原時平に斉世親王を立てようとしたと訴えられ、大宰府へ左遷された。",
+      "src": "https://en.wikipedia.org/wiki/Sugawara_no_Michizane"
+    },
+    {
+      "ja": "903 年に大宰府で亡くなった。その後の疫病や日照り、内裏への落雷が祟りとされ、北野天満宮が建てられた。",
+      "src": "https://en.wikipedia.org/wiki/Sugawara_no_Michizane"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "5 歳で和歌を詠んだと伝わる。",
+      "src": "https://en.wikipedia.org/wiki/Sugawara_no_Michizane"
+    },
+    {
+      "ja": "都を去る前に「東風吹かば」の梅の歌を詠んだ。",
+      "src": "https://en.wikipedia.org/wiki/Sugawara_no_Michizane"
+    },
+    {
+      "ja": "愛した梅の木が大宰府まで飛んできたという「飛梅」の伝説があり、太宰府天満宮に飛梅がある。",
+      "src": "https://en.wikipedia.org/wiki/Sugawara_no_Michizane"
+    },
+    {
+      "ja": "死後およそ 70 年で天神として神格化され、やがて学問の神とされた。",
+      "src": "https://en.wikipedia.org/wiki/Sugawara_no_Michizane"
+    }
+  ],
+  "strengths_ja": [
+    "深い学識",
+    "文章と詩の才",
+    "筋を通す胆力",
+    "地方行政の経験"
+  ],
+  "weaknesses_ja": [
+    "政争に巻き込まれやすい",
+    "妬みを買う急な出世",
+    "根回しが苦手"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "B",
+      "why": "遣唐使の派遣の見直しを提言するなど国の方針にかかわったが、政争に敗れた。"
+    },
+    "logistics": {
+      "g": "C",
+      "why": "物の流れの記録は無い。"
+    },
+    "sales": {
+      "g": "C",
+      "why": "交渉で味方を増やした記録は乏しく、政敵に追い落とされた。"
+    },
+    "marketing": {
+      "g": "B",
+      "why": "詩文で名を知られ、天神として後世に広く信仰された。"
+    },
+    "support": {
+      "g": "C",
+      "why": "人の不満をなだめる役の記録は無い。"
+    },
+    "systems": {
+      "g": "B",
+      "why": "国の歴史書を分類し整理する編纂を率いた。"
+    },
+    "rnd": {
+      "g": "S",
+      "why": "学者の家の学識で文章博士となり、国史の編纂を事実上率いた。"
+    },
+    "legal": {
+      "g": "B",
+      "why": "阿衡の紛議で学者と天皇をかばう意見書を送った。"
+    },
+    "hr": {
+      "g": "B",
+      "why": "学者として人を教える立場にあった。"
+    },
+    "general": {
+      "g": "C",
+      "why": "職場づくりの記録は無い。"
+    },
+    "accounting": {
+      "g": "C",
+      "why": "会計の記録は無い。"
+    },
+    "sector_head": {
+      "g": "B",
+      "why": "讃岐守として 4 年間地方を治めた。"
+    },
+    "shop": {
+      "g": "C",
+      "why": "客あしらいの記録は無い。"
+    },
+    "craft": {
+      "g": "A",
+      "why": "漢詩集『菅家文草』『菅家後集』を残した詩の作り手だった。"
+    },
+    "buyer": {
+      "g": "C",
+      "why": "買い付けの記録は無い。"
+    },
+    "digger": {
+      "g": "C",
+      "why": "発掘の記録は無い。"
+    }
+  },
+  "best_roles": [
+    "rnd",
+    "craft",
+    "systems"
+  ],
+  "personality_ja": "学問を愛し、筋の通らないことには上の人にもはっきり意見する誠実な人。詩や梅を愛でる風雅な心を持つ。ただ才能ゆえに妬まれやすく、根回しや派閥づくりは得意ではない。逆境でも詩を書き続ける芯の強さがある。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "丁寧で学者らしい。ときどき季節や梅にたとえる風流な言い回し。",
+    "tics_ja": [
+      "学びに近道はありません",
+      "記録に残しておきましょう",
+      "梅の香りがしますね"
+    ],
+    "lines": {
+      "greet": [
+        "菅原道真にございます。学びでお役に立ちます。",
+        "社長、まずはこれまでの記録を全部見せてください。"
+      ],
+      "propose": [
+        "古い資料を分類し直せば、新しい品が見えます。",
+        "遠くへの使いは、いったん止めて足元を固めましょう。"
+      ],
+      "approved": [
+        "ありがたきお言葉。すぐ筆を執ります。"
+      ],
+      "rejected": [
+        "承知しました。春を待つことにいたします。"
+      ],
+      "tired": [
+        "少し梅を眺めて、心を休めとうございます。"
+      ],
+      "success": [
+        "学んだことが実を結びました。記録に残します。"
+      ]
+    }
+  },
+  "relations": [
+    {
+      "id": 4031,
+      "name_ja": "平将門",
+      "ja": "『将門記』では、将門が新皇を称する場面で、位を授けるのは道真の霊だと巫女が告げたと語られる（物語上の場面）。"
+    }
+  ],
+  "mch": {
+    "attributes_ja": "政治; 平安鎌倉; 呪い",
+    "passive": "天満大自在天神：死後に神としてまつられた道真の神号。"
+  },
+  "cautions_ja": [
+    "いまも全国の天満宮で学問の神として信仰されている。祟りの話を面白おかしく扱わない。",
+    "左遷の経緯には政争がからみ、評価に諸説がある。"
+  ],
+  "sources": [
+    "https://en.wikipedia.org/wiki/Sugawara_no_Michizane",
+    "https://www.bunka.go.jp/prmagazine/rensai/bunkazai/bunkazai_144.html"
+  ]
+}
