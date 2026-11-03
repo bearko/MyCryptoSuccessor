@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
+import { DIG_PANELS, ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
 import { deptLevel, deptNews, deptOpen, deptReady, menuDepts, menuLayout, nextMark } from '../src/island/p1/dept';
 import { deserializeP1, newP1, serializeP1 } from '../src/island/p1/model';
 import { DEPT_LAYOUT, EDGES, HUBPOS, HUB_BOX, KNOTPOS, POS, RING_OUT, SLACK, UNPLACED, groupOf } from '../src/island/p1/treelayout';
@@ -69,6 +69,11 @@ describe('パネルの部門の割り振り', () => {
     expect(SKILLS.filter((k) => k.branch !== 'sales' && k.branch !== 'legal' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k)).map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
     for (const b of BEFORE) {
       const k = SKILL[b.id as string];
+      // 発掘の枝の 17 枚は研究パネル（RP）になった（2026-11-03）：区分・値段・Lv が変わるので、名前・先に要るもの・ランクだけ比べる
+      if (DIG_PANELS.includes(b.id as string)) {
+        expect([k.name, k.requires ?? [], k.tier ?? 'C', k.emblem ?? null], k.id).toEqual([b.name, b.requires, b.tier, b.emblem]);
+        continue;
+      }
       if (b.id === 'e_ops_1' || b.id === 'e_tech_2') {
         expect([k.name, k.cost, rpCost(k), k.cat, k.requires, k.tier], k.id).toEqual([b.name, b.cost, b.rp, b.cat, b.requires, b.tier]);
         continue;
@@ -91,7 +96,8 @@ describe('部門の理解度（deptLevel）', () => {
     expect(SKILL.display.cat).toBe('research');
     expect(deptLevel(s, 'logistics')).toBe(3 + 1);
     expect(deptLevel(s, 'marketing')).toBe(1);
-    expect(deptLevel(s, 'rnd')).toBe(4 + 2);
+    // 発掘のパネルは研究パネル（RP）になった（2026-11-03）：取ったら 1（Lv は数えない）
+    expect(deptLevel(s, 'rnd')).toBe(4 + 1);
     expect(deptLevel(s, 'hr')).toBe(1);
     expect(deptLevel(s, 'accounting')).toBe(0);
   });

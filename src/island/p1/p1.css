@@ -7324,7 +7324,7 @@ button.isl-mis {
     box-shadow: 0 0 0 5px rgba(111, 208, 140, 0.15), 0 0 22px rgba(111, 208, 140, 0.6);
   }
 }
-/* 詳細カードの絵：木のパネルと同じひし形（研究パネルは枝の色の枠・お金パネルは金の二重の枠・大きめの研究パネルは太い枠） */
+/* 詳細カードの絵：木のパネルと同じ形（研究パネルは四角・枝の色の枠、お金パネルは菱形・金の二重の枠、大きめの研究パネルは太い枠） */
 .isl-tree-dicon.is-research,
 .isl-tree-dicon.is-money {
   position: relative;
@@ -7344,6 +7344,10 @@ button.isl-mis {
 }
 .isl-tree-dicon.is-money::before {
   border: 5px double #ffd257;
+}
+.isl-tree-dicon.is-research::before {
+  inset: 6px;
+  transform: none;
 }
 .isl-tree-dicon.is-research.is-dust::before {
   border-width: 5px;
@@ -7381,7 +7385,6 @@ button.isl-mis {
   width: 10px;
   height: 10px;
   margin: 0 1px;
-  transform: rotate(45deg);
   border: 2px solid #8fe6dc;
   border-radius: 2px;
   background: rgba(143, 230, 220, 0.25);
@@ -7390,6 +7393,7 @@ button.isl-mis {
   color: #8fe6dc;
 }
 .isl-tree-cat.is-money .isl-tree-catmark {
+  transform: rotate(45deg);
   width: 11px;
   height: 11px;
   border: 4px double #ffd257;
@@ -10101,6 +10105,14 @@ small.isl-note-series.is-bad {
   font-size: 20px;
   line-height: 1;
 }
+/* 形は払うもので決まる：研究ポイント（RP）のパネルは四角（傾けない・辺は 0.78 倍）、お金のパネルは菱形（四角を 45° 回す）。枠も違う（研究は 1 本・お金は金の二重）ので色だけに頼らない */
+.isl-tree-node.is-research::before {
+  width: calc(var(--pw) * 0.78);
+  height: calc(var(--pw) * 0.78);
+  margin: calc(var(--pw) * -0.39) 0 0 calc(var(--pw) * -0.39);
+  transform: none;
+  border-radius: 6px;
+}
 /* お金パネル：金の二重の枠（研究パネルは枝の色の 1 本の枠。色だけに頼らない） */
 .isl-tree-node.is-money {
   --pc: #ffd257;
@@ -10130,9 +10142,23 @@ small.isl-note-series.is-bad {
 .isl-tree-node.is-locked::before {
   border-style: dashed;
 }
-/* 上げられる（開いている）パネル：緑の光がゆっくり脈打つ（いまの光り方のまま） */
-.isl-tree-node.is-open::before {
+/* 上げられる（開いている）パネル：緑の枠と、緑の光がゆっくり脈打つ。ポイント（RP・お金）が足りないパネル：赤い枠。
+   研究パネル（RP）は一重の枠・お金パネルは二重の枠のまま（色だけに頼らない。緑・赤でも形で分かる） */
+.isl-tree-node.is-open {
+  --pc: #5fe08a;
+}
+.isl-tree-node.is-open::before,
+.isl-tree-node.is-open.is-money::before {
+  border-color: #5fe08a;
   animation: isl-tree-open-d 1.6s ease-in-out infinite alternate;
+}
+.isl-tree-node.is-poor {
+  --pc: #ff5d5d;
+  opacity: 1;
+}
+.isl-tree-node.is-poor::before,
+.isl-tree-node.is-poor.is-money::before {
+  border-color: #ff5d5d;
 }
 @keyframes isl-tree-open-d {
   from {
@@ -13104,4 +13130,10 @@ button.isl-dband-lead.is-on {
     border-radius: 12px;
     padding: 4px;
   }
+}
+
+/* 引き継いだ研究パネル（ランクアップの災害のあとも残った RP のパネル）：破線の縁で「引き継ぎ」と分かるように */
+.isl-tree-node.is-carried::before {
+  outline: 2px dashed rgba(255, 255, 255, 0.7);
+  outline-offset: 2px;
 }

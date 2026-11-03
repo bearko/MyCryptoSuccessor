@@ -183,7 +183,7 @@ export function showCard(ctx: Ctx, c: Card, hooks: CardHooks) {
       ctx.toast(ERR.gone());
     } else if (res?.ok) {
       ctx.sfx?.(label && res.open ? 'page' : 'levelup');
-      if (!res.open) ctx.toast(label.startsWith('🤝') ? label : t(`✔ ${label}`, `✔ ${label}`));
+      if (!res.open) ctx.toast(res.did ? `✔ ${res.did}` : label.startsWith('🤝') ? label : t(`✔ ${label}`, `✔ ${label}`));
     }
     m.remove();
     ctx.save();

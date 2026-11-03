@@ -92,7 +92,7 @@ export function charismaCard(s: P1State, opts: { detail?: boolean } = {}): HTMLE
 /** レアリティの候補がどこから来るか（雇う画面の一言） */
 function rarityHow(r: HeroRarity): string {
   if (r === 'C') return t('人材の募集（ノービス・コモン）', 'Recruiting (Novice, Common)');
-  if (r === 'U') return t('パネル「憧れの職場」で候補に来る', 'Come with the Dream employer panel');
+  if (r === 'U') return t('候補に来る（憧れの職場なら必ず 1 人）', 'Come as candidates (always one with Dream employer)');
   if (r === 'R') return t('パネル「ヘッドハンティング」で 1 人', 'One via the Headhunting panel');
   return t('毎月 1 人（格の候補）', 'One each month (prestige pick)');
 }
@@ -101,7 +101,7 @@ export function charismaNeeds(s: P1State): string[] {
   const out: string[] = [];
   const cap = hireCap(s);
   const lack = (r: HeroRarity) => HIRE_RARITIES.indexOf(cap) < HIRE_RARITIES.indexOf(r);
-  if (has(s, 'b_scout') && lack('U')) out.push(t(`憧れの職場のアンコモンは、カリスマ ${capAt('U')} から来ます`, `Dream employer Uncommons come from charisma ${capAt('U')}`));
+  if (has(s, 'b_scout') && lack('U')) out.push(t(`憧れの職場のアンコモンの枠は、カリスマ ${capAt('U')} から来ます`, `Dream employer’s Uncommon slot opens at charisma ${capAt('U')}`));
   if (has(s, 'headhunt') && lack('R')) out.push(t(`ヘッドハンティングのレアは、カリスマ ${capAt('R')} から来ます`, `Headhunted Rares come from charisma ${capAt('R')}`));
   return out;
 }

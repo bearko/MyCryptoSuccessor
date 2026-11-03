@@ -66,7 +66,9 @@ describe('Common・Uncommon の売れ方は前と同じ', () => {
       ))));
       const sum = Object.fromEntries(Object.entries(out).map(([k, v]) => [k, [v.length / 2, v.filter((_, i) => i % 2 === 0).reduce((a, x) => a + x, 0), v.filter((_, i) => i % 2 === 1).reduce((a, x) => a + x, 0)]]));
       // 段 C の前の main（段 E1 のヒーローの育成を含む）で同じ通しを回した値
-      expect(sum).toEqual({ c1: [11, 414550, 1408802], c2: [6, 233900, 798526], u1: [21, 3617289, 13607557] });
+      // 2026-11-03（v25b）：発掘のパネルが研究パネル（RP）になった・Uncommon の候補がカリスマ 10 で来る、で数字が変わった
+      // （以前は { c1: [11, 414550, 1408802], c2: [6, 233900, 798526], u1: [21, 3617289, 13607557] }。docs/ISLAND_BALANCE.md の v25b）
+      expect(sum).toEqual({ c1: [10, 374300, 1265068], c2: [7, 943253, 929020], u1: [16, 2812791, 9618820] });
     },
     120_000,
   );

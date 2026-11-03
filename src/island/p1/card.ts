@@ -32,8 +32,8 @@ import {
   type PropUnit,
   type Proposal,
 } from './deleg';
-import { adCost, bonus, bonusCost, bottleneck, donate, donateLock, myShops, nextDonateCost, raise, raiseStep, sellInfo, stageCaps, staffOf, whatIf, type P1State, type Report, type Stage, type StageIf, type Staff } from './model';
-import { adGain, goodsName, partMonthly, sellMoves, shopMonthly, type SellMove } from './moves';
+import { adCost, bonus, bonusCost, bottleneck, donate, donateLock, has, myShops, nextDonateCost, raise, raiseStep, sellInfo, stageCaps, staffOf, whatIf, type P1State, type Report, type Stage, type StageIf, type Staff } from './model';
+import { adGain, goodsName, partMonthly, sellMoves, shopMonthly, stockMsg, stockPlan, type SellMove } from './moves';
 import { apologize, bestReply, csOn, noticeCost, refundCost, reply, replyGain, replyLock, swapItem } from './cs';
 import { quitLeft, talk, talkGain } from './hr';
 import { dedRate, quarterNow, taxOn, taxPlan } from './acct';
@@ -45,10 +45,10 @@ import { applyDiplo, diploCompany, dipOptText, dipOpts, dipRec, dipSay, dipTitle
 // ---------------------------------------------------------------- 型
 
 /** 出どころ（統計・受けた割合の数え） */
-export type CardSrc = 'clerk' | 'crafter' | 'buyer' | 'idle' | 'head' | 'cs' | 'flame' | 'quit' | 'tax' | 'rally' | 'event' | 'diplo';
+export type CardSrc = 'clerk' | 'crafter' | 'buyer' | 'idle' | 'head' | 'cs' | 'flame' | 'quit' | 'tax' | 'rally' | 'hr' | 'event' | 'diplo';
 /** ヒーローからの提案（★3 で「任せる」を選べる出どころ） */
 export const PROPOSAL_SRC: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head'];
-export const CARD_SRCS: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'cs', 'flame', 'quit', 'tax', 'rally', 'event', 'diplo'];
+export const CARD_SRCS: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'cs', 'flame', 'quit', 'tax', 'rally', 'hr', 'event', 'diplo'];
 
 /** 選ぶと打つ手 */
 export type CardAct =
@@ -88,6 +88,7 @@ export type Issue =
   | { k: 'craft'; n: number }
   | { k: 'buy'; n: number }
   | { k: 'idle'; what: 'assign' | 'ad' | 'permit'; stage?: Stage }
+  | { k: 'hire'; stage: Stage; n: number }
   | { k: 'head' }
   | { k: 'cs'; kind: InqKind; key: string | null; n: number }
   | { k: 'flame'; cause: 'out' | 'ignore' }
@@ -394,6 +395,27 @@ function headDrafts(s: P1State, r: Report): Draft[] {
   return out;
 }
 
+/**
+ * 人手が足りないとき（空いた持ち場・担当のいない段）に、雇える候補がいれば「人を雇いませんか？」（人事の担当。いなければマインちゃん）。
+ * いまの whatIf の「雇う」の手（見込みは毎月の給料を引いたもの）をそのまま使う。詰まりの段を先に、無ければほかの段
+ */
+function hrDrafts(s: P1State): Draft[] {
+  if (!has(s, 'hire') || !s.hirePool.length || !myShops(s).length) return [];
+  const bn = bottleneck(stageCaps(s));
+  const margin = unitMargin(s);
+  const hand = deptHand(s, 'hr');
+  const stages = (['buy', 'craft', 'haul'] as Stage[]).sort((a, b) => Number(b === bn) - Number(a === bn));
+  for (const st of stages) {
+    const ifs = whatIf(s, st).filter((w) => w.move.kind === 'person' && w.move.hire && w.move.replace == null && w.units > 0.5);
+    const ch = ifs.map((w) => fromWhatIf(s, w, margin, hand)).filter((x): x is Choice => !!x && (x.est ?? 0) > 0);
+    if (!ch.length) continue;
+    const q = qOf(s, hand, 'hr');
+    const xs = [...ch].sort((a, b) => (b.est ?? 0) - (a.est ?? 0)).slice(0, CARD.choices - 1);
+    return [{ src: 'hr', kind: 'hire', hero: hand, q, dept: 'hr', issue: { k: 'hire', stage: st, n: s.hirePool.length }, choices: markRec(s, [...xs, SKIP]), pri: 42 }];
+  }
+  return [];
+}
+
 /** いまある「選ばせる知らせ」：問い合わせ・炎上の予告・他社の巻き返し／反撃 */
 function noticeDrafts(s: P1State, r: Report): Draft[] {
   const out: Draft[] = [];
@@ -548,7 +570,7 @@ export function cardsMonth(s: P1State, r: Report) {
   // 段 UI4：突発のできごと（2〜3 か月に 1 回）。上限の枠を先に 1 つ使う（いつも時間を止めて出す）
   const ev = eventDue(s, C.mk);
   if (ev) enqueue(s, eventDraft(s, ev), rep);
-  const drafts = [...noticeDrafts(s, r), ...heroDrafts(s), ...headDrafts(s, r)].sort((a, b) => b.pri - a.pri);
+  const drafts = [...noticeDrafts(s, r), ...heroDrafts(s), ...hrDrafts(s), ...headDrafts(s, r)].sort((a, b) => b.pri - a.pri);
   for (const d of drafts) enqueue(s, d, rep);
   if (rep.made || rep.auto.length) r.cards = rep;
 }
@@ -673,6 +695,8 @@ export interface ChooseRes {
   err?: 'money' | 'rp' | 'stock' | 'gone' | 'none' | 'cool' | 'max' | string;
   /** 画面を開く（税と節税・宣伝） */
   open?: 'tax' | 'ads';
+  /** 打った手で何が変わったか（トースト。棚・作業台） */
+  did?: string;
 }
 const proposalUnit = (a: PropAct): PropUnit => (a.k === 'ad' ? 'ad' : a.k === 'permit' ? 'finds' : 'G');
 
@@ -718,9 +742,13 @@ export function chooseCard(s: P1State, id: number, k: number): ChooseRes {
         status: 'new',
       };
       D.inbox.push(p);
+      // 棚に並べる手：打つ前の棚と作業台を覚えておいて、打ったあとに「何が変わったか」を知らせる
+      const plan = a.a.k === 'stock' ? stockPlan(s, a.a) : null;
       const e = approve(s, p.id);
       D.inbox = D.inbox.filter((x) => x.id !== p.id);
-      return done(e);
+      const r = done(e);
+      if (r.ok && plan && a.a.k === 'stock') r.did = stockMsg(plan, a.a.key);
+      return r;
     }
     case 'skip':
       return done(null, false);
@@ -835,6 +863,8 @@ function core(s: P1State, c: Card): string {
         : i.what === 'ad'
           ? t('手が空いている。[[宣伝]]なら売上を伸ばせる', 'my hands are free. An [[ad]] would lift sales')
           : t('手が空いている。[[荒れ地]]を掘りに行ける', 'my hands are free. I could dig the [[wasteland]]');
+    case 'hire':
+      return t(`[[${STAGE_NM[i.stage]()}]]の担当がいなくて、手が足りない。雇える[[候補が ${i.n} 人]]来ている`, `nobody covers [[${STAGE_NM[i.stage]()}]]. [[${i.n} candidates]] are ready to hire`);
     case 'head': {
       const p = s.deleg?.inbox.find((x) => x.id === c.pid);
       if (!p) return t('打てる手がある', 'there is a move to make');
@@ -888,7 +918,7 @@ export function sayOf(s: P1State, c: Card): string {
 }
 
 /** ウィットの一言（話し手の口調の型と属性から。課題の種類・月で回す）。ヒーローでない話し手は無し */
-export const quipOfCard = (c: Card): string | null => (c.hero != null && c.src !== 'event' && c.src !== 'diplo' ? quipOf(c.hero, c.issue.k as QuipCat, c.mk + c.id) : null);
+export const quipOfCard = (c: Card): string | null => (c.hero != null && c.src !== 'event' && c.src !== 'diplo' ? quipOf(c.hero, (c.issue.k === 'hire' ? 'idle' : c.issue.k) as QuipCat, c.mk + c.id) : null);
 
 /** 肩書き（部門の色・アイコン・文） */
 export function roleOfCard(s: P1State, c: Card): { icon: string; text: string; color: string } {
@@ -915,6 +945,8 @@ export function roleOfCard(s: P1State, c: Card): { icon: string; text: string; c
       return { icon: '🧾', text: t('経理の担当', 'Accounting lead'), color: DEPT.accounting.color };
     case 'quit':
       return { icon: '😣', text: t('辞めたい', 'Wants to quit'), color: DEPT.hr.color };
+    case 'hr':
+      return { icon: DEPT.hr.icon, text: c.hero != null ? t('人事の担当', 'HR lead') : t('人事の見立て', 'HR view'), color: DEPT.hr.color };
     case 'event': {
       const color = c.ev && !isGood(c.ev.kind) ? '#c4521b' : '#4a78c4';
       if (!c.ev || c.ev.who === 'mine') return { icon: '📣', text: t('マインちゃんの報告', 'Mine-chan reports'), color };

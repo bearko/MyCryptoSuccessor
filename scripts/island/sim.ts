@@ -31,7 +31,7 @@ import { CARD } from '../../src/island/p1/data';
 /** v25：通常の方針が受けるカードの手の名前（表 19） */
 const TAKE_NAME: Record<string, string> = { shelf: '棚 +1 と商品', goods: '品ぞろえの入れ替え', invest: '設備投資', part: 'アルバイト', famous: '名物店主', permit: '発掘許可', ad: '宣伝' };
 /** v25：カードの出どころの名前（表 19） */
-const SRC_NAME: Record<CardSrc, string> = { clerk: '店員', crafter: '職人', buyer: '調達係', idle: '手の空いた人', head: '部長', cs: '問い合わせ', flame: '炎上の予告', quit: '辞めたい', tax: '経理の助言', rally: '巻き返し・反撃', event: 'できごと', diplo: '外交' };
+const SRC_NAME: Record<CardSrc, string> = { hr: '人事（雇う）', clerk: '店員', crafter: '職人', buyer: '調達係', idle: '手の空いた人', head: '部長', cs: '問い合わせ', flame: '炎上の予告', quit: '辞めたい', tax: '経理の助言', rally: '巻き返し・反撃', event: 'できごと', diplo: '外交' };
 import {
   promote,
   takeVacant,
@@ -410,6 +410,11 @@ const RTA_MORE_U = ['slots', 'b_scout'];
 export function digStep(s: P1State, id: string): { cost: number; run: () => string | null } | null {
   const k = SKILL[id];
   const lv = lvOf(s, id);
+  // 発掘のパネルは研究パネル（RP で開く・レベルなし）：資金は要らない（RP が足りているものだけ）
+  if (isResearch(k)) {
+    if (lv > 0 || skillLock(s, k) !== null) return null;
+    return { cost: 0, run: () => learn(s, id) };
+  }
   if (lv === 0) {
     const e = skillLock(s, k);
     if (e !== null && e !== 'money') return null;
@@ -1967,7 +1972,22 @@ export interface RunOpts {
   onDay?: (s: P1State, sector: string) => void;
 }
 
+/**
+ * 計測を分けて回すためのつなぎ口（scripts/island/simshard.ts・.github/workflows/sim.yml）。
+ * 置かれていると、最初のセクタだけの回（onlyFirst）以外の runOnce を、ここに渡す（real で本当に回す）。ふだんは null
+ */
+export const SIM_SHARD: { hook: ((p: PolicyId, seed: number, o: RunOpts, real: () => RunResult) => RunResult) | null } = { hook: null };
+
 export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
+  if (SIM_SHARD.hook && !o.onlyFirst) {
+    const h = SIM_SHARD.hook;
+    SIM_SHARD.hook = null;
+    try {
+      return h(p, seed, o, () => runOnce(p, seed, o));
+    } finally {
+      SIM_SHARD.hook = h;
+    }
+  }
   const s = newP1(seed);
   Object.assign(csLog, { pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0 });
   const c: Ctx = { policy: p, route: routeOf(p), at: 0, lineup: [], lineupDirty: true, shopsThisMonth: 0, monthEnd: null, lastBn: null, ban: new Set(o.ban ?? []), onlyFirst: !!o.onlyFirst, dayInMonth: 0, handCarry: 0, rpMoves: 0, runLeft: 0, runsMonth: 0, divesMonth: 0, preInv: 0, preG: 0 };
@@ -2882,27 +2902,40 @@ export function tables(rep: Report2): string {
     out.push('### 表 20：突発のできごと・外交（v26。段 UI4）');
     out.push('');
     out.push(
-      `3 シードの平均。「v25」は段 UI4 の前の main の同じ 3 シード（\`V25_TIER\`）。目安は C・U・R が ±3%・E が ±5%。「できごとなし」は同じ方針・シードを \`withoutEvents\`（できごと・外交を止める＝段 UI4 の前と同じ）で回した合計。できごとは町の ${EVENT.first} か月目の締めから ${EVENT.gap[0]}〜${EVENT.gap[1]} か月に 1 回（良いできごとと困りごとが交互）。方針（\`SIM_EVENT\`）：最短＝様子を見る系（いちばん軽い手）・通常＝おすすめ（金色）・100%＝払える手のうち見込みのいちばん大きい手。外交は通常・100% とも交易の約束と依頼を受けられるだけ受ける。「見込み」は選んだ手の見込みの合計（G）。`,
+      `シード ${seeds.join('・')} の平均。「なし」は同じ方針・シードを \`withoutEvents\`（できごと・外交を止める＝段 UI4 の前の main と同じ通し）で回した値で、括弧の中は「あり − なし」（できごとの差）。目安は C・U・R が ±3%・E が ±5%。できごとは町の ${EVENT.first} か月目の締めから ${EVENT.gap[0]}〜${EVENT.gap[1]} か月に 1 回（良いできごとと困りごとが交互）。方針（\`SIM_EVENT\`）：最短＝様子を見る系（いちばん軽い手）・通常＝おすすめ（金色）・100%＝払える手のうち見込みのいちばん大きい手。外交は通常・100% とも交易の約束と依頼を受けられるだけ受ける。「見込み」は選んだ手の見込みの合計（G）。`,
     );
     out.push('');
-    out.push('| 方針 | 合計（v25） | うち C（v25） | うち U（v25） | うち R（v25） | うち E（v25） | できごとなし | できごと／通し（C・U・R・E） | 良い・困りごと | 見込み | 詰まって止まるシード |');
-    out.push('|---|---|---|---|---|---|---|---|---|---|---|');
+    out.push('| 方針 | 合計（なし・差） | うち C（なし・差） | うち U（なし・差） | うち R（なし・差） | うち E（なし・差） | できごと／通し（C・U・R・E） | 良い・困りごと | 見込み | 詰まって止まるシード（あり／なし） |');
+    out.push('|---|---|---|---|---|---|---|---|---|---|');
     for (const p of pols) {
       const runs = rep.runs.filter((r) => r.policy === p);
       if (!runs.length) continue;
-      const B = V25_TIER[p];
       const byTier = (xs: RunResult[], tier: Tier) => mean(xs.map((x) => x.sectors.filter((r) => r.tier === tier && !r.revisit).reduce((a, r) => a + (secOf(p, r, 'left') ?? 0), 0) + (tier === 'C' ? SIM_TIME[p].tutorial : 0)));
       const pc = (a: number, b: number) => (b > 0 ? `${fmtH(a)}（${fmtH(b)}・${a >= b ? '+' : '−'}${((Math.abs(a - b) / b) * 100).toFixed(1)}%）` : '—');
       const off = (rep.noEvents ?? []).filter((r) => r.policy === p);
       const tot = mean(runs.map(totalSec));
       const offTot = off.length ? mean(off.map(totalSec)) : 0;
+      const tierPc = (tier: Tier) => (off.length ? pc(byTier(runs, tier), byTier(off, tier)) : '—');
       const nT = (tier: Tier) => mean(runs.map((r) => r.v26.ev.tier[tier] ?? 0)).toFixed(1);
       out.push(
-        `| ${POLICY_NAME[p]} | ${pc(tot, B.total)} | ${pc(byTier(runs, 'C'), B.C)} | ${pc(byTier(runs, 'U'), B.U)} | ${pc(byTier(runs, 'R'), B.R)} | ${pc(byTier(runs, 'E'), B.E)} | ${off.length ? pc(tot, offTot) : '—'} | ${nT('C')}・${nT('U')}・${nT('R')}・${nT('E')} | ${mean(runs.map((r) => r.v26.ev.good)).toFixed(1)}・${mean(runs.map((r) => r.v26.ev.bad)).toFixed(1)} | ${fmtG(mean(runs.map((r) => r.v26.ev.ev)))} | ${runs.filter((r) => !r.done).length} |`,
+        `| ${POLICY_NAME[p]} | ${off.length ? pc(tot, offTot) : fmtH(tot)} | ${tierPc('C')} | ${tierPc('U')} | ${tierPc('R')} | ${tierPc('E')} | ${nT('C')}・${nT('U')}・${nT('R')}・${nT('E')} | ${mean(runs.map((r) => r.v26.ev.good)).toFixed(1)}・${mean(runs.map((r) => r.v26.ev.bad)).toFixed(1)} | ${fmtG(mean(runs.map((r) => r.v26.ev.ev)))} | ${runs.filter((r) => !r.done).length}／${off.length ? off.filter((r) => !r.done).length : '—'} |`,
       );
     }
     out.push('');
-    out.push('できごとの種類ごと（3 方針 × 3 シードの合計：出た数と、選んだ手の内訳）');
+    out.push('シードごとの合計（秒。あり／なし）');
+    out.push('');
+    out.push(`| 方針 | ${seeds.map((x) => `シード ${x}`).join(' | ')} |`);
+    out.push(`|---|${seeds.map(() => '---').join('|')}|`);
+    for (const p of pols) {
+      const cell = (seed: number) => {
+        const a = rep.runs.find((r) => r.policy === p && r.seed === seed);
+        const b = (rep.noEvents ?? []).find((r) => r.policy === p && r.seed === seed);
+        return a ? `${Math.round(totalSec(a)).toLocaleString('en-US')}／${b ? Math.round(totalSec(b)).toLocaleString('en-US') : '—'}` : '—';
+      };
+      out.push(`| ${POLICY_NAME[p]} | ${seeds.map(cell).join(' | ')} |`);
+    }
+    out.push('');
+    out.push(`できごとの種類ごと（3 方針 × ${seeds.length} シードの合計：出た数と、選んだ手の内訳）`);
     out.push('');
     out.push('| 種類 | 良い／困りごと | 最短 | 通常 | 100% |');
     out.push('|---|---|---|---|---|');
@@ -3422,7 +3455,8 @@ export function digObservations(rep: Report2): string {
 
 // ---------------------------------------------------------------- まとめて回す
 
-export const SEEDS = [1, 2, 3];
+/** 計測のシード。環境変数 SIM_SEEDS（例：1,2,3,4,5,6）で増やせる（比べの計測用。docs に書くのはふだんの 3 つ） */
+export const SEEDS = process.env.SIM_SEEDS ? process.env.SIM_SEEDS.split(',').map(Number).filter((n) => n > 0) : [1, 2, 3];
 /** v17：ヒーローの育成を止めて回す（経験値のランクの倍率を 0 に。比べるためだけ。終わったら戻す） */
 export function withoutGrowth<T>(f: () => T): T {
   const tier = HERO_GROWTH.xp.tier as Record<string, number>;

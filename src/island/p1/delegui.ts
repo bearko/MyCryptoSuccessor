@@ -2,6 +2,7 @@
  * 任せ方の 4 段の画面（段 D）：部門の担当（チームリーダー・事業部長の任命）・部長の提案の受け箱（承認／却下／保留）・人事の役目の札。
  * 計算は deleg.ts（DOM なし）。仕様は docs/ISLAND_PHASE1.md「任せ方」。
  */
+import { stockMsg, stockPlan } from './moves';
 import { t } from '../../i18n';
 import { DELEG, DEPT, DEPT_DUTIES, DUTY, deptAptName, type DeptId, type DutyId } from './data';
 import { deptLevel } from './dept';
@@ -217,6 +218,8 @@ function propCard(ctx: Ctx, s: P1State, p: Proposal): HTMLElement {
   row.append(
     btn(t('承認', 'Approve'), () => {
       const name = actName(s, p.act);
+      const act = p.act;
+      const plan = act.k === 'stock' ? stockPlan(s, act) : null;
       const e = approve(s, p.id);
       if (e === 'money' || e === 'rp') {
         ctx.sfx?.('error');
@@ -227,6 +230,7 @@ function propCard(ctx: Ctx, s: P1State, p: Proposal): HTMLElement {
       } else {
         ctx.sfx?.('levelup');
         ctx.toast(t(`✔ 承認：${name}`, `✔ Approved: ${name}`));
+        if (plan && act.k === 'stock') ctx.toast(stockMsg(plan, act.key));
       }
       after(ctx);
     }, 'is-on'),

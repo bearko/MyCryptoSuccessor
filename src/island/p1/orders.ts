@@ -98,11 +98,19 @@ export function shelfPicks(s: P1State, uid: number): ShelfPick[] {
   if (!sh) return [];
   const on = new Set(sh.shelves.filter((y): y is Sku => !!y).map((y) => skuParts(y)[0]));
   const out: ShelfPick[] = [];
-  for (const x of craftable(s)) {
-    const key = skuParts(x)[0];
+  // 同じ商品のアンコモンとコモンは、1 つだけ：いま作業台で作っているほう（棚に並べても作り手がいる）→ アンコモン（開発していれば）→ コモン。
+  // 以前は craftable の並びの先頭（いつもコモン）を選んでいたので、アンコモンを作っている町で「並べたのに作り手がいない棚」になった
+  const makes = (x: Sku) => s.slots.some((sl) => sl.sku === x) || Object.values(s.deleg?.pend ?? {}).includes(x);
+  const all = craftable(s);
+  const seen = new Set<string>();
+  for (const x0 of all) {
+    const key = skuParts(x0)[0];
+    if (seen.has(key)) continue;
+    const vars = all.filter((y) => skuParts(y)[0] === key);
+    const pref = [...vars].sort((a, b) => Number(makes(b)) - Number(makes(a)) || Number(skuParts(b)[1] === 'U') - Number(skuParts(a)[1] === 'U'));
+    const x = pref.find((y) => makerFor(s, y).ok) ?? pref[0];
+    seen.add(key);
     if (on.has(key) || unsellableHere(s, key) || craftCheck(s, x, null) === 'tech') continue;
-    // 同じ商品のアンコモンとコモンは、いまの町のほう（アンコモンを開発していればアンコモン）だけ
-    if (out.some((o) => skuParts(o.x)[0] === key)) continue;
     const g = shelfGain(s, uid, x);
     if (!g) continue;
     const sup = makerFor(s, x);

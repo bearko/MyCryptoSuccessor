@@ -639,13 +639,15 @@ describe('スキルツリーの 2 区分', () => {
     // ＋段 C：営業のお金パネル 4 枚（SALES_MONEY）・段 E2：人事のお金パネル 2 枚（HR_MONEY）・段 F：経理 3 枚（ACCT_MONEY）・総務 2 枚（GA_MONEY）・
     // 段 G：カスタマーサポート 1 枚（CS_MONEY）・マーケ 2 枚（MKT_MONEY）
     // 段 H2：法務 2 枚（LEGAL_MONEY）
-    expect(money).toHaveLength(35 + 17 + 1 + 4 + 2 + 3 + 2 + 1 + 2 + 2);
+    // 発掘の枝の 17 枚は研究パネル（RP）になった（2026-11-03：ランクアップの災害で未取得に戻って遊びにくいため）。お金のまま：研究への寄付 1 枚
+    expect(money).toHaveLength(35 + 1 + 4 + 2 + 3 + 2 + 1 + 2 + 2);
     expect(money.filter((k) => k.branch === 'legal').map((k) => k.id)).toEqual(['lg_patent', 'lg_counsel']);
     expect(money.filter((k) => CS_MONEY.includes(k.id) || MKT_MONEY.includes(k.id)).map((k) => k.id)).toEqual(['cs_center', 'mk_press', 'mk_ci']);
     expect(money.filter((k) => ACCT_MONEY.includes(k.id) || GA_MONEY.includes(k.id)).map((k) => k.id)).toEqual(['ac_deprec', 'ac_cost', 'ac_upkeep', 'ga_canteen', 'ga_nap']);
     expect(money.filter((k) => HR_MONEY.includes(k.id)).map((k) => k.id)).toEqual(['hr_career', 'hr_paytable']);
     expect(money.filter((k) => k.branch === 'sales').map((k) => k.id)).toEqual(['sa_local', 'sa_road', 'sa_nego', 'sa_edge']);
-    expect(money.filter((k) => k.branch === 'dig' && !k.donate)).toHaveLength(17);
+    expect(money.filter((k) => k.branch === 'dig' && !k.donate)).toHaveLength(0);
+    expect(SKILLS.filter((k) => k.branch === 'dig' && !k.donate && !k.inf && isResearch(k))).toHaveLength(17);
     expect(money.filter((k) => k.donate).map((k) => [k.id, maxLv(k)])).toEqual([['dig_donate', 1]]);
     expect(Object.values(MONEY_PANELS.C).sort()).toEqual(['budget', 'bulk', 'host', 'jig', 'manual', 'pos', 'shortcut']);
     for (const tier of ['C', 'U', 'R', 'E', 'L'] as const) {
@@ -663,7 +665,7 @@ describe('スキルツリーの 2 区分', () => {
       expect(rpCost(k), k.id).toBeGreaterThan(0);
     }
     expect(SKILLS.filter((k) => k.inf).length).toBe(3);
-    expect(SKILLS.filter(isResearch).length).toBe(SKILLS.length - 35 - 17 - 1 - 4 - 2 - 3 - 2 - 1 - 2 - 2);
+    expect(SKILLS.filter(isResearch).length).toBe(SKILLS.length - 35 - 1 - 4 - 2 - 3 - 2 - 1 - 2 - 2);
   });
 
   it('RP の値段：Common 平均 50 前後（20〜80）・Uncommon 平均 120 前後・Rare 以降 2.5 倍ずつ・大きめの研究パネルは約 2.5 倍・人材の募集は 30', () => {

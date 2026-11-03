@@ -5,7 +5,7 @@
  * 版 3 → 4 の引き継ぎ、出会いの前は枝が隠れていること、パネルが重ならないこと。投資の監査（island:audit）では発掘の枝は「対象外」なので、ここで全部確かめる。
  */
 import { describe, expect, it } from 'vitest';
-import { BRANCHES, DIG_BALANCE, DIG_PANELS, DIG_SITES, INVESTS, LV_COST, RESEARCH_NEED, RP_GAIN, SKILL, SKILLS, isResearch, levelCost, maxLv, shownOf, shownText } from '../src/island/p1/data';
+import { BRANCHES, DIG_BALANCE, DIG_PANELS, DIG_SITES, INVESTS, RESEARCH_NEED, RP_GAIN, SKILL, SKILLS, isResearch, maxLv, rpCost, shownOf, shownText } from '../src/island/p1/data';
 import {
   affordableSkills,
   assign,
@@ -32,6 +32,7 @@ import {
   fxSum,
   hire,
   learn,
+  levelLock,
   levelUp,
   lvOf,
   newP1,
@@ -66,6 +67,8 @@ const lot = (s: P1State, id: string): [number, number, 'rd' | 'ld' | 'lu' | 'ru'
 function met(seed = 1, sector = 'c1', tier: 'C' | 'U' = 'C'): P1State {
   const s = newP1(seed, tier, sector);
   s.money = 1e8;
+  // 発掘のパネルは研究パネル（RP で開く）：開くための RP を持たせる
+  s.rp = 100000;
   s.tut = 99;
   s.flags.hq = true;
   s.flags.digMeet = 'done';
@@ -112,7 +115,7 @@ function clearOpen(s: P1State, k = 0): DigHit[] {
 const lv = (s: P1State, id: string, n: number) => setLevel(s, id, n);
 
 describe('データ：9 本目の枝「発掘」', () => {
-  it('BRANCHES に dig。パネルは Common 11 枚・Uncommon 外周 6 枚、すべてお金パネル（Lv1〜5・levelCost）。値段は C 2,000〜12,000・U 20,000〜80,000', () => {
+  it('BRANCHES に dig。パネルは Common 11 枚・Uncommon 外周 6 枚、すべて研究パネル（RP。2026-11-03：以前はお金パネル Lv1〜5。cost はもとの GUM の表）。開くと以前の最大レベルの効き目', () => {
     expect(BRANCHES.at(-1)).toEqual({ key: 'dig', name: '発掘' });
     // 無限の強化パネル・研究への寄付（6 段目）は別（tests/island-p1-dig2f.test.ts）
     const ks = SKILLS.filter((k) => k.branch === 'dig' && !k.inf && !k.donate);
@@ -120,16 +123,19 @@ describe('データ：9 本目の枝「発掘」', () => {
     expect(ks.filter((k) => !k.tier)).toHaveLength(11);
     expect(ks.filter((k) => k.tier === 'U')).toHaveLength(6);
     for (const k of ks) {
-      expect(isResearch(k), k.id).toBe(false);
-      expect(maxLv(k), k.id).toBe(5);
+      expect(isResearch(k), k.id).toBe(true);
+      expect(maxLv(k), k.id).toBe(1);
+      expect(rpCost(k), k.id).toBeGreaterThan(0);
       const [lo, hi] = k.tier ? [20000, 80000] : [2000, 12000];
       expect(k.cost, k.id).toBeGreaterThanOrEqual(lo);
       expect(k.cost, k.id).toBeLessThanOrEqual(hi);
-      expect(levelCost(k, 2), k.id).toBe(Math.round((k.cost * LV_COST[1]) / 100) * 100);
       for (const r of k.requires ?? []) expect(SKILL[r]?.branch, `${k.id} → ${r}`).toBe('dig');
     }
-    // 例：発掘の追加申請 Lv2 は 4,000 G
-    expect(levelCost(SKILL.dig_ext, 2)).toBe(4000);
+    // 開くと最大レベルの効き目（Lv5）で入る
+    const s0 = met();
+    expect(learn(s0, 'dig_ext')).toBeNull();
+    expect(lvOf(s0, 'dig_ext')).toBe(5);
+    expect(levelLock(s0, SKILL.dig_ext)).toBe('max');
     // Uncommon の外周の最初の 2 枚にエンブレム（ほかの枝の外周と同じ開き方）
     expect([SKILL.u_dig_ext2.emblem, SKILL.u_dig_auto.emblem]).toEqual([1, 2]);
     // 先に要るパネルのレベル
@@ -165,7 +171,8 @@ describe('データ：9 本目の枝「発掘」', () => {
     s.flags.digMeet = 'done';
     expect(skillLock(s, SKILL.dig_ext)).toBeNull();
     expect(learn(s, 'dig_ext')).toBeNull();
-    expect(lvOf(s, 'dig_ext')).toBe(1);
+    // 研究パネル：開くと最大レベル（Lv5）の効き目
+    expect(lvOf(s, 'dig_ext')).toBe(5);
   });
 
   it('先に要るもの：常駐は発掘隊の手際 Lv3 から（Lv2 では取れない）', () => {
@@ -396,13 +403,11 @@ describe('見える深さ・掘れる層・研究', () => {
     lv(s, 'dig_ext', 1);
     lv(s, 'dig_lamp', 1);
     expect(learn(s, 'dig_study')).toBeNull();
-    expect(researchCap(s)).toBe(4);
-    expect(researchOf(s, id)).toBe(4);
-    expect(s.rp - rp0).toBeGreaterThanOrEqual(RP_GAIN.C.lv[2]);
-    const rp1 = s.rp;
-    expect(levelUp(s, 'dig_study')).toBeNull();
+    // 発掘のパネルは研究パネル（開くと最大レベル）：上限は一気に Lv5 まで上がり、止まっていた Lv と RP がまとめて入る（RP の払いはパネルの値段のぶん減る）
+    expect(researchCap(s)).toBe(5);
     expect(researchOf(s, id)).toBe(5);
-    expect(s.rp - rp1).toBeGreaterThanOrEqual(RP_GAIN.C.lv[3]);
+    expect(s.rp - rp0 + rpCost(SKILL.dig_study)).toBeGreaterThanOrEqual(RP_GAIN.C.lv[2] + RP_GAIN.C.lv[3]);
+    expect(levelUp(s, 'dig_study')).not.toBeNull();
     // お題は上限に掛からない（その場で Lv5）
     const t = met();
     const topic = DIG_SITES.c1.topics[0];
@@ -684,14 +689,15 @@ describe('発掘隊：役所・手際・常駐（自動化）・段取り・交�
 describe('画面のための数字', () => {
   it('発掘終了の札の「次の強化のおすすめ」：いちばん安い発掘のパネルの次の Lv（「発掘の追加申請 Lv2（4,000 G）で 21 秒に」）', () => {
     const s = met();
-    expect(digRec(s)?.text).toBe('発掘の追加申請 Lv1（2,000 G）で 18 秒に');
-    lv(s, 'dig_ext', 1);
-    lv(s, 'dig_lamp', 1);
-    lv(s, 'dig_office', 1);
-    lv(s, 'dig_power', 1);
-    expect(digRec(s)).toMatchObject({ id: 'dig_ext', lv: 2, cost: 4000, text: '発掘の追加申請 Lv2（4,000 G）で 21 秒に' });
-    // 深い層の許可が要るマスを押した作業のあとは、深い層の許可を先に
-    expect(digRec(s, 'dig_deep')?.text).toBe('深い層の許可 Lv1（5,000 G）で 岩盤まで掘れる');
+    // 発掘のパネルは研究パネル（RP）：値段は RP・開くと最大レベルの効き目（発掘の追加申請は 30 秒）
+    expect(digRec(s)).toMatchObject({ id: 'dig_ext', lv: 5, cost: rpCost(SKILL.dig_ext), text: `発掘の追加申請（${rpCost(SKILL.dig_ext)} RP）で 30 秒に` });
+    learn(s, 'dig_ext');
+    // 取ったものは出ない。次にいちばん安いもの
+    expect(digRec(s)?.id).not.toBe('dig_ext');
+    // 深い層の許可が要るマスを押した作業のあとは、深い層の許可を先に（手前の発掘の追加申請・発掘のランタンから）
+    expect(digRec(s, 'dig_deep')?.id).toBe('dig_lamp');
+    learn(s, 'dig_lamp');
+    expect(digRec(s, 'dig_deep')?.text).toContain('深い層の許可');
     // 出会いの前は出さない
     delete s.flags.digMeet;
     expect(digRec(s)).toBeNull();

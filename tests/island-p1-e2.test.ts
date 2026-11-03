@@ -138,11 +138,12 @@ describe('カリスマ度', () => {
     expect(rar(s).has('E')).toBe(true);
     s.charismaBonus = CHARISMA.cap.L!;
     expect(rar(s).has('L')).toBe(true);
-    // パネルなし（人材の募集だけ）では、カリスマ度が高くても Uncommon は来ない（格の候補だけ）
+    // パネルなし（人材の募集だけ）：カリスマ度で Uncommon は来る（2026-11-03：憧れの職場は要らない）。Rare はヘッドハンティングが要る（格の候補だけ）
     const t = game();
     t.charismaBonus = CHARISMA.cap.E!;
     const xs = pickHires(t).map(heroRarityOf);
-    expect(xs.filter((r) => r === 'U' || r === 'R')).toEqual([]);
+    expect(xs.filter((r) => r === 'R')).toEqual([]);
+    expect(xs.some((r) => r === 'U')).toBe(true);
     expect(xs.filter((r) => r === 'E')).toHaveLength(1);
   });
 

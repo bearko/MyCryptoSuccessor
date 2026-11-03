@@ -3,7 +3,7 @@
  * 画面は digui.ts。仕様は docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」の「15 秒の発掘」「発掘場の画面」「研究ノート」。
  */
 import { t } from '../../i18n';
-import { DIG, DIG_AUTO, DIG_BALANCE, DIG_PANELS, DIG_SITES, DUNGEON_FINDS, PRODUCT, isAntique, relicOf, relicSells, relicTier, RESEARCH_NEED, SKILL, TABLETS, levelCost, maxLv, type Skill, type Tablet, type Tier } from './data';
+import { digMaxLv, isResearch, rpCost, DIG, DIG_AUTO, DIG_BALANCE, DIG_PANELS, DIG_SITES, DUNGEON_FINDS, PRODUCT, isAntique, relicOf, relicSells, relicTier, RESEARCH_NEED, SKILL, TABLETS, levelCost, maxLv, type Skill, type Tablet, type Tier } from './data';
 import { sectorDef } from './company';
 import {
   autoRate,
@@ -145,9 +145,10 @@ export function digRec(s: P1State, prefer?: string): DigRec | null {
     if (lv >= maxLv(k) || !ringOpen(s, skillTier(k))) continue;
     if (lv === 0) {
       const e = skillLock(s, k);
-      if (e !== null && e !== 'money') continue;
+      if (e !== null && e !== 'money' && e !== 'rp') continue;
     }
-    cand.push({ k, lv: lv + 1, cost: levelCost(k, lv + 1) });
+    // 研究パネル（RP）は資金ではなく RP が足りるもの。値段は RP（おすすめの並びは RP の安い順）
+    cand.push({ k, lv: isResearch(k) ? digMaxLv(k) : lv + 1, cost: isResearch(k) ? rpCost(k) : levelCost(k, lv + 1) });
   }
   if (!cand.length) return null;
   cand.sort((a, b) => a.cost - b.cost);
@@ -160,7 +161,7 @@ const TR = DIG_BALANCE.tree;
 const lvAt = (xs: number[], lv: number) => xs[Math.min(xs.length, lv) - 1];
 /** おすすめの文：「発掘の追加申請 Lv2（4,000 G）で 21 秒に」 */
 function recText(s: P1State, k: Skill, lv: number, cost: number): string {
-  const head = t(`${k.name} Lv${lv}（${cost.toLocaleString('en-US')} G）`, `${k.name} Lv${lv} (${cost.toLocaleString('en-US')} G)`);
+  const head = isResearch(k) ? t(`${k.name}（${cost.toLocaleString('en-US')} RP）`, `${k.name} (${cost.toLocaleString('en-US')} RP)`) : t(`${k.name} Lv${lv}（${cost.toLocaleString('en-US')} G）`, `${k.name} Lv${lv} (${cost.toLocaleString('en-US')} G)`);
   const L = digSite(s);
   const cur = lvOf(s, k.id);
   switch (k.id) {

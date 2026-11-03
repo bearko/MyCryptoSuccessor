@@ -289,7 +289,7 @@ export const TUT: TutStep[] = [
       pages: [
         { text: t('ダッシュボードの [[① 調達]]を見て。調達係がいないから、いまは素材を手で買うしかないんだ。', 'Look at [[① Buy]] on the dashboard. With no buyer, you can only buy materials by hand.') },
         { text: t('素材を買い付けてくれるヒーローを雇いたいね。でも、ヒーローを雇うには[[人材の募集]]が要るんだ。', 'Let’s hire a hero to buy materials. But hiring needs [[Recruiting]] first.') },
-        { text: t('[[スキルツリー]]の[[枝の色の枠のパネル]]が、研究ポイントで開く研究パネルだよ。[[人材の募集]]を研究しに行こう！', 'In the [[skill tree]], panels with a [[branch-coloured frame]] are research panels you open with RP. Let’s go research [[Recruiting]]!') },
+        { text: t('[[スキルツリー]]の[[四角いパネル]]が、研究ポイントで開く研究パネルだよ。[[人材の募集]]を研究しに行こう！', 'In the [[skill tree]], [[square]] panels are research panels you open with RP. Let’s go research [[Recruiting]]!') },
       ],
       ok: t('スキルツリーへ', 'To the skill tree'),
     },
@@ -312,7 +312,7 @@ export const TUT: TutStep[] = [
         has(s, 'hire')
           ? t('研究できた！ 右上の [[✕]] で、元の画面に戻ろう！', 'Researched! Use [[✕]] at the top right to go back!')
           : hqOpen(s)
-            ? t('枝の色の枠は[[研究ポイント]]、金の二重の枠は[[資金]]で開くパネルだよ。光っている[[人材の募集]]を押して、「研究する 30 RP」で開こう！', 'Branch-coloured frames open with [[RP]], gold double frames with [[funds]]. Tap the glowing [[Recruiting]] panel and press Research 30 RP!')
+            ? t('四角は[[研究ポイント]]、菱形は[[資金]]で開くパネルだよ。光っている[[人材の募集]]を押して、「研究する 30 RP」で開こう！', 'Squares open with [[RP]], diamonds with [[funds]]. Tap the glowing [[Recruiting]] panel and press Research 30 RP!')
             : t('真ん中の[[本社]]をタップして、「本社を開放する」を押そう！', 'Tap [[HQ]] in the middle and press Unlock HQ!'),
     },
     done: (s, seen) => has(s, 'hire') && hqOpen(s) && seen.has('skills'),

@@ -1927,8 +1927,14 @@ export const DIG_SKILLS: Skill[] = [
   dig_('u_dig_mat', t('素材の選り分け', 'Material sorting'), t('掘り出した素材 +20%／Lv（端数は持ち越し）', 'Materials dug up +20% per level (fractions carry over)'), { tier: 'U', fx: [{ kind: 'dig.mat', v: DT.mat[0], at: DT.mat }] }),
 ];
 SKILLS.push(...DIG_SKILLS);
-/** 発掘の枝のパネル（すべてお金パネル） */
+/**
+ * 発掘の枝のパネル（17 枚）。以前はお金パネル（Lv1〜5）だったが、ランクアップの災害でお金のパネルが未取得に戻って遊びにくいので、
+ * **研究パネル（RP で開く・レベルなし）** にした（値段は同じランクの研究パネルの RP の段。下の RP の決め方）。
+ * 効き目は以前の最大レベル（Lv5）の値：開いたとき skillLv を最大にする（model.ts の gainSkill）。無限の強化パネル・研究への寄付・発掘許可・発破とドリルの毎回の代金は、そのままお金
+ */
 export const DIG_PANELS = DIG_SKILLS.map((k) => k.id);
+/** 発掘パネルを開いたときの Lv（以前の最大レベル） */
+export const digMaxLv = (k: Skill) => k.max ?? 5;
 
 // ---------------------------------------------------------------- 無限の強化パネル・研究への寄付（発掘 v2 の 6 段目）
 
@@ -2160,7 +2166,7 @@ export const START_RP = 30;
 export const RP_PER_DUST = 40;
 const RP_FIXED: Record<string, number> = { hire: START_RP };
 {
-  const money = new Set([...Object.values(MONEY_PANELS).flatMap((x) => Object.values(x)), ...DIG_PANELS, DONATE.id, ...SALES_MONEY, ...HR_MONEY, ...ACCT_MONEY, ...GA_MONEY, ...CS_MONEY, ...MKT_MONEY, ...LEGAL_MONEY]);
+  const money = new Set([...Object.values(MONEY_PANELS).flatMap((x) => Object.values(x)), DONATE.id, ...SALES_MONEY, ...HR_MONEY, ...ACCT_MONEY, ...GA_MONEY, ...CS_MONEY, ...MKT_MONEY, ...LEGAL_MONEY]);
   const byId = new Map(SKILLS.map((k) => [k.id, k]));
   const tierOf = (k: Skill) => k.tier ?? 'C';
   // 同じランクの中の深さ（先に要るパネルのうち、同じランクのものをたどった最長の数）
