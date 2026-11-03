@@ -13,7 +13,9 @@ import { PRODUCT, skuParts, type Sku } from './data';
 import { staffOf, type P1State } from './model';
 import { afterOf, applyPlan, planBlock, planCost, planEffect, planRows, planTitle, type Cell, type Plan, type PlanRes, type Row } from './plan';
 import { quipOf } from './persona';
-import { after, type Ctx } from './screens';
+import { after, chooseMake, type Ctx } from './screens';
+import { pickMake } from './stockui';
+import { craftable } from './orders';
 import { btn, extImage, h, heroIcon, heroName, money, rich, skuIcon } from './ui';
 import { starOf } from './card';
 
@@ -150,6 +152,15 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   }
   const sec2 = h('section', 'isl-prop-sec');
   sec2.append(h('h3', '', t('提案', 'Proposal')), h('p', 'isl-prop-title', planTitle(s, plan)));
+  // 段 UI5c：「いまある素材で○○が作れます」の提案は、ほかの品も選べる（工房の作る物の選び方の「いまの素材で作れる」の並びへ）
+  const use = plan.steps.find((x) => x.k === 'useup') as { k: 'useup'; slot: number; x: Sku } | undefined;
+  if (use)
+    sec2.append(
+      btn(t('ほかの品を選ぶ（いまの素材で作れる）', 'Pick another (from what we have)'), () => {
+        close('skip');
+        pickMake(ctx, use.slot, { title: t(`作業台 ${use.slot + 1} で作るもの`, `What bench ${use.slot + 1} makes`), items: craftable(ctx.s()), tab: 'stock', onPick: (x) => chooseMake(ctx, ctx.s(), use.slot, x) });
+      }, 'isl-prop-alt'),
+    );
   body.append(sec2);
 
   // As-Is ／ To-Be（左右 2 列。行ごとに項目名を上に）

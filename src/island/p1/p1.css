@@ -13972,3 +13972,201 @@ button.isl-dband-lead.is-on {
   gap: 6px;
   align-items: center;
 }
+
+/* ================================================================ 段 UI5c：作る物の選び方（並び・絞り込み・ランクアップ）・在庫の売りさばき */
+.isl-make-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+.isl-make-tabs {
+  display: inline-flex;
+  border: 2px solid var(--isl-line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.isl-make-tab {
+  padding: 6px 10px;
+  border: 0;
+  background: #1d2a44;
+  color: var(--isl-dim);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.isl-make-tab.is-on {
+  background: var(--isl-gold);
+  color: var(--isl-ink);
+}
+.isl-make-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.isl-make-filter input {
+  width: 18px;
+  height: 18px;
+}
+.isl-make-lead,
+.isl-make-hidden {
+  margin: 0;
+  font-size: 13px;
+}
+.isl-make-hidden {
+  grid-column: 1 / -1;
+}
+.isl-ext-wrap {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+.isl-ext-wrap > .isl-ext-card:not(:last-child) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.isl-ext-no {
+  color: var(--isl-bad);
+  font-size: 13px;
+  font-weight: 700;
+}
+.isl-rankup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 6px 10px;
+  border: 2px solid var(--isl-line);
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+  background: #24345a;
+}
+.isl-rankup small {
+  flex: 1 1 160px;
+  min-width: 0;
+  color: var(--isl-dim);
+  font-size: 12px;
+}
+.isl-rankup.is-why small {
+  color: #ffb8a8;
+}
+.isl-rankup-btn {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(#9a7bff, #6a4fd6);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.isl-clear-top {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+.isl-clear-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+.isl-clear-opt {
+  display: grid;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 2px solid var(--isl-line);
+  border-radius: 12px;
+  background: #2b3b5e;
+  color: var(--isl-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.isl-clear-opt small {
+  color: var(--isl-dim);
+  font-size: 13px;
+}
+.isl-clear-opt.is-on {
+  border-color: var(--isl-gold);
+  background: #3b5285;
+}
+.isl-clear-opt.is-rec {
+  box-shadow: 0 0 0 2px var(--isl-gold);
+}
+.isl-rank-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.isl-rank-head > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.isl-rank-arrow {
+  color: var(--isl-gold);
+  font-weight: 900;
+}
+.isl-rank-needs {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.isl-rank-needs li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 0 6px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: #1d2a44;
+  font-size: 14px;
+}
+.isl-rank-needs li small {
+  grid-column: 2;
+  color: var(--isl-dim);
+  font-size: 12px;
+}
+.isl-rank-needs li.is-ok b {
+  color: var(--isl-good);
+}
+.isl-rank-needs li.is-ng b {
+  color: var(--isl-bad);
+}
+.isl-rank-why {
+  margin: 0;
+  font-weight: 700;
+}
+.isl-rank-acts {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.isl-prop-alt {
+  justify-self: start;
+  margin-top: 6px;
+  font-size: 13px;
+}
+.isl-ext-gain.is-stock {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  justify-self: stretch;
+  padding: 4px 8px;
+  border-radius: 10px;
+}
+.isl-ext-gain.is-stock small {
+  color: #ffe2a0;
+  font-size: 12px;
+  font-weight: 700;
+}
+.isl-ext-spare {
+  display: inline-block;
+}

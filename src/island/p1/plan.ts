@@ -9,7 +9,7 @@
  */
 import { t } from '../../i18n';
 import { DEF } from '../defs';
-import { ADS, DELEG, INVEST, MATS, P1B, PRODUCT, SKILL, isResearch, rpCost, sku, type DeptId, type Mat, type Sku } from './data';
+import { ADS, CLEAR, DELEG, INVEST, MATS, P1B, PRODUCT, SKILL, isResearch, rpCost, sku, type DeptId, type Mat, type Sku } from './data';
 import {
   DAYS,
   LOT,
@@ -39,6 +39,15 @@ import {
   adCost,
   syncFacilities,
   syncShop,
+  setClear,
+  useUp,
+  lotsHave,
+  batchOf,
+  clearSkus,
+  poolRate,
+  poolUsed,
+  poolCap,
+  stockAll,
   type P1State,
   type Stage,
 } from './model';
@@ -64,7 +73,11 @@ export type Step =
   /** お店の主力商品を x に */
   | { k: 'main'; uid: number; x: Sku }
   /** お店の従業員（アルバイト）を n 人に（控室の増設が要るときは別の act で先に） */
-  | { k: 'staff'; uid: number; n: number };
+  | { k: 'staff'; uid: number; n: number }
+  /** 段 UI5c：お店の方針「在庫を優先して売りさばく」（cut：値引きの段の番号。null でオフ） */
+  | { k: 'clear'; uid: number; cut: number | null }
+  /** 段 UI5c：作業台 slot で、手持ちの素材で作れるだけ x を作る（作り終えたらいまの商品に戻る） */
+  | { k: 'useup'; slot: number; x: Sku };
 
 export interface Plan {
   /** 話し手（担当者）と読みの確かさ（出来）・部門 */
@@ -194,6 +207,14 @@ export function stepsOf(s: P1State, a: PropAct, used = new Set<number>()): { ste
       }
       return { steps };
     }
+    case 'clear': {
+      const uids = a.uid === -1 ? myShops(s).map((b) => b.uid).filter((u) => s.shops[u]) : [a.uid];
+      return { steps: uids.map((uid) => ({ k: 'clear' as const, uid, cut: a.cut })) };
+    }
+    case 'useup': {
+      const x = sku(a.key, a.rar);
+      return { steps: [{ k: 'useup', slot: a.slot, x }], goods: [x] };
+    }
     default:
       return { steps: [{ k: 'act', a }] };
   }
@@ -293,6 +314,12 @@ export function planCost(s: P1State, p: Plan): PlanCost {
         if (more > 0) add(t(`従業員 +${more} 人（${shopNm(s, st.uid)}）`, `+${more} staff (${shopNm(s, st.uid)})`), { monthly: more * partMonthly() });
         break;
       }
+      case 'clear':
+        if (st.cut != null && (CLEAR.cuts[st.cut] ?? 0) > 0) add(t(`値引き ${Math.round(CLEAR.cuts[st.cut] * 10)} 割（${shopNm(s, st.uid)}・在庫品だけ）`, `${Math.round(CLEAR.cuts[st.cut] * 100)}% off (${shopNm(s, st.uid)}, stock items only)`), {});
+        break;
+      case 'useup':
+        add(t(`作業台 ${st.slot + 1}：手持ちの素材で${goodsName(st.x)}×${lotsHave(s, st.x) * batchOf(st.x, s)}（素材は買い足さない）`, `Bench ${st.slot + 1}: ${goodsName(st.x)} ×${lotsHave(s, st.x) * batchOf(st.x, s)} from stock (no new materials)`), {});
+        break;
       case 'act': {
         const a = st.a;
         if (a.k === 'invest') {
@@ -405,6 +432,8 @@ export function applyPlan(s: P1State, p: Plan): PlanRes {
           fail ??= 'gone';
           break;
         }
+        // 段 UI5c：使い切りの製造をしていた台は、ふつうの自動製造に
+        delete sl.back;
         if (sl.sku !== st.x) {
           if (sl.running) (s.deleg ??= newDeleg()).pend[st.slot] = st.x;
           else Object.assign(sl, { sku: st.x, repeat: true, left: 0, progress: 0 });
@@ -439,6 +468,23 @@ export function applyPlan(s: P1State, p: Plan): PlanRes {
           core++;
           did.push(t(`${shopNm(s, st.uid)}の従業員を ${n} 人に`, `${shopNm(s, st.uid)} staff: ${n}`));
         }
+        break;
+      }
+      case 'clear': {
+        const sh = s.shops[st.uid];
+        if (!sh || sh.clear === (st.cut ?? undefined)) break;
+        if (setClear(s, st.uid, st.cut)) {
+          core++;
+          did.push(st.cut == null ? t(`${shopNm(s, st.uid)}の売りさばきをやめた`, `${shopNm(s, st.uid)} stops clearing stock`) : t(`${shopNm(s, st.uid)}は在庫品を先に（${clearName(st.cut)}）`, `${shopNm(s, st.uid)} clears stock first (${clearName(st.cut)})`));
+        }
+        break;
+      }
+      case 'useup': {
+        const n = useUp(s, st.slot, st.x);
+        if (n > 0) {
+          core++;
+          did.push(t(`作業台 ${st.slot + 1} で${goodsName(st.x)}を ${n} 個（素材を使い切り）`, `Bench ${st.slot + 1} makes ${n} ${goodsName(st.x)} from stock`));
+        } else fail ??= 'gone';
         break;
       }
       case 'act': {
@@ -514,7 +560,7 @@ export function afterOf(s: P1State, p: Plan): P1State {
   // いまのロットが終わってから替わる台は、替わったあとで見る
   for (const [k, x] of Object.entries(c.deleg?.pend ?? {})) {
     const sl = c.slots[Number(k)];
-    if (sl) Object.assign(sl, { sku: x, running: false, repeat: true, left: 0, progress: 0 });
+    if (sl) Object.assign(sl, sl.back !== undefined ? { sku: x, running: false, progress: 0 } : { sku: x, running: false, repeat: true, left: 0, progress: 0 });
   }
   if (c.deleg) c.deleg.pend = {};
   syncShelves(c, true);
@@ -534,11 +580,12 @@ export interface FlowNow {
   caps: Record<Stage, number>;
 }
 /** いまの流れ（月あたり）。売れる数は 4 段（調達・製造・物流・販売）の細いところで頭打ち */
-export function flowOf(s: P1State, extraMonthly = 0): FlowNow {
+export function flowOf(s: P1State, extraMonthly = 0, sellOnly = false): FlowNow {
   const c = stageCaps(s, true);
   const caps = { buy: c.buy.stopped ? 0 : c.buy.perMonth, craft: c.craft.stopped ? 0 : c.craft.perMonth, haul: c.haul.stopped ? 0 : c.haul.perMonth, sell: c.sell.stopped ? 0 : c.sell.perMonth } as Record<Stage, number>;
   const sold = sellNow(s);
-  const lim = Math.min(caps.buy, caps.craft, caps.haul, caps.sell);
+  // 段 UI5c：在庫の売りさばき・使い切りの製造は、いまある在庫と素材を売る手なので、売り場の段だけで頭打ち（調達・製造が止まっていても売れる）
+  const lim = sellOnly ? caps.sell : Math.min(caps.buy, caps.craft, caps.haul, caps.sell);
   const k = sold.units > 0 ? Math.min(1, lim / sold.units) : 0;
   const units = sold.units * k;
   const sales = sold.yen * k;
@@ -557,7 +604,8 @@ export interface Effect {
 /** 期待効果：売上・コスト・利益の「今 → 後」（月あたり）。後の毎月の費用には、増えるアルバイト・維持費を入れる */
 export function planEffect(s: P1State, p: Plan, after = afterOf(s, p)): Effect {
   const c = planCost(s, p);
-  return { now: flowOf(s), after: flowOf(after, c.monthly), err: Math.round((1 - p.q) * DELEG.prop.err * 100) / 100 };
+  const so = stockPlan(p);
+  return { now: flowOf(s, 0, so), after: flowOf(after, c.monthly, so), err: Math.round((1 - p.q) * DELEG.prop.err * 100) / 100 };
 }
 
 // ---------------------------------------------------------------- As-Is ／ To-Be の行
@@ -586,6 +634,12 @@ const benchText = (s: P1State, k: number) => {
   if (!sl) return '—';
   const x = s.deleg?.pend?.[k] ?? sl.sku;
   const who = sl.worker != null ? heroNm(sl.worker) : t('担当なし', 'nobody');
+  // 段 UI5c：使い切りの製造（作れるだけ作って、もとの商品に戻る）
+  if (x && sl.back !== undefined) {
+    // いま動いているロットが別の商品（ロットのあとに替わる）なら、数は替わったあとの分だけ
+    const n = (sl.left ?? 0) + (sl.running && x === sl.sku ? batchOf(x, s) : 0);
+    return sl.back ? t(`作業台 ${k + 1} で${goodsName(x)}を ${n} 個（素材を使い切り）→ そのあと${goodsName(sl.back)}`, `Bench ${k + 1}: ${n} ${goodsName(x)} from stock → then ${goodsName(sl.back)}`) : t(`作業台 ${k + 1} で${goodsName(x)}を ${n} 個（素材を使い切り）`, `Bench ${k + 1}: ${n} ${goodsName(x)} from stock`);
+  }
   return x ? t(`作業台 ${k + 1} で${goodsName(x)}を${who}が担当`, `Bench ${k + 1}: ${goodsName(x)} by ${who}`) : t(`作業台 ${k + 1}：作るものなし`, `Bench ${k + 1}: idle`);
 };
 const matsText = (s: P1State, mats: Mat[]) => mats.map((m) => `${MATS[m].name}×${Math.round((s.mats[m] ?? 0) + (s.orders ?? []).filter((o) => o.m === m).reduce((a, o) => a + o.qty, 0))}`).join(t(' ／ ', ' / '));
@@ -596,7 +650,7 @@ export function planRows(s: P1State, p: Plan, after = afterOf(s, p)): { rows: Ro
   const touched = new Set<Stage>();
   // 棚（お店ごと）
   const shopIds = new Set<number>();
-  for (const st of p.steps) if (st.k === 'shelf' || st.k === 'main' || st.k === 'staff') shopIds.add(st.uid);
+  for (const st of p.steps) if (st.k === 'shelf' || st.k === 'main' || st.k === 'staff' || st.k === 'clear') shopIds.add(st.uid);
   if (p.goods?.length) for (const b of myShops(s)) if (after.shops[b.uid]?.shelves.some((x) => x && p.goods!.includes(x))) shopIds.add(b.uid);
   for (const uid of shopIds) {
     const a = s.shops[uid];
@@ -620,6 +674,31 @@ export function planRows(s: P1State, p: Plan, after = afterOf(s, p)): { rows: Ro
       rows.push({ kind: 'staff', label: t(`従業員（${shopNm(s, uid)}）`, `Staff (${shopNm(s, uid)})`), asIs: { text: t(`${a.part} 人`, `${a.part}`) }, toBe: { text: t(`${b.part} 人`, `${b.part}`), plus: b.part > a.part }, changed: true });
     }
   }
+  // 段 UI5c：販売の方針（在庫の売りさばき）と倉庫
+  for (const st of p.steps) {
+    if (st.k !== 'clear') continue;
+    const a = s.shops[st.uid];
+    const b = after.shops[st.uid];
+    if (!a || !b) continue;
+    touched.add('sell');
+    rows.push({ kind: 'shelf', label: t(`売り方（${shopNm(s, st.uid)}）`, `Selling (${shopNm(s, st.uid)})`), asIs: { text: a.clear == null ? t('作っている商品から並べる', 'What we make goes first') : t(`在庫品を先に（${clearName(a.clear)}）`, `Stock first (${clearName(a.clear)})`) }, toBe: { text: b.clear == null ? t('作っている商品から並べる', 'What we make goes first') : t(`在庫品を先に（${clearName(b.clear)}）`, `Stock first (${clearName(b.clear)})`), plus: b.clear != null }, changed: a.clear !== b.clear });
+  }
+  if (p.steps.some((st) => st.k === 'clear' || st.k === 'useup')) {
+    const it0 = clearSkus(s);
+    const it1 = clearSkus(after);
+    const gs = goodsSales(after);
+    const sellOut = it1.reduce((a2, x) => a2 + Math.min(gs[x]?.units ?? 0, stockAll(after, x)), 0);
+    const n0 = it0.reduce((a2, x) => a2 + stockAll(s, x), 0);
+    const mk = p.steps.filter((x): x is Extract<Step, { k: 'useup' }> => x.k === 'useup');
+    const matsUse = mk.reduce((a2, x) => a2 + Object.values(recipeOf(x.x)).reduce<number>((c, q) => c + (q ?? 0), 0) * lotsHave(s, x.x), 0);
+    rows.push({
+      kind: 'buy',
+      label: t('倉庫', 'Storage'),
+      asIs: { text: t(`${Math.round(poolRate(s) * 100)}%（${poolUsed(s)} / ${poolCap(s)} 個）・在庫品 ${n0} 個`, `${Math.round(poolRate(s) * 100)}% (${poolUsed(s)} / ${poolCap(s)}) · ${n0} stock items`) },
+      toBe: { text: [matsUse > 0 ? t(`素材 −${matsUse} 個（商品にする）`, `−${matsUse} materials (made into goods)`) : '', sellOut > 0.5 ? t(`在庫品が月 ${Math.round(sellOut)} 個ほど売れていく`, `~${Math.round(sellOut)} stock items sell a month`) : ''].filter(Boolean).join(t('・', ' · ')) || t('—', '—'), plus: true },
+      changed: true,
+    });
+  }
   // 製造（作業台ごと）
   for (let k = 0; k < Math.max(s.slots.length, after.slots.length); k++) {
     const t0 = k < s.slots.length ? benchText(s, k) : null;
@@ -629,11 +708,14 @@ export function planRows(s: P1State, p: Plan, after = afterOf(s, p)): { rows: Ro
     rows.push({ kind: 'craft', label: t('製造', 'Crafting'), asIs: { text: t0 ?? '—' }, toBe: { text: t0 == null ? `${PLUS()}${t1}` : t1, plus: t0 == null }, changed: true });
   }
   // 商品（売る商品：アイコン・ひと月の数・1 日の売上）
-  const f0 = flowOf(s);
-  const f1 = flowOf(after);
+  const so = stockPlan(p);
+  const f0 = flowOf(s, 0, so);
+  const f1 = flowOf(after, 0, so);
   const k0 = new Set(f0.goods.filter((x) => x.units > 0.05).map((x) => x.x));
   const k1 = new Set(f1.goods.filter((x) => x.units > 0.05).map((x) => x.x));
   for (const x of madeSkus(after)) k1.add(x);
+  // 作っているがまだ売れていない商品は、As-Is にも同じく入れる（変わっていないのに「＋」と出さない）
+  for (const x of madeSkus(s)) if (k1.has(x)) k0.add(x);
   const goodsChanged = [...k1].some((x) => !k0.has(x)) || [...k0].some((x) => !k1.has(x));
   if (goodsChanged || p.goods?.length) {
     touched.add('sell');
@@ -737,6 +819,8 @@ export function planTitle(s: P1State, p: Plan): string {
     else if (st.k === 'make') bits.push(t(`${goodsName(st.x)}を作って並べる`, `make and sell ${goodsName(st.x)}`));
     else if (st.k === 'main' && !p.steps.some((y) => y.k === 'make')) bits.push(t(`主力を${goodsName(st.x)}に`, `make ${goodsName(st.x)} the main item`));
     else if (st.k === 'staff') bits.push(t(`従業員を ${st.n} 人に`, `${st.n} staff`));
+    else if (st.k === 'clear') bits.push(st.cut == null ? t('在庫の売りさばきをやめる', 'stop clearing stock') : t(`在庫を優先して売りさばく（${clearName(st.cut)}）`, `clear stock first (${clearName(st.cut)})`));
+    else if (st.k === 'useup') bits.push(t(`いまある素材で${goodsName(st.x)}を作る`, `make ${goodsName(st.x)} from what we have`));
     else if (st.k === 'act' && st.a.k !== 'assign') bits.push(actShort(st.a));
   }
   const uniq = [...new Set(bits)];
@@ -764,5 +848,9 @@ const actShort = (a: PropAct): string => {
       return actLabel(a);
   }
 };
+/** 段 UI5c：在庫と素材を売る手（売りさばき・使い切りの製造）だけの提案書 */
+const stockPlan = (p: Plan) => p.steps.length > 0 && p.steps.every((x) => x.k === 'clear' || x.k === 'useup' || x.k === 'worker');
+/** 値引きの段の名前 */
+const clearName = (k: number) => ((CLEAR.cuts[k] ?? 0) > 0 ? t(`${Math.round(CLEAR.cuts[k] * 10)} 割引`, `${Math.round(CLEAR.cuts[k] * 100)}% off`) : t('値引きなし', 'no discount'));
 /** 作る物を替えたときに止まる商品（ほかの台で作っていない） */
 export const planDrop = (p: Plan) => p.drop ?? null;
