@@ -5,6 +5,7 @@
  * 承認すると会社のハンコ（店の名前の赤い丸印）を押す演出（pixelfx の collect-burst を印の位置で。docs/ISLAND_FX.md）のあと、
  * plan.ts の applyPlan で一気に変更し、まとめをトーストで出す。計算は plan.ts（DOM なし）。
  */
+import { voiceQuip } from './voice';
 import { t } from '../../i18n';
 import { assetUrl, drawRef } from '../../render/images';
 import raw from '../../generated/catalog.json';
@@ -133,7 +134,8 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   if (st) {
     const star = starOf(plan.q, st.level ?? 1);
     who.append(h('small', 'isl-prop-star', t(`読みの確かさ ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（誤差 ±${pct(eff.err)}）`, `Read ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${pct(eff.err)})`)));
-    const q = quipOf(plan.hero!, 'sell', s.day);
+    // 段 P2：史実の調査のあるヒーローは、その人の提案のセリフ・口ぐせ（voice.ts）
+    const q = voiceQuip(plan.hero!, 'sell', s.day) ?? quipOf(plan.hero!, 'sell', s.day);
     if (q) who.append(h('small', 'isl-prop-quip', `— ${q}`));
   }
   head.append(who);

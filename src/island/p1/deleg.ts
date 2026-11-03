@@ -13,6 +13,7 @@ import { heroById } from '../../game/catalog';
 import { DEF } from '../defs';
 import { ADS, DELEG, DEPT, DEPTS, DEPT_DUTIES, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
 import { deptLevel, menuDepts } from './dept';
+import { fitDept } from './voice';
 import {
   DAYS,
   LOT,
@@ -121,20 +122,22 @@ export const delegatedDuties = (s: Pick<P1State, 'staff'>): DutyId[] => DUTIES.m
 /**
  * 出来（0〜1。手でやると 1）：部門に向く能力値・Lv・その部門のパッシブで決まる。7〜9 割から始まり、Lv とパッシブで上がる（cap まで）
  */
-export function quality(st: Pick<Staff, 'stats' | 'level' | 'passives'>, d: DeptId): number {
+export function quality(st: Pick<Staff, 'stats' | 'level' | 'passives'> & { hero?: number }, d: DeptId): number {
   const Q = DELEG.q;
   const a = Math.max(0, Math.min(1, (deptApt(st.stats, d) - Q.aptLo) / (Q.aptHi - Q.aptLo)));
   const lv = Math.min(Q.lvMax, Q.lv * Math.max(0, (st.level ?? 1) - 1));
   const pas = (st.passives ?? []).filter((p) => PASSIVES[p.k].dept === d).reduce((x, p) => x + Q.passive * (1 + HERO_GROWTH.passiveStep * Math.max(0, p.tier - 1)), 0);
-  return Math.min(Q.cap, Q.lo + (Q.hi - Q.lo) * a + lv + pas);
+  // 段 P2：史実の適性（S〜D）の倍率（voice.ts。hero の無い見積もり＝雇う前の候補は 1）
+  return Math.min(Q.cap, (Q.lo + (Q.hi - Q.lo) * a + lv + pas) * fitDept(st.hero, d));
 }
-/** 出来の内訳（任命の画面：能力値・Lv・パッシブのぶん） */
-export function qualityParts(st: Pick<Staff, 'stats' | 'level' | 'passives'>, d: DeptId): { base: number; lv: number; passive: number; total: number } {
+/** 出来の内訳（任命の画面：能力値・Lv・パッシブ・史実の適性のぶん） */
+export function qualityParts(st: Pick<Staff, 'stats' | 'level' | 'passives'> & { hero?: number }, d: DeptId): { base: number; lv: number; passive: number; fit: number; total: number } {
   const Q = DELEG.q;
   const a = Math.max(0, Math.min(1, (deptApt(st.stats, d) - Q.aptLo) / (Q.aptHi - Q.aptLo)));
   const lv = Math.min(Q.lvMax, Q.lv * Math.max(0, (st.level ?? 1) - 1));
   const total = quality(st, d);
-  return { base: Q.lo + (Q.hi - Q.lo) * a, lv, passive: Math.max(0, total - (Q.lo + (Q.hi - Q.lo) * a) - lv), total };
+  const raw = quality({ stats: st.stats, level: st.level, passives: st.passives }, d);
+  return { base: Q.lo + (Q.hi - Q.lo) * a, lv, passive: Math.max(0, raw - (Q.lo + (Q.hi - Q.lo) * a) - lv), fit: total - raw, total };
 }
 /** 業務を回している人と出来：リーダー（部長の下なら出来 +underHead）→ いなければ部長 */
 export function runnerOf(s: Pick<P1State, 'staff'>, d: DutyId): { st: Staff; q: number; by: 'leader' | 'head' } | null {
