@@ -3324,7 +3324,8 @@ export function digObservations(rep: Report2): string {
 
 // ---------------------------------------------------------------- まとめて回す
 
-export const SEEDS = [1, 2, 3];
+/** 計測のシード。環境変数 SIM_SEEDS（例：1,2,3,4,5,6）で増やせる（比べの計測用。docs に書くのはふだんの 3 つ） */
+export const SEEDS = process.env.SIM_SEEDS ? process.env.SIM_SEEDS.split(',').map(Number).filter((n) => n > 0) : [1, 2, 3];
 /** v17：ヒーローの育成を止めて回す（経験値のランクの倍率を 0 に。比べるためだけ。終わったら戻す） */
 export function withoutGrowth<T>(f: () => T): T {
   const tier = HERO_GROWTH.xp.tier as Record<string, number>;

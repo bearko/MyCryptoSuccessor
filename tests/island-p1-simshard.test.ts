@@ -6,7 +6,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { tables, observations, writeDoc } from '../scripts/island/sim';
+import { SEEDS, tables, observations, writeDoc } from '../scripts/island/sim';
 import { collect, decode, encode, loadShards, merge, saveShard } from '../scripts/island/simshard';
 
 const SHARD = process.env.SIM_SHARD;
@@ -50,7 +50,7 @@ describe('計測を分けて回す道具', () => {
       writeDoc(path, rep, existsSync(path) ? readFileSync(path, 'utf8') : null);
       console.log(tables(rep));
       console.log(observations(rep));
-      expect(rep.runs.length).toBe(9);
+      expect(rep.runs.length).toBe(3 * SEEDS.length);
     },
     3_600_000,
   );
