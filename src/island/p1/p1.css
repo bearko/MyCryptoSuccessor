@@ -13709,6 +13709,8 @@ button.isl-dband-lead.is-on {
   color: #ffd257;
   font-size: 12px;
   letter-spacing: 1px;
+}
+
 /* ---------------------------------------------------------------- 段 UI5a：担当者からの提案書（proposalui.ts） */
 .isl-modal.isl-prop > .isl-prop-panel {
   position: absolute;

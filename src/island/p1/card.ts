@@ -1267,7 +1267,7 @@ export function choiceText(s: P1State, c: Card, ch: Choice): { icon: string; lab
         case 'ad':
           return { icon: '📣', label: t(`「${ADS.find((x) => x.id === p.id)?.name ?? p.id}」を出そう`, `Run ${ADS.find((x) => x.id === p.id)?.name ?? p.id}`), sub: t(`${g(ch.cost)}・期間で ${sgn(est)} G（費用込み）`, `${g(ch.cost)} · ${sgn(est)} G over the run, net`) };
         case 'assign':
-          return { icon: '🙋', label: p.hero === c.hero ? t(`わたしを${TASK_NM[p.task]?.() ?? ''}に回して`, `Put me on ${TASK_NM[p.task]?.() ?? ''}`) : t(`${heroNm(p.hero)}を${TASK_NM[p.task]?.() ?? ''}に`, `Put ${heroNm(p.hero)} on ${TASK_NM[p.task]?.() ?? ''}`), sub: `${FREE()}${SEP()}${unitsTxt}${net}` };
+          return { icon: '🙋', label: p.hero === c.hero ? t(`わたしを${TASK_NM[p.task]?.() ?? ''}に回して`, `Put me on ${TASK_NM[p.task]?.() ?? ''}`) : t(`${heroNm(p.hero)}を${TASK_NM[p.task]?.() ?? ''}に`, `Put ${heroNm(p.hero)} on ${TASK_NM[p.task]?.() ?? ''}`), sub: [FREE(), unitsTxt].filter(Boolean).join(SEP()) + net };
         case 'hire':
           return { icon: '🤝', label: t(`${heroNm(p.hero)}を雇おう`, `Hire ${heroNm(p.hero)}`), sub: t(`月給 ${g(ch.monthly ?? 0)}・${unitsTxt}・差し引き ${sgn(est)} G／月`, `${g(ch.monthly ?? 0)}/mo · ${unitsTxt} · net ${sgn(est)} G/mo`) };
         case 'permit':
