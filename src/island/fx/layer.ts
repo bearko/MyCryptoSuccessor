@@ -7,6 +7,8 @@
  * - 設定の「演出：ふつう／控えめ／なし」（段 FX2。fxLevel）：控えめは花火・紙吹雪を出さず、光だけ小さく。なしは効果の層を出さない。
  *   端末の「動きを減らす」（prefers-reduced-motion: reduce）は「なし」を初期値にする。画面を押すと 'ui' の効果はすぐ薄れて消える（待たせない）。
  * - 明るい地図の上でも読めるように、色のドットの外側に 1px の濃い縁（ink）を付け、光（加算）は弱めにする。
+ * - 要素の後ろに描く（host。段 FX2）：札・窓の中で、絵の後ろに光の柱・光の放射を置く。
+ * - 間引き（thin。段 FX2）：小さな手応えは、同じ組で 1 秒に 1 つまで（続けて来たら、あとのものは出さない）。
  */
 import { EFFECTS, clearFrame, composite, createFrame, createFx, type FxFrame, type FxId, type FxInstance } from './registry.js';
 
@@ -22,7 +24,36 @@ export const FX_PAL = {
   party: ['#ed6f68', '#e89e76', '#ffdb57', '#81b569', '#55d4b0', '#94d2e0', '#82a8bf'],
   /** 花火の芯（金。7 段） */
   core: ['#704536', '#b55f1d', '#d4892f', '#f2b844', '#ffdb57', '#f7f0bc', '#ffffff'],
+  /** 木の葉と草（復興の芽。葉 leaf ＋ 草地 grass ＋ 畑 field ＋ 砂の白） */
+  leaf: ['#215227', '#215227', '#367335', '#59944d', '#81b569', '#bfd49d', '#e8e78e', '#f7f0bc'],
+  /** 花びら（屋根の赤 roofA ＋ 砂の白） */
+  petal: ['#852c2c', '#c7735a', '#e89e76', '#f7f0bc'],
+  /** 花の芯（灯り lantern ＋ 砂の白） */
+  heart: ['#b55f1d', '#f2b844', '#ffdb57', '#f7f0bc'],
+  /** 土ぼこりと岩（道 road ＋ 幹 trunk の影。ダンジョンの入り口） */
+  dust: ['#704536', '#b38e76', '#c7ac8f', '#dbcaab', '#f0e6c9'],
+  /** 灰色の煙（中立 neutral ＋ 広場 plaza。他社の撤退） */
+  smoke: ['#574541', '#786861', '#998d85', '#bab4ad', '#e0d6c1', '#ffffff'],
 } as const;
+
+/**
+ * レアリティの色（光の柱。暗い → 明るい）。Common〜Rare は palette.mjs のランプ（中立・葉と草・海と窓）から、Legendary は gold。
+ * Epic の紫は palette.mjs に無いので、ゲームのレアリティの色（game/catalog.ts の RARITY_COLOR.Epic #c77dff）を中心に作ったランプ。
+ */
+export const FX_RARITY: Record<string, readonly string[]> = {
+  Common: ['#574541', '#786861', '#998d85', '#bab4ad', '#e0d6c1', '#f2eedf', '#fffcf0', '#ffffff'],
+  Uncommon: ['#215227', '#367335', '#59944d', '#81b569', '#bfd49d', '#e8e78e', '#f7f0bc', '#ffffff'],
+  Rare: ['#2e365c', '#3c547d', '#557b9e', '#73a6bf', '#94d2e0', '#c4eaf2', '#ffffff'],
+  Epic: ['#2e1f4a', '#4b2c73', '#6f3fa3', '#9a5bd6', '#c77dff', '#e2b8ff', '#f6e8ff', '#ffffff'],
+  Legendary: FX_PAL.gold,
+};
+
+/** 1 つの色から 7 段のランプ（暗い → 明るい）：ほぼ黒の縁の色 #181818 と白へ混ぜる。部門の色（data.ts の DEPT の color）の花火に */
+export function rampOf(hex: string): string[] {
+  const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const mix = (to: number, k: number) => `#${c.map((v) => Math.round(v + (to - v) * k).toString(16).padStart(2, '0')).join('')}`;
+  return [mix(24, 0.7), mix(24, 0.45), mix(24, 0.2), hex.toLowerCase(), mix(255, 0.35), mix(255, 0.65), '#ffffff'];
+}
 
 export interface PlayOpts {
   /** 'ui'（既定）か 'map' */
@@ -46,6 +77,15 @@ export interface PlayOpts {
   anchor?: () => { x: number; y: number } | null;
   /** 効果ごとの設定（core など） */
   opts?: Record<string, unknown>;
+  /**
+   * 要素の後ろに描く（段 FX2）：host の中にキャンバスを入れ、host の中身（絵・文字）の後ろ・host の背景の上に描く。
+   * このとき (x, y) は host の左上からの CSS px。host は position が static でないこと（中で absolute に置く）。host が外されたら消える
+   */
+  host?: HTMLElement;
+  /** host の中で、この要素のすぐ下に描く（host の子。z-index を使わず、並びの順で重ねる。背景の模様の上・絵の下に置くとき） */
+  under?: Element;
+  /** 間引きの組（段 FX2）：同じ組の効果は THIN_MS（1 秒）に 1 つまで。続けて来たら出さない（false を返す） */
+  thin?: string;
 }
 
 interface Live {
@@ -65,6 +105,7 @@ interface Live {
   age: number;
   life: number;
   anchor?: PlayOpts['anchor'];
+  host?: HTMLElement;
 }
 
 const MAX = 8;
@@ -86,8 +127,31 @@ const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-r
 export type FxLevel = 'full' | 'calm' | 'off';
 export const FX_LEVELS: FxLevel[] = ['full', 'calm', 'off'];
 const FX_KEY = 'isl.fxLevel';
-/** 控えめで出さない効果（大きなお祝い） */
-const LOUD: FxId[] = ['firework-burst', 'confetti'];
+/** 控えめで出さない効果（大きなお祝い：花火・紙吹雪・光の柱） */
+export const LOUD: readonly FxId[] = ['firework-burst', 'confetti', 'loot-beam'];
+/** 間引きの間（ms）：同じ組の小さな手応えは、この間に 1 つまで */
+export const THIN_MS = 1000;
+
+/**
+ * 演出の強さで、効果をどう出すか（純関数。テストする）：null は出さない。
+ * なし → 何も出さない。控えめ → 大きなお祝い（LOUD）は出さない・ほかは 1 ドット 3/4・光は半分。ふつう → そのまま
+ */
+export function fxPlan(id: FxId, lv: FxLevel): { scale: number; light: number } | null {
+  if (lv === 'off') return null;
+  if (lv === 'calm') return LOUD.includes(id) ? null : { scale: 0.75, light: 0.5 };
+  return { scale: 1, light: 1 };
+}
+/**
+ * 間引き（純関数。テストする）：組 key の前に出した時刻 last から THIN_MS 経っていなければ false（出さない）。
+ * 出せるときは last を now に書き換えて true
+ */
+export function thinOk(last: Map<string, number>, key: string, now: number, ms = THIN_MS): boolean {
+  const t0 = last.get(key);
+  if (t0 != null && now - t0 < ms) return false;
+  last.set(key, now);
+  return true;
+}
+const thinLast = new Map<string, number>();
 let level: FxLevel | null = null;
 /** いまの演出の強さ（覚えていなければ、端末の「動きを減らす」なら「なし」・ほかは「ふつう」） */
 export function fxLevel(): FxLevel {
@@ -124,13 +188,15 @@ function rootOf(layer: FxLayer): HTMLDivElement {
   if (layer === 'map' && ui) ui.before(r);
   else document.body.append(r);
   roots[layer] = r;
-  if (layer === 'ui' && !skipBound) {
-    skipBound = true;
-    window.addEventListener('pointerdown', skipUi, { capture: true, passive: true });
-  }
+  if (layer === 'ui') bindSkip();
   return r;
 }
 let skipBound = false;
+function bindSkip() {
+  if (skipBound) return;
+  skipBound = true;
+  window.addEventListener('pointerdown', skipUi, { capture: true, passive: true });
+}
 /** 画面を押したら、お祝いの効果はすぐ薄れて消える（出てすぐの 0.2 秒は、その効果を出した押しなので除く） */
 function skipUi() {
   for (const x of live) if (x.layer === 'ui' && x.wait <= 0 && x.age > 0.2) x.inst.stop();
@@ -152,11 +218,14 @@ export function setFxEnabled(v: boolean) {
  */
 export function playFx(id: FxId, x: number, y: number, o: PlayOpts = {}): boolean {
   if (!fxOn()) return false;
-  const calm = fxLevel() === 'calm';
-  // 控えめ：花火・紙吹雪は出さない
-  if (calm && LOUD.includes(id)) return false;
+  // 控えめ：花火・紙吹雪・光の柱は出さない。ほかは小さく
+  const plan = fxPlan(id, fxLevel());
+  if (!plan) return false;
   const mod = EFFECTS[id];
   if (!mod) return false;
+  if (o.host && !o.host.isConnected) return false;
+  // 小さな手応えの間引き（同じ組は 1 秒に 1 つまで）
+  if (o.thin && !thinOk(thinLast, o.thin, performance.now())) return false;
   const layer = o.layer ?? 'ui';
   // 同じ層が多すぎたら、いちばん古いものから消す
   const mine = live.filter((v) => v.layer === layer);
@@ -164,14 +233,14 @@ export function playFx(id: FxId, x: number, y: number, o: PlayOpts = {}): boolea
   const [w, h] = mod.meta.size;
   const [ox, oy] = mod.meta.origin;
   // 控えめ：光は半分の強さ・小さく（1 ドットの大きさを 3/4。整数倍の丸めは下で）
-  const light = (o.light ?? (layer === 'map' ? 0.4 : 0.7)) * (calm ? 0.5 : 1);
+  const light = (o.light ?? (layer === 'map' ? 0.4 : 0.7)) * plan.light;
   const opts: Record<string, unknown> = { x: ox, y: oy, light, ...(o.opts ?? {}) };
   if (o.palette) opts.palette = [...o.palette];
   if (o.seed != null) opts.seed = o.seed;
   if (o.flip) opts.flip = true;
   const inst = createFx(mod, opts);
   const dpr = window.devicePixelRatio || 1;
-  const want = (o.scale ?? (layer === 'map' ? 1 : phone() ? 4 / 3 : 2)) * (calm ? 0.75 : 1);
+  const want = (o.scale ?? (layer === 'map' ? 1 : phone() ? 4 / 3 : 2)) * plan.scale;
   const css = Math.max(1, Math.round(want * dpr)) / dpr;
   const cv = document.createElement('canvas');
   cv.width = w;
@@ -182,8 +251,17 @@ export function playFx(id: FxId, x: number, y: number, o: PlayOpts = {}): boolea
   cv.style.visibility = 'hidden';
   const g = cv.getContext('2d');
   if (!g) return false;
-  rootOf(layer).append(cv);
-  const v: Live = { id, layer, inst, frame: createFrame(w, h), img: g.createImageData(w, h), cv, g, x, y, dy: o.dy ?? 0, css, ink: o.ink ?? true, wait: (o.delay ?? 0) / 1000, age: 0, life: (o.life ?? (mod.meta.loop ? 2000 : Infinity)) / 1000, anchor: o.anchor };
+  if (o.host) {
+    // 要素の後ろ：host を重なりの基準にして（isolation）、中身の後ろ・背景の上に（z-index: -1）
+    o.host.classList.add('isl-fx-host');
+    cv.classList.add('is-behind');
+    if (o.under?.parentElement === o.host) {
+      cv.style.zIndex = 'auto';
+      o.under.before(cv);
+    } else o.host.prepend(cv);
+    if (layer === 'ui') bindSkip();
+  } else rootOf(layer).append(cv);
+  const v: Live = { id, layer, inst, frame: createFrame(w, h), img: g.createImageData(w, h), cv, g, x, y, dy: o.dy ?? 0, css, ink: o.ink ?? true, wait: (o.delay ?? 0) / 1000, age: 0, life: (o.life ?? (mod.meta.loop ? 2000 : Infinity)) / 1000, anchor: o.anchor, host: o.host };
   live.push(v);
   stats.played++;
   stats.peak = Math.max(stats.peak, live.length);
@@ -242,7 +320,7 @@ export function clearFx(layer?: FxLayer) {
 
 /** 計測（撮影スクリプト用）：reset で数え直す */
 export function fxStats(reset = false) {
-  const r = { active: live.length, fps: Math.round(1000 / stepOf(cost)), frames: stats.frames, avgMs: stats.frames ? stats.total / stats.frames : 0, maxMs: stats.max, peak: stats.peak, played: stats.played, ids: live.map((x) => x.id) };
+  const r = { active: live.length, fps: Math.round(1000 / stepOf(cost)), frames: stats.frames, avgMs: stats.frames ? stats.total / stats.frames : 0, maxMs: stats.max, peak: stats.peak, played: stats.played, ids: live.map((x) => x.id), level: fxLevel() };
   if (reset) Object.assign(stats, { frames: 0, total: 0, max: 0, peak: live.length, played: 0 });
   return r;
 }
@@ -272,7 +350,8 @@ function tick(now: number) {
     x.age += dt;
     if (x.age >= x.life) x.inst.stop();
     x.inst.update(dt);
-    if (x.inst.done()) {
+    // 要素の後ろの効果：要素が外されたら（窓を閉じた）消す
+    if (x.inst.done() || (x.host && !x.host.isConnected)) {
       drop(x);
       continue;
     }
@@ -282,7 +361,7 @@ function tick(now: number) {
       continue;
     }
     const [ox, oy] = x.inst.meta.origin;
-    // デバイスの画素にそろえる（拡大したドットの幅がそろうように）
+    // デバイスの画素にそろえる（拡大したドットの幅がそろうように。要素の後ろの効果は要素の中の位置なので、ずれは要素の位置しだい）
     const left = Math.round((at.x - ox * x.css) * dpr) / dpr;
     const top = Math.round((at.y + (x.dy - oy) * x.css) * dpr) / dpr;
     x.cv.style.transform = `translate(${left}px, ${top}px)`;

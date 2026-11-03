@@ -766,6 +766,8 @@ export function openSkills(ctx: Ctx, focus?: string) {
       ctx.toast(t('本社を開放しました！ 部門の枝が広がります', 'HQ unlocked! Department branches spread out'));
       ctx.save();
       after(ctx);
+      // 段 FX2：本社の上で自社の色の花火を 1 発（枝が広がる演出のあいだ。押せば消える）
+      window.setTimeout(() => fxAtEl('firework-burst', ctx.root.querySelector('.isl-tree-root'), { palette: FX_PAL.ours, opts: { core: FX_PAL.core }, seed: 5 }), 250);
     };
     const vp = h('div', 'isl-tree-vp');
     const world = h('div', `isl-tree-world ${bursting ? 'is-burst' : ''}`);
