@@ -13170,6 +13170,14 @@ button.isl-dband-lead.is-on {
   image-rendering: pixelated;
   will-change: transform;
 }
+/* 要素の後ろに描く効果（段 FX2。layer.ts の host）：要素を重なりの基準にして、中身の後ろ・背景の上に */
+.isl-fx-host {
+  isolation: isolate;
+}
+.isl-fx-cv.is-behind {
+  position: absolute !important;
+  z-index: -1;
+}
 
 /* ================================================================ 段 UI5b：月次報告の KPI ② 月次売上推移（スマホ） */
 /* カードの幅いっぱい・高さ 160px（report.ts の chart が画面の幅で描く。目盛りは 12px）。報告は縦にスクロールしてよい（前は 1 画面に収めるためグラフを縮めていた） */
