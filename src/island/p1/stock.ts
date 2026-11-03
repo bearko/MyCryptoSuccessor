@@ -4,11 +4,24 @@
  * - sellNo：この町で売れない商品の理由（作る物の一覧の絞り込み「今のセクタで売れるもの」）
  * - rankUp：Common → Uncommon のランクアップ（いまの仕組み：魔法の釜のパネル・商品開発のお金と日数・製造の適性）に要るものと、できない理由
  * - clearInfo：倉庫の埋まり方と、売りさばく品（在庫品）の数・見込み
+ * 段 UI5d：
+ * - storeFix：倉庫が埋まりそうな月の「倉庫を強化する（推奨）」の手（強化・建てる・もう 1 棟・物流拠点）
+ * - oneShelf：棚が 1 段のお店で売りさばきを選んだときの 3 択（主力を外す・主力を残す・棚を拡張する）の材料
  * 効き目・値段はいまの手のまま（model.ts の useUp・setClear・develop・sellEstimate）。仕様は docs/ISLAND_PHASE1.md「在庫の売りさばき（段 UI5c）」。
  */
 import { t } from '../../i18n';
-import { CLEAR, DEV, isRelic, MATS, PRODUCT, PRODUCTS, SKILL, UNCOMMON, isResearch, rpCost, sku, skuParts, skuPrice, techSkill, type Mat, type Sku } from './data';
+import { CLEAR, DEV, INVEST, isRelic, MATS, P1B, PRODUCT, PRODUCTS, SKILL, STORE, UNCOMMON, isResearch, rpCost, sku, skuParts, skuPrice, techSkill, type Mat, type Sku } from './data';
+import { findLot } from './deleg';
+import type { Plan, Step } from './plan';
 import {
+  allowedDirs,
+  depotInfo,
+  investCost,
+  invLv,
+  myDepots,
+  myShops,
+  myWarehouses,
+  shelfCount,
   aptOf,
   batchOf,
   clearSkus,
@@ -31,6 +44,7 @@ import {
   tierOk,
   unsellableHere,
   type P1State,
+  type PBuilding,
 } from './model';
 
 // ---------------------------------------------------------------- 作る物の候補
@@ -245,3 +259,137 @@ export const cutName = (k: number) => {
   const c = CLEAR.cuts[k] ?? 0;
   return c > 0 ? t(`${Math.round(c * 10)} 割引`, `${Math.round(c * 100)}% off`) : t('値引きなし', 'No discount');
 };
+
+// ---------------------------------------------------------------- 段 UI5d：倉庫を強化する（推奨）
+
+/**
+ * 倉庫が埋まりそうな月の「倉庫を強化する」の手。いちばん安く置き場所が増える手を 1 つ：
+ * - rack：倉庫の強化（段のいちばん低い倉庫の次の段）
+ * - dock：物流拠点の保管棚（倉庫を強化しきっていて、拠点があるとき）
+ * - build：倉庫を建てる（倉庫が無い：more false／強化しきった：more true）・物流拠点を建てる（パネル「物流拠点」があり、拠点がまだ無いとき）
+ * 建てている途中の倉庫・拠点があれば null（できあがるのを待つ）。建てる場所が無ければ null
+ */
+export type StoreFix =
+  | { k: 'rack' | 'dock'; uid: number; lv: number; max: number; cost: number; room: number }
+  | { k: 'build'; id: 'warehouse' | 'logistics'; lot: [number, number, 'rd' | 'ld' | 'lu' | 'ru']; cost: number; room: number; monthly: number; days: number; more: boolean };
+export function storeFix(s: P1State): StoreFix | null {
+  if (s.buildings.some((b) => b.owner === 'me' && b.left > 0 && (P1B[b.id]?.kind === 'warehouse' || P1B[b.id]?.kind === 'depot'))) return null;
+  const up = (bs: PBuilding[], id: 'rack' | 'dock'): StoreFix | null => {
+    const b = bs.filter((x) => investCost(x, id) != null).sort((p, q) => invLv(p, id) - invLv(q, id) || p.uid - q.uid)[0];
+    if (!b) return null;
+    return { k: id, uid: b.uid, lv: invLv(b, id) + 1, max: INVEST[id].cost.length, cost: investCost(b, id)!, room: id === 'rack' ? STORE.rack : STORE.dock };
+  };
+  const whs = myWarehouses(s);
+  const r = up(whs, 'rack') ?? up(myDepots(s), 'dock');
+  if (r) return r;
+  // 物流拠点（パネルがあって、まだ拠点が無い・倉庫は強化しきっている）：遠いお店への便がいちばん縮む場所
+  if (whs.length && has(s, 'hub') && !myDepots(s).length) {
+    const lot = depotLot(s);
+    if (lot) return { k: 'build', id: 'logistics', lot, cost: P1B.logistics.cost, room: STORE.depot, monthly: P1B.logistics.upkeep, days: P1B.logistics.days, more: false };
+  }
+  const lot = findLot(s, 'warehouse');
+  if (!lot) return null;
+  return { k: 'build', id: 'warehouse', lot, cost: P1B.warehouse.cost, room: STORE.warehouse, monthly: P1B.warehouse.upkeep, days: P1B.warehouse.days, more: whs.length > 0 };
+}
+/** 物流拠点を建てる場所：自社のお店への片道の日数がいちばん縮むところ（同じなら工房に近いところ）。建てられなければ null */
+export function depotLot(s: P1State): [number, number, 'rd' | 'ld' | 'lu' | 'ru'] | null {
+  let best: [number, number, 'rd' | 'ld' | 'lu' | 'ru'] | null = null;
+  let gain = -1;
+  // 全部のマスを調べると重いので、お店のまわり（4 マス以内）だけ
+  const near = new Set<number>();
+  for (const b of myShops(s))
+    for (let dj = -4; dj <= 4; dj++)
+      for (let di = -4; di <= 4; di++) {
+        const i = b.i + di;
+        const j = b.j + dj;
+        if (i >= 0 && j >= 0 && i < s.n && j < s.n) near.add(j * s.n + i);
+      }
+  for (const k of near) {
+    const i = k % s.n;
+    const j = Math.floor(k / s.n);
+    const dirs = allowedDirs(s, 'logistics', i, j);
+    if (!dirs.length) continue;
+    const g = depotInfo(s, i, j, dirs[0]).reduce((a, x) => a + Math.max(0, x.before - x.after), 0);
+    if (g > gain + 1e-6) {
+      gain = g;
+      best = [i, j, dirs[0]];
+    }
+  }
+  return best ?? findLot(s, 'logistics');
+}
+/** その手の名前（「倉庫を強化する（2/3 段目）」など） */
+export function fixName(f: StoreFix): string {
+  if (f.k === 'rack') return t(`倉庫を強化する（${f.lv}/${f.max} 段目）`, `Upgrade the warehouse (level ${f.lv}/${f.max})`);
+  if (f.k !== 'build') return t(`物流拠点の保管を強化する（${f.lv}/${f.max} 段目）`, `Upgrade hub storage (level ${f.lv}/${f.max})`);
+  if (f.id === 'logistics') return t('物流拠点を建てる（倉庫の代わりにも）', 'Build a hub (it stores goods too)');
+  return f.more ? t('倉庫をもう 1 棟建てる', 'Build one more warehouse') : t('倉庫を建てる', 'Build a warehouse');
+}
+/** 倉庫と物流拠点の数（1 つも無ければ 0） */
+export const storeCount = (s: P1State) => myWarehouses(s).length + myDepots(s).length;
+
+// ---------------------------------------------------------------- 段 UI5d：棚が 1 段のお店の売りさばき（3 択）
+
+export interface OneShelf {
+  uid: number;
+  /** いまの主力商品（棚 0 番）。棚が空なら null */
+  main: Sku | null;
+  /** 棚の拡張（設備投資「棚を増やす」の次の段）の値段。もう増やせなければ null */
+  cost: number | null;
+  /** 足りないお金（0：足りる） */
+  short: number;
+}
+/**
+ * 売りさばき（在庫品を先に並べる）を選んだお店のうち、棚が 1 段で、主力商品が棚から外れてしまうお店。
+ * 方針がもうオンのお店・在庫品が無いときは入れない
+ */
+export function oneShelf(s: P1State, uids: number[]): OneShelf[] {
+  if (!clearSkus(s).length) return [];
+  const out: OneShelf[] = [];
+  let need = 0;
+  for (const uid of uids) {
+    const b = s.buildings.find((x) => x.uid === uid && x.owner === 'me');
+    const sh = s.shops[uid];
+    if (!b || !sh || sh.clear != null || shelfCount(s, b) > 1) continue;
+    const main = sh.shelves[0] ?? null;
+    if (!main) continue;
+    const cost = investCost(b, 'shelves');
+    need += cost ?? 0;
+    out.push({ uid, main, cost, short: 0 });
+  }
+  for (const x of out) x.short = Math.max(0, need - s.money);
+  return out;
+}
+
+/** 3 択の答え：drop＝主力を外して在庫品だけ・keep＝主力を残して売りさばかない・grow＝棚を拡張して両方（推奨） */
+export type ShelfPick = 'drop' | 'keep' | 'grow';
+/** その提案（変更の中身）で売りさばきをオンにするお店のうち、棚が 1 段のお店（3 択を出すお店） */
+export function shelfGate(s: P1State, p: Plan): OneShelf[] {
+  const uids = p.steps.filter((x): x is Extract<Step, { k: 'clear' }> => x.k === 'clear' && x.cut != null).map((x) => x.uid);
+  const grown = new Set(p.steps.filter((x): x is Extract<Step, { k: 'shelf' }> => x.k === 'shelf').map((x) => x.uid));
+  return oneShelf(s, uids.filter((u) => !grown.has(u)));
+}
+/**
+ * 3 択の答えで提案を作り直す。drop：そのまま／keep：そのお店の売りさばきを外す（何も残らなければ null）／
+ * grow：そのお店の売りさばきの前に「棚を 1 段増やす」（拡張と方針のオンを 1 回で）
+ */
+export function gatePlan(p: Plan, gate: OneShelf[], pick: ShelfPick): Plan | null {
+  if (pick === 'drop' || !gate.length) return p;
+  const uids = new Set(gate.map((x) => x.uid));
+  const steps: Step[] = [];
+  for (const st of p.steps) {
+    const hit = st.k === 'clear' && uids.has(st.uid);
+    if (hit && pick === 'keep') continue;
+    if (hit && pick === 'grow') steps.push({ k: 'shelf', uid: st.uid });
+    steps.push(st);
+  }
+  if (!steps.length) return null;
+  const acts = pick === 'keep' && steps.every((x) => x.k !== 'clear') ? p.acts.filter((a) => a.k !== 'clear') : p.acts;
+  return { ...p, acts, steps };
+}
+/** 3 択の「棚を拡張する」を押せないとき（もう増やせない・お金が足りない）の 1 行。押せるなら null */
+export function growBlock(gate: OneShelf[], money: number): string | null {
+  if (gate.some((x) => x.cost == null)) return t('棚はもう増やせません', 'No more shelves can be added');
+  const need = gate.reduce((a, x) => a + (x.cost ?? 0), 0);
+  if (money < need) return t(`資金があと ${g(need - money)} 足りません（棚の拡張 ${g(need)}）`, `${g(need - money)} short (extra shelf ${g(need)})`);
+  return null;
+}
