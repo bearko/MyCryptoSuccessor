@@ -1,0 +1,195 @@
+{
+  "id": 1004,
+  "name_ja": "シートン",
+  "name_en": "Ernest Thompson Seton",
+  "kind": "historical",
+  "era": "1860–1946（ヴィクトリア朝〜20 世紀前半）",
+  "region": "イギリス生まれ・カナダ育ち・のちアメリカ（ニューメキシコ）",
+  "summary_ja": "イングランドのサウスシールズに生まれ、6 歳でカナダへ移った博物学者・画家・作家。オンタリオで美術を学び、ロンドンの王立アカデミーやパリでも学んだ。マニトバ州の州博物学者を務め、ニューメキシコで家畜を襲う狼ロボを罠で捕らえた体験は、動物物語集『私が知っている野生動物』（1898 年）の「狼王ロボ」として知られる。この体験を機に、野生動物を守るべき遺産と考えるようになったとされる。1902 年に子ども向けの野外活動団体を作り、1910 年のボーイスカウト・アメリカ連盟の創設に関わって初代チーフスカウトを務めたが、運営陣と対立して 1915 年に去った。晩年はサンタフェ近郊にシートン・ヴィレッジを開き、そこで没した。",
+  "facts": [
+    {
+      "ja": "1860 年 8 月 14 日にイングランドのサウスシールズで、スコットランド系の両親のもとに生まれた。",
+      "src": "https://en.wikipedia.org/wiki/Ernest_Thompson_Seton"
+    },
+    {
+      "ja": "1866 年に一家でカナダへ移り、リンゼイ、のちトロントに住んだ。",
+      "src": "https://en.wikipedia.org/wiki/Ernest_Thompson_Seton"
+    },
+    {
+      "ja": "1879 年にオンタリオの美術学校を卒業し、その後イギリスの王立アカデミーやパリで学んだ。",
+      "src": "https://thecanadianencyclopedia.ca/en/article/ernest-thompson-seton"
+    },
+    {
+      "ja": "1891 年に『マニトバの鳥類』を出し、マニトバ州の州博物学者になった。",
+      "src": "https://en.wikipedia.org/wiki/Ernest_Thompson_Seton"
+    },
+    {
+      "ja": "1893 年にニューメキシコ北東部で、家畜を襲っていた狼ロボの群れを罠で追った。",
+      "src": "https://www.nps.gov/cavo/learn/historyculture/ernest-thompson-seton.htm"
+    },
+    {
+      "ja": "1898 年の『私が知っている野生動物』に「狼王ロボ」の物語を収めた。",
+      "src": "https://thecanadianencyclopedia.ca/en/article/ernest-thompson-seton"
+    },
+    {
+      "ja": "1902 年に子ども向けの野外活動団体「ウッドクラフト・インディアンズ」を作った。",
+      "src": "https://en.wikipedia.org/wiki/Ernest_Thompson_Seton"
+    },
+    {
+      "ja": "1910 年のボーイスカウト・アメリカ連盟の創設に加わり、1910〜1915 年にチーフスカウトを務めた。",
+      "src": "https://en.wikipedia.org/wiki/Ernest_Thompson_Seton"
+    },
+    {
+      "ja": "連盟の運営陣と対立し、1915 年に去った。1931 年にアメリカ市民となった。",
+      "src": "https://thecanadianencyclopedia.ca/en/article/ernest-thompson-seton"
+    },
+    {
+      "ja": "サンタフェ近郊にシートン・ヴィレッジを開き、1946 年 10 月 23 日にそこで没した。",
+      "src": "https://thecanadianencyclopedia.ca/en/article/ernest-thompson-seton"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "ロボのつがいの白い狼ブランカが先に捕らえられ、その出来事がシートンの自然観を変えたとされる。",
+      "src": "https://www.nps.gov/cavo/learn/historyculture/ernest-thompson-seton.htm"
+    },
+    {
+      "ja": "「野生の生き物はそれぞれが貴重な遺産で、滅ぼす権利は私たちにない」という趣旨の言葉を残した。",
+      "src": "https://www.nps.gov/cavo/learn/historyculture/ernest-thompson-seton.htm"
+    },
+    {
+      "ja": "21 歳の誕生日に父から養育費の請求書を渡され、それを支払って父と縁を切ったと伝わる。",
+      "src": "https://en.wikipedia.org/wiki/Ernest_Thompson_Seton"
+    },
+    {
+      "ja": "絵『眠る狼』がパリのサロンで一等を得たとされる。",
+      "src": "https://thecanadianencyclopedia.ca/en/article/ernest-thompson-seton"
+    }
+  ],
+  "strengths_ja": [
+    "動物と自然の細かな観察",
+    "絵と文章の表現力",
+    "子どもを野外で育てる仕組みづくり"
+  ],
+  "weaknesses_ja": [
+    "組織の上層部と衝突しやすい",
+    "自分の流儀を曲げない"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "B",
+      "why": "野外教育の団体を一から構想した。"
+    },
+    "logistics": {
+      "g": "B",
+      "why": "野外活動やフィールド調査の段取りに通じていた。"
+    },
+    "sales": {
+      "g": "C",
+      "why": "交渉ごとはむしろ対立で終わりがちだった。"
+    },
+    "marketing": {
+      "g": "A",
+      "why": "動物物語の本が広く読まれ、自然保護の考えを広めた。"
+    },
+    "support": {
+      "g": "B",
+      "why": "子どもたちに寄り添う活動を長く続けた。"
+    },
+    "systems": {
+      "g": "B",
+      "why": "野外活動の手引きがボーイスカウトの教本の土台になった。"
+    },
+    "rnd": {
+      "g": "S",
+      "why": "州博物学者を務め、動物の生態を長年にわたって観察・記録した。"
+    },
+    "legal": {
+      "g": "D",
+      "why": "争いごとでは連盟を去る結果になった。"
+    },
+    "hr": {
+      "g": "A",
+      "why": "子ども向けの団体を作り、若者の育成に力を注いだ。"
+    },
+    "general": {
+      "g": "B",
+      "why": "野外で過ごす環境づくりに通じていた。"
+    },
+    "accounting": {
+      "g": "C",
+      "why": "お金の管理の記録は特にない。"
+    },
+    "sector_head": {
+      "g": "B",
+      "why": "シートン・ヴィレッジという共同体を開いた。"
+    },
+    "shop": {
+      "g": "C",
+      "why": "客と向き合う仕事の記録はない。"
+    },
+    "craft": {
+      "g": "A",
+      "why": "動物画で賞を得るなど、描く技術が高かった。"
+    },
+    "buyer": {
+      "g": "C",
+      "why": "買い付けの記録はない。"
+    },
+    "digger": {
+      "g": "A",
+      "why": "荒野に入って動物を追う現場の調査に長けていた。"
+    }
+  },
+  "best_roles": [
+    "rnd",
+    "digger",
+    "hr"
+  ],
+  "personality_ja": "自然と動物をじっと観察し、その姿を絵と言葉で伝える人。若者には野外での学びを熱心に勧める一方、納得できない相手には譲らず、組織の上層部とは衝突しがちだった。狼ロボの一件を通じて、命への敬意を深めた。人より動物のほうが話しやすいと感じている節がある。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "穏やかで観察好きな語り口。動物や自然のたとえ話を交える",
+    "tics_ja": [
+      "足跡を見れば分かります",
+      "群れには群れの理屈がある"
+    ],
+    "lines": {
+      "greet": [
+        "シートンです。まずは現場を歩いて見ます。",
+        "社長、この町の「足跡」を読み解きましょう。"
+      ],
+      "propose": [
+        "客の動きを観察すれば、次の一手が見えます。",
+        "若手を外に連れ出して学ばせたいのですが。"
+      ],
+      "approved": [
+        "ありがとう。では、記録をつけながら進めます。"
+      ],
+      "rejected": [
+        "そうですか。……群れの決定には従いますよ。"
+      ],
+      "tired": [
+        "少し森の空気を吸ってきてもいいですか。"
+      ],
+      "success": [
+        "観察は裏切りません。読みどおりでした。"
+      ]
+    }
+  },
+  "relations": [],
+  "mch": {
+    "attributes_ja": "文系学問; 動物; イギリス",
+    "passive": "パッシブ名「狼王ロボ」は、シートンがニューメキシコで追った狼の名で、代表作の題材。"
+  },
+  "cautions_ja": [
+    "狼ロボの捕獲は野生動物の殺傷を含む。ゲームでは「観察と知恵」の話として扱う。",
+    "団体名などで北米先住民の文化を借りた点は、今日では文化の流用として議論がある。茶化さない。"
+  ],
+  "sources": [
+    "https://www.nps.gov/cavo/learn/historyculture/ernest-thompson-seton.htm",
+    "https://thecanadianencyclopedia.ca/en/article/ernest-thompson-seton",
+    "https://en.wikipedia.org/wiki/Ernest_Thompson_Seton"
+  ]
+}

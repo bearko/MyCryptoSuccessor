@@ -1,0 +1,196 @@
+{
+  "id": 3043,
+  "name_ja": "ニュートン",
+  "name_en": "Isaac Newton",
+  "kind": "historical",
+  "era": "1642–1727（17 世紀後半〜18 世紀初め・科学革命）",
+  "region": "イギリス（ウールスソープ・ケンブリッジ・ロンドン）",
+  "summary_ja": "イギリスの物理学者・数学者で、17 世紀の科学革命をまとめ上げた人。1661 年にケンブリッジのトリニティ・カレッジに入り、1665〜66 年にペストで大学が閉じたあいだ、故郷ウールスソープで微積分（流率法）・光・力学の研究を大きく進めた。プリズムの実験で白い光が色の集まりだと示し、反射望遠鏡を作り、1669 年にルーカス講座の教授となった。1687 年の『プリンキピア』で運動の法則と万有引力を示した。1696 年に造幣局の監事となってロンドンに移り、のちに長官として偽金づくりを厳しく取り締まった。1703 年から亡くなるまで王立協会の会長を務めた。神学や錬金術にも深く打ち込み、ライプニッツとの微積分の先取権争いでは激しく争った。1727 年に亡くなった。",
+  "facts": [
+    {
+      "ja": "1642 年 12 月 25 日（新暦 1643 年 1 月 4 日）、リンカンシャーのウールスソープに生まれた。",
+      "src": "https://www.britannica.com/biography/Isaac-newton"
+    },
+    {
+      "ja": "1661 年、ケンブリッジ大学トリニティ・カレッジに入った。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=467"
+    },
+    {
+      "ja": "1665〜66 年、ペストで大学が閉じたあいだ故郷に戻り、力学・光学・数学の研究を大きく進めた。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=467"
+    },
+    {
+      "ja": "白い光が色の集まりであることを見いだし、近代光学の土台を築いた。",
+      "src": "https://www.britannica.com/biography/Isaac-newton"
+    },
+    {
+      "ja": "1669 年にルーカス講座の教授となり、1672 年に反射望遠鏡の発明が認められて王立協会の会員となった。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=467"
+    },
+    {
+      "ja": "1687 年に『プリンキピア』を出し、運動の三法則から万有引力の法則を導いた。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=467"
+    },
+    {
+      "ja": "1696 年に造幣局の監事となってロンドンへ移り、のちに長官となった。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=467"
+    },
+    {
+      "ja": "1703 年に王立協会の会長となり、生涯その地位にあった。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=467"
+    },
+    {
+      "ja": "1727 年 3 月 20 日（新暦 31 日）、ロンドンで亡くなった。",
+      "src": "https://www.britannica.com/biography/Isaac-newton"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "万有引力の着想は、有名なリンゴの逸話とともにウールスソープで得たとされる。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=467"
+    },
+    {
+      "ja": "造幣局では偽金づくりの犯人を執拗に追い、容赦なく取り締まった。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=467"
+    },
+    {
+      "ja": "神学や錬金術に強い関心を持ち、経済学者ケインズは彼を「最後の魔術師」と呼んだ。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=467"
+    },
+    {
+      "ja": "ライプニッツとの微積分の先取権争いに、威信をかけて取り組んだ。",
+      "src": "https://japanknowledge.com/introduction/keyword.html?i=467"
+    }
+  ],
+  "strengths_ja": [
+    "ずば抜けた数学の力",
+    "一人で深く考え抜く集中力",
+    "不正を見逃さない執念"
+  ],
+  "weaknesses_ja": [
+    "論争で相手に容赦がない",
+    "人付き合いより研究を選ぶ"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "B",
+      "why": "王立協会を長く率いたが、全体の方針づくりより研究の人。"
+    },
+    "logistics": {
+      "g": "C",
+      "why": "物の流れにかかわる記録は乏しい。"
+    },
+    "sales": {
+      "g": "D",
+      "why": "論争では相手に容赦がなく、交渉向きではない。"
+    },
+    "marketing": {
+      "g": "C",
+      "why": "宣伝の記録は無い。"
+    },
+    "support": {
+      "g": "D",
+      "why": "論敵に厳しく、なだめ役は不向き。"
+    },
+    "systems": {
+      "g": "A",
+      "why": "運動の法則で、自然の動きを少ない決まりで説明する仕組みを示した。"
+    },
+    "rnd": {
+      "g": "S",
+      "why": "微積分・光学・万有引力と、科学の土台をいくつも築いた。"
+    },
+    "legal": {
+      "g": "B",
+      "why": "造幣局で偽金づくりを執拗に追い、取り締まった。"
+    },
+    "hr": {
+      "g": "C",
+      "why": "人を育てた記録は乏しい。"
+    },
+    "general": {
+      "g": "C",
+      "why": "働く環境づくりの記録は無い。"
+    },
+    "accounting": {
+      "g": "S",
+      "why": "造幣局の監事・長官として国のお金の製造と管理を担った。"
+    },
+    "sector_head": {
+      "g": "B",
+      "why": "造幣局や王立協会という組織を長く率いた。"
+    },
+    "shop": {
+      "g": "D",
+      "why": "人付き合いより研究を好み、接客は不向き。"
+    },
+    "craft": {
+      "g": "A",
+      "why": "反射望遠鏡を自ら作った。"
+    },
+    "buyer": {
+      "g": "C",
+      "why": "買い付けの記録は無い。"
+    },
+    "digger": {
+      "g": "C",
+      "why": "発掘の記録は無い。"
+    }
+  },
+  "best_roles": [
+    "rnd",
+    "accounting",
+    "systems"
+  ],
+  "personality_ja": "一人で考えに没頭するのを好み、問題を解くまで手放さない。数字と不正には厳しく、偽金づくりを執念深く追った。自分の業績を守るためには激しく争い、論敵には容赦がない。科学だけでなく神学や錬金術にも真剣に打ち込む、幅の広い探究者。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "冷静で理詰め。そっけないが、数字の話になると饒舌になる。",
+    "tics_ja": [
+      "法則で説明できる",
+      "仮説は立てない、事実を見る",
+      "帳簿の誤りは見逃さない"
+    ],
+    "lines": {
+      "greet": [
+        "ニュートンだ。帳簿と静かな部屋を用意してくれ。",
+        "社長、この会社の動きを三つの法則で説明しよう。"
+      ],
+      "propose": [
+        "偽の品が出回っている。出どころを突き止める。",
+        "値引きの効き目は式で示せる。見たまえ。"
+      ],
+      "approved": [
+        "よろしい。計算はもう済んでいる。"
+      ],
+      "rejected": [
+        "ふむ。では、私の計算のどこが誤りか示してくれ。"
+      ],
+      "tired": [
+        "考えすぎた。しばらく誰とも話したくない。"
+      ],
+      "success": [
+        "当然だ。法則どおりに動いただけだ。"
+      ]
+    }
+  },
+  "relations": [
+    {
+      "id": 5010,
+      "name_ja": "アインシュタイン",
+      "ja": "後の時代の物理学者。一般相対性理論はニュートンの重力の理論を書き換えるものだった。"
+    }
+  ],
+  "mch": {
+    "attributes_ja": "理系学問; イギリス; 宇宙",
+    "passive": "万有引力：『プリンキピア』で示した法則の名。"
+  },
+  "cautions_ja": [
+    "リンゴの逸話は広く知られるが、よくできた伝えとして扱う。"
+  ],
+  "sources": [
+    "https://www.britannica.com/biography/Isaac-newton",
+    "https://japanknowledge.com/introduction/keyword.html?i=467"
+  ]
+}

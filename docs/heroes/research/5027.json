@@ -1,0 +1,74 @@
+{
+  "id": 5027,
+  "name_ja": "ガリレオ・ガリレイ",
+  "name_en": "Galileo Galilei",
+  "kind": "historical",
+  "era": "1564–1642（ルネサンス後期〜科学革命の時代）",
+  "region": "イタリア（ピサ、パドヴァ、フィレンツェ）",
+  "summary_ja": "イタリアの自然哲学者・天文学者・数学者で、近代科学の方法をひらいた一人。ピサに生まれ、ピサ大学で医学を学んだのち、ピサ大学とパドヴァ大学で数学を教えた。落体の法則や放物線の軌道を定式化し、自然は数学の言葉で書かれていると考えて、実験と数学による分析を重んじた。1608 年ごろから高性能の望遠鏡をつくり、1610 年に『星界の報告』で月や木星の衛星などの発見を発表し、トスカーナ大公の数学者となった。地動説を支持したため 1616 年に枢機卿ベラルミーノから警告を受け、1632 年の『天文対話』の後、1633 年に異端の罪で有罪とされ、生涯の軟禁を言い渡された。軟禁中も 1638 年に『新科学対話』を出し、1642 年にアルチェトリで亡くなった。",
+  "facts": [
+    { "ja": "1564 年 2 月 15 日、イタリアのピサに生まれた。", "src": "https://www.britannica.com/print/article/224058" },
+    { "ja": "1581 年にピサ大学で医学を学び始めた。", "src": "https://www.worldhistory.org/timeline/Galileo_Galilei" },
+    { "ja": "1589 年にピサ大学、1592 年にパドヴァ大学の数学の教授となった。", "src": "https://www.worldhistory.org/timeline/Galileo_Galilei" },
+    { "ja": "落体の法則や放物線の軌道を定式化し、運動の研究を根本から変えた。", "src": "https://www.britannica.com/print/article/224058" },
+    { "ja": "自然は数学の言葉で書かれているとし、言葉による説明から数学的な分析と実験へと学問を移した。", "src": "https://www.britannica.com/print/article/224058" },
+    { "ja": "1608 年ごろ高性能の望遠鏡をつくり、1610 年に『星界の報告』を出した。", "src": "https://www.worldhistory.org/timeline/Galileo_Galilei" },
+    { "ja": "1610 年、トスカーナ大公の公式の数学者・自然哲学者に任じられた。", "src": "https://www.worldhistory.org/timeline/Galileo_Galilei" },
+    { "ja": "1613 年に『太陽黒点に関する書簡』を出した。", "src": "https://www.worldhistory.org/timeline/Galileo_Galilei" },
+    { "ja": "1616 年に地動説を支持する著作について枢機卿ベラルミーノから警告を受け、1632 年に『天文対話』を出した。", "src": "https://www.worldhistory.org/timeline/Galileo_Galilei" },
+    { "ja": "1633 年に異端の罪で有罪とされて自説の撤回を強いられ、生涯の軟禁を言い渡された。1638 年に『新科学対話』を出し、1642 年 1 月 8 日に亡くなった。", "src": "https://www.worldhistory.org/timeline/Galileo_Galilei" }
+  ],
+  "anecdotes": [
+    { "ja": "望遠鏡による発見が、コペルニクスの地動説が受け入れられる道を開いた。", "src": "https://www.britannica.com/print/article/224058" },
+    { "ja": "墓はフィレンツェのサンタ・クローチェ教会にあり、木星探査機「ガリレオ」にも名が残る。", "src": "https://astro.uni-bonn.de/~pbrosche/persons/pers_galilei.html" }
+  ],
+  "strengths_ja": ["観察と実験で確かめる姿勢", "数学による分析", "道具を自ら改良する力", "わかりやすく書いて広める力"],
+  "weaknesses_ja": ["権威と衝突しやすい", "自説を曲げにくい"],
+  "aptitude": {
+    "strategy": { "g": "C", "why": "全体の方針を決める役の記録は無い。" },
+    "logistics": { "g": "C", "why": "物の流れの記録は無い。" },
+    "sales": { "g": "B", "why": "発見を発表してトスカーナ大公の庇護を得た。" },
+    "marketing": { "g": "A", "why": "『星界の報告』や対話形式の本で発見を広く世に知らせた。" },
+    "support": { "g": "C", "why": "人の不満を受けとめる役の記録は無い。" },
+    "systems": { "g": "A", "why": "実験と数学で自然を調べる方法そのものを打ち立てた。" },
+    "rnd": { "g": "S", "why": "落体の法則と望遠鏡による天体の発見で科学を大きく進めた。" },
+    "legal": { "g": "D", "why": "異端審問で有罪とされ、自説の撤回を強いられた。" },
+    "hr": { "g": "B", "why": "大学で長く数学を教えた。" },
+    "general": { "g": "C", "why": "職場づくりの記録は無い。" },
+    "accounting": { "g": "C", "why": "会計の記録は無い。" },
+    "sector_head": { "g": "D", "why": "組織を任された記録は無い。" },
+    "shop": { "g": "C", "why": "客あしらいの記録は無い。" },
+    "craft": { "g": "A", "why": "自ら高性能の望遠鏡をつくった。" },
+    "buyer": { "g": "C", "why": "買い付けの記録は無い。" },
+    "digger": { "g": "A", "why": "望遠鏡で夜空を観測し、木星の衛星などを見つけた。" }
+  },
+  "best_roles": ["rnd", "systems", "craft"],
+  "personality_ja": "自分の目と計算で確かめたことを何より信じる、筋金入りの実証家。発見を人に伝えるのが好きで、対話の形でわかりやすく説く。権威に対しても遠慮なく正しいと思うことを主張するが、そのぶん敵もつくりやすい。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "理路整然として、ときどき皮肉まじり。発見の話になると早口になる。",
+    "tics_ja": ["測ってみればわかります", "数字は嘘をつきません", "それでも……"],
+    "lines": {
+      "greet": ["ガリレイです。まず、この社の数字を見せてください。", "社長、望遠鏡を一台。遠くの市場まで見えますよ。"],
+      "propose": ["思いこみより、実際に試して測りましょう。", "売れ筋を記録して、法則を見つけましょう。"],
+      "approved": ["ありがとう。今夜から観測を始めます。"],
+      "rejected": ["……承知しました。それでも、数字は動いています。"],
+      "tired": ["目が疲れました。少し暗い部屋で休みます。"],
+      "success": ["ご覧なさい、計算どおりです！"]
+    }
+  },
+  "relations": [],
+  "mch": {
+    "attributes_ja": "理系学問; イタリア; 宇宙",
+    "passive": "天文対話：1632 年に出した『天文対話』（二大世界体系についての対話）の名。"
+  },
+  "cautions_ja": [
+    "異端審問と軟禁は宗教と科学の対立として語られがちだが、カトリック教会への配慮が要る。単純な善悪で描かない。"
+  ],
+  "sources": [
+    "https://www.britannica.com/print/article/224058",
+    "https://www.worldhistory.org/timeline/Galileo_Galilei",
+    "https://astro.uni-bonn.de/~pbrosche/persons/pers_galilei.html"
+  ]
+}

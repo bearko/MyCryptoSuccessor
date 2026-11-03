@@ -1,0 +1,69 @@
+{
+  "id": 3015,
+  "name_ja": "イワン雷帝",
+  "name_en": "Ivan the Terrible",
+  "kind": "historical",
+  "era": "1530–1584（16 世紀のモスクワ大公国）",
+  "region": "ロシア（モスクワ）",
+  "summary_ja": "イワン 4 世。3 歳でモスクワ大公となり、母の死後は貴族（ボヤール）の派閥争いの中で育った。1547 年にロシアで初めて「ツァーリ」として戴冠。1550 年の法典、全国会議（ゼムスキー・ソボル）、家柄より能力による軍の指揮など改革を進め、1552 年にカザン、1556 年にアストラハンを併合してヴォルガの交易路を押さえた。一方、バルト海を目ざしたリヴォニア戦争は長く実りがなく国を疲弊させた。1565〜72 年の「オプリーチニナ」で貴族を弾圧し、1570 年にはノヴゴロドを破壊して多数を処刑。1581 年には怒りのあまり跡継ぎの息子を死なせた。信仰が篤く、鋭く皮肉な文章を書いた。「雷帝（グロズヌイ）」はもともと「畏怖を抱かせる」に近い意味。",
+  "facts": [
+    { "ja": "1530 年 8 月 25 日にモスクワ近郊で生まれ、1584 年 3 月 18 日にモスクワで没した。", "src": "https://kids.britannica.com/students/article/Ivan-the-Terrible/43062" },
+    { "ja": "1547 年 1 月 16 日に、ロシアの君主として初めてツァーリとして戴冠した。", "src": "https://kids.britannica.com/students/article/Ivan-the-Terrible/43062" },
+    { "ja": "1538〜47 年は貴族の派閥が実権を争い、イワンは貴族への嫌悪を抱き続けた。", "src": "https://kids.britannica.com/students/article/Ivan-the-Terrible/43062" },
+    { "ja": "1550 年に新しい法典を出し、1549 年に初の全国会議を開き、中央の行政を部局に分け、軍の指揮を家柄より能力で任せた。", "src": "https://kids.britannica.com/students/article/Ivan-the-Terrible/43062" },
+    { "ja": "1552 年にカザンを攻略し、1556 年にアストラハンを併合してヴォルガからカスピ海への交易路を確保した。", "src": "https://kids.britannica.com/students/article/Ivan-the-Terrible/43062" },
+    { "ja": "1558〜82 年のリヴォニア戦争はバルト海への出口を求めたが、長く実りがなく国を疲弊させた。", "src": "https://kids.britannica.com/students/article/Ivan-the-Terrible/43062" },
+    { "ja": "1565 年に皇帝直轄の領域「オプリーチニナ」を設け、その親衛隊が貴族への恐怖政治を行った。1572 年に廃止された。", "src": "https://www.britannica.com/topic/oprichnina" },
+    { "ja": "1570 年にノヴゴロドを略奪・破壊した。", "src": "https://www.britannica.com/topic/oprichnina" },
+    { "ja": "1581 年、激怒して跡継ぎの息子イワンを死なせ、のちの王朝断絶と動乱の遠因となった。", "src": "https://kids.britannica.com/students/article/Ivan-the-Terrible/43062" },
+    { "ja": "「雷帝」と訳されるあだ名の元の語は「畏怖を抱かせる」に近い意味で、生前には付いていなかったとされる。", "src": "https://www.smithsonianmag.com/smart-news/ivan-the-terrible-the-czar-and-grand-prince-of-russia-wouldnt-earn-his-violent-nickname-until-years-after-his-reign-180985846/" }
+  ],
+  "anecdotes": [
+    { "ja": "イギリスとの外交・交易に関心を示し、イギリスの貴婦人との結婚を持ちかけたこともあったと伝わる。", "src": "https://kids.britannica.com/students/article/Ivan-the-Terrible/43062" },
+    { "ja": "評価はロシア史上もっとも分かれる君主の一人で、2016 年に建てられた像は大きな反発を受けた。", "src": "https://www.smithsonianmag.com/smart-news/ivan-the-terrible-the-czar-and-grand-prince-of-russia-wouldnt-earn-his-violent-nickname-until-years-after-his-reign-180985846/" }
+  ],
+  "strengths_ja": ["中央集権の制度づくり", "法典の整備", "交易路の確保", "鋭い文章力"],
+  "weaknesses_ja": ["病的な猜疑心", "激しい怒り", "恐怖による支配", "長引く戦争で国を疲弊させた"],
+  "aptitude": {
+    "strategy": { "g": "B", "why": "交易路の確保など大きな成果の一方、リヴォニア戦争で国を疲弊させた。" },
+    "logistics": { "g": "A", "why": "カザン・アストラハンを押さえ、ヴォルガからカスピ海への交易路を確保した。" },
+    "sales": { "g": "B", "why": "イギリスとの外交・交易に関心を示した。" },
+    "marketing": { "g": "C", "why": "宣伝にかかわる史実は乏しく、恐れによる評判が先に立つ。" },
+    "support": { "g": "D", "why": "猜疑心と怒りが強く、相手をなだめる役は向かない。" },
+    "systems": { "g": "A", "why": "中央の行政を部局に分けるなど国の仕組みを整えた。" },
+    "rnd": { "g": "C", "why": "印刷による文化の振興を進めたとされるが、本人の研究はない。" },
+    "legal": { "g": "A", "why": "1550 年の新法典を出した。" },
+    "hr": { "g": "C", "why": "能力による登用を進めた一方、恐怖政治で多くの貴族を処刑した。" },
+    "general": { "g": "D", "why": "恐怖による支配で、働く環境を守る役とは正反対。" },
+    "accounting": { "g": "C", "why": "長い戦争が経済の危機を招いた。" },
+    "sector_head": { "g": "B", "why": "国を強くまとめたが、晩年は疲弊と動乱の種を残した。" },
+    "shop": { "g": "D", "why": "客と向き合う役の手がかりはない。" },
+    "craft": { "g": "C", "why": "ものづくりにかかわる史実はない。" },
+    "buyer": { "g": "B", "why": "交易路を押さえ、外国との通商に関心を持った。" },
+    "digger": { "g": "C", "why": "発掘にかかわる史実はない。" }
+  },
+  "best_roles": ["legal", "systems", "logistics"],
+  "personality_ja": "信仰が篤く頭が切れ、文章は鋭く皮肉が効いている。幼いころ周りの大人に振り回された経験から人を信じず、裏切りの気配に過敏。規則と秩序を重んじて仕組みを固めるのは得意だが、怒ると歯止めがきかない。ゲームでは「規程づくりに厳しい法務・制度担当」として、恐怖政治の面は出さない。",
+  "speech": {
+    "first_person": "朕",
+    "second_person_to_owner": "社長",
+    "tone_ja": "重々しく厳格。皮肉まじり。規則を引き合いに出す。",
+    "tics_ja": ["「規程に従え」", "「余の目はごまかせぬ」"],
+    "lines": {
+      "greet": ["朕がイワンである。まず社内の規程を見せよ。", "社長、この店には法が足りぬ。朕が整えよう。"],
+      "propose": ["交易路を一本押さえよ。そこが店の命綱となる。", "部署ごとに役目を分けよ。曖昧さは乱れのもとだ。"],
+      "approved": ["よかろう。法典として書き記す。"],
+      "rejected": ["…ふん。後で悔やむのはそちらだぞ。"],
+      "tired": ["書状を書きすぎた。しばし祈りの時をくれ。"],
+      "success": ["秩序が整えば、国も店も栄える。見たか。"]
+    }
+  },
+  "relations": [],
+  "mch": { "attributes_ja": "ロシア; 長柄武器", "passive": "ツァーリズム：味方を傷つけながら全体を強化する能力は、恐怖をともなって国を中央集権化したツァーリの統治にちなむ。" },
+  "cautions_ja": [
+    "オプリーチニナによる大量処刑、ノヴゴロドの破壊、息子の死など暴力の史実がある。美化せず、ゲーム内の役割は法務・制度担当など穏当にする。",
+    "現代のロシアでも評価が政治的に分かれる人物（像の建立への反発など）。政治的な主張に使わない。",
+    "ロシア正教の信仰にかかわる描写は敬意をもって扱う。"
+  ],
+  "sources": ["https://kids.britannica.com/students/article/Ivan-the-Terrible/43062", "https://www.britannica.com/topic/oprichnina", "https://www.smithsonianmag.com/smart-news/ivan-the-terrible-the-czar-and-grand-prince-of-russia-wouldnt-earn-his-violent-nickname-until-years-after-his-reign-180985846/"]
+}

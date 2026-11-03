@@ -1,0 +1,77 @@
+{
+  "id": 4002,
+  "name_ja": "ナイチンゲール",
+  "name_en": "Florence Nightingale",
+  "kind": "historical",
+  "era": "1820–1910（ヴィクトリア朝）",
+  "region": "イギリス（イタリアのフィレンツェ生まれ）",
+  "summary_ja": "近代看護の礎を築いたイギリスの看護師・統計家。裕福な家に生まれ、父の方針で数学などを学んだが、病院で働くことには家族が反対した。それでもカイザースヴェルトなどで看護を学び、1853 年にロンドンの婦人病院の監督となった。クリミア戦争中の 1854 年、38 人の看護師を率いてスクタリの陸軍病院に入り、衛生の改善と記録の標準化に取り組み、死亡率の大幅な低下につなげたとされる。兵士の死の多くが不衛生による防げるものだったことを、扇形の面積で表す「鶏頭図（ポーラーエリア図）」で示して政府に訴えた。1858 年に女性初の王立統計協会フェロー、1860 年に聖トマス病院に看護学校を開き、『看護覚え書』を著した。晩年は長く病床にありながら約 200 の著作・報告を書き続けた。",
+  "facts": [
+    { "ja": "1820 年 5 月 12 日にイタリアのフィレンツェで生まれ、1910 年 8 月 13 日にイギリスで亡くなった。", "src": "https://mathshistory.st-andrews.ac.uk/Biographies/Nightingale.html" },
+    { "ja": "父ウィリアムは女性の教育に理解があり、彼女は数学などを学び、数学者シルヴェスターの指導も受けた。", "src": "https://www.uvm.edu/~rsingle/stats/Nightingale.html" },
+    { "ja": "1845 年に病院で経験を積もうとしたが家族に反対され、のちにカイザースヴェルト（ドイツ）などで看護を学んだ。", "src": "https://mathshistory.st-andrews.ac.uk/Biographies/Nightingale.html" },
+    { "ja": "1853 年、ロンドン・ハーレー街の婦人病院で無給の監督を務めた。", "src": "https://mathshistory.st-andrews.ac.uk/Biographies/Nightingale.html" },
+    { "ja": "1854 年 11 月 4 日、陸軍大臣シドニー・ハーバートの要請で 38 人の看護師を率いてスクタリに到着した。", "src": "https://www.uvm.edu/~rsingle/stats/Nightingale.html" },
+    { "ja": "スクタリでデータを集め記録を標準化し、衛生改革で死亡率が下がることを計算で示した。", "src": "https://www.uvm.edu/~rsingle/stats/Nightingale.html" },
+    { "ja": "防げた死を示すため、扇形の面積で値を表すポーラーエリア図（本人は「鶏頭図」と呼んだ）を用いた。", "src": "https://mathshistory.st-andrews.ac.uk/Biographies/Nightingale.html" },
+    { "ja": "1858 年に女性として初めて王立統計協会のフェローに選ばれ、1874 年にはアメリカ統計学会の名誉会員となった。", "src": "https://www.uvm.edu/~rsingle/stats/Nightingale.html" },
+    { "ja": "1860 年に聖トマス病院にナイチンゲール看護学校を開き（最初の生徒は 10 人）、同年『看護覚え書』を出した。", "src": "https://mathshistory.st-andrews.ac.uk/Biographies/Nightingale.html" },
+    { "ja": "1907 年に女性で初めてメリット勲章を受けた。", "src": "https://mathshistory.st-andrews.ac.uk/Biographies/Nightingale.html" }
+  ],
+  "anecdotes": [
+    { "ja": "病院どうしで比べられるよう、統一の「病院統計様式」を考案した。", "src": "https://www.uvm.edu/~rsingle/stats/Nightingale.html" },
+    { "ja": "統計学者カール・ピアソンは彼女を応用統計の「預言者」と呼んだ。", "src": "https://www.uvm.edu/~rsingle/stats/Nightingale.html" },
+    { "ja": "晩年の大半を病床で過ごしながら、約 200 の本・報告書・小冊子を出した。", "src": "https://mathshistory.st-andrews.ac.uk/Biographies/Nightingale.html" },
+    { "ja": "どんな拒絶や困難にも屈しなかったと評される。", "src": "https://mathshistory.st-andrews.ac.uk/Biographies/Nightingale.html" }
+  ],
+  "strengths_ja": ["データで現場の問題を突き止める力", "衛生・環境の改善", "数字と図で上の人を説得する力", "記録と手順の標準化", "人を育てる教育者"],
+  "weaknesses_ja": ["妥協を嫌い、周りにも高い基準を求める", "働きすぎて自分の体を顧みない", "慣習やお役所仕事にいら立つ"],
+  "aptitude": {
+    "strategy": { "g": "A", "why": "統計を武器に陸軍の衛生政策そのものを動かした。" },
+    "logistics": { "g": "B", "why": "戦地の病院で物資と記録を整えたが、補給全体を担ったわけではない。" },
+    "sales": { "g": "B", "why": "政府の要人を説得し続けた。" },
+    "marketing": { "g": "A", "why": "鶏頭図のような分かりやすい図で、問題を世に示した。" },
+    "support": { "g": "A", "why": "患者のそばに立つ看護の実践者として知られる。" },
+    "systems": { "g": "S", "why": "病院統計様式を作り、記録を標準化した。" },
+    "rnd": { "g": "A", "why": "データの集め方と見せ方を自ら開発した。" },
+    "legal": { "g": "C", "why": "制度改革を訴えたが、契約や争いの記録はない。" },
+    "hr": { "g": "A", "why": "看護学校を開き、職業としての看護師を育てた。" },
+    "general": { "g": "S", "why": "衛生環境を改め、病院の死亡率を下げることにつなげた。" },
+    "accounting": { "g": "B", "why": "数字に強いが、お金の管理の記録は少ない。" },
+    "sector_head": { "g": "A", "why": "戦地の病院で看護団を率いて現場を立て直した。" },
+    "shop": { "g": "B", "why": "人に寄り添うが、愛想より正しさを重んじる。" },
+    "craft": { "g": "D", "why": "ものづくりの記録はない。" },
+    "buyer": { "g": "B", "why": "現場に必要なものを見きわめる目はある。" },
+    "digger": { "g": "D", "why": "発掘とは縁がない。" }
+  },
+  "best_roles": ["general", "systems", "hr"],
+  "personality_ja": "強い使命感を持ち、どんな拒絶や困難にも屈しない。現場の苦しみを数字で示し、理屈と図で相手を説得する実務家。人への思いやりは深いが、甘さではなく「正しい環境を整えること」で示す。基準は高く、自分にも他人にも妥協しない。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "丁寧で落ち着いているが、きっぱりとして理詰め。数字を挙げて話す",
+    "tics_ja": ["数字を見せてください", "環境を整えるのが先です", "記録は同じ書式で"],
+    "lines": {
+      "greet": ["ナイチンゲールです。まず職場を見せてください。", "社長、休憩室と倉庫の衛生から点検します。"],
+      "propose": ["疲れの原因は環境です。図にまとめました。", "各支社の報告を同じ書式にそろえましょう。"],
+      "approved": ["ありがとうございます。今日から始めます。"],
+      "rejected": ["では、もっと分かる数字を持って参ります。"],
+      "tired": ["私も少し横になります。記録は枕元に。"],
+      "success": ["見てください、離職がこんなに減りました。"]
+    }
+  },
+  "relations": [],
+  "mch": {
+    "attributes_ja": "理系学問; 女性; イギリス",
+    "passive": "白衣の天使：看護で兵士を救った姿から生まれた呼び名にちなむ。"
+  },
+  "cautions_ja": [
+    "看護・医療の象徴的人物であり、看護職への敬意を損なう表現（従順・自己犠牲のみを強調するなど）を避ける。",
+    "晩年の長い病床生活に触れるときは、病気を笑いの種にしない。",
+    "死亡率の数字は出典によって幅があるため、ゲーム内で具体的な数値を断定しない。"
+  ],
+  "sources": [
+    "https://mathshistory.st-andrews.ac.uk/Biographies/Nightingale.html",
+    "https://www.uvm.edu/~rsingle/stats/Nightingale.html"
+  ]
+}

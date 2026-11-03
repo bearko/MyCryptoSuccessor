@@ -1,0 +1,198 @@
+{
+  "id": 2042,
+  "name_ja": "ヴァスコ・ダ・ガマ",
+  "name_en": "Vasco da Gama",
+  "kind": "historical",
+  "era": "1460 年ごろ–1524（大航海時代）",
+  "region": "ポルトガル・インド西岸",
+  "summary_ja": "ポルトガルの航海者。1460 年ごろ港町シネスの貴族の家に生まれた。1497 年 7 月、4 隻の船団を率いてリスボンを出発し、喜望峰を回って東アフリカのマリンディで水先案内人を得て、1498 年 5 月 20 日にインドのカリカットに着いた。西ヨーロッパから喜望峰回りで東洋へ向かう航路を開いた人物とされる。現地の商人の反発で商館は置けなかったが、帰国後に称号と年金を与えられた。1502 年の第 2 回航海ではカリカットを砲撃し住民をむごく扱った一方、コチなどと交易の取り決めを結んで豊かな積み荷を持ち帰った。1519 年にヴィディゲイラ伯となり、1524 年にインド副王として不正をただそうとしたが、同年のクリスマスイブにコチで亡くなった。",
+  "facts": [
+    {
+      "ja": "1460 年ごろ、ポルトガル南部アレンテージョの港町シネスの貴族の家に生まれた。",
+      "src": "https://en.wikisource.org/wiki/1911_Encyclop%C3%A6dia_Britannica/Gama,_Vasco_da"
+    },
+    {
+      "ja": "西ヨーロッパから喜望峰を回って東洋へ向かう海の道を開いた航海者とされる。",
+      "src": "https://www.britannica.com/facts/Vasco-da-Gama"
+    },
+    {
+      "ja": "1497 年 7 月 9 日、4 隻の船団を率いてテージョ川を出発した。",
+      "src": "https://en.wikisource.org/wiki/1911_Encyclop%C3%A6dia_Britannica/Gama,_Vasco_da"
+    },
+    {
+      "ja": "喜望峰を回り、1498 年はじめに東アフリカのマリンディでインドの商人から水先案内人を得た。",
+      "src": "https://en.wikisource.org/wiki/1911_Encyclop%C3%A6dia_Britannica/Gama,_Vasco_da"
+    },
+    {
+      "ja": "1498 年 5 月 20 日にインドのカリカットに着き、大理石の柱を立てて到達を記した。",
+      "src": "https://en.wikisource.org/wiki/1911_Encyclop%C3%A6dia_Britannica/Gama,_Vasco_da"
+    },
+    {
+      "ja": "現地の商人の反発で商館を置けず、1499 年 9 月に帰国して「ドン」の称号と年金・財産を与えられた。",
+      "src": "https://en.wikisource.org/wiki/1911_Encyclop%C3%A6dia_Britannica/Gama,_Vasco_da"
+    },
+    {
+      "ja": "1502 年に 10 隻を率いて再びインドへ向かい、カリカットを砲撃して住民をむごく扱った。",
+      "src": "https://en.wikisource.org/wiki/1911_Encyclop%C3%A6dia_Britannica/Gama,_Vasco_da"
+    },
+    {
+      "ja": "コチなどの町と交易の取り決めを結び、1503 年 9 月に豊かな積み荷を持ち帰った。",
+      "src": "https://en.wikisource.org/wiki/1911_Encyclop%C3%A6dia_Britannica/Gama,_Vasco_da"
+    },
+    {
+      "ja": "1519 年 12 月にヴィディゲイラ伯となった。",
+      "src": "https://en.wikisource.org/wiki/1911_Encyclop%C3%A6dia_Britannica/Gama,_Vasco_da"
+    },
+    {
+      "ja": "1524 年にインド副王に任じられて 9 月にゴアに着き、不正をただそうとしたが、同年 12 月 24 日にコチで病没した。",
+      "src": "https://en.wikisource.org/wiki/1911_Encyclop%C3%A6dia_Britannica/Gama,_Vasco_da"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "2 度目の帰国後エヴォラに引きこもったのは、褒美への不満のためとも、得た富を楽しみたかっただけとも言われる。",
+      "src": "https://en.wikisource.org/wiki/1911_Encyclop%C3%A6dia_Britannica/Gama,_Vasco_da"
+    },
+    {
+      "ja": "若いころはカスティーリャとの戦いに加わったとされる。",
+      "src": "https://en.wikisource.org/wiki/1911_Encyclop%C3%A6dia_Britannica/Gama,_Vasco_da"
+    },
+    {
+      "ja": "遺体は 1538 年にヴィディゲイラへ移され、1880 年にその遺骨とされるものがリスボンのベレンに移された。",
+      "src": "https://en.wikisource.org/wiki/1911_Encyclop%C3%A6dia_Britannica/Gama,_Vasco_da"
+    }
+  ],
+  "strengths_ja": [
+    "未知の海へ出る度胸",
+    "長い航海をやり抜く統率",
+    "交易の道を開く力"
+  ],
+  "weaknesses_ja": [
+    "手荒で敵をつくる",
+    "褒美や待遇に不満を持ちやすい"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "B",
+      "why": "インドへの海の道という大きな目標を形にした。"
+    },
+    "logistics": {
+      "g": "S",
+      "why": "喜望峰回りでインドへ至る航路を開いた。"
+    },
+    "sales": {
+      "g": "B",
+      "why": "コチなどと交易の取り決めを結んだが、カリカットでは商館を置けなかった。"
+    },
+    "marketing": {
+      "g": "D",
+      "why": "評判を広める仕事の記録は乏しい。"
+    },
+    "support": {
+      "g": "D",
+      "why": "現地の人々をむごく扱った記録がある。"
+    },
+    "systems": {
+      "g": "C",
+      "why": "仕組みづくりの記録は乏しい。"
+    },
+    "rnd": {
+      "g": "B",
+      "why": "未知の海域を進み、新しい航路を確かめた。"
+    },
+    "legal": {
+      "g": "C",
+      "why": "取り決めは結んだが、争いを話し合いで収めた記録は乏しい。"
+    },
+    "hr": {
+      "g": "C",
+      "why": "船団を率いたが、人を育てた記録は乏しい。"
+    },
+    "general": {
+      "g": "C",
+      "why": "職場環境にかかわる記録は乏しい。"
+    },
+    "accounting": {
+      "g": "C",
+      "why": "お金の管理の記録は乏しい。"
+    },
+    "sector_head": {
+      "g": "A",
+      "why": "インド副王に任じられ、不正をただそうとした。"
+    },
+    "shop": {
+      "g": "D",
+      "why": "客あしらいの記録は乏しい。"
+    },
+    "craft": {
+      "g": "D",
+      "why": "物を作った記録は無い。"
+    },
+    "buyer": {
+      "g": "A",
+      "why": "インドから豊かな積み荷を持ち帰った。"
+    },
+    "digger": {
+      "g": "C",
+      "why": "新しい土地を探ったが、発掘の記録は無い。"
+    }
+  },
+  "best_roles": [
+    "logistics",
+    "buyer",
+    "sector_head"
+  ],
+  "personality_ja": "恐れを知らない船乗りで、決めた目的地には何があってもたどり着く。部下には厳しく、相手が逆らえば手荒な手段もいとわない。自分の働きへの見返りにはこだわり、不満があれば引きこもってしまう誇り高さもある。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "威厳のある船乗りの口調。命令口調で短く、航路や風の話をよくする。",
+    "tics_ja": [
+      "帆を上げろ",
+      "岬の向こうに道はある",
+      "見返りは忘れんでくれ"
+    ],
+    "lines": {
+      "greet": [
+        "ダ・ガマだ。遠い町への道なら、私が開く。",
+        "社長、地図の空白を一つ埋めてこよう。"
+      ],
+      "propose": [
+        "遠回りでも確実な航路で、香料を運ぼう。",
+        "案内人を雇え。知らぬ海は土地の者に聞くのが早い。"
+      ],
+      "approved": [
+        "帆を上げろ！今夜の潮で出る。"
+      ],
+      "rejected": [
+        "……ならば港で待とう。風はまた変わる。"
+      ],
+      "tired": [
+        "長い航海だった。しばらく陸で休ませてもらう。"
+      ],
+      "success": [
+        "見ろ、積み荷は満載だ。道はつながった。"
+      ]
+    }
+  },
+  "relations": [
+    {
+      "id": 3037,
+      "name_ja": "マゼラン",
+      "ja": "ダ・ガマが開いたポルトガルのインド航路を通って、マゼランは 1505 年にインドへ渡った。"
+    }
+  ],
+  "mch": {
+    "attributes_ja": "海; 旅; 地中海",
+    "passive": "サン・ガブリエル：第 1 回航海の旗艦の名とされる（今回の出典では未確認）。"
+  },
+  "cautions_ja": [
+    "第 2 回航海でカリカットを砲撃し、住民をむごく扱った人物で、暴力を美化しない。",
+    "植民地支配の始まりにかかわる人物で、インドなど現地の人々の側の視点への配慮が要る。",
+    "現地の宗教・民族の対立を、ゲームで敵役の色分けに使わない。"
+  ],
+  "sources": [
+    "https://en.wikisource.org/wiki/1911_Encyclop%C3%A6dia_Britannica/Gama,_Vasco_da",
+    "https://www.britannica.com/facts/Vasco-da-Gama"
+  ]
+}

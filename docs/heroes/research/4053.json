@@ -1,0 +1,181 @@
+{
+  "id": 4053,
+  "name_ja": "ウィリアム・テル",
+  "name_en": "William Tell",
+  "kind": "legendary",
+  "era": "伝承では 14 世紀初め（1307 年とされる）。伝説の初出は 1470 年ごろ",
+  "region": "スイス（伝承ではウーリ州アルトドルフ）",
+  "summary_ja": "スイス建国にまつわる伝説の英雄。実在を示す証拠は見つかっていない。伝承では、ハプスブルク家の代官ゲスラーがアルトドルフの広場の竿に帽子を掲げて礼をさせたが、テルは礼をせずに通り過ぎた。罰として、わが子の頭の上のリンゴを弓で射るよう命じられ、見事に射抜く。もう 1 本の矢を隠していたことをとがめられて捕らえられるが、嵐の湖で逃れ、のちにホーレ・ガッセでゲスラーを射倒したという。伝説は 1470 年ごろの「ザルネンの白書」に初めて現れ、シラーの戯曲で世界に知られ、ロッシーニのオペラにもなった。勇気と、不正な権力に立ち向かう力の象徴とされる。",
+  "facts": [
+    {
+      "ja": "伝説はスイス連邦の成り立ちにまつわる物語の一つである。",
+      "src": "https://www.aboutswitzerland.eda.admin.ch/en/william-tell-a-symbol-of-switzerland-known-throughout-the-world"
+    },
+    {
+      "ja": "1470 年ごろの写本集「ザルネンの白書」に初めて現れる。",
+      "src": "https://www.aboutswitzerland.eda.admin.ch/en/william-tell-a-symbol-of-switzerland-known-throughout-the-world"
+    },
+    {
+      "ja": "多くの研究にもかかわらず、テルの実在やその出来事を示す証拠は見つかっていない。",
+      "src": "https://www.aboutswitzerland.eda.admin.ch/en/william-tell-a-symbol-of-switzerland-known-throughout-the-world"
+    },
+    {
+      "ja": "伝承では、代官ゲスラーがアルトドルフの広場の竿に帽子を掲げ、通る人に礼をさせた。",
+      "src": "https://www.aboutswitzerland.eda.admin.ch/en/william-tell-a-symbol-of-switzerland-known-throughout-the-world"
+    },
+    {
+      "ja": "伝承では、1307 年 11 月 18 日にテルが礼をせずに通り過ぎ、翌日ゲスラーに呼び出された。",
+      "src": "https://www.ebsco.com/research-starters/history/william-tell-folk-hero"
+    },
+    {
+      "ja": "伝承では、息子の頭の上のリンゴを射抜くよう命じられて成功した。",
+      "src": "https://www.aboutswitzerland.eda.admin.ch/en/william-tell-a-symbol-of-switzerland-known-throughout-the-world"
+    },
+    {
+      "ja": "伝承では、捕らえられて船で運ばれる途中、嵐の中で岸へ逃れ、のちにホーレ・ガッセでゲスラーを 1 本の矢で倒した。",
+      "src": "https://www.aboutswitzerland.eda.admin.ch/en/william-tell-a-symbol-of-switzerland-known-throughout-the-world"
+    },
+    {
+      "ja": "シラーの戯曲『ヴィルヘルム・テル』がテルを広く知らしめ、1829 年にはロッシーニのオペラがパリで初演された。",
+      "src": "https://www.aboutswitzerland.eda.admin.ch/en/william-tell-a-symbol-of-switzerland-known-throughout-the-world"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "伝承では、2 本目の矢を隠し持ち、最初の矢が息子を傷つけていたらそれでゲスラーを射るつもりだったと答えた。",
+      "src": "https://www.aboutswitzerland.eda.admin.ch/en/william-tell-a-symbol-of-switzerland-known-throughout-the-world"
+    },
+    {
+      "ja": "勇気の化身とされ、権威を重んじつつも、不正な権威には抗う力を表すと解釈されている。",
+      "src": "https://www.aboutswitzerland.eda.admin.ch/en/william-tell-a-symbol-of-switzerland-known-throughout-the-world"
+    }
+  ],
+  "strengths_ja": [
+    "弓の腕前",
+    "重圧の中での集中力",
+    "理不尽に屈しない芯の強さ",
+    "家族思い"
+  ],
+  "weaknesses_ja": [
+    "権威とぶつかりやすい",
+    "頑固で融通がきかない"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "C",
+      "why": "伝承では一人の行動が中心で、全体の方針を立てる話は無い。"
+    },
+    "logistics": {
+      "g": "C",
+      "why": "物の流れの話は伝承に無い。"
+    },
+    "sales": {
+      "g": "D",
+      "why": "伝承では代官との交渉より、礼を拒んで対立した。"
+    },
+    "marketing": {
+      "g": "A",
+      "why": "その物語がスイスの象徴として世界に知られた。"
+    },
+    "support": {
+      "g": "B",
+      "why": "伝承では不当な扱いに苦しむ人々の思いを代弁する存在になった。"
+    },
+    "systems": {
+      "g": "C",
+      "why": "仕組みづくりの話は伝承に無い。"
+    },
+    "rnd": {
+      "g": "C",
+      "why": "研究の話は伝承に無い。"
+    },
+    "legal": {
+      "g": "B",
+      "why": "不正な命令には従わない姿勢の象徴とされる。"
+    },
+    "hr": {
+      "g": "C",
+      "why": "人を率いる話は伝承に乏しい。"
+    },
+    "general": {
+      "g": "C",
+      "why": "職場づくりの話は伝承に無い。"
+    },
+    "accounting": {
+      "g": "C",
+      "why": "お金の話は伝承に無い。"
+    },
+    "sector_head": {
+      "g": "C",
+      "why": "伝承では地域を治める役ではない。"
+    },
+    "shop": {
+      "g": "C",
+      "why": "客あしらいの話は伝承に無い。"
+    },
+    "craft": {
+      "g": "A",
+      "why": "伝承では、わが子の頭の上のリンゴを射抜く、誤りの許されない一射を決めた。（職人の S はものを作る腕に限る決まり〔2026-11-03〕により A。武芸の腕は別の役で活かす）"
+    },
+    "buyer": {
+      "g": "C",
+      "why": "買い付けの話は伝承に無い。"
+    },
+    "digger": {
+      "g": "B",
+      "why": "伝承では山や湖に通じ、嵐の湖から岸へ逃れた。"
+    }
+  },
+  "best_roles": [
+    "craft",
+    "marketing",
+    "legal"
+  ],
+  "personality_ja": "口数は少ないが、筋の通らないことには決して頭を下げない一徹な人。家族を何より大切にし、追いつめられるほど手元が冴える。目立つことは望まないが、いざとなれば皆の代わりに矢面に立つ。",
+  "speech": {
+    "first_person": "わし",
+    "second_person_to_owner": "社長",
+    "tone_ja": "朴訥で短い。職人らしく言葉より腕で語る。",
+    "tics_ja": [
+      "一矢で決める",
+      "筋が通らん",
+      "手元は狂わん"
+    ],
+    "lines": {
+      "greet": [
+        "テルだ。腕なら見せる、口は苦手だ。",
+        "社長、狙うべき的を一つだけ教えてくれ。"
+      ],
+      "propose": [
+        "数を打つより、一つを確実に仕上げよう。",
+        "おかしな決まりは、おかしいと言うべきだ。"
+      ],
+      "approved": [
+        "わかった。一矢で決めてくる。"
+      ],
+      "rejected": [
+        "……そうか。だが筋は曲げんぞ。"
+      ],
+      "tired": [
+        "少し山の空気を吸ってくる。"
+      ],
+      "success": [
+        "的の真ん中だ。家族にも話してやろう。"
+      ]
+    }
+  },
+  "relations": [],
+  "mch": {
+    "attributes_ja": "ヨーロッパ; 伝承; 弓",
+    "passive": "解放の一矢：伝承で代官ゲスラーを射倒し、スイスの自由の象徴となった話に重なる。"
+  },
+  "cautions_ja": [
+    "伝説上の人物で、実在の証拠は無い。",
+    "伝承に代官の殺害が含まれる。ゲームの中では暴力の場面を直接描かない。",
+    "スイスの国の象徴として大切にされている人物。"
+  ],
+  "sources": [
+    "https://www.aboutswitzerland.eda.admin.ch/en/william-tell-a-symbol-of-switzerland-known-throughout-the-world",
+    "https://www.ebsco.com/research-starters/history/william-tell-folk-hero"
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "id": 2033,
+  "name_ja": "ゲーテ",
+  "name_en": "Johann Wolfgang von Goethe",
+  "kind": "historical",
+  "era": "1749–1832（18 世紀後半〜19 世紀前半・ドイツ古典主義の時代）",
+  "region": "ドイツ（フランクフルト生まれ、ヴァイマルで活動）",
+  "summary_ja": "ドイツの詩人・劇作家・小説家。1774 年の『若きウェルテルの悩み』で一躍有名になり、1775 年にヴァイマル公国の宮廷に招かれて生涯そこで暮らした。文学者でありながら枢密院の一員として軍事・鉱山・道路の委員会を受け持ち、一時は財務の長も代行して、ほとんど宰相のような立場にあった。植物学や色彩論など自然科学にも打ち込み、代表作『ファウスト』は第 1 部が 1808 年、第 2 部が没年の 1832 年に出た。人柄は、落ち着きのない皮肉屋で作品を仕上げるのに苦労する面があったと評される。逸話としては、1808 年にエアフルトでナポレオンに謁見したこと、幼いモーツァルトの演奏会を見たこと、テプリッツでベートーヴェンと会ったことが伝わる。",
+  "facts": [
+    { "ja": "1749 年 8 月 28 日にフランクフルト・アム・マインで生まれ、1832 年 3 月 22 日にヴァイマルで没した。", "src": "https://www.britannica.com/summary/Johann-Wolfgang-von-Goethe" },
+    { "ja": "1774 年の『若きウェルテルの悩み』は当時たいへんな人気を呼び、ロマン主義の主人公の原型をつくった。", "src": "https://www.britannica.com/summary/Johann-Wolfgang-von-Goethe" },
+    { "ja": "1775 年にヴァイマルの宮廷に招かれ、以後生涯そこにとどまり、ヴァイマルを文学・知の中心にした。", "src": "https://www.britannica.com/summary/Johann-Wolfgang-von-Goethe" },
+    { "ja": "着任から半年で枢密院に加わり、1779 年には鉱山・道路の委員会に加えて軍事委員会も受け持った。", "src": "https://www.britannica.com/biography/Johann-Wolfgang-von-Goethe/First-Weimar-period-1776-86" },
+    { "ja": "1782 年から約 2 年半、財務の長官の職務を代行し、ほとんど宰相に近い立場にあった。同じ年に貴族に列して「フォン・ゲーテ」となった。", "src": "https://www.britannica.com/biography/Johann-Wolfgang-von-Goethe/First-Weimar-period-1776-86" },
+    { "ja": "イルメナウ近くの銀山を再開させようと 20 年以上取り組んだが、浸水と鉱石の質の低さのために成功しなかった。", "src": "https://www.britannica.com/biography/Johann-Wolfgang-von-Goethe/First-Weimar-period-1776-86" },
+    { "ja": "鉱山の仕事を通じて地質学に、さらに解剖学、1785 年からは植物学に打ち込んだが、詩ほどの評価は得られなかった。", "src": "https://www.britannica.com/biography/Johann-Wolfgang-von-Goethe/First-Weimar-period-1776-86" },
+    { "ja": "1786〜88 年のイタリア滞在で古典古代の文化に触れ、その後の作品に大きな影響を受けた。", "src": "https://www.britannica.com/summary/Johann-Wolfgang-von-Goethe" },
+    { "ja": "1794 年からはシラーが最も重要で影響力のある友人となった。", "src": "https://www.britannica.com/summary/Johann-Wolfgang-von-Goethe" },
+    { "ja": "代表作『ファウスト』は第 1 部が 1808 年、第 2 部が 1832 年に刊行された。色彩論（Zur Farbenlehre）も著した。", "src": "https://www.britannica.com/topic/Goethes-Color-Theory" }
+  ],
+  "anecdotes": [
+    { "ja": "1808 年 10 月 2 日、エアフルトでナポレオンに謁見し、ゲーテ自身の記録では「あなたは人物だ」と声をかけられ、『ウェルテル』が話題の中心になったと伝わる（言葉の細部は記録によって異なる）。", "src": "https://www.napoleon.org/en/history-of-the-two-empires/articles/erfurt-1808-the-emperor-honours-german-literature/" },
+    { "ja": "1763 年、フランクフルトで少年モーツァルトの演奏会を見たとされ、晩年にエッカーマンとの会話でその話をした。", "src": "https://www.mediathek.at/en/atom/27AE3370-1A1-000E6-0029C15B-B0F216B2" },
+    { "ja": "1812 年夏、湯治場テプリッツでベートーヴェンと会い、その激しい気性をやや警戒しつつも才能は認めていたと言われる。", "src": "https://lvbeethoven.com/beethoven-and-goethe-a-meeting-of-titans/" },
+    { "ja": "1816 年にシューベルトの歌曲『魔王』の清書が送られたが、ゲーテはその包みに目を通さなかったと伝わる。", "src": "https://www.open.edu/openlearn/history-the-arts/history-art/schuberts-lieder-settings-goethes-poems/content-section-4.4" },
+    { "ja": "1777 年、運命のしるしを確かめるかのように雪に覆われたブロッケン山に登ったという。", "src": "https://www.britannica.com/biography/Johann-Wolfgang-von-Goethe/First-Weimar-period-1776-86" }
+  ],
+  "strengths_ja": ["行政の実務（枢密院・各委員会）", "幅広い教養と好奇心", "言葉で人の心を動かす力", "自然観察と研究への粘り強さ"],
+  "weaknesses_ja": ["作品・仕事をなかなか仕上げられない", "自分の関心の外にあるものを見落とすことがある（シューベルトの包みの逸話）", "落ち着きがなく皮肉っぽい"],
+  "aptitude": {
+    "strategy": { "g": "A", "why": "枢密院の一員として、一時は宰相に近い立場で公国の政治を担った。" },
+    "logistics": { "g": "B", "why": "道路委員会を受け持ち、公国の交通の整備にかかわった。" },
+    "sales": { "g": "C", "why": "外交の役目は担ったが、交渉で販路を開くような実績は特に知られていない。" },
+    "marketing": { "g": "A", "why": "『ウェルテル』で時代の流行を生み、ヴァイマルを文化の中心として知らしめた。" },
+    "support": { "g": "C", "why": "宮廷の人づきあいはこなしたが、細やかな対応役という記録は乏しい。" },
+    "systems": { "g": "B", "why": "複数の委員会を同時に回す行政の仕組みづくりに携わった。" },
+    "rnd": { "g": "A", "why": "地質・解剖・植物・色彩と、自然科学の研究を長年続けた。" },
+    "legal": { "g": "B", "why": "宮廷の外交的な役割を担い、文書と交渉に通じていた。" },
+    "hr": { "g": "B", "why": "シラーら文人を引き寄せ、ヴァイマルに知の人の輪をつくった。" },
+    "general": { "g": "B", "why": "宮廷暮らしの礼節と、自分を律する文化的な生き方を重んじた。" },
+    "accounting": { "g": "B", "why": "約 2 年半、財務の長の職務を代行した。" },
+    "sector_head": { "g": "A", "why": "小国の行政を幅広く任され、町ひとつを預かれる経験がある。" },
+    "shop": { "g": "C", "why": "客と向き合う商いの経験は知られていない。" },
+    "craft": { "g": "A", "why": "『ファウスト』を何十年もかけて磨き上げた作り手の粘りがある。" },
+    "buyer": { "g": "C", "why": "買い付けにかかわった記録は知られていない。" },
+    "digger": { "g": "B", "why": "銀山の再開に 20 年以上取り組み、鉱物にも詳しかった（ただし再開は失敗）。" }
+  },
+  "best_roles": ["strategy", "rnd", "sector_head"],
+  "personality_ja": "好奇心が尽きず、文学と科学と政治をまたいで生きた教養人。宮廷の礼節や、自分を律して文化に身をささげる生き方を理想とした一方、現実の宮廷のつまらなさも見抜いていた。落ち着きがなく皮肉っぽく、作品をなかなか仕上げられない自分と格闘し続けた。人の才能は認めるが、気質の荒い相手には距離をとる面もあった。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "閣下",
+    "tone_ja": "落ち着いた教養人の丁寧語。比喩や自然のたとえを好み、ときどき皮肉が混じる。",
+    "tics_ja": ["「自然をよく見れば答えはそこにあります」", "「もう少し磨かせてください」", "「光と影の両方を見ましょう」"],
+    "lines": {
+      "greet": ["本日より着任します。詩も帳簿も、同じ熱で扱いますよ。", "閣下、この町の色と形をまず観察させてください。"],
+      "propose": ["植物が育つように、この部門も段階を追って伸ばしましょう。", "道を一本通せば、物も人も流れが変わります。"],
+      "approved": ["ありがたい。では光の当たる方へ進めます。"],
+      "rejected": ["なるほど、影の側も見るべきでしたね。練り直します。"],
+      "tired": ["少し庭を歩かせてください。頭の中が曇ってきました。"],
+      "success": ["見事に実りました。自然はやはり正直ですね。"]
+    }
+  },
+  "relations": [
+    { "id": 5002, "name_ja": "ナポレオン・ボナパルト", "ja": "1808 年にエアフルトでナポレオンに謁見し、『ウェルテル』を話題に語り合ったと伝わる。" },
+    { "id": 4003, "name_ja": "ベートーヴェン", "ja": "1812 年に湯治場テプリッツで会った。ベートーヴェンはゲーテの詩に曲をつけていた。" },
+    { "id": 4030, "name_ja": "モーツァルト", "ja": "1763 年、フランクフルトで少年モーツァルトの演奏会を見たとされる。" },
+    { "id": 2004, "name_ja": "シューベルト", "ja": "シューベルトはゲーテの詩『魔王』などに曲をつけたが、送られた楽譜にゲーテは目を通さなかったと伝わる。" }
+  ],
+  "mch": {
+    "attributes_ja": "政治; 文系学問; 理系学問; ドイツ",
+    "passive": "若きウェルテルの悩み：ゲーテを一躍有名にした 1774 年の小説の題名から。"
+  },
+  "cautions_ja": [
+    "パッシブ名の『若きウェルテルの悩み』は主人公の自殺を描く小説で、模倣自殺（いわゆるウェルテル効果）とも結びつけて語られる。ゲーム内で自殺を連想させる演出・セリフにしない。",
+    "ナポレオンとの会話の言葉づかいは記録ごとに違うため、名言として断定的に引用しない。"
+  ],
+  "sources": [
+    "https://www.britannica.com/summary/Johann-Wolfgang-von-Goethe",
+    "https://www.britannica.com/biography/Johann-Wolfgang-von-Goethe/First-Weimar-period-1776-86",
+    "https://www.britannica.com/topic/Goethes-Color-Theory",
+    "https://www.napoleon.org/en/history-of-the-two-empires/articles/erfurt-1808-the-emperor-honours-german-literature/",
+    "https://www.mediathek.at/en/atom/27AE3370-1A1-000E6-0029C15B-B0F216B2",
+    "https://lvbeethoven.com/beethoven-and-goethe-a-meeting-of-titans/",
+    "https://www.open.edu/openlearn/history-the-arts/history-art/schuberts-lieder-settings-goethes-poems/content-section-4.4"
+  ]
+}

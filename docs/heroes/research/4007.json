@@ -1,0 +1,198 @@
+{
+  "id": 4007,
+  "name_ja": "トーマス・エジソン",
+  "name_en": "Thomas Edison",
+  "kind": "historical",
+  "era": "1847–1931（19 世紀後半〜20 世紀前半）",
+  "region": "アメリカ（オハイオ・ミシガン・ニュージャージー）",
+  "summary_ja": "アメリカの発明家・事業家。学校にはなじめず母に家で教わり、少年のころは鉄道で新聞を売りながら貨車の中で実験をした。電信技士として電気の知識を身につけ、1869 年に専業の発明家となった。最初の特許の電気投票機は売れず、「売れないものは作らない」と決めたと伝わる。1876 年にニュージャージーのメンロパークに「発明工場」と呼ばれる研究所をつくり、仲間と組んで蓄音機・電話の送話器・白熱電灯などを次々に生み、「メンロパークの魔術師」と呼ばれた。1882 年にマンハッタンで最初の公共の発電所を開いたが、その直流の仕組みはのちに交流に取って代わられた。映画の撮影機と映写機の開発も進め、生涯で 1,093 件のアメリカの特許を取った。1931 年に亡くなった。",
+  "facts": [
+    {
+      "ja": "1847 年 2 月 11 日、オハイオ州ミランに生まれた。",
+      "src": "https://lemelson.mit.edu/resources/thomas-edison"
+    },
+    {
+      "ja": "学校の先生からは見放され、母に家で教わった。",
+      "src": "https://lemelson.mit.edu/resources/thomas-edison"
+    },
+    {
+      "ja": "1859 年、鉄道の新聞売りとして働き、貨車に印刷機と実験室をつくった。",
+      "src": "https://lemelson.mit.edu/resources/thomas-edison"
+    },
+    {
+      "ja": "電信技士として各地で働き、電気と化学の知識を身につけた。",
+      "src": "https://americanhistory.si.edu/edison/ed_a.htm"
+    },
+    {
+      "ja": "1869 年 6 月 1 日、電気投票機で最初の特許を取ったが、誰も買わなかった。",
+      "src": "https://lemelson.mit.edu/resources/thomas-edison"
+    },
+    {
+      "ja": "1876 年、メンロパークに研究所をつくり、十数人の仲間を集めた。",
+      "src": "https://americanhistory.si.edu/edison/ed_a.htm"
+    },
+    {
+      "ja": "1876〜1880 年に、蓄音機・炭素の送話器・改良した発電機・実用的な白熱電灯などを発明した。",
+      "src": "https://americanhistory.si.edu/edison/ed_a.htm"
+    },
+    {
+      "ja": "1882 年、マンハッタンに最初の公共の発電所を建てた。直流の仕組みは送れる範囲が狭く、のちに交流に取って代わられた。",
+      "src": "https://lemelson.mit.edu/resources/thomas-edison"
+    },
+    {
+      "ja": "生涯に 1,093 件のアメリカの特許を取り、1931 年 10 月 18 日に亡くなった。",
+      "src": "https://lemelson.mit.edu/resources/thomas-edison"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "最初の特許の失敗から、売れないものは二度と作らないと決めたと伝わる。",
+      "src": "https://lemelson.mit.edu/resources/thomas-edison"
+    },
+    {
+      "ja": "失敗について「うまくいかない方法が一つ分かった。解決に近づいた」と語ったと伝わる。",
+      "src": "https://lemelson.mit.edu/resources/thomas-edison"
+    },
+    {
+      "ja": "メンロパークの研究所は、仲間が協力して産業のための研究を組織的に進める場で、今の研究開発の研究所の原型とされる。",
+      "src": "https://edison.rutgers.edu/life-of-edison/biographical-essays/factory/thomas-a-edison-and-menlo-park"
+    },
+    {
+      "ja": "「メンロパークの魔術師」と呼ばれた。",
+      "src": "https://edison.rutgers.edu/life-of-edison/biographical-essays/factory/thomas-a-edison-and-menlo-park"
+    }
+  ],
+  "strengths_ja": [
+    "売れる物を見きわめる目",
+    "研究を組織で進める仕組みづくり",
+    "失敗しても続ける粘り",
+    "人とうまくやる力"
+  ],
+  "weaknesses_ja": [
+    "自分の方式に固執する（直流）",
+    "家庭をかえりみない"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "A",
+      "why": "売れる発明だけを狙うと決め、研究と事業を結びつけた。"
+    },
+    "logistics": {
+      "g": "B",
+      "why": "発電所から電気を届ける仕組みをつくったが、送れる範囲は狭かった。"
+    },
+    "sales": {
+      "g": "B",
+      "why": "株価表示機の改良で大きな収入を得た。"
+    },
+    "marketing": {
+      "g": "A",
+      "why": "「メンロパークの魔術師」として名が知れ、発明を世に広めた。"
+    },
+    "support": {
+      "g": "C",
+      "why": "客の声に応えた記録は乏しい。"
+    },
+    "systems": {
+      "g": "S",
+      "why": "研究所で仲間と組んで発明を次々に生む「発明工場」の仕組みをつくった。"
+    },
+    "rnd": {
+      "g": "S",
+      "why": "1,093 件の特許を取り、蓄音機や白熱電灯などを生んだ。"
+    },
+    "legal": {
+      "g": "B",
+      "why": "多くの特許を取り、自分の発明を権利として守った。"
+    },
+    "hr": {
+      "g": "A",
+      "why": "研究所に十数人の仲間を集め、人とうまくやる力があったと評される。"
+    },
+    "general": {
+      "g": "C",
+      "why": "家族と過ごす時間は少なく、働き方は過酷だった。"
+    },
+    "accounting": {
+      "g": "B",
+      "why": "発明を収入に結びつけたが、細かな会計の記録は乏しい。"
+    },
+    "sector_head": {
+      "g": "A",
+      "why": "研究所を丸ごと率い、多くの発明を生み出した。"
+    },
+    "shop": {
+      "g": "C",
+      "why": "客商売の記録は乏しい。"
+    },
+    "craft": {
+      "g": "A",
+      "why": "貨車の実験室から研究所まで、自ら手を動かして試作を重ねた。"
+    },
+    "buyer": {
+      "g": "C",
+      "why": "買い付けの記録は乏しい。"
+    },
+    "digger": {
+      "g": "C",
+      "why": "発掘の記録は無い。"
+    }
+  },
+  "best_roles": [
+    "rnd",
+    "systems",
+    "strategy"
+  ],
+  "personality_ja": "失敗を「うまくいかない方法が一つ分かった」と受け止めて、粘り強く試し続ける。発明は売れてこそと考える現実的な事業家で、仲間を集めてチームで研究を進めるのがうまい。仕事に夢中で家庭をかえりみず、自分の方式には頑固なところがある。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "せっかちで実務的。アイデアと数字を次々に口にする。",
+    "tics_ja": [
+      "それは売れるか？",
+      "また一つ、うまくいかない方法が分かった（エジソンの言葉として伝わる）",
+      "試作を急げ"
+    ],
+    "lines": {
+      "greet": [
+        "エジソンだ。研究所はどこだね？",
+        "社長、まず売れる物を一つ決めよう。"
+      ],
+      "propose": [
+        "研究室を一つ作り、十人で試作を回そう。",
+        "その新製品、客は本当に欲しがるか確かめたい。"
+      ],
+      "approved": [
+        "よし、今夜から試作にかかる。"
+      ],
+      "rejected": [
+        "また一つ、うまくいかない道が分かったな。"
+      ],
+      "tired": [
+        "机で十分だけ仮眠させてくれ。"
+      ],
+      "success": [
+        "灯がついた！ これは売れるぞ。"
+      ]
+    }
+  },
+  "relations": [
+    {
+      "id": 4041,
+      "name_ja": "ニコラ・テスラ",
+      "ja": "エジソンが進めた直流の送電は、のちにウェスティングハウスとテスラの交流に取って代わられた。"
+    }
+  ],
+  "mch": {
+    "attributes_ja": "理系学問; アメリカ大陸; 機械",
+    "passive": "エジソン・エフェクト：1883 年にエジソンの研究所の技師ハマーが見つけた現象の名。"
+  },
+  "cautions_ja": [
+    "子孫や、彼の名を継ぐ企業が今もある。今の企業の名前は出さない。"
+  ],
+  "sources": [
+    "https://americanhistory.si.edu/edison/ed_a.htm",
+    "https://lemelson.mit.edu/resources/thomas-edison",
+    "https://edison.rutgers.edu/life-of-edison/biographical-essays/factory/thomas-a-edison-and-menlo-park"
+  ]
+}

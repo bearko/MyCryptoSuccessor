@@ -1,0 +1,73 @@
+{
+  "id": 2001,
+  "name_ja": "ライト兄弟",
+  "name_en": "Wright Brothers",
+  "kind": "historical",
+  "era": "兄ウィルバー 1867–1912／弟オーヴィル 1871–1948（19 世紀末〜20 世紀前半）",
+  "region": "アメリカ（オハイオ州デイトン）",
+  "summary_ja": "兄ウィルバーと弟オーヴィルの兄弟。1892 年にデイトンで自転車店を開き、販売・修理から自社製の自転車づくりまで手がけ、その収入で飛行の研究をまかなった。1900〜1902 年にノースカロライナ州キティホークでグライダーを試し、既存のデータが当てにならないと分かると、1901 年に自作の風洞で 200 以上の翼の形を測って独自のデータを作った。翼をねじる操縦法と方向舵を組み合わせて 3 軸の操縦を解決し、整備士チャールズ・テイラーとともに軽いエンジンを作り、プロペラも自ら設計した。1903 年 12 月 17 日、動力飛行機で 4 回の飛行に成功し、最長は 59 秒・852 フィートだった。兄弟はお金も仕事も考えも分け合う仲で、音楽や冗談、子どもや犬を好んだという。",
+  "facts": [
+    { "ja": "兄ウィルバーは 1867 年 4 月 16 日にインディアナ州ミルビル近くで、弟オーヴィルは 1871 年 8 月 19 日にデイトンで生まれた。", "src": "https://npshistory.com/handbooks/historical/34-1961.pdf" },
+    { "ja": "1892 年にライト・サイクル社を作り、自転車の販売・修理・製造を手がけた。", "src": "https://npshistory.com/handbooks/historical/34-1961.pdf" },
+    { "ja": "自転車店の収入で飛行の実験をまかない、他人からの出資は受けなかった。", "src": "https://npshistory.com/handbooks/historical/34-1961.pdf" },
+    { "ja": "1900〜1908 年、自転車店は飛行機の工場も兼ね、グライダーや初期の動力機がそこで作られた。", "src": "https://www.thehenryford.org/collections/explore/articles/museum-icons-wright-cycle-shop" },
+    { "ja": "1900〜1902 年、キティホークでグライダーを試した。1902 年のグライダーは 1000 回近く滑空した。", "src": "https://npshistory.com/handbooks/historical/34-1961.pdf" },
+    { "ja": "1901 年、既存の揚力データに疑問を持ち、自作の風洞で 200 以上の翼の形を試験した。", "src": "https://www.thehenryford.org/collections/explore/articles/museum-icons-wright-cycle-shop" },
+    { "ja": "翼の先をねじる「たわみ翼」と方向舵を組み合わせ、機体を 3 軸で操る方法を確立した。", "src": "https://npshistory.com/handbooks/historical/34-1961.pdf" },
+    { "ja": "条件に合うエンジンがなかったため、整備士チャールズ・テイラーと約 12 馬力のエンジンを作った。", "src": "https://npshistory.com/handbooks/historical/34-1961.pdf" },
+    { "ja": "1903 年 12 月 17 日、動力飛行に 4 回成功した。初回は 12 秒・120 フィート、最長は 59 秒・852 フィートだった。", "src": "https://npshistory.com/handbooks/historical/34-1961.pdf" },
+    { "ja": "ウィルバーは 1912 年に腸チフスで没し、オーヴィルは 1948 年まで生きた。", "src": "https://npshistory.com/handbooks/historical/34-1961.pdf" }
+  ],
+  "anecdotes": [
+    { "ja": "キャンプでは弟オーヴィルが料理番、兄ウィルバーが皿洗いだったという。", "src": "https://npshistory.com/handbooks/historical/34-1961.pdf" },
+    { "ja": "兄弟は音楽や歌、いたずら、子どもや犬が好きだったと伝わる。", "src": "https://npshistory.com/handbooks/historical/34-1961.pdf" },
+    { "ja": "ウィルバーは、学び続けるには無用な危険を避けることが大切だと考えていた。", "src": "https://npshistory.com/handbooks/historical/34-1961.pdf" },
+    { "ja": "若いころ、廃品を集めて組んだ印刷機で近所向けの週刊新聞を出していた。", "src": "https://npshistory.com/handbooks/historical/34-1961.pdf" }
+  ],
+  "strengths_ja": ["データを自分で取り直す実証主義", "手を動かして作る技術", "兄弟の息の合った分担", "自己資金で続ける堅実さ"],
+  "weaknesses_ja": ["二人で抱え込み、外の協力を頼まない", "慎重さゆえに時間をかける"],
+  "aptitude": {
+    "strategy": { "g": "B", "why": "飛行の課題を揚力・推進・操縦に分けて順に解いた。" },
+    "logistics": { "g": "B", "why": "風の記録をもとに実験地を選び、遠征の段取りを整えた。" },
+    "sales": { "g": "B", "why": "自転車店を営み、自社ブランドの自転車を売った。" },
+    "marketing": { "g": "C", "why": "宣伝より実験を優先した。" },
+    "support": { "g": "C", "why": "客対応の特筆すべき記録はない。" },
+    "systems": { "g": "A", "why": "自作の測定器で独自のデータ表を作り、設計に生かした。" },
+    "rnd": { "g": "S", "why": "風洞実験で 200 以上の翼を試し、世界初の動力飛行を実現した。" },
+    "legal": { "g": "B", "why": "飛行機の基本特許を取り、のちに裁判で認められた。" },
+    "hr": { "g": "C", "why": "人を多く雇って育てた記録は少ない。" },
+    "general": { "g": "C", "why": "職場環境づくりの記録は特にない。" },
+    "accounting": { "g": "B", "why": "自転車店の収入だけで研究を続けた。" },
+    "sector_head": { "g": "C", "why": "大きな組織を率いた記録は少ない。" },
+    "shop": { "g": "B", "why": "自転車店で客と向き合った。" },
+    "craft": { "g": "S", "why": "自転車、エンジン、プロペラ、機体まで自分たちの工房で作った。" },
+    "buyer": { "g": "B", "why": "合うエンジンがなければ自作するなど、材料選びに妥協しなかった。" },
+    "digger": { "g": "B", "why": "砂丘の現場で 1000 回近い滑空試験を重ねた。" }
+  },
+  "best_roles": ["rnd", "craft", "systems"],
+  "personality_ja": "二人でお金も仕事も考えも分け合う、仲の良い兄弟。人の数字をうのみにせず、自分たちで測り直す慎重派で、無用な危険は避ける。根は陽気で、音楽や冗談が好き。兄はじっくり考え、弟は手早く動く、という分担で話す。",
+  "speech": {
+    "first_person": "僕たち（兄は「僕」、弟は「俺」）",
+    "second_person_to_owner": "社長",
+    "tone_ja": "兄弟の掛け合い。兄は落ち着いた理屈派、弟は気さくで元気",
+    "tics_ja": ["まず測ってから決めよう", "なあ兄さん", "データは嘘をつかない"],
+    "lines": {
+      "greet": ["ライト兄弟です。二人で一人前、よろしく！", "社長、工房を貸してくれ。すぐ試作するよ。"],
+      "propose": ["既存の数字は怪しい。自分たちで測り直そう。", "試作を小さく何度も回せば、必ず飛べる。"],
+      "approved": ["よし兄さん、さっそく取りかかろう！"],
+      "rejected": ["そうか。じゃあ風向きが変わるのを待とう。"],
+      "tired": ["今日は風が悪い。休んで明日また試そう。"],
+      "success": ["飛んだ！ 12 秒でも、最初の一歩だ！"]
+    }
+  },
+  "relations": [],
+  "mch": {
+    "attributes_ja": "理系学問; アメリカ大陸; デュオ; 機械",
+    "passive": "パッシブ名「ライトフライヤー号」は 1903 年に初の動力飛行をした機体。味方の素早さを上げる効果は飛行の速さになぞらえたもの。"
+  },
+  "cautions_ja": [],
+  "sources": [
+    "https://npshistory.com/handbooks/historical/34-1961.pdf",
+    "https://www.thehenryford.org/collections/explore/articles/museum-icons-wright-cycle-shop"
+  ]
+}

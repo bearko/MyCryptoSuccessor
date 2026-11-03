@@ -1,0 +1,201 @@
+{
+  "id": 2005,
+  "name_ja": "グリム兄弟",
+  "name_en": "Brothers Grimm",
+  "kind": "historical",
+  "era": "ヤーコプ 1785–1863・ヴィルヘルム 1786–1859（19 世紀前半のドイツ）",
+  "region": "ドイツ（ハーナウ・ゲッティンゲン・ベルリン）",
+  "summary_ja": "ドイツの言語学者・民俗学者の兄ヤーコプと弟ヴィルヘルム。ともにハーナウに生まれ、ゲッティンゲン大学とベルリン大学で司書や教授として働き、生涯の多くを研究に費やした。1812〜15 年の『子供と家庭のための童話』は 200 の話を収め、多くは口で語り継がれた話から集めたもので、「シンデレラ」「ヘンゼルとグレーテル」「赤ずきん」を世に広め、近代の民俗学のはじまりとなった。兄は『ドイツ文法』で「グリムの法則」と呼ばれる音の決まりを示し、1840 年代には二人で『ドイツ語辞典』を始めたが、完成には何世代もかかった。童話集は何度も版を重ね、手直しが続けられた。",
+  "facts": [
+    {
+      "ja": "兄ヤーコプは 1785 年 1 月 4 日、弟ヴィルヘルムは 1786 年 2 月 24 日に、ともにハーナウで生まれた。",
+      "src": "https://www.britannica.com/print/article/246228"
+    },
+    {
+      "ja": "ヴィルヘルムは 1859 年、ヤーコプは 1863 年に、ともにベルリンで没した。",
+      "src": "https://www.britannica.com/print/article/246228"
+    },
+    {
+      "ja": "二人はゲッティンゲン大学とベルリン大学で司書や教授として働いた。",
+      "src": "https://www.britannica.com/summary/Brothers-Grimm"
+    },
+    {
+      "ja": "『子供と家庭のための童話』（1812〜15）は 200 の話を収め、その多くは口承から集められた。",
+      "src": "https://www.britannica.com/summary/Brothers-Grimm"
+    },
+    {
+      "ja": "この童話集は近代の民俗学のもとになり、「シンデレラ」「ヘンゼルとグレーテル」「赤ずきん」を広めた。",
+      "src": "https://www.britannica.com/print/article/246228"
+    },
+    {
+      "ja": "ヤーコプは『ドイツ文法』（1819〜37）で、いま「グリムの法則」と呼ばれる言語の原理を詳しく示した。",
+      "src": "https://www.britannica.com/summary/Brothers-Grimm"
+    },
+    {
+      "ja": "ヤーコプの『ドイツ神話学』（1835）とヴィルヘルムの『ドイツ英雄伝説』（1829）など、それぞれ単独の仕事もあった。",
+      "src": "https://www.britannica.com/summary/Brothers-Grimm"
+    },
+    {
+      "ja": "1840 年代に歴史的な『ドイツ語辞典』を始めたが、完成までに何世代もかかった。",
+      "src": "https://www.britannica.com/summary/Brothers-Grimm"
+    },
+    {
+      "ja": "ヤーコプは 1848 年のフランクフルト国民議会の議員を務めた。",
+      "src": "https://germanhistorydocs.org/en/from-vormaerz-to-prussian-dominance-1815-1866/the-brothers-jakob-and-wilhelm-grimm-1847.pdf"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "童話集は 19 世紀を通じて何度も版を重ね、そのたびに手が加えられた。",
+      "src": "https://www.colorado.edu/projects/fairy-tales/brothers-grimm"
+    },
+    {
+      "ja": "兄弟は「ともに、また別々に」研究を続けたと紹介される。",
+      "src": "https://www.britannica.com/summary/Brothers-Grimm"
+    },
+    {
+      "ja": "童話のほかにも、ことわざや神話を集めた。",
+      "src": "https://germanhistorydocs.org/en/from-vormaerz-to-prussian-dominance-1815-1866/the-brothers-jakob-and-wilhelm-grimm-1847.pdf"
+    }
+  ],
+  "strengths_ja": [
+    "根気強い収集と記録",
+    "言葉への深い知識",
+    "二人で補い合う協力"
+  ],
+  "weaknesses_ja": [
+    "学問に没頭して大きな仕事が終わらない",
+    "派手な売り込みは苦手"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "C",
+      "why": "研究が中心で、組織の方針を立てた記録は乏しい。"
+    },
+    "logistics": {
+      "g": "C",
+      "why": "物の流れを扱った記録は無い。"
+    },
+    "sales": {
+      "g": "C",
+      "why": "交渉ごとの記録は乏しい。"
+    },
+    "marketing": {
+      "g": "B",
+      "why": "集めた童話が版を重ねて広く読まれ、有名な話を世に広めた。"
+    },
+    "support": {
+      "g": "B",
+      "why": "語り手から話を聞き取って集めた。"
+    },
+    "systems": {
+      "g": "A",
+      "why": "文法の決まりや辞典づくりで、言葉を体系にまとめた。"
+    },
+    "rnd": {
+      "g": "S",
+      "why": "口承の話を集めて民俗学のもとを築き、言語学でも法則を示した。"
+    },
+    "legal": {
+      "g": "C",
+      "why": "契約や争いの記録は乏しい（兄は議会の議員を務めた）。"
+    },
+    "hr": {
+      "g": "C",
+      "why": "人を率いた記録は乏しい。"
+    },
+    "general": {
+      "g": "C",
+      "why": "職場環境にかかわる記録は無い。"
+    },
+    "accounting": {
+      "g": "C",
+      "why": "お金の管理の記録は無い。"
+    },
+    "sector_head": {
+      "g": "C",
+      "why": "大学や図書館に勤めたが、組織を率いた記録は乏しい。"
+    },
+    "shop": {
+      "g": "C",
+      "why": "客と対面する記録は無い。"
+    },
+    "craft": {
+      "g": "B",
+      "why": "話を何度も手直しして本に仕上げた。"
+    },
+    "buyer": {
+      "g": "B",
+      "why": "各地の話やことわざを集め歩いた。"
+    },
+    "digger": {
+      "g": "A",
+      "why": "人々の口から昔話を掘り起こして書き留めた。"
+    }
+  },
+  "best_roles": [
+    "rnd",
+    "digger",
+    "systems"
+  ],
+  "personality_ja": "兄ヤーコプは厳密な学者肌で、細かな決まりを見つけるのが好き。弟ヴィルヘルムは物語の語り口を整えるのが得意で、柔らかい。二人とも根気強く、地道な聞き取りと記録を何十年も続ける。大きな仕事を仲よく分け合う。",
+  "speech": {
+    "first_person": "私たち（兄は「私」、弟は「僕」）",
+    "second_person_to_owner": "社長",
+    "tone_ja": "兄弟がかけ合いで話す。兄は几帳面で学術的、弟は穏やかで物語調。",
+    "tics_ja": [
+      "記録しておきましょう",
+      "昔からこう語られています",
+      "（兄）正確に。（弟）でも分かりやすく。"
+    ],
+    "lines": {
+      "greet": [
+        "グリム兄弟です。二人で一人前、いや二人前です。",
+        "社長、町の昔話から商いの種を集めてきます。"
+      ],
+      "propose": [
+        "客の声を一つ残らず書き留めて、本にしましょう。",
+        "古い言い伝えの品を復刻すれば、きっと喜ばれます。"
+      ],
+      "approved": [
+        "（兄）では記録を始めます。（弟）楽しみですね。"
+      ],
+      "rejected": [
+        "では版を改めて、もう一度お持ちします。"
+      ],
+      "tired": [
+        "辞書がまだ「A」の途中です……少し休みます。"
+      ],
+      "success": [
+        "集めた話が、こんなに多くの人に届きました。"
+      ]
+    }
+  },
+  "relations": [
+    {
+      "id": 2022,
+      "name_ja": "アンデルセン",
+      "ja": "同じ 19 世紀に童話で知られた同時代人。グリム兄弟は口承の話を集め、アンデルセンは自ら童話を書いた。"
+    },
+    {
+      "id": 2031,
+      "name_ja": "ビスマルク",
+      "ja": "兄ヤーコプが議員を務めた 1848 年のフランクフルト国民議会を、ビスマルクは首相として最初の演説で失敗の例に挙げた。"
+    }
+  ],
+  "mch": {
+    "attributes_ja": "文系学問; 動物; ドイツ; デュオ; 童話",
+    "passive": "ブレーメンの音楽隊：グリム兄弟の童話集に収められた話の題名から。"
+  },
+  "cautions_ja": [
+    "童話には残酷な場面を含む話もあり、ゲームで扱うときは表現をやわらげる。",
+    "童話をもとにした後世の映画・アニメなど他社の作品の設定を写さない。"
+  ],
+  "sources": [
+    "https://www.britannica.com/print/article/246228",
+    "https://www.britannica.com/summary/Brothers-Grimm",
+    "https://germanhistorydocs.org/en/from-vormaerz-to-prussian-dominance-1815-1866/the-brothers-jakob-and-wilhelm-grimm-1847.pdf",
+    "https://www.colorado.edu/projects/fairy-tales/brothers-grimm",
+    "https://dlab.epfl.ch/wikispeedia/wpcd/wp/o/Otto_von_Bismarck.htm"
+  ]
+}

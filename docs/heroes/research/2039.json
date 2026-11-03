@@ -1,0 +1,193 @@
+{
+  "id": 2039,
+  "name_ja": "ドストエフスキー",
+  "name_en": "Fyodor Dostoevsky",
+  "kind": "historical",
+  "era": "1821–1881（19 世紀）",
+  "region": "ロシア（モスクワ・サンクトペテルブルク）",
+  "summary_ja": "ロシアの小説家。貧しい人のための病院の医師の子としてモスクワに生まれ、ペテルブルクの陸軍工兵学校を出て技師として働いた。1846 年の『貧しき人々』の成功で文壇に入ったが、1849 年に自由主義的な集まり（ペトラシェフスキー会）にかかわって逮捕され、死刑を言い渡された。銃殺の場で皇帝の減刑が届き、シベリアのオムスクの監獄で 4 年の重労働、続いて兵役を務めた。そこでてんかんと診断されている。のちに雑誌を出しながら『罪と罰』『白痴』『悪霊』『カラマーゾフの兄弟』などを書いた。賭博にのめり込んで金に困り、『賭博者』を速記者アンナに口述し、のちに彼女と結婚した。心理への深い洞察で 20 世紀の文学や思想に大きな影響を与えた。",
+  "facts": [
+    {
+      "ja": "1821 年 11 月 11 日にモスクワで生まれ、1881 年 2 月 9 日にサンクトペテルブルクで 59 歳で没した。",
+      "src": "https://www.britannica.com/EBchecked/topic/169765"
+    },
+    {
+      "ja": "父ミハイルは、貧しい人のためのマリインスキー病院で働く医師だった。",
+      "src": "https://solarspell-dls.sfis.asu.edu/mea/wikipedia/wp/f/Fyodor_Dostoyevsky.htm"
+    },
+    {
+      "ja": "1838 年にペテルブルクの陸軍工兵学校に入り、のちに技師として働いたが、学校は好まなかった。",
+      "src": "https://solarspell-dls.sfis.asu.edu/mea/wikipedia/wp/f/Fyodor_Dostoyevsky.htm"
+    },
+    {
+      "ja": "1846 年 1 月に出た最初の小説『貧しき人々』が成功し、ペテルブルクの文学界に迎えられた。",
+      "src": "https://solarspell-dls.sfis.asu.edu/mea/wikipedia/wp/f/Fyodor_Dostoyevsky.htm"
+    },
+    {
+      "ja": "1849 年 4 月、自由主義的な討論の集まりにかかわって逮捕され、死刑を言い渡されたが、銃殺の場に皇帝ニコライ 1 世の減刑の知らせが届いた。",
+      "src": "https://solarspell-dls.sfis.asu.edu/mea/wikipedia/wp/f/Fyodor_Dostoyevsky.htm"
+    },
+    {
+      "ja": "オムスクの監獄で 4 年の重労働に服し、続いて兵役を務めた。そこでてんかんと診断された。",
+      "src": "https://solarspell-dls.sfis.asu.edu/mea/wikipedia/wp/f/Fyodor_Dostoyevsky.htm"
+    },
+    {
+      "ja": "『時代』『世紀』などの雑誌を発行・編集し、のちに『作家の日記』を出した。",
+      "src": "https://solarspell-dls.sfis.asu.edu/mea/wikipedia/wp/f/Fyodor_Dostoyevsky.htm"
+    },
+    {
+      "ja": "賭博にのめり込み、深刻な金銭難に陥った。",
+      "src": "https://solarspell-dls.sfis.asu.edu/mea/wikipedia/wp/f/Fyodor_Dostoyevsky.htm"
+    },
+    {
+      "ja": "『賭博者』を速記者アンナ・スニートキナに口述して 1866 年 10 月に書き上げ、1867 年 2 月に彼女と結婚した。",
+      "src": "https://solarspell-dls.sfis.asu.edu/mea/wikipedia/wp/f/Fyodor_Dostoyevsky.htm"
+    },
+    {
+      "ja": "その心理への洞察は、20 世紀の小説や実存主義、心理学・神学などに大きな影響を与えた。",
+      "src": "https://www.britannica.com/EBchecked/topic/169765"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "ロシアの革命家たちのふるまいを予見したとして、作品は「予言的」と呼ばれることが多い。",
+      "src": "https://www.britannica.com/EBchecked/topic/169765"
+    },
+    {
+      "ja": "『白痴』は 1869 年 1 月にフィレンツェで書き上げた。",
+      "src": "https://solarspell-dls.sfis.asu.edu/mea/wikipedia/wp/f/Fyodor_Dostoyevsky.htm"
+    },
+    {
+      "ja": "史上もっともすぐれた小説家の一人とふつう見なされている。",
+      "src": "https://www.britannica.com/EBchecked/topic/169765"
+    }
+  ],
+  "strengths_ja": [
+    "人の心の奥を見抜く洞察",
+    "締め切りに追われても書き上げる底力",
+    "どん底から立ち直る強さ"
+  ],
+  "weaknesses_ja": [
+    "賭け事にのめり込む",
+    "お金の管理が苦手",
+    "体が弱い"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "C",
+      "why": "大きな方針を立てた記録は乏しい。"
+    },
+    "logistics": {
+      "g": "C",
+      "why": "物の流れを扱った記録は無い。"
+    },
+    "sales": {
+      "g": "C",
+      "why": "交渉ごとの記録は乏しい。"
+    },
+    "marketing": {
+      "g": "B",
+      "why": "雑誌を発行・編集し、自ら読者に向けて発信した。"
+    },
+    "support": {
+      "g": "B",
+      "why": "貧しい人や苦しむ人の心を描いた。"
+    },
+    "systems": {
+      "g": "C",
+      "why": "技師として働いたが、仕組みづくりの記録は乏しい。"
+    },
+    "rnd": {
+      "g": "A",
+      "why": "人の心理を深く掘り下げ、後の思想や心理学に影響を与えた。"
+    },
+    "legal": {
+      "g": "C",
+      "why": "契約や争いの記録は乏しい。"
+    },
+    "hr": {
+      "g": "C",
+      "why": "人を率いた記録は乏しい。"
+    },
+    "general": {
+      "g": "C",
+      "why": "職場環境にかかわる記録は乏しい。"
+    },
+    "accounting": {
+      "g": "D",
+      "why": "賭博で深刻な金銭難に陥った。"
+    },
+    "sector_head": {
+      "g": "D",
+      "why": "組織を率いた記録は無い。"
+    },
+    "shop": {
+      "g": "D",
+      "why": "客と対面する務めの記録は無い。"
+    },
+    "craft": {
+      "g": "S",
+      "why": "『罪と罰』『カラマーゾフの兄弟』など、後世に残る長編を書き上げた。"
+    },
+    "buyer": {
+      "g": "D",
+      "why": "賭け事に弱く、買い付けを任せるのは危うい。"
+    },
+    "digger": {
+      "g": "C",
+      "why": "発掘の記録は無い。"
+    }
+  },
+  "best_roles": [
+    "craft",
+    "rnd",
+    "marketing"
+  ],
+  "personality_ja": "激しい情熱と深い思索をあわせ持つ。死の間際まで追いつめられた経験から、人の弱さや苦しみを見る目がとても鋭い。議論になると熱が入り、話が長くなる。賭け事やお金には弱く、締め切りに追われてからが本番という一面もある。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "熱っぽく思索的。話が長くなりがちで、問いかけと告白のような口調がまじる。",
+    "tics_ja": [
+      "人間というものは……",
+      "締め切りまであと何日です？",
+      "賭けではありません、これは信念です"
+    ],
+    "lines": {
+      "greet": [
+        "ドストエフスキーです。お客の心の奥まで見てみせます。",
+        "社長、この町の人々の悩みを、まず聞かせてください。"
+      ],
+      "propose": [
+        "客の不満の裏には、本当の願いがあります。聞き出しましょう。",
+        "雑誌を出しましょう。店の考えを毎月届けるのです。"
+      ],
+      "approved": [
+        "ありがたい。今夜は眠らずに書き上げます。"
+      ],
+      "rejected": [
+        "そうですか……人は皆、自分の正しさの中にいるのですね。"
+      ],
+      "tired": [
+        "少し休ませてください。頭が熱を持っています。"
+      ],
+      "success": [
+        "どん底からでも、人は立ち上がれるのです。"
+      ]
+    }
+  },
+  "relations": [],
+  "mch": {
+    "attributes_ja": "文系学問; 革命; ロシア",
+    "passive": "カラマーゾフの兄弟：晩年の長編の題名から。"
+  },
+  "cautions_ja": [
+    "死刑の宣告や監獄での重労働を経験した人物で、それを笑いのたねにしない。",
+    "てんかんや賭博への依存を、からかいや性格の決めつけに使わない。",
+    "ゲームで賭け事を勧める表現にしない。"
+  ],
+  "sources": [
+    "https://www.britannica.com/EBchecked/topic/169765",
+    "https://solarspell-dls.sfis.asu.edu/mea/wikipedia/wp/f/Fyodor_Dostoyevsky.htm"
+  ]
+}

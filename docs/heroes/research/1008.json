@@ -1,0 +1,188 @@
+{
+  "id": 1008,
+  "name_ja": "ジョン・L・サリバン",
+  "name_en": "John L. Sullivan",
+  "kind": "historical",
+  "era": "1858–1918（19 世紀後半〜20 世紀初頭）",
+  "region": "アメリカ（マサチューセッツ州ボストン）",
+  "summary_ja": "ボストン生まれのアイルランド系のボクサーで、「ボストン・ストロング・ボーイ」と呼ばれた。1882 年に素手の試合でパディ・ライアンを破ってアメリカ王者となり、1889 年にはジェイク・キルレインとの 75 ラウンドに及ぶ素手の試合に勝った。1884 年には全米を巡業し、3 ラウンド立っていられたら賞金を出すと挑戦者を募って大観衆を集めた。1892 年、グローブを使うクイーンズベリー・ルールの試合でジェームズ・J・コーベットに 21 ラウンドで敗れた。アメリカ最初のスポーツのスーパースターとされ、巨額を稼いだが多くを使い果たした。大酒による騒ぎや暴行で訴えられたこともあり、黒人ボクサーとの対戦を拒んだことも記録されている。晩年は酒を断ち、禁酒運動の講演者となった。",
+  "facts": [
+    {
+      "ja": "1858 年にボストンで生まれたアイルランド系で、「ボストン・ストロング・ボーイ」と呼ばれた。",
+      "src": "https://centuryireland.rte.ie/centuryireland/articles/legendary-prize-fighter-john-l-sullivan-dies"
+    },
+    {
+      "ja": "1882 年、ロンドン・プライズ・リング・ルールの素手の試合でパディ・ライアンを破り、アメリカ王者となった。",
+      "src": "https://centuryireland.rte.ie/centuryireland/articles/legendary-prize-fighter-john-l-sullivan-dies"
+    },
+    {
+      "ja": "1884 年に 8 か月で 28 州を巡業し、3 ラウンド立っていられた者に賞金を出すと挑戦者を募った。",
+      "src": "https://newenglandhistoricalsociety.com/john-l-sullivan-americas-first-superstar-athlete/"
+    },
+    {
+      "ja": "1889 年 7 月、ジェイク・キルレインと 75 ラウンドの素手の試合を戦って勝った。",
+      "src": "https://centuryireland.rte.ie/centuryireland/articles/legendary-prize-fighter-john-l-sullivan-dies"
+    },
+    {
+      "ja": "1892 年 9 月、ニューオーリンズでクイーンズベリー・ルールの試合を行い、コーベットに 21 ラウンドで KO 負けした。",
+      "src": "https://centuryireland.rte.ie/centuryireland/articles/legendary-prize-fighter-john-l-sullivan-dies"
+    },
+    {
+      "ja": "試合よりも興行と自己宣伝で多くを稼ぎ、生涯の稼ぎは 100 万ドルを超えたが、多くを使い果たした。",
+      "src": "https://newenglandhistoricalsociety.com/john-l-sullivan-americas-first-superstar-athlete/"
+    },
+    {
+      "ja": "リングを退いたのち、酒場の経営や俳優の仕事も試みた。",
+      "src": "https://centuryireland.rte.ie/centuryireland/articles/legendary-prize-fighter-john-l-sullivan-dies"
+    },
+    {
+      "ja": "1908 年ごろ酒を断ち、禁酒運動の講演者として人気を集めた。",
+      "src": "https://newenglandhistoricalsociety.com/john-l-sullivan-americas-first-superstar-athlete/"
+    },
+    {
+      "ja": "1918 年 2 月、マサチューセッツ州アビントンの自宅で心臓病のため 59 歳で没した。",
+      "src": "https://centuryireland.rte.ie/centuryireland/articles/legendary-prize-fighter-john-l-sullivan-dies"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "酒場などで「おれはどんな奴でも倒せる」と大声で挑戦を呼びかけるのが常だったという。",
+      "src": "https://newenglandhistoricalsociety.com/john-l-sullivan-americas-first-superstar-athlete/"
+    },
+    {
+      "ja": "「サリバンと握手した手と握手したい」という言い回しが芝居から生まれ、長く流行した。",
+      "src": "https://newenglandhistoricalsociety.com/john-l-sullivan-americas-first-superstar-athlete/"
+    },
+    {
+      "ja": "晩年、自分を負かしたのはコーベットではなく酒だったと語ったという。",
+      "src": "https://newenglandhistoricalsociety.com/john-l-sullivan-americas-first-superstar-athlete/"
+    }
+  ],
+  "strengths_ja": [
+    "人を集める圧倒的な人気",
+    "自己宣伝と興行の才",
+    "打たれても立つ頑丈さ",
+    "晩年に生き方を改めた意志"
+  ],
+  "weaknesses_ja": [
+    "大酒と浪費",
+    "かっとなりやすい",
+    "差別的な態度をとった過去"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "C",
+      "why": "長期の方針を立てた記録は少ない。"
+    },
+    "logistics": {
+      "g": "C",
+      "why": "巡業は大規模だったが、運営の手腕の記録は少ない。"
+    },
+    "sales": {
+      "g": "A",
+      "why": "全米巡業で 10 万人以上を集めたと自ら語るほど客を呼んだ。"
+    },
+    "marketing": {
+      "g": "S",
+      "why": "アメリカ最初のスポーツのスーパースターで、自己宣伝で大きく稼いだ。"
+    },
+    "support": {
+      "g": "B",
+      "why": "晩年は自らの失敗を語る禁酒の講演者として人々に向き合った。"
+    },
+    "systems": {
+      "g": "D",
+      "why": "仕組みづくりの記録はない。"
+    },
+    "rnd": {
+      "g": "D",
+      "why": "研究の記録はない。"
+    },
+    "legal": {
+      "g": "D",
+      "why": "むしろ自身が訴えられる側だった。"
+    },
+    "hr": {
+      "g": "B",
+      "why": "巡業の一座を率いて回った。"
+    },
+    "general": {
+      "g": "C",
+      "why": "自身の体調管理は酒で崩しがちだった。"
+    },
+    "accounting": {
+      "g": "D",
+      "why": "大金を稼いだが、ほとんど残らなかった。"
+    },
+    "sector_head": {
+      "g": "B",
+      "why": "人気で人を引っぱる親分肌だった。"
+    },
+    "shop": {
+      "g": "A",
+      "why": "大観衆の前に立って場を沸かせる華があった。"
+    },
+    "craft": {
+      "g": "C",
+      "why": "ものづくりの記録はない。"
+    },
+    "buyer": {
+      "g": "C",
+      "why": "買い付けの記録はない。"
+    },
+    "digger": {
+      "g": "C",
+      "why": "発掘の記録はない。"
+    }
+  },
+  "best_roles": [
+    "marketing",
+    "sales",
+    "shop"
+  ],
+  "personality_ja": "豪快で目立ちたがりの人気者。挑戦されれば受けて立つ負けん気と、観客を沸かせる華がある。若いころは酒と気の短さで騒ぎを起こしたが、晩年は自らの失敗を認めて酒を断ち、人々にその経験を語った。根は気前がよく、仲間や客を楽しませるのが好き。",
+  "speech": {
+    "first_person": "俺",
+    "second_person_to_owner": "ボス",
+    "tone_ja": "豪快で威勢のいい口調。自信たっぷりで、勝負ごとのたとえが多い",
+    "tics_ja": [
+      "かかってこい！",
+      "まだ倒れちゃいねえ"
+    ],
+    "lines": {
+      "greet": [
+        "サリバンだ！客ならいくらでも呼んでやるぜ。",
+        "ボス、この町の看板は俺に任せな！"
+      ],
+      "propose": [
+        "派手な興行を打とうぜ。客は必ず来る！",
+        "挑戦者募集の大売り出しだ。燃えるだろ？"
+      ],
+      "approved": [
+        "よっしゃ！ゴングを鳴らすぜ！"
+      ],
+      "rejected": [
+        "ちっ……まあいい、次のラウンドで勝つ。"
+      ],
+      "tired": [
+        "さすがに足にきた。水をくれ、酒じゃなくな。"
+      ],
+      "success": [
+        "見たか！満員御礼、ノックアウトだ！"
+      ]
+    }
+  },
+  "relations": [],
+  "mch": {
+    "attributes_ja": "決闘; アメリカ大陸; 格闘",
+    "passive": "パッシブ名「ボストン・ストロング・ボーイ」は彼の通り名。打たれるほど力をためる効果は、75 ラウンドを戦い抜いた頑丈さと重なる。"
+  },
+  "cautions_ja": [
+    "大酒・暴行での訴追や妻への暴力の訴えがあった。ゲームで暴力や飲酒を美化しない。",
+    "黒人ボクサーとの対戦を拒んだ人種差別の記録がある。差別的なセリフや設定を作らない。"
+  ],
+  "sources": [
+    "https://newenglandhistoricalsociety.com/john-l-sullivan-americas-first-superstar-athlete/",
+    "https://centuryireland.rte.ie/centuryireland/articles/legendary-prize-fighter-john-l-sullivan-dies"
+  ]
+}

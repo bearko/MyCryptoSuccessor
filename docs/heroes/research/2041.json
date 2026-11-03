@@ -1,0 +1,198 @@
+{
+  "id": 2041,
+  "name_ja": "ベンジャミン・フランクリン",
+  "name_en": "Benjamin Franklin",
+  "kind": "historical",
+  "era": "1706–1790（18 世紀）",
+  "region": "アメリカ（ボストン・フィラデルフィア）。フランスにも駐在",
+  "summary_ja": "アメリカ建国の父の一人で、印刷業者・発明家・外交官。ボストンのろうそくと石けん職人の家に生まれ、12 歳で兄の印刷所の徒弟となった。17 歳でフィラデルフィアへ移って印刷と出版で成功し、『貧しいリチャードの暦』を出した。討論の会ジャントー、図書館会社、消防組合、のちのペンシルベニア大学となる学校など、町の仕組みを次々につくった。避雷針・フランクリンストーブ・遠近両用めがねの発明者とされる。独立宣言の起草委員を務め、1776〜85 年はフランスで軍事同盟を取りつけ、1783 年のパリ条約の交渉にも加わった。1787 年の憲法制定会議にも出席した。晩年は奴隷制廃止の会の会長を務めた。凧の実験の話には疑問もある。",
+  "facts": [
+    {
+      "ja": "1706 年 1 月 17 日にボストンで、ろうそくと石けんを作る職人の 15 番目の子として生まれた。",
+      "src": "https://dlab.epfl.ch/wikispeedia/wpcd/wp/b/Benjamin_Franklin.htm"
+    },
+    {
+      "ja": "12 歳で兄ジェームズの印刷所の徒弟となり、17 歳で家を出てフィラデルフィアで印刷業と出版を営んだ。",
+      "src": "https://dlab.epfl.ch/wikispeedia/wpcd/wp/b/Benjamin_Franklin.htm"
+    },
+    {
+      "ja": "『ペンシルベニア・ガゼット』を発行し、1733 年から『貧しいリチャードの暦』を出した。",
+      "src": "https://dlab.epfl.ch/wikispeedia/wpcd/wp/b/Benjamin_Franklin.htm"
+    },
+    {
+      "ja": "討論の会ジャントー、図書館会社（1731）、ユニオン消防組合（1736）の設立にかかわり、のちのペンシルベニア大学となる学校も率いた。",
+      "src": "https://dlab.epfl.ch/wikispeedia/wpcd/wp/b/Benjamin_Franklin.htm"
+    },
+    {
+      "ja": "避雷針、フランクリンストーブ、遠近両用めがねの発明者とされる。",
+      "src": "https://dlab.epfl.ch/wikispeedia/wpcd/wp/b/Benjamin_Franklin.htm"
+    },
+    {
+      "ja": "1753 年に北アメリカの郵便副長官の一人となり、1775〜76 年には大陸会議の郵便長官を務めた。",
+      "src": "https://dlab.epfl.ch/wikispeedia/wpcd/wp/b/Benjamin_Franklin.htm"
+    },
+    {
+      "ja": "1776 年、独立宣言を起草した 5 人の委員の一人となった。",
+      "src": "https://dlab.epfl.ch/wikispeedia/wpcd/wp/b/Benjamin_Franklin.htm"
+    },
+    {
+      "ja": "1776 年末から 1785 年までフランスに駐在し、大事な軍事同盟を取りつけ、1783 年のパリ条約の交渉にも加わった。",
+      "src": "https://dlab.epfl.ch/wikispeedia/wpcd/wp/b/Benjamin_Franklin.htm"
+    },
+    {
+      "ja": "1787 年の憲法制定会議に出席し、建国の主な 4 つの文書すべてに署名した唯一の建国の父とされる。",
+      "src": "https://dlab.epfl.ch/wikispeedia/wpcd/wp/b/Benjamin_Franklin.htm"
+    },
+    {
+      "ja": "晩年は奴隷制廃止の会の会長となって反対の文章を書き、1790 年 4 月 17 日にフィラデルフィアで没した。",
+      "src": "https://dlab.epfl.ch/wikispeedia/wpcd/wp/b/Benjamin_Franklin.htm"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "凧で雷を調べる実験は 1750 年に提案したが、フランスで先に似た実験が行われ、本人の記録は 1767 年まで出なかった。よく語られる形で凧を揚げたかは疑わしい。",
+      "src": "https://dlab.epfl.ch/wikispeedia/wpcd/wp/b/Benjamin_Franklin.htm"
+    },
+    {
+      "ja": "15 歳のとき「サイレンス・ドゥーグッド夫人」の名で、新聞に匿名の手紙を書いた。",
+      "src": "https://dlab.epfl.ch/wikispeedia/wpcd/wp/b/Benjamin_Franklin.htm"
+    },
+    {
+      "ja": "20 歳で自分のための 13 の徳を立て、その一つは「節制：飽きるほど食べず、酔うほど飲まない」だった。",
+      "src": "https://dlab.epfl.ch/wikispeedia/wpcd/wp/b/Benjamin_Franklin.htm"
+    }
+  ],
+  "strengths_ja": [
+    "町の仕組みをつくる実行力",
+    "印刷・出版で広める力",
+    "外交の粘り強さ",
+    "好奇心と発明"
+  ],
+  "weaknesses_ja": [
+    "手を広げすぎる",
+    "才気が先に立ち敵もつくる"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "A",
+      "why": "独立宣言の起草や憲法制定会議にかかわり、国の方向づけに加わった。"
+    },
+    "logistics": {
+      "g": "A",
+      "why": "郵便の長官として通信の流れを預かった。"
+    },
+    "sales": {
+      "g": "S",
+      "why": "フランスで軍事同盟を取りつけ、パリ条約の交渉にも加わった。"
+    },
+    "marketing": {
+      "g": "A",
+      "why": "新聞と暦を出版し、言葉を広く届けた。"
+    },
+    "support": {
+      "g": "B",
+      "why": "町の人が集まる会や図書館をつくった。"
+    },
+    "systems": {
+      "g": "A",
+      "why": "図書館・消防組合・学校など、町の仕組みを次々につくった。"
+    },
+    "rnd": {
+      "g": "A",
+      "why": "避雷針・ストーブ・遠近両用めがねなどを考え出した。"
+    },
+    "legal": {
+      "g": "A",
+      "why": "建国の主な文書すべてに署名し、条約の交渉にもかかわった。"
+    },
+    "hr": {
+      "g": "B",
+      "why": "討論の会ジャントーで仲間を集めた。"
+    },
+    "general": {
+      "g": "B",
+      "why": "消防組合など、町の安全の仕組みをつくった。"
+    },
+    "accounting": {
+      "g": "B",
+      "why": "13 の徳で節制を説き、印刷業で財をなした。"
+    },
+    "sector_head": {
+      "g": "B",
+      "why": "大学の前身となる学校などの組織を率いた。"
+    },
+    "shop": {
+      "g": "B",
+      "why": "印刷所を営み、客と商いをした。"
+    },
+    "craft": {
+      "g": "B",
+      "why": "印刷の職人として腕をみがいた。"
+    },
+    "buyer": {
+      "g": "C",
+      "why": "買い付けの記録は乏しい。"
+    },
+    "digger": {
+      "g": "C",
+      "why": "発掘の記録は無い。"
+    }
+  },
+  "best_roles": [
+    "sales",
+    "systems",
+    "marketing"
+  ],
+  "personality_ja": "好奇心が強く、何でも試してみる実務家。困りごとを見つけると、会や組合をつくって皆で解決しようとする。冗談とたとえ話がうまく、相手の懐に入るのが得意。倹約と勤勉を自分に課すが、手を広げすぎることもある。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "気さくで機知に富む。格言めいた言い回しと実用的な提案をまじえる。",
+    "tics_ja": [
+      "まず試してみましょう",
+      "会をつくりましょう",
+      "節約した一銭は稼いだ一銭（フランクリンの格言として伝わる）"
+    ],
+    "lines": {
+      "greet": [
+        "フランクリンです。印刷でも発明でも交渉でも、お任せを。",
+        "社長、町に足りない仕組みを三つ見つけてきました。"
+      ],
+      "propose": [
+        "商店主で会をつくり、本を持ち寄って学び合いましょう。",
+        "隣町との交渉は私が。笑顔と条約は両立します。"
+      ],
+      "approved": [
+        "では明日の朝刊に載せましょう。"
+      ],
+      "rejected": [
+        "なるほど。では改良版をお持ちします。"
+      ],
+      "tired": [
+        "早寝早起きが私の主義でして。今日はこれで。"
+      ],
+      "success": [
+        "ごらんなさい、雷も味方につければ明かりになる。"
+      ]
+    }
+  },
+  "relations": [
+    {
+      "id": 5004,
+      "name_ja": "ジョージ・ワシントン",
+      "ja": "ともにアメリカ独立を進めた建国の父で、1787 年の憲法制定会議にそろって加わった。"
+    }
+  ],
+  "mch": {
+    "attributes_ja": "政治; 文系学問; 理系学問; アメリカ大陸; アメリカンドリーム",
+    "passive": "凧とライデン瓶の雷実験：雷が電気であることを確かめようとした凧の実験の話から（実際に行ったかには疑問がある）。"
+  },
+  "cautions_ja": [
+    "凧の実験は、よく語られる形で行ったか疑わしく、史実として断定しない。",
+    "奴隷制の時代の人物で、晩年は廃止の会の会長を務めた。奴隷制にかかわる話題は慎重に扱う。"
+  ],
+  "sources": [
+    "https://dlab.epfl.ch/wikispeedia/wpcd/wp/b/Benjamin_Franklin.htm",
+    "https://kids.britannica.com/students/article/Benjamin-Franklin/274417/201161-toc"
+  ]
+}

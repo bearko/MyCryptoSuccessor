@@ -1,0 +1,182 @@
+{
+  "id": 2032,
+  "name_ja": "モンゴメリ",
+  "name_en": "L. M. Montgomery",
+  "kind": "historical",
+  "era": "1874–1942（19 世紀末〜20 世紀前半）",
+  "region": "カナダ（プリンスエドワード島・オンタリオ）",
+  "summary_ja": "カナダの作家ルーシー・モード・モンゴメリ。プリンスエドワード島に生まれ、2 歳になる前に母を亡くして祖父母に育てられた。さびしい子ども時代を、空想の友だちをつくって過ごしたという。学生時代の 1890 年に最初の詩を発表し、教師や新聞記者を経て、1908 年に最初の長編『赤毛のアン（グリーン・ゲイブルズのアン）』を出した。型破りで元気な孤児の少女アンの物語は、自分の少女時代と島の田舎の暮らしをもとにしており、大人にも子どもにも読まれて国際的な成功を収め、多くの言葉に訳された。アンが母親になるまでを描く続編のほか、別のシリーズや詩、日記や手紙も残した。結婚して家庭を持ちながら書き続けた。",
+  "facts": [
+    {
+      "ja": "1874 年 11 月 30 日にカナダのプリンスエドワード島クリフトンで生まれ、1942 年 4 月 24 日にトロントで没した。",
+      "src": "https://britannica.com/print/article/390935"
+    },
+    {
+      "ja": "2 歳になる前に母を亡くし、祖父母に育てられた。",
+      "src": "https://www.canada.ca/fr/femmes-egalite-genres/commemorations-celebrations/femmes-influence/arts/lucy-maud-montgomery.html"
+    },
+    {
+      "ja": "学生時代の 1890 年に、最初の詩を発表した。",
+      "src": "https://www.canada.ca/fr/femmes-egalite-genres/commemorations-celebrations/femmes-influence/arts/lucy-maud-montgomery.html"
+    },
+    {
+      "ja": "作家になる前は、教師や新聞記者として働いた。",
+      "src": "https://britannica.com/print/article/390935"
+    },
+    {
+      "ja": "1908 年に最初の長編『赤毛のアン（グリーン・ゲイブルズのアン）』を出し、型破りで元気な孤児の少女を描いた。",
+      "src": "https://britannica.com/print/article/390935"
+    },
+    {
+      "ja": "この小説は自分の少女時代とプリンスエドワード島の田舎の暮らしをもとにしている。",
+      "src": "https://britannica.com/print/article/390935"
+    },
+    {
+      "ja": "大人にも子どもにも読まれて国際的な成功を収め、5,000 万部以上が売れ、36 の言語に訳された。",
+      "src": "https://www.canada.ca/fr/femmes-egalite-genres/commemorations-celebrations/femmes-influence/arts/lucy-maud-montgomery.html"
+    },
+    {
+      "ja": "アンが少女から母親になるまでを描く続編が書かれたが、最初の作ほどの成功はなかった。",
+      "src": "https://britannica.com/print/article/390935"
+    },
+    {
+      "ja": "結婚して家庭を持ちながら、別のシリーズの小説や詩集、たくさんの日記や手紙を書いた。",
+      "src": "https://www.canada.ca/fr/femmes-egalite-genres/commemorations-celebrations/femmes-influence/arts/lucy-maud-montgomery.html"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "さびしい子ども時代、空想の友だちをつくってさびしさをしのいだという。",
+      "src": "https://www.canada.ca/fr/femmes-egalite-genres/commemorations-celebrations/femmes-influence/arts/lucy-maud-montgomery.html"
+    },
+    {
+      "ja": "『赤毛のアン』は映画・舞台・ラジオになり、何度もテレビの連続ドラマにもなった。",
+      "src": "https://www.canada.ca/fr/femmes-egalite-genres/commemorations-celebrations/femmes-influence/arts/lucy-maud-montgomery.html"
+    }
+  ],
+  "strengths_ja": [
+    "豊かな想像力",
+    "日々の暮らしを生き生きと描く力",
+    "長く書き続ける粘り強さ"
+  ],
+  "weaknesses_ja": [
+    "さびしさを抱えやすい",
+    "最初の成功を超えるのに苦労する"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "C",
+      "why": "大きな方針を立てた記録は無い。"
+    },
+    "logistics": {
+      "g": "C",
+      "why": "物の流れを扱った記録は無い。"
+    },
+    "sales": {
+      "g": "C",
+      "why": "交渉ごとの記録は乏しい。"
+    },
+    "marketing": {
+      "g": "A",
+      "why": "一冊の小説が世界中で読まれ、多くの言葉に訳された。"
+    },
+    "support": {
+      "g": "B",
+      "why": "孤独な少女の気持ちに寄り添う物語を書いた。"
+    },
+    "systems": {
+      "g": "C",
+      "why": "仕組みづくりの記録は無い。"
+    },
+    "rnd": {
+      "g": "C",
+      "why": "研究の記録は無い。"
+    },
+    "legal": {
+      "g": "D",
+      "why": "契約や争いの記録は乏しい。"
+    },
+    "hr": {
+      "g": "B",
+      "why": "教師として子どもを教えた。"
+    },
+    "general": {
+      "g": "B",
+      "why": "島の暮らしの心地よさを物語に描いた。"
+    },
+    "accounting": {
+      "g": "C",
+      "why": "お金の管理の記録は乏しい。"
+    },
+    "sector_head": {
+      "g": "D",
+      "why": "組織を率いた記録は無い。"
+    },
+    "shop": {
+      "g": "B",
+      "why": "新聞記者として人と接する仕事をした。"
+    },
+    "craft": {
+      "g": "S",
+      "why": "長編・続編・詩・日記と、生涯にわたって書き続けた。"
+    },
+    "buyer": {
+      "g": "C",
+      "why": "買い付けの記録は無い。"
+    },
+    "digger": {
+      "g": "C",
+      "why": "発掘の記録は無い。"
+    }
+  },
+  "best_roles": [
+    "craft",
+    "marketing",
+    "hr"
+  ],
+  "personality_ja": "空想が好きで、ありふれた景色にも名前をつけて楽しむ。さびしさを知っているぶん、ひとりぼっちの人の気持ちに敏感。明るくおしゃべりだが、書く仕事には真面目でこつこつ取り組む。家族と仕事の両方を大切にする。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長さん",
+    "tone_ja": "明るく夢見がちな丁寧語。景色や品物に名前をつけ、想像をふくらませて話す。",
+    "tics_ja": [
+      "想像してみてください",
+      "この品に名前をつけましょう",
+      "明日は新しい一日です"
+    ],
+    "lines": {
+      "greet": [
+        "モンゴメリです。この店、想像の余地がいっぱいですね。",
+        "社長さん、店の前の小道に素敵な名前をつけました。"
+      ],
+      "propose": [
+        "売り場に物語を。島の暮らしを思わせる飾りつけです。",
+        "さびしいお客さんにも声をかける店にしましょう。"
+      ],
+      "approved": [
+        "まあ、うれしい！さっそく書きはじめます。"
+      ],
+      "rejected": [
+        "そうですか……でも想像するのは自由ですよね。"
+      ],
+      "tired": [
+        "少し窓辺で休みます。空を眺めていたいんです。"
+      ],
+      "success": [
+        "夢みたい！想像していたよりずっと素敵です。"
+      ]
+    }
+  },
+  "relations": [],
+  "mch": {
+    "attributes_ja": "文系学問; 女性; アメリカ大陸",
+    "passive": "グリーンゲイブルズ：代表作『グリーン・ゲイブルズのアン』の家の名から。"
+  },
+  "cautions_ja": [
+    "代表作をもとにした後世の映画・アニメ・ドラマなど他社の作品の設定やセリフを写さない。"
+  ],
+  "sources": [
+    "https://britannica.com/print/article/390935",
+    "https://www.canada.ca/fr/femmes-egalite-genres/commemorations-celebrations/femmes-influence/arts/lucy-maud-montgomery.html"
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "id": 4036,
+  "name_ja": "黒髭",
+  "name_en": "Blackbeard",
+  "kind": "historical",
+  "era": "1680年ごろ–1718（海賊の黄金時代）",
+  "region": "イギリス出身とされる／カリブ海・北アメリカ東海岸",
+  "summary_ja": "18世紀初めにカリブ海と北アメリカ東海岸で活動した海賊。本名はエドワード・ティーチとされるが、海賊は偽名を使うことが多く確かではない。生年・出生地も不明で、1680年ごろブリストル生まれとよく言われる。私掠船員だった可能性があり、1716年ごろバハマでホーニゴールドの下にいた。1717年にフランスの奴隷船ラ・コンコルドを奪って40門のクイーン・アンズ・リベンジ号とし、1718年にはチャールストン港を封鎖した。同年ノースカロライナ総督から恩赦を受けたが、まもなく海賊行為に戻り、11月22日オクラコークでメイナード大尉の部隊と戦って死んだ。長いひげと恐ろしげな姿は、相手を戦わずに降伏させる演出だったとされる。財宝伝説などは後世の伝承。",
+  "facts": [
+    { "ja": "生年と出生地は分かっておらず、1680年ごろイングランドのブリストル生まれとよく言われる。", "src": "https://ncpedia.org/biography/blackbeard-the-pirate" },
+    { "ja": "エドワード・ティーチの名で知られるが、ThatchやThacheなどの表記もあり、海賊は偽名を使うことが多かったため本名ははっきりしない。", "src": "https://www.britannica.com/biography/Blackbeard" },
+    { "ja": "海賊になる前は、アン女王戦争（スペイン継承戦争）で私掠船員として働いていた可能性がある。", "src": "https://www.nps.gov/caha/learn/historyculture/blackbeard-edward-teach.htm" },
+    { "ja": "1716年ごろにはバハマのニュープロビデンスを拠点とし、海賊ベンジャミン・ホーニゴールドの下にいた。", "src": "https://ncpedia.org/biography/blackbeard-the-pirate" },
+    { "ja": "1717年11月、フランスが奴隷船として使っていたラ・コンコルド号を奪い、クイーン・アンズ・リベンジ号と改名した。", "src": "https://www.rmg.co.uk/stories/maritime-history/who-was-blackbeard" },
+    { "ja": "1718年5月にチャールストン港を封鎖して出入りの船を止め、捕虜と引き換えに総督と評議会から薬箱を手に入れた。", "src": "https://ncpedia.org/biography/blackbeard-the-pirate" },
+    { "ja": "1718年6月、ノースカロライナのバスでチャールズ・イーデン総督から恩赦を受けたが、まもなく海賊行為に戻った。", "src": "https://ncpedia.org/biography/blackbeard-the-pirate" },
+    { "ja": "海賊としての活動はおよそ2年で、最大400人ほどを率いた。", "src": "https://www.nps.gov/caha/learn/historyculture/blackbeard-edward-teach.htm" },
+    { "ja": "1718年11月22日、バージニア副総督スポッツウッドが送ったメイナード大尉の部隊とオクラコークで白兵戦となって死に、首は船首に吊るされた。", "src": "https://www.britannica.com/biography/Blackbeard" },
+    { "ja": "1990年代半ばにノースカロライナ沖でクイーン・アンズ・リベンジ号の沈船が見つかり、大砲や航海用具などが引き上げられた。", "src": "https://www.britannica.com/biography/Blackbeard" }
+  ],
+  "anecdotes": [
+    { "ja": "長い黒ひげをリボンで編み、帽子の下に火のついた導火線を差して煙をくゆらせたと伝えられる。", "src": "https://ncpedia.org/biography/blackbeard-the-pirate" },
+    { "ja": "恐ろしい見た目は相手に抵抗をあきらめさせるための演出だったとされる。", "src": "https://www.rmg.co.uk/stories/maritime-history/who-was-blackbeard" },
+    { "ja": "1724年のジョンソン『海賊史』は妻が14人いたと書くが、記録上の正式な結婚は一度だけである。", "src": "https://www.rmg.co.uk/stories/maritime-history/who-was-blackbeard" },
+    { "ja": "どこかに財宝を埋めたという伝説があるが、見つかっておらず、実在しなかった可能性が高い。", "src": "https://www.britannica.com/biography/Blackbeard" },
+    { "ja": "「紳士海賊」スティード・ボネットを自分の船に乗せ、ボネットの船の指揮から外したことがある。", "src": "https://www.rmg.co.uk/stories/maritime-history/who-was-blackbeard" }
+  ],
+  "strengths_ja": ["自分の見せ方（イメージ戦略）", "大胆な交渉の押しの強さ", "大人数の船団を率いる力"],
+  "weaknesses_ja": ["約束を守らず恩赦後に海賊に戻った", "法と秩序との衝突", "仲間を置き去りにしたこともある"],
+  "aptitude": {
+    "strategy": { "g": "C", "why": "海賊の活動は2年ほどで終わり、長期的な方針を立てた記録は乏しい。" },
+    "logistics": { "g": "B", "why": "数隻の船団と最大400人ほどを率いて海上で活動した。" },
+    "sales": { "g": "B", "why": "チャールストン封鎖で一発も撃たずに要求を通したが、手段は脅しであり穏当ではない。" },
+    "marketing": { "g": "S", "why": "ひげと煙の姿で恐ろしい評判をつくり、戦わずに降伏させる効果を狙った。" },
+    "support": { "g": "D", "why": "相手を怖がらせることで知られ、満足度を上げる仕事とは正反対。" },
+    "systems": { "g": "C", "why": "仕組みづくりにかかわる史実はない。" },
+    "rnd": { "g": "C", "why": "研究の史実はないが、奪った船を40門の艦に改造した。" },
+    "legal": { "g": "D", "why": "恩赦を受けたのにまもなく海賊行為に戻った。" },
+    "hr": { "g": "B", "why": "多くの船員を従えたが、のちに大半を置き去りにした。" },
+    "general": { "g": "C", "why": "働く環境を整えた記録はない。" },
+    "accounting": { "g": "C", "why": "総督と分け前の取り決めをしたとされるが、帳簿の管理は不明。" },
+    "sector_head": { "g": "C", "why": "入り江に拠点を置いたが、町を治めた記録はない。" },
+    "shop": { "g": "C", "why": "強面で客を迎える仕事には向きにくい。" },
+    "craft": { "g": "C", "why": "船の改造は行わせたが、本人が作った記録はない。" },
+    "buyer": { "g": "B", "why": "封鎖の際、必要な薬箱を名指しで手に入れた。" },
+    "digger": { "g": "B", "why": "海の現場には強いが、財宝を掘った話は伝説にすぎない。" }
+  },
+  "best_roles": ["marketing", "logistics", "buyer"],
+  "personality_ja": "見た目と評判で相手を圧する演出家。強気で大胆、場の空気を一気に支配するが、約束や秩序にはこだわらない。ゲームでは、海賊行為ではなく「強烈なブランドの見せ方」と「押しの強い買い付け」を得意とする強面の船長として描く。",
+  "speech": {
+    "first_person": "俺",
+    "second_person_to_owner": "社長",
+    "tone_ja": "豪快で芝居がかった口調。脅し文句のように聞こえるが、中身は商売の話",
+    "tics_ja": ["ハッハー！", "評判ってのは武器だぜ", "帆を上げろ"],
+    "lines": {
+      "greet": ["黒髭様のお出ましだ。今日からこの船、いや会社に乗るぜ。", "ひげの手入れは済んだ。仕事を回してくれ、社長。"],
+      "propose": ["派手な看板を出そうぜ。見ただけで客が震える奴をな。", "あの港の品、俺が丸ごと買い付けてくる。"],
+      "approved": ["ハッハー！話が早い社長は好きだぜ。"],
+      "rejected": ["ちっ…まあいい、風向きが変わるのを待つさ。"],
+      "tired": ["ひげの煙も湿ってきた。少し陸で休ませろ。"],
+      "success": ["見たか、評判ひとつで客が押し寄せたぜ！"]
+    }
+  },
+  "relations": [
+    { "id": 3029, "name_ja": "メアリ・リード", "ja": "同じ「海賊の黄金時代」にカリブ海で活動した同時代の海賊（史実では黒髭の一味ではなく、ジャック・ラカムの船にいた）。" },
+    { "id": 3032, "name_ja": "アン・ボニー", "ja": "同じ時代にカリブ海で活動した同時代の海賊（史実では黒髭の一味ではなく、ジャック・ラカムの船にいた）。" }
+  ],
+  "mch": {
+    "attributes_ja": "海; 銃火器; アメリカ大陸; 黒ひげ海賊団",
+    "passive": "クイーン・アンズ・リベンジ：黒髭が奴隷船ラ・コンコルドを奪って改造した旗艦の名で、沈船はのちに発見された。"
+  },
+  "cautions_ja": [
+    "海賊行為・脅迫・殺傷にかかわる人物なので、犯罪を美化せず、ゲームでは見せ方や買い付けの役として穏当に描く。",
+    "旗艦は奴隷船を奪ったものであり、奴隷貿易の歴史に触れる。軽く扱わない。",
+    "妻14人・財宝伝説などは後世の伝承で、史実として書かない。",
+    "MCHの属性「黒ひげ海賊団」にメアリ・リードとアン・ボニーが入っているが、史実では黒髭の一味ではない。"
+  ],
+  "sources": [
+    "https://www.britannica.com/biography/Blackbeard",
+    "https://www.nps.gov/caha/learn/historyculture/blackbeard-edward-teach.htm",
+    "https://ncpedia.org/biography/blackbeard-the-pirate",
+    "https://www.rmg.co.uk/stories/maritime-history/who-was-blackbeard"
+  ]
+}

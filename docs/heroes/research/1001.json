@@ -1,0 +1,202 @@
+{
+  "id": 1001,
+  "name_ja": "コナン・ドイル",
+  "name_en": "Arthur Conan Doyle",
+  "kind": "historical",
+  "era": "1859–1930（ヴィクトリア朝〜20 世紀初頭）",
+  "region": "イギリス（スコットランド・エディンバラ生まれ）",
+  "summary_ja": "エディンバラ生まれの医師・作家。エディンバラ大学で医学を学び、船医や開業医を経て、1887 年の『緋色の研究』で名探偵シャーロック・ホームズを世に出した。ホームズの推理法は恩師ジョゼフ・ベル教授の観察眼に一部ならったものとされる。1893 年に一度ホームズを死なせたが、読者の強い反発もあって後に復活させた。ボーア戦争には医師として従軍し、英国を擁護する小冊子を書いて 1902 年にナイトに叙された。冤罪事件の救済にも熱心で、ジョージ・エダルジ事件では新聞記事で世論を動かした。晩年はスピリチュアリズム（心霊主義）に深く傾倒し、一時は妖精の実在も信じたと伝えられる。",
+  "facts": [
+    {
+      "ja": "1859 年 5 月 22 日にエディンバラで生まれ、1930 年 7 月 7 日に没した。",
+      "src": "https://www.undiscoveredscotland.co.uk/usbiography/d/sirarthurconandoyle.html"
+    },
+    {
+      "ja": "1876〜1881 年にエディンバラ大学で医学を学んだ。",
+      "src": "https://www.undiscoveredscotland.co.uk/usbiography/d/sirarthurconandoyle.html"
+    },
+    {
+      "ja": "1880 年に北極海の捕鯨船、1881 年に西アフリカ行きの客船で船医を務め、1882 年にサウスシーで開業した。",
+      "src": "https://www.undiscoveredscotland.co.uk/usbiography/d/sirarthurconandoyle.html"
+    },
+    {
+      "ja": "シャーロック・ホームズは 1887 年の『緋色の研究』で初めて登場した。",
+      "src": "https://www.undiscoveredscotland.co.uk/usbiography/d/sirarthurconandoyle.html"
+    },
+    {
+      "ja": "医学生時代、ジョゼフ・ベル教授の助手（クラーク）として王立病院で働き、患者の外見から職業などを言い当てるベルの診断法を間近で見た。",
+      "src": "https://history.com/news/was-sherlock-holmes-based-on-a-real-person"
+    },
+    {
+      "ja": "1893 年の作品でホームズを宿敵モリアーティとともに滝で死なせたが、1902 年の『バスカヴィル家の犬』で再び登場させた。",
+      "src": "https://www.undiscoveredscotland.co.uk/usbiography/d/sirarthurconandoyle.html"
+    },
+    {
+      "ja": "ボーア戦争に医師として従軍し、英国の立場を擁護する小冊子を書いた。1902 年にナイトに叙された。",
+      "src": "https://www.undiscoveredscotland.co.uk/usbiography/d/sirarthurconandoyle.html"
+    },
+    {
+      "ja": "ジョージ・エダルジ事件で新聞に記事を書いて世論を動かし、1907 年に調査委員会の設置とエダルジの恩赦につながった。",
+      "src": "https://www.open.ac.uk/researchprojects/makingbritain/content/george-edalji"
+    },
+    {
+      "ja": "冤罪の疑われる事件への取り組みは、1907 年の刑事控訴院の設置を後押ししたとされる。",
+      "src": "https://www.undiscoveredscotland.co.uk/usbiography/d/sirarthurconandoyle.html"
+    },
+    {
+      "ja": "自由統一党の候補としてスコットランドの選挙区から 2 度立候補したが、落選した。",
+      "src": "https://www.undiscoveredscotland.co.uk/usbiography/d/sirarthurconandoyle.html"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "ベル教授への手紙で「ホームズはまさにあなたのおかげです」と書いたと伝えられる。",
+      "src": "https://history.com/news/was-sherlock-holmes-based-on-a-real-person"
+    },
+    {
+      "ja": "ホームズを死なせたあと、読者から強い抗議が寄せられたという。",
+      "src": "https://www.undiscoveredscotland.co.uk/usbiography/d/sirarthurconandoyle.html"
+    },
+    {
+      "ja": "晩年は心霊主義に傾倒し、一時は妖精の実在も信じていたとされる。",
+      "src": "https://www.undiscoveredscotland.co.uk/usbiography/d/sirarthurconandoyle.html"
+    },
+    {
+      "ja": "ホームズ以外の作品を本人はより価値あるものと考えていたという。",
+      "src": "https://www.undiscoveredscotland.co.uk/usbiography/d/sirarthurconandoyle.html"
+    }
+  ],
+  "strengths_ja": [
+    "観察と推理",
+    "筆の力で世論を動かす",
+    "医学の素養",
+    "正義感と行動力"
+  ],
+  "weaknesses_ja": [
+    "一度信じたことに深く入れ込む",
+    "代表作の人気に振り回される"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "B",
+      "why": "選挙に出るなど公の議論に関わったが、組織の方針づくりの実績は少ない。"
+    },
+    "logistics": {
+      "g": "C",
+      "why": "物資や運搬を扱った記録はない。"
+    },
+    "sales": {
+      "g": "B",
+      "why": "作家として出版の世界で長く活躍した。"
+    },
+    "marketing": {
+      "g": "A",
+      "why": "新聞記事や小冊子で世論を動かした実績がある。"
+    },
+    "support": {
+      "g": "B",
+      "why": "開業医として患者に向き合い、冤罪の当事者の訴えにも耳を傾けた。"
+    },
+    "systems": {
+      "g": "C",
+      "why": "仕組みづくりの実績は特にない。"
+    },
+    "rnd": {
+      "g": "A",
+      "why": "観察から推理する手法を物語に仕立て、医学も修めた。"
+    },
+    "legal": {
+      "g": "A",
+      "why": "エダルジ事件などで冤罪の救済に動き、刑事控訴院設置を後押しした。"
+    },
+    "hr": {
+      "g": "C",
+      "why": "人を育てたり組織を率いた記録は少ない。"
+    },
+    "general": {
+      "g": "B",
+      "why": "医師として人の体調を見る目がある。"
+    },
+    "accounting": {
+      "g": "C",
+      "why": "お金の管理に関する特筆すべき記録はない。"
+    },
+    "sector_head": {
+      "g": "C",
+      "why": "組織の長を務めた記録はない。"
+    },
+    "shop": {
+      "g": "B",
+      "why": "開業医として客（患者）と直接向き合った。"
+    },
+    "craft": {
+      "g": "B",
+      "why": "物語という作品を数多く生み出した書き手である。"
+    },
+    "buyer": {
+      "g": "C",
+      "why": "買い付けの実績はない。"
+    },
+    "digger": {
+      "g": "B",
+      "why": "事件の資料を調べ直す粘り強さがあった。"
+    }
+  },
+  "best_roles": [
+    "rnd",
+    "legal",
+    "marketing"
+  ],
+  "personality_ja": "観察を重んじ、筋道を立てて考える紳士。理不尽な扱いを受けた人を放っておけない正義感があり、ペンで世の中に訴える行動派でもある。一方で、心霊主義のように一度信じたものには深く打ち込む一面もあった。仕事では、まず事実を集めてから意見を言う。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "落ち着いた紳士の丁寧語。観察した事実を並べてから結論を言う理屈っぽさ",
+    "tics_ja": [
+      "観察すれば分かることです",
+      "手がかりは、もう揃っています",
+      "ふむ、興味深い"
+    ],
+    "lines": {
+      "greet": [
+        "ドイルです。観察と推理なら、お任せを。",
+        "社長、まずは帳簿と現場を見せてください。"
+      ],
+      "propose": [
+        "数字を並べると、答えは一つに絞れます。",
+        "見落とされた手がかりが、ここにありますよ。"
+      ],
+      "approved": [
+        "結構。では、筋道どおりに進めましょう。"
+      ],
+      "rejected": [
+        "ふむ。では、別の仮説を立て直します。"
+      ],
+      "tired": [
+        "少し休ませてください。推理には静けさが要る。"
+      ],
+      "success": [
+        "初めから、この結末は見えていましたよ。"
+      ]
+    }
+  },
+  "relations": [
+    {
+      "id": 2003,
+      "name_ja": "ジャックザリッパー",
+      "ja": "同時代のロンドン。ドイルがホームズを世に出した翌年の 1888 年に、ホワイトチャペルの連続殺人事件が起きた。"
+    }
+  ],
+  "mch": {
+    "attributes_ja": "文系学問; イギリス; 謎",
+    "passive": "パッシブ名「シャーロック・ホームズ」は彼が生んだ名探偵の名。味方の INT を上げる効果は、観察と推理の知性になぞらえたものと読める。"
+  },
+  "cautions_ja": [
+    "晩年の心霊主義への傾倒は、からかいの種にせず本人の信念として扱う。"
+  ],
+  "sources": [
+    "https://www.undiscoveredscotland.co.uk/usbiography/d/sirarthurconandoyle.html",
+    "https://history.com/news/was-sherlock-holmes-based-on-a-real-person",
+    "https://www.open.ac.uk/researchprojects/makingbritain/content/george-edalji"
+  ]
+}

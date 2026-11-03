@@ -1,0 +1,82 @@
+{
+  "id": 3026,
+  "name_ja": "ロビンフッド",
+  "name_en": "Robin Hood",
+  "kind": "legendary",
+  "era": "伝承の舞台は12世紀末（リチャード1世の時代）とされることが多い／物語は14世紀ごろから",
+  "region": "イギリス（イングランド北部、シャーウッドの森・バーンズデイル）",
+  "summary_ja": "イングランドのバラッド（物語歌）に登場する伝説の無法者。伝承では、仲間とともに森に住み、権力の側に立つ者を襲って奪ったものを貧しい人に分け与えたとされる。最大の敵はノッティンガムの代官で、裕福な教会の地主とも争う。最古の言及は14世紀後半の詩『農夫ピアズ』で、初期の物語では弓の腕前が強調され、「金持ちから奪い貧しい者に与える」義賊の姿はのちに強まった。マリアンは16世紀の付け足しで、のちには貴族（ハンティンドン伯）として描かれるようにもなった。実在のモデルは特定されていない。",
+  "facts": [
+    { "ja": "伝承では、ロビン・フッドは仲間とともに権力の代理人を襲い、奪ったものを貧しい人に与えた無法者として描かれる。", "src": "https://www.britannica.com/topic/Robin-Hood" },
+    { "ja": "現存するバラッドの一部は少なくとも14世紀にさかのぼる。", "src": "https://www.britannica.com/topic/Robin-Hood" },
+    { "ja": "最古の言及はラングランドの詩『農夫ピアズ』（1377年ごろ）に見え、詳しい物語の最古の記録は1400年ごろのもの。", "src": "https://www.encyclopedia.com/history/encyclopedias-almanacs-transcripts-and-maps/robin-hood" },
+    { "ja": "初期のバラッドの舞台は主にヨークシャー南部のバーンズデイルで、『ロビン・フッドと修道士』はシャーウッドの森を舞台とする。", "src": "https://www.britannica.com/topic/Robin-Hood" },
+    { "ja": "伝承での最大の敵はノッティンガムの代官（シェリフ）で、裕福な教会の地主も敵として現れる。", "src": "https://www.britannica.com/topic/Robin-Hood" },
+    { "ja": "伝承では、女性や貧しい人、身分の低い人には礼儀正しく接する人物として描かれる。", "src": "https://www.britannica.com/topic/Robin-Hood" },
+    { "ja": "初期の物語では弓の腕前が強調され、金持ちから奪い貧しい者を助ける姿は後の時代に強まった。", "src": "https://www.encyclopedia.com/history/encyclopedias-almanacs-transcripts-and-maps/robin-hood" },
+    { "ja": "マリアンは16世紀に加えられた人物で、16〜17世紀にはロビンがハンティンドン伯として貴族化された。", "src": "https://www.encyclopedia.com/history/encyclopedias-almanacs-transcripts-and-maps/robin-hood" },
+    { "ja": "長編の物語詩『ロビン・フッドの武勲（ゲスト）』は印刷本でのみ残り、最古の版は1500年以後とされる。", "src": "https://balladindex.org/Ballads/C117A.html" },
+    { "ja": "似た名前の実在の無法者の記録はあるが、伝説のロビン・フッドその人は特定されていない。", "src": "https://balladindex.org/Ballads/C117A.html" }
+  ],
+  "anecdotes": [
+    { "ja": "伝承では、リチャード獅子心王が変装して森を訪れ、ロビンの忠誠を確かめて罪を赦したという話がある。", "src": "https://kids.britannica.com/students/article/Robin-Hood/276750" },
+    { "ja": "伝承では、ロビンはヨークシャーのカークリーズ修道院で亡くなったとされる。", "src": "https://kids.britannica.com/students/article/Robin-Hood/276750" },
+    { "ja": "物語詩『ゲスト』には、バラの花輪を的にした弓の競技の場面がある。", "src": "https://balladindex.org/Ballads/C117A.html" },
+    { "ja": "ロビンの反抗の多くは、狩りを禁じる森林法への不満から来ていると解説される。", "src": "https://www.britannica.com/topic/Robin-Hood" }
+  ],
+  "strengths_ja": ["弱い立場の人への気配り", "仲間をまとめる人望", "弓の腕前（集中力・正確さ）", "民衆からの人気"],
+  "weaknesses_ja": ["決まりごと・権威と衝突しやすい", "法の外で動いてきたので契約ごとは苦手", "伝承ごとに人物像が大きく変わり、実像が定まらない"],
+  "aptitude": {
+    "strategy": { "g": "B", "why": "伝承では森を拠点に代官の裏をかくが、大きな組織の方針を立てた話ではない。" },
+    "logistics": { "g": "B", "why": "伝承では森の中で仲間の暮らしを支える拠点を保っていた。" },
+    "sales": { "g": "B", "why": "伝承では相手を宴に招いて話をつける場面が多いが、取引の名手として描かれるわけではない。" },
+    "marketing": { "g": "A", "why": "数百年にわたり民衆に語り継がれた人気者で、人の心をつかむ象徴になった。" },
+    "support": { "g": "A", "why": "伝承では女性や貧しい人、身分の低い人に礼儀正しく接するとされる。" },
+    "systems": { "g": "C", "why": "仕組みづくりにかかわる話は伝承に少ない。" },
+    "rnd": { "g": "C", "why": "研究・発掘にかかわる話は無い。" },
+    "legal": { "g": "D", "why": "伝承では森林法や代官と対立する法の外の人物である。" },
+    "hr": { "g": "A", "why": "伝承ではリトル・ジョンら多くの仲間を引きつけ、まとめていた。" },
+    "general": { "g": "B", "why": "森での仲間の暮らしを整える頭目として描かれる。" },
+    "accounting": { "g": "C", "why": "得たものを分け与える話はあるが、お金の管理の話ではない。" },
+    "sector_head": { "g": "B", "why": "森という一つの縄張りを率いる頭目だが、町の運営の話は無い。" },
+    "shop": { "g": "B", "why": "身分を問わず人と気さくに接するので、客の前に立つのも向く。" },
+    "craft": { "g": "B", "why": "弓の名手として描かれ、道具を扱う確かな腕がある。" },
+    "buyer": { "g": "C", "why": "買い付けにかかわる話は無い。" },
+    "digger": { "g": "C", "why": "発掘にかかわる話は無い。" }
+  },
+  "best_roles": ["support", "hr", "marketing"],
+  "personality_ja": "伝承では、強い者や権威には遠慮なく逆らい、弱い者や身分の低い者には礼儀正しい。仲間を大事にし、気さくで陽気だが、狙いを定めたときの集中力は鋭い。王には忠誠を示す話もあり、ただの反逆者ではなく「筋の通らない支配」に怒る人物として描かれる。",
+  "speech": {
+    "first_person": "俺",
+    "second_person_to_owner": "社長",
+    "tone_ja": "気さくで明るく、仲間思い。弱い立場の客の話になると熱くなる。",
+    "tics_ja": ["「狙いは一つ、外さないさ」", "「森の仲間に任せとけ」", "「困ってる客から先に助けよう」"],
+    "lines": {
+      "greet": ["やあ社長、緑の服の男が着任だ。", "困ってる客がいたら、まず俺を呼んでくれ。"],
+      "propose": ["値上げで泣く客がいる。手を打とう。", "あの店の客、こっちで丁寧に迎えようぜ。"],
+      "approved": ["よし、狙いは定まった。外さないぜ。"],
+      "rejected": ["そうか。じゃあ別の的を探すさ。"],
+      "tired": ["森の木陰でひと休みしたいなあ。"],
+      "success": ["見たか社長、客が笑って帰っていったぞ！"]
+    }
+  },
+  "relations": [
+    { "id": 5023, "name_ja": "リチャード1世", "ja": "後の伝承ではリチャード1世の時代に置かれ、変装した王がロビンを赦す話がある（伝承上の関係）。" }
+  ],
+  "mch": {
+    "attributes_ja": "イギリス; 伝承; 弓",
+    "passive": "緑衣の義賊：強い敵を引きつけて弱った味方を回復する能力で、権力者を相手にしながら弱い者を助ける伝承の姿と重なる。"
+  },
+  "cautions_ja": [
+    "伝承には強盗や殺害の場面も含まれる。ゲームでは「弱い立場の客を助ける」面を中心にし、盗みや法を破ることを美化しない。",
+    "実在は確かめられていない伝説上の人物で、史実の人物として書かない。",
+    "後世の小説・映画などで付け足された設定を写さない。"
+  ],
+  "sources": [
+    "https://www.britannica.com/topic/Robin-Hood",
+    "https://www.britannica.com/print/article/505662",
+    "https://www.encyclopedia.com/history/encyclopedias-almanacs-transcripts-and-maps/robin-hood",
+    "https://kids.britannica.com/students/article/Robin-Hood/276750",
+    "https://balladindex.org/Ballads/C117A.html"
+  ]
+}

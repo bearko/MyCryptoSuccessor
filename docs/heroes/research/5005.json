@@ -1,0 +1,210 @@
+{
+  "id": 5005,
+  "name_ja": "レオナルド・ダ・ビンチ",
+  "name_en": "Leonardo da Vinci",
+  "kind": "historical",
+  "era": "1452–1519（イタリア・ルネサンス盛期）",
+  "region": "イタリア（フィレンツェ・ミラノ）、晩年はフランス",
+  "summary_ja": "トスカーナのヴィンチ近郊に生まれ、フィレンツェで彫刻家ヴェロッキオに学んだ画家・技術者・研究者。1482 年ごろからミラノのスフォルツァ家に主に軍事技術者として仕え、『最後の晩餐』を描いた。ミラノを離れた後はチェーザレ・ボルジアの軍事建築家も務め、フィレンツェで『モナ・リザ』に取りかかった。解剖・幾何学・工学・飛行機械などを生涯ノートに書きとめ、左利きで鏡文字を使った。晩年はフランス王フランソワ 1 世に招かれ、アンボワーズ近くのクロ・リュセで 1519 年に没した。完成させた作品は少なく、多くが未完に終わった。鳥かごの鳥を買っては放したなど、命を大事にする逸話がヴァザーリにより伝わる。",
+  "facts": [
+    {
+      "ja": "1452 年 4 月 15 日、ヴィンチ近郊のアンキアーノで生まれ、公証人ピエロの非嫡出の子とされる。",
+      "src": "https://www.newworldencyclopedia.org/entry/Leonardo_Da_Vinci"
+    },
+    {
+      "ja": "フィレンツェで彫刻家アンドレア・デル・ヴェロッキオのもとで修業した。",
+      "src": "https://www.nationalgallery.org.uk/artists/Leonardo-da-Vinci"
+    },
+    {
+      "ja": "1483 年ごろミラノへ移り、主に軍事技術者としてスフォルツァ家に仕えようとした。",
+      "src": "https://www.nationalgallery.org.uk/artists/Leonardo-da-Vinci"
+    },
+    {
+      "ja": "ミラノのサンタ・マリア・デッレ・グラツィエの食堂の壁に『最後の晩餐』を描いた。",
+      "src": "https://www.nationalgallery.org.uk/artists/Leonardo-da-Vinci"
+    },
+    {
+      "ja": "巨大な騎馬像のための約 70 トンの青銅は、1495 年にフランス軍に備える武器へ回された。",
+      "src": "https://www.newworldencyclopedia.org/entry/Leonardo_Da_Vinci"
+    },
+    {
+      "ja": "フィレンツェに戻った後、チェーザレ・ボルジアに軍事建築家・技術者として仕えた。",
+      "src": "https://www.newworldencyclopedia.org/entry/Leonardo_Da_Vinci"
+    },
+    {
+      "ja": "1503〜07 年ごろ『モナ・リザ』を描き、『アンギアーリの戦い』の壁画は未完に終わった。",
+      "src": "https://www.newworldencyclopedia.org/entry/Leonardo_Da_Vinci"
+    },
+    {
+      "ja": "約 30 体の遺体を解剖し、200 枚を超える解剖図を描いた。",
+      "src": "https://www.newworldencyclopedia.org/entry/Leonardo_Da_Vinci"
+    },
+    {
+      "ja": "幾何学・解剖学・工学・飛行機械などの研究を生涯ノートに記し、左利きで鏡文字を使った。",
+      "src": "https://www.newworldencyclopedia.org/entry/Leonardo_Da_Vinci"
+    },
+    {
+      "ja": "1516 年にフランソワ 1 世に仕え、1519 年 5 月 2 日にクロ・リュセで没した。",
+      "src": "https://www.newworldencyclopedia.org/entry/Leonardo_Da_Vinci"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "ヴァザーリによれば、師ヴェロッキオは弟子の描いた天使を見て、二度と絵を描かないと誓った。",
+      "src": "https://www.newworldencyclopedia.org/entry/Leonardo_Da_Vinci"
+    },
+    {
+      "ja": "ヴァザーリによれば、若いころフィレンツェで鳥かごの鳥を買っては空に放した。",
+      "src": "https://www.newworldencyclopedia.org/entry/Leonardo_Da_Vinci"
+    },
+    {
+      "ja": "命を大事にする考えから、一時は菜食だったともいわれる。",
+      "src": "https://www.newworldencyclopedia.org/entry/Leonardo_Da_Vinci"
+    },
+    {
+      "ja": "完成させた作品は少なく、多くの作品が未完のまま残った。",
+      "src": "https://www.nationalgallery.org.uk/artists/Leonardo-da-Vinci"
+    }
+  ],
+  "strengths_ja": [
+    "尽きない好奇心",
+    "観察力",
+    "芸術と技術の両方の腕",
+    "記録を残す習慣"
+  ],
+  "weaknesses_ja": [
+    "仕事を最後まで仕上げないことが多い",
+    "関心が次々に移る",
+    "納期に弱い"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "C",
+      "why": "全体の方針を決める立場についた記録は無い。"
+    },
+    "logistics": {
+      "g": "C",
+      "why": "軍事技術者として働いたが、物流を回した記録は無い。"
+    },
+    "sales": {
+      "g": "C",
+      "why": "有力者に仕官を求めたが、交渉ごとの記録は乏しい。"
+    },
+    "marketing": {
+      "g": "B",
+      "why": "王に「偉大な哲学者」と称えられるほど名声を得た。"
+    },
+    "support": {
+      "g": "C",
+      "why": "客対応の資質は分からない。"
+    },
+    "systems": {
+      "g": "A",
+      "why": "軍事建築・工学に通じ、機械の仕組みを研究した。"
+    },
+    "rnd": {
+      "g": "S",
+      "why": "解剖・工学・飛行機械まで、生涯にわたって研究を続けた。"
+    },
+    "legal": {
+      "g": "D",
+      "why": "法や契約にかかわる記録は無い。"
+    },
+    "hr": {
+      "g": "C",
+      "why": "弟子を育てたが、組織をまとめた記録は乏しい。"
+    },
+    "general": {
+      "g": "C",
+      "why": "働く環境づくりの記録は無い。"
+    },
+    "accounting": {
+      "g": "D",
+      "why": "お金の管理にかかわる記録は無い。"
+    },
+    "sector_head": {
+      "g": "C",
+      "why": "組織を丸ごと任された記録は無い。"
+    },
+    "shop": {
+      "g": "C",
+      "why": "客と対面する仕事の記録は無い。"
+    },
+    "craft": {
+      "g": "S",
+      "why": "師が筆を置いたと伝わるほどの腕で、『最後の晩餐』『モナ・リザ』を描いた。"
+    },
+    "buyer": {
+      "g": "C",
+      "why": "買い付けの記録は無い。"
+    },
+    "digger": {
+      "g": "B",
+      "why": "自ら解剖して観察するなど、現場で確かめる研究をした。"
+    }
+  },
+  "best_roles": [
+    "rnd",
+    "craft",
+    "systems"
+  ],
+  "personality_ja": "何にでも興味を持ち、見たものをすぐスケッチして考え込む。命あるものにやさしく、静かで観察好き。一方で関心が次へ移りやすく、仕事を仕上げる前に別の研究を始めてしまう。納期の管理は誰かに頼みたいタイプ。手を動かしながら考えるのが好き。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "穏やかで好奇心旺盛。話が観察や仮説へ脱線しがち。",
+    "tics_ja": [
+      "ちょっと待って、これを描きとめたい",
+      "なぜこうなるのだろう？",
+      "まだ完成ではないよ"
+    ],
+    "lines": {
+      "greet": [
+        "レオナルドです。工房を見せてください、面白そうだ。",
+        "社長、この町の水の流れは調べましたか？"
+      ],
+      "propose": [
+        "この道具、歯車を一つ足せば倍の速さで回ります。",
+        "古い品を分解して、作り方を調べてみましょう。"
+      ],
+      "approved": [
+        "ありがたい。さっそく図面を引こう。"
+      ],
+      "rejected": [
+        "ふむ……ではこの案はノートにしまっておこう。"
+      ],
+      "tired": [
+        "少し鳥を眺めてくる。飛び方にヒントがある。"
+      ],
+      "success": [
+        "思ったとおりだ！でも、まだ直したい所がある。"
+      ]
+    }
+  },
+  "relations": [
+    {
+      "id": 2023,
+      "name_ja": "ミケランジェロ",
+      "ja": "フィレンツェでレオナルドが『アンギアーリの戦い』に取り組んだとき、ミケランジェロが向かいの壁の下絵を手がけた。"
+    },
+    {
+      "id": 3041,
+      "name_ja": "ラファエロ",
+      "ja": "ラファエロの『アテナイの学堂』のプラトンは、レオナルドの姿がモデルとされる。"
+    },
+    {
+      "id": 3024,
+      "name_ja": "ルーベンス",
+      "ja": "後の時代の画家。レオナルドの壁画『アンギアーリの戦い』を模写したことで知られる（先人の作品に学んだ関係）。"
+    }
+  ],
+  "mch": {
+    "attributes_ja": "美術; 文系学問; 理系学問; イタリア",
+    "passive": "モナリザ：代表作『モナ・リザ』にちなむ名。"
+  },
+  "cautions_ja": [],
+  "sources": [
+    "https://www.nationalgallery.org.uk/artists/Leonardo-da-Vinci",
+    "https://www.newworldencyclopedia.org/entry/Leonardo_Da_Vinci"
+  ]
+}

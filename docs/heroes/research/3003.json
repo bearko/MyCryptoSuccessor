@@ -1,0 +1,200 @@
+{
+  "id": 3003,
+  "name_ja": "平賀源内",
+  "name_en": "Gennai Hiraga",
+  "kind": "historical",
+  "era": "1728/29–1779/80（江戸時代中期）",
+  "region": "日本（讃岐・長崎・江戸・秋田）",
+  "summary_ja": "讃岐（いまの香川県）の出身で、本草学（薬になる動植物や鉱物の学問）を学んだ多才な人。長崎で西洋の学問に触れ、江戸で薬品や産物の展示会を開き、1763 年にその記録『物類品隲』を出した。燃えない布（火浣布）を作り、伊豆や秩父などで鉱山の開発に取り組み、秋田藩に招かれて鉱山技術を教え、西洋風の油絵も伝えた。1770 年に長崎で手に入れた壊れたオランダ製の静電気発生装置「エレキテル」を、1776 年に動くまで直した。滑稽本などの戯作も書いた。武士の身分を捨てて浪人となり自由に生きたが、晩年は暮らしが傾き、1779 年に人を死なせた罪で捕らえられ、獄中で亡くなったと一般に言われる。友人の杉田玄白が墓碑を書いた。",
+  "facts": [
+    {
+      "ja": "讃岐の志度浦の出身。",
+      "src": "https://en.wikipedia.org/wiki/Hiraga_Gennai"
+    },
+    {
+      "ja": "1752 年に長崎へ行き、西洋の医学や蘭学を学んだ。",
+      "src": "https://en.wikipedia.org/wiki/Hiraga_Gennai"
+    },
+    {
+      "ja": "1757 年に江戸へ移り、田村藍水に学んだ。",
+      "src": "https://en.wikipedia.org/wiki/Hiraga_Gennai"
+    },
+    {
+      "ja": "薬品や産物の展示会を開き、1763 年の会の記録『物類品隲』を大坂で出した。",
+      "src": "https://ndl.go.jp/nichiran/e/s1/s1_4_column.html"
+    },
+    {
+      "ja": "燃えない布「火浣布」を作り、1765 年にその解説を出した。",
+      "src": "https://ndl.go.jp/nichiran/e/s1/s1_4_column.html"
+    },
+    {
+      "ja": "1766 年、川越藩の石綿（いしわた）の鉱山開発を、いまの秩父で手伝った。",
+      "src": "https://en.wikipedia.org/wiki/Hiraga_Gennai"
+    },
+    {
+      "ja": "1773 年、秋田藩主・佐竹義敦に招かれて鉱山技術を教え、西洋風の油絵も教えた。",
+      "src": "https://en.wikipedia.org/wiki/Hiraga_Gennai"
+    },
+    {
+      "ja": "1770 年に長崎で壊れたエレキテルを手に入れ、1776 年に動くまで直した。",
+      "src": "https://ethw.org/Milestones:Elekiteru:_First_Electrostatic_Generator_in_Japan,_1776"
+    },
+    {
+      "ja": "1763 年に戯作『風流志道軒伝』『根南志具佐』を出した。",
+      "src": "https://en.wikipedia.org/wiki/Hiraga_Gennai"
+    },
+    {
+      "ja": "武士の暮らしを捨てて浪人となり、江戸で自由に考え行動した。",
+      "src": "https://www.britannica.com/biography/Hiraga-Gennai"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "最も広く知られた説では、1779 年に酒に酔って大工 2 人を斬り、翌年獄中で亡くなった。確かな事実とはされていない。",
+      "src": "https://en.wikipedia.org/wiki/Hiraga_Gennai"
+    },
+    {
+      "ja": "獄中で死なず、ひそかに生き延びたという説もあるが、推測にとどまる。",
+      "src": "https://en.wikipedia.org/wiki/Hiraga_Gennai"
+    },
+    {
+      "ja": "友人の杉田玄白は「非常の人」と書き、墓碑を記した。",
+      "src": "https://ndl.go.jp/nichiran/e/s1/s1_4_column.html"
+    },
+    {
+      "ja": "エレキテルは見世物や治療に使われ、裕福な商人や武家に届けられた。",
+      "src": "https://ethw.org/Milestones:Elekiteru:_First_Electrostatic_Generator_in_Japan,_1776"
+    }
+  ],
+  "strengths_ja": [
+    "何にでも手を出す好奇心",
+    "壊れた機械を直す技術",
+    "展示会を開く企画力",
+    "文章のうまさ"
+  ],
+  "weaknesses_ja": [
+    "事業が長続きしない",
+    "まわりに理解されにくい",
+    "金づまりで荒れやすい"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "B",
+      "why": "金銀の国外流出を止めるべきという考えを持ったが、組織の方針を担った記録は無い。"
+    },
+    "logistics": {
+      "g": "C",
+      "why": "鉱山の開発を試みたが、物の流れを整えた記録は無い。"
+    },
+    "sales": {
+      "g": "B",
+      "why": "エレキテルを裕福な商人や武家に届けた。"
+    },
+    "marketing": {
+      "g": "S",
+      "why": "薬品や産物の展示会を開いて人を集め、戯作でも人気を得た。"
+    },
+    "support": {
+      "g": "C",
+      "why": "晩年は荒れたと伝わり、なだめ役には向かない。"
+    },
+    "systems": {
+      "g": "B",
+      "why": "温度計など新しい道具を作ったが、仕組みを定着させた記録は少ない。"
+    },
+    "rnd": {
+      "g": "S",
+      "why": "本草学・鉱山・エレキテル・油絵と、新しい知識を次々に試した。"
+    },
+    "legal": {
+      "g": "D",
+      "why": "最後は事件を起こして獄中で亡くなったと伝わる。"
+    },
+    "hr": {
+      "g": "C",
+      "why": "秋田で鉱山技術や油絵を教えたが、人をまとめた記録は少ない。"
+    },
+    "general": {
+      "g": "D",
+      "why": "暮らしが傾いたと伝わる。"
+    },
+    "accounting": {
+      "g": "D",
+      "why": "事業が長続きせず、晩年は困窮した。"
+    },
+    "sector_head": {
+      "g": "C",
+      "why": "一つの拠点を長く任された記録は無い。"
+    },
+    "shop": {
+      "g": "B",
+      "why": "エレキテルの見世物で人を楽しませた。"
+    },
+    "craft": {
+      "g": "A",
+      "why": "壊れたエレキテルを何年もかけて動くまで直した。"
+    },
+    "buyer": {
+      "g": "B",
+      "why": "西洋の博物書を手に入れるなど、珍しい物を集めた。"
+    },
+    "digger": {
+      "g": "A",
+      "why": "伊豆で鉄の鉱床を見つけ、秩父などで鉱山開発に取り組んだ。"
+    }
+  },
+  "best_roles": [
+    "rnd",
+    "marketing",
+    "craft"
+  ],
+  "personality_ja": "好奇心のかたまりで、面白そうなことには何でも手を出す。武士の身分にしばられるのを嫌い、自由に考えて動く。人を集めて驚かせるのが好きで、文章も達者。そのぶん一つの事業を地道に続けるのは苦手で、うまくいかないと荒れがち。",
+  "speech": {
+    "first_person": "おいら",
+    "second_person_to_owner": "社長",
+    "tone_ja": "江戸っ子風の早口でにぎやか。思いつきを次々しゃべる。",
+    "tics_ja": [
+      "こいつは面白い",
+      "ひとつ試してみやしょう",
+      "見世物にすりゃ客が来る"
+    ],
+    "lines": {
+      "greet": [
+        "平賀源内でござい。面白い仕事はどこだい？",
+        "社長、この工房の道具、全部いじらせておくれ。"
+      ],
+      "propose": [
+        "品評会を開きやしょう。珍品を並べりゃ客が来る。",
+        "壊れた機械？ おいらが直してみせやす。"
+      ],
+      "approved": [
+        "よしきた！ さっそく取りかかるぜ。"
+      ],
+      "rejected": [
+        "ちぇっ、面白いのになあ。また考えまさあ。"
+      ],
+      "tired": [
+        "頭が煮えた。ちょいと昼寝させておくれ。"
+      ],
+      "success": [
+        "ほうら、ビリッと来たろう？ 大当たりだ。"
+      ]
+    }
+  },
+  "relations": [],
+  "mch": {
+    "attributes_ja": "理系学問; 江戸; 機械",
+    "passive": "エレキテル：源内が 1776 年に直した静電気発生装置の名。"
+  },
+  "cautions_ja": [
+    "晩年に人を死なせて獄中で亡くなったとする説が一般的。事件を笑いの種にしない。",
+    "江戸時代の風俗を扱った著作もあるが、ゲームには持ち込まない。",
+    "「土用の丑の日」の宣伝を考えたという話は今回の出典で確かめられなかったので、史実として書かない。"
+  ],
+  "sources": [
+    "https://en.wikipedia.org/wiki/Hiraga_Gennai",
+    "https://www.britannica.com/biography/Hiraga-Gennai",
+    "https://ndl.go.jp/nichiran/e/s1/s1_4_column.html",
+    "https://ethw.org/Milestones:Elekiteru:_First_Electrostatic_Generator_in_Japan,_1776"
+  ]
+}

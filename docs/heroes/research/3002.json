@@ -1,0 +1,182 @@
+{
+  "id": 3002,
+  "name_ja": "ダルタニャン",
+  "name_en": "D'Artagnan",
+  "kind": "historical",
+  "era": "1611 ごろ–1673（17 世紀・ルイ 13 世〜ルイ 14 世の時代）",
+  "region": "フランス（ガスコーニュ・パリ・リール）",
+  "summary_ja": "フランスの軍人シャルル・ド・バツ・ド・カステルモール。ガスコーニュの城に生まれ、母方の家名ダルタニャンを名乗ってパリで銃士隊に入った（1632 年）。宰相マザランに仕えて秘密の任務や諜報をこなし、1661 年には財務卿フーケを逮捕し、その後 4 年間見張った。1667 年に銃士隊の隊長代理（実質の隊長）となり、同じ年にフランスが得たリールの総督も務めた。1673 年、オランダ戦争のマーストリヒト包囲戦で戦死した。1700 年にクルティル・ド・サンドラスが彼の名で脚色した「回想録」を出し、それをもとにデュマが 1844 年に小説『三銃士』を書いたため、熱血の若者や三銃士との友情などの姿は小説のもの。",
+  "facts": [
+    {
+      "ja": "1611 年ごろ、南西フランスのカステルモール城に生まれた。",
+      "src": "https://en.wikipedia.org/wiki/Charles_de_Batz_de_Castelmore_d%27Artagnan"
+    },
+    {
+      "ja": "母の家名ダルタニャンを、1630 年代のパリで名乗った。",
+      "src": "https://en.wikipedia.org/wiki/Charles_de_Batz_de_Castelmore_d%27Artagnan"
+    },
+    {
+      "ja": "1632 年に銃士隊に入った（入隊のいきさつははっきりしない）。",
+      "src": "https://en.wikipedia.org/wiki/Charles_de_Batz_de_Castelmore_d%27Artagnan"
+    },
+    {
+      "ja": "1650 年代、宰相マザランのために秘密の任務や諜報を行った。",
+      "src": "https://en.wikipedia.org/wiki/Charles_de_Batz_de_Castelmore_d%27Artagnan"
+    },
+    {
+      "ja": "1661 年、財務卿フーケを逮捕し、その後 4 年間見張りを務めた。",
+      "src": "https://en.wikipedia.org/wiki/Charles_de_Batz_de_Castelmore_d%27Artagnan"
+    },
+    {
+      "ja": "1667 年に銃士隊の隊長代理に昇り、同年フランス領となったリールの総督も務めた。",
+      "src": "https://en.wikipedia.org/wiki/Charles_de_Batz_de_Castelmore_d%27Artagnan"
+    },
+    {
+      "ja": "1673 年 6 月 25 日、マーストリヒト包囲戦で戦死した。",
+      "src": "https://en.wikipedia.org/wiki/Charles_de_Batz_de_Castelmore_d%27Artagnan"
+    },
+    {
+      "ja": "1700 年、クルティル・ド・サンドラスが脚色した『ダルタニャン氏の回想録』を出した。",
+      "src": "https://en.wikipedia.org/wiki/Charles_de_Batz_de_Castelmore_d%27Artagnan"
+    },
+    {
+      "ja": "デュマの小説『三銃士』（1844 年）と続編は、主にこの脚色された回想録にもとづく。",
+      "src": "https://en.wikipedia.org/wiki/Charles_de_Batz_de_Castelmore_d%27Artagnan"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "小説の、血気盛んな若者がアトス・ポルトス・アラミスと決闘し友になる話は、デュマの創作である。",
+      "src": "https://en.wikipedia.org/wiki/Charles_de_Batz_de_Castelmore_d%27Artagnan"
+    },
+    {
+      "ja": "2026 年、マーストリヒト近くの教会で見つかった遺骨が彼のものではないかと報じられたが、確かめられていない。",
+      "src": "https://en.wikipedia.org/wiki/Charles_de_Batz_de_Castelmore_d%27Artagnan"
+    }
+  ],
+  "strengths_ja": [
+    "秘密を守る口の堅さ",
+    "上からの難しい任務をやり遂げる",
+    "長く仕える忠実さ"
+  ],
+  "weaknesses_ja": [
+    "家庭は長続きしなかった（結婚後まもなく別居）",
+    "現場に出たがり、最後は前線で倒れた"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "C",
+      "why": "方針づくりより、命じられた任務をこなす立場だった。"
+    },
+    "logistics": {
+      "g": "B",
+      "why": "宰相の秘密の連絡や任務で各地を動いた。"
+    },
+    "sales": {
+      "g": "B",
+      "why": "宰相の使いとして立ち回ったが、商いの記録は無い。"
+    },
+    "marketing": {
+      "g": "C",
+      "why": "宣伝にかかわる記録は無い（名声は後の小説による）。"
+    },
+    "support": {
+      "g": "B",
+      "why": "フーケを 4 年間見張るなど、難しい相手に長く向き合った。"
+    },
+    "systems": {
+      "g": "C",
+      "why": "仕組み化の記録は無い。"
+    },
+    "rnd": {
+      "g": "C",
+      "why": "研究の記録は無い。"
+    },
+    "legal": {
+      "g": "B",
+      "why": "国王の命によるフーケの逮捕を手堅く行った。"
+    },
+    "hr": {
+      "g": "B",
+      "why": "銃士隊の隊長代理として隊を率いた。"
+    },
+    "general": {
+      "g": "B",
+      "why": "隊の日々の暮らしを預かる立場だった。"
+    },
+    "accounting": {
+      "g": "C",
+      "why": "お金の管理の記録は無い。"
+    },
+    "sector_head": {
+      "g": "A",
+      "why": "1667 年からリールの総督を務め、一つの町を任された。"
+    },
+    "shop": {
+      "g": "C",
+      "why": "客商売の記録は無い。"
+    },
+    "craft": {
+      "g": "C",
+      "why": "ものづくりの記録は無い。"
+    },
+    "buyer": {
+      "g": "B",
+      "why": "諜報の経験から、相手の手の内を探る買い付けに向く。"
+    },
+    "digger": {
+      "g": "C",
+      "why": "発掘の記録は無い。"
+    }
+  },
+  "best_roles": [
+    "sector_head",
+    "support",
+    "legal"
+  ],
+  "personality_ja": "（史実にもとづく）上の命を確かにこなす、口の堅い実務家。宰相や国王から秘密の任務を任され続けた信頼の厚さがある。（小説のイメージは陽気で血気盛んだが、それは創作で、ここでは控えめに取り入れる）現場を好み、年を重ねても前線に出た。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "きびきびした騎士口調。任務を受けると短く復唱する。",
+    "tics_ja": [
+      "任務、承りました",
+      "口外はしません",
+      "現場は私が"
+    ],
+    "lines": {
+      "greet": [
+        "ダルタニャン、着任しました。任務をどうぞ。",
+        "社長、この件は内密に、ですね。承知しています。"
+      ],
+      "propose": [
+        "相手の店の動きを探ってきます。三日ください。",
+        "この取引先は私が見張ります。逃しません。"
+      ],
+      "approved": [
+        "任務、承りました。すぐ動きます。"
+      ],
+      "rejected": [
+        "承知。ご命令に従います。"
+      ],
+      "tired": [
+        "馬も私も休みが要ります。少しだけ。"
+      ],
+      "success": [
+        "任務完了。誰にも気づかれていません。"
+      ]
+    }
+  },
+  "relations": [],
+  "mch": {
+    "attributes_ja": "銃火器; フランス",
+    "passive": "ワンフォーオール・オールフォーワン：デュマの小説『三銃士』で知られる合言葉にちなむ（小説の創作）。"
+  },
+  "cautions_ja": [
+    "実在の人物と、デュマの小説の主人公の姿が混ざって知られている。小説の筋（決闘・三銃士との友情など）を史実として書かない。",
+    "デュマの小説は古典で自由に使えるが、のちの映画・アニメなどの翻案の設定は持ち込まない。"
+  ],
+  "sources": [
+    "https://en.wikipedia.org/wiki/Charles_de_Batz_de_Castelmore_d%27Artagnan"
+  ]
+}

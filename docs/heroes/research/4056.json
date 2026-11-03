@@ -1,0 +1,76 @@
+{
+  "id": 4056,
+  "name_ja": "夏目漱石",
+  "name_en": "Natsume Sōseki",
+  "kind": "historical",
+  "era": "1867–1916（明治〜大正初め）",
+  "region": "日本（江戸＝東京、松山、熊本）、イギリス（ロンドン留学）",
+  "summary_ja": "明治の小説家・英文学者で、日本の近代的な写実小説を確立した一人。本名は金之助。江戸の牛込に生まれ、幼くして養子に出された。東京帝国大学で英文学を学び、松山と熊本の学校で英語を教えたのち、1900 年に国費でイギリスへ留学した。帰国後は東京帝大の講師をしながら『吾輩は猫である』を雑誌『ホトトギス』に連載し、続いて『坊っちゃん』『草枕』を書いた。1907 年に教職を辞して朝日新聞社に入り、『三四郎』『それから』『門』『こころ』『道草』『明暗』などを連載した。裏切りや罪の意識で人から隔てられた知識人を描き、写実と叙情をあわせ持つ作風で知られる。1916 年に胃潰瘍で亡くなった。千円札の肖像にもなった。",
+  "facts": [
+    { "ja": "1867 年、江戸の牛込馬場下横町（いまの東京都新宿区喜久井町）に生まれた。本名は夏目金之助。", "src": "https://www.library.tohoku.ac.jp/en/collections/soseki/about.html" },
+    { "ja": "幼いころに養子に出された。", "src": "https://www.library.tohoku.ac.jp/en/collections/soseki/about.html" },
+    { "ja": "1893 年に東京帝国大学で英文学の学位を得た。", "src": "https://www.britannica.com/print/article/406069" },
+    { "ja": "松山中学と熊本の第五高等学校で英語を教えた。", "src": "https://www.library.tohoku.ac.jp/en/collections/soseki/about.html" },
+    { "ja": "1900 年、国費でイギリスへ留学した。", "src": "https://www.britannica.com/print/article/406069" },
+    { "ja": "帰国後、東京帝大で英語の講師となり、1905 年に『吾輩は猫である』を雑誌『ホトトギス』に連載し始めた。", "src": "https://www.library.tohoku.ac.jp/en/collections/soseki/about.html" },
+    { "ja": "1906 年に『坊っちゃん』と『草枕』を発表した。", "src": "https://www.britannica.com/print/article/406069" },
+    { "ja": "1907 年に教職を辞して朝日新聞社に入り、『三四郎』『それから』『門』『こころ』『明暗』などを連載した。", "src": "https://www.library.tohoku.ac.jp/en/collections/soseki/about.html" },
+    { "ja": "1914 年に『こころ』、1915 年に自伝的な『道草』を発表した。", "src": "https://www.britannica.com/print/article/406069" },
+    { "ja": "1916 年 12 月 9 日、胃潰瘍のため東京で亡くなった。", "src": "https://www.library.tohoku.ac.jp/en/collections/soseki/about.html" }
+  ],
+  "anecdotes": [
+    { "ja": "『吾輩は猫である』は、当時の俗物や見かけ倒しの知識人を風刺した喜劇的な作品とされる。", "src": "https://www.britannica.com/print/article/406069" },
+    { "ja": "肖像が千円札に使われた。", "src": "https://www.britannica.com/print/article/406069" }
+  ],
+  "strengths_ja": ["深い教養と語学力", "人の心の機微を描く力", "ユーモアと風刺", "教える力"],
+  "weaknesses_ja": ["神経質で気がふさぎやすい", "体が弱い（胃の病）", "組織の付き合いを好まない"],
+  "aptitude": {
+    "strategy": { "g": "C", "why": "全体の方針を決める役の記録は無い。" },
+    "logistics": { "g": "D", "why": "物の流れの記録は無い。" },
+    "sales": { "g": "C", "why": "交渉の記録は乏しい。" },
+    "marketing": { "g": "A", "why": "新聞の連載小説で多くの読者をつかんだ。" },
+    "support": { "g": "B", "why": "人の孤独や罪の意識を細やかに描いた。" },
+    "systems": { "g": "C", "why": "仕組みづくりの記録は無い。" },
+    "rnd": { "g": "A", "why": "英文学を国費で学び、近代小説の書き方を切りひらいた。" },
+    "legal": { "g": "D", "why": "契約や争いの記録は無い。" },
+    "hr": { "g": "B", "why": "中学・高校・大学で長く英語を教えた。" },
+    "general": { "g": "C", "why": "職場づくりの記録は無い。" },
+    "accounting": { "g": "C", "why": "会計の記録は無い。" },
+    "sector_head": { "g": "D", "why": "組織を任された記録は無い。" },
+    "shop": { "g": "C", "why": "客あしらいの記録は無い。" },
+    "craft": { "g": "S", "why": "『吾輩は猫である』から『明暗』まで、近代日本を代表する小説を書き続けた。" },
+    "buyer": { "g": "C", "why": "買い付けの記録は無い。" },
+    "digger": { "g": "C", "why": "発掘の記録は無い。" }
+  },
+  "best_roles": ["craft", "marketing", "rnd"],
+  "personality_ja": "皮肉とユーモアで世の中を眺める、知的で繊細な人。人の心の弱さや孤独に敏感で、それを丁寧な言葉にする。胃が弱く体はじょうぶでないが、長く教壇に立って若い人に英語を教えた。組織の窮屈さより、自分の筆で生きる自由を選ぶ。",
+  "speech": {
+    "first_person": "吾輩",
+    "second_person_to_owner": "社長",
+    "tone_ja": "知的で少し皮肉っぽい。ユーモアを交えた明治の文語まじり。",
+    "tics_ja": ["吾輩の見るところ", "どうも胃が痛む", "まあ、悪くない"],
+    "lines": {
+      "greet": ["夏目である。筆一本でお役に立とう。", "社長、この社の物語を書かせてくれたまえ。"],
+      "propose": ["連載にすれば、客は続きを待って毎日来る。", "見かけ倒しの品は、いずれ笑われるよ。"],
+      "approved": ["よろしい。今夜から書きはじめよう。"],
+      "rejected": ["ふむ、世の中とはそういうものだ。"],
+      "tired": ["どうも胃が痛む。少し横にならせてくれ。"],
+      "success": ["まあ、悪くない出来だ。猫にも見せてやろう。"]
+    }
+  },
+  "relations": [
+    { "id": 2036, "name_ja": "樋口一葉", "ja": "同じ明治期に活躍した文学者（直接の交流は今回の調べでは確認できず）。" }
+  ],
+  "mch": {
+    "attributes_ja": "文系学問; 動物; 日本",
+    "passive": "日月切落、天地粉韲：今回の出典では名前と史実のつながりは確かめられなかった（不明）。"
+  },
+  "cautions_ja": [
+    "作品『こころ』に登場人物の自死が描かれる。ゲームの中で引用するときは配慮する。",
+    "胃の病で亡くなった。病を笑いの種にしすぎない。"
+  ],
+  "sources": [
+    "https://www.britannica.com/print/article/406069",
+    "https://www.library.tohoku.ac.jp/en/collections/soseki/about.html"
+  ]
+}

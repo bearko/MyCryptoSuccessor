@@ -1,0 +1,200 @@
+{
+  "id": 5004,
+  "name_ja": "ジョージ・ワシントン",
+  "name_en": "George Washington",
+  "kind": "historical",
+  "era": "1732–1799（アメリカ独立革命期）",
+  "region": "アメリカ合衆国（バージニア）",
+  "summary_ja": "バージニアの農園主の家に生まれ、10 代で郡の測量士になった。フレンチ・インディアン戦争でバージニア連隊を率いたが、ネセシティ砦を失う敗北も経験した。1775 年に大陸軍の総司令官に選ばれ、バレーフォージの冬の補給不足など苦しい時期を耐え、1781 年ヨークタウンでフランス軍と共にイギリス軍を降伏させた。1783 年には王に推す声を退けて自ら司令官を辞め、1787 年の憲法制定会議では議長を務めた。1789 年から 2 期 8 年、初代大統領を務め、フランス革命の戦争では中立を守り、1797 年に職を譲って農園に戻った。権力を自ら手放したことで信望を集めた一方、多くの奴隷を所有した農園主でもあった。",
+  "facts": [
+    {
+      "ja": "1732 年 2 月 22 日、バージニア植民地ウェストモアランド郡の父の農園で生まれた。",
+      "src": "https://www.mountvernon.org/digital-encyclopedia/article/george-washington"
+    },
+    {
+      "ja": "測量士の訓練を受け、10 代でカルペパー郡の測量士となった。",
+      "src": "https://home.nps.gov/waro/learn/historyculture/general-washington.htm"
+    },
+    {
+      "ja": "1754 年にバージニア連隊の指揮官となり、同年 7 月にネセシティ砦を失って初めての敗北を喫した。",
+      "src": "https://www.mountvernon.org/digital-encyclopedia/article/george-washington"
+    },
+    {
+      "ja": "1775 年 6 月、大陸会議で全会一致で総司令官に選ばれた。",
+      "src": "https://www.mountvernon.org/digital-encyclopedia/article/george-washington"
+    },
+    {
+      "ja": "1776 年、トレントンでヘッセン兵に奇襲をかけた。",
+      "src": "https://home.nps.gov/waro/learn/historyculture/general-washington.htm"
+    },
+    {
+      "ja": "1777〜78 年の冬、バレーフォージで兵は物資の不足に苦しんだ。",
+      "src": "https://home.nps.gov/waro/learn/historyculture/general-washington.htm"
+    },
+    {
+      "ja": "1781 年、ヨークタウンで米仏連合軍がコーンウォリスの軍を降伏させた。",
+      "src": "https://www.mountvernon.org/digital-encyclopedia/article/george-washington"
+    },
+    {
+      "ja": "1783 年に自ら総司令官を辞め、王にしようとする将校たちの声を退けた。",
+      "src": "https://home.nps.gov/waro/learn/historyculture/general-washington.htm"
+    },
+    {
+      "ja": "1787 年のフィラデルフィア憲法制定会議で議長に選ばれた。",
+      "src": "https://www.mountvernon.org/digital-encyclopedia/article/george-washington"
+    },
+    {
+      "ja": "1789〜1797 年に初代大統領を務め、フランス革命の戦争では中立を守り、2 期で退いた。1799 年 12 月に没した。",
+      "src": "https://home.nps.gov/waro/learn/historyculture/general-washington.htm"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "憲法制定会議の議長は、本人はできれば避けたかったと伝わる。",
+      "src": "https://www.mountvernon.org/digital-encyclopedia/article/george-washington"
+    },
+    {
+      "ja": "若いころ、病気の異母兄ローレンスに付き添ってバルバドスへ行き、天然痘にかかった。",
+      "src": "https://home.nps.gov/waro/learn/historyculture/general-washington.htm"
+    }
+  ],
+  "strengths_ja": [
+    "人望と信頼",
+    "粘り強さ",
+    "権力を手放せる自制心",
+    "現場を知る実務感覚（測量）"
+  ],
+  "weaknesses_ja": [
+    "前に出たがらず決断が慎重すぎることも",
+    "派手な戦術家ではない",
+    "奴隷所有という時代の限界"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "A",
+      "why": "苦しい戦いを耐えて同盟国の到着を待ち、ヨークタウンで勝ちを決めた。"
+    },
+    "logistics": {
+      "g": "B",
+      "why": "バレーフォージで物資不足の冬を乗り切ったが、補給の不足には長く苦しんだ。"
+    },
+    "sales": {
+      "g": "B",
+      "why": "フランス軍との連携でヨークタウンの勝利を得た。"
+    },
+    "marketing": {
+      "g": "C",
+      "why": "自らを宣伝するより、ふるまいで信頼を得る人だった。"
+    },
+    "support": {
+      "g": "B",
+      "why": "苦しい冬も兵とともに耐え、軍をまとめ続けた。"
+    },
+    "systems": {
+      "g": "B",
+      "why": "初代大統領として新しい政府の運営を形にした。"
+    },
+    "rnd": {
+      "g": "C",
+      "why": "研究にかかわる記録は乏しい。"
+    },
+    "legal": {
+      "g": "A",
+      "why": "憲法制定会議の議長を務め、憲法のもとで最初の行政の長となった。"
+    },
+    "hr": {
+      "g": "S",
+      "why": "全会一致で総司令官に選ばれ、権力を自ら返して信望を集めた。"
+    },
+    "general": {
+      "g": "B",
+      "why": "大農園を営んだ経験がある。"
+    },
+    "accounting": {
+      "g": "C",
+      "why": "財務の専門家ではなかった。"
+    },
+    "sector_head": {
+      "g": "A",
+      "why": "総司令官・初代大統領として組織全体を預かった。"
+    },
+    "shop": {
+      "g": "C",
+      "why": "人と対面で接する仕事の資質は分からない。"
+    },
+    "craft": {
+      "g": "C",
+      "why": "ものづくりの記録は乏しい。"
+    },
+    "buyer": {
+      "g": "C",
+      "why": "買い付けの記録は乏しい。"
+    },
+    "digger": {
+      "g": "B",
+      "why": "10 代から測量士として土地を歩き、現地を調べる仕事をした。"
+    }
+  },
+  "best_roles": [
+    "hr",
+    "sector_head",
+    "legal"
+  ],
+  "personality_ja": "礼儀正しく、口数は少ないが芯が強い。自分を大きく見せようとせず、責任を果たしたら潔く身を引く。苦しい時ほど仲間と並んで耐え、信頼で人をまとめる。慎重で、決める前によく聞く。派手さはないが、約束を守り続けることで信頼を積み上げる。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "丁寧で落ち着いた紳士の口調。誇張を嫌い、約束を重んじる。",
+    "tics_ja": [
+      "まず皆の話を聞こう",
+      "約束は守るためにある",
+      "役目を果たしたら、席は次に譲る"
+    ],
+    "lines": {
+      "greet": [
+        "ワシントンです。皆の信頼に応えられるよう努めます。",
+        "社長、まずこの町を歩いて測らせてください。"
+      ],
+      "propose": [
+        "苦しい時期こそ、皆で耐えれば道は開けます。",
+        "決まりを紙にまとめ、誰もが従える形にしましょう。"
+      ],
+      "approved": [
+        "承知しました。誠実に進めます。"
+      ],
+      "rejected": [
+        "分かりました。社長のご判断に従います。"
+      ],
+      "tired": [
+        "少し農園の空気を吸ってきてもよいでしょうか。"
+      ],
+      "success": [
+        "皆の粘りの成果です。私は何もしていません。"
+      ]
+    }
+  },
+  "relations": [
+    {
+      "id": 2041,
+      "name_ja": "ベンジャミン・フランクリン",
+      "ja": "ともにアメリカ独立を進めた建国の父で、1787 年の憲法制定会議ではワシントンが議長、フランクリンが代表として加わった。"
+    },
+    {
+      "id": 4033,
+      "name_ja": "エイブラハム・リンカーン",
+      "ja": "同じアメリカ合衆国の大統領職の後の人（初代と第 16 代）。直接の関係は無い。"
+    }
+  ],
+  "mch": {
+    "attributes_ja": "指導者; 政治; アメリカ大陸; アメリカンドリーム",
+    "passive": "1stプレジデント：アメリカ合衆国の初代大統領であることにちなむ名。"
+  },
+  "cautions_ja": [
+    "マウントバーノンの農園で多くの奴隷を所有していた。偉人として一面的に持ち上げすぎない。",
+    "先住民や植民地の戦争にかかわる史実があり、戦いの描写は穏当に。"
+  ],
+  "sources": [
+    "https://www.mountvernon.org/digital-encyclopedia/article/george-washington",
+    "https://home.nps.gov/waro/learn/historyculture/general-washington.htm"
+  ]
+}

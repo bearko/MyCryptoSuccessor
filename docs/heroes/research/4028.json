@@ -1,0 +1,79 @@
+{
+  "id": 4028,
+  "name_ja": "ダーウィン",
+  "name_en": "Charles Darwin",
+  "kind": "historical",
+  "era": "1809–1882（19 世紀、ヴィクトリア朝）",
+  "region": "イギリス（イングランド、シュルーズベリー生まれ）",
+  "summary_ja": "自然選択による進化の理論を唱えた博物学者。医師の家に生まれ、エディンバラ大学で医学を学んだがやめ、ケンブリッジでヘンズロー教授に博物学への関心を育てられた。1831年から1836年まで測量船ビーグル号に無給の博物学者として乗り、南アメリカやガラパゴス諸島で化石や生き物を調べた。1842年にケントのダウン・ハウスへ移り、フジツボの分類研究などを重ねた。1858年にウォレスから似た考えの論文が届いたことを機に、1859年『種の起源』を出版した。神学や社会への影響を論じることは避け、慎重な姿勢を貫いた。各国の研究者と手紙を交わし、フランスの昆虫学者ファーブルにも実験を提案している。1882年に没し、ウェストミンスター寺院に葬られた。",
+  "facts": [
+    { "ja": "1809年2月12日、シュルーズベリーで医師ロバート・ダーウィンの子として生まれた。", "src": "https://www.rmg.co.uk/stories/topics/charles-darwin-one-britains-most-celebrated-naturalists" },
+    { "ja": "エディンバラ大学で医学をやめ、ケンブリッジ大学でヘンズロー教授に博物学への関心を育てられた。", "src": "https://www.linnean.org/the-society/history-of-science/charles-darwin" },
+    { "ja": "1831〜1836年、測量船ビーグル号に無給の博物学者として乗り、南アメリカとガラパゴス諸島などを調べた。", "src": "https://www.rmg.co.uk/stories/topics/charles-darwin-one-britains-most-celebrated-naturalists" },
+    { "ja": "ガラパゴスで、島の生き物が南アメリカのものと似つつ違うことに気づき、環境への適応を考える手がかりとした。", "src": "https://www.rmg.co.uk/stories/topics/charles-darwin-one-britains-most-celebrated-naturalists" },
+    { "ja": "1842年にケントのダウン・ハウスへ移り住んだ。", "src": "https://wwwe.lib.cam.ac.uk/CUL/exhibitions/Darwin/timeline.html" },
+    { "ja": "1846〜1854年、フジツボの詳しい分類研究を行った。", "src": "https://wwwe.lib.cam.ac.uk/CUL/exhibitions/Darwin/timeline.html" },
+    { "ja": "1858年はじめ、文通相手のウォレスから手紙と論文を受け取った。", "src": "https://www.linnean.org/the-society/history-of-science/charles-darwin" },
+    { "ja": "1859年11月24日、『種の起源』を出版した。", "src": "https://www.rmg.co.uk/stories/topics/charles-darwin-one-britains-most-celebrated-naturalists" },
+    { "ja": "1880年、ファーブルに『昆虫記』への礼状を送り、昆虫の帰巣を調べる実験を提案した。", "src": "https://www.darwinproject.ac.uk/view/letters/DCP-LETT-12443" },
+    { "ja": "1882年4月19日に没し、ウェストミンスター寺院に葬られた。", "src": "https://www.rmg.co.uk/stories/topics/charles-darwin-one-britains-most-celebrated-naturalists" }
+  ],
+  "anecdotes": [
+    { "ja": "『種の起源』では、当時論争の的だった「evolution（進化）」という語を避けた。", "src": "https://www.linnean.org/the-society/history-of-science/charles-darwin" },
+    { "ja": "ファーブルへの手紙で、進化論に反対する相手にも敬意を払い、亡くした息子への献辞に深い同情を寄せた。", "src": "https://www.darwinproject.ac.uk/view/letters/DCP-LETT-12443" },
+    { "ja": "同じ手紙で、虫を紙の筒に入れて箱ごと回し、方向感覚を乱してから放つという実験を提案した。", "src": "https://www.darwinproject.ac.uk/view/letters/DCP-LETT-12443" }
+  ],
+  "strengths_ja": ["粘り強い観察と記録", "慎重な検証", "幅広い文通による知のネットワーク", "反対者への敬意"],
+  "weaknesses_ja": ["結論の公表に慎重すぎる", "論争の矢面に立つのを避けがち"],
+  "aptitude": {
+    "strategy": { "g": "B", "why": "長い時間をかけて理論を固める構想力はあるが、組織の方針づくりの記録は無い。" },
+    "logistics": { "g": "C", "why": "調達や輸送の記録は無い。" },
+    "sales": { "g": "D", "why": "論争や駆け引きを避けた。" },
+    "marketing": { "g": "C", "why": "影響の大きい議論は避ける慎重派だった。" },
+    "support": { "g": "C", "why": "丁寧な手紙で相手に配慮したが、対応業務の記録は無い。" },
+    "systems": { "g": "B", "why": "膨大な標本と記録を体系立てて整理した。" },
+    "rnd": { "g": "S", "why": "観察を積み重ねて自然選択の理論を打ち立てた。" },
+    "legal": { "g": "C", "why": "争いを好まず、法務の記録は無い。" },
+    "hr": { "g": "B", "why": "各国の研究者と文通し、協力の輪を広げた。" },
+    "general": { "g": "C", "why": "職場環境づくりの記録は無い。" },
+    "accounting": { "g": "C", "why": "金銭管理の記録は乏しい。" },
+    "sector_head": { "g": "C", "why": "組織を率いた経験は無い。" },
+    "shop": { "g": "D", "why": "対面の接客より観察と思索を好んだ。" },
+    "craft": { "g": "B", "why": "標本の解剖や細かな分類の手仕事をこなした。" },
+    "buyer": { "g": "B", "why": "世界各地の協力者から標本や情報を集めた。" },
+    "digger": { "g": "A", "why": "ビーグル号の航海で化石や標本を自ら採集した。" }
+  },
+  "best_roles": ["rnd", "digger"],
+  "personality_ja": "穏やかで慎重、何年もかけて観察と記録を積み重ねる忍耐の人。結論を急がず、証拠がそろうまで公表を控えた。考えの違う相手にも礼を尽くし、丁寧な手紙で協力を求める。論争の的になることは好まず、自分の理論が社会や信仰に与える影響を論じることも避けた。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "穏やかで慎重な丁寧語。「〜かもしれません」と留保をつける。",
+    "tics_ja": ["まず観察から", "もう少しデータを", "小さな違いが積み重なるのです"],
+    "lines": {
+      "greet": ["ダーウィンです。まずは観察から始めさせてください", "結論は急ぎません。証拠がそろうまで"],
+      "propose": ["小さな違いを記録しましょう。積み重なると大差です", "売れ筋の変化に合わせて、品を少しずつ変えましょう"],
+      "approved": ["ありがとう。丁寧に記録を取ります"],
+      "rejected": ["なるほど。反対意見も大切なデータですね"],
+      "tired": ["少し庭を歩いてきます。考えがまとまるので"],
+      "success": ["仮説が裏付けられました。いや、うれしいですね"]
+    }
+  },
+  "relations": [
+    { "id": 4044, "name_ja": "ファーブル", "ja": "1880年、ダーウィンはファーブルに『昆虫記』への礼状を送り、昆虫の帰巣を調べる実験を提案した。" }
+  ],
+  "mch": {
+    "attributes_ja": "理系学問; 動物; イギリス",
+    "passive": "種の起源：1859年の主著の名。環境に合わないものが残れないという自然選択の考えが、敵の強化を打ち消す効果と重なる。"
+  },
+  "cautions_ja": [
+    "進化論は宗教的な信念とかかわる話題なので、信仰を揶揄する表現を避ける。",
+    "「適者生存」を差別や優生思想の正当化に結びつけない。"
+  ],
+  "sources": [
+    "https://www.linnean.org/the-society/history-of-science/charles-darwin",
+    "https://www.rmg.co.uk/stories/topics/charles-darwin-one-britains-most-celebrated-naturalists",
+    "https://wwwe.lib.cam.ac.uk/CUL/exhibitions/Darwin/timeline.html",
+    "https://www.darwinproject.ac.uk/view/letters/DCP-LETT-12443"
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "id": 3030,
+  "name_ja": "シェイクスピア",
+  "name_en": "William Shakespeare",
+  "kind": "historical",
+  "era": "1564–1616（エリザベス1世〜ジェームズ1世の時代）",
+  "region": "イギリス（イングランド、ストラトフォード・アポン・エイヴォンとロンドン）",
+  "summary_ja": "イングランドの劇作家・詩人・俳優。ストラトフォード・アポン・エイヴォンで手袋職人の家に生まれ、18歳でアン・ハサウェイと結婚した。1590年前後からロンドンで俳優・劇作家として働き、宮内大臣一座（のちの国王一座）の一員・株主として、1599年に建ったグローブ座などで作品を上演した。劇作家でありながら劇団の利益の分け前を持つ珍しい立場で、故郷に町で二番目に大きい家を買うなど、商売の面でも成功した。生涯に38〜40本ほどの劇を書き、1616年に故郷で亡くなった。日記や手紙は残っておらず、心の内は分からない。",
+  "facts": [
+    { "ja": "1564年4月26日にストラトフォード・アポン・エイヴォンで洗礼を受けた。誕生日は伝統的に4月23日とされる。", "src": "https://thegreatthinkers.org/shakespeare-and-politics/biography/" },
+    { "ja": "手袋職人ジョン・シェイクスピアと、裕福な農家の娘メアリ・アーデンの長男だった。", "src": "https://www.stratfordfestival.ca/Learn/Teachers/TeachingResources/PerformancePlus/Macbeth/data/lessons/Shakespeare-bio.pdf" },
+    { "ja": "1582年にアン・ハサウェイと結婚し、スザンナと双子のハムネット・ジューディスをもうけた。ハムネットは幼くして亡くなった。", "src": "https://www.stratfordfestival.ca/Learn/Teachers/TeachingResources/PerformancePlus/Macbeth/data/lessons/Shakespeare-bio.pdf" },
+    { "ja": "1594年ごろから宮内大臣一座に加わり、一座は1603年にジェームズ1世のもとで国王一座となった。", "src": "https://shakespearedocumented.folger.edu/resource/playwright-actor-shareholder?page=22" },
+    { "ja": "当時の劇作家で劇場の利益の分け前を持つ株主だったのは彼だけだったとされる。", "src": "https://thegreatthinkers.org/shakespeare-and-politics/biography/" },
+    { "ja": "1599年、新しく建ったグローブ座の株主になった。", "src": "https://www.stratfordfestival.ca/Learn/Teachers/TeachingResources/PerformancePlus/Macbeth/data/lessons/Shakespeare-bio.pdf" },
+    { "ja": "1597年、故郷で二番目に大きい家「ニュー・プレイス」を買った。", "src": "https://lemdo.uvic.ca/emee/ShakespeareNewHomeStratford.html" },
+    { "ja": "1597年と1598年には、わずかな税の滞納者として記録されている。", "src": "https://lemdo.uvic.ca/emee/ShakespeareNewHomeStratford.html" },
+    { "ja": "1608年ごろには屋内劇場ブラックフライアーズ座の株も持った。", "src": "https://thegreatthinkers.org/shakespeare-and-politics/biography/" },
+    { "ja": "劇の数は数え方により38〜40本とされる。", "src": "https://shakespearedocumented.folger.edu/resource/playwright-actor-shareholder?page=22" },
+    { "ja": "1610〜11年ごろ故郷に戻った後も国王一座と関わり、ジョン・フレッチャーと共作した。", "src": "https://thegreatthinkers.org/shakespeare-and-politics/biography/" },
+    { "ja": "1616年4月23日に故郷で亡くなり、1623年に仲間の俳優ヘミングズとコンデルが36本の劇を収めた作品集（第一・二つ折り本）を出した。", "src": "https://thegreatthinkers.org/shakespeare-and-politics/biography/" }
+  ],
+  "anecdotes": [
+    { "ja": "同時代の劇作家ベン・ジョンソンは、彼を「一時代の人ではなく、すべての時代の人」とたたえた。", "src": "https://www.stratfordfestival.ca/Learn/Teachers/TeachingResources/PerformancePlus/Macbeth/data/lessons/Shakespeare-bio.pdf" },
+    { "ja": "ニュー・プレイスの売り主が売却の2か月後に息子に毒殺され、購入の手続きが1602年まで長引いた。", "src": "https://lemdo.uvic.ca/emee/ShakespeareNewHomeStratford.html" },
+    { "ja": "1580年代半ばに故郷を出てからロンドンに現れるまでの数年間は、何をしていたか分からない「失われた年月」とされる。", "src": "https://thegreatthinkers.org/shakespeare-and-politics/biography/" }
+  ],
+  "strengths_ja": ["観客を引きつける物語と言葉の力", "劇団の株主として稼ぐ商才", "共作もこなす協調性", "書き手・演じ手・経営の三役をこなす器用さ"],
+  "weaknesses_ja": ["大きな買い物で手元のお金が苦しくなったことがある（税の滞納記録）", "本人の考えを示す日記・手紙が無く、人柄は推し量るしかない"],
+  "aptitude": {
+    "strategy": { "g": "B", "why": "劇団の株主として経営にも関わったが、方針を決めた記録は乏しい。" },
+    "logistics": { "g": "C", "why": "調達や運搬にかかわる記録は無い。" },
+    "sales": { "g": "B", "why": "宮廷や大学など各地で上演された劇団の一員だったが、交渉役の記録は無い。" },
+    "marketing": { "g": "S", "why": "毎日の興行で大勢の観客を集め、作品は400年後も上演され続けている。" },
+    "support": { "g": "B", "why": "観客の反応を相手にする劇場の仕事を長く続けた。" },
+    "systems": { "g": "C", "why": "仕組みづくりの記録は無い。" },
+    "rnd": { "g": "B", "why": "歴史や古典を題材に新しい劇を次々に作った。" },
+    "legal": { "g": "C", "why": "家の購入で長い手続きを経験したが、法務の働きの記録は少ない。" },
+    "hr": { "g": "B", "why": "俳優仲間と長く一座を続け、晩年は若い劇作家と共作した。" },
+    "general": { "g": "C", "why": "働く場づくりの記録は少ない。" },
+    "accounting": { "g": "B", "why": "劇団株や不動産に投資して財を成したが、税の滞納記録もある。" },
+    "sector_head": { "g": "C", "why": "組織全体を任された記録は無い。" },
+    "shop": { "g": "A", "why": "俳優として舞台に立ち、毎日観客と向き合った。" },
+    "craft": { "g": "A", "why": "38〜40本の劇と多くの詩を書いた、言葉の職人である。" },
+    "buyer": { "g": "C", "why": "買い付けの記録は無い。" },
+    "digger": { "g": "C", "why": "発掘の記録は無い。" }
+  },
+  "best_roles": ["marketing", "craft", "shop"],
+  "personality_ja": "史料からは、劇作と演技と劇団経営を両立させた現実的で器用な人物像が浮かぶ。故郷の家族を養い、稼いだお金を家や劇場に投じる堅実さがある一方、大きな買い物で手元が苦しくなることもあった。仲間と長く一座を続け、晩年は共作もした協調的な人だが、心の内を記した記録は残っていない。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "比喩が多く、芝居がかった言い回し。ただし数字の話になると急に現実的。",
+    "tics_ja": ["「さて、ここで場面を変えましょう」", "「客席は正直ですよ」", "「幕はまだ下りていません」"],
+    "lines": {
+      "greet": ["さあ、新しい舞台の幕開けです、社長。", "書き手兼役者兼株主、ただいま着任。"],
+      "propose": ["この品に物語をつけて売り出しましょう。", "客を泣かせて笑わせる、そんな広告を。"],
+      "approved": ["喝采ありがとう。すぐ稽古に入ります。"],
+      "rejected": ["では台本を書き直しましょう。"],
+      "tired": ["今夜の筆は重い。少し休ませてください。"],
+      "success": ["満員御礼！客席は正直ですね。"]
+    }
+  },
+  "relations": [
+    { "id": 4026, "name_ja": "カエサル", "ja": "シェイクスピアは悲劇『ジュリアス・シーザー』でカエサル暗殺を題材にした。" },
+    { "id": 5016, "name_ja": "クレオパトラ", "ja": "シェイクスピアは悲劇『アントニーとクレオパトラ』で彼女を描いた。" },
+    { "id": 5007, "name_ja": "ジャンヌ・ダルク", "ja": "初期の歴史劇『ヘンリー六世 第1部』にジャンヌが登場する。" },
+    { "id": 4052, "name_ja": "フランシス・ドレーク", "ja": "同じエリザベス1世の時代のイングランドの人物（直接の交流の記録は無い）。" }
+  ],
+  "mch": {
+    "attributes_ja": "文系学問; イギリス; 芸能",
+    "passive": "エイボンの吟遊詩人：味方の知力を高め、敵味方を眠らせる能力で、故郷エイヴォン川の詩人と呼ばれた劇作家の、言葉で人を酔わせる力を表したものと読める。"
+  },
+  "cautions_ja": [
+    "人柄を示す一次史料（日記・手紙）が無いため、性格づけは経歴からの推測であることを踏まえる。"
+  ],
+  "sources": [
+    "https://thegreatthinkers.org/shakespeare-and-politics/biography/",
+    "https://www.stratfordfestival.ca/Learn/Teachers/TeachingResources/PerformancePlus/Macbeth/data/lessons/Shakespeare-bio.pdf",
+    "https://shakespearedocumented.folger.edu/resource/playwright-actor-shareholder?page=22",
+    "https://lemdo.uvic.ca/emee/ShakespeareNewHomeStratford.html",
+    "https://shakespeareandbeyond.folger.edu/2016/03/04/documenting-the-life-of-an-icon-shakespeare-at-400-years/"
+  ]
+}

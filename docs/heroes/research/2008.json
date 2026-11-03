@@ -1,0 +1,197 @@
+{
+  "id": 2008,
+  "name_ja": "シュレディンガー",
+  "name_en": "Erwin Schrödinger",
+  "kind": "historical",
+  "era": "1887–1961（20 世紀前半〜中ごろ）",
+  "region": "オーストリア（ウィーン）。チューリッヒ・ダブリンなどでも活動",
+  "summary_ja": "オーストリアの理論物理学者。ウィーン大学で学び、第一次世界大戦では要塞砲兵の将校を務めた。チューリッヒ大学にいた 1926 年、波動関数の時間の変化を表す「シュレディンガー方程式」を発表し、1933 年にディラックとともにノーベル物理学賞を受けた。同じ年、ナチスの反ユダヤ主義に強く反対してドイツを去り、オーストリア併合後はグラーツの職を解かれてイタリアへ逃れた。1935 年にはアインシュタインとの手紙のやりとりののち、箱の中の猫の思考実験を示した。その後はダブリン高等研究所で理論物理学部門を率い、『生命とは何か』で物理学から生命を論じた。東洋思想にも深い関心を寄せた。",
+  "facts": [
+    {
+      "ja": "1887 年 8 月 12 日にウィーンで生まれ、1961 年 1 月 4 日にウィーンで結核のため没した。",
+      "src": "https://en.wikipedia.org/wiki/Erwin_Schr%C3%B6dinger"
+    },
+    {
+      "ja": "ウィーン大学で学び、1910 年に博士号を取った。",
+      "src": "https://en.wikipedia.org/wiki/Erwin_Schr%C3%B6dinger"
+    },
+    {
+      "ja": "第一次世界大戦中の 1914〜18 年、オーストリアの要塞砲兵の将校を務めた。",
+      "src": "https://en.wikipedia.org/wiki/Erwin_Schr%C3%B6dinger"
+    },
+    {
+      "ja": "1921 年にチューリッヒ大学へ移り、1926 年に波動関数の時間の変化を表す方程式を発表した。",
+      "src": "https://en.wikipedia.org/wiki/Erwin_Schr%C3%B6dinger"
+    },
+    {
+      "ja": "1933 年にディラックとともにノーベル物理学賞を受けた。",
+      "src": "https://www.nobelprize.org/nobel_prizes/physics/laureates/1933/schrodinger-bio.html"
+    },
+    {
+      "ja": "1933 年、ナチスの反ユダヤ主義に強く反対してドイツを去った。",
+      "src": "https://en.wikipedia.org/wiki/Erwin_Schr%C3%B6dinger"
+    },
+    {
+      "ja": "1938 年のオーストリア併合後、ナチスへの反対が一因でグラーツ大学の職を解かれ、イタリアへ逃れた。",
+      "src": "https://en.wikipedia.org/wiki/Erwin_Schr%C3%B6dinger"
+    },
+    {
+      "ja": "1935 年、アインシュタインとの多くの手紙のやりとりののち猫の思考実験を示し、同じ年に「量子もつれ」という言葉をつくった。",
+      "src": "https://en.wikipedia.org/wiki/Erwin_Schr%C3%B6dinger"
+    },
+    {
+      "ja": "1940 年からダブリン高等研究所の理論物理学部門の長を務め、1955 年に退いた。",
+      "src": "https://www.nobelprize.org/nobel_prizes/physics/laureates/1933/schrodinger-bio.html"
+    },
+    {
+      "ja": "1944 年の『生命とは何か』で、物理学の考え方を生命や遺伝の問題に当てはめた。",
+      "src": "https://www.nobelprize.org/nobel_prizes/physics/laureates/1933/schrodinger-bio.html"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "猫の思考実験には、当時の主流の解釈を皮肉る意味もあったとされる。",
+      "src": "https://en.wikipedia.org/wiki/Erwin_Schr%C3%B6dinger"
+    },
+    {
+      "ja": "ドイツを離れたことについて「自由でいたかった」と語った。",
+      "src": "https://en.wikipedia.org/wiki/Erwin_Schr%C3%B6dinger"
+    },
+    {
+      "ja": "ウパニシャッドやヴェーダーンタなど東洋の思想、色彩の理論にも深い関心を寄せた。",
+      "src": "https://en.wikipedia.org/wiki/Erwin_Schr%C3%B6dinger"
+    }
+  ],
+  "strengths_ja": [
+    "難しい現象を数式にまとめる力",
+    "大胆なたとえで問題をあぶり出す発想",
+    "分野をこえる好奇心"
+  ],
+  "weaknesses_ja": [
+    "理屈が先に立ち、周りを置いていく",
+    "居場所を転々とした"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "B",
+      "why": "自らの考えを貫いて職場を選び直すなど、先を見て決断した。"
+    },
+    "logistics": {
+      "g": "D",
+      "why": "物の流れを扱った記録は無い。"
+    },
+    "sales": {
+      "g": "C",
+      "why": "交渉ごとの記録は乏しい。"
+    },
+    "marketing": {
+      "g": "B",
+      "why": "猫のたとえで、難しい問題を誰にでも伝わる形にした。"
+    },
+    "support": {
+      "g": "C",
+      "why": "人の相談に乗った記録は乏しい。"
+    },
+    "systems": {
+      "g": "A",
+      "why": "現象を一つの方程式にまとめ、計算できる形にした。"
+    },
+    "rnd": {
+      "g": "S",
+      "why": "波動方程式で量子力学の土台を築き、ノーベル賞を受けた。"
+    },
+    "legal": {
+      "g": "C",
+      "why": "契約や争いの記録は乏しい。"
+    },
+    "hr": {
+      "g": "C",
+      "why": "人を育てた記録は乏しい。"
+    },
+    "general": {
+      "g": "C",
+      "why": "職場環境にかかわる記録は無い。"
+    },
+    "accounting": {
+      "g": "C",
+      "why": "お金の管理の記録は無い。"
+    },
+    "sector_head": {
+      "g": "B",
+      "why": "ダブリン高等研究所で理論物理学部門を率いた。"
+    },
+    "shop": {
+      "g": "D",
+      "why": "客と向き合う記録は無い。"
+    },
+    "craft": {
+      "g": "C",
+      "why": "手を動かして物を作った記録は乏しい。"
+    },
+    "buyer": {
+      "g": "D",
+      "why": "買い付けの記録は無い。"
+    },
+    "digger": {
+      "g": "C",
+      "why": "発掘の記録は無い。"
+    }
+  },
+  "best_roles": [
+    "rnd",
+    "systems",
+    "sector_head"
+  ],
+  "personality_ja": "好奇心が強く、物理だけでなく生命や東洋の思想にまで考えを広げる。納得できない考えには、たとえ話で鋭く切り込む。自由を重んじ、意に沿わない場所からは迷わず離れる。理屈が先に立ち、まわりが追いつけないこともある。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "知的で少し皮肉まじり。たとえ話で問題を示し、結論は箱を開けるまで保留する。",
+    "tics_ja": [
+      "箱を開けるまでは分からない",
+      "たとえば猫で考えると",
+      "両方の可能性がある"
+    ],
+    "lines": {
+      "greet": [
+        "シュレディンガーです。売れるか売れないか、両方ありえます。",
+        "社長、まず数字を方程式にしてみましょう。"
+      ],
+      "propose": [
+        "新商品は小さく試しましょう。箱を開けるまでは分からない。",
+        "客の動きを式にすれば、明日の売れ行きが見えます。"
+      ],
+      "approved": [
+        "では観測を始めます。結果はすぐに出ます。"
+      ],
+      "rejected": [
+        "なるほど。まだ箱は閉じたまま、というわけですね。"
+      ],
+      "tired": [
+        "少し休みます。起きているとも寝ているとも言えません。"
+      ],
+      "success": [
+        "箱を開けたら……大成功でした。"
+      ]
+    }
+  },
+  "relations": [
+    {
+      "id": 5010,
+      "name_ja": "アインシュタイン",
+      "ja": "量子論をめぐって手紙を交わした同時代の物理学者で、猫の思考実験はそのやりとりののちに示された。"
+    }
+  ],
+  "mch": {
+    "attributes_ja": "理系学問; 動物; オーストリア",
+    "passive": "シュレディンガーの猫：1935 年に示した思考実験の名から。"
+  },
+  "cautions_ja": [
+    "私生活について、未成年との関係があったとする伝記上の主張があり、それを批判する研究もある論争中の話題。ゲームでは私生活や恋愛に触れない。",
+    "猫の思考実験は頭の中の例え話であり、動物を傷つける表現にしない。"
+  ],
+  "sources": [
+    "https://en.wikipedia.org/wiki/Erwin_Schr%C3%B6dinger",
+    "https://www.nobelprize.org/nobel_prizes/physics/laureates/1933/schrodinger-bio.html"
+  ]
+}

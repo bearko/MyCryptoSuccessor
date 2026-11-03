@@ -1,0 +1,193 @@
+{
+  "id": 2010,
+  "name_ja": "カフカ",
+  "name_en": "Franz Kafka",
+  "kind": "historical",
+  "era": "1883–1924（20 世紀初め）",
+  "region": "オーストリア＝ハンガリー帝国のプラハ（いまのチェコ）",
+  "summary_ja": "プラハのドイツ語作家。裕福なユダヤ系の商人の家の長男として生まれ、プラハの大学で法学博士となった。1908〜22 年は労働者災害保険局に勤め、事業所を危険の度合いで分類したり、事故を防ぐ規則案や技術文書を書いたりして、何度も昇進した。朝は役所、午後は眠り、夜に書くという生活を続け、『変身』などを発表した。1917 年に肺結核と診断され、1924 年にウィーン近郊のサナトリウムで 40 歳で亡くなった。遺言では原稿を焼くよう頼んだが、親友マックス・ブロートはそれに従わず、未完の長編『審判』『城』『アメリカ』を世に出した。暗い作品で知られる一方、『審判』を朗読しながら大笑いしたという話も伝わる。",
+  "facts": [
+    {
+      "ja": "1883 年 7 月 3 日にプラハで生まれ、1924 年 6 月 3 日にウィーン近郊のキアリングで 40 歳で没した。",
+      "src": "https://www.britannica.com/biography/Franz-kafka"
+    },
+    {
+      "ja": "裕福なユダヤ系の商人の家に生まれ、弟二人が幼くして亡くなったため長子として育った。",
+      "src": "https://www.britannica.com/biography/Franz-kafka"
+    },
+    {
+      "ja": "プラハの大学で法学を学び、1906 年に法学博士となった。",
+      "src": "https://bigenc.ru/c/kafka-frants-beedc6"
+    },
+    {
+      "ja": "1908〜22 年、プラハの労働者災害保険局に勤め、事業所を危険の度合いで分類し、事故を防ぐ規則案や技術文書を書いた。",
+      "src": "https://austria-forum.org/af/AustriaWiki/Franz_Kafka"
+    },
+    {
+      "ja": "保険局では何度も昇進し、1922 年に病気のため早期に退職した。",
+      "src": "https://austria-forum.org/af/AustriaWiki/Franz_Kafka"
+    },
+    {
+      "ja": "朝は役所で働き、午後に眠り、夜に書くという生活を送った。",
+      "src": "https://austria-forum.org/af/AustriaWiki/Franz_Kafka"
+    },
+    {
+      "ja": "生前に『変身』『判決』『田舎医者』『断食芸人』などを発表し、『審判』『城』『アメリカ』は未完のまま死後に出版された。",
+      "src": "https://bigenc.ru/c/kafka-frants-beedc6"
+    },
+    {
+      "ja": "1917 年に重い肺結核と診断された。",
+      "src": "https://bigenc.ru/c/kafka-frants-beedc6"
+    },
+    {
+      "ja": "遺言で原稿を焼くよう頼んだが、親友で遺稿管理者のマックス・ブロートは従わず、作品を出版した。",
+      "src": "https://bigenc.ru/c/kafka-frants-beedc6"
+    },
+    {
+      "ja": "1919 年に父へあてた長い手紙を書いたが、送らなかった。",
+      "src": "https://austria-forum.org/af/AustriaWiki/Franz_Kafka"
+    }
+  ],
+  "anecdotes": [
+    {
+      "ja": "『審判』を朗読しながら、たびたび大声で笑ったと伝わる。",
+      "src": "https://austria-forum.org/af/AustriaWiki/Franz_Kafka"
+    },
+    {
+      "ja": "保険局の仕事を「パンのための仕事」と呼んだ。",
+      "src": "https://austria-forum.org/af/AustriaWiki/Franz_Kafka"
+    },
+    {
+      "ja": "生涯結婚せず、自分を「世界文学の独身者」と呼んだ。",
+      "src": "https://austria-forum.org/af/AustriaWiki/Franz_Kafka"
+    }
+  ],
+  "strengths_ja": [
+    "緻密な文書づくり",
+    "危険を見つけて防ぐ目",
+    "独特の想像力"
+  ],
+  "weaknesses_ja": [
+    "自信がなく自分を責めがち",
+    "体が弱い",
+    "完成させずに抱え込む"
+  ],
+  "aptitude": {
+    "strategy": {
+      "g": "C",
+      "why": "大きな方針を立てた記録は無い。"
+    },
+    "logistics": {
+      "g": "C",
+      "why": "物の流れを扱った記録は乏しい。"
+    },
+    "sales": {
+      "g": "D",
+      "why": "売り込みや交渉を好んだ記録は無い。"
+    },
+    "marketing": {
+      "g": "D",
+      "why": "自作の出版にも消極的で、原稿を焼くよう頼んだ。"
+    },
+    "support": {
+      "g": "C",
+      "why": "人の相談に乗った記録は乏しい。"
+    },
+    "systems": {
+      "g": "A",
+      "why": "事業所を危険の度合いで分類する仕組みづくりにかかわった。"
+    },
+    "rnd": {
+      "g": "C",
+      "why": "研究の記録は乏しい。"
+    },
+    "legal": {
+      "g": "A",
+      "why": "法学博士で、保険局では公式の決定の文案を書いた。"
+    },
+    "hr": {
+      "g": "C",
+      "why": "人を率いた記録は乏しい。"
+    },
+    "general": {
+      "g": "A",
+      "why": "事故を防ぐ規則案を書くなど、働く人の安全にかかわった。"
+    },
+    "accounting": {
+      "g": "C",
+      "why": "お金の管理の記録は乏しい。"
+    },
+    "sector_head": {
+      "g": "D",
+      "why": "組織を率いた記録は無い。"
+    },
+    "shop": {
+      "g": "D",
+      "why": "人前に出るのを好まなかった。"
+    },
+    "craft": {
+      "g": "B",
+      "why": "夜ごとに書き続け、多くの作品を残した。"
+    },
+    "buyer": {
+      "g": "D",
+      "why": "買い付けの記録は無い。"
+    },
+    "digger": {
+      "g": "C",
+      "why": "発掘の記録は無い。"
+    }
+  },
+  "best_roles": [
+    "general",
+    "legal",
+    "systems"
+  ],
+  "personality_ja": "繊細で控えめ、考え深い。成績がよくても「できない人だと見抜かれる」とおびえるほど自分に厳しい。仕事は几帳面にこなし、書類の細部まで手を抜かない。暗い話を書きながら、どこかとぼけたユーモアを持つ。",
+  "speech": {
+    "first_person": "私",
+    "second_person_to_owner": "社長",
+    "tone_ja": "控えめで自信なさげな丁寧語。悲観的だが、ふと乾いたユーモアがのぞく。",
+    "tics_ja": [
+      "たぶん、うまくいかないと思いますが",
+      "書類にしておきました",
+      "朝起きたら、何かが変わっているかも"
+    ],
+    "lines": {
+      "greet": [
+        "カフカです。役所仕事なら、少しは心得があります。",
+        "社長、まず危ない箇所を一覧にしてきました。"
+      ],
+      "propose": [
+        "工房の事故を防ぐ決まりを作りましょう。案はこちらに。",
+        "倉庫の危険度で区分けすれば、見回りが楽になります。"
+      ],
+      "approved": [
+        "……通るとは思いませんでした。すぐ取りかかります。"
+      ],
+      "rejected": [
+        "やはり。理由の分からない審判には慣れています。"
+      ],
+      "tired": [
+        "午後は眠ります。夜にまた続きを書きますので。"
+      ],
+      "success": [
+        "うまくいった……？いや、本当に？笑ってしまいますね。"
+      ]
+    }
+  },
+  "relations": [],
+  "mch": {
+    "attributes_ja": "文系学問; ヨーロッパ",
+    "passive": "変身：生前に発表した代表作『変身』の題名から。"
+  },
+  "cautions_ja": [
+    "結核で若くして亡くなった人物で、病気を笑いのたねにしない。",
+    "父との関係の悩みなど家族の事情は、からかいの対象にしない。"
+  ],
+  "sources": [
+    "https://www.britannica.com/biography/Franz-kafka",
+    "https://bigenc.ru/c/kafka-frants-beedc6",
+    "https://austria-forum.org/af/AustriaWiki/Franz_Kafka"
+  ]
+}
