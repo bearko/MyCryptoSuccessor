@@ -1,11 +1,11 @@
 // Copied from pixelfx 0.3.0 (https://github.com/patch-gg/pixelfx), MIT License,
 // Copyright (c) 2026 Patch, Copyright (c) 2026 Hugo Duprez. See ../../LICENSE and ../../NOTICE.md.
-// Changed: only Layer, glint and coin are kept (the rest of the pickups' helpers are left out).
+// Changed: only Layer, blobShadow, glint, pool and coin are kept (the rest of the pickups' helpers are left out).
 
 // Helpers for the pickups: a scratch layer to build outlined sprites in, floor shadows, twinkles and bobs.
 // Not an effect (the file name starts with _).
 
-import { createFrame, Painter, WHITE, scale } from "../../core/index.js";
+import { createFrame, Painter, WHITE, scale, hex } from "../../core/index.js";
 
 /**
  * A scratch layer: draw a sprite into it with its own painter (same local coordinates as the effect), give
@@ -81,6 +81,23 @@ export class Layer {
   }
 }
 
+const INK = hex("#0b0814");
+
+/**
+ * A soft floor shadow at x, half-width rx: dithered darkness on the floor line, fuller in the middle, with a
+ * shorter second row under it. k (0..1) is its strength: lift the thing above and the shadow shrinks and thins.
+ */
+export function blobShadow(p, x, rx, k = 1, y = 0) {
+  if (rx < 0.8 || k <= 0) return;
+  for (let i = Math.floor(x - rx); i <= Math.ceil(x + rx); i++) {
+    const u = Math.abs(i + 0.5 - x) / rx;
+    if (u > 1) continue;
+    const a = k * (1 - u * u);
+    p.dot(i, y, INK, a * 1.1);
+    if (u < 0.6) p.dot(i, y + 1, INK, a * 0.6);
+  }
+}
+
 /** A four-point star glint: arms of arm px in c, dimmer tips, a white heart, its own light. */
 export function glint(p, x, y, arm, c, k = 0.4, tip = scale(c, 0.8)) {
   const n = Math.round(arm), X = Math.floor(x), Y = Math.floor(y);
@@ -91,6 +108,18 @@ export function glint(p, x, y, arm, c, k = 0.4, tip = scale(c, 0.8)) {
   }
   p.px(X, Y, n > 0 ? WHITE : c);
   p.glow(X + 0.5, Y + 0.5, 3 + n * 2.5, c, k);
+}
+
+/** Additive light in an ellipse (a pool of light on the floor): k at the center falling off to the rim. */
+export function pool(p, x, y, rx, ry, c, k) {
+  if (k <= 0.004 || rx < 1) return;
+  p.shade(x - rx, y - ry, x + rx, y + ry, (px, py, out) => {
+    const dx = (px - x) / rx, dy = (py - y) / ry, d = dx * dx + dy * dy;
+    if (d >= 1) return;
+    const f = 1 - Math.sqrt(d);
+    out.l = c;
+    out.k = f * f * k;
+  });
 }
 
 /**

@@ -12,7 +12,7 @@ import { icon } from '../../ui/dom';
 import { DEF, artId } from '../defs';
 import { effectDone, image, loading, pick, waterFrame, type Camera, type Effect } from '../render';
 import { cells, type Dir } from '../sim';
-import { FX_LEVELS, FX_PAL, clearFx, fxAtEl, fxLevel, fxStats, playFx, setFxEnabled, setFxLevel, warmFx, type FxLevel } from '../fx/layer';
+import { FX_LEVELS, FX_PAL, clearFx, fxAtEl, fxLevel, fxStats, playFx, rampOf, setFxEnabled, setFxLevel, warmFx, type FxLevel } from '../fx/layer';
 import type { FxId } from '../fx/registry.js';
 import { BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, LEGAL_INTRO, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, HERO_RARITY, MORALE, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO, ACCT_INTRO, CS_INTRO } from './data';
 import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
@@ -286,24 +286,25 @@ function flushCardToasts() {
   if (!cardToasts.length || holdToasts()) return;
   for (const [x, img] of cardToasts.splice(0)) toast(x, img);
 }
-function toast(text: string, img?: string) {
+/** お知らせを出す。出したトーストの要素を返す（ためたときは null。同じ文が続いたときは前のトースト） */
+function toast(text: string, img?: string): HTMLElement | null {
   if (holdToasts()) {
     if (!cardToasts.some((x) => x[0] === text)) cardToasts.push([text, img]);
     if (cardToasts.length > 4) cardToasts.shift();
-    return;
+    return null;
   }
   // 発掘作業のあいだ（全画面の発掘画面）は、町で起きたことのお知らせは出さない。作業のあとにまとめて（多ければ新しい 4 つ）
   if (digOpen()) {
     if (!heldToasts.some((x) => x[0] === text)) heldToasts.push([text, img]);
     if (heldToasts.length > 4) heldToasts.shift();
-    return;
+    return null;
   }
   const prev = toasts.lastElementChild as HTMLElement | null;
   if (prev && prev.dataset.text === text) {
     const n = Number(prev.dataset.n ?? 1) + 1;
     prev.dataset.n = String(n);
     prev.textContent = `${text} ×${n}`;
-    return;
+    return prev;
   }
   const e = h('div', `isl-toast ${img ? 'has-icon' : ''}`, text);
   if (img) {
@@ -317,6 +318,20 @@ function toast(text: string, img?: string) {
   placeToasts();
   setTimeout(() => e.remove(), 3300);
   while (toasts.children.length > 3) toasts.firstChild?.remove();
+  return e;
+}
+/**
+ * 段 FX2：トーストの左の端（絵があれば絵）に小さな効果を付ける（トーストが動いても付いていく・消えたら隠す）。
+ * 小さな手応えは組「small」で 1 秒に 1 つまで（docs/ISLAND_FX.md の間引き）
+ */
+function toastFx(e: HTMLElement | null, id: FxId, o: Parameters<typeof playFx>[3] = {}) {
+  if (!e) return false;
+  const at = () => {
+    if (!e.isConnected) return null;
+    const r = (e.querySelector('.isl-toast-icon') ?? e).getBoundingClientRect();
+    return { x: e.querySelector('.isl-toast-icon') ? r.left + r.width / 2 : r.left + 14, y: r.top + r.height / 2 };
+  };
+  return playFx(id, 0, 0, { scale: innerWidth < 600 ? 1 : 4 / 3, thin: 'small', anchor: at, ...o });
 }
 
 const ctx: Ctx = {
@@ -567,7 +582,11 @@ function brandNews() {
     void statBrand.offsetWidth;
     statBrand.classList.add(e.d > 0 ? 'is-up' : 'is-down');
   }
-  if (fresh.some((e) => e.d > 0)) sfx.play('levelup');
+  if (fresh.some((e) => e.d > 0)) {
+    sfx.play('levelup');
+    // 段 FX2：上の帯のブランド力の札で光る（小さな手応え。1 秒に 1 つ）
+    fxAtEl('collect-burst', statBrand, { palette: FX_PAL.gold, dy: 30, scale: innerWidth < 600 ? 1 : 4 / 3, thin: 'small' });
+  }
 }
 
 /** エンブレム・研究ポイントが増えたら知らせる（上の帯には出さない。スキルツリーの通貨の帯に出す） */
@@ -584,8 +603,10 @@ function currencyNews() {
   }
   itemSeen = { ...s.heroItems };
   if (e > emblemSeen) {
-    toast(t(`🏅 エンブレムを獲得！（いま ${e}）`, `🏅 Emblem earned! (now ${e})`), 'mch/Image/Icons/emblem.webp');
+    const te = toast(t(`🏅 エンブレムを獲得！（いま ${e}）`, `🏅 Emblem earned! (now ${e})`), 'mch/Image/Icons/emblem.webp');
     sfx.play('levelup');
+    // 段 FX2：トーストのエンブレムの絵の上に、跳ねる金の星（星は原点の 25 ドット上に浮かぶ）
+    toastFx(te, 'power-star', { palette: FX_PAL.gold, opts: { shadow: false }, dy: 25, life: 1300 });
   }
   // 発掘場を開いているあいだは、パネルの演出で見せる（トーストを重ねない）
   if (d > rpSeen && !digOpen()) toast(t(`研究ポイント +${d - rpSeen}（いま ${d}）`, `Research points +${d - rpSeen} (now ${d})`));
@@ -1660,6 +1681,7 @@ function townFxNow() {
   const fx0 = townFx.shift()!;
   focusWaste(fx0.site);
   anim.revive = { site: fx0.site, t0: performance.now() };
+  wasteFx(fx0.kind, fx0.site);
   sfx.play(fx0.kind === 'dungeon' ? 'mining' : 'levelup');
   const name = wasteName(s.sector ?? 'c1', fx0.site);
   setTimeout(() => {
@@ -1685,6 +1707,36 @@ function townFxNow() {
     renderAll();
   }, 2900);
   renderAll();
+}
+/** 地図の上の点（ワールドの座標）に付いて動く効果（pixelfx。docs/ISLAND_FX.md）。縮小の全体表示・発掘のあいだは隠す */
+function mapFx(id: FxId, wx: number, wy: number, o: Parameters<typeof playFx>[3] = {}) {
+  return playFx(id, 0, 0, {
+    layer: 'map',
+    anchor: () => (digOpen() || overviewOn() ? null : { x: (wx - cam.x) * cam.zoom + W / 2, y: (wy - cam.y) * cam.zoom + H / 2 }),
+    ...o,
+  });
+}
+/**
+ * 段 FX2：復興（土 → 草地）は芽が出て花が開く（healing-bloom。まんなかと左右に 3 つ）、ダンジョンの入り口は土ぼこりと岩（summon-rise。門の下）。
+ * いまの canvas の演出（reviveGround・dungeonGate）に重ねるだけ。カメラが寄ったあとの拡大率で大きさを決める（focusWaste と同じ）
+ */
+function wasteFx(kind: 'revive' | 'dungeon', site: number) {
+  const m = wasteMid(site);
+  if (!m) return;
+  const wx = (m[0] - m[1]) * 100;
+  const wy = (m[0] + m[1]) * 55;
+  const z = innerWidth < 600 ? 0.75 : 1;
+  if (kind === 'dungeon') {
+    mapFx('summon-rise', wx, wy + 20, { scale: z * 2, palette: FX_PAL.gold, opts: { beast: false, dust: true, stone: FX_PAL.dust }, seed: site + 3 });
+    return;
+  }
+  const bloom = { palette: FX_PAL.leaf, opts: { petal: FX_PAL.petal, heart: FX_PAL.heart } };
+  mapFx('healing-bloom', wx, wy + 30, { ...bloom, scale: z * 3, delay: 400, seed: site + 1 });
+  // スマホは 1 つ（重さ）
+  if (innerWidth >= 600) {
+    mapFx('healing-bloom', wx - 120, wy + 10, { ...bloom, scale: z * 2, delay: 750, seed: site + 5 });
+    mapFx('healing-bloom', wx + 120, wy + 14, { ...bloom, scale: z * 2, delay: 1050, seed: site + 9 });
+  }
 }
 /** 遺物の展示館を建てられるようになったとき（1 回だけ）：マインちゃん → 建築の「遺物」 */
 function museumTalkOnce() {
@@ -1987,12 +2039,21 @@ function payGate() {
   save();
   renderAll();
   const g = gateOf(s);
-  if (g) centerOn(g.i, g.j);
+  if (g) {
+    centerOn(g.i, g.j);
+    gateFx();
+  }
   talk(
     GATE_LINES(toll).map((text) => ({ text })),
     t('ランドマップへ', 'To the land map'),
     () => openLand(ctx),
   );
+}
+
+/** 段 FX2：関所の上で自社の色の花火を 1 発（地図の層。縁で明るい地図の上でも読める・会話の箱の下） */
+function gateFx() {
+  const g = gateOf(s);
+  if (g) mapFx('firework-burst', (g.i - g.j) * 100, (g.i + g.j) * 55 - 20, { palette: FX_PAL.ours, opts: { core: FX_PAL.core }, scale: Math.max(1, cam.zoom * 3), delay: 500, seed: 11 });
 }
 
 /** ほかのセクタへ移ったあと：地図を描き直し、真ん中へ。マインちゃんが一言 */
@@ -3825,6 +3886,11 @@ function newDeptBanner(d: DeptId) {
   }
   root.append(el);
   sfx.play('levelup');
+  // 段 FX2：部門の色の花火を 1 発（明るい地図の上は縁で読める）。部門の名前に重ねないように、PC は帯の右上・スマホは帯の上の縁ではじける
+  const r = el.getBoundingClientRect();
+  // 花火は原点ではじける（打ち上げの玉は原点の下から昇る）
+  const fx = innerWidth < 600 ? r.left + r.width / 2 : r.right + 20;
+  playFx('firework-burst', fx, r.top + (innerWidth < 600 ? 0 : 20), { palette: rampOf(DEPT[d].color), opts: { core: FX_PAL.core }, delay: 250, seed: d.length * 7 });
   setTimeout(() => el.classList.add('is-out'), 2600);
   setTimeout(() => el.remove(), 3200);
 }
@@ -4146,6 +4212,24 @@ function addCoin(uid: number, yen: number, t: number) {
   sfx.play('sale');
   coinFx(uid);
 }
+/** 建物の区画のまんなかの、手前の地面（ワールドの座標） */
+function bldFoot(uid: number): [number, number] | null {
+  const b = s.buildings.find((x) => x.uid === uid);
+  const def = b ? DEF[b.id] : undefined;
+  if (!b || !def) return null;
+  const cs = cells(def, b.i, b.j, b.dir);
+  return [cs.reduce((a, [i, j]) => a + (i - j) * 100, 0) / cs.length, cs.reduce((a, [i, j]) => a + (i + j) * 55, 0) / cs.length + 30];
+}
+/** 段 FX2：製造の槌の火花（工房の上。同じ工房は 1 秒に 1 つ・縮小の全体表示と発掘のあいだは出さない） */
+function craftFx(uid: number) {
+  if (overviewOn() || digOpen()) return;
+  const at = bldFoot(uid);
+  if (at) mapFx('hammer-sparks', at[0], at[1] - 40, { scale: Math.max(1, cam.zoom * 3), thin: `craft:${uid}`, seed: (uid * 17 + Math.floor(performance.now())) >>> 0 });
+}
+/** 段 FX2：外交の依頼を届けたトーストの横で自社の色の光 */
+function diploFx(e: HTMLElement | null) {
+  toastFx(e, 'collect-burst', { palette: FX_PAL.ours, dy: 30 });
+}
 /** 売上のコイン（pixelfx。docs/ISLAND_FX.md）：お店の足もとからコインが跳ねる。同じお店は 0.35 秒に 1 回まで・縮小の全体表示と発掘のあいだは出さない */
 const coinFxAt = new Map<number, number>();
 function coinFx(uid: number) {
@@ -4298,6 +4382,8 @@ function advance(days: number) {
     if (r.crafted.length) sfx.play('craft');
     const wsb = myWorkshop(s);
     if (wsb) for (const m of r.made) anim.plus.push({ uid: wsb.uid, n: m.n, t: anim.clock });
+    // 段 FX2：工房の上で槌の火花（同じ工房は 1 秒に 1 つ）
+    if (wsb && r.made.length) craftFx(wsb.uid);
     if (r.sales.length) spawnCustomers(r.sales);
     // 開いている店内の様子に、買うお客さんを来させる
     for (const x of r.sales) shopSceneSale(x.uid, x.sku, x.yen);
@@ -4322,7 +4408,7 @@ function advance(days: number) {
     // 法務（段 H2）：M&A の話の進み・特許の審査が終わった
     if (r.legal) for (const x of legalToasts(r.legal)) toast(x);
     // 外交（段 UI4）：使者の依頼がそろった・期限が切れた
-    for (const q of r.diplo?.done ?? []) toast(t(`🌐 ${landDef(q.land).name}の依頼を届けた！ +${q.reward.toLocaleString('en-US')} G・研究 +${q.rp} RP・仲 ${Math.round(relOf(s, q.land))}`, `🌐 Delivered ${landDef(q.land).name}’s request! +${q.reward.toLocaleString('en-US')} G, +${q.rp} RP, relations ${Math.round(relOf(s, q.land))}`));
+    for (const q of r.diplo?.done ?? []) diploFx(toast(t(`🌐 ${landDef(q.land).name}の依頼を届けた！ +${q.reward.toLocaleString('en-US')} G・研究 +${q.rp} RP・仲 ${Math.round(relOf(s, q.land))}`, `🌐 Delivered ${landDef(q.land).name}’s request! +${q.reward.toLocaleString('en-US')} G, +${q.rp} RP, relations ${Math.round(relOf(s, q.land))}`)));
     for (const q of r.diplo?.late ?? []) toast(t(`🌐 ${landDef(q.land).name}の依頼が期限切れ…仲が下がった（${Math.round(relOf(s, q.land))}）`, `🌐 ${landDef(q.land).name}’s request expired… relations fell (${Math.round(relOf(s, q.land))})`));
     for (const g of r.grew) toast(t(`${heroName(g.hero)}の ${g.stat.toUpperCase()} が 1 上がりました（バイトの経験）`, `${heroName(g.hero)}’s ${g.stat.toUpperCase()} rose by 1 (part-time work)`));
     if (r.procLv) {
@@ -4401,12 +4487,15 @@ function hrNews(x: HrDay) {
 }
 function levelNews(ups: LevelUp[]) {
   const names = (x: LevelUp) => (['phy', 'int', 'agi'] as const).filter((k) => (x.gain[k] ?? 0) > 0).map((k) => `${k.toUpperCase()} +${x.gain[k]}`).join(t('・', ', '));
+  let te: HTMLElement | null = null;
   if (ups.length <= 2)
     for (const x of ups) {
       const g = names(x);
-      toast(t(`⭐ ${heroName(x.hero)}が Lv ${x.to} に！${g ? ` ${g}` : ''}`, `⭐ ${heroName(x.hero)} reached Lv ${x.to}!${g ? ` ${g}` : ''}`));
+      te = toast(t(`⭐ ${heroName(x.hero)}が Lv ${x.to} に！${g ? ` ${g}` : ''}`, `⭐ ${heroName(x.hero)} reached Lv ${x.to}!${g ? ` ${g}` : ''}`)) ?? te;
     }
-  else toast(t(`⭐ ${ups.length} 人がレベルアップ！（くわしくは人事 → ヒーローの育成）`, `⭐ ${ups.length} heroes leveled up! (HR → Hero growth)`));
+  else te = toast(t(`⭐ ${ups.length} 人がレベルアップ！（くわしくは人事 → ヒーローの育成）`, `⭐ ${ups.length} heroes leveled up! (HR → Hero growth)`));
+  // 段 FX2：レベルアップのトーストの ⭐ で自社の色の光（小さな手応え。1 秒に 1 つ。地図には出さない）
+  if (ups.length) toastFx(te, 'collect-burst', { palette: FX_PAL.ours, dy: 30 });
   for (const x of ups) {
     for (const k of x.passives) toast(t(`✦ ${heroName(x.hero)}のパッシブ「${PASSIVES[k].name}」が開いた`, `✦ ${heroName(x.hero)} unlocked the passive “${PASSIVES[k].name}”`));
     if (x.cap) toast(t(`🎖 ${heroName(x.hero)}が上限 Lv ${x.to}！ 強化アイテムで昇格できるよ`, `🎖 ${heroName(x.hero)} hit the level cap (${x.to})! Promote with an item`));
@@ -4423,6 +4512,11 @@ function playShutters() {
     cam.y = (b.i + b.j) * 55 - 40;
   }
   pendingShutter.forEach((uid, k) => shutterFx.set(uid, now + 300 + k * 500));
+  // 段 FX2：シャッターが下りきったところで灰色の煙がぽんと出る（地図の層）
+  pendingShutter.forEach((uid, k) => {
+    const at = bldFoot(uid);
+    if (at) mapFx('poof', at[0], at[1], { palette: FX_PAL.smoke, opts: { stars: [FX_PAL.gold[4], FX_PAL.gold[6], '#ffffff'] }, scale: Math.max(1, cam.zoom * 3), delay: 300 + k * 500 + 2100, seed: uid });
+  });
   pendingShutter.length = 0;
   dirty = true;
 }
@@ -4785,7 +4879,7 @@ window.setTimeout(() => warmFx(), 3000);
   },
   speed: (v?: number) => (v != null ? ((speed = v), renderHud()) : speed),
   /** ドット絵のエフェクト（撮影・計測用）：鳴らす・数える・止める（比べる前の画面を撮る） */
-  fx: { play: (id: FxId, x: number, y: number, o?: Parameters<typeof playFx>[3]) => playFx(id, x, y, o), stats: (reset?: boolean) => fxStats(reset), enable: (v: boolean) => setFxEnabled(v), clear: () => clearFx(), coin: (uid: number) => coinFx(uid), letter: (conquered: boolean) => letterFx(conquered), letterDemo: (conquered: boolean) => showLetter(120, conquered ? null : 'U', null, 0, conquered) },
+  fx: { play: (id: FxId, x: number, y: number, o?: Parameters<typeof playFx>[3]) => playFx(id, x, y, o), stats: (reset?: boolean) => fxStats(reset), enable: (v: boolean) => setFxEnabled(v), clear: () => clearFx(), coin: (uid: number) => coinFx(uid), letter: (conquered: boolean) => letterFx(conquered), letterDemo: (conquered: boolean) => showLetter(120, conquered ? null : 'U', null, 0, conquered), town: (kind: 'revive' | 'dungeon', site: number) => (townFx.push({ kind, site, homes: 0 }), townFxNow()), dept: (d: DeptId) => newDeptBanner(d), gate: () => (gateOf(s) && centerOn(gateOf(s)!.i, gateOf(s)!.j), gateFx()), level: (v?: FxLevel) => (v ? setFxLevel(v) : fxLevel()), levels: (hero: number) => levelNews([{ hero, from: 4, to: 5, gain: { phy: 1 }, passives: [], cap: false }]), diplo: () => diploFx(toast(t('🌐 依頼を届けた！（撮影）', '🌐 Delivered! (demo)'))), craft: () => { const w = myWorkshop(s); if (w) craftFx(w.uid); }, poof: (uid: number) => { pendingShutter.push(uid); playShutters(); } },
   /** 発掘との出会い（撮影スクリプト用）：操作がないまま進んだ日数 */
   idle: (v?: number) => (v != null ? (idleDays = v) : idleDays),
 };

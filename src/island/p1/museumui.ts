@@ -11,6 +11,7 @@ import { extIcon } from './digui';
 import { stars } from './digview';
 import { open, refreshSheet, type Ctx } from './screens';
 import { btn, h, money } from './ui';
+import { FX_PAL, fxAtEl } from '../fx/layer';
 
 const MB = DIG_BALANCE.museum;
 /** いま選んでいる枠（その下に、飾れる遺物のカードを出す） */
@@ -134,6 +135,8 @@ export function openMuseum(ctx: Ctx) {
             ctx.save();
             ctx.refresh();
             refreshSheet();
+            // 段 FX2：飾った枠で光る（小さな手応え。1 秒に 1 つ）
+            requestAnimationFrame(() => fxAtEl('collect-burst', document.querySelectorAll('.isl-mus-grid .isl-mus-slot')[k] ?? null, { palette: FX_PAL.gold, dy: 30, scale: innerWidth < 600 ? 1 : 4 / 3, thin: 'small' }));
           });
           cg.append(c);
         }
