@@ -21,6 +21,8 @@ import { headHooks, openDeleg, openProps } from './delegui';
 import { openHeadTalk } from './headtalkui';
 import { HEAD_OPEN_TALK, HEAD_PICK_TALK, headTalkDue, talkMode } from './headtalk';
 import { openTrophies, trophyEl, trophyTick } from './trophyui';
+import { openBudget } from './budgetui';
+import { budgetOpen } from './budget';
 import type { TrophyDef } from './trophy';
 import { autoText, cardInbox, cardsCompany, cardsDay, cardsMonth, demoDraft, diploDraft, stockDraft, enqueue, eventDraft, markSeen, nextPop, takeAuto } from './card';
 import { duoPages } from './duo';
@@ -155,7 +157,7 @@ import { IslandSfx } from './sfx';
 import { tileContent } from './tile';
 import { closeDig, digOpen, digRect, extIcon, openDig, openNotes, refreshDig, refreshTimer, showEndCard } from './digui';
 import { MEET_FOUND, MEET_LINES, canPresent, chiefHome, digMet, chiefOf, digSummary, letterToGet, lettersLeft, meetReady, meetTip, presentAfter, presentPages } from './digmeet';
-import { CHIP_SRC, CLEAR_LINE, FOOT_TALK, HIRE_LINES, RP_LINE, DUNGEON_LINE, GATE_LINES, LAND_CLEAR_LINE, MUSEUM_LINE, RANK_LINES, RELIC_LINE, REVIVE_LINE, SIDE_LINES, TOUR, arrivalPages, bubbleKind, chipOf, deptTalkNext, introPages, needsIntro, talkWaits, type ArrivePage, type TalkUi, type TourEv, type TourPhase } from './mine';
+import { BUDGET_TALK, CHIP_SRC, CLEAR_LINE, FOOT_TALK, HIRE_LINES, RP_LINE, DUNGEON_LINE, GATE_LINES, LAND_CLEAR_LINE, MUSEUM_LINE, RANK_LINES, RELIC_LINE, REVIVE_LINE, SIDE_LINES, TOUR, arrivalPages, bubbleKind, chipOf, deptTalkNext, introPages, needsIntro, talkWaits, type ArrivePage, type TalkUi, type TourEv, type TourPhase } from './mine';
 import type { Stage } from './model';
 import { TIER_NOTE, openBooks, openBrand, openLand, openRankUp, startMove } from './landui';
 import { pendingReset, rankUpTier } from './reset';
@@ -696,7 +698,7 @@ interface Sub {
   short: string;
   note: string;
   def: SubDef;
-  needs?: 'workshop' | 'land' | 'hire' | 'tree' | 'museum';
+  needs?: 'workshop' | 'land' | 'hire' | 'tree' | 'museum' | 'budget';
 }
 /**
  * 画面ごとに開く関数（段 UI3：サブタブは menus.ts の SUB_DEFS。似た画面は 1 つのサブタブに縦に並べる）。
@@ -744,6 +746,7 @@ const SCREEN: Record<ScreenId, () => void> = {
   pace: () => openPace(),
   save: () => openSaveMenu(),
   trophy: () => openTrophies(ctx),
+  budget: () => openBudget(ctx),
   test: () => TEST && openTest(),
 };
 /** サブタブの画面を開く（まとめた画面は縦に並べて。チュートリアルのあいだは 1 つ目の画面だけ：教える画面を変えない）。part：はじめにその部分へ */
@@ -827,7 +830,7 @@ foot.append(drawerEl, panel, tabbar);
 
 /** サブタブがまだ使えない（工房が無い・関所を開いていない） */
 const needsOff = (x: Sub) =>
-  (x.needs === 'workshop' && !myWorkshop(s)) || (x.needs === 'land' && !s.land) || (x.needs === 'hire' && (!s.skills.includes('hire') || hireUnlocking)) || (x.needs === 'tree' && !myWorkshop(s) && !s.land) || (x.needs === 'museum' && !museumOpen(s));
+  (x.needs === 'workshop' && !myWorkshop(s)) || (x.needs === 'land' && !s.land) || (x.needs === 'hire' && (!s.skills.includes('hire') || hireUnlocking)) || (x.needs === 'tree' && !myWorkshop(s) && !s.land) || (x.needs === 'museum' && !museumOpen(s)) || (x.needs === 'budget' && !budgetOpen(s));
 const needWs = () => {
   toast(t('まずは工房を建てましょう', 'Build the workshop first'));
 };
@@ -904,6 +907,7 @@ function openSub(x: Sub, part: ScreenId | null = null) {
   if (x.needs === 'workshop' && !myWorkshop(s)) return needWs();
   if (x.needs === 'land' && !s.land) return toast(t('ランドのふちの関所を開くと使えます', 'Open the gate at the edge of the land first'));
   if (x.needs === 'tree' && !myWorkshop(s) && !s.land) return needWs();
+  if (x.needs === 'budget' && !budgetOpen(s)) return toast(t('Rare の町に出店すると開きます', 'Opens once you open in a Rare town'));
   if (x.needs === 'museum' && !museumOpen(s)) return toast(t('遺物の展示館を建てると開けます（復興した土地に。経営企画 → 建築）', 'Build the relic museum first (on revived land: Strategy → Build)'));
   if (x.needs === 'hire' && !s.skills.includes('hire')) {
     sfx.play('error');
@@ -3928,6 +3932,11 @@ function deptTalk() {
       footGuideAt = performance.now();
       renderAll();
     });
+  } else if (k === 'budget') {
+    // 段 I1：予算で任せるの紹介 → 予算と部門の画面
+    s.flags.budgetTalk = true;
+    save();
+    talk(BUDGET_TALK().map((text) => ({ text })), t('予算を開く', 'Open budgets'), () => goSub('strategy', 'budget'));
   } else if (k === 'sales') {
     s.flags.salesTalk = true;
     save();

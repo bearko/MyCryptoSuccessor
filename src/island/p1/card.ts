@@ -45,14 +45,16 @@ import { applyEvent, eventDue, evIcon, evSay, evTitle, isGood, optIcon, optName,
 import { applyDiplo, diploCompany, dipOptText, dipOpts, dipRec, dipSay, dipTitle, landDef, relOf, type DipData } from './diplo';
 import { applyDuo, duoDraft, duoDue, duoHead, duoOptSub, duoOptText, duoSay, type DuoData } from './duo';
 import { voiceQuip, voiceSay } from './voice';
+import { budgetOpen, budgetRetry, laborNeed, budgetDepts, deptBudget, nextUp, setBudget, setCrewCap, amountOf, crewWageMonth, lvName, type BudgetAsk, type BudgetLv } from './budget';
+import { BUDGET } from './data';
 
 // ---------------------------------------------------------------- 型
 
 /** 出どころ（統計・受けた割合の数え） */
-export type CardSrc = 'clerk' | 'crafter' | 'buyer' | 'idle' | 'head' | 'cs' | 'flame' | 'quit' | 'tax' | 'rally' | 'hr' | 'event' | 'diplo' | 'stall' | 'duo' | 'stock';
+export type CardSrc = 'clerk' | 'crafter' | 'buyer' | 'idle' | 'head' | 'cs' | 'flame' | 'quit' | 'tax' | 'rally' | 'hr' | 'event' | 'diplo' | 'stall' | 'duo' | 'stock' | 'budget';
 /** ヒーローからの提案（★3 で「任せる」を選べる出どころ） */
 export const PROPOSAL_SRC: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'stall', 'stock'];
-export const CARD_SRCS: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'cs', 'flame', 'quit', 'tax', 'rally', 'hr', 'event', 'diplo', 'stall', 'duo', 'stock'];
+export const CARD_SRCS: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'cs', 'flame', 'quit', 'tax', 'rally', 'hr', 'event', 'diplo', 'stall', 'duo', 'stock', 'budget'];
 
 /** 選ぶと打つ手 */
 export type CardAct =
@@ -68,7 +70,10 @@ export type CardAct =
   | { k: 'ev'; i: number }
   | { k: 'dip'; i: number }
   /** 段 P2：ヒーローの組み合わせの i 番目の選択肢 */
-  | { k: 'duo'; i: number };
+  | { k: 'duo'; i: number }
+  /** 段 I1：部長からの頼み：部門の予算を上げる・従業員の上限を上げる（budget.ts の setBudget・setCrewCap） */
+  | { k: 'budget'; dept: DeptId; lv: BudgetLv; amt?: number }
+  | { k: 'crew'; dept: DeptId; cap: number };
 export interface Choice {
   act: CardAct;
   /** 見込み（ヒーローの読み。誤差つき）：G＝毎月の費用を引いた利益（G／月）・ad＝宣伝の期間の利益・finds＝出土品の数 ほか */
@@ -110,7 +115,9 @@ export type Issue =
   | { k: 'staff'; uid: number; off: number }
   | { k: 'duo' }
   /** 段 UI5c：倉庫が埋まりそう（埋まり方 %・素材・運ぶ前の商品・在庫品の数） */
-  | { k: 'store'; pct: number; mats: number; goods: number; items: number };
+  | { k: 'store'; pct: number; mats: number; goods: number; items: number }
+  /** 段 I1：部長からの頼み（予算を増やしてください・人を雇わせてください） */
+  | { k: 'budget'; ask: BudgetAsk };
 export interface Card {
   id: number;
   src: CardSrc;
@@ -540,6 +547,32 @@ function headDrafts(s: P1State, r: Report): Draft[] {
 }
 
 /**
+ * 段 I1：部長からの頼み（予算で任せた部門。月の締めの budgetTry が残した ask）。月に 1 枚まで（人手 → 予算を超えた → 使い切り → 成果なしの順・見込みの大きい順）。
+ * 選択肢：予算を 1 段上げる・従業員の上限を +2・今回の施策だけ承認（受け箱にあれば）・このまま。いつも上限の外（受け箱）に入るよう、優先はいちばん低い
+ */
+function budgetDrafts(s: P1State): Draft[] {
+  if (!budgetOpen(s) || !s.budget) return [];
+  const rank = { labor: 3, over: 2, spent: 1, idle: 0 } as const;
+  const xs = budgetDepts(s)
+    .map((d) => ({ d, a: s.budget!.depts[d]?.ask ?? null, H: headOf(s, d) }))
+    .filter((x): x is { d: DeptId; a: BudgetAsk; H: Staff } => !!x.a && !!x.H)
+    .sort((a, b) => rank[b.a.why] - rank[a.a.why] || (b.a.est ?? 0) - (a.a.est ?? 0));
+  const x = xs[0];
+  if (!x) return [];
+  const B = deptBudget(s, x.d);
+  const ch: Choice[] = [];
+  if (x.a.why === 'labor') ch.push({ act: { k: 'crew', dept: x.d, cap: Math.min(BUDGET.crew.capMax, B.cap + 2) }, cost: 0, monthly: 2 * crewWageMonth(), rec: true });
+  else {
+    const up = nextUp(s, x.d, x.a.cost ?? 0);
+    ch.push({ act: { k: 'budget', dept: x.d, lv: up.lv, ...(up.amt != null ? { amt: up.amt } : {}) }, cost: 0, monthly: up.to - amountOf(s, x.d), rec: true });
+  }
+  const p = x.a.pid != null ? s.deleg?.inbox.find((q) => q.id === x.a.pid) : undefined;
+  if (p) ch.push({ act: { k: 'approve', pid: p.id }, est: p.est, unit: p.unit, units: p.units, cost: p.cost, rp: p.rp, stage: p.stage });
+  ch.push(SKIP);
+  return [{ src: 'budget', kind: `budget:${x.d}`, hero: x.H.hero, q: qOf(s, x.H.hero, x.d), dept: x.d, issue: { k: 'budget', ask: x.a }, choices: ch, pri: 30 }];
+}
+
+/**
  * 人手が足りないとき（空いた持ち場・担当のいない段）に、雇える候補がいれば「人を雇いませんか？」（人事の担当。いなければマインちゃん）。
  * いまの whatIf の「雇う」の手（見込みは毎月の給料を引いたもの）をそのまま使う。詰まりの段を先に、無ければほかの段
  */
@@ -752,7 +785,7 @@ export function cardsMonth(s: P1State, r: Report) {
   const dd = stall ? null : duoDue(s, C.popN, inTutorial(s));
   if (dd) enqueue(s, duoDraft(s, dd), rep);
   const staff = stall ? null : staffDraft(s);
-  const drafts = [...(stall ? [stall] : []), ...(staff ? [staff] : []), ...noticeDrafts(s, r), ...(stall ? heroDrafts(s).filter((d) => d.src !== 'clerk' || d.kind !== 'sell') : heroDrafts(s)), ...hrDrafts(s), ...headDrafts(s, r)].sort((a, b) => b.pri - a.pri);
+  const drafts = [...(stall ? [stall] : []), ...(staff ? [staff] : []), ...noticeDrafts(s, r), ...(stall ? heroDrafts(s).filter((d) => d.src !== 'clerk' || d.kind !== 'sell') : heroDrafts(s)), ...hrDrafts(s), ...headDrafts(s, r), ...budgetDrafts(s)].sort((a, b) => b.pri - a.pri);
   for (const d of drafts) enqueue(s, d, rep);
   // 段 UI5c：倉庫が埋まりそうな月（ほかの提案のあと。受け箱の枚数に数えないので、ほかのカードを押し出さない）
   const st = stockDraft(s);
@@ -857,6 +890,9 @@ export function cardLive(s: P1State, c: Card): boolean {
       return c.issue.k === 'tax' && quarterNow(s).q === c.issue.q && taxPlan(s).room > 0;
     case 'rally':
       return cardsOf(s).mk - c.mk < 1;
+    // 段 I1：部長からの頼みは、その月のあいだだけ（部長がいる・予算で任せている）
+    case 'budget':
+      return cardsOf(s).mk - c.mk < 1 && budgetOpen(s) && !!c.dept && !!headOf(s, c.dept);
     default:
       return c.choices.some((x) => x.act.k === 'do' && actOk(s, x.act.a));
   }
@@ -972,6 +1008,16 @@ export function chooseCard(s: P1State, id: number, k: number): ChooseRes {
       return done(c.dip ? applyDiplo(s, c.dip, a.i) : 'none');
     case 'duo':
       return done(c.duo ? applyDuo(s, c.duo, a.i) : 'none');
+    // 段 I1：予算を上げる・従業員の上限を上げる。すぐに、頼みの施策をもう一度予算の中で打てるか試す（打てたらトーストで知らせる）
+    case 'budget':
+    case 'crew': {
+      if (a.k === 'budget') setBudget(s, a.dept, a.lv, a.amt);
+      else setCrewCap(s, a.dept, a.cap);
+      const ask = deptBudget(s, a.dept).ask;
+      const r = done(null);
+      if (ask?.act && budgetRetry(s, a.dept) === 'done') r.did = t(`${heroNm(c.hero ?? 0)}が予算の中で実行：${actName(s, ask.act)}`, `${heroNm(c.hero ?? 0)} did it within budget: ${actName(s, ask.act)}`);
+      return r;
+    }
   }
 }
 // ---------------------------------------------------------------- 段 UI5a：担当者からの提案書（plan.ts）
@@ -1188,12 +1234,28 @@ function core(s: P1State, c: Card): string {
       return c.duo ? duoSay(c.duo) : '';
     case 'stall':
       return stallSay(i.stage, i.why);
+    case 'budget':
+      return budgetSay(s, c.dept ?? 'logistics', i.ask);
     case 'store':
       return i.pct >= 100
         ? t(`倉庫が[[いっぱい]]（素材 ${i.mats}・商品 ${i.goods}）。在庫を優先して売りさばこう`, `storage is [[full]] (${i.mats} materials, ${i.goods} goods). Let’s clear stock first`)
         : t(`倉庫が[[ ${i.pct}%]]まで埋まっている（素材 ${i.mats}・商品 ${i.goods}）。在庫を優先して売りさばこう`, `storage is [[${i.pct}%]] full (${i.mats} materials, ${i.goods} goods). Let’s clear stock first`);
     case 'staff':
       return t(`先月は[[ ${i.off} 日]]、店長が休む日に店を回す人がいなかった。[[従業員 ${SELF_RUN.min} 人]]いれば開けておける`, `[[${i.off} days]] last month, nobody kept the shop open when the manager rested. With [[${SELF_RUN.min} staff]] it stays open`);
+  }
+}
+/** 段 I1：部長からの頼みのセリフ（[[ ]] で数字を強く。60 字まで） */
+function budgetSay(s: P1State, d: DeptId, a: BudgetAsk): string {
+  const B = deptBudget(s, d);
+  switch (a.why) {
+    case 'over':
+      return t(`次の施策に[[ ${g(a.cost ?? 0)}]]要るが、予算が足りない。予算を増やしてほしい`, `the next move needs [[${g(a.cost ?? 0)}]] — please raise the budget`);
+    case 'spent':
+      return t(`今月の予算[[ ${g(amountOf(s, d))}]]を使い切った。打てる手がまだある`, `this month’s [[${g(amountOf(s, d))}]] is spent, with more to do`);
+    case 'labor':
+      return t(`人手が[[ ${a.need ?? 0} 人日]]足りない。人を雇わせてほしい`, `we are [[${a.need ?? 0} person-days]] short — let me hire`);
+    case 'idle':
+      return t(`[[${B.dry ?? 0} か月]]、予算の中で打てる手が無く成果が出ていない`, `for [[${B.dry ?? 0} months]] the budget covered no move at all`);
   }
 }
 /** 段 UI5a：流れが止まっている理由の文（カードのセリフ・月次報告の「課題あり」） */
@@ -1245,7 +1307,7 @@ export function sayOf(s: P1State, c: Card): string {
 /** 段 P2：史実の調査のあるヒーローは、その人の提案のセリフ・口ぐせ（辞めたいは疲れたときのセリフ）を回す（voice.ts） */
 export const quipOfCard = (c: Card): string | null => {
   if (c.hero == null || c.src === 'event' || c.src === 'diplo' || c.src === 'duo') return null;
-  const cat = (c.issue.k === 'hire' ? 'idle' : c.issue.k === 'stall' ? (c.issue.stage === 'sell' ? 'sell' : c.issue.stage === 'craft' ? 'craft' : 'buy') : c.issue.k === 'staff' || c.issue.k === 'store' ? 'sell' : c.issue.k === 'haul' ? 'buy' : c.issue.k) as QuipCat;
+  const cat = (c.issue.k === 'hire' ? 'idle' : c.issue.k === 'stall' ? (c.issue.stage === 'sell' ? 'sell' : c.issue.stage === 'craft' ? 'craft' : 'buy') : c.issue.k === 'staff' || c.issue.k === 'store' ? 'sell' : c.issue.k === 'haul' ? 'buy' : c.issue.k === 'budget' ? 'head' : c.issue.k) as QuipCat;
   return voiceQuip(c.hero, cat, c.mk + c.id) ?? quipOf(c.hero, cat, c.mk + c.id);
 };
 
@@ -1264,6 +1326,7 @@ export function roleOfCard(s: P1State, c: Card): { icon: string; text: string; c
     case 'idle':
       return { icon: '☕', text: t('手の空いたヒーロー', 'Free hero'), color: d.color };
     case 'head':
+    case 'budget':
       return { icon: d.icon, text: t(`${d.name}部長`, `${d.name} head`), color: d.color };
     case 'cs':
       return c.uid != null ? { icon: '🏪', text: t(`${shopNm}の店員`, `${shopNm} clerk`), color: DEPT.support.color } : { icon: '🎧', text: t('カスタマーサポートの担当', 'Support lead'), color: DEPT.support.color };
@@ -1384,7 +1447,9 @@ export function choiceText(s: P1State, c: Card, ch: Choice): { icon: string; lab
       const p = s.deleg?.inbox.find((x) => x.id === a.pid);
       const cost = ch.rp ? t(`研究 ${ch.rp} RP`, `${ch.rp} RP`) : ch.cost > 0 ? g(ch.cost) : t('費用なし', 'Free');
       const est2 = p ? (p.unit === 'G' ? t(`月 ${sgn(p.est)} G`, `${sgn(p.est)} G/mo`) : p.unit === 'ad' ? t(`期間で ${sgn(p.est)} G`, `${sgn(p.est)} G over the run`) : p.unit === 'finds' ? t(`出土品 ${p.est} 個`, `${p.est} finds`) : p.unit === 'share' ? t(`取り分 +${p.est.toFixed(1)}%`, `share +${p.est.toFixed(1)}%`) : t(`月の売上 ${sgn(p.est)} G`, `${sgn(p.est)} G/mo sales`)) : '';
-      return { icon: '✔', label: t(`承認：${p ? actName(s, p.act) : ''}`, `Approve: ${p ? actName(s, p.act) : ''}`), sub: `${cost}${SEP()}${EXPECT()} ${est2}` };
+      // 段 I1：予算で任せている部門の施策は、労力（人日）も
+      const lab = p && budgetOpen(s) && headOf(s, p.dept) ? `${SEP()}${t(`労力 ${laborNeed(s, p.dept, p.act)} 人日`, `${laborNeed(s, p.dept, p.act)} p-days`)}` : '';
+      return { icon: '✔', label: t(`承認：${p ? actName(s, p.act) : ''}`, `Approve: ${p ? actName(s, p.act) : ''}`), sub: `${cost}${SEP()}${EXPECT()} ${est2}${lab}` };
     }
     case 'reject':
       return { icon: '✖', label: t('却下', 'Reject'), sub: t('この手はやめておく', 'Not this move') };
@@ -1423,6 +1488,13 @@ export function choiceText(s: P1State, c: Card, ch: Choice): { icon: string; lab
       if (!c.duo || !o) return { icon: '▶', label: '', sub: '' };
       return { ...duoOptText(c.duo, o), sub: duoOptSub(c.duo, o) };
     }
+    case 'budget': {
+      const nm = a.lv === 'X' ? g(a.amt ?? 0) : t(`「${lvName(a.lv)}」`, `“${lvName(a.lv)}”`);
+      const to = a.lv === 'X' ? (a.amt ?? 0) : amountOf(s, a.dept) + (ch.monthly ?? 0);
+      return { icon: '💰', label: t(`予算を${nm}に上げる`, `Raise the budget to ${nm}`), sub: t(`月 ${g(amountOf(s, a.dept))} → ${g(to)}・余りは会社に戻る`, `${g(amountOf(s, a.dept))} → ${g(to)} a month · leftovers come back`) };
+    }
+    case 'crew':
+      return { icon: '🧑‍💼', label: t(`従業員の上限を ${a.cap} 人に`, `Staff cap to ${a.cap}`), sub: t(`1 人 月 ${g(crewWageMonth())}（予算から）・労力 +${BUDGET.crew.labor} 人日`, `${g(crewWageMonth())}/mo each (from the budget) · +${BUDGET.crew.labor} person-days`) };
     case 'open':
       return a.to === 'tax' ? { icon: '🧾', label: t('税と節税を開く', 'Open tax'), sub: t(`設備に投資すると税 −${g(est)} まで`, `Investing can cut up to ${g(est)}`) } : { icon: '📣', label: t('宣伝を開く', 'Open ads'), sub: '' };
   }

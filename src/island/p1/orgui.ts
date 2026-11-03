@@ -15,6 +15,7 @@ import { orgChart, orgCounts, type Seat } from './org';
 import { setSectorHead, staffOf, type P1State } from './model';
 import { after, open, type Ctx } from './screens';
 import { h, heroIcon } from './ui';
+import './i1.css';
 
 const stars = (n: number) => `${'★'.repeat(n)}${'☆'.repeat(3 - n)}`;
 
@@ -73,6 +74,14 @@ export function openOrg(ctx: Ctx) {
       const head = h('div', 'isl-org-dhead');
       head.append(h('b', 'isl-org-dname', `${D.icon} ${D.name}`));
       box.append(head);
+      // 段 I1：従業員の数と予算（使った／月）。Rare から
+      if (d.nums) {
+        const nums = h('div', 'isl-org-nums');
+        nums.append(h('span', '', t(`👥 従業員 `, `👥 Staff `)), h('b', '', t(`${d.nums.crew} 人`, `${d.nums.crew}`)));
+        if (d.nums.shop) nums.append(h('span', '', t(`（お店 ${d.nums.shop} 人）`, `(shops ${d.nums.shop})`)));
+        if (d.nums.amt != null) nums.append(h('span', d.nums.used > d.nums.amt ? 'is-over' : '', t(`💰 予算 ${Math.round(d.nums.used).toLocaleString('en-US')} / ${d.nums.amt.toLocaleString('en-US')} G`, `💰 ${Math.round(d.nums.used).toLocaleString('en-US')} / ${d.nums.amt.toLocaleString('en-US')} G`)));
+        box.append(nums);
+      }
       const headTitle = t(`${D.name}部長`, `${D.name} head`);
       if (d.byCeo) box.append(h('small', 'isl-dim isl-org-note', t('部長は社長（あなた）', 'Run by you, the president')));
       else
