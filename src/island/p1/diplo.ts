@@ -65,6 +65,8 @@ export interface DipMonth {
   penalty: number;
   done: number;
   late: number;
+  /** 町を移った月で、交易を休んだ（届けない・罰なし・仲も下がらない） */
+  rest?: boolean;
 }
 export interface DipStat {
   met: number;
@@ -78,6 +80,8 @@ export interface DipStat {
   reqLate: number;
   declined: number;
   hosted: number;
+  /** 町を移った月で休んだ交易の月（約束の数） */
+  rested?: number;
 }
 export interface DiploState {
   seq: number;
@@ -92,12 +96,20 @@ export interface DiploState {
   /** いまの町の月（月次報告の「交易」） */
   month: DipMonth;
   stat: DipStat;
+  /** 最後に町を移った日（その日を含む締めの月は、交易を休む） */
+  moved?: number;
 }
 const newMonth = (): DipMonth => ({ yen: 0, n: 0, short: 0, penalty: 0, done: 0, late: 0 });
 export const newDipStat = (): DipStat => ({ met: 0, trades: 0, tradeYen: 0, tradeN: 0, missed: 0, penalty: 0, reqs: 0, reqDone: 0, reqLate: 0, declined: 0, hosted: 0 });
 export const newDiplo = (): DiploState => ({ seq: 0, since: null, lands: [], next: null, offerAt: null, trades: [], reqs: [], month: newMonth(), stat: newDipStat() });
 export const diploOf = (s: P1State): DiploState => (s.diplo ??= newDiplo());
 /** 外交が開いている（初めての使者が来た） */
+/** 町を移った（進出・戻る。land.ts の移る関数から）。交易の約束があれば、移った日を覚えておく */
+export function diploMoved(s: P1State) {
+  if (s.diplo?.trades.length) s.diplo.moved = s.day;
+}
+/** いまの締めの月（締めの日までの DAYS 日）のうちに町を移った */
+export const movedThisMonth = (s: P1State) => s.diplo?.moved != null && s.day - s.diplo.moved < DAYS;
 export const diploOpen = (s: Pick<P1State, 'diplo'>) => !!s.diplo?.lands.length;
 const companyMonth = (s: P1State) => Math.round(s.day / DAYS);
 const clamp = (v: number) => Math.max(0, Math.min(100, v));
@@ -301,6 +313,12 @@ export function tradeClose(s: P1State): number {
   if (!D?.trades.length || (s.tier ?? 'C') !== 'E') return 0;
   // 着いたばかりの町（2 か月まで）は休み：まだ工房もお店も立ち上がっていない（仲も下がらない）
   if (s.arrived != null && s.day - s.arrived < DIPLO.trade.grace) return 0;
+  // 町を移った月（移った日を含む締めの月）は休み：届けない・罰なし・仲も下がらない。約束の月数も減らない
+  if (movedThisMonth(s)) {
+    D.month.rest = true;
+    D.stat.rested = (D.stat.rested ?? 0) + D.trades.length;
+    return 0;
+  }
   const T = DIPLO.trade;
   let yen = 0;
   for (const tr of D.trades) {
@@ -354,7 +372,7 @@ export function takeDipMonth(s: P1State): DipMonth | null {
   if (!D) return null;
   const m = D.month;
   D.month = newMonth();
-  return m.yen || m.n || m.short || m.done || m.late || D.trades.length ? m : null;
+  return m.yen || m.n || m.short || m.done || m.late || m.rest || D.trades.length ? m : null;
 }
 
 // ---------------------------------------------------------------- 文
@@ -426,6 +444,7 @@ export function dipReportText(m: DipMonth): [string, string] {
   if (m.short) xs.push(pen ? t(`${m.short} 個足りなかった（仲が下がった・−${pen}）`, `${m.short} short (relations down, −${pen})`) : t(`${m.short} 個足りなかった（仲が下がった）`, `${m.short} short (relations down)`));
   if (m.done) xs.push(t(`依頼 ${m.done} 件を達成`, `${m.done} request(s) done`));
   if (m.late) xs.push(t(`依頼 ${m.late} 件が期限切れ`, `${m.late} request(s) expired`));
+  if (m.rest) xs.push(t('町を移った月なので、交易はお休み', 'Trade paused: you moved towns this month'));
   if (!xs.length) xs.push(t('今月は届ける品が無かった', 'Nothing to send this month'));
   return [xs.join(t('・', ' · ')), m.n ? t(`+${g(m.yen)}`, `+${g(m.yen)}`) : xs[0]];
 }

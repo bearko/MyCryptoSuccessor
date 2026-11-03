@@ -6,6 +6,7 @@
  */
 import { t } from '../../i18n';
 import { csMove } from './cs';
+import { diploMoved } from './diplo';
 import { BRAND, LETTER_NEED, MANAGER, P1B, SECTORS, TOP_STREAK, hasArea, type Mat, type Sku, type Task, type Tier } from './data';
 import { brandAdd, book, newLand, sectorDef, sectorState, TIER_NAME, type SectorRec } from './company';
 import { assign, dropStaleArea, ensureDig, fitEquipment, groundOf, hasLetter, letterProgress, newP1, postFree, SECTOR_TASKS, staffOf, syncFacilities, syncGround, type P1State, type Report } from './model';
@@ -232,6 +233,8 @@ export function moveTo(s: P1State, target: string, manager: number | null): Move
   }
   // カスタマーサポート（段 G）：前の町の問い合わせ・炎上のおそれは消える（顧客満足度・炎上の熱さは会社のもの）
   csMove(s);
+  // 外交（段 UI4）：移った日を含む締めの月は、交易の約束を休む
+  diploMoved(s);
   s.ground = groundOf(s.n);
   // 復興した荒れ地の小道
   syncGround(s);

@@ -2953,8 +2953,8 @@ export function tables(rep: Report2): string {
     out.push('');
     out.push('外交（Epic。1 回の通しあたりの平均）');
     out.push('');
-    out.push(`| 方針 | 会ったランド | 仲（${LAND_IDS.map(landName).join('・')}） | 交易の約束 | 届けた数 | 交易の売上 | 足りなかった月・罰 | 依頼（受けた・達成・期限切れ） | もてなした・断った |`);
-    out.push('|---|---|---|---|---|---|---|---|---|');
+    out.push(`| 方針 | 会ったランド | 仲（${LAND_IDS.map(landName).join('・')}） | 交易の約束 | 届けた数 | 交易の売上 | 足りなかった月・罰 | 町を移って休んだ月 | 依頼（受けた・達成・期限切れ） | もてなした・断った |`);
+    out.push('|---|---|---|---|---|---|---|---|---|---|');
     for (const p of pols) {
       const runs = rep.runs.filter((r) => r.policy === p);
       if (!runs.length) continue;
@@ -2963,7 +2963,7 @@ export function tables(rep: Report2): string {
         const xs = runs.map((r) => r.v26.rel[id]).filter((v): v is number => v != null);
         return xs.length ? mean(xs).toFixed(0) : '—';
       }).join('・');
-      out.push(`| ${POLICY_NAME[p]} | ${d('met').toFixed(1)} | ${rel} | ${d('trades').toFixed(1)} | ${d('tradeN').toFixed(0)} | ${fmtG(d('tradeYen'))} | ${d('missed').toFixed(1)}・${fmtG(d('penalty'))} | ${d('reqs').toFixed(1)}・${d('reqDone').toFixed(1)}・${d('reqLate').toFixed(1)} | ${d('hosted').toFixed(1)}・${d('declined').toFixed(1)} |`);
+      out.push(`| ${POLICY_NAME[p]} | ${d('met').toFixed(1)} | ${rel} | ${d('trades').toFixed(1)} | ${d('tradeN').toFixed(0)} | ${fmtG(d('tradeYen'))} | ${d('missed').toFixed(1)}・${fmtG(d('penalty'))} | ${d('rested').toFixed(1)} | ${d('reqs').toFixed(1)}・${d('reqDone').toFixed(1)}・${d('reqLate').toFixed(1)} | ${d('hosted').toFixed(1)}・${d('declined').toFixed(1)} |`);
     }
     out.push('');
     out.push(`外交の数字（\`DIPLO\`）：初めの仲 ${DIPLO.start}・初めての使者は Epic の町に着いて ${DIPLO.afterMonths} か月か石板 e3-b・次のランドは ${DIPLO.nextMonths} か月ごと・提案は ${DIPLO.every} か月ごと・交易は毎月（先月売れた復刻品・骨董の ${Math.round(DIPLO.trade.share * 100)}%・最低 ${DIPLO.trade.min} 個）を ${DIPLO.trade.months} か月・上乗せ ${Math.round(DIPLO.trade.bonus * 100)}% ＋ 仲 × ${DIPLO.trade.bonusRel * 100}%・罰の上限 ${DIPLO.trade.penaltyMax.toLocaleString('en-US')} G。`);

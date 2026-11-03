@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { CARD, DIPLO, EVENT, PRODUCT, PRODUCTS, type Sku } from '../src/island/p1/data';
 import { cardsMonth, chooseCard, sayLength, sayOf, type Card } from '../src/island/p1/card';
 import { BAD_KINDS, EV_KINDS, GOOD_KINDS, applyEvent, contestingTop, evMul, eventDue, isGood, makeEvent, newEvents, type EvKind } from '../src/island/p1/events';
-import { applyDiplo, diploCompany, diploDay, dipOpts, meetPages, relOf, tradeClose, tradeTerms } from '../src/island/p1/diplo';
+import { applyDiplo, diploCompany, diploDay, diploMoved, dipOpts, dipReportText, meetPages, relOf, takeDipMonth, tradeClose, tradeTerms } from '../src/island/p1/diplo';
 import { bulkMain, bulkMainNote, bulkMainRows, deserializeP1, jamOf, myShops, newP1, openGate, priceOf, serializeP1, setShelf, type P1State, type Report } from '../src/island/p1/model';
 import { advanceGo, advanceOf, edgeNear, EDGE_NEAR } from '../src/island/p1/world';
 import { sayLen } from '../src/island/p1/persona';
@@ -267,6 +267,37 @@ describe('Epic の外交', () => {
     const r1 = relOf(s, 'ruby');
     expect(tradeClose(s)).toBeGreaterThan(0);
     expect(relOf(s, 'ruby')).toBe(r1 + DIPLO.rel.kept);
+  });
+
+  it('町を移った月（移った日を含む締めの月）は交易を休む：届けなくても罰はなく、仲も下がらない。次の締めからまた届ける', () => {
+    const s = epic();
+    s.tablets = ['tab_e3b'];
+    applyDiplo(s, diploCompany(s)!, 0);
+    const tr = s.diplo!.trades[0];
+    tr.n = 500;
+    const left = tr.left;
+    // 締めの 10 日前に町を移った（land.ts の moveTo が呼ぶ）
+    s.day += 20;
+    diploMoved(s);
+    s.day += 10;
+    takeDipMonth(s);
+    const r0 = relOf(s, 'ruby');
+    const m0 = s.money;
+    expect(tradeClose(s)).toBe(0);
+    expect(relOf(s, 'ruby')).toBe(r0);
+    expect(s.money).toBe(m0);
+    expect(tr.left).toBe(left);
+    expect(s.diplo!.stat.missed).toBe(0);
+    const m = takeDipMonth(s)!;
+    expect(m.rest).toBe(true);
+    expect(dipReportText(m)[0]).toContain('お休み');
+    // 次の締め（移った日から 30 日）は、足りなければいつもどおり仲が下がり罰
+    s.day += 30;
+    expect(tradeClose(s)).toBe(0);
+    expect(relOf(s, 'ruby')).toBe(r0 + DIPLO.rel.missed);
+    expect(s.diplo!.stat.missed).toBe(1);
+    expect(m0 - s.money).toBeLessThanOrEqual(DIPLO.trade.penaltyMax);
+    expect(tr.left).toBe(left - 1);
   });
 
   it('使者の依頼：品がそろうと報酬（お金・研究ポイント・仲）。期限を過ぎると仲が下がる', () => {
