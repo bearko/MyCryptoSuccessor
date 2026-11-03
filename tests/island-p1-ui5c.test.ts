@@ -26,7 +26,12 @@ import {
   type P1State,
 } from '../src/island/p1/model';
 import { afterOf, applyPlan, manualPlan, planCost, planOf, planRows, planTitle } from '../src/island/p1/plan';
-import { cardsMonth, cardsOf, chooseCard, planOfChoice, stockDraft } from '../src/island/p1/card';
+import { cardsMonth, cardsOf, chooseCard, enqueue, planOfChoice, stockDraft } from '../src/island/p1/card';
+/** 倉庫の提案を受け箱へ（月の締めと同じ enqueue） */
+const stockDraftEnqueue = (s: P1State) => {
+  const d = stockDraft(s);
+  if (d) enqueue(s, d);
+};
 import { clearInfo, fromStock, rankUp, rankable, sellFilter, sellNo, spareMats } from '../src/island/p1/stock';
 import { ordersOf } from '../src/island/p1/orders';
 import { actOk, execute } from '../src/island/p1/deleg';
@@ -307,15 +312,17 @@ describe('倉庫が埋まりそうな月の提案（店長から）', () => {
     const r = applyPlan(s, plan);
     expect(r.ok).toBe(true);
     for (const b of myShops(s)) expect(s.shops[b.uid].clear).toBe(CLEAR.def);
-    // 受け箱が CARD.keep 枚のときは出さない（ほかのカードを押し出さない）
+    // 受け箱が CARD.keep 枚でも出す。受け箱の枚数に数えないので、ほかのカードは押し出されない
     const t2 = base();
     t2.stock[notMade(t2)] = 20;
     t2.mats.wood = (t2.mats.wood ?? 0) + Math.ceil(poolCap(t2) * 0.9);
     const C2 = cardsOf(t2);
-    const tmpl = { ...c, src: 'clerk' as const, kind: 'x' };
-    C2.inbox = Array.from({ length: CARD.keep }, (_, i) => ({ ...tmpl, id: 1000 + i, kind: `x${i}` }));
-    cardsMonth(t2, t2.reports[t2.reports.length - 1]);
-    expect(C2.inbox.some((y) => y.src === 'stock')).toBe(false);
+    const ids = Array.from({ length: CARD.keep }, (_, i) => 1000 + i);
+    C2.inbox = ids.map((id, i) => ({ ...c, src: 'clerk' as const, kind: `x${i}`, id, mk: C2.mk, pop: true, seen: false }));
+    const before = C2.inbox.map((y) => y.id);
+    stockDraftEnqueue(t2);
+    expect(C2.inbox.some((y) => y.src === 'stock')).toBe(true);
+    for (const id of before) expect(C2.inbox.some((y) => y.id === id)).toBe(true);
     void chooseCard;
   });
 

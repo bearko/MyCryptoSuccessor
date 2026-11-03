@@ -731,11 +731,9 @@ export function cardsMonth(s: P1State, r: Report) {
   const staff = stall ? null : staffDraft(s);
   const drafts = [...(stall ? [stall] : []), ...(staff ? [staff] : []), ...noticeDrafts(s, r), ...(stall ? heroDrafts(s).filter((d) => d.src !== 'clerk' || d.kind !== 'sell') : heroDrafts(s)), ...hrDrafts(s), ...headDrafts(s, r)].sort((a, b) => b.pri - a.pri);
   for (const d of drafts) enqueue(s, d, rep);
-  // 段 UI5c：倉庫が埋まりそうな月（ほかの提案のあと。受け箱に空きがあるときだけ：ほかのカードを押し出さない）
-  if (C.inbox.filter((c) => c.src !== 'stock').length < CARD.keep) {
-    const st = stockDraft(s);
-    if (st) enqueue(s, st, rep);
-  }
+  // 段 UI5c：倉庫が埋まりそうな月（ほかの提案のあと。受け箱の枚数に数えないので、ほかのカードを押し出さない）
+  const st = stockDraft(s);
+  if (st) enqueue(s, st, rep);
   if (rep.made || rep.auto.length) r.cards = rep;
 }
 
