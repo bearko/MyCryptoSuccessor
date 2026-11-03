@@ -31,7 +31,7 @@ import { CARD } from '../../src/island/p1/data';
 /** v25：通常の方針が受けるカードの手の名前（表 19） */
 const TAKE_NAME: Record<string, string> = { shelf: '棚 +1 と商品', goods: '品ぞろえの入れ替え', invest: '設備投資', part: 'アルバイト', famous: '名物店主', permit: '発掘許可', ad: '宣伝' };
 /** v25：カードの出どころの名前（表 19） */
-const SRC_NAME: Record<CardSrc, string> = { hr: '人事（雇う）', clerk: '店員', crafter: '職人', buyer: '調達係', idle: '手の空いた人', head: '部長', cs: '問い合わせ', flame: '炎上の予告', quit: '辞めたい', tax: '経理の助言', rally: '巻き返し・反撃', event: 'できごと', diplo: '外交' };
+const SRC_NAME: Record<CardSrc, string> = { hr: '人事（雇う）', clerk: '店員', crafter: '職人', buyer: '調達係', idle: '手の空いた人', head: '部長', cs: '問い合わせ', flame: '炎上の予告', quit: '辞めたい', tax: '経理の助言', rally: '巻き返し・反撃', event: 'できごと', diplo: '外交', stall: '流れが止まった' };
 import {
   promote,
   takeVacant,
@@ -119,6 +119,7 @@ import {
   sellEstimate,
   setPart,
   setShelf,
+  shelvesAuto,
   shelfCount,
   siteInfo,
   stageCaps,
@@ -375,7 +376,8 @@ export const SIM_RESET: Record<PolicyId, { donate: number; towns: number; fund: 
  */
 const BRANCH_ORDER: Record<Stage, string[]> = {
   // v5：スキルツリー v2 の新しいパネル（ABC 分析・POS・自動発注・5S・ロット・カイゼン・定期便・配送ルート・VMD・ゴールデンゾーン など）。外周（U・R）は開いてから
-  buy: ['stock1', 'bulk', 'abc', 'swift', '@stockroom:1', 'eye', 'pos', 'auto_order', 'stock2', 'bulk2', '@rack:1', 'stock3', 'contract', 'b_partner', 'direct'],
+  // 段 UI5a：調達の交代要員（大口契約のあと。調達係が休む日も止めない）
+  buy: ['stock1', 'bulk', 'abc', 'swift', '@stockroom:1', 'eye', 'pos', 'auto_order', 'stock2', 'relief', 'bulk2', '@rack:1', 'stock3', 'contract', 'b_partner', 'direct'],
   craft: ['@bench:1', 'jig', 'five_s', 'chair', 'jig2', 'lot', 'kaizen', '@bench:2', 'pot', 'night', 'mold', 'line'],
   haul: ['loading', '@carts:1', 'shortcut', 'timetable', '@backroom:1', 'route_opt', '@truck:1', '@carts:2', 'hub', 'joint', 'crossdock', 'fleet'],
   sell: ['@shelves:1', 'host', '@staffroom:1', 'display', 'vmd', 'hours', 'shop2', 'golden', 'pop', '@shelves:2', 'set', 'point', 'shop3', 'b_sign', 'order', 'fair', 'concierge', 'b_premium'],
@@ -985,9 +987,19 @@ export function policy(s: P1State, c: Ctx): Action[] {
     }
   }
 
-  // ---- お店：棚・アルバイト
+  // ---- 段 UI5a：調達の交代要員を取ったら、手の空いた人を 2 人目の調達係に（雇い足しはしない）
+  if (has(s, 'relief') && crew(s).filter((x) => x.task === 'buy').length === 1) {
+    const idle = crew(s).find((x) => x.task == null && !x.resting && !used.has(x.hero));
+    if (idle) acts.push({ kind: 'assign', run: () => assign(s, idle.hero, 'buy') });
+  }
+
+  // ---- お店：棚・アルバイト（段 UI5a：チュートリアルのあとは、棚は製造に合わせて自動で並ぶ（model.ts の syncShelves）。方針は棚を選ばない）
   for (const b of myShops(s)) {
     const sh = s.shops[b.uid];
+    if (shelvesAuto(s)) {
+      if (sh.part === 0 && !rescue) acts.push({ kind: 'part', run: () => setPart(s, b.uid, 1) });
+      continue;
+    }
     // 並べたい商品のうち棚に無いものを、並べなくなった商品・重なった棚・空の棚と替える（順番は気にしない）
     const left = (z: Sku) => (s.stock[z] ?? 0) + Object.values(s.shops).reduce((a, q) => a + (q.storage[z] ?? 0) + (q.shelf[z] ?? 0), 0) + s.trips.reduce((a, t) => a + (t.cargo[z] ?? 0), 0);
     const plan = [...sh.shelves];

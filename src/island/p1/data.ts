@@ -999,6 +999,13 @@ export const LETTER_NEED = 2;
 /** 物流拠点：工房 → 拠点はトラックの定期便（距離 × link）、拠点 → お店は荷車 */
 export const DEPOT = { link: 0.3 };
 export const SHOP = { shelfCap: 10, storageCap: 20, displayPerDay: 6, partTimeDisplay: 4, partTimeWage: 30, partTimeMax: 1, noStaff: 0 };
+/**
+ * 段 UI5a：お店の自走。店長（お店の担当のヒーロー）が休んでいる日は、店長が管理する従業員（アルバイト）が店を回す：
+ * 従業員が min 人以上いれば、売り場の強さは 1 人 per（店長がいる日の手伝いは 1 人 0.15）・上限 cap（店長がいる日はおよそ 1）。
+ * 1 人だけでは店を回せない（レジの手伝いだけ。前のまま 0.15）。店長のいないお店も前のまま。
+ * docs/ISLAND_PHASE1.md「お店の自走」
+ */
+export const SELF_RUN = { min: 2, per: 0.3, cap: 0.75 };
 /** 新しいお店の認知度：開店した日は 0.2、1 日 0.02 ずつ上がって 1 まで（売れる数にかかる） */
 export const AWARE = { start: 0.35, perDay: 0.025 };
 /**
@@ -1285,6 +1292,9 @@ export const SKILLS: Skill[] = [
   { id: 'stock3', branch: 'buy', name: t('年間契約', 'Annual contract'), note: t('月の調達の上限 +100%', 'Monthly buying limit +100%'), cost: 15000, requires: ['stock2'] },
   { id: 'swift', branch: 'buy', name: t('早足の買い付け', 'Brisk buying trips'), note: t('調達係の往復の日数 −30%', 'Buyer round trips −30% days'), cost: 3000, requires: ['stock1'] },
   { id: 'eye', branch: 'buy', name: t('目利き', 'Sharp eye'), note: t('調達ランクの経験 +50%', 'Buying rank exp +50%'), cost: 2500, requires: ['stock1'] },
+  // 段 UI5a：調達の定員（1 人がスタミナ切れで休んでも調達を止めない）。RP は決め打ち（ほかの研究パネルの値段を動かさない：UI5_RP）。
+  // 2 枚目（Uncommon・3 人まで）は、スキルツリーの線の交わりが 4 か所以上増えるので見送った（つながりの見直しのあとで）
+  { id: 'relief', branch: 'buy', name: t('調達の交代要員', 'Relief buyer'), note: t('調達係の定員 +1（2 人目は、1 人目が休む日に代わりに買い付けへ）', 'Buyer slots +1 (the 2nd buyer goes when the 1st rests)'), cost: 0, requires: ['stock2'] },
   { id: 'scoutmap', branch: 'buy', name: t('開拓の手引き', 'Scouting guide'), note: t('ルートの開拓の日数 −40%', 'Scouting −40% days'), cost: 3000, requires: ['route_paper'] },
   { id: 'abc', branch: 'buy', name: t('ABC 分析', 'ABC analysis'), note: t('調達係の買う量を消費にぴったり合わせる（買いすぎなし）・素材の値段 −5%', 'Buyers match purchases to use (no overbuying); materials −5%'), cost: 4000, requires: ['stock1'] },
   { id: 'contract', branch: 'buy', name: t('長期契約', 'Long-term contract'), note: t('素材の値段 −5%（値段の変動が入ったら 6 か月固定）', 'Materials −5% (locks prices for 6 months once prices fluctuate)'), cost: 10000, requires: ['bulk2'], tier: 'U', emblem: 1 },
@@ -1397,6 +1407,7 @@ const LEVELS: Record<string, Partial<Skill>> = {
   stock3: { show: [up_(PROC_, 1)] },
   swift: { show: [dn_(FX_LABEL.buyDays, 0.3)] },
   eye: { show: [up_(t('調達ランクの経験', 'Buying rank exp'), 0.5)] },
+  relief: { show: [nm_(t('調達係の定員', 'Buyer slots'), 1)] },
   scoutmap: { show: [dn_(t('ルートの開拓の日数', 'Scouting days'), 0.4)] },
   abc: { show: [dn_(MAT_, 0.05)] },
   contract: { show: [dn_(MAT_, 0.05)] },
@@ -2189,6 +2200,10 @@ export const START_RP = 30;
 /** 以前のゴールドダスト 1 つ ＝ RP（古いセーブの移し替え・依頼の報酬の置き換え） */
 export const RP_PER_DUST = 40;
 const RP_FIXED: Record<string, number> = { hire: START_RP };
+/** 段 UI5a で足した研究パネルの RP（決め打ち。同じ枝のほかの研究パネルの値段の割り振りに入れない） */
+const UI5_RP: Record<string, number> = { relief: 40 };
+/** 段 UI5a で足したパネル（スキルツリーの枝の幅の余りの数に入れない：treelayout.ts） */
+export const UI5_SKILLS = ['relief'];
 {
   const money = new Set([...Object.values(MONEY_PANELS).flatMap((x) => Object.values(x)), DONATE.id, ...SALES_MONEY, ...HR_MONEY, ...ACCT_MONEY, ...GA_MONEY, ...CS_MONEY, ...MKT_MONEY, ...LEGAL_MONEY]);
   const byId = new Map(SKILLS.map((k) => [k.id, k]));
@@ -2212,14 +2227,14 @@ const RP_FIXED: Record<string, number> = { hire: START_RP };
     const P = RP_PRICE[tier];
     const round = (v: number) => Math.max(P.step, Math.round(v / P.step) * P.step);
     for (const b of new Set(SKILLS.map((k) => k.branch))) {
-      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null && ACCT_RP[k.id] == null && CSM_RP[k.id] == null && LEGAL_RP[k.id] == null && DT.rp[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
+      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null && ACCT_RP[k.id] == null && CSM_RP[k.id] == null && LEGAL_RP[k.id] == null && DT.rp[k.id] == null && UI5_RP[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
       list.forEach((k, i) => (k.rp = round(P.lo + ((P.hi - P.lo) * (list.length > 1 ? i : 0)) / Math.max(1, list.length - 1))));
       // 1 枚だけの枝は真ん中の値段
       if (list.length === 1) list[0].rp = round((P.lo + P.hi) / 2);
     }
     for (const k of SKILLS) if (tierOf(k) === tier && k.big) k.rp = P.big;
   }
-  for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP, ...ACCT_RP, ...CSM_RP, ...LEGAL_RP, ...DT.rp })) if (byId.get(id)) byId.get(id)!.rp = v;
+  for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP, ...ACCT_RP, ...CSM_RP, ...LEGAL_RP, ...DT.rp, ...UI5_RP })) if (byId.get(id)) byId.get(id)!.rp = v;
   // 発掘の枝の研究パネルはレベルが無い（開いたときの段は決まっている）ので、「先に要る Lv」（長期の発掘許可＝追加申請 Lv5 など）は外す。持っていればよい
   for (const k of SKILLS)
     if (k.reqLv) {
@@ -2417,6 +2432,13 @@ export const CARD = {
   expire: 2,
   /** 選択肢（任せるを除く）の数 */
   choices: 3,
+  /**
+   * 段 UI5a（設計の考え方：ゲームが進むほど、担当者から受ける提案の割合が増える）：
+   * capStar＝会社に読みの確かさ ★3 の担当がいると、時間を止めて出す上限を +1。
+   * size＝提案書 1 枚で変える項目（打ち手）の数の上限：町のランクごと × 話し手の ★（★1 は 1 つ・★2 は 2 つまで・★3 は 3 つまで）
+   */
+  capStar: 1,
+  size: { C: 1, U: 2, R: 3, E: 3, L: 3 } as Record<'C' | 'U' | 'R' | 'E' | 'L', number>,
 };
 /**
  * 突発のできごと（段 UI4。events.ts。docs/ISLAND_PHASE1.md「突発のできごと」）：マインちゃん・関わるヒーロー・町の長が持ってくる、良いできごとと困りごと。

@@ -341,12 +341,12 @@ describe('疲れと職場の環境（総務）', () => {
 describe('セーブ（版 16）', () => {
   it('新しいゲームは版 16。税の記録はセーブに残る', () => {
     const s = uTown();
-    expect(s.v).toBe(21);
+    expect(s.v).toBe(22);
     closeMonth(s, 300000);
     closeMonth(s, 300000);
     closeMonth(s, 300000);
     const back = deserializeP1(serializeP1(s))!;
-    expect(back.v).toBe(21);
+    expect(back.v).toBe(22);
     expect(back.acct!.paid).toBe(s.acct!.paid);
     expect(back.acct!.hist).toHaveLength(1);
   });
@@ -358,7 +358,7 @@ describe('セーブ（版 16）', () => {
     o.v = 15;
     delete o.acct;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(21);
+    expect(back.v).toBe(22);
     expect(back.acct).toBeUndefined();
     // 会社の月 5（day 150）：途中の月。6（day 180）：四半期の締め
     const a = closeMonth(back, 300000);

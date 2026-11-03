@@ -21,7 +21,9 @@ import { openDeleg, openProps } from './delegui';
 import { autoText, cardInbox, cardsCompany, cardsDay, cardsMonth, demoDraft, diploDraft, enqueue, eventDraft, markSeen, nextPop, takeAuto } from './card';
 import { cardNav, showCard } from './cardui';
 import { crestEl, openDiplo } from './diploui';
-import { offerBulk } from './bulkui';
+import { openProposal } from './proposalui';
+import { reportProposal } from './card';
+import type { Plan } from './plan';
 import { diploOf, hostCost, landDef, meetPages, relOf, reqTerms, tradeTerms, type LandId } from './diplo';
 import { activeFx, evIcon, fxText, isGood, makeEvent, type EvKind } from './events';
 import {
@@ -87,6 +89,7 @@ import {
   DUNGEON,
   revivedSites,
   museumOpen,
+  shelvesAuto,
 } from './model';
 import type { LevelUp } from './hero';
 import { openMuseum } from './museumui';
@@ -109,6 +112,7 @@ import {
   openPayroll,
   openRanking,
   openStaff,
+  openWorkshop,
   makeInWorkshop,
   refreshSheet,
   rivalName,
@@ -154,7 +158,7 @@ import type { Sku as SkuT } from './data';
 import { STRIP, corners, overviewScale, worldOf } from './worldrender';
 import { landCleared, letterLockOf, letterLocked, playable } from './land';
 import { actOf, hlOf, pointOf, TUT, TUT_DONE, TUT_END, tutFix, tutOf, type TutGo, type TutPage, type TutStep } from './tut';
-import { btn, h, heroIcon, heroName, matIcon, money, plain, rich, skuIcon } from './ui';
+import { btn, h, heroIcon, heroName, matIcon, money, plain, rich, skuIcon, skuName } from './ui';
 
 const q = new URLSearchParams(location.search);
 const TEST = q.get('test') === '2';
@@ -412,9 +416,11 @@ function showSectorName(id: string, animate: boolean) {
   sectorNames.append(nb);
 }
 /**
- * 段 UI2：「詰まり」の札（上の帯。いまの SCM の詰まりの段のアイコンと 1〜2 語）。2 か月目からの地図の吹き出しの代わり。
+ * 段 UI2：「詰まり」の札（段 UI5a で「課題あり」。上の帯。いまの SCM の詰まりの段のアイコンと 1〜2 語）。2 か月目からの地図の吹き出しの代わり。
  * 押すと、その段のヒーローの提案のカード（受け箱にあれば）か、SCM ダッシュボード（④ 販売なら販売の内訳）。工房・お店がまだ無ければ建築へ
  */
+/** 段 UI5a：お店が閉まった一言を出した（お店:締めの回数） */
+const closedTold = new Set<string>();
 const statJam = h('button', 'isl-stat isl-stat-btn isl-stat-jam');
 statJam.type = 'button';
 statJam.hidden = true;
@@ -428,7 +434,8 @@ statJam.addEventListener('click', () => {
     return;
   }
   const src = CHIP_SRC[c.stage];
-  const card = src ? cardInbox(s).find((x) => x.src === src) : undefined;
+  // 段 UI5a：流れが止まっていれば「○○が止まっています」のカードを先に
+  const card = cardInbox(s).find((x) => x.src === 'stall') ?? (src ? cardInbox(s).find((x) => x.src === src) : undefined);
   if (card) showCard(ctx, card, { done: cardDone, open: cardOpen });
   else openSupply(ctx, { breakdown: c.stage === 'sell' });
 });
@@ -498,8 +505,9 @@ function renderJam() {
   jamKey = key;
   statJam.classList.toggle('is-build', c.k !== 'jam');
   if (c.k === 'jam') {
-    statJam.replaceChildren(h('small', '', t('詰まり', 'Jam')), h('b', '', `${JAM_ICON[c.stage]} ${JAM_NAME(c.stage)}`));
-    statJam.title = t('いちばんの詰まり。押すと、担当の提案か SCM ダッシュボード', 'The biggest jam. Tap for the proposal or the SCM dashboard');
+    // 段 UI5a：「詰まり」→「課題あり」（月次報告の KPI ③ とそろえる）
+    statJam.replaceChildren(h('small', '', t('課題あり', 'Issue')), h('b', '', `${JAM_ICON[c.stage]} ${JAM_NAME(c.stage)}`));
+    statJam.title = t('いちばんの課題。押すと、担当の提案か SCM ダッシュボード', 'The biggest issue. Tap for the proposal or the SCM dashboard');
   } else {
     statJam.replaceChildren(h('small', '', t('次の一手', 'Next')), h('b', '', c.k === 'ws' ? t('🔨 工房', '🔨 Workshop') : t('🏪 お店', '🏪 Shop')));
     statJam.title = t('押すと建築', 'Tap to build');
@@ -3059,8 +3067,12 @@ function cardOpen(to: 'tax' | 'ads') {
   else openAds(ctx);
 }
 cardNav.done = cardDone;
-// 段 UI4（追加の要望）：作業台の作る物を替えたら「お店の主力商品も替えますか？」（チュートリアル・並べていないときは出さない）
-makeHooks.switched = (a, b) => void offerBulk(ctx, a, b, () => renderAll());
+// 段 UI5a：作業台の作る物を替えたら、棚は自動でついてくる（UI4 の主力のまとめ替えのシートは、この連動に吸収した）。
+// 主力にするかは工房の画面の 1 行（「○○のお店に自動で並びます（主力にする）」）で
+makeHooks.switched = (_a, b) => {
+  if (!shelvesAuto(s) || !myShops(s).length) return;
+  ctx.toast(t(`${skuName(b)}は、できしだいお店に自動で並びます`, `${skuName(b)} goes on the shelves as soon as it’s made`));
+};
 cardNav.open = cardOpen;
 
 function renderAdvisor() {
@@ -4177,6 +4189,16 @@ function advance(days: number) {
     // 段 UI1：任せた提案（★3 のヒーローが自分で実行した）
     for (const x of takeAuto(s)) toast(autoText(s, x));
     if (r.hr) hrNews(r.hr);
+    // 段 UI5a（お店の自走）：店長が休んで、回す従業員もいないので閉まった（その月の初めの 1 回だけ。店長の一言）
+    for (const uid of r.closed ?? []) {
+      const key = `${uid}:${s.reports.length}`;
+      if (closedTold.has(key)) continue;
+      closedTold.add(key);
+      const hero = s.shops[uid]?.staff;
+      const b = s.buildings.find((x) => x.uid === uid);
+      const nm = b ? DEF[b.id]?.name ?? '' : '';
+      toast(hero != null ? t(`${heroName(hero)}「休みの日は${nm}が閉まってしまいます。従業員 2 人いれば開けておけます」`, `${heroName(hero)}: “${nm} closes on my days off. Two staff could keep it open.”`) : t(`${nm}が閉まりました（店長が休み）`, `${nm} closed (manager off)`));
+    }
     // 法務（段 H2）：M&A の話の進み・特許の審査が終わった
     if (r.legal) for (const x of legalToasts(r.legal)) toast(x);
     // 外交（段 UI4）：使者の依頼がそろった・期限が切れた
@@ -4370,7 +4392,11 @@ function companyNews(c: NonNullable<ReturnType<typeof step>['company']>) {
 }
 
 /** 月次報告の画面からほかの画面へ */
-const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), openProps: () => openProps(ctx), openPay: () => openPayroll(ctx), openCs: () => openInboxScreen(), openLegal: () => openLegalScreen('ma'), openDiplo: () => goSub('sales', 'diplo'), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
+const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), openProps: () => openProps(ctx), openPay: () => openPayroll(ctx), openCs: () => openInboxScreen(), openLegal: () => openLegalScreen('ma'), openDiplo: () => goSub('sales', 'diplo'), openProposal: (plan: Plan, say: string, role: string) => {
+  // 段 UI5a：月次報告の KPI ③「担当者からの提案」→ 提案書（報告は閉じる）
+  closeSheet();
+  openProposal(ctx, plan, { say, role, done: () => renderAll() });
+}, sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
 
 function showReport(r: NonNullable<ReturnType<typeof step>['report']>) {
   speed = 0;
@@ -4550,7 +4576,16 @@ window.setTimeout(() => warmFx(), 3000);
     return c.id;
   },
   /** 追加の要望（撮影スクリプト用）：主力商品のまとめ替えのシートを出す・境界の町の名前（位置と近いか）・町のポップアップ */
-  bulk: (a: SkuT, b: SkuT) => offerBulk(ctx, a, b, () => renderAll()),
+  /** 段 UI5a（撮影用）：工房の画面を開く */
+  openWs: () => openWorkshop(ctx),
+  /** 段 UI5a（撮影・確かめ用）：月次報告の KPI ③ の提案書を、いまの状態で開く。開けたら true */
+  proposal: () => {
+    const r = s.reports[s.reports.length - 1];
+    const p = r ? reportProposal(s, r) : null;
+    if (!p) return false;
+    openProposal(ctx, p.plan, { say: p.say, role: p.role, done: () => renderAll() });
+    return true;
+  },
   edges: () => worldEls.filter((x) => x.dir).map((x) => ({ i: x.i, j: x.j, near: x.el.classList.contains('is-near'), text: x.el.textContent, dir: x.dir })),
   sectorCard: (id: string) => openSectorCard(id),
   cardShow: (id: number) => {

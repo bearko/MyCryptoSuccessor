@@ -122,6 +122,7 @@ pixelfx の見本は暗い背景で作られている。明るい草地（`#94b3
 | チュートリアルの目標をクリア | `collect-burst`（金）を「クリア！」のはんこで | ui・2 | `main.ts` の `tutTick` |
 | 研究成果の発表（依頼状） | `firework-burst` を手紙の左右に 2 発（スマホは 1 発） | ui・2（スマホ 4/3）・ink なし | `main.ts` の `letterFx` |
 | 制覇 | 上に加えて金の花火 1 発と、画面の下の縁（スマホは下のタブの上）から `confetti` | 同上 | `main.ts` の `letterFx` |
+| 担当者からの提案書の承認（段 UI5a） | 会社のハンコ（店の名前の赤い丸印。災害の協定書のハンコの CSS を小さく流用）を押した瞬間に `collect-burst`（金）を印の位置で | ui・2（スマホ 4/3）。0.8 秒で一気に変更へ（効果のあいだ待たせない：効果は重ねるだけ） | `proposalui.ts` の `stampThen` |
 
 はじめは紙吹雪をミッションの欄から出したが、「クリア！」のはんこや文字を 3 秒隠したので、**小さな達成は光（collect-burst）・大きな達成（制覇）は花火と紙吹雪**に分けた。制覇の紙吹雪も、手紙の「制覇」の文字に重なったので画面の下の縁からにした。
 
@@ -169,7 +170,7 @@ pixelfx の見本は暗い背景で作られている。明るい草地（`#94b3
 | 発掘の出土品（エクステ・お題・Epic） | CSS（`isl-dig-boom`・回る放射の窓・`isl-dig-fly`）・音 treasure／mining | `pickups/loot-beam`（レアリティの色の光の柱。ループなので `life`）・`pickups/collect-burst` | 1 |
 | ヒーローのレベルアップ | トースト ⭐・音 levelup | `collect-burst`（ours）を人事 → 育成の顔の上で（地図には出さない） | 5 |
 | 昇格 | 全画面の CSS（`isl-hpfx-glow`・回る光）・音 | `holy/sunburst`（gold。ループ → `life: 2400`）を顔の後ろに | 2 |
-| 提案の承認（カード） | 音 levelup／page・トースト | `collect-burst`（gold）を押したボタンで | 5 |
+| 提案の承認（カード） | 音 levelup／page・トースト。段 UI5a から、手のある選択肢は提案書のハンコ＋ `collect-burst`（gold） | 済（提案書のハンコ） | 済 |
 | できごと（突発） | カード・音 | — （カードの絵で足りる。`ui/exclamation` は character 付きで写せない） | — |
 | 新しい部門 | CSS の帯と火花（`isl-newdept`・`isl-spark`）・音 levelup | `firework-burst`（その部門の色の palette）1 発 | 4 |
 | ブランド力が上がった | 上の帯の札が光る（CSS `isl-brand-up`）・トースト・音 levelup | `collect-burst`（gold）を上の帯の ★ で（小さく scale 4/3） | 5 |

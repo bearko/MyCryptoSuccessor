@@ -115,17 +115,17 @@ describe('まとめた画面の飛び先', () => {
 });
 
 describe('建物の吹き出し：担当のヒーローへの指示', () => {
-  it('お店：店長（その店の店員）が話し手で、棚を増やして並べる・品を入れ替える・宣伝を頼む。棚の指示に「+N 個／月」と値段', () => {
+  it('お店：店長（その店の店員）が話し手で、主力を決める・棚を整える・宣伝を頼む・需要の読み・従業員（段 UI5a：並べる商品を選ぶ指示は無い）。棚の指示に「+N 個／月」と値段', () => {
     const s = sellJam();
     const b = myShops(s).find((x) => s.shops[x.uid]?.staff != null)!;
     const box = ordersOf(s, b)!;
     expect(box.place).toBe('shop');
     expect(box.hero).toBe(s.shops[b.uid].staff);
     expect(box.role.text).toContain('店長');
-    expect(box.orders.map((o) => o.k)).toEqual(expect.arrayContaining(['shelf', 'swap', 'ad']));
-    expect(box.orders.length).toBeGreaterThanOrEqual(2);
-    expect(box.orders.length).toBeLessThanOrEqual(4);
-    const shelf = box.orders.find((o) => o.k === 'shelf')!;
+    expect(box.orders.map((o) => o.k)).toEqual(['main', 'tidy', 'ad', 'field', 'staff']);
+    expect(box.orders.map((o) => o.k)).not.toContain('shelf');
+    expect(box.orders.map((o) => o.k)).not.toContain('swap');
+    const shelf = box.orders.find((o) => o.k === 'tidy')!;
     if (!shelf.off) {
       expect(shelf.sub).toMatch(/個／月/);
       expect(shelf.units!).toBeGreaterThan(0);

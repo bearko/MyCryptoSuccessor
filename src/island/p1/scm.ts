@@ -385,7 +385,7 @@ function sellBreakdown(ctx: Ctx, s: P1State, info: SellInfo, ws: WhatIf[], openN
   const big = bestSell(s);
   if (big) {
     const u = sellBigUp(ctx, s, big);
-    const b = btn(t(`いちばん効く手：${u.label}`, `Best move: ${u.label}`), u.go, `is-on isl-sellx-big ${u.short ? 'is-short' : ''}`);
+    const b = btn(t(`いちばんの改善案：${u.label}`, `Best fix: ${u.label}`), u.go, `is-on isl-sellx-big ${u.short ? 'is-short' : ''}`);
     b.dataset.kind = big.kind;
     act.append(b, h('small', 'isl-good', u.sub));
   } else act.append(btn(why.act[0], why.act[1], 'is-on'));
@@ -649,9 +649,9 @@ export function openSupply(ctx: Ctx, opt: { breakdown?: boolean } = {}) {
     let sellBox: HTMLDetailsElement | null = null;
     // 見込みのある手が無いときの行き先（④ 販売は内訳、ほかはその段の画面）
     const fallback: Record<Stage, Up> = {
-      buy: { label: t('調達を開く', 'Open buying'), sub: t('いま効く手が見つからない', 'No move helps right now'), go: () => openBuy(ctx) },
-      craft: { label: t('工房を開く', 'Open workshop'), sub: t('いま効く手が見つからない', 'No move helps right now'), go: () => openWorkshop(ctx) },
-      haul: { label: t('スキルツリーで見る', 'Open skill tree'), sub: t('いま効く手が見つからない', 'No move helps right now'), go: () => openSkills(ctx, 'logi') },
+      buy: { label: t('調達を開く', 'Open buying'), sub: t('いま効く改善案が見つからない', 'No fix helps right now'), go: () => openBuy(ctx) },
+      craft: { label: t('工房を開く', 'Open workshop'), sub: t('いま効く改善案が見つからない', 'No fix helps right now'), go: () => openWorkshop(ctx) },
+      haul: { label: t('スキルツリーで見る', 'Open skill tree'), sub: t('いま効く改善案が見つからない', 'No fix helps right now'), go: () => openSkills(ctx, 'logi') },
       sell: {
         label: t('販売の内訳を見る', 'Sales breakdown'),
         sub: t('なぜ頭打ちか', 'Why it’s capped'),

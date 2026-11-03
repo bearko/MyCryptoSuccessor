@@ -98,6 +98,7 @@ const ICON: Record<string, { b?: string; sku?: Sku; ext?: number; mat?: Mat; her
   stock3: { b: 'hq' },
   swift: { b: 'station' },
   eye: { b: 'jewelry' },
+  relief: { emoji: '🔁' },
   abc: { emoji: '📊' },
   contract: { emoji: '📜' },
   direct: { emoji: '🌾' },

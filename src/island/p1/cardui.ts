@@ -7,6 +7,8 @@
 import { t } from '../../i18n';
 import { aptitude, type Task } from './data';
 import {
+  approveCard,
+  planOfChoice,
   canTrust,
   cardInbox,
   cardStar,
@@ -29,7 +31,8 @@ import { rankOf } from './heroui';
 import { staffOf, type P1State } from './model';
 import { traitOf } from './persona';
 import { landDef, relOf, relTeaser } from './diplo';
-import { after, makeHooks, type Ctx } from './screens';
+import { after, type Ctx } from './screens';
+import { openProposal } from './proposalui';
 import { btn, h, heroIcon, heroName, money, rich } from './ui';
 import { assetUrl } from '../../render/images';
 
@@ -56,7 +59,7 @@ const ERR: Record<string, () => string> = {
 };
 
 /** カードの中身（顔・肩書き・名前・一言・セリフ・選択肢・下の一行） */
-function panel(s: P1State, c: Card, close: (res: ChooseRes | null, label: string) => void): HTMLElement {
+function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, label: string) => void, quiet: () => void): HTMLElement {
   const role = roleOfCard(s, c);
   const p = h('div', `isl-cardm-panel is-${c.src}`);
   p.style.setProperty('--c', role.color);
@@ -129,11 +132,22 @@ function panel(s: P1State, c: Card, close: (res: ChooseRes | null, label: string
     if (why) lab.append(h('small', 'isl-bad', why));
     b.append(lab);
     b.addEventListener('click', () => {
-      // 段 UI4（追加の要望）：作業台を切り替える手のあとにも「お店の主力商品も替えますか？」
-      const before = s.slots.map((y) => y.sku);
+      // 段 UI5a：手のある選択肢（ヒーローの提案・部長の提案）は、担当者からの提案書を開く（As-Is／To-Be・期待効果・導入コスト → 承認でハンコ → 一気に変更）
+      const plan = ch.act.k === 'do' || ch.act.k === 'approve' ? planOfChoice(s, c, k) : null;
+      if (plan) {
+        openProposal(ctx, plan, {
+          say: sayOf(s, c),
+          role: roleOfCard(s, c).text,
+          later: true,
+          approve: (p) => approveCard(s, c.id, p),
+          done: (w) => {
+            if (w === 'ok' || w === 'later') quiet();
+          },
+        });
+        return;
+      }
       const res = chooseCard(s, c.id, k);
       close(res, x.label);
-      if (res.ok) s.slots.forEach((y, i) => before[i] && y.sku && before[i] !== y.sku && makeHooks.switched?.(before[i]!, y.sku));
     });
     chs.append(b);
   }
@@ -190,7 +204,13 @@ export function showCard(ctx: Ctx, c: Card, hooks: CardHooks) {
     if (res?.open) hooks.open?.(res.open);
     hooks.done();
   };
-  m.append(panel(s, c, close));
+  // 提案書から承認した・あとでにした：カードを閉じる（トーストは提案書が出した）
+  const quiet = () => {
+    m.remove();
+    ctx.save();
+    hooks.done();
+  };
+  m.append(panel(ctx, s, c, close, quiet));
   ctx.root.append(m);
   ctx.sfx?.('page');
 }

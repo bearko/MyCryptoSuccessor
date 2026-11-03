@@ -1,7 +1,7 @@
 /**
  * 販売の手（段 UI1。DOM なし）：SCM の打ち手ごとの見込み（model.ts の sellWhatIf）と、スキルツリーにしか書いていない販売の手
  * （VMD・ゴールデンゾーン・名物店主）・いちばん効く宣伝を、**毎月の費用を引いた利益の見込み**（粗利 − 毎月の費用）の大きい順に並べる。
- * 店員の提案（card.ts）・物流部長の提案（deleg.ts）・SCM の「④ 販売の内訳」の大きいボタン（scm.ts）・月次報告の「いちばん効く手」（report.ts）が同じ順を使う。
+ * 店員の提案（card.ts）・物流部長の提案（deleg.ts）・SCM の「④ 販売の内訳」の大きいボタン（scm.ts）・月次報告の「担当者からの提案」（report.ts。段 UI5a で「いちばん効く手」から言い換え）が同じ順を使う。
  * 見込みの計算はいまの手のまま（sellNow を状態の写しに当てる）。効き目・値段は変えない。
  */
 import { t } from '../../i18n';
@@ -233,9 +233,10 @@ export function stockPlan(s: P1State, a: Extract<SellAct, { k: 'stock' }>): Stoc
 /** 棚に並べたあとの知らせ（トースト）：棚が増えた・どの棚にどの商品を並べた・作業台がどう替わるか */
 export function stockMsg(p: StockPlan, key: string): string {
   const nm = goodsName(key);
+  // 段 UI5a：何を売るかは製造が決める。棚は作っている商品に自動でそろう（できしだい並ぶ）
   const shelf = p.add
-    ? t(`${p.shop}の棚を 1 段増やして、${p.shelf} 段目に「${nm}」を並べました`, `Added a shelf to ${p.shop} and stocked ${nm} on shelf ${p.shelf}`)
-    : t(`${p.shop}の棚 ${p.shelf} 段目に「${nm}」を並べました`, `Stocked ${nm} on shelf ${p.shelf} of ${p.shop}`);
+    ? t(`${p.shop}の棚を 1 段増やしました（${p.shelf} 段目に「${nm}」が並びます）`, `Added a shelf to ${p.shop} (${nm} goes on shelf ${p.shelf})`)
+    : t(`${p.shop}の棚 ${p.shelf} 段目に「${nm}」が並びます`, `${nm} goes on shelf ${p.shelf} of ${p.shop}`);
   if (p.bench == null) return shelf;
   const bench = p.later
     ? t(`作業台 ${p.bench} は、いまのロットが終わったら「${nm}」に切り替わります`, `Bench ${p.bench} switches to ${nm} after the current lot`)

@@ -26,6 +26,7 @@ import {
   PRODUCT,
   PRODUCTS,
   rivalDef,
+  SELF_RUN,
   SHOP,
   TASKS,
   UNCOMMON,
@@ -103,6 +104,7 @@ import {
   makeSku,
   setPart,
   setShelf,
+  shelvesAuto,
   speed,
   staffOf,
   startCraft,
@@ -119,6 +121,7 @@ import {
 } from './model';
 import { sectorDef, sectorProfile } from './company';
 import { UNSELLABLE_TEXT, seriesTag } from './digview';
+import { applyPlan, manualPlan } from './plan';
 import { bar, btn, extImage, fmt, h, heroIcon, heroName, matIcon, money, sheet, skuIcon, skuName, rich } from './ui';
 import { bomRow, extCard, extSlot, jobLabel, knownBar, lotsFromStock, needText, pickExt, pickHero, profitPerDay, radar, rankEl, slot, techNeed } from './heroui';
 import { rolesCard } from './delegui';
@@ -474,6 +477,29 @@ export function chooseMake(ctx: Ctx, s: P1State, k: number, x: Sku, msg?: string
   if (prev && prev !== x) makeHooks.switched?.(prev, x);
 }
 
+/**
+ * 段 UI5a：作業台の作る物の 1 行「🏪 よろず屋・輸入品店に自動で並びます（主力にする）」。
+ * 主力にするを押すと、全部のお店の主力をその商品に（提案書と同じ applyPlan）
+ */
+function makeNote(ctx: Ctx, s: P1State, x: Sku): HTMLElement {
+  const shops = myShops(s);
+  const names = [...new Set(shops.map((b) => DEF[b.id]?.name ?? ''))].join(t('・', ', '));
+  const p = h('p', 'isl-make-note');
+  p.append(h('span', '', t(`🏪 ${names}に自動で並びます`, `🏪 Goes on the shelves at ${names}`)));
+  const not = shops.filter((b) => s.shops[b.uid]?.shelves[0] !== x);
+  if (not.length)
+    p.append(
+      btn(t('主力にする', 'Make it the main item'), () => {
+        applyPlan(s, manualPlan(not.map((b) => ({ k: 'main' as const, uid: b.uid, x }))));
+        ctx.sfx?.('tap');
+        ctx.toast(t(`${skuName(x)}を ${not.length} 軒のお店の主力にしました`, `${skuName(x)} is now the main item at ${not.length} shop(s)`));
+        after(ctx);
+      }, 'is-on'),
+    );
+  else p.append(h('small', 'isl-good', t('（主力）', '(main item)')));
+  return p;
+}
+
 /** 画面の中の要素までスクロールして、しばらく金色に光らせる */
 function flashTo(el: HTMLElement | null) {
   if (!el) return;
@@ -563,6 +589,8 @@ export function openWorkshop(ctx: Ctx, opt: boolean | { invest?: boolean; make?:
         }),
       );
       card.append(row);
+      // 段 UI5a：製造と販売の連動。作る物はお店に自動で並ぶ（主力にするかは 1 行で）。チュートリアルのあいだは出さない
+      if (sl.sku && shelvesAuto(s) && myShops(s).length) card.append(makeNote(ctx, s, sl.sku));
       if (sl.sku) card.append(bomRow(s, sl.sku, 24));
       const st = sl.worker != null ? staffOf(s, sl.worker) : null;
       if (sl.running && sl.sku) {
@@ -673,13 +701,19 @@ export function changeShelf(s: P1State, uid: number, k: number, x: Sku | null, m
 export const shelfMoved = (ctx: Ctx) => (prev: Sku, n: number) => ctx.toast(t(`棚の${skuName(prev)} ${n} 個は裏に戻ります`, `${n} ${skuName(prev)} on the shelf go to the back room`));
 
 /** 棚に並べるものを選ぶ（k：棚の番号。0 が主力商品）。moved：外した商品の棚の残りが裏へ戻ったとき */
-export function pickShelf(ctx: Ctx, uid: number, k: number, done: () => void, moved?: (prev: Sku, n: number) => void) {
+export function pickShelf(ctx: Ctx, uid: number, k0: number, done: () => void, moved?: (prev: Sku, n: number) => void) {
   const s = ctx.s();
+  // 段 UI5a：チュートリアルのあとは、どの棚を押しても「主力を選ぶ」（ほかの棚は製造に合わせて自動）
+  const k = shelvesAuto(s) ? 0 : k0;
   const sh = s.shops[uid];
   if (!sh) return;
+  // 段 UI5a：何を売るかは製造が決める。並べる候補は工房で作っている商品だけ（まだ何も作っていなければ前のまま）。
+  // チュートリアルのあとは、主力を選ぶだけ（並んでいる・作っている商品から。ほかの棚は自動）
+  const making = s.slots.map((y) => y.sku).filter((y): y is Sku => !!y);
+  const auto = shelvesAuto(s);
   pickExt(ctx.root, s, {
     title: k === 0 ? t('主力商品を選ぶ', 'Choose the main product') : t(`棚 ${k + 1} に並べるもの`, `What shelf ${k + 1} sells`),
-    items: craftable(s, !!ctx.step?.()),
+    items: auto ? [...new Set([...sh.shelves.filter((y): y is Sku => !!y), ...making])] : making.length ? [...new Set(making)] : craftable(s, !!ctx.step?.()),
     current: sh.shelves[k] ?? null,
     allowNone: true,
     making: s.slots.map((y) => y.sku).filter((y): y is Sku => !!y),
@@ -687,12 +721,14 @@ export function pickShelf(ctx: Ctx, uid: number, k: number, done: () => void, mo
       const m = s.slots.find((y) => y.sku)?.sku;
       return m ? { x: m, text: t('工房で作っている', 'Being crafted') } : null;
     })(),
-    note: t('工房で作っているエクステを並べましょう。他社が少なく需要の大きいものほど売れます。', 'Shelve what your workshop makes. Items with high demand and few rivals sell best.'),
+    note: auto ? t('並ぶのは工房で作っている商品です（作る物を変えると、棚も自動で入れ替わります）。主力は 1 番目の目立つ棚に並びます。', 'Shelves follow what the workshop makes. The main item takes the first, most visible shelf.') : t('工房で作っているエクステを並べましょう。他社が少なく需要の大きいものほど売れます。', 'Shelve what your workshop makes. Items with high demand and few rivals sell best.'),
     // この町で売れない商品（売れるシリーズに無い復刻品）：灰色にして、押すと止める
     blocked: (x) => unsellableHere(s, skuParts(x)[0]),
     onBlocked: (x) => ctx.toast(t(`${skuName(x)}：${UNSELLABLE_TEXT(skuParts(x)[0])}`, `${skuName(x)}: ${UNSELLABLE_TEXT(skuParts(x)[0])}`)),
     onPick: (v) => {
-      changeShelf(s, uid, k, v, moved);
+      if (auto && k === 0) {
+        if (v) applyPlan(s, manualPlan([{ k: 'main', uid, x: v }]));
+      } else changeShelf(s, uid, k, v, moved);
       done();
     },
   });
@@ -743,7 +779,20 @@ export function shopView(ctx: Ctx, uid: number, done: () => void): HTMLElement {
     pickClerk(ctx, uid, done);
   });
   wrap.append(clerkBtn);
+  // 段 UI5a（お店の自走）：店長・従業員の 1 行（チュートリアルのあいだは出さない）
+  const crew = crewLine(s, uid);
+  if (crew && !ctx.step?.()) wrap.append(crew);
   return wrap;
+}
+/** 「店長（休み）・従業員 2 人・今日は従業員で営業中」の 1 行 */
+export function crewLine(s: P1State, uid: number): HTMLElement | null {
+  const sh = s.shops[uid];
+  if (!sh) return null;
+  const st = sh.staff != null ? staffOf(s, sh.staff) : null;
+  const self = !!st?.resting && sh.part >= SELF_RUN.min;
+  const head = st ? (st.resting ? t(`店長 ${heroName(st.hero)}（休み）`, `Manager ${heroName(st.hero)} (off)`) : t(`店長 ${heroName(st.hero)}`, `Manager ${heroName(st.hero)}`)) : t('店長なし', 'No manager');
+  const today = !st ? (sh.part > 0 ? t('従業員だけで営業中', 'staff only') : t('閉店中', 'closed')) : st.resting ? (self ? t('今日は従業員で営業中', 'staff run it today') : sh.part > 0 ? t('今日は従業員 1 人で手伝いだけ', 'one staff, barely open') : t('今日は閉店', 'closed today')) : t('営業中', 'open');
+  return h('p', `isl-shop-crew ${self ? 'is-self' : ''}`, [head, t(`従業員 ${sh.part} 人`, `${sh.part} staff`), today].join(t('・', ' · ')));
 }
 
 /** 開いている店内の様子（お店ごと）。売れたらお客さんが来店する */
@@ -973,7 +1022,7 @@ export function openShop(ctx: Ctx, uid: number) {
 
     // 棚：四角い枠にエクステの絵。押すとエクステを選ぶ
     const shelves = h('div', 'isl-card2');
-    shelves.append(h('h3', '', t('棚（左が主力商品）', 'Shelves (left is the main product)')));
+    shelves.append(h('h3', '', shelvesAuto(s) ? t('棚（左が主力商品。並ぶのは工房で作っている商品）', 'Shelves (left is the main item; they follow the workshop)') : t('棚（左が主力商品）', 'Shelves (left is the main product)')));
     const row = h('div', 'isl-slots');
     sh.shelves.forEach((x, k) => {
       row.append(
@@ -1016,7 +1065,8 @@ export function openShop(ctx: Ctx, uid: number) {
     );
     // アルバイト：人の形を並べて、＋／−
     const pt = h('div', 'isl-part');
-    pt.append(h('small', 'isl-slot-label', t('アルバイト', 'Part-timers')));
+    // 段 UI5a：アルバイトは店長が管理する「従業員」（2 人いれば、店長が休む日も従業員で営業）
+    pt.append(h('small', 'isl-slot-label', t(`従業員（${SELF_RUN.min} 人で休む日も営業）`, `Staff (${SELF_RUN.min} keep it open on days off)`)));
     const people = h('div', 'isl-part-people');
     for (let k = 0; k < partMax(s, uid); k++) people.append(h('span', `isl-person ${k < sh.part ? 'is-on' : ''}`, '👤'));
     const pr = h('div', 'isl-row');

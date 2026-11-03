@@ -45,7 +45,7 @@ export const TREE_ORDER: Record<string, string[]> = {
   'logistics:buy|C|1': ['bulk', 'route_cloth'],
   'logistics:buy|C|2': ['swift', 'abc', 'route_paper'],
   'logistics:buy|C|3': ['bulk2', 'stock2', 'eye', 'scoutmap'],
-  'logistics:buy|C|4': ['stock3', 'route_gem'],
+  'logistics:buy|C|4': ['stock3', 'relief', 'route_gem'],
   'logistics:buy|U': ['u_buy_4', 'b_partner', 'u_buy_2', 'u_buy_3', 'u_buy_1', 'u_buy_6', 'u_buy_5', 'contract', 'u_buy_d', 'u_buy_8', 'u_buy_7'],
   'logistics:buy|R': ['r_buy_9', 'r_buy_1', 'r_buy_3', 'r_buy_4', 'r_buy_7', 'r_buy_5', 'r_buy_6', 'r_buy_2', 'r_buy_8', 'direct', 'r_buy_d'],
   'logistics:buy|E': ['e_buy_5', 'e_buy_3', 'e_buy_4', 'e_buy_6', 'e_buy_2', 'e_buy_7', 'e_buy_10', 'e_buy_9', 'e_buy_8', 'e_buy_d', 'e_buy_1'],

@@ -21,6 +21,8 @@ import { PRODUCT, TOP_STREAK, sku } from './data';
 import { jamOf, myShops, whatIf, type P1State, type Report, type Stage } from './model';
 import { moveUp, sellBigUp } from './scm';
 import { bestSell } from './moves';
+import { reportProposal, stallSay } from './card';
+import type { Plan } from './plan';
 import { closeSheet, open, type Ctx } from './screens';
 import { btn, h, heroName, money, rich, select, skuIcon } from './ui';
 import { ZERO_LINE } from './mine';
@@ -81,6 +83,8 @@ export interface ReportHooks {
   openLegal?: () => void;
   /** 外交（「🌐 交易」の導線。段 UI4） */
   openDiplo?: () => void;
+  /** 段 UI5a：KPI ③ の「担当者からの提案」（提案書を開く） */
+  openProposal?: (plan: Plan, say: string, role: string) => void;
   /** 効果音 */
   sfx?: (k: 'sale' | 'win' | 'levelup' | 'check' | 'report' | 'drum' | 'error') => void;
 }
@@ -276,7 +280,7 @@ function chart(reports: Report[]): SVGSVGElement {
  * 報告の詰まり：締めの時点で保存した値（Report.bottleneck = jamOf）。SCM ダッシュボードと同じ判定。
  * 古いセーブで保存が無ければ、いまの状態で同じ判定をする（実績の数の少なさでは決めない）
  */
-export const reportJam = (s: P1State, r: Report): Stage => r.bottleneck ?? jamOf(s);
+export const reportJam = (s: P1State, r: Report): Stage => r.stall?.stage ?? r.bottleneck ?? jamOf(s);
 
 /** 流れの図：① → ② → ③ → ④ の実績の数。詰まり（reportJam）の段を赤く */
 function flowRow(s: P1State, r: Report): HTMLElement {
@@ -293,7 +297,7 @@ function flowRow(s: P1State, r: Report): HTMLElement {
     fill.style.height = `${Math.max(6, Math.round((vals[k] / max) * 100))}%`;
     bar.append(fill);
     c.append(h('span', 'isl-rp-sicon', STAGE_ICON[k]), bar, h('b', '', `${vals[k]}`), h('small', '', STAGE_NAME[k]));
-    if (k === bn) c.append(h('span', 'isl-rp-bnmark', t('詰まり', 'Jam')));
+    if (k === bn) c.append(h('span', 'isl-rp-bnmark', t('課題あり', 'Issue')));
     row.append(c);
   });
   return row;
@@ -651,25 +655,43 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       const hint = h('p', 'isl-rp-hint');
       const long = h('span', 'is-long');
       const short = h('span', 'is-short');
-      // 詰まりの段の打ち手のうち、見込み（+N 個／月）のいちばん大きいもの（SCM ダッシュボードの「上げるには」と同じ）
+      // 段 UI5a：「詰まり」→「課題あり」・「効く手」→「改善案」。ボタンは「担当者からの提案」（提案書を開く：As-Is／To-Be・承認でハンコ → 一気に変更）。
+      // 流れが止まっている月（全段が 0 など。r.stall）は、いちばん上流の止まっている段とその理由（宣伝を勧めない）
       let bestBtn: HTMLButtonElement | null = null;
-      // 段 UI1：④ 販売は毎月の費用を引いた利益の見込みの順（moves.ts の bestSell。SCM の大きいボタンと同じ）。押すとその手を打つ
-      const sm = bn === 'sell' && myShops(s).length ? bestSell(s) : null;
-      const top = sm ? undefined : bn !== 'sell' || myShops(s).length ? whatIf(s, bn).find((w) => w.ok) : undefined;
-      const best = sm ? sellBigUp(ctx, s, sm) : top ? moveUp(ctx, s, top) : null;
-      if (best && (top || sm)) {
-        const n = Math.round(sm ? sm.units : top!.units);
-        long.append(rich(t(`[[${STAGE_NAME[bn]}]]が詰まっています。いちばん効く手は[[${best.label}]]（${best.sub}）。`, `[[${STAGE_NAME[bn]}]] is the jam. Best move: [[${best.label}]] (${best.sub}).`)));
-        short.append(rich(t(`[[${STAGE_NAME[bn]}]]が詰まり。効く手：[[${best.label}]]（+${n} 個／月）`, `[[${STAGE_NAME[bn]}]] jam. Best: [[${best.label}]] (+${n} / mo)`)));
-        hint.classList.add('has-go');
-        bestBtn = btn(t('▶ この手を打つ', '▶ Do it'), () => {
-          closeSheet();
-          best.go();
-        }, 'is-on isl-rp-best');
-        if (best.short) bestBtn.classList.add('is-short');
+      const prop = hooks.openProposal ? reportProposal(s, r) : null;
+      const goProp = () => {
+        if (!prop) return;
+        hooks.openProposal?.(prop.plan, prop.say, prop.role);
+      };
+      if (r.stall) {
+        const why = stallSay(r.stall.stage, r.stall.why);
+        long.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。${why.replace(/^\[\[[^\]]*\]\]が止まっている。/, '')}。`, `[[${STAGE_NAME[bn]}]] needs attention. ${why}.`)));
+        short.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。${why.replace(/^\[\[[^\]]*\]\]が止まっている。/, '')}`, `[[${STAGE_NAME[bn]}]] needs attention. ${why}`)));
       } else {
-        long.append(rich(t(`[[${STAGE_NAME[bn]}]]が詰まっています。${STAGE_HINT[bn]}`, `[[${STAGE_NAME[bn]}]] is the jam. ${STAGE_HINT[bn]}`)));
-        short.append(rich(t(`[[${STAGE_NAME[bn]}]]が詰まり。${STAGE_HINT_SHORT[bn]}`, `[[${STAGE_NAME[bn]}]] jam. ${STAGE_HINT_SHORT[bn]}`)));
+        // 課題ありの段の打ち手のうち、見込み（+N 個／月）のいちばん大きいもの（SCM ダッシュボードの「上げるには」と同じ）。④ 販売は moves.ts の bestSell
+        const sm = bn === 'sell' && myShops(s).length ? bestSell(s) : null;
+        const top = sm ? undefined : bn !== 'sell' || myShops(s).length ? whatIf(s, bn).find((w) => w.ok) : undefined;
+        const best = sm ? sellBigUp(ctx, s, sm) : top ? moveUp(ctx, s, top) : null;
+        if (best && (top || sm)) {
+          const n = Math.round(sm ? sm.units : top!.units);
+          long.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。いちばんの改善案は[[${best.label}]]（${best.sub}）。`, `[[${STAGE_NAME[bn]}]] needs attention. Best fix: [[${best.label}]] (${best.sub}).`)));
+          short.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。改善案：[[${best.label}]]（+${n} 個／月）`, `[[${STAGE_NAME[bn]}]] needs attention. Fix: [[${best.label}]] (+${n} / mo)`)));
+          if (!prop) {
+            hint.classList.add('has-go');
+            bestBtn = btn(t('担当者からの提案', 'Proposal from staff'), () => {
+              closeSheet();
+              best.go();
+            }, 'is-on isl-rp-best');
+            if (best.short) bestBtn.classList.add('is-short');
+          }
+        } else {
+          long.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。${STAGE_HINT[bn]}`, `[[${STAGE_NAME[bn]}]] needs attention. ${STAGE_HINT[bn]}`)));
+          short.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。${STAGE_HINT_SHORT[bn]}`, `[[${STAGE_NAME[bn]}]] needs attention. ${STAGE_HINT_SHORT[bn]}`)));
+        }
+      }
+      if (prop) {
+        hint.classList.add('has-go');
+        bestBtn = btn(t('📄 担当者からの提案', '📄 Proposal from staff'), goProp, 'is-on isl-rp-best');
       }
       hint.append(long, short);
       if (bestBtn) hint.append(bestBtn);
@@ -918,12 +940,13 @@ export function openDigSummary(ctx: Ctx, sum: DigSummary, hooks: DigSummaryHooks
       // ---- 詰まり（最新の月）と打ち手 1 つ
       const c3 = h('div', 'isl-card2 isl-ds-card');
       const bn = reportJam(s, sum.latest);
-      c3.append(cardHead(t('KPI ③', 'KPI 3'), false, t('いまの詰まり', 'Current jam')));
+      c3.append(cardHead(t('KPI ③', 'KPI 3'), false, t('いまの課題', 'Current issue')));
       const hint = h('p', 'isl-rp-hint isl-ds-hint');
       const tw = bn !== 'sell' || myShops(s).length ? whatIf(s, bn).find((w) => w.ok) : undefined;
       const best = tw ? moveUp(ctx, s, tw) : null;
-      if (best && tw) hint.append(rich(t(`[[${STAGE_NAME[bn]}]]が詰まり。効く手：[[${best.label}]]（+${Math.round(tw.units)} 個／月）`, `[[${STAGE_NAME[bn]}]] jam. Best: [[${best.label}]] (+${Math.round(tw.units)} / mo)`)));
-      else hint.append(rich(t(`[[${STAGE_NAME[bn]}]]が詰まり。${STAGE_HINT_SHORT[bn]}`, `[[${STAGE_NAME[bn]}]] jam. ${STAGE_HINT_SHORT[bn]}`)));
+      if (sum.latest.stall) hint.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。${stallSay(sum.latest.stall.stage, sum.latest.stall.why).replace(/^\[\[[^\]]*\]\]が止まっている。/, '')}`, `[[${STAGE_NAME[bn]}]] needs attention. ${stallSay(sum.latest.stall.stage, sum.latest.stall.why)}`)));
+      else if (best && tw) hint.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。改善案：[[${best.label}]]（+${Math.round(tw.units)} 個／月）`, `[[${STAGE_NAME[bn]}]] needs attention. Fix: [[${best.label}]] (+${Math.round(tw.units)} / mo)`)));
+      else hint.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。${STAGE_HINT_SHORT[bn]}`, `[[${STAGE_NAME[bn]}]] needs attention. ${STAGE_HINT_SHORT[bn]}`)));
       c3.append(hint);
       // ---- ボタン
       const acts = h('div', 'isl-row isl-ds-acts');
