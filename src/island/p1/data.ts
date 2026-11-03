@@ -1487,6 +1487,13 @@ export interface DigTree {
   autoSpeed: number[];
   relay: number[];
   mat: number[];
+  /**
+   * 調整 v25c：発掘の枝の研究パネル（RP で開く・レベルなし）を開いたときの効き目の段（Lv1〜5 の表のどこか）。
+   * lv がふつうの段、keep は決め打ち（深い層の許可・研究の目利き・発掘隊の役所は、先へ進むのに要るので Lv5）
+   */
+  rpLv: { lv: number; keep: Record<string, number> };
+  /** 調整 v25c：発掘の枝の研究パネルの RP（決め打ち）。Common はほかの研究パネル（20〜80）より安く。書いていないものは RP の段の自動の値段 */
+  rp: Record<string, number>;
 }
 
 // ---------------------------------------------------------------- 発掘と研究ポイントの調整値（ここ 1 か所）
@@ -1707,6 +1714,12 @@ export const DIG_BALANCE: {
     autoSpeed: [0.1, 0.2, 0.3, 0.4, 0.5],
     relay: [0.15, 0.3, 0.45, 0.6, 0.75],
     mat: [0.2, 0.4, 0.6, 0.8, 1.0],
+    // 調整 v25c（PR #29 で研究パネルにした発掘の枝）：効き目は Lv3 の段（以前の最大 Lv5 のままだと、災害で消えなくなったぶん
+    // Rare・Epic の再発掘が速くなりすぎた）。深い層の許可・研究の目利き・発掘隊の役所は Lv5（Rare・Epic のお題の層・研究 Lv5・発掘隊 5 人に要る）
+    rpLv: { lv: 2, keep: { dig_deep: 5, dig_study: 5, dig_office: 5 } },
+    // 調整 v25c：Common の発掘のパネルの RP（前は Common の研究パネルの段 20〜80 で合計 550 → 合計 210）。
+    // Common の RP をほかの研究に回せるように（v25b で Common が +9〜12% 遅くなった）。Uncommon の 6 枚は段の自動の値段（60〜180）のまま
+    rp: { dig_ext: 15, dig_lamp: 25, dig_deep: 40, dig_power: 10, dig_office: 15, dig_speed: 15, dig_blast: 20, dig_crew: 25, dig_reach: 30, dig_drill: 30, dig_study: 35 },
   },
   // 発掘作業：15 秒（現実の秒）・長押し 0.17 秒ごと
   sessionSec: 15,
@@ -1867,74 +1880,85 @@ const LAYER_U = [t('岩盤', 'Bedrock'), t('古い港の跡', 'Old harbor'), t('
 const LAYER_R = [t('崩れた石畳', 'Fallen paving'), t('止まった時計の層', 'Stopped clock'), t('古い坑道', 'Old mine shafts'), t('大地の裂け目', 'Rift in the earth'), t('9 つの境目', 'Border of the nine')];
 const upTo = (names: string[], n: number) => t(`${names[n - 1]}まで`, `to ${names[n - 1]}`);
 const dig_ = (id: string, name: string, note: string, more: Partial<Skill> = {}): Skill => ({ id, branch: 'dig', name, note, cost: DT.cost[id], ...more });
+/**
+ * 調整 v25c：研究パネルとして開いたときの効き目の段（digRpLv と同じ。DT.rpLv）と、その段の値（Lv1〜5 の表は [段 − 1]、Lv0〜5 の表は [段]）。
+ * 説明の文はこの段の値で書く（研究パネルはレベルが無いので「／Lv」と書かない）
+ */
+const rl = (id: string) => Math.min(5, DT.rpLv.keep[id] ?? DT.rpLv.lv);
+const at1 = <T,>(xs: T[], id: string): T => xs[rl(id) - 1];
+const at0 = <T,>(xs: T[], id: string): T => xs[rl(id)];
+const pct = (v: number) => Math.round(v * 100);
+const lampHint = (id: string) => (rl(id) >= 5 ? t(`・お題の気配（金色のにじみ）と石板が さらに ${DT.hint} 枚先から`, `; target glow and tablets ${DT.hint} more layers ahead`) : rl(id) >= 4 ? t(`・お題の気配（金色のにじみ）が さらに ${DT.hint} 枚先から`, `; target glow ${DT.hint} more layers ahead`) : '');
+const routeTxt = (id: string) => (rl(id) >= 5 ? t('お題の気配のある層・研究 Lv の低いエクステを優先し、出土品の重なりを避ける', 'toward hidden targets and low-research finds, avoiding maxed finds') : rl(id) >= 3 ? t('お題の気配のある層・研究 Lv の低いエクステを優先', 'toward hidden targets and low-research finds') : t('お題の気配のある層を優先', 'toward hidden targets'));
 export const DIG_SKILLS: Skill[] = [
   // Common の区画（根もと）
-  dig_('dig_ext', t('発掘の追加申請', 'Extra dig time'), t('1 回の発掘作業 +3 秒／Lv（15 → 30 秒）', 'Each dig run +3 s per level (15 → 30 s)'), { fx: [{ kind: 'dig.sec', v: DT.ext[0], at: DT.ext }] }),
-  dig_('dig_power', t('ツルハシの鍛え直し', 'Reforged pickaxe'), t('1 打の強さ +1（Lv1・3・5 で +1 ずつ。Lv2・4 は会心の確率 +10%：会心で 2 倍）', 'Strike power +1 (more at Lv3 and Lv5; Lv2 and Lv4 add +10% critical chance: ×2)'), {
+  dig_('dig_ext', t('発掘の追加申請', 'Extra dig time'), t(`1 回の発掘作業 +${at1(DT.ext, 'dig_ext')} 秒（15 → ${15 + at1(DT.ext, 'dig_ext')} 秒）`, `Each dig run +${at1(DT.ext, 'dig_ext')} s (15 → ${15 + at1(DT.ext, 'dig_ext')} s)`), { fx: [{ kind: 'dig.sec', v: DT.ext[0], at: DT.ext }] }),
+  dig_('dig_power', t('ツルハシの鍛え直し', 'Reforged pickaxe'), t(`1 打の強さ +${at1(DT.power, 'dig_power')}${at1(DT.crit, 'dig_power') ? `・会心の確率 +${pct(at1(DT.crit, 'dig_power'))}%（会心で ${DT.critMul} 倍）` : ''}`, `Strike power +${at1(DT.power, 'dig_power')}${at1(DT.crit, 'dig_power') ? `, critical chance +${pct(at1(DT.crit, 'dig_power'))}% (×${DT.critMul})` : ''}`), {
     fx: [
       { kind: 'dig.power', v: DT.power[0], at: DT.power },
       { kind: 'dig.crit', v: DT.crit[1], at: DT.crit },
     ],
   }),
-  dig_('dig_speed', t('手早い掘り方', 'Quick swings'), t('長押しで続けて打つ間隔 170 → 150・130・115・100・90 ms', 'Hold-strike interval 170 → 150, 130, 115, 100, 90 ms'), { requires: ['dig_power'], fx: [{ kind: 'dig.repeat', v: DT.repeat[0], at: DT.repeat }] }),
-  dig_('dig_reach', t('広く掘る', 'Wide digging'), t('打ったマスの隣の、いまの層にも力の一部（Lv1：左右に 25% … Lv5：上下左右に 60%。はがれたら中身も出る）', 'Part of each strike hits the neighbours’ current layer (Lv1: sides 25% … Lv5: all 4 sides 60%; their contents come out too)'), {
+  dig_('dig_speed', t('手早い掘り方', 'Quick swings'), t(`長押しで続けて打つ間隔 170 → ${170 - at1(DT.repeat, 'dig_speed')} ms`, `Hold-strike interval 170 → ${170 - at1(DT.repeat, 'dig_speed')} ms`), { requires: ['dig_power'], fx: [{ kind: 'dig.repeat', v: DT.repeat[0], at: DT.repeat }] }),
+  dig_('dig_reach', t('広く掘る', 'Wide digging'), t(`打ったマスの隣（${REACH_DIR[at1(DT.reachDir, 'dig_reach')]}）の、いまの層にも力の ${pct(at1(DT.reach, 'dig_reach'))}%（はがれたら中身も出る）`, `${pct(at1(DT.reach, 'dig_reach'))}% of each strike also hits the neighbours (${REACH_DIR[at1(DT.reachDir, 'dig_reach')]}) on the current layer (their contents come out too)`), {
     requires: ['dig_speed'],
     fx: [{ kind: 'dig.reach', v: DT.reach[0], at: DT.reach }],
     show: [dShow(t('力が届く向き', 'Directions'), DT.reachDir.map((d) => REACH_DIR[d]))],
   }),
-  dig_('dig_lamp', t('発掘のランタン', 'Dig lantern'), t('ひびの隙間から、奥に埋まっているものがうっすら見える（ふだんは いまの層だけ → 1・2・3 枚手前から）・Lv4 でお題の気配（金色のにじみ）が さらに 2 枚先から・Lv5 で石板も', 'Faintly glimpse finds deeper in (normally only the current layer → 1, 2, 3 layers ahead); Lv4: target glow 2 layers further; Lv5: tablets too'), {
+  dig_('dig_lamp', t('発掘のランタン', 'Dig lantern'), t(`ひびの隙間から、奥に埋まっているものがうっすら見える（ふだんは いまの層だけ → ${at1(DT.lamp, 'dig_lamp')} 枚手前から）${lampHint('dig_lamp')}`, `Faintly glimpse finds deeper in (normally only the current layer → ${at1(DT.lamp, 'dig_lamp')} layer(s) ahead)${lampHint('dig_lamp')}`), {
     requires: ['dig_ext'],
     show: [dShow(t('見え始める深さ', 'Sight'), lvTxt((v) => t(`${v} 枚手前から`, `${v} layer(s) ahead`), DT.lamp)), dShow(t('お題の気配', 'Target hints'), [t('なし', 'none'), t('なし', 'none'), t('なし', 'none'), t(`さらに ${DT.hint} 枚先から`, `${DT.hint} more layers`), t(`さらに ${DT.hint} 枚先から（石板も）`, `${DT.hint} more layers (tablets too)`)])],
   }),
-  dig_('dig_deep', t('深い層の許可', 'Deep-layer permit'), t('掘れる層の上限：はじめは 2 層目まで（岩盤は国の許可が要る）。Lv1 で岩盤（Common の 3 層目）・Uncommon は Lv2 で 3 層目・Lv3 で 4 層目・Rare は Lv2 で 3 層目・Lv3 で 4 層目・Lv4 で 5 層目。ダンジョンは Lv1〜3 で 3 層・Lv4 で 5 層・Lv5 で 6 層', 'Deepest layer you may dig: layer 2 at first (bedrock needs a permit). Lv1: bedrock (Common layer 3); Uncommon layer 3 at Lv2, layer 4 at Lv3; Rare layer 3 at Lv2, 4 at Lv3, 5 at Lv4. Dungeons: 3 layers at Lv1–3, 5 at Lv4, 6 at Lv5'), {
+  dig_('dig_deep', t('深い層の許可', 'Deep-layer permit'), t(`掘れる層の上限：はじめは 2 層目まで（岩盤は国の許可が要る）。研究すると Common は ${at0(DT.deep.C, 'dig_deep')} 層目（岩盤）・Uncommon は ${at0(DT.deep.U, 'dig_deep')} 層目・Rare は ${at0(DT.deep.R, 'dig_deep')} 層目・Epic は ${at0(DT.deep.E, 'dig_deep')} 層目まで。ダンジョンは ${at0(DIG_BALANCE.dungeon.deep, 'dig_deep')} 層まで`, `Deepest layer you may dig: layer 2 at first (bedrock needs a permit). Researched: Common layer ${at0(DT.deep.C, 'dig_deep')} (bedrock), Uncommon ${at0(DT.deep.U, 'dig_deep')}, Rare ${at0(DT.deep.R, 'dig_deep')}, Epic ${at0(DT.deep.E, 'dig_deep')}. Dungeons: ${at0(DIG_BALANCE.dungeon.deep, 'dig_deep')} layers`), {
     requires: ['dig_lamp'],
     show: [dShow(t('Common の荒れ地', 'Common wastelands'), DT.deep.C.slice(1).map((n) => upTo(LAYER_C, n))), dShow(t('Uncommon の荒れ地', 'Uncommon wastelands'), DT.deep.U.slice(1).map((n) => upTo(LAYER_U, n))), dShow(t('Rare の荒れ地', 'Rare wastelands'), DT.deep.R.slice(1).map((n) => upTo(LAYER_R, n))), dShow(t('ダンジョンの深さ', 'Dungeon depth'), DIG_BALANCE.dungeon.deep.slice(1).map((n) => t(`${n} 層まで`, `${n} layers`)))],
   }),
-  dig_('dig_study', t('研究の目利き', 'Keen research'), t('研究 Lv の上限：はじめは Lv3。Lv1 で Lv4・Lv2 で Lv5。Lv3〜5 は深い層ほど研究が進みやすい（層 n で 1 + 0.25 × (n − 1) × 倍率 個ぶん数える）', 'Research level cap: Lv3 at first; Lv4 at panel Lv1, Lv5 at Lv2. Lv3–5: deeper layers count more (layer n counts 1 + 0.25 × (n − 1) × multiplier)'), {
+  dig_('dig_study', t('研究の目利き', 'Keen research'), t(`研究 Lv の上限：はじめは Lv3 → Lv${at0(DT.cap, 'dig_study')}${at0(DT.deepMul, 'dig_study') ? `。深い層ほど研究が進みやすい（層 n で 1 + 0.25 × (n − 1) × ${at0(DT.deepMul, 'dig_study')} 個ぶん数える）` : ''}`, `Research level cap: Lv3 at first → Lv${at0(DT.cap, 'dig_study')}${at0(DT.deepMul, 'dig_study') ? `. Deeper layers count more (layer n counts 1 + 0.25 × (n − 1) × ${at0(DT.deepMul, 'dig_study')})` : ''}`), {
     requires: ['dig_deep'],
     show: [dShow(t('研究 Lv の上限', 'Research cap'), DT.cap.slice(1).map((n) => t(`Lv${n}`, `Lv${n}`))), dShow(t('深い層の倍率', 'Depth multiplier'), DT.deepMul.slice(1).map((m) => (m ? `×${m}` : t('なし', 'none'))))],
   }),
-  dig_('dig_blast', t('発破', 'Blasting'), t('発破が使える（押したマスを真ん中に 3 × 3 の、いまの層を 1 枚ずつ一度にはがす・硬さに関係なく・1 回ごとに火薬代）。Lv で火薬代 2,000 → 1,500・1,000 G、Lv4 で 4 × 4・Lv5 で 5 × 5', 'Unlocks blasting (peel one layer off the 3 × 3 around the cell at once, however hard; powder each time). Powder 2,000 → 1,500 → 1,000 G; 4 × 4 at Lv4, 5 × 5 at Lv5'), {
+  dig_('dig_blast', t('発破', 'Blasting'), t(`発破が使える（押したマスを真ん中に ${at1(DT.blastSize, 'dig_blast')} × ${at1(DT.blastSize, 'dig_blast')} の、いまの層を 1 枚ずつ一度にはがす・硬さに関係なく・1 回ごとに火薬代 ${at1(DT.blastCost, 'dig_blast').toLocaleString('en-US')} G）`, `Unlocks blasting (peel one layer off the ${at1(DT.blastSize, 'dig_blast')} × ${at1(DT.blastSize, 'dig_blast')} around the cell at once, however hard; ${at1(DT.blastCost, 'dig_blast').toLocaleString('en-US')} G powder each time)`), {
     requires: ['dig_power'],
     show: [dShow(t('火薬代', 'Powder'), DT.blastCost.map((v) => `${v.toLocaleString('en-US')} G`)), dShow(t('大きさ', 'Size'), DT.blastSize.map((v) => `${v} × ${v}`))],
   }),
-  dig_('dig_drill', t('掘削ドリル', 'Drill'), t('押したマス 1 つを奥へ N 層一気にはがす（Lv1：3 層 … Lv5：7 層）。1 回ごとに燃料代 1,000 G', 'Peel N layers off the tapped cell at once (Lv1: 3 … Lv5: 7). 1,000 G fuel each time'), {
+  dig_('dig_drill', t('掘削ドリル', 'Drill'), t(`押したマス 1 つを奥へ ${at1(DT.drill, 'dig_drill')} 層一気にはがす。1 回ごとに燃料代 ${DT.drillFuel.toLocaleString('en-US')} G`, `Peel ${at1(DT.drill, 'dig_drill')} layers off the tapped cell at once. ${DT.drillFuel.toLocaleString('en-US')} G fuel each time`), {
     requires: ['dig_blast'],
     show: [dShow(t('奥へ', 'Deeper by'), lvTxt((v) => t(`${v} 層`, `${v} layers`), DT.drill))],
   }),
-  dig_('dig_office', t('発掘隊の役所', 'Dig crew office'), t('発掘隊の人数の上限 1 → 2・3・3・4・5 人', 'Dig crew size limit 1 → 2, 3, 3, 4, 5'), {
+  dig_('dig_office', t('発掘隊の役所', 'Dig crew office'), t(`発掘隊の人数の上限 1 → ${at0(DT.office, 'dig_office')} 人`, `Dig crew size limit 1 → ${at0(DT.office, 'dig_office')}`), {
     requires: ['dig_ext'],
     show: [dShow(t('発掘隊の上限', 'Crew limit'), DT.office.slice(1).map((n) => t(`${n} 人`, `${n}`)))],
   }),
-  dig_('dig_crew', t('発掘隊の手際', 'Skilled crew'), t('発掘隊の 1 日に打つ回数 +20%／Lv', 'Dig crew strikes a day +20% per level'), { requires: ['dig_office'], fx: [{ kind: 'dig.crew', v: DT.crew[0], at: DT.crew }] }),
+  dig_('dig_crew', t('発掘隊の手際', 'Skilled crew'), t(`発掘隊の 1 日に打つ回数 +${pct(at1(DT.crew, 'dig_crew'))}%`, `Dig crew strikes a day +${pct(at1(DT.crew, 'dig_crew'))}%`), { requires: ['dig_office'], fx: [{ kind: 'dig.crew', v: DT.crew[0], at: DT.crew }] }),
   // Uncommon の外周
-  dig_('u_dig_ext2', t('長期の発掘許可', 'Long-term dig permit'), t('1 回の発掘作業 さらに +6 秒／Lv（最大 60 秒）', 'Each dig run +6 s more per level (max 60 s)'), { tier: 'U', emblem: 1, requires: ['dig_ext'], reqLv: { dig_ext: 5 }, fx: [{ kind: 'dig.sec', v: DT.ext2[0], at: DT.ext2 }] }),
-  dig_('u_dig_auto', t('発掘隊の常駐（自動化）', 'Standing dig crew'), t('作業していない日も、許可のある荒れ地を発掘隊が掘る（作業中の速さの 20% → 40%・55%・70%・80%）。出土品・RP・研究は手で掘ったのと同じ。スタミナは減る', 'On days you are not digging, the crew digs permitted wastelands (20% → 40, 55, 70, 80% of the in-run pace). Finds, RP and research count the same. They tire'), {
+  dig_('u_dig_ext2', t('長期の発掘許可', 'Long-term dig permit'), t(`1 回の発掘作業 さらに +${at1(DT.ext2, 'u_dig_ext2')} 秒（最大 ${DT.maxSec} 秒）`, `Each dig run +${at1(DT.ext2, 'u_dig_ext2')} s more (max ${DT.maxSec} s)`), { tier: 'U', emblem: 1, requires: ['dig_ext'], reqLv: { dig_ext: 5 }, fx: [{ kind: 'dig.sec', v: DT.ext2[0], at: DT.ext2 }] }),
+  dig_('u_dig_auto', t('発掘隊の常駐（自動化）', 'Standing dig crew'), t(`作業していない日も、許可のある荒れ地を発掘隊が掘る（作業中の速さの ${pct(at1(DT.auto, 'u_dig_auto'))}%）。出土品・RP・研究は手で掘ったのと同じ。スタミナは減る`, `On days you are not digging, the crew digs permitted wastelands (${pct(at1(DT.auto, 'u_dig_auto'))}% of the in-run pace). Finds, RP and research count the same. They tire`), {
     tier: 'U',
     emblem: 2,
     requires: ['dig_crew'],
     reqLv: { dig_crew: 3 },
     show: [dShow(t('作業していない日の速さ', 'Pace on idle days'), DT.auto.map((v) => t(`作業中の ${Math.round(v * 100)}%`, `${Math.round(v * 100)}% of in-run`)))],
   }),
-  dig_('u_dig_power2', t('重機の貸し出し', 'Heavy machinery'), t('1 打の強さ さらに +1（Lv1・3・5 で +1 ずつ）。Uncommon の硬い層も楽に', 'Strike power +1 more (more at Lv3 and Lv5). Makes Uncommon’s hard layers easy'), { tier: 'U', requires: ['dig_power'], reqLv: { dig_power: 5 }, fx: [{ kind: 'dig.power', v: DT.power2[0], at: DT.power2 }] }),
-  dig_('u_dig_route', t('常駐の段取り', 'Crew planning'), t('常駐で打つマスの選び方を賢く（Lv1：お題の気配のある層を優先・Lv3：研究 Lv の低いエクステを優先・Lv5：出土品の重なりを避ける）・常駐の速さ +10%／Lv', 'Smarter targets for the standing crew (Lv1: toward hidden targets; Lv3: low-research finds first; Lv5: avoid maxed finds); standing pace +10% per level'), {
+  dig_('u_dig_power2', t('重機の貸し出し', 'Heavy machinery'), t(`1 打の強さ さらに +${at1(DT.power2, 'u_dig_power2')}。Uncommon の硬い層も楽に`, `Strike power +${at1(DT.power2, 'u_dig_power2')} more. Makes Uncommon’s hard layers easy`), { tier: 'U', requires: ['dig_power'], reqLv: { dig_power: 5 }, fx: [{ kind: 'dig.power', v: DT.power2[0], at: DT.power2 }] }),
+  dig_('u_dig_route', t('常駐の段取り', 'Crew planning'), t(`常駐で打つマスの選び方を賢く（${routeTxt('u_dig_route')}）・常駐の速さ +${pct(at1(DT.autoSpeed, 'u_dig_route'))}%`, `Smarter targets for the standing crew (${routeTxt('u_dig_route')}); standing pace +${pct(at1(DT.autoSpeed, 'u_dig_route'))}%`), {
     tier: 'U',
     requires: ['u_dig_auto'],
     fx: [{ kind: 'dig.autoSpeed', v: DT.autoSpeed[0], at: DT.autoSpeed }],
     show: [dShow(t('マスの選び方', 'Targeting'), [t('お題の気配を優先', 'targets first'), t('お題の気配を優先', 'targets first'), t('＋研究 Lv の低いもの', '+ low research'), t('＋研究 Lv の低いもの', '+ low research'), t('＋重なりを避ける', '+ avoid maxed')])],
   }),
-  dig_('u_dig_relay', t('常駐の交代制', 'Crew shifts'), t('常駐で働く日のスタミナの減り −15%／Lv', 'Stamina drain on standing days −15% per level'), { tier: 'U', requires: ['u_dig_auto'], fx: [{ kind: 'dig.relay', v: DT.relay[0], at: DT.relay }] }),
-  dig_('u_dig_mat', t('素材の選り分け', 'Material sorting'), t('掘り出した素材 +20%／Lv（端数は持ち越し）', 'Materials dug up +20% per level (fractions carry over)'), { tier: 'U', fx: [{ kind: 'dig.mat', v: DT.mat[0], at: DT.mat }] }),
+  dig_('u_dig_relay', t('常駐の交代制', 'Crew shifts'), t(`常駐で働く日のスタミナの減り −${pct(at1(DT.relay, 'u_dig_relay'))}%`, `Stamina drain on standing days −${pct(at1(DT.relay, 'u_dig_relay'))}%`), { tier: 'U', requires: ['u_dig_auto'], fx: [{ kind: 'dig.relay', v: DT.relay[0], at: DT.relay }] }),
+  dig_('u_dig_mat', t('素材の選り分け', 'Material sorting'), t(`掘り出した素材 +${pct(at1(DT.mat, 'u_dig_mat'))}%（端数は持ち越し）`, `Materials dug up +${pct(at1(DT.mat, 'u_dig_mat'))}% (fractions carry over)`), { tier: 'U', fx: [{ kind: 'dig.mat', v: DT.mat[0], at: DT.mat }] }),
 ];
 SKILLS.push(...DIG_SKILLS);
 /**
  * 発掘の枝のパネル（17 枚）。以前はお金パネル（Lv1〜5）だったが、ランクアップの災害でお金のパネルが未取得に戻って遊びにくいので、
  * **研究パネル（RP で開く・レベルなし）** にした（値段は同じランクの研究パネルの RP の段。下の RP の決め方）。
- * 効き目は以前の最大レベル（Lv5）の値：開いたとき skillLv を最大にする（model.ts の gainSkill）。無限の強化パネル・研究への寄付・発掘許可・発破とドリルの毎回の代金は、そのままお金
+ * 効き目は決まった段（調整 v25c：ふつう Lv3・深い層の許可・研究の目利き・発掘隊の役所は Lv5。DT.rpLv）：開いたとき skillLv をその段にする（model.ts の gainSkill）。
+ * 値段は DT.rp（Common は決め打ちで安く）。無限の強化パネル・研究への寄付・発掘許可・発破とドリルの毎回の代金は、そのままお金
  */
 export const DIG_PANELS = DIG_SKILLS.map((k) => k.id);
-/** 発掘パネルを開いたときの Lv（以前の最大レベル） */
-export const digMaxLv = (k: Skill) => k.max ?? 5;
+/** 発掘パネル（研究パネル）を開いたときの効き目の段（調整 v25c：ふつう Lv3・深い層の許可・研究の目利き・発掘隊の役所は Lv5。DT.rpLv） */
+export const digRpLv = (k: Skill) => Math.min(k.max ?? 5, DT.rpLv.keep[k.id] ?? DT.rpLv.lv);
 
 // ---------------------------------------------------------------- 無限の強化パネル・研究への寄付（発掘 v2 の 6 段目）
 
@@ -2188,14 +2212,20 @@ const RP_FIXED: Record<string, number> = { hire: START_RP };
     const P = RP_PRICE[tier];
     const round = (v: number) => Math.max(P.step, Math.round(v / P.step) * P.step);
     for (const b of new Set(SKILLS.map((k) => k.branch))) {
-      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null && ACCT_RP[k.id] == null && CSM_RP[k.id] == null && LEGAL_RP[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
+      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null && ACCT_RP[k.id] == null && CSM_RP[k.id] == null && LEGAL_RP[k.id] == null && DT.rp[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
       list.forEach((k, i) => (k.rp = round(P.lo + ((P.hi - P.lo) * (list.length > 1 ? i : 0)) / Math.max(1, list.length - 1))));
       // 1 枚だけの枝は真ん中の値段
       if (list.length === 1) list[0].rp = round((P.lo + P.hi) / 2);
     }
     for (const k of SKILLS) if (tierOf(k) === tier && k.big) k.rp = P.big;
   }
-  for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP, ...ACCT_RP, ...CSM_RP, ...LEGAL_RP })) if (byId.get(id)) byId.get(id)!.rp = v;
+  for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP, ...ACCT_RP, ...CSM_RP, ...LEGAL_RP, ...DT.rp })) if (byId.get(id)) byId.get(id)!.rp = v;
+  // 発掘の枝の研究パネルはレベルが無い（開いたときの段は決まっている）ので、「先に要る Lv」（長期の発掘許可＝追加申請 Lv5 など）は外す。持っていればよい
+  for (const k of SKILLS)
+    if (k.reqLv) {
+      for (const r of Object.keys(k.reqLv)) if (byId.get(r)?.branch === 'dig' && byId.get(r)?.cat === 'research') delete k.reqLv[r];
+      if (!Object.keys(k.reqLv).length) delete k.reqLv;
+    }
   // 無限の強化パネル：Lv1 の値段（Lv2 からは infCost）
   for (const k of INF_SKILLS) k.rp = infCost(1);
   // 研究パネルはレベルなし（効き目は Lv1 の値）：Lv2 からの効き目は持たない

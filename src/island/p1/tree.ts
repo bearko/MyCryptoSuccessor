@@ -14,7 +14,7 @@ import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { icon } from '../../ui/dom';
 import { TIER_NAME } from './company';
-import { DEPT, DEPTS, DIG_BALANCE, SKILL, SKILLS, TIERS, anyOfMet, deptOf, isResearch, maxLv, rpCost, shownOf, shownText, type DeptId, type FxKind, type Mat, type Skill, type Sku, type Tier } from './data';
+import { DEPT, DEPTS, DIG_BALANCE, digRpLv, SKILL, SKILLS, TIERS, anyOfMet, deptOf, isResearch, maxLv, rpCost, shownOf, shownText, type DeptId, type FxKind, type Mat, type Skill, type Sku, type Tier } from './data';
 import { deptLevel, deptLockText, deptOpen } from './dept';
 import { affordableSkills, bestSkillMove, carriedRp, missingFront, digBranchOpen, donate, donateLock, donations, has, hqOpen, infAt, learn, LEARNABLE, levelLock, levelUp, lvOf, nextDonateCost, nextLevelCost, nextLevelRp, openHQ, openRing, ringOpen, ringsDue, skillLock, skillTier, trainDays, trainingOf, trainees, type P1State } from './model';
 import { after, mineTip, open, type Ctx } from './screens';
@@ -382,7 +382,8 @@ function effLines(s: P1State, k: Skill): HTMLElement | null {
   const line = (x: (typeof base)[number], isUp: boolean) => {
     // 発掘の枝はレベルごとの表（「+6 秒」「150 ms」「岩盤まで」）。ほかは Lv1 の値 × 倍率
     const cur = shownText(x, lv, isUp);
-    const nx = lv < mx ? shownText(x, lv + 1, isUp) : null;
+    // 発掘の枝の研究パネル（レベルなし）は、開くと決まった段（digRpLv。ふつう Lv3）の効き目で入る
+    const nx = lv < mx ? shownText(x, k.branch === 'dig' && isResearch(k) && !k.donate ? digRpLv(k) : lv + 1, isUp) : null;
     const r = h('div', 'isl-tree-effrow');
     r.append(h('span', '', x.label), h('b', '', cur ?? t('なし', 'none')));
     if (nx != null && nx !== cur) r.append(h('span', 'isl-dim', '→'), h('b', 'isl-good', nx));

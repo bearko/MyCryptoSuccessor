@@ -146,23 +146,23 @@ describe('1. RP はレアリティで変わらない', () => {
 });
 
 describe('2. 無限の強化パネル（RP 払い・Lv の上限なし）', () => {
-  it('3 枚は発掘の枝の Uncommon の外周・研究パネル（RP）・Lv の上限なし。前に要るのは速さ＝手早い掘り方 Lv5・力＝重機の貸し出し Lv5・範囲＝発破 Lv5 と掘削ドリル Lv5', () => {
+  it('3 枚は発掘の枝の Uncommon の外周・研究パネル（RP）・Lv の上限なし。前に要るのは速さ＝手早い掘り方・力＝重機の貸し出し・範囲＝発破と掘削ドリル（調整 v25c：手前が研究パネルでレベルが無いので、以前の「Lv5」は外した）', () => {
     expect(INF_PANELS).toEqual(['u_dig_speed_inf', 'u_dig_power_inf', 'u_dig_reach_inf']);
     for (const k of INF_SKILLS) {
       expect([k.branch, k.tier, isResearch(k), maxLv(k)], k.id).toEqual(['dig', 'U', true, Infinity]);
       expect(rpCost(k)).toBe(DIG_BALANCE.infinite.cost);
     }
-    expect(SKILL.u_dig_speed_inf.reqLv).toEqual({ dig_speed: 5 });
-    expect(SKILL.u_dig_power_inf.reqLv).toEqual({ u_dig_power2: 5 });
-    expect(SKILL.u_dig_reach_inf.reqLv).toEqual({ dig_blast: 5, dig_drill: 5 });
+    expect(SKILL.u_dig_speed_inf.requires).toEqual(['dig_speed']);
+    expect(SKILL.u_dig_power_inf.requires).toEqual(['u_dig_power2']);
+    expect(SKILL.u_dig_reach_inf.requires).toEqual(['dig_blast', 'dig_drill']);
+    for (const k of INF_SKILLS) expect(k.reqLv, k.id).toBeUndefined();
   });
 
-  it('開く条件：対応するパネルが最大 Lv になるまで取れない。取ると RP が減り、資金は減らない', () => {
+  it('開く条件：対応するパネルを持つまで取れない（調整 v25c：以前は最大 Lv まで）。取ると RP が減り、資金は減らない', () => {
     const s = game();
     s.rp = 1e6;
-    setLevel(s, 'dig_speed', 4);
     expect(skillLock(s, SKILL.u_dig_speed_inf)).toBe('requires');
-    setLevel(s, 'dig_speed', 5);
+    setLevel(s, 'dig_speed', 3);
     expect(skillLock(s, SKILL.u_dig_speed_inf)).toBeNull();
     // 外周（Uncommon）が閉じていれば取れない
     s.flags.rings = [];

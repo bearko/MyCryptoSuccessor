@@ -78,7 +78,9 @@ describe('パネルの部門の割り振り', () => {
         expect([k.name, k.cost, rpCost(k), k.cat, k.requires, k.tier], k.id).toEqual([b.name, b.cost, b.rp, b.cat, b.requires, b.tier]);
         continue;
       }
-      const now = { id: k.id, name: k.name, note: k.note, cost: k.cost, rp: rpCost(k), cat: k.cat, max: maxLv(k) === Infinity ? 'inf' : maxLv(k), lv5: maxLv(k) >= 5 && maxLv(k) !== Infinity ? levelCost(k, 5) : null, requires: k.requires ?? [], reqLv: k.reqLv ?? null, anyOf: k.anyOf ?? null, brand: k.brand ?? null, tier: k.tier ?? 'C', emblem: k.emblem ?? null, big: !!k.big, train: k.train ?? null, fx: k.fx ?? null, up: k.up ?? null, shown: shownOf(k) };
+      // 調整 v25c：無限の強化パネルの「手前の Lv5」は、手前（手早い掘り方など）が研究パネル（レベルなし）になったので外した（持っていればよい）
+      if (k.inf && k.branch === 'dig') expect(k.reqLv ?? null, k.id).toBeNull();
+      const now = { id: k.id, name: k.name, note: k.note, cost: k.cost, rp: rpCost(k), cat: k.cat, max: maxLv(k) === Infinity ? 'inf' : maxLv(k), lv5: maxLv(k) >= 5 && maxLv(k) !== Infinity ? levelCost(k, 5) : null, requires: k.requires ?? [], reqLv: k.inf && k.branch === 'dig' ? b.reqLv : (k.reqLv ?? null), anyOf: k.anyOf ?? null, brand: k.brand ?? null, tier: k.tier ?? 'C', emblem: k.emblem ?? null, big: !!k.big, train: k.train ?? null, fx: k.fx ?? null, up: k.up ?? null, shown: shownOf(k) };
       expect(JSON.parse(JSON.stringify(now)), k.id).toEqual(b);
     }
   });

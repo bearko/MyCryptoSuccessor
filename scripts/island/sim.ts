@@ -1550,6 +1550,15 @@ export const V25_TIER: Record<PolicyId, { total: number; C: number; U: number; R
   normal: { total: (9230.8 + 9668.8 + 9776.8) / 3, C: (3408.8 + 3414.8 + 3402.8) / 3, U: (2129.6 + 2343.6 + 2529.6) / 3, R: (2201.6 + 2217.6 + 2189.6) / 3, E: (1490.8 + 1692.8 + 1654.8) / 3 },
   full: { total: (24587.2 + 24953.6 + 25333.6) / 3, C: (6815.2 + 7035.6 + 6929.6) / 3, U: (7276.8 + 7865.2 + 7608.8) / 3, R: (4117.2 + 3637.6 + 4413.2) / 3, E: (3252.4 + 3223.2 + 3232) / 3 },
 };
+/**
+ * 調整 v25c：PR #29（v25b）の前の main（v25。e95a8eb）を 9 シード（1〜9）で回したランクごとの時間（秒の平均。C はチュートリアルを含む）。
+ * sim-out/main--seeds-1-2-3-4-5-6-7-8-9 の表 19 の％を V24_TIER に掛けて戻した値（％が小数 1 桁なので ±0.05% ほどの丸め）。3 シードは V25_TIER
+ */
+export const V25_TIER9: Record<PolicyId, { total: number; C: number; U: number; R: number; E: number }> = {
+  rta: { total: 1672.1, C: 758.8, U: 912.0, R: 0, E: 0 },
+  normal: { total: 9878.7, C: 3562.4, U: 2554.8, R: 2194.2, E: 1564.0 },
+  full: { total: 24708.8, C: 6934.0, U: 7485.1, R: 3922.2, E: 3290.7 },
+};
 export const V21_TOTAL: Record<PolicyId, number> = { rta: (1627 + 1635 + 1676) / 3, normal: (6831 + 7015 + 7197) / 3, full: (21703 + 21714 + 22472) / 3 };
 export const V19_TOTAL: Record<PolicyId, number> = { rta: (1835 + 1631 + 1557) / 3, normal: (7815 + 7013 + 7211) / 3, full: (20793 + 21120 + 21940) / 3 };
 export const SIM_HR: Record<PolicyId, { rest: number; raiseBelow: number; bonus: boolean }> = {
@@ -2168,7 +2177,9 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
           // 研究 Lv の上限（研究の目利き Lv2 まで）を先に：上限で止まっていたエクステの Lv と RP がまとめて入る（RP が尽きて研究パネルが開けなくなるのを防ぐ）
           const study = lvOf(s, 'dig_study') < 2 ? (['dig_ext', 'dig_lamp', 'dig_deep', 'dig_study'].find((id) => lvOf(s, id) === 0) ?? 'dig_study') : null;
           const need = topicLocked(s) ? deepNext() : study;
-          const cand = need ? [need] : [...DIG_PANELS].filter((id) => digStep(s, id)).sort((a, b) => digStep(s, a)!.cost - digStep(s, b)!.cost);
+          // 調整 v25c：発掘のパネルは研究パネル（RP）になって資金の枠（売上の 20%）に掛からなくなったので、急ぎでないもの（need 以外）は
+          // 手元の RP の 20%（D.share）までの値段のものだけ（v25 で売上の 20% の枠の中で買っていたのと同じく、ほかの研究の RP を食わない）
+          const cand = need ? [need] : [...DIG_PANELS].filter((id) => digStep(s, id) && rpCost(SKILL[id]) <= (s.rp ?? 0) * D.share).sort((a, b) => digStep(s, a)!.cost - digStep(s, b)!.cost || rpCost(SKILL[a]) - rpCost(SKILL[b]));
           const id = cand[0];
           const st = id ? digStep(s, id) : null;
           if (!st || st.cost > cap) break;
@@ -2897,6 +2908,30 @@ export function tables(rep: Report2): string {
     );
   }
   out.push('');
+  // 調整 v25c：v25（PR #29 の前の main）とのランクごとの時間の差（どのランクも ±5% が目安）
+  {
+    const sd = [...new Set(rep.runs.map((r) => r.seed))].sort((a, b) => a - b).join(',');
+    const key = sd === '1,2,3' ? '3' : sd === '1,2,3,4,5,6,7,8,9' ? '9' : null;
+    out.push('### 表 21：調整 v25c（v25 との比べ）');
+    out.push('');
+    out.push(
+      `${key ?? sd.split(',').length} シードの平均。「v25」は PR #29（発掘のパネルを RP に・カリスマだけで Uncommon が雇える）の前の main の同じシード（\`V25_TIER\`・\`V25_TIER9\`。3 シードと 9 シードだけ。v26 の突発のできごとも入った通し）。目安は C・U が v25 の ±5%、R・E は v25b より遅くしない（ユーザー決定 2026-11-03）。発掘の枝の研究パネルの効き目は Lv${DIG_BALANCE.tree.rpLv.lv}（${Object.entries(DIG_BALANCE.tree.rpLv.keep).map(([id, lv]) => `${SKILL[id]?.name ?? id} Lv${lv}`).join('・')}）・Common の発掘のパネルの RP 合計 ${DIG_PANELS.filter((id) => (SKILL[id].tier ?? 'C') === 'C').reduce((a, id) => a + rpCost(SKILL[id]), 0)}。`,
+    );
+    out.push('');
+    out.push('| 方針 | 合計（v25） | うち C（v25） | うち U（v25） | うち R（v25） | うち E（v25） | 雇ったアンコモン | 詰まって止まるシード |');
+    out.push('|---|---|---|---|---|---|---|---|');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      const B = key === '3' ? V25_TIER[p] : key === '9' ? V25_TIER9[p] : null;
+      const byTier = (tier: Tier) => mean(runs.map((x) => x.sectors.filter((r) => r.tier === tier && !r.revisit).reduce((a, r) => a + (secOf(p, r, 'left') ?? 0), 0) + (tier === 'C' ? SIM_TIME[p].tutorial : 0)));
+      const pc = (a: number, b: number | undefined) => (b && b > 0 ? `${(a / 60).toFixed(1)} 分（${(b / 60).toFixed(1)} 分・${a >= b ? '+' : '−'}${((Math.abs(a - b) / b) * 100).toFixed(1)}%）` : a > 0 ? `${(a / 60).toFixed(1)} 分` : '—');
+      const tot = mean(runs.map(totalSec));
+      const hiredU = mean(runs.map((r) => r.v19.hired.U ?? 0));
+      out.push(`| ${POLICY_NAME[p]} | ${pc(tot, B?.total)} | ${pc(byTier('C'), B?.C)} | ${pc(byTier('U'), B?.U)} | ${pc(byTier('R'), B?.R)} | ${pc(byTier('E'), B?.E)} | ${hiredU.toFixed(1)} | ${runs.filter((r) => !r.done).length} |`);
+    }
+    out.push('');
+  }
   // v26（段 UI4）：突発のできごと・外交
   {
     out.push('### 表 20：突発のできごと・外交（v26。段 UI4）');
