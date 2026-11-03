@@ -34,6 +34,8 @@ export const FX_PAL = {
   dust: ['#704536', '#b38e76', '#c7ac8f', '#dbcaab', '#f0e6c9'],
   /** 灰色の煙（中立 neutral ＋ 広場 plaza。他社の撤退） */
   smoke: ['#574541', '#786861', '#998d85', '#bab4ad', '#e0d6c1', '#ffffff'],
+  /** 雨（海 water ＋ 窓 glass ＋ 屋根 roofB の影。災害の雨） */
+  rain: ['#2e365c', '#3c547d', '#557b9e', '#73a6bf', '#94d2e0', '#c4eaf2', '#ffffff'],
 } as const;
 
 /**
@@ -84,6 +86,8 @@ export interface PlayOpts {
   host?: HTMLElement;
   /** host の中で、この要素のすぐ下に描く（host の子。z-index を使わず、並びの順で重ねる。背景の模様の上・絵の下に置くとき） */
   under?: Element;
+  /** 画面を押しても消さない（段 FX2b。窓の中で段をまたいで続く演出：災害の雨。窓を閉じる・中身を入れ替えると消える） */
+  keep?: boolean;
   /** 間引きの組（段 FX2）：同じ組の効果は THIN_MS（1 秒）に 1 つまで。続けて来たら出さない（false を返す） */
   thin?: string;
 }
@@ -106,6 +110,7 @@ interface Live {
   life: number;
   anchor?: PlayOpts['anchor'];
   host?: HTMLElement;
+  keep?: boolean;
 }
 
 const MAX = 8;
@@ -199,7 +204,7 @@ function bindSkip() {
 }
 /** 画面を押したら、お祝いの効果はすぐ薄れて消える（出てすぐの 0.2 秒は、その効果を出した押しなので除く） */
 function skipUi() {
-  for (const x of live) if (x.layer === 'ui' && x.wait <= 0 && x.age > 0.2) x.inst.stop();
+  for (const x of live) if (x.layer === 'ui' && !x.keep && x.wait <= 0 && x.age > 0.2) x.inst.stop();
 }
 
 /** 効果を出せるか（演出「なし」・止めているとき・画面が無いときは出さない。「動きを減らす」は演出の初期値「なし」で） */
@@ -261,7 +266,7 @@ export function playFx(id: FxId, x: number, y: number, o: PlayOpts = {}): boolea
     } else o.host.prepend(cv);
     if (layer === 'ui') bindSkip();
   } else rootOf(layer).append(cv);
-  const v: Live = { id, layer, inst, frame: createFrame(w, h), img: g.createImageData(w, h), cv, g, x, y, dy: o.dy ?? 0, css, ink: o.ink ?? true, wait: (o.delay ?? 0) / 1000, age: 0, life: (o.life ?? (mod.meta.loop ? 2000 : Infinity)) / 1000, anchor: o.anchor, host: o.host };
+  const v: Live = { id, layer, inst, frame: createFrame(w, h), img: g.createImageData(w, h), cv, g, x, y, dy: o.dy ?? 0, css, ink: o.ink ?? true, wait: (o.delay ?? 0) / 1000, age: 0, life: (o.life ?? (mod.meta.loop ? 2000 : Infinity)) / 1000, anchor: o.anchor, host: o.host, keep: o.keep };
   live.push(v);
   stats.played++;
   stats.peak = Math.max(stats.peak, live.length);
@@ -350,8 +355,8 @@ function tick(now: number) {
     x.age += dt;
     if (x.age >= x.life) x.inst.stop();
     x.inst.update(dt);
-    // 要素の後ろの効果：要素が外されたら（窓を閉じた）消す
-    if (x.inst.done() || (x.host && !x.host.isConnected)) {
+    // 要素の後ろの効果：要素が外されたら（窓を閉じた・中身を入れ替えた）消す
+    if (x.inst.done() || (x.host && (!x.host.isConnected || !x.cv.isConnected))) {
       drop(x);
       continue;
     }

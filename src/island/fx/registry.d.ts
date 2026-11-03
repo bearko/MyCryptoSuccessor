@@ -1,5 +1,5 @@
 /** registry.js の型（pixelfx は JS のまま写しているので、使う所だけ型を書く） */
-export type FxId = 'confetti' | 'collect-burst' | 'firework-burst' | 'coin-pop' | 'loot-beam' | 'power-star' | 'sunburst' | 'healing-bloom' | 'summon-rise' | 'poof' | 'hammer-sparks';
+export type FxId = 'confetti' | 'collect-burst' | 'firework-burst' | 'coin-pop' | 'loot-beam' | 'power-star' | 'sunburst' | 'healing-bloom' | 'summon-rise' | 'poof' | 'hammer-sparks' | 'rain-band';
 
 export interface FxFrame {
   w: number;

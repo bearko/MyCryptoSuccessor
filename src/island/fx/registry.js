@@ -13,6 +13,7 @@ import * as healingBloom from './pixelfx/fx/nature/healing-bloom.js';
 import * as summonRise from './pixelfx/fx/spawn/summon-rise.js';
 import * as poof from './pixelfx/fx/spawn/poof.js';
 import * as hammerSparks from './pixelfx/fx/island/hammer-sparks.js';
+import * as rainBand from './pixelfx/fx/island/rain-band.js';
 
 export const EFFECTS = {
   confetti,
@@ -26,4 +27,5 @@ export const EFFECTS = {
   'summon-rise': summonRise,
   poof,
   'hammer-sparks': hammerSparks,
+  'rain-band': rainBand,
 };

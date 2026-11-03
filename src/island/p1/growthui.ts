@@ -155,7 +155,9 @@ export function playPromotion(root: HTMLElement, hero: number, from: HeroRarity,
   requestAnimationFrame(() => ov.classList.add('is-in'));
   // 段 FX2：顔の後ろに光の放射（新しいレアリティの色。レジェンド以上は金）。2.4 秒で薄れる・閉じたら消える
   const pal = to === 'L' || to === 'LL' ? FX_PAL.gold : (FX_RARITY[{ N: 'Common', C: 'Common', U: 'Uncommon', R: 'Rare', E: 'Epic' }[to]] ?? FX_PAL.gold);
-  playFx('sunburst', face.offsetLeft + face.offsetWidth / 2, face.offsetTop + face.offsetHeight / 2, { host: box, palette: pal, ink: false, scale: innerWidth < 600 ? 4 / 3 : 1.5, life: 2400, delay: 150 });
+  const shone = playFx('sunburst', face.offsetLeft + face.offsetWidth / 2, face.offsetTop + face.offsetHeight / 2, { host: box, palette: pal, ink: false, scale: innerWidth < 600 ? 4 / 3 : 1.5, life: 2400, delay: 150 });
+  // 段 FX2b：光の放射が出るとき（演出「ふつう」「控えめ」）は、全画面の CSS の光（isl-hpfx-glow・LL の回る光）を出さない。「なし」ではいままでどおり
+  ov.classList.toggle('has-fx', shone);
 }
 
 /** 人事 → ヒーローの育成 */
