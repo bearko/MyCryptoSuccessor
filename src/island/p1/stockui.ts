@@ -6,6 +6,7 @@
 import { t } from '../../i18n';
 import { CLEAR, UNCOMMON, skuPrice, type Sku } from './data';
 import { DEF } from '../defs';
+import { FX_PAL, fxAtEl } from '../fx/layer';
 import { develop, sellNow, staffOf, type P1State } from './model';
 import { afterOf, applyPlan, manualPlan, type Plan } from './plan';
 import { clearInfo, clearUnits, cutName, gatePlan, growBlock, rankUp, shelfGate, storeFull, upPrice, type OneShelf, type ShelfPick } from './stock';
@@ -154,6 +155,8 @@ export function openShelfChoice(ctx: Ctx, plan: Plan, gate: OneShelf[], go: (p: 
       if (o.off) b.append(h('small', 'isl-bad isl-gate-why', o.off));
       b.addEventListener('click', () => {
         if (o.off) return;
+        // 棚を拡張する：小さな手応え（効果の層。1 秒に 1 つまで）
+        if (o.pick === 'grow') fxAtEl('collect-burst', b, { palette: FX_PAL.gold, dy: 30, thin: 'shelf-gate' });
         close();
         go(o.pick === 'drop' ? pd : o.pick === 'grow' ? pg : gatePlan(plan, gate, 'keep'), o.pick);
       });
