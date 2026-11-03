@@ -1926,7 +1926,22 @@ export interface RunOpts {
   onDay?: (s: P1State, sector: string) => void;
 }
 
+/**
+ * 計測を分けて回すためのつなぎ口（scripts/island/simshard.ts・.github/workflows/sim.yml）。
+ * 置かれていると、最初のセクタだけの回（onlyFirst）以外の runOnce を、ここに渡す（real で本当に回す）。ふだんは null
+ */
+export const SIM_SHARD: { hook: ((p: PolicyId, seed: number, o: RunOpts, real: () => RunResult) => RunResult) | null } = { hook: null };
+
 export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
+  if (SIM_SHARD.hook && !o.onlyFirst) {
+    const h = SIM_SHARD.hook;
+    SIM_SHARD.hook = null;
+    try {
+      return h(p, seed, o, () => runOnce(p, seed, o));
+    } finally {
+      SIM_SHARD.hook = h;
+    }
+  }
   const s = newP1(seed);
   Object.assign(csLog, { pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0 });
   const c: Ctx = { policy: p, route: routeOf(p), at: 0, lineup: [], lineupDirty: true, shopsThisMonth: 0, monthEnd: null, lastBn: null, ban: new Set(o.ban ?? []), onlyFirst: !!o.onlyFirst, dayInMonth: 0, handCarry: 0, rpMoves: 0, runLeft: 0, runsMonth: 0, divesMonth: 0, preInv: 0, preG: 0 };
