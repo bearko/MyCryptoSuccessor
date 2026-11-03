@@ -4,6 +4,7 @@
 ライブラリは [pixelfx](https://github.com/patch-gg/pixelfx)（MIT。Copyright (c) 2026 Patch・Hugo Duprez）。その core と使う効果だけを `src/island/fx/pixelfx/` に写しています（`LICENSE`・`NOTICE.md` を同じ場所に置く）。
 
 段 FX1（2026-11）で、売上のコイン・スキルツリーのパネル・ミッションの受け取り・チュートリアルのクリア・研究成果の発表と制覇の 5 か所に入れて検証しました。結果は下の「検証の結果」。
+段 FX2（2026-11）で、棚卸しの「おすすめの順」1〜6（発掘の出土品・昇格・復興とダンジョンの入り口・新しい部門と関所と本社の花火・小さな手応え・製造と撤退と外交）を入れました。結果は「検証の結果（段 FX2）」。
 
 ## どこに置くか
 
@@ -13,7 +14,7 @@
 | `src/island/fx/registry.js`・`registry.d.ts` | 使う効果の一覧（id → モジュール）と型。効果を足したら両方に書く |
 | `src/island/fx/pixelfx/core/` | pixelfx の core（`fx.js`・`index.js` は character（actor）を外して短くした。ほかはそのまま） |
 | `src/island/fx/pixelfx/fx/<分類>/` | 写した効果（ファイルの頭に出どころ。中身はそのまま） |
-| `src/island/fx/pixelfx/fx/island/` | ゲームが自分で作った効果（`coin-pop.js`）。pixelfx の作法で書き、pixelfx の道具（render・check）でそのまま描ける |
+| `src/island/fx/pixelfx/fx/island/` | ゲームが自分で作った効果（`coin-pop.js`・`hammer-sparks.js`）。pixelfx の作法で書き、pixelfx の道具（render・check）でそのまま描ける |
 
 - JS のまま写す（TypeScript に直さない。直すと元と比べられなくなる）。型は `registry.d.ts` に、使う所だけ書く。
 - pixelfx の `act`（キャラクターの動き）・`actor`（効果がキャラクターの体に付く）は写していない。`meta.actor` のある効果（holy/halo・status/burning・ui/level-up など）は、そのままでは使えない。
@@ -42,6 +43,8 @@ playFx('coin-pop', 0, 0, { layer: 'map', scale: Math.max(1, cam.zoom * 3), ancho
 | `delay`・`life` | 鳴らすまでの待ち・この時間で薄れて終わる（ms。ループする効果は既定 2000） | 0・最後まで |
 | `anchor` | 毎コマの位置を返す（null で隠す） | — |
 | `opts` | 効果ごとの設定（firework-burst の `core` など） | — |
+| `host`・`under` | 要素の後ろに描く（段 FX2）：`host` の中にキャンバスを入れ、(x, y) は host の左上からの CSS px。`under` を渡すとその要素のすぐ下（並びの順で重ねる。放射の模様の上・文字と絵の下）、無ければ host の中身すべての下（z-index: -1・host は isolation）。host が外されたら消える | — |
+| `thin` | 間引きの組（段 FX2）：同じ組は 1 秒（`THIN_MS`）に 1 つまで。続けて来たら出さない（false） | — |
 
 - **待たせない**：効果は `pointer-events: none` で重ねるだけ。画面を押すと `ui` の効果はすぐ薄れて消える（出てすぐ 0.2 秒は除く）。効果のあいだ操作を止めない・効果が終わるのを待って次へ進めない。
 - **チュートリアル（1 か月目）**：効果を足すのはよいが、押す場所（光るボタン・指さし・下のタブ）の上に長く残る効果は置かない。
@@ -52,6 +55,10 @@ playFx('coin-pop', 0, 0, { layer: 'map', scale: Math.max(1, cam.zoom * 3), ancho
   - 端末の **「動きを減らす」**（`prefers-reduced-motion: reduce`）は「なし」を初期値にする（設定で「ふつう」に戻せる）。
 - （以前の決まり）「動きを減らす」のときは鳴らさない → 段 FX2 から、上の初期値「なし」で同じ扱い（`playFx` が false を返す）。音は効果の層では鳴らさない（いつもの `sfx.play` のまま。音の設定にしたがう）。
 - **ゲームの数字は変えない**：効果は見た目だけ。自動プレイ（sim）からは呼ばない。
+- **小さな手応えは 1 秒に 1 つ**（段 FX2）：ブランド力・エンブレム・展示・レベルアップ・外交は組 `small`（`thin: 'small'`）。続けて来たら最初の 1 つだけ（音とトーストはそのまま）。製造の火花は工房ごとの組（`craft:<uid>`）。
+- **控えめ**で出さないのは `LOUD`（花火・紙吹雪・光の柱 `loot-beam`）。判定は純関数 `fxPlan(id, level)`（`tests/island-fx-layer.test.ts`）。
+- **花火（`firework-burst`）は原点ではじける**（打ち上げの玉は原点の 72 ドット下から昇る）。はじける所を原点に渡す。
+- **地図の点に付ける**：`main.ts` の `mapFx(id, wx, wy, o)`（ワールドの座標。縮小の全体表示・発掘のあいだは隠す）。トーストに付ける：`toastFx(e, id, o)`（トーストの絵か左の端。組 `small`）。
 
 ## 色（palette）
 
@@ -63,6 +70,13 @@ playFx('coin-pop', 0, 0, { layer: 'map', scale: Math.max(1, cam.zoom * 3), ancho
 | `ours` | `#196270 #299091 #3db3a3 #55d4b0 #94d2e0 #c4eaf2 #fff` | 自社のもの・レベルが上がった（自社の青緑 ours ＋ 海と窓の明るい色） |
 | `party` | `#ed6f68 #e89e76 #ffdb57 #81b569 #55d4b0 #94d2e0 #82a8bf` | 紙吹雪・花火の 2 発目（屋根・灯り・木の葉・自社・海の色を 1 つずつ） |
 | `core` | `#704536 … #fff`（gold の 7 段） | 花火の芯・制覇の金の花火 |
+| `leaf`・`petal`・`heart` | 葉と草（leaf・grass・field）／屋根の赤 roofA／灯り lantern（どれも砂の白で明るく） | 復興の花（healing-bloom の palette・petal・heart） |
+| `dust` | `#704536 #b38e76 #c7ac8f #dbcaab #f0e6c9`（道 road ＋ 幹の影） | ダンジョンの入り口の岩と土ぼこり（summon-rise の stone） |
+| `smoke` | 中立 neutral ＋ 広場 plaza ＋ 白 | 他社の撤退の煙（poof） |
+| `FX_RARITY` | Common：中立／Uncommon：葉と草／Rare：海と窓／Epic：`#c77dff` を中心のランプ／Legendary：gold | 発掘の光の柱・昇格の光の放射（レアリティの色） |
+| `rampOf(色)` | 1 つの色から 7 段（#181818 と白へ混ぜる） | 新しい部門の花火（data.ts の DEPT の color） |
+
+- Epic の紫は palette.mjs に無い。ゲームのレアリティの色（`game/catalog.ts` の `RARITY_COLOR.Epic`）を中心にランプを作った（効果の層だけで使う）。
 
 - 白は「いちばん熱い芯・光る 1〜2 コマ」だけ。広い面を白や原色で塗らない。
 - 新しい色が要るときは palette.mjs のランプから取る（勝手な色を足さない）。
@@ -161,32 +175,32 @@ pixelfx の見本は暗い背景で作られている。明るい草地（`#94b3
 
 ### 棚卸し：いまの手応えと、pixelfx で足すなら
 
-（○＝段 FX1 で入れた。おすすめの順は右の「順」。— は足さない）
+（○＝段 FX1・FX2 で入れた。段 FX2 で、おすすめの順 1〜6 はすべて「済」。7 の災害は見送り。— は足さない）
 
 | できごと | いまの演出 | pixelfx で足すなら（色） | 順 |
 | --- | --- | --- | --- |
 | 売上（+N G） | 地図に「+N G」の文字（canvas）・音 sale | ○ `coin-pop`（gold） | 済 |
-| 製造（工房の +N） | 地図に「+N」の緑の文字・音 craft | 自作の小さな「槌の火花」（gold／ours）。工房の上で | 6 |
+| 製造（工房の +N） | 地図に「+N」の緑の文字・音 craft | ○ 自作の `hammer-sparks`（槌と金の火花）。工房の上で（同じ工房は 1 秒に 1 つ） | 済 |
 | 建物の完成 | PixelLab のきらめき（`fx/sparkle_back/front.png`）・トースト・音 done | — （PixelLab の絵のまま。比べの基準） | — |
 | スキルツリーのパネルを開けた・上げた | CSS（`isl-tree-learned`・`isl-tree-lvup`）・トースト・音 levelup | ○ `collect-burst`（gold／ours） | 済 |
-| 本社の開放 | CSS（`isl-tree-burst`）・音 clear | `firework-burst`（ours）を本社の上で 1 発 | 4 |
+| 本社の開放 | CSS（`isl-tree-burst`）・音 clear | ○ `firework-burst`（ours）を本社の上で 1 発 | 済 |
 | ミッションの受け取り・チュートリアルのクリア | はんこ「クリア！」・取り消し線（CSS）・マインちゃんのほめ言葉・音 clear | ○ `collect-burst`（gold） | 済 |
 | 研究成果の発表・制覇 | 手紙の窓（CSS の放射の帯）・👑 の帯・音 mining → clear／win | ○ `firework-burst` ＋ `confetti`（ours・party・core） | 済 |
-| 発掘の出土品（エクステ・お題・Epic） | CSS（`isl-dig-boom`・回る放射の窓・`isl-dig-fly`）・音 treasure／mining | `pickups/loot-beam`（レアリティの色の光の柱。ループなので `life`）・`pickups/collect-burst` | 1 |
-| ヒーローのレベルアップ | トースト ⭐・音 levelup | `collect-burst`（ours）を人事 → 育成の顔の上で（地図には出さない） | 5 |
-| 昇格 | 全画面の CSS（`isl-hpfx-glow`・回る光）・音 | `holy/sunburst`（gold。ループ → `life: 2400`）を顔の後ろに | 2 |
+| 発掘の出土品（エクステ・お題・Epic） | CSS（`isl-dig-boom`・回る放射の窓・`isl-dig-fly`）・音 treasure／mining | ○ `loot-beam`（レアリティの色の光の柱）・`collect-burst` | 済 |
+| ヒーローのレベルアップ | トースト ⭐・音 levelup | ○ `collect-burst`（ours）をトーストの ⭐ で（地図には出さない。育成の画面は開いていないことが多いのでトーストに） | 済 |
+| 昇格 | 全画面の CSS（`isl-hpfx-glow`・回る光）・音 | ○ `sunburst`（新しいレアリティの色。L・LL は gold。`life: 2400`）を顔の後ろに。CSS の光は残す | 済 |
 | 提案の承認（カード） | 音 levelup／page・トースト。段 UI5a から、手のある選択肢は提案書のハンコ＋ `collect-burst`（gold） | 済（提案書のハンコ） | 済 |
 | できごと（突発） | カード・音 | — （カードの絵で足りる。`ui/exclamation` は character 付きで写せない） | — |
-| 新しい部門 | CSS の帯と火花（`isl-newdept`・`isl-spark`）・音 levelup | `firework-burst`（その部門の色の palette）1 発 | 4 |
-| ブランド力が上がった | 上の帯の札が光る（CSS `isl-brand-up`）・トースト・音 levelup | `collect-burst`（gold）を上の帯の ★ で（小さく scale 4/3） | 5 |
-| エンブレム獲得 | トースト（絵つき）・音 levelup | `pickups/power-star`（gold。ループ → `life`）を上の帯で | 5 |
-| 復興（荒れ地 → 草地） | 地図の canvas の演出（土 → 草地）・トースト・音 levelup → win | `nature/healing-bloom`（leaf の緑）を荒れ地のまんなかで（map） | 3 |
-| ダンジョンの入り口が見つかった | 地図の canvas の演出（門がせり上がる）・音 mining | `spawn/summon-rise`（土煙と岩。dust）を門の下で（map） | 3 |
-| 他社の撤退 | シャッターが下りる（canvas）・音 clear | `spawn/poof`（灰色の煙）をシャッターが下りきった所で（map） | 6 |
-| 関所が開く | 音 spend → win・会話 | `firework-burst`（ours）を関所の上で 1 発 | 4 |
-| 遺物の展示館に展示 | 音 check／levelup | `collect-burst`（gold）を展示した枠で | 5 |
-| 外交の約束・依頼を届けた | トーストだけ（🌐） | `collect-burst`（ours）をトーストの横で（トーストに付ける） | 6 |
-| ランクアップの災害 | 全画面の CSS（雲・雨・稲光・揺れ）・音 katsun | `weather/storm`・`weather/rain`（320 × 180 の全画面。重さを測ってから） | 7 |
+| 新しい部門 | CSS の帯と火花（`isl-newdept`・`isl-spark`）・音 levelup | ○ `firework-burst`（部門の色。`rampOf`）1 発 | 済 |
+| ブランド力が上がった | 上の帯の札が光る（CSS `isl-brand-up`）・トースト・音 levelup | ○ `collect-burst`（gold）を上の帯の札で（scale 4/3） | 済 |
+| エンブレム獲得 | トースト（絵つき）・音 levelup | ○ `power-star`（gold・影なし。`life: 1300`）をトーストのエンブレムの絵の上で（エンブレムは上の帯に無いので） | 済 |
+| 復興（荒れ地 → 草地） | 地図の canvas の演出（土 → 草地）・トースト・音 levelup → win | ○ `healing-bloom`（leaf・petal・heart）を荒れ地のまんなか（PC は左右にも）で（map） | 済 |
+| ダンジョンの入り口が見つかった | 地図の canvas の演出（門がせり上がる）・音 mining | ○ `summon-rise`（怪物なし・土ぼこり。gold の輪と dust の岩）を門の下で（map） | 済 |
+| 他社の撤退 | シャッターが下りる（canvas）・音 clear | ○ `poof`（smoke の灰色）をシャッターが下りきった所で（map） | 済 |
+| 関所が開く | 音 spend → win・会話 | ○ `firework-burst`（ours）を関所の上で 1 発（map。会話の箱の下） | 済 |
+| 遺物の展示館に展示 | 音 check／levelup | ○ `collect-burst`（gold）を飾った枠で | 済 |
+| 外交の約束・依頼を届けた | トーストだけ（🌐） | ○ 依頼を届けた：`collect-burst`（ours）をトーストの 🌐 で。約束はカードの提案書のハンコ（段 UI5a）のまま | 済 |
+| ランクアップの災害 | 全画面の CSS（雲・雨・稲光・揺れ）・音 katsun | `weather/storm`・`weather/rain`（320 × 180 の全画面）→ **見送り**（重い。下の「段 FX2」） | 見送り |
 | 炎上 | 上の帯の札（CSS `isl-flame-glow`）・音 error | — （悪い知らせは控えめに。必要なら小さな炎の札の絵） | — |
 | 辞めたい・エラー | トースト・音 error | — （効果は足さない） | — |
 | お金を使った | 資金の「−N G」が飛ぶ（CSS `isl-spend`）・音 spend | — （文字で足りる） | — |
@@ -199,6 +213,77 @@ pixelfx の見本は暗い背景で作られている。明るい草地（`#94b3
 5. **小さな手応え**（提案の承認・ブランド力・エンブレム・展示・レベルアップ）：collect-burst を色違いで。出しすぎないように、1 秒に 1 つまでにまとめる
 6. 製造・撤退・外交（自作か写す。回数が多いので重さを見て）
 7. 災害（全画面の天気。いちばん重いので最後）
+
+## 検証の結果（段 FX2）
+
+FX1 の「おすすめの順」1〜6 を入れた。7（災害の全画面の天気）は重さで見送り。
+
+### 入れた所
+
+| できごと | 効果 | 色 | 層・大きさ | 控えめのとき | 呼ぶ所 |
+| --- | --- | --- | --- | --- | --- |
+| 発掘：エクステを掘り出した | `loot-beam`（`item: false`）をマスから・0.7 秒 → 研究ノートに吸い込まれたところで `collect-burst` | レアリティ（`FX_RARITY`）／ノートは gold | ui・1.5（スマホ 1）／ノートは 4/3（1）。ノートの光は組 `dig-notes` で 1 秒に 1 つ | 光の柱は出さない。ノートの光は小さく | `digui.ts` の `flyToNotes` |
+| 発掘：Rare の札・Epic とお題の窓 | `loot-beam` を絵の後ろ（`host`・`under`：放射の模様の上・文字の下）。Epic・お題は出た瞬間に絵の上で `collect-burst` も | レアリティ | 札・窓の中・2（スマホ 4/3）・ink なし。札 2 秒・窓 4.6 秒（閉じたら消える） | 光の柱は出さない（`collect-burst` は小さく） | `digui.ts` の `rareFind`・`bigFind`（`beamBehind`） |
+| 昇格 | `sunburst` を顔の後ろ（`host`） | 新しいレアリティ（L・LL は gold） | 窓の中・1.5（スマホ 4/3）・ink なし・2.4 秒 | 小さく・光は半分 | `growthui.ts` の `playPromotion` |
+| 復興 | `healing-bloom` を荒れ地のまんなか（PC は左右にも。0.4・0.75・1.05 秒後） | leaf・petal・heart | map・寄ったあとの拡大率 × 3（左右 × 2） | 小さく | `main.ts` の `wasteFx` |
+| ダンジョンの入り口 | `summon-rise`（`beast: false`・`dust: true`）を門の下 | 輪は gold・岩と土ぼこりは dust | map・拡大率 × 2 | 小さく | `main.ts` の `wasteFx` |
+| 新しい部門 | `firework-burst` 1 発。PC は帯の右上・スマホは帯の上の縁ではじける（部門の名前に重ねない） | 部門の色（`rampOf`）＋芯 core | ui・2（スマホ 4/3）・ink あり | 出さない | `main.ts` の `newDeptBanner` |
+| 関所が開く | `firework-burst` 1 発を関所の上 | ours＋core | map（会話の箱の下）・拡大率 × 3・ink あり | 出さない | `main.ts` の `gateFx` |
+| 本社の開放 | `firework-burst` 1 発を本社の上（枝が広がるあいだ） | ours＋core | ui・2（スマホ 4/3）。スキルツリーの暗い画面の上 | 出さない | `tree.ts` の `unlockHQ` |
+| ブランド力が上がった | `collect-burst` を上の帯の札で | gold | ui・4/3（スマホ 1）・組 `small` | 小さく | `main.ts` の `brandNews` |
+| エンブレム獲得 | `power-star`（`shadow: false`）をトーストのエンブレムの絵の上・1.3 秒 | gold | ui・4/3（1）・組 `small` | 小さく | `main.ts` の `currencyNews`（`toastFx`） |
+| 展示館に飾った | `collect-burst` を飾った枠で | gold | ui・4/3（1）・組 `small` | 小さく | `museumui.ts` |
+| ヒーローのレベルアップ | `collect-burst` をトーストの ⭐ で | ours | ui・4/3（1）・組 `small` | 小さく | `main.ts` の `levelNews` |
+| 外交の依頼を届けた | `collect-burst` をトーストの 🌐 で | ours | ui・4/3（1）・組 `small` | 小さく | `main.ts` の `diploFx` |
+| 製造 | 自作の `hammer-sparks`（槌が振り下ろされ、金の火花）を工房の上 | 槌は trunk・roofB、火花は gold | map・拡大率 × 3・工房ごとに 1 秒に 1 つ・縮小の全体表示と発掘のあいだは出さない | 小さく | `main.ts` の `craftFx` |
+| 他社の撤退 | `poof` をシャッターが下りきった所（2.1 秒後） | smoke（星は gold） | map・拡大率 × 3 | 小さく | `main.ts` の `playShutters` |
+
+「なし」と端末の「動きを減らす」（初期値「なし」）では、どれも出さない（`playFx` が false）。どの効果も重ねるだけで、操作を待たせない（ui の効果は画面を押すと薄れて消える）。チュートリアル（1 か月目）の流れは変えていない（本社の開放の花火は 1 か月目にも出るが、押せば消える）。
+
+### 写した効果・自作の効果
+
+| id | もと | 変えた所 |
+| --- | --- | --- |
+| `loot-beam` | `pickups/loot-beam` | `item` を足した（false で剣と影を描かない。出土品の絵はゲームが出す） |
+| `power-star` | `pickups/power-star` | `shadow` を足した（false で床の影を描かない。UI の上で使う） |
+| `sunburst` | `holy/sunburst` | なし（`holy/_lib.js` は `GOLD` だけ） |
+| `healing-bloom` | `nature/healing-bloom` | なし（`nature/_lib.js` は `drawLeaf` だけ） |
+| `summon-rise` | `spawn/summon-rise` | `beast`（false で怪物と、怪物から出る粒・煙を描かない）・`dust`（true で暗くなる煙の代わりに明るい土ぼこり。明るい地図の上で黒い煙に見えたため） |
+| `poof` | `spawn/poof` | なし |
+| `hammer-sparks` | 自作（`fx/island/`） | — |
+
+### 重さ（`/tmp/claude-0/pl/shots/fx2_perf.cjs`。スマホ 390 × 844・DPR 2・CPU 4 倍遅く・温めたあと）
+
+ページのフレーム（rAF の間隔）と、効果の層の 1 コマの時間（30 コマ/秒で描く）。町は止めて測った（町を動かしたままだと、この計測の環境では効果なしでもページが p50 117 ms で、効果を足しても変わらなかった）。
+
+| 場面 | ページ p50 | ページ p95 | ページの最悪 | 効果 1 コマ（平均／最大） |
+| --- | --- | --- | --- | --- |
+| 効果なし | 16.7 ms | 16.8 ms | 100 ms | — |
+| 光の柱（出土・マス） | 16.7 | 16.8 | 83 | 6.6／10.0 ms |
+| 光の柱（Epic の窓） | 16.7 | 16.7 | 100 | 6.3／19.5 |
+| 光の放射（昇格） | 16.7 | 16.8 | 133 | 7.0／11.0 |
+| 花（復興・1 つ） | 16.7 | 16.8 | 133 | 4.5／11.6 |
+| 土ぼこり（ダンジョン） | 16.7 | 16.8 | 133 | 6.7／14.3 |
+| 花火（新しい部門） | 16.7 | 16.8 | 133 | 10.8／23.6 |
+| 星（エンブレム） | 16.7 | 16.8 | 133 | 7.9／14.0 |
+| 槌の火花（製造） | 16.7 | 16.7 | 83 | 1.4／2.7 |
+| 煙（撤退） | 16.7 | 16.8 | 117 | 3.5／9.9 |
+
+どの場面もページの p50・p95 は 16.7 ms のまま（最悪の 1 コマは効果なしでも 100 ms ある。計測の環境の CPU を別の作業と分けているため）。PC（CPU 等倍）では効果 1 コマ 0.4〜3 ms。
+
+### 見送り：災害の全画面の天気（`weather/storm`・`weather/rain`）
+
+320 × 180 の全画面で、node で 1 コマ（update＋draw＋合成）が rain p50 3.6 ms・storm p50 5.3 ms（p95 32 ms）。花火（node p50 1.8 ms → スマホ CPU 4 倍遅くで 1 コマ 10.8 ms）から見積もると、スマホで rain 22 ms・storm 30 ms 以上になり、1 コマ 16 ms を超える（しかも災害の演出のあいだ数秒続く）。新しい効果の目安（node 2.5 ms 以下）も超えるので入れていない。入れるなら、粒の数を減らした自作の軽い雨（画面の一部・160 × 90 を 4 倍）か、スプライトシートにして 12 コマ/秒で流す。
+
+## 作例：製造の槌の火花（`fx/island/hammer-sparks.js`）の直し
+
+| 回 | 見たこと | 直したこと |
+| --- | --- | --- |
+| 下書き | A：火花の扇と光だけ／B：小さな槌が振り下ろされ、当たった所で光と火花 | 地図の上では A は何の火花か分からない → 「製造」と読める B を選ぶ |
+| 1 | 槌の柄の付け根がずれて、頭が光の横に落ちる。槌が真横から回る。火花が床すれすれに横へ飛ぶ | 握りの位置を当たる点から逆算（頭が光の真上に来る）。振りかぶり → 打ち下ろしの角度に。火花の向きを上寄りに |
+| 2 | 打ったあと、細い槌がディザで薄れてざらざらの点になる。振りかぶりが無く唐突 | 打つ前に少し振りかぶる（0.07 秒）。打ったあとは小さく跳ね返り、0.2 秒で消す（薄れさせない） |
+| 3 | `check.mjs`：跳ねた火花がキャンバスの左の端からはみ出す | キャンバスを 64 → 84 ドットに。1 コマ 0.07 ms（node） |
+| 背景 | 明るい草地の上 | 縁（ink）で槌と火花が読める。光は地図の 0.4 のまま |
 
 ## 作例：売上のコイン（`fx/island/coin-pop.js`）の直し
 
