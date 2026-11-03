@@ -109,6 +109,9 @@ import {
   openGate,
   poolCap,
   poolFree,
+  poolRate,
+  clearSkus,
+  setClear,
   poolUsed,
   priceOf,
   procItems,
@@ -1340,6 +1343,16 @@ export function policy(s: P1State, c: Ctx): Action[] {
   // v25（段 UI1）：ヒーローからの提案のカード（店員・職人・調達係・待機中の人）。部長の提案と同じ条件（見込みがプラス・払ったあとも手元に残すお金が残る）で、
   // おすすめ（金色）を受ける。最短・100% は手で（カードは使わない）。問い合わせ・炎上の予告・辞めたい・経理の助言・巻き返しは、いまの方針の手（SIM_CS・SIM_HR ほか）のまま
   if (SIM_DELEG[c.policy].on && !delegOff && c.monthEnd && SIM_CARDS.on) acts.push({ kind: 'approve', run: () => (simTake(s, reserve) > 0 ? null : 'none') });
+  // 試し（段 UI5c の判断用）：倉庫が 8 割を超えて在庫品があれば、全部のお店で在庫を優先して売りさばく（1 割引）。6 割を切ったらやめる
+  if (c.monthEnd && c.policy !== 'rta') {
+    const on = poolRate(s) >= 0.8 && clearSkus(s).length > 0;
+    const off = poolRate(s) < 0.6;
+    for (const b of myShops(s)) {
+      const sh = s.shops[b.uid];
+      if (on && sh.clear == null) setClear(s, b.uid, 1);
+      else if (off && sh.clear != null) setClear(s, b.uid, null);
+    }
+  }
   if (c.monthEnd && c.policy !== 'rta' && donateLock(s) !== 'hidden' && donateLock(s) !== 'closed') {
     const next = c.route[c.at + 1];
     // v14：次がランクアップの進出なら、費用も立ち上げの資金も要らない（お金は徴収される）
