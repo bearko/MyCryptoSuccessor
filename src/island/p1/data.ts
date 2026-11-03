@@ -2454,6 +2454,40 @@ export const EVENT = {
   brand: { C: 4, U: 5, R: 6, E: 8, L: 10 } as Record<Tier, number>,
 };
 /**
+ * 段 P2：ヒーローの適性（史実の調査の S〜D。voice.ts）の効き目。任せた部門の「出来」（deleg.ts の quality）と、持ち場の速さ（model.ts の speed）・
+ * セクター長の売上の倍率に掛ける。C は「ふつう・記録が無い」がいちばん多いので 1（判断。全体を遅くも速くもしすぎない）
+ */
+export const HERO_FIT = { mul: { S: 1.1, A: 1.05, B: 1.02, C: 1, D: 0.96 } as Record<'S' | 'A' | 'B' | 'C' | 'D', number> };
+/**
+ * 段 P2：ヒーローの組み合わせ（duo.ts。docs/ISLAND_PHASE1.md「ヒーローの組み合わせ」）の数字（1 か所）。
+ * - fx：見つけた組み合わせの、条件がそろっているあいだの効き目（関係の種類ごと。その組み合わせのヒーローだけ）。morale は士気の寄り先（目標）に足す点・
+ *   speed は持ち場の速さ・drain は 1 日に減るスタミナ（疲れ）の倍率。
+ * - opt：特殊イベントの選択肢（cost は先月の売上の割合・最低 minCost。days は期限（日）。morale はその場で足す士気）。
+ * - first：この町の締めがこの回数から（1 か月目＝チュートリアルは出さない。できごとと同じ）。
+ */
+export const DUO = {
+  fx: {
+    ally: { morale: 4, speed: 1.02, drain: 1 },
+    kin: { morale: 5, speed: 1, drain: 1 },
+    mentor: { morale: 3, speed: 1.03, drain: 1 },
+    rival: { morale: 0, speed: 1.05, drain: 1.12 },
+    tension: { morale: -4, speed: 1, drain: 1 },
+  },
+  opt: {
+    /** 盟友・兄弟・師弟：組ませる（速さ ×、期限つき）・祝いの席（費用・士気 +） */
+    team: { speed: 1.06, days: 60 },
+    party: { cost: 0.01, morale: 8 },
+    /** 宿敵：競わせる（速さ ×・疲れ ×、期限つき）・離す（いつもの効き目を止める・士気 +） */
+    compete: { speed: 1.08, drain: 1.25, days: 45 },
+    apart: { morale: 3 },
+    /** 緊張：間に入って話し合う（費用・解消・士気 +）・あえて任せる（速さ ×、期限つき・その場の士気 −） */
+    talk: { cost: 0.005, morale: 5 },
+    push: { speed: 1.05, days: 30, morale: -6 },
+  },
+  minCost: 300,
+  first: 2,
+};
+/**
  * Epic の外交（段 UI4。diplo.ts。docs/ISLAND_PHASE1.md「外交（Epic）」）：霧の向こうのランドの使者。石板 e3-b「返事の光」の続き。
  * - lands：会うランド（MCH のランドの名前。色と紋は仮の絵＝docs/ISLAND_ART_TODO.md）。順に会う。
  * - start：初めの仲の良さ（0〜100）。afterMonths：Epic の町に初めて着いてから、この会社の月数で初めての使者（e3-b を読んだらすぐ）。

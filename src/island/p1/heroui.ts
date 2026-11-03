@@ -2,6 +2,8 @@
  * ヒーローとエクステを「絵で選ぶ」ための部品：担当の枠・ヒーローを選ぶ引き出し・エクステのカード（素材 → 商品）・エクステを選ぶ引き出し。
  * プルダウンや数字の入力の代わりに使う（docs/ISLAND_PHASE1.md「人とモノを絵で扱う」）。
  */
+import { gradeChip } from './p2ui';
+import { TASK_FIT } from './voice';
 import { t } from '../../i18n';
 import { DEF } from '../defs';
 import { MATS, PRODUCT, rivalDef, SECTORS, SKILL, TASKS, aptitude, skuParts, skuPrice, techSkill, type Mat, type Sku, type Task } from './data';
@@ -280,6 +282,9 @@ export function pickHero(
       card.replaceChildren();
       card.disabled = kind === 'training';
       card.append(heroIcon(st.hero, 56), h('b', '', heroName(st.hero)), rankEl(apt), stamina(st));
+      // 段 P2：その持ち場の史実の適性の札（速さに小さな倍率）
+      const fc = TASK_FIT[o.task] ? gradeChip(st.hero, TASK_FIT[o.task]!) : null;
+      if (fc) card.append(fc);
       if (kind === 'resting') card.append(h('span', 'isl-pick-rest', t('😴 休憩中', '😴 Resting')), h('small', 'isl-bad', t(`スタミナ ${staminaPct(st)}%`, `Stamina ${staminaPct(st)}%`)));
       const job = h('small', kind === 'free' ? 'isl-good isl-pick-job' : kind === 'training' ? 'isl-warn isl-pick-job' : 'isl-dim isl-pick-job', kind === 'current' ? t('いまの担当', 'Current') : jobLabel(s, st));
       if (kind !== 'resting' || st.task != null) card.append(job);
