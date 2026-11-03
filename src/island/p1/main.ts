@@ -12,7 +12,7 @@ import { icon } from '../../ui/dom';
 import { DEF, artId } from '../defs';
 import { effectDone, image, loading, pick, waterFrame, type Camera, type Effect } from '../render';
 import { cells, type Dir } from '../sim';
-import { FX_LEVELS, FX_PAL, clearFx, fxAtEl, fxLevel, fxStats, playFx, setFxEnabled, setFxLevel, warmFx, type FxLevel } from '../fx/layer';
+import { FX_LEVELS, FX_PAL, clearFx, fxAtEl, fxLevel, fxStats, playFx, rampOf, setFxEnabled, setFxLevel, warmFx, type FxLevel } from '../fx/layer';
 import type { FxId } from '../fx/registry.js';
 import { BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, LEGAL_INTRO, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, HERO_RARITY, MORALE, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO, ACCT_INTRO, CS_INTRO } from './data';
 import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
@@ -1660,6 +1660,7 @@ function townFxNow() {
   const fx0 = townFx.shift()!;
   focusWaste(fx0.site);
   anim.revive = { site: fx0.site, t0: performance.now() };
+  wasteFx(fx0.kind, fx0.site);
   sfx.play(fx0.kind === 'dungeon' ? 'mining' : 'levelup');
   const name = wasteName(s.sector ?? 'c1', fx0.site);
   setTimeout(() => {
@@ -1685,6 +1686,36 @@ function townFxNow() {
     renderAll();
   }, 2900);
   renderAll();
+}
+/** 地図の上の点（ワールドの座標）に付いて動く効果（pixelfx。docs/ISLAND_FX.md）。縮小の全体表示・発掘のあいだは隠す */
+function mapFx(id: FxId, wx: number, wy: number, o: Parameters<typeof playFx>[3] = {}) {
+  return playFx(id, 0, 0, {
+    layer: 'map',
+    anchor: () => (digOpen() || overviewOn() ? null : { x: (wx - cam.x) * cam.zoom + W / 2, y: (wy - cam.y) * cam.zoom + H / 2 }),
+    ...o,
+  });
+}
+/**
+ * 段 FX2：復興（土 → 草地）は芽が出て花が開く（healing-bloom。まんなかと左右に 3 つ）、ダンジョンの入り口は土ぼこりと岩（summon-rise。門の下）。
+ * いまの canvas の演出（reviveGround・dungeonGate）に重ねるだけ。カメラが寄ったあとの拡大率で大きさを決める（focusWaste と同じ）
+ */
+function wasteFx(kind: 'revive' | 'dungeon', site: number) {
+  const m = wasteMid(site);
+  if (!m) return;
+  const wx = (m[0] - m[1]) * 100;
+  const wy = (m[0] + m[1]) * 55;
+  const z = innerWidth < 600 ? 0.75 : 1;
+  if (kind === 'dungeon') {
+    mapFx('summon-rise', wx, wy + 20, { scale: z * 2, palette: FX_PAL.gold, opts: { beast: false, dust: true, stone: FX_PAL.dust }, seed: site + 3 });
+    return;
+  }
+  const bloom = { palette: FX_PAL.leaf, opts: { petal: FX_PAL.petal, heart: FX_PAL.heart } };
+  mapFx('healing-bloom', wx, wy + 30, { ...bloom, scale: z * 3, delay: 400, seed: site + 1 });
+  // スマホは 1 つ（重さ）
+  if (innerWidth >= 600) {
+    mapFx('healing-bloom', wx - 120, wy + 10, { ...bloom, scale: z * 2, delay: 750, seed: site + 5 });
+    mapFx('healing-bloom', wx + 120, wy + 14, { ...bloom, scale: z * 2, delay: 1050, seed: site + 9 });
+  }
 }
 /** 遺物の展示館を建てられるようになったとき（1 回だけ）：マインちゃん → 建築の「遺物」 */
 function museumTalkOnce() {
@@ -1987,12 +2018,21 @@ function payGate() {
   save();
   renderAll();
   const g = gateOf(s);
-  if (g) centerOn(g.i, g.j);
+  if (g) {
+    centerOn(g.i, g.j);
+    gateFx();
+  }
   talk(
     GATE_LINES(toll).map((text) => ({ text })),
     t('ランドマップへ', 'To the land map'),
     () => openLand(ctx),
   );
+}
+
+/** 段 FX2：関所の上で自社の色の花火を 1 発（地図の層。縁で明るい地図の上でも読める・会話の箱の下） */
+function gateFx() {
+  const g = gateOf(s);
+  if (g) mapFx('firework-burst', (g.i - g.j) * 100, (g.i + g.j) * 55 - 20, { palette: FX_PAL.ours, opts: { core: FX_PAL.core }, scale: Math.max(1, cam.zoom * 3), delay: 500, seed: 11 });
 }
 
 /** ほかのセクタへ移ったあと：地図を描き直し、真ん中へ。マインちゃんが一言 */
@@ -3825,6 +3865,11 @@ function newDeptBanner(d: DeptId) {
   }
   root.append(el);
   sfx.play('levelup');
+  // 段 FX2：部門の色の花火を 1 発（明るい地図の上は縁で読める）。部門の名前に重ねないように、PC は帯の右上・スマホは帯の上の縁ではじける
+  const r = el.getBoundingClientRect();
+  // 花火は原点ではじける（打ち上げの玉は原点の下から昇る）
+  const fx = innerWidth < 600 ? r.left + r.width / 2 : r.right + 20;
+  playFx('firework-burst', fx, r.top + (innerWidth < 600 ? 0 : 20), { palette: rampOf(DEPT[d].color), opts: { core: FX_PAL.core }, delay: 250, seed: d.length * 7 });
   setTimeout(() => el.classList.add('is-out'), 2600);
   setTimeout(() => el.remove(), 3200);
 }
@@ -4785,7 +4830,7 @@ window.setTimeout(() => warmFx(), 3000);
   },
   speed: (v?: number) => (v != null ? ((speed = v), renderHud()) : speed),
   /** ドット絵のエフェクト（撮影・計測用）：鳴らす・数える・止める（比べる前の画面を撮る） */
-  fx: { play: (id: FxId, x: number, y: number, o?: Parameters<typeof playFx>[3]) => playFx(id, x, y, o), stats: (reset?: boolean) => fxStats(reset), enable: (v: boolean) => setFxEnabled(v), clear: () => clearFx(), coin: (uid: number) => coinFx(uid), letter: (conquered: boolean) => letterFx(conquered), letterDemo: (conquered: boolean) => showLetter(120, conquered ? null : 'U', null, 0, conquered) },
+  fx: { play: (id: FxId, x: number, y: number, o?: Parameters<typeof playFx>[3]) => playFx(id, x, y, o), stats: (reset?: boolean) => fxStats(reset), enable: (v: boolean) => setFxEnabled(v), clear: () => clearFx(), coin: (uid: number) => coinFx(uid), letter: (conquered: boolean) => letterFx(conquered), letterDemo: (conquered: boolean) => showLetter(120, conquered ? null : 'U', null, 0, conquered), town: (kind: 'revive' | 'dungeon', site: number) => (townFx.push({ kind, site, homes: 0 }), townFxNow()), dept: (d: DeptId) => newDeptBanner(d), gate: () => (gateOf(s) && centerOn(gateOf(s)!.i, gateOf(s)!.j), gateFx()), level: (v?: FxLevel) => (v ? setFxLevel(v) : fxLevel()) },
   /** 発掘との出会い（撮影スクリプト用）：操作がないまま進んだ日数 */
   idle: (v?: number) => (v != null ? (idleDays = v) : idleDays),
 };
