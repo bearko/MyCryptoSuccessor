@@ -49,6 +49,7 @@ export type ScreenId =
   | 'settings'
   | 'pace'
   | 'save'
+  | 'trophy'
   | 'test';
 
 export interface SubDef {
@@ -115,7 +116,8 @@ export const SUB_DEFS = (): Record<DeptId, SubDef[]> => ({
   ],
   systems: [
     d('invest', t('設備投資', 'Investment'), t('設備', 'Upgrades'), t('建物ごとの設備', 'Per-building upgrades'), ['invest'], 'workshop'),
-    d('settings', t('設定', 'Settings'), t('設定', 'Settings'), t('速さ・言語・音・セーブ', 'Speed, language, sound, save'), ['settings', 'pace', 'save']),
+    // 段 UI6：トロフィー（実績）の一覧も設定の画面にまとめる（サブタブは増やさない）
+    d('settings', t('設定', 'Settings'), t('設定', 'Settings'), t('速さ・言語・音・セーブ・トロフィー', 'Speed, language, sound, save, trophies'), ['settings', 'pace', 'save', 'trophy']),
   ],
 });
 
@@ -142,6 +144,7 @@ export const SUB_ALIAS: Record<string, { m: DeptId; key: string; part: ScreenId 
   'support:sat': { m: 'support', key: 'inbox', part: 'sat' },
   'systems:pace': { m: 'systems', key: 'settings', part: 'pace' },
   'systems:save': { m: 'systems', key: 'settings', part: 'save' },
+  'systems:trophy': { m: 'systems', key: 'settings', part: 'trophy' },
   'sales:diplo': { m: 'sales', key: 'area', part: 'diplo' },
 };
 /** 部門 m のサブタブ key（前の key も）→ いまのサブタブと開く部分 */
