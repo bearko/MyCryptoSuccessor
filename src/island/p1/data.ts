@@ -2457,7 +2457,7 @@ export const EVENT = {
  * 段 P2：ヒーローの適性（史実の調査の S〜D。voice.ts）の効き目。任せた部門の「出来」（deleg.ts の quality）と、持ち場の速さ（model.ts の speed）・
  * セクター長の売上の倍率に掛ける。C は「ふつう・記録が無い」がいちばん多いので 1（判断。全体を遅くも速くもしすぎない）
  */
-export const HERO_FIT = { mul: { S: 1.1, A: 1.05, B: 1.02, C: 1, D: 0.96 } as Record<'S' | 'A' | 'B' | 'C' | 'D', number> };
+export const HERO_FIT = { mul: { S: 1.001, A: 1.0005, B: 1.0002, C: 1, D: 0.9996 } as Record<'S' | 'A' | 'B' | 'C' | 'D', number> };
 /**
  * 段 P2：ヒーローの組み合わせ（duo.ts。docs/ISLAND_PHASE1.md「ヒーローの組み合わせ」）の数字（1 か所）。
  * - fx：見つけた組み合わせの、条件がそろっているあいだの効き目（関係の種類ごと。その組み合わせのヒーローだけ）。morale は士気の寄り先（目標）に足す点・
