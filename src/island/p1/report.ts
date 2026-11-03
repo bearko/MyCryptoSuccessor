@@ -14,6 +14,8 @@ import { clearCondText, digMet, digReportLine, digReportText, presentReady, rebu
 import { t } from '../../i18n';
 import { csReportText } from './csui';
 import { legalReportText } from './legalui';
+import { eventReportText } from './events';
+import { dipReportText } from './diplo';
 import { assetUrl } from '../../render/images';
 import { PRODUCT, TOP_STREAK, sku } from './data';
 import { jamOf, myShops, whatIf, type P1State, type Report, type Stage } from './model';
@@ -77,6 +79,8 @@ export interface ReportHooks {
   openCs?: () => void;
   /** 法務（「⚖ 法務」の導線。段 H2） */
   openLegal?: () => void;
+  /** 外交（「🌐 交易」の導線。段 UI4） */
+  openDiplo?: () => void;
   /** 効果音 */
   sfx?: (k: 'sale' | 'win' | 'levelup' | 'check' | 'report' | 'drum' | 'error') => void;
 }
@@ -765,6 +769,30 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
         else line.classList.add('is-quiet');
         c4.append(line);
         if (notable) body.classList.add('has-legal');
+      }
+      // 突発のできごと（段 UI4）：前の報告から選んだできごと・いま効いている倍率（1 行にまとめる）
+      const et = eventReportText(r.events ?? [], r.evFx ?? [], r.evYen ?? 0);
+      if (et) {
+        const line = h('div', 'isl-rp-dig isl-rp-ev');
+        const txt = h('span', 'isl-rp-dig-text');
+        txt.append(h('b', '', t('📣 できごと', '📣 Events')), h('span', 'is-long', et[0]), h('span', 'is-short', et[1]));
+        line.append(txt);
+        // スマホ：できごとを選んだ月だけ出す（効き目だけの月は PC だけ）
+        if (!r.events?.length) line.classList.add('is-quiet');
+        c4.append(line);
+        if (r.events?.length) body.classList.add('has-ev');
+      }
+      // 外交の交易（段 UI4。Epic の町）：届けた数と売上・足りなかった数・依頼（1 行にまとめる）
+      if (r.dip) {
+        const dt2 = dipReportText(r.dip);
+        const line = h('div', 'isl-rp-dig isl-rp-dip');
+        const txt = h('span', 'isl-rp-dig-text');
+        txt.append(h('b', '', t('🌐 交易', '🌐 Trade')), h('span', 'is-long', dt2[0]), h('span', 'is-short', dt2[1]));
+        line.append(txt);
+        if (hooks.openDiplo) line.append(btn(t('外交', 'Diplomacy'), () => hooks.openDiplo?.(), 'isl-rp-go'));
+        if (r.dip.short || r.dip.late) line.classList.add('is-warn');
+        c4.append(line);
+        body.classList.add('has-dip');
       }
       cards.push(c4);
 

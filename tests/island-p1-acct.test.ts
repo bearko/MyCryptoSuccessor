@@ -11,7 +11,7 @@ import { envItems, fatigueLoad, fatigueMorale, fatigueMul, fatigueOf, gaOn } fro
 import { moraleParts } from '../src/island/p1/hr';
 import { deptLevel, menuDepts } from '../src/island/p1/dept';
 import { build, closeCompanyMonth, deserializeP1, donate, gainSkill, invest, learn, setLevel, myWorkshop, newP1, priceOf, rivalBase, serializeP1, speed, type P1State } from '../src/island/p1/model';
-import { runOnce, totalSec, withoutAcct } from '../scripts/island/sim';
+import { runOnce, totalSec, withoutAcct, withoutEvents } from '../scripts/island/sim';
 
 /** Uncommon の町（ウメコタウン）。資金たっぷり */
 function uTown(seed = 1): P1State {
@@ -218,8 +218,9 @@ describe('単価の整え（税のぶん売上の側も）', () => {
   it(
     '節税を気にしない最短の方針で、合計の時間が段 F の前と ±5% の中（3 シードの平均）。税は払っている',
     () => {
-      const on = [1, 2, 3].map((seed) => runOnce('rta', seed));
-      const off = [1, 2, 3].map((seed) => withoutAcct(() => runOnce('rta', seed)));
+      // 段 UI4（突発のできごと）は止めて、段 F の効き目だけを比べる
+      const on = [1, 2, 3].map((seed) => withoutEvents(() => runOnce('rta', seed)));
+      const off = [1, 2, 3].map((seed) => withoutEvents(() => withoutAcct(() => runOnce('rta', seed))));
       const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
       const a = mean(on.map(totalSec));
       const b = mean(off.map(totalSec));
@@ -340,12 +341,12 @@ describe('疲れと職場の環境（総務）', () => {
 describe('セーブ（版 16）', () => {
   it('新しいゲームは版 16。税の記録はセーブに残る', () => {
     const s = uTown();
-    expect(s.v).toBe(20);
+    expect(s.v).toBe(21);
     closeMonth(s, 300000);
     closeMonth(s, 300000);
     closeMonth(s, 300000);
     const back = deserializeP1(serializeP1(s))!;
-    expect(back.v).toBe(20);
+    expect(back.v).toBe(21);
     expect(back.acct!.paid).toBe(s.acct!.paid);
     expect(back.acct!.hist).toHaveLength(1);
   });
@@ -357,7 +358,7 @@ describe('セーブ（版 16）', () => {
     o.v = 15;
     delete o.acct;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(20);
+    expect(back.v).toBe(21);
     expect(back.acct).toBeUndefined();
     // 会社の月 5（day 150）：途中の月。6（day 180）：四半期の締め
     const a = closeMonth(back, 300000);
