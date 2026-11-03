@@ -11,6 +11,7 @@ import { promote, type P1State, type Staff } from './model';
 import { after, open, type Ctx } from './screens';
 import { bar, btn, h, heroIcon, heroName } from './ui';
 import { dexCard, fitBlock } from './p2ui';
+import { FX_PAL, FX_RARITY, playFx } from '../fx/layer';
 
 const pct = (v: number) => Math.round(v * 1000) / 10;
 /** レアリティの札（色の枠と文字。Limited Legendary は虹色の枠） */
@@ -142,7 +143,8 @@ export function playPromotion(root: HTMLElement, hero: number, from: HeroRarity,
   const p = h('p');
   p.textContent = line.replace(/\[\[(.+?)\]\]/g, '$1');
   say.append(mi, p);
-  box.append(heroIcon(hero, 96), h('b', 'isl-hpfx-title', t('昇格！', 'Promoted!')), badges, say, h('small', 'isl-dim', t('▶ タップで進む', '▶ Tap to continue')));
+  const face = heroIcon(hero, 96);
+  box.append(face, h('b', 'isl-hpfx-title', t('昇格！', 'Promoted!')), badges, say, h('small', 'isl-dim', t('▶ タップで進む', '▶ Tap to continue')));
   ov.append(glow, box);
   const close = () => {
     ov.remove();
@@ -151,6 +153,11 @@ export function playPromotion(root: HTMLElement, hero: number, from: HeroRarity,
   ov.addEventListener('click', close);
   root.append(ov);
   requestAnimationFrame(() => ov.classList.add('is-in'));
+  // 段 FX2：顔の後ろに光の放射（新しいレアリティの色。レジェンド以上は金）。2.4 秒で薄れる・閉じたら消える
+  const pal = to === 'L' || to === 'LL' ? FX_PAL.gold : (FX_RARITY[{ N: 'Common', C: 'Common', U: 'Uncommon', R: 'Rare', E: 'Epic' }[to]] ?? FX_PAL.gold);
+  const shone = playFx('sunburst', face.offsetLeft + face.offsetWidth / 2, face.offsetTop + face.offsetHeight / 2, { host: box, palette: pal, ink: false, scale: innerWidth < 600 ? 4 / 3 : 1.5, life: 2400, delay: 150 });
+  // 段 FX2b：光の放射が出るとき（演出「ふつう」「控えめ」）は、全画面の CSS の光（isl-hpfx-glow・LL の回る光）を出さない。「なし」ではいままでどおり
+  ov.classList.toggle('has-fx', shone);
 }
 
 /** 人事 → ヒーローの育成 */

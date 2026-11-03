@@ -6,10 +6,26 @@ import * as confetti from './pixelfx/fx/ui/confetti.js';
 import * as collectBurst from './pixelfx/fx/pickups/collect-burst.js';
 import * as fireworkBurst from './pixelfx/fx/explosions/firework-burst.js';
 import * as coinPop from './pixelfx/fx/island/coin-pop.js';
+import * as lootBeam from './pixelfx/fx/pickups/loot-beam.js';
+import * as powerStar from './pixelfx/fx/pickups/power-star.js';
+import * as sunburst from './pixelfx/fx/holy/sunburst.js';
+import * as healingBloom from './pixelfx/fx/nature/healing-bloom.js';
+import * as summonRise from './pixelfx/fx/spawn/summon-rise.js';
+import * as poof from './pixelfx/fx/spawn/poof.js';
+import * as hammerSparks from './pixelfx/fx/island/hammer-sparks.js';
+import * as rainBand from './pixelfx/fx/island/rain-band.js';
 
 export const EFFECTS = {
   confetti,
   'collect-burst': collectBurst,
   'firework-burst': fireworkBurst,
   'coin-pop': coinPop,
+  'loot-beam': lootBeam,
+  'power-star': powerStar,
+  sunburst,
+  'healing-bloom': healingBloom,
+  'summon-rise': summonRise,
+  poof,
+  'hammer-sparks': hammerSparks,
+  'rain-band': rainBand,
 };
