@@ -1,0 +1,124 @@
+/* ---------------------------------------------------------------- 段 P2：ヒーローの声と適性・組み合わせの図鑑（p2ui.ts） */
+.isl-p2g {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--gc) 70%, transparent);
+  background: color-mix(in srgb, var(--gc) 18%, #1d2a44);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.isl-p2g.is-s {
+  box-shadow: 0 0 6px color-mix(in srgb, var(--gc) 60%, transparent);
+}
+.isl-p2fit {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(15, 22, 38, 0.45);
+}
+.isl-p2fit-best {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.isl-p2fit-why {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.isl-p2say {
+  margin: 0;
+  font-size: 13px;
+  font-style: italic;
+  color: #ffe7a8;
+}
+.isl-p2fit-all summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--isl-dim);
+}
+.isl-p2fit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 4px 8px;
+  margin-top: 4px;
+}
+.isl-p2fit-cell {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.isl-p2fit-cell .isl-p2g {
+  flex: none;
+  min-width: 64px;
+  text-align: center;
+}
+.isl-p2tag {
+  display: block;
+  max-width: 100%;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+  color: var(--isl-dim);
+}
+.isl-p2tag b {
+  color: var(--gc);
+}
+.isl-p2dex-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+.isl-p2dex-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(15, 22, 38, 0.45);
+  border-left: 3px solid #b07cd8;
+}
+.isl-p2dex-row.is-rival {
+  border-left-color: #e0794f;
+}
+.isl-p2dex-row.is-tension {
+  border-left-color: #8a8fb0;
+}
+.isl-p2dex-row.is-kin,
+.isl-p2dex-row.is-mentor {
+  border-left-color: #6fd08c;
+}
+.isl-p2dex-row.is-hidden {
+  border-left-color: #3a4560;
+  gap: 12px;
+}
+.isl-p2dex-faces {
+  display: flex;
+  flex: none;
+}
+.isl-p2dex-faces > * + * {
+  margin-left: -10px;
+}
+.isl-p2dex-txt {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.isl-p2dex-txt small {
+  font-size: 12px;
+  line-height: 1.45;
+}
+/* カードの中の史実の一言（組み合わせ。cardui.ts） */
+.isl-cardm-note {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #7a6a52;
+}

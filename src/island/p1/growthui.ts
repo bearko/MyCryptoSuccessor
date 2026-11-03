@@ -10,6 +10,7 @@ import { rankEl } from './heroui';
 import { promote, type P1State, type Staff } from './model';
 import { after, open, type Ctx } from './screens';
 import { bar, btn, h, heroIcon, heroName } from './ui';
+import { dexCard, fitBlock } from './p2ui';
 
 const pct = (v: number) => Math.round(v * 1000) / 10;
 /** レアリティの札（色の枠と文字。Limited Legendary は虹色の枠） */
@@ -68,6 +69,9 @@ export function growthCard(ctx: Ctx, s: P1State, st: Staff, onPromote: (st: Staf
   name.append(fit);
   top.append(heroIcon(st.hero, 56), name);
   card.append(top);
+  // 段 P2：史実の適性（向いている役・根拠・ひとこと）
+  const fb = fitBlock(s, st.hero, !!st.resting);
+  if (fb) card.append(fb);
   // 経験値のバー
   const need = xpNeed(st.level ?? 1);
   const xpRow = h('div', 'isl-hxp');
@@ -155,6 +159,8 @@ export function openGrowth(ctx: Ctx, focus?: number) {
     const s = ctx.s();
     body.append(h('p', 'isl-dim', t('働くと経験値が入り、Lv が上がるほど能力が少しずつ上がります。Lv の節目でパッシブが開きます。上限 Lv に届いたら、強化アイテムで昇格（レアリティが 1 段上がる）できます。', 'Heroes gain XP by working; each level raises their stats a little. Passives open at milestone levels. At the level cap, use a promotion item to raise their rarity one step.')));
     body.append(itemsCard(s));
+    // 段 P2：ヒーローの組み合わせの図鑑
+    body.append(dexCard(s));
     const grid = h('div', 'isl-hgrid');
     // 昇格できる人 → Lv の高い順
     const list = [...s.staff].sort((a, b) => Number(!promoLock(b, s.heroItems)) - Number(!promoLock(a, s.heroItems)) || (b.level ?? 1) - (a.level ?? 1));
