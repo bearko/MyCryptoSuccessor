@@ -2453,7 +2453,7 @@ export const BUDGET = {
   floor: { C: 20_000, U: 20_000, R: 20_000, E: 50_000, L: 80_000 } as Record<Tier, number>,
   round: 1000,
   max: 9_999_000,
-  perHead: 1,
+  perHead: 2,
   crew: { wage: 100, labor: 20, cap: 2, capMax: 20, idle: 2 },
   hand: { base: 8, star: 4 },
   eff: { star: 0.04, fit: { S: 0.04, A: 0.02, B: 0.01, C: 0, D: -0.02 } as Record<'S' | 'A' | 'B' | 'C' | 'D', number> },
