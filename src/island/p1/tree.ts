@@ -18,6 +18,7 @@ import { DEPT, DEPTS, DIG_BALANCE, digRpLv, SKILL, SKILLS, TIERS, anyOfMet, dept
 import { deptLevel, deptLockText, deptOpen } from './dept';
 import { affordableSkills, bestSkillMove, carriedRp, missingFront, digBranchOpen, donate, donateLock, donations, has, hqOpen, infAt, learn, LEARNABLE, levelLock, levelUp, lvOf, nextDonateCost, nextLevelCost, nextLevelRp, openHQ, openRing, ringOpen, ringsDue, skillLock, skillTier, trainDays, trainingOf, trainees, type P1State } from './model';
 import { after, mineTip, open, type Ctx } from './screens';
+import { FX_PAL, fxAtEl } from '../fx/layer';
 import { pickHero } from './heroui';
 import { halfOf, shapeOf, BOUNDS, DEPT_LAYOUT, EDGES, GROUP_STAGE, HUBPOS, KNOTPOS, LABEL_A, OUTER, PANEL, POS, R0, RING_EDGE, RING_OUT, STEP, UNIT, curveAt, curvePart, deptAngle, edgeBends, edgeEnd, groupOfBranch, polar, type Bend, type Group, type TreeEdge } from './treelayout';
 import { bar, btn, h, heroIcon, heroName, matIcon, money, plain, rich, skuIcon } from './ui';
@@ -680,6 +681,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
         ctx.toast(isResearch(k) ? t(`研究ポイント ${rpCost(k)} で「${k.name}」を開放しました`, `Unlocked ${k.name} with ${rpCost(k)} RP`) : t(`「${k.name}」を開放しました`, `Unlocked: ${k.name}`));
         justLearned = { id: k.id, t: performance.now() };
         view.sel = k.id;
+        burstAt(ctx, FX_PAL.gold);
       }
       after(ctx);
     };
@@ -698,6 +700,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       if ((s.rp ?? 0) > rp0) setTimeout(() => ctx.toast(t(`研究 Lv の上限が上がった！ 止まっていたエクステの研究が進んだ（研究ポイント +${(s.rp ?? 0) - rp0}）`, `Research cap raised! Held-back finds levelled up (RP +${(s.rp ?? 0) - rp0})`)), 900);
       justLeveled = { id: k.id, t: performance.now() };
       view.sel = k.id;
+      burstAt(ctx, FX_PAL.ours);
       after(ctx);
     };
     /** 研究への寄付（パネルのボタン・ダブルタップ）：G を払って RP。トースト「+100 RP（次は 23,000 G）」 */
@@ -1452,4 +1455,9 @@ export function openSkills(ctx: Ctx, focus?: string) {
       zoom.style.bottom = `${Math.max(innerWidth < 600 ? 0 : 120, above + 8)}px`;
     });
   });
+}
+
+/** パネルを開けた・上げた手応え（pixelfx の collect-burst。docs/ISLAND_FX.md）：描き直したあと、選んだパネルのまんなかで光る */
+function burstAt(ctx: Ctx, palette: readonly string[]) {
+  window.setTimeout(() => fxAtEl('collect-burst', ctx.root.querySelector('.isl-tree-node.is-sel'), { palette, dy: 30 }), 60);
 }

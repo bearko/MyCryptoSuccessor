@@ -13137,3 +13137,20 @@ button.isl-dband-lead.is-on {
   outline: 2px dashed rgba(255, 255, 255, 0.7);
   outline-offset: 2px;
 }
+
+/* ドット絵のエフェクトの層（src/island/fx/layer.ts・docs/ISLAND_FX.md）。押す場所を隠さない */
+.isl-fx {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+}
+.isl-fx-cv {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  image-rendering: pixelated;
+  will-change: transform;
+}
