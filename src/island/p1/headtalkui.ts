@@ -26,7 +26,7 @@ import { bestFits, fitLine, voiceQuip } from './voice';
 import { quipOf } from './persona';
 import { done as delegDone, pickHead } from './delegui';
 import { after, open, type Ctx } from './screens';
-import { btn, h, heroIcon, money, rich } from './ui';
+import { btn, h, heroIcon, money, recLine, recTag, rich } from './ui';
 import { checkItems, detailOf, doneLine, laterLine, hireCard, itemLine, openLine, talkMode, topicLine, topicsOf, type CheckItem, type TopicId } from './headtalk';
 
 export interface TalkHooks {
@@ -163,7 +163,12 @@ function linesOf(s: P1State, dept: DeptId, c: NonNullable<typeof cur>, item: Che
 function optsOf(ctx: Ctx, s: P1State, dept: DeptId, mode: 'head' | 'mine', item: CheckItem | null, n: number, hooks: TalkHooks): HTMLElement {
   const row = h('div', 'isl-ht-opts');
   const c = cur!;
-  const opt = (label: string, on: () => void, cls = '') => row.append(btn(label, on, `isl-ht-opt ${cls}`));
+  // 段 UI5d：提案の推奨の選択肢（is-rec。話題の一覧の金色は除く）には「推奨」の札
+  const opt = (label: string, on: () => void, cls = '') => {
+    const b = btn(label, on, `isl-ht-opt ${cls}`);
+    if (/\bis-rec\b/.test(cls) && label.startsWith('✔')) b.prepend(recTag());
+    row.append(b);
+  };
   const back = () => opt(t('← 話題に戻る', '← Back'), () => go(ctx, null), 'is-back');
   if (item) {
     itemOpts(ctx, s, item, opt);
@@ -176,7 +181,7 @@ function optsOf(ctx: Ctx, s: P1State, dept: DeptId, mode: 'head' | 'mine', item:
       if (card && k >= 0) {
         opt(t(`✔ 承認：${choiceText(s, card, card.choices[k]).label}`, `✔ Approve: ${choiceText(s, card, card.choices[k]).label}`), () => decideCard(ctx, card, k), 'is-rec');
         const plan = planOfChoice(s, card, k);
-        if (plan) opt(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, card, plan));
+        if (plan) opt(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, card, plan, true));
       }
       opt(t('人材登用を開く', 'Open recruiting'), () => hooks.detail('hire'));
       back();
@@ -316,9 +321,10 @@ export function decideCard(ctx: Ctx, card: Card, k: number) {
   after(ctx);
 }
 /** 提案書を開く（承認すると会話に戻る） */
-function showPlan(ctx: Ctx, card: Card, plan: Plan) {
+function showPlan(ctx: Ctx, card: Card, plan: Plan, rec = false) {
   const s = ctx.s();
   openProposal(ctx, plan, {
+    rec,
     say: sayOf(s, card),
     role: roleOfCard(s, card).text,
     later: card.id >= 0,
@@ -393,7 +399,7 @@ function hireData(ctx: Ctx, s: P1State): HTMLElement[] {
     const x = choiceText(s, card, ch);
     box.append(h('b', '', `${x.icon} ${x.label}`), h('small', '', x.sub));
     const plan = planOfChoice(s, card, k);
-    if (plan) box.append(btn(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, card, plan), 'isl-ht-plan'));
+    if (plan) box.append(btn(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, card, plan, !!ch.rec), 'isl-ht-plan'));
     out.push(box);
   }
   const list = h('div', 'isl-card2 isl-ht-hire');
@@ -505,9 +511,9 @@ function itemData(ctx: Ctx, s: P1State, item: CheckItem): HTMLElement {
   c.choices.forEach((ch, k) => {
     const x = choiceText(s, c, ch);
     const r = h('div', `isl-ht-choice ${ch.rec ? 'is-rec' : ''}`);
-    r.append(h('b', '', `${x.icon} ${x.label}`), h('small', '', x.sub));
+    r.append(recLine(`${x.icon} ${x.label}`, ch.rec), h('small', '', x.sub));
     const plan = ch.act.k === 'do' || ch.act.k === 'approve' ? planOfChoice(s, c, k) : null;
-    if (plan) r.append(btn(t('📄 提案書', '📄 Proposal'), () => showPlan(ctx, c, plan), 'isl-ht-plan'));
+    if (plan) r.append(btn(t('📄 提案書', '📄 Proposal'), () => showPlan(ctx, c, plan, !!ch.rec), 'isl-ht-plan'));
     list.append(r);
   });
   box.append(list);
