@@ -16,10 +16,10 @@ import { icon } from '../../ui/dom';
 import { TIER_NAME } from './company';
 import { DEPT, DEPTS, DIG_BALANCE, SKILL, SKILLS, TIERS, anyOfMet, deptOf, isResearch, maxLv, rpCost, shownOf, shownText, type DeptId, type FxKind, type Mat, type Skill, type Sku, type Tier } from './data';
 import { deptLevel, deptLockText, deptOpen } from './dept';
-import { affordableSkills, bestSkillMove, digBranchOpen, donate, donateLock, donations, has, hqOpen, infAt, learn, LEARNABLE, levelLock, levelUp, lvOf, nextDonateCost, nextLevelCost, nextLevelRp, openHQ, openRing, ringOpen, ringsDue, skillLock, skillTier, trainDays, trainingOf, trainees, type P1State } from './model';
+import { affordableSkills, bestSkillMove, carriedRp, missingFront, digBranchOpen, donate, donateLock, donations, has, hqOpen, infAt, learn, LEARNABLE, levelLock, levelUp, lvOf, nextDonateCost, nextLevelCost, nextLevelRp, openHQ, openRing, ringOpen, ringsDue, skillLock, skillTier, trainDays, trainingOf, trainees, type P1State } from './model';
 import { after, mineTip, open, type Ctx } from './screens';
 import { pickHero } from './heroui';
-import { BOUNDS, DEPT_LAYOUT, EDGES, GROUP_STAGE, HUBPOS, KNOTPOS, LABEL_A, OUTER, PANEL, POS, R0, RING_EDGE, RING_OUT, STEP, UNIT, curveAt, curvePart, deptAngle, edgeBends, edgeEnd, groupOfBranch, polar, type Bend, type Group, type TreeEdge } from './treelayout';
+import { halfOf, shapeOf, BOUNDS, DEPT_LAYOUT, EDGES, GROUP_STAGE, HUBPOS, KNOTPOS, LABEL_A, OUTER, PANEL, POS, R0, RING_EDGE, RING_OUT, STEP, UNIT, curveAt, curvePart, deptAngle, edgeBends, edgeEnd, groupOfBranch, polar, type Bend, type Group, type TreeEdge } from './treelayout';
 import { bar, btn, h, heroIcon, heroName, matIcon, money, plain, rich, skuIcon } from './ui';
 
 /** ランドセクタの絵（はじまりの国 Lime） */
@@ -427,6 +427,12 @@ function infoLines(s: P1State, k: Skill, st: State): HTMLElement[] {
     const need = k.requires.map((r) => (ok(r) ? '✓' : '· ') + (SKILL[r]?.name ?? r) + (k.reqLv?.[r] ? ` Lv${k.reqLv[r]}` : '')).join(t('　', '  '));
     out.push(h('small', st === 'locked' && k.requires.some((r) => !ok(r)) ? 'isl-warn' : 'isl-dim', t(`先に要る：${need}`, `Needs: ${need}`)));
   }
+  // 引き継いだ研究パネル（ランクアップの災害で、お金のパネルだけが未取得に戻る。RP のパネルは残って、そのまま効く）
+  if (st === 'done' && carriedRp(s, k.id)) {
+    out.push(h('small', 'isl-good', t('取得済み（引き継ぎ）：いまも効いています', 'Unlocked (carried over): still active')));
+    const front = missingFront(s, k.id);
+    if (front.length) out.push(h('small', 'isl-warn', t(`手前の「${front.map((r) => SKILL[r]?.name ?? r).join('」「')}」は未取得です。開けると線がつながります（この研究は払い直しなし）`, `Not yet re-unlocked in front: ${front.map((r) => SKILL[r]?.name ?? r).join(', ')}. Unlock it to reconnect the line (no RP to pay again)`)));
+  }
   if (k.brand) out.push(h('small', (s.brand ?? 0) < k.brand ? 'isl-warn' : 'isl-good', brandNeed(s, k)));
   if (k.emblem) out.push(h('small', (s.emblem ?? 0) < k.emblem ? 'isl-warn' : 'isl-good', emblemNeed(s, k)));
   if (k.anyOf) out.push(h('small', anyOfMet(k, (r) => has(s, r)) ? 'isl-good' : 'isl-warn', anyNeed(s, k)));
@@ -780,15 +786,17 @@ export function openSkills(ctx: Ctx, focus?: string) {
      * つながりの線：親のひし形の縁から、子のひし形の縁まで（パネルの下に隠れない）。ほかのパネルを横切る線はゆるい弧（treelayout の edgeBends。左右対称の弧で避けられない線は、左右で膨らみの違う弧）。
      * 状態：開いている（親を取った・子はまだ）＝実線・鍵（親がまだ）＝細い点線・取得済みどうし＝実線で光る・外周が閉じている＝薄い点線
      */
-    const RIM = PANEL / 2 + 0.04;
     const bends = edgeBends();
     /** つながりの線（パネルの id → その線）。選んだ・マウスを乗せたパネルのつながりを強調する */
     const edgeEls: { e: TreeEdge; el: SVGPathElement }[] = [];
     /** 中心 c のひし形の縁を越える t（from=0 から、または 1 から戻る） */
-    const exitT = (a: { x: number; y: number }, b: { x: number; y: number }, bend: Bend, c: { x: number; y: number }, fromEnd: boolean) => {
+    const exitT = (a: { x: number; y: number }, b: { x: number; y: number }, bend: Bend, c: { x: number; y: number }, fromEnd: boolean, id: string | null) => {
+      // 縁：お金のパネルは菱形（L1）・研究のパネルは四角（L∞）。根もと（札・節）は菱形のまま
+      const rim = (id ? halfOf(id) : PANEL / 2) + 0.04;
+      const square = !!id && shapeOf(SKILL[id]) === 'square';
       const out = (t0: number) => {
         const q = curveAt(a, b, bend, t0);
-        return Math.abs(q.x - c.x) + Math.abs(q.y - c.y) >= RIM;
+        return (square ? Math.max(Math.abs(q.x - c.x), Math.abs(q.y - c.y)) : Math.abs(q.x - c.x) + Math.abs(q.y - c.y)) >= rim;
       };
       let lo = fromEnd ? 1 : 0;
       let hi = fromEnd ? 0.5 : 0.5;
@@ -806,8 +814,8 @@ export function openSkills(ctx: Ctx, focus?: string) {
       const b = edgeEnd(e.to, e.g);
       const bend = bends.get(e) ?? 0;
       // 根もと（ハブ）の側は札の下から（札が上に重なる）
-      const t0 = e.from ? exitT(a, b, bend, a, false) : 0;
-      const t1 = exitT(a, b, bend, b, true);
+      const t0 = e.from ? exitT(a, b, bend, a, false, e.from) : 0;
+      const t1 = exitT(a, b, bend, b, true, e.to);
       if (t1 <= t0) return;
       const P = (t0: number) => px(curveAt(a, b, bend, t0));
       const A = P(t0);
@@ -988,8 +996,8 @@ export function openSkills(ctx: Ctx, focus?: string) {
         const p = px(POS.get(k.id)!);
         const st = stateOf(s, k);
         const tier = skillTier(k);
-        // どれも同じ大きさのひし形。枠：研究パネルは枝の色・お金パネルは金の二重（閉じた外周の「?」は区分を見せない）
-        const shape = isResearch(k) || (st === 'ring' && !isGoalTier(k)) || k.sealed ? 'is-research' : 'is-money';
+        // 形は払うもので決まる：研究ポイント（RP）のパネルは四角・お金のパネルは菱形（閉じた外周の「?」も同じ。treelayout の shapeOf）
+        const shape = shapeOf(k) === 'square' ? 'is-research' : 'is-money';
         const n = h('button', `isl-tree-node ${shape} is-${st} ${view.sel === k.id ? 'is-sel' : ''} ${k.brand ? 'is-brand' : ''} ${k.big ? 'is-dust' : ''} ${tier !== 'C' ? `is-tier-${tier}` : ''}`);
         n.type = 'button';
         n.style.left = `${p.x}px`;
@@ -1054,6 +1062,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
           pb.classList.add('isl-tree-prog');
           n.append(pb);
         }
+        if (st === 'done' && carriedRp(s, k.id)) n.classList.add('is-carried');
         if (target === k.id) n.classList.add('is-hot');
         if (justLearned?.id === k.id && performance.now() - justLearned.t < 1500) n.classList.add('is-learned');
         if (justLeveled?.id === k.id && performance.now() - justLeveled.t < 900) n.classList.add('is-lvup');
@@ -1119,7 +1128,9 @@ export function openSkills(ctx: Ctx, focus?: string) {
       const label =
         st === 'done'
           ? isResearch(sel) && !sel.inf
-            ? t('研究済み', 'Researched')
+            ? carriedRp(s, sel.id)
+              ? t('研究済み（引き継ぎ）', 'Researched (carried over)')
+              : t('研究済み', 'Researched')
             : only
             ? t('開放済み', 'Unlocked')
             : lv >= mx
@@ -1158,7 +1169,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       }
     } else if (sealed) detail.append(h('p', 'isl-dim', t('真ん中の本社を押して、開放しましょう。開放すると、11 の部門の枝が広がります。', 'Tap HQ in the middle to unlock it. Branches for the 11 departments will spread out.')));
     // 段 UI3：説明の帯はスマホで 2 行まで（短く）
-    else detail.append(h('p', 'isl-dim isl-tree-legend', t('枝の色の枠＝研究パネル（RP）、金の二重の枠＝お金パネル（Lv5 まで）。押すと説明が出ます。', 'Branch-coloured frame = research panel (RP); gold double frame = money panel (to Lv5). Tap one for details.')));
+    else detail.append(h('p', 'isl-dim isl-tree-legend', t('四角＝研究ポイント・菱形＝お金。緑＝開けられる・赤＝足りない・暗い＝手前がまだ', 'Square = RP, diamond = money. Green = can unlock, red = short, dim = not yet')));
     // ズーム
     const zoom = h('div', 'isl-tree-zoom');
     zoom.append(
@@ -1212,7 +1223,6 @@ export function openSkills(ctx: Ctx, focus?: string) {
       const curtain = h('div', 'isl-tree-curtain');
       const left = Math.max(0, RING_MS - (performance.now() - fx.t0));
       const say = () => {
-        if (!curtain.isConnected) return;
         fx.talk = true;
         const box = h('div', 'isl-tree-ringtalk');
         const mi = h('img');
@@ -1231,8 +1241,10 @@ export function openSkills(ctx: Ctx, focus?: string) {
         curtain.append(box);
         curtain.classList.add('is-talk');
       };
+      // 不具合の修正：以前は say() を wrap に付ける前に呼び、「付いていなければ何もしない」で戻っていた。
+      // そのため、演出のあとに ✕ で閉じて開き直す・描き直されると、「OK」の無い幕だけが残り、スキルツリーが二度と押せなかった
       if (fx.talk || left <= 0) say();
-      else setTimeout(say, left);
+      else setTimeout(() => curtain.isConnected && say(), left);
       wrap.append(curtain);
     }
     body.append(wrap);

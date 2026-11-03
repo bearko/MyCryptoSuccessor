@@ -10,10 +10,11 @@
  *   月次報告・決算書の人件費の行と同じ合計になる。
  */
 import { t } from '../../i18n';
-import { CHARISMA, DEPT_SKILLS, HERO_RARITY, HIRE_RARITIES, MORALE, PAY, SALARY, SECTORS, capLv, type HeroRarity, type Task, type Tier } from './data';
+import { CHARISMA, DEPT_SKILLS, HIRE_POOL, SKILL, HERO_RARITY, HIRE_RARITIES, MORALE, PAY, SALARY, SECTORS, capLv, type HeroRarity, type Task, type Tier } from './data';
 import { heroRarityOf, rarIdx } from './hero';
 import { fatigueMorale } from './ga';
-import { assign, growthOn, has, lvMul, staffOf, wageMul, wageOf, type P1State, type Staff } from './model';
+import { assign, growthOn, has, lvMul, staffOf, uncommonHeroes, wageMul, wageOf, ringOpen, type P1State, type Staff } from './model';
+import { heroById } from '../../game/catalog';
 
 /**
  * 段 E2 を止める（自動プレイ・テストで「段 E2 の前」と比べるためだけ。ふつうのゲームでは使わない）：士気は動かず（×1）、
@@ -75,6 +76,67 @@ export const canHireRarity = (s: P1State, r: HeroRarity, v = charismaOf(s)) => r
 export function nextCap(s: P1State, v = charismaOf(s)): { r: HeroRarity; at: number; left: number } | null {
   const r = HIRE_RARITIES.find((x) => capAt(x) > v);
   return r ? { r, at: capAt(r), left: capAt(r) - v } : null;
+}
+/** カリスマ度の上げ方の候補（いまの町でできること）。gain はそのときの上がる量 */
+export interface CharismaWay {
+  text: string;
+  gain: number;
+}
+export function charismaWays(s: P1State): CharismaWay[] {
+  const tier = s.tier ?? 'C';
+  const out: CharismaWay[] = [];
+  if (!s.cleared) out.push({ gain: CHARISMA.clear[tier], text: t(`いまの町を制覇する（+${CHARISMA.clear[tier]}）`, `Conquer this town (+${CHARISMA.clear[tier]})`) });
+  const cur = s.land?.cur ?? s.sector ?? 'c1';
+  if (!(s.presented ?? []).includes(cur)) out.push({ gain: CHARISMA.present[tier], text: t(`荒れ地の研究成果を発表する（+${CHARISMA.present[tier]}）`, `Present your dig findings (+${CHARISMA.present[tier]})`) });
+  const p = charismaParts(s);
+  if (p.brand < CHARISMA.brand.max) {
+    const peak = Math.max(s.brandPeak ?? 0, s.brand ?? 0);
+    const need = CHARISMA.brand.per - (peak % CHARISMA.brand.per);
+    out.push({ gain: 1, text: t(`ブランド力をあと ${need} 上げる（+1）`, `Raise brand by ${need} more (+1)`) });
+  }
+  if (!has(s, 'hr_brand') && ringOpen(s, 'U')) out.push({ gain: CHARISMA.panel, text: t(`研究パネル「採用ブランド」を開く（+${CHARISMA.panel}。${SKILL.hr_brand?.rp ?? 0} RP）`, `Research Employer brand (+${CHARISMA.panel}, ${SKILL.hr_brand?.rp ?? 0} RP)`) });
+  return out;
+}
+/** 次に雇えるようになるまでの、いちばん近い上げ方（足りる中でいちばん小さい上がり方。無ければいちばん大きい上がり方） */
+export function nearestWay(s: P1State, left: number): CharismaWay | null {
+  const ways = charismaWays(s);
+  if (!ways.length) return null;
+  const enough = ways.filter((w) => w.gain >= left).sort((a, b) => a.gain - b.gain)[0];
+  return enough ?? [...ways].sort((a, b) => b.gain - a.gain)[0];
+}
+/** 内訳（「いまのカリスマ 7：町の制覇 +3・研究成果の発表 +1・ブランド力 +3」） */
+export function charismaBreakdown(s: P1State): string {
+  const p = charismaParts(s);
+  const parts = [p.clear ? t(`町の制覇 +${p.clear}`, `Conquests +${p.clear}`) : '', p.present ? t(`研究成果の発表 +${p.present}`, `Findings +${p.present}`) : '', p.brand ? t(`ブランド力 +${p.brand}`, `Brand +${p.brand}`) : '', p.panel ? t(`採用ブランド +${p.panel}`, `Employer brand +${p.panel}`) : ''].filter(Boolean);
+  return t(`いまのカリスマ ${p.total}${parts.length ? `：${parts.join(t('・', ', '))}` : ''}`, `Charisma now ${p.total}${parts.length ? `: ${parts.join(', ')}` : ''}`);
+}
+/**
+ * 雇える候補が 0 人のときの、理由と次の一手（雇う画面）。候補がいれば空
+ * 「Common のヒーローは全員仲間になりました。次は Uncommon：カリスマ 10（あと 3）。…」
+ */
+export function hireEmptyLines(s: P1State): string[] {
+  if (!has(s, 'hire') || s.hirePool.length) return [];
+  const v = charismaOf(s);
+  const free = (id: number) => heroById.has(id) && !s.staff.some((x) => x.hero === id);
+  const out: string[] = [];
+  const commonLeft = HIRE_POOL.filter(free).length;
+  out.push(commonLeft ? t('いまは雇える候補がいません。来月の入れ替えを待ちましょう。', 'No candidates right now. Wait for next month’s refresh.') : t('Common のヒーローは全員仲間になりました。', 'Every Common hero has joined.'));
+  // 次のレアリティ
+  const nx = nextCap(s, v);
+  const uLeft = uncommonHeroes().filter(free).length;
+  if (nx && nx.r === 'U') {
+    out.push(t(`次は Uncommon：カリスマ ${nx.at}（あと ${nx.left}）。カリスマは町の制覇・研究成果の発表・ブランド力で上がる。`, `Next is Uncommon: charisma ${nx.at} (${nx.left} to go). Charisma rises with conquests, findings and brand.`));
+    out.push(charismaBreakdown(s));
+    const w = nearestWay(s, nx.left);
+    if (w) out.push(t(`いちばん近い上げ方：${w.text}`, `Nearest way: ${w.text}`));
+  } else if (uLeft && hireCap(s, v) !== 'C') {
+    out.push(t('Uncommon の候補は、来月の入れ替えで来ます。', 'Uncommon candidates arrive at next month’s refresh.'));
+  } else if (!uLeft && hireCap(s, v) !== 'C') {
+    out.push(t('Uncommon のヒーローも全員仲間になりました。', 'Every Uncommon hero has joined.'));
+    if (!has(s, 'headhunt')) out.push(t('次は Rare：研究パネル「ヘッドハンティング」を開くと、カリスマ 35 から 1 人ずつ来ます。', 'Next is Rare: research Headhunting (charisma 35) for one a month.'));
+    else if (nx && nx.r === 'R') out.push(t(`次は Rare：カリスマ ${nx.at}（あと ${nx.left}）。`, `Next is Rare: charisma ${nx.at} (${nx.left} to go).`));
+  }
+  return out;
 }
 /** 雇う画面の 1 行：「カリスマ 42：Rare まで雇える（Epic まであと 18）」 */
 export function charismaLine(s: P1State, v = charismaOf(s)): string {

@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { SKILL, type Tier } from '../src/island/p1/data';
-import { BEND_MAX, BOUNDS, EDGES, EDGE_CLEAR, GAP, HUBPOS, PANEL, POS, RING_OUT, STEP, UNIT, bendSize, curveAt, curveNear, curvePart, edgeBends, edgeEnd, hubsAround, polyInBox, rimDist } from '../src/island/p1/treelayout';
+import { halfOf, linfSeg, shapeById, BEND_MAX, BOUNDS, EDGES, EDGE_CLEAR, GAP, HUBPOS, PANEL, POS, RING_OUT, STEP, UNIT, bendSize, curveAt, curveNear, curvePart, edgeBends, edgeEnd, hubsAround, polyInBox, rimDist } from '../src/island/p1/treelayout';
 
 describe('スキルツリー：ひし形のパネルの大きさと間隔', () => {
   it('パネルはひし形の外接の幅 UNIT の 0.6〜0.7（64px）。段の間・パネルの間は、ひし形のすき間が 0.8〜1 枚分', () => {
@@ -120,7 +120,6 @@ function l1ToSeg(p: { x: number; y: number }, q0: { x: number; y: number }, q1: 
  */
 function crossingEdges(tiers: Tier[]) {
   const bends = edgeBends();
-  const r = PANEL / 2 + EDGE_CLEAR;
   const out: string[] = [];
   for (const e of EDGES) {
     if (!tiers.includes(SKILL[e.to].tier ?? 'C')) continue;
@@ -128,7 +127,8 @@ function crossingEdges(tiers: Tier[]) {
     const b = edgeEnd(e.to, e.g);
     const m = bends.get(e) ?? 0;
     const pts = Array.from({ length: 121 }, (_, i) => curveAt(a, b, m, i / 120));
-    const hit = [...POS].filter(([id, p]) => id !== e.from && id !== e.to && pts.some((q, i) => i > 0 && l1ToSeg(p, pts[i - 1], q) < r)).map(([id]) => id);
+    // 形は払うもので決まる：研究（RP）は四角（L∞）・お金は菱形（L1）
+    const hit = [...POS].filter(([id, p]) => id !== e.from && id !== e.to && pts.some((q, i) => i > 0 && (shapeById(id) === 'square' ? linfSeg(p, pts[i - 1], q) : l1ToSeg(p, pts[i - 1], q)) < halfOf(id) + EDGE_CLEAR)).map(([id]) => id);
     if (hit.length) out.push(`${e.from ?? '(根もと)'} → ${e.to}（${hit.join('・')}）`);
   }
   return out;

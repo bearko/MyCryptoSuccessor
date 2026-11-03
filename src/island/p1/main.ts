@@ -636,7 +636,8 @@ const SCREEN: Record<ScreenId, () => void> = {
   staff: () => openStaff(ctx),
   side: () => openSide(ctx),
   growth: () => openGrowth(ctx),
-  hire: () => openHire(ctx),
+  // 人材登用の画面は「候補の一覧 → カリスマ（経営者の部分に 1 つだけ）」の順（カリスマの札が 2 回出ないように）
+  hire: () => openHire(ctx, { charisma: false }),
   pay: () => openPayroll(ctx),
   notes: () => openNotes(ctx),
   dev: () => openDev(ctx),

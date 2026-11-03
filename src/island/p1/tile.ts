@@ -8,6 +8,7 @@ import { INTEL, MATS, P1B, PRODUCT, STORE, rivalDef, sku, skuParts, type Sku } f
 import { DUNGEON, dungeonDepth, museumMarks, museumOpen, museumSlots, museumValue, revivedSites, permitFee, permitLock, presentLock, presentRes, researchOf, runLock, sessionSec, siteProgress, siteTopic, topicProgress, topicsOf, wasteAt, wasteName, extName, gateToll, invLv, isGate, poolCap, poolUsed, allowedDirs, assign, demolish, ground, invest, myWorkshop, order as placeOrder, LOT, intelLv, moveCost, occupant, oneWay, myShops, refundOf, shopArea, sidePay, speed, staffOf, storageCap, type P1State, type PBuilding } from './model';
 import { pickExt, pickHero } from './heroui';
 import { ackOf, benchToChange, craftable, inTut, ordersOf, shelfPicks, swapGain, weakShelf, type Order, type OrderBox } from './orders';
+import { stockMsg, stockPlan } from './moves';
 import { execute } from './deleg';
 import { chooseMake, investList, openAds, openBuy, openShop, openWorkshop, pickClerk, rivalName, shopView, type Ctx } from './screens';
 import { bar, btn, h, heroIcon, heroName, money, skuIcon, skuName } from './ui';
@@ -244,12 +245,16 @@ function runOrder(ctx: Ctx, box: OrderBox, o: Order, b: PBuilding, hooks: TileHo
           const add = o.k === 'shelf' && p.add;
           const idx = o.k === 'swap' ? k : sh.shelves.indexOf(null);
           if (add && s.money < p.cost) return short(ctx, s, p.cost);
-          const e = execute(s, { k: 'stock', uid, key, rar, idx: add ? -1 : idx, add, ...(p.make != null ? { make: p.make } : {}) });
+          const act = { k: 'stock' as const, uid, key, rar, idx: add ? -1 : idx, add, ...(p.make != null ? { make: p.make } : {}) };
+          const plan = stockPlan(s, act);
+          const e = execute(s, act);
           if (e === 'money') return short(ctx, s, p.cost);
           if (e) return ctx.toast(t('いまは並べられません', 'Can’t stock it now'));
           ctx.sfx?.(add ? 'spend' : 'tap');
           ack(ctx, box.hero, add ? t(`棚を足して${skuName(x)}を並べます`, `adding a shelf for ${skuName(x)}`) : t(`${skuName(x)}を並べます`, `stocking ${skuName(x)}`));
           if (p.make != null) ack(ctx, crafterOf(p.make), t(`${skuName(x)}に切り替えます`, `switching to ${skuName(x)}`));
+          // 何が変わったか（棚の番号・作業台の切り替え。いまのロットが終わってから替わるときはそう書く）
+          if (plan) ctx.toast(stockMsg(plan, key));
           done();
         },
       });
