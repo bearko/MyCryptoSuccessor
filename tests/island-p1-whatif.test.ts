@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { baseOf } from '../scripts/island/audit';
 import { bonus, gainSkill, jamOf, nextJam, serializeP1, stageCaps, uptime, whatIf } from '../src/island/p1/model';
+import { SKILL } from '../src/island/p1/data';
 
 describe('稼働率（uptime）', () => {
   it('休憩室・シフト制で上がり、賞与（疲れている人）で上がる。0〜1', () => {
@@ -50,7 +51,10 @@ describe('段ごとの打ち手の見込み（whatIf）', () => {
     expect(h.some((w) => w.move.kind === 'person' && w.ok)).toBe(true);
     const b = whatIf(baseOf('j_buy'), 'buy');
     expect(b.some((w) => w.move.kind === 'skill' && w.move.id === 'stock1' && w.ok)).toBe(true);
-    const t = whatIf(baseOf('j_trip'), 'buy');
+    // 段 UI5b：つながりの見直し（treelinks.ts）で、早足の仕入れの先に要るものは「まとめ買い」。手前を持っている状態で比べる
+    const trip = baseOf('j_trip');
+    for (const r of SKILL.swift.requires ?? []) if (!trip.skills.includes(r)) trip.skills.push(r);
+    const t = whatIf(trip, 'buy');
     expect(t.some((w) => w.move.kind === 'build' && w.move.id === 'warehouse' && w.ok)).toBe(true);
     expect(t.some((w) => w.move.kind === 'skill' && w.move.id === 'swift' && w.ok)).toBe(true);
   });

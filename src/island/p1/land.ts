@@ -9,7 +9,7 @@ import { csMove } from './cs';
 import { diploMoved } from './diplo';
 import { BRAND, LETTER_NEED, MANAGER, P1B, SECTORS, TOP_STREAK, hasArea, type Mat, type Sku, type Task, type Tier } from './data';
 import { brandAdd, book, newLand, sectorDef, sectorState, TIER_NAME, type SectorRec } from './company';
-import { assign, dropStaleArea, ensureDig, fitEquipment, groundOf, hasLetter, letterProgress, newP1, postFree, SECTOR_TASKS, staffOf, syncFacilities, syncGround, type P1State, type Report } from './model';
+import { assign, trimForSector, dropStaleArea, ensureDig, fitEquipment, groundOf, hasLetter, letterProgress, newP1, postFree, SECTOR_TASKS, staffOf, syncFacilities, syncGround, type P1State, type Report } from './model';
 import { rankUpTier, resetForTier } from './reset';
 
 /** セクタごとに持つもの（セクタを離れるときに写しを取り、戻ったら戻す） */
@@ -152,6 +152,8 @@ export function moveTo(s: P1State, target: string, manager: number | null): Move
     const m = staffOf(s, manager)!;
     m.task = 'manager';
     m.target = cur;
+    // 段 UI5b：役職は兼任しない（事業部長の役職は外れる。固有の能力 multiRole のヒーローは残る）
+    trimForSector(m);
   }
   rec.manager = manager;
   // 離れたときの売上と費用（最後の月の報告）。まだ締めが無ければ、マネージャーの売上は 0

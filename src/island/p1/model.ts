@@ -113,6 +113,8 @@ import {
   type ProductDef,
   type SectorProfile,
   HERO_GROWTH,
+  multiRole,
+  DEPTS,
   type HeroRarity,
   type PassiveKind,
   type PromoItem,
@@ -181,6 +183,12 @@ export interface Staff {
   quit?: number;
   talked?: boolean;
   seen?: { lv: number; rar: number; role: number };
+  /**
+   * 事業部長の役職（段 UI5b・組織図）：部長を務めている部門。持ち場の仕事（task）とは別（部長は町の持ち場と兼ねてよい）。
+   * 役職（部長＋セクター長）は 1 人 1 つまで（固有の能力 multiRole のヒーローは 2 つまで。deleg.ts の roleCount・canHoldRole）。
+   * 前は task 'lead'・target 'H:部門' で持っていた（読み込むときに移す：deleg.ts の fixRoles）
+   */
+  heads?: DeptId[];
 }
 
 export interface Slot {
@@ -434,6 +442,10 @@ export interface Flags {
   csTalk?: boolean;
   /** 法務の部門の紹介（マインちゃん。Epic の町に初めて進出したあと 1 回。段 H1 で足し、段 H2 で中身の紹介に） */
   legalTalk?: boolean;
+  /** 段 UI5b：下の帯がグループの帯になったときのマインちゃんの説明（1 回）を見た */
+  footTalk?: boolean;
+  /** 段 UI5b：読み込んだときに兼任を外したヒーロー（マインちゃんの一言で知らせたら消す。無くてもよい項目なのでセーブの版は変えない） */
+  roleFix?: number[];
   /** 段 UI2：到着の案内か部門の紹介を最後に出した日（部門の紹介は 1 日に 1 つずつ。無くてもよい項目なのでセーブの版は変えない） */
   talkDay?: number;
 }
@@ -1206,6 +1218,103 @@ export function restDaysLeft(s: P1State, st: Staff): number {
  * ヒーローを付け替える（ヒーロー選びで、ほかの担当についている人を押したとき）：いまの担当から外せるか。
  * 修行中・セクタマネージャー・休憩中・待機中は付け替えない（docs/ISLAND_PHASE1.md「ヒーロー選びの見分け」）
  */
+// ---------------------------------------------------------------- 役職の決まり（段 UI5b・組織図。ここ 1 か所。deleg.ts・org.ts・land.ts・reset.ts が使う）
+
+/** 持っている役職（事業部長・セクター長）の数。持ち場の仕事・チームリーダーは数えない */
+export const roleCount = (st: Pick<Staff, 'task' | 'heads'>) => (st.heads?.length ?? 0) + (st.task === 'manager' ? 1 : 0);
+/**
+ * その役職を持てるか：役職（事業部長・セクター長）は 1 人 1 つまで（兼任しない）。固有の能力（multiRole）のヒーローはその数まで。
+ * keep：いま持っていて替える役職（同じ役職に置き直すときは数えない）
+ */
+export function canHoldRole(st: Pick<Staff, 'hero' | 'task' | 'target' | 'heads'>, want: { head: DeptId } | { sector: string }): boolean {
+  let n = roleCount(st);
+  if ('head' in want && st.heads?.includes(want.head)) n--;
+  if ('sector' in want && st.task === 'manager' && st.target === want.sector) n--;
+  // セクター長は持ち場（task）を替える：いまのセクター長の役職は外れる
+  if ('sector' in want && st.task === 'manager') n = (st.heads?.length ?? 0);
+  return n < multiRole(st.hero);
+}
+/**
+ * 古いセーブの読み込み（段 UI5b）：task 'lead'・'H:部門' の事業部長を役職（heads）へ移す。役職が上限を超えていたら（兼任）、
+ * 1 つだけ残して（セクター長 → 先の部長の順）ほかは外す。外したヒーローの番号を返す（マインちゃんの一言に使う）
+ */
+export function fixRoles(s: P1State): number[] {
+  const out: number[] = [];
+  for (const st of s.staff) {
+    if (st.task === 'lead' && typeof st.target === 'string' && st.target.startsWith('H:')) {
+      const d = st.target.slice(2) as DeptId;
+      st.task = null;
+      st.target = null;
+      if (DEPTS.some((x) => x.id === d) && !s.staff.some((x) => x.heads?.includes(d))) st.heads = [...(st.heads ?? []), d];
+    }
+    if (st.heads && !st.heads.length) delete st.heads;
+  }
+  // 同じ部門に 2 人いたら、先の人だけ
+  const seen = new Set<DeptId>();
+  for (const st of s.staff)
+    if (st.heads) {
+      st.heads = st.heads.filter((d) => (seen.has(d) ? false : (seen.add(d), true)));
+      if (!st.heads.length) delete st.heads;
+    }
+  // セクター長の写し（rec.manager）が、いまセクター長でない人を指していたら外す（離れたまま 2 つの町を持っていることにしない）
+  for (const [id, rec] of Object.entries(s.land?.recs ?? {})) {
+    if (rec.manager == null) continue;
+    const st = staffOf(s, rec.manager);
+    if (!st || st.task !== 'manager' || st.target !== id) {
+      if (st && !out.includes(st.hero)) out.push(st.hero);
+      rec.manager = null;
+    }
+  }
+  // 兼任：上限を超えたぶんを外す（セクター長を残し、部長は先の部門から）
+  for (const st of s.staff) {
+    const cap = multiRole(st.hero);
+    if (roleCount(st) <= cap) continue;
+    const keepHeads = Math.max(0, cap - (st.task === 'manager' ? 1 : 0));
+    st.heads = (st.heads ?? []).slice(0, keepHeads);
+    if (!st.heads.length) delete st.heads;
+    if (!out.includes(st.hero)) out.push(st.hero);
+  }
+  return out;
+}
+
+/**
+ * セクター長になった人（段 UI5b・組織図の決まり）：兼ねられない事業部長の役職（heads）を外す（固有の能力 multiRole のヒーローは残る）。外したら true。
+ */
+export function trimForSector(st: Staff): boolean {
+  const keep = Math.max(0, multiRole(st.hero) - 1);
+  if (!st.heads || st.heads.length <= keep) return false;
+  st.heads = st.heads.slice(0, keep);
+  if (!st.heads.length) delete st.heads;
+  return true;
+}
+/**
+ * いまは居ないセクタ id のセクター長を hero にする（ランドマップ・組織図から。段 UI5b でまとめた）。前のセクター長は手に戻る。
+ * hero がほかのセクタのセクター長なら、そのセクタはセクター長なしに。いまの仕事・持ち場からは外れ、兼ねられない事業部長の役職も外れる。
+ * 返り値：仕事か役職を外したか（トースト用）。セクタの記録が無ければ null
+ */
+export function setSectorHead(s: P1State, id: string, hero: number): boolean | null {
+  const rec = s.land?.recs[id];
+  const nx = staffOf(s, hero);
+  if (!rec || !nx) return null;
+  const old = rec.manager != null ? staffOf(s, rec.manager) : null;
+  if (old && old !== nx && old.task === 'manager' && old.target === id) {
+    old.task = null;
+    old.target = null;
+  }
+  if (nx.task === 'manager' && typeof nx.target === 'string' && nx.target !== id) {
+    const r2 = s.land?.recs[nx.target];
+    if (r2 && r2.manager === hero) r2.manager = null;
+  }
+  const moved = (!!nx.task && !(nx.task === 'manager' && nx.target === id)) || !!nx.heads?.length;
+  nx.task = 'manager';
+  nx.target = id;
+  trimForSector(nx);
+  // ほかの仕事の枠からは外す
+  for (const sl of s.slots) if (sl.worker === hero) sl.worker = null;
+  for (const sh of Object.values(s.shops)) if (sh.staff === hero) sh.staff = null;
+  rec.manager = hero;
+  return moved;
+}
 export const canSwap = (st: Staff) => st.task != null && st.task !== 'train' && st.task !== 'manager' && st.task !== 'lead' && !st.resting;
 
 /**
@@ -3620,7 +3729,7 @@ export function step(s: P1State): DayResult {
   if (growthOn(s)) {
     // 役目（リーダー・部長）：毎日、役目の経験値（上の役目ほど多い）
     for (const st of s.staff) {
-      const v = st.task === 'lead' ? roleXp(st) : 0;
+      const v = st.task === 'lead' || st.heads?.length ? roleXp(st) : 0;
       if (!v) continue;
       const up = giveXp(s, st, v, xpBonus(s, st));
       if (up) (res.leveled ??= []).push(up);
@@ -4439,6 +4548,9 @@ export function deserializeP1(json: string): P1State | null {
     migrateEquipSkills(s);
     if (hasArea(s.tier) && !s.area) initArea(s);
     dropStaleArea(s);
+    // 段 UI5b：事業部長を役職（heads）へ移す・兼任になっていたら 1 つだけ残す（外したヒーローは、マインちゃんの一言で知らせる：main.ts）
+    const fixed = fixRoles(s);
+    if (fixed.length) s.flags.roleFix = [...new Set([...(s.flags.roleFix ?? []), ...fixed])];
     return s;
   } catch {
     return null;

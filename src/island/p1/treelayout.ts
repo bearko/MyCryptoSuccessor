@@ -409,10 +409,10 @@ const TWO_OK = TWO.map((m) => ({ m, d: bendSize(m) }))
  * 2. それでも横切るなら、左右で膨らみの違う弧（TWO_OK）を膨らみの小さい順に試し、横切るパネルが 0 になる最初のもの。
  * どれでも横切るなら、左右対称の弧のうち横切るパネルがいちばん少ないもの（テストで 0 本を確かめる）
  */
-export function edgeBend(a: { x: number; y: number }, b: { x: number; y: number }, skip: (id: string) => boolean, hubs: HubBox[] = []): Bend {
-  // 近くのパネルだけ調べる（弧は線から BEND_MAX より離れない。その外＋ひし形の半分は見ない）
+export function edgeBend(a: { x: number; y: number }, b: { x: number; y: number }, skip: (id: string) => boolean, hubs: HubBox[] = [], at: Map<string, { x: number; y: number }> = POS): Bend {
+  // 近くのパネルだけ調べる（弧は線から BEND_MAX より離れない。その外＋ひし形の半分は見ない）。at：パネルの位置（並びを探すとき・段 UI5b のつながりの見直しは、試しの位置で）
   const pad = BEND_MAX + PANEL;
-  const near = [...POS].filter(([id, p]) => !skip(id) && p.x > Math.min(a.x, b.x) - pad && p.x < Math.max(a.x, b.x) + pad && p.y > Math.min(a.y, b.y) - pad && p.y < Math.max(a.y, b.y) + pad);
+  const near = [...at].filter(([id, p]) => !skip(id) && p.x > Math.min(a.x, b.x) - pad && p.x < Math.max(a.x, b.x) + pad && p.y > Math.min(a.y, b.y) - pad && p.y < Math.max(a.y, b.y) + pad);
   const nearHubs = hubs.filter((p) => p.x > Math.min(a.x, b.x) - pad - p.w && p.x < Math.max(a.x, b.x) + pad + p.w && p.y > Math.min(a.y, b.y) - pad - p.h && p.y < Math.max(a.y, b.y) + pad + p.h);
   // 判定はテスト（折れ線にして 120 区間）よりほんの少し広い余白で（細かさの違いで、かすめる線を見落とさない）
   const rOf = (id: string) => halfOf(id) + EDGE_CLEAR + 0.005;
@@ -502,7 +502,7 @@ function l1Seg(p: { x: number; y: number }, q0: { x: number; y: number }, q1: { 
   return best;
 }
 /** 弧を 60 区間の折れ線に */
-function curvePoly(a: { x: number; y: number }, b: { x: number; y: number }, m: Bend) {
+export function curvePoly(a: { x: number; y: number }, b: { x: number; y: number }, m: Bend) {
   const { c1, c2 } = curveCtrl(a, b, m);
   const pts = [a];
   for (let i = 1; i <= 60; i++) {
@@ -513,7 +513,7 @@ function curvePoly(a: { x: number; y: number }, b: { x: number; y: number }, m: 
   return pts;
 }
 /** 折れ線が、点 p のひし形（L1 の半径 r）に入るか（区間ごとに。区間の箱から離れていれば調べない） */
-function polyNear(pts: { x: number; y: number }[], p: { x: number; y: number }, r: number, square = false) {
+export function polyNear(pts: { x: number; y: number }[], p: { x: number; y: number }, r: number, square = false) {
   for (let i = 1; i < pts.length; i++) {
     const q0 = pts[i - 1];
     const q1 = pts[i];

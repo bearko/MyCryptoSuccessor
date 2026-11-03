@@ -791,6 +791,21 @@ export function policy(s: P1State, c: Ctx): Action[] {
     acts.push({ kind: 'skill', run: () => learn(s, id), tag: research ? undefined : SKILL[id].branch === 'dig' ? 'tool' : 'money' });
     return true;
   };
+  /**
+   * 段 UI5b：まだ取れないパネル id の、先に要るもの（たどって最初に取れるもの）。先に要るもの以外の理由（外周・エンブレム・ブランド力・RP）で取れないなら null
+   */
+  const missingPre = (id: string, seen = new Set<string>()): string | null => {
+    const k = SKILL[id];
+    if (!k || seen.has(id) || has(s, id) || pending.has(id)) return null;
+    seen.add(id);
+    for (const r of k.requires ?? []) {
+      if (has(s, r) || pending.has(r)) continue;
+      if (learnable(r)) return r;
+      const deeper = missingPre(r, seen);
+      if (deeper) return deeper;
+    }
+    return null;
+  };
   /** 取れる（スキル：条件を満たしている／設備投資：その段に届いていない建物がある） */
   const can = (id: string) => (invOf(id) ? invNeed(id).length > 0 : lvTok(id) ? lvCan(lvTok(id)!) : learnable(id));
   const costOf = (id: string) => (invOf(id) ? invCost(id) : lvTok(id) ? nextLevelCost(s, lvTok(id)!) : SKILL[id] && isResearch(SKILL[id]) ? 0 : SKILL[id].cost);
@@ -1086,7 +1101,12 @@ export function policy(s: P1State, c: Ctx): Action[] {
         const iv = invOf(id);
         const kind = iv ? INVEST[iv.id]?.kind : null;
         if (iv && !can(id) && kind !== 'warehouse' && !invTargets(s, iv.id).length) return 'wait';
-        if (!can(id)) return 'skip';
+        if (!can(id)) {
+          // 段 UI5b：つながりの見直し（treelinks.ts）で先に要るものが変わったパネルは、まだの手前から順に取る（決まった順の意図を保つ）
+          const pre = !iv && !lvTok(id) ? missingPre(id) : null;
+          if (pre) return take(pre) ? 'wait' : 'wait';
+          return 'skip';
+        }
         return take(id) ? 'skip' : 'wait';
       };
       const shopUpTo = (n: number, onlyIfSell: boolean): Step => () => {
@@ -1191,9 +1211,11 @@ export function policy(s: P1State, c: Ctx): Action[] {
       const caps = stageCaps(s);
       const order = n > 0 ? [] : [bn, ...(['buy', 'craft', 'haul', 'sell'] as Stage[]).filter((k) => k !== bn).sort((a, b) => caps[a].perMonth - caps[b].perMonth)];
       for (const st of order) {
-        for (const id of BRANCH_ORDER[st]) {
+        for (const id0 of BRANCH_ORDER[st]) {
           if (n >= 2) break;
-          if (!can(id) || costOf(id) > cap) continue;
+          // 段 UI5b：先に要るものが変わったパネル（treelinks.ts）は、まだの手前を先に
+          const id = can(id0) ? id0 : !invOf(id0) && !lvTok(id0) ? missingPre(id0) : null;
+          if (!id || !can(id) || costOf(id) > cap) continue;
           const cost = costOf(id);
           if (take(id, 0)) {
             cap -= cost;
