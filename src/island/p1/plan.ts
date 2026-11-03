@@ -37,11 +37,13 @@ import {
   syncShelves,
   goodsSales,
   adCost,
+  syncFacilities,
+  syncShop,
   type P1State,
   type Stage,
 } from './model';
 import { execute, heroNm, newDeleg, type PropAct } from './deleg';
-import { grossRate, goodsName, partMonthly, shopMonthly } from './moves';
+import { grossRate, goodsName, partMonthly } from './moves';
 
 // ---------------------------------------------------------------- 型
 
@@ -179,6 +181,19 @@ export function stepsOf(s: P1State, a: PropAct, used = new Set<number>()): { ste
       }
       return { steps };
     }
+    case 'build': {
+      // お店を出す：売り場の人つき（待機中の人がいれば店長に、従業員 1 人。毎月の費用は従業員の分）
+      const steps: Step[] = [{ k: 'act', a }];
+      if (P1B[a.id]?.kind === 'shop') {
+        const h = s.staff.filter((st) => st.task == null && !st.resting && !used.has(st.hero)).sort((p, q) => q.stats.int + q.stats.agi - (p.stats.int + p.stats.agi))[0];
+        if (h) {
+          used.add(h.hero);
+          steps.push({ k: 'act', a: { k: 'assign', hero: h.hero, task: 'shop', target: -1 } });
+        }
+        steps.push({ k: 'staff', uid: -1, n: 1 });
+      }
+      return { steps };
+    }
     default:
       return { steps: [{ k: 'act', a }] };
   }
@@ -287,7 +302,7 @@ export function planCost(s: P1State, p: Plan): PlanCost {
           const k = SKILL[a.id];
           if (k) add(t(`パネルの解放「${k.name}」`, `Unlock panel: ${k.name}`), isResearch(k) ? { rp: rpCost(k) } : { money: k.cost });
         } else if (a.k === 'build') {
-          add(t(`${nameOfB(a.id)}の建築`, `Build ${nameOfB(a.id)}`), { money: P1B[a.id]?.cost ?? 0, days: P1B[a.id]?.days ?? 0, ...(P1B[a.id]?.kind === 'shop' ? { monthly: shopMonthly(a.id) } : P1B[a.id]?.upkeep ? { monthly: P1B[a.id].upkeep } : {}) });
+          add(t(`${nameOfB(a.id)}の建築`, `Build ${nameOfB(a.id)}`), { money: P1B[a.id]?.cost ?? 0, days: P1B[a.id]?.days ?? 0, ...(P1B[a.id]?.upkeep ? { monthly: P1B[a.id].upkeep } : {}) });
         } else if (a.k === 'hire') {
           add(t(`${heroNm(a.hero)}を雇う`, `Hire ${heroNm(a.hero)}`), { monthly: 0 });
         } else if (a.k === 'assign') {
@@ -344,7 +359,21 @@ export function applyPlan(s: P1State, p: Plan): PlanRes {
   const did: string[] = [];
   let core = 0;
   let fail: PlanRes['err'] | null = null;
-  for (const st of p.steps) {
+  /** この提案で建てたお店（uid -1 の行き先） */
+  let built: number | null = null;
+  const uidOf = (u: number) => (u === -1 ? built : u);
+  for (const st0 of p.steps) {
+    let st = st0;
+    if (st.k === 'staff' && st.uid === -1) {
+      const u = uidOf(-1);
+      if (u == null) continue;
+      st = { ...st, uid: u };
+    }
+    if (st.k === 'act' && st.a.k === 'assign' && st.a.task === 'shop' && st.a.target === -1) {
+      const u = uidOf(-1);
+      if (u == null) continue;
+      st = { ...st, a: { ...st.a, target: u } };
+    }
     switch (st.k) {
       case 'shelf': {
         const e = invest(s, st.uid, 'shelves');
@@ -413,12 +442,21 @@ export function applyPlan(s: P1State, p: Plan): PlanRes {
         break;
       }
       case 'act': {
+        const before = s.nextUid;
         const e = execute(s, st.a);
         if (e === 'money' || e === 'rp') fail ??= e;
         else if (e) fail ??= 'gone';
         else {
           core++;
           did.push(actDid(s, st.a));
+          if (st.a.k === 'build' && P1B[st.a.id]?.kind === 'shop') {
+            const b = s.buildings.find((x) => x.uid >= before && x.owner === 'me' && x.id === (st.a as { id: string }).id);
+            if (b) {
+              built = b.uid;
+              // 工事中でも、店長と従業員は先に決めておく（開店した日から開く）
+              syncShop(s, b);
+            }
+          }
         }
         break;
       }
@@ -470,6 +508,9 @@ export function afterOf(s: P1State, p: Plan): P1State {
   c.money = Math.max(c.money, 0) + 1e9;
   c.rp = (c.rp ?? 0) + 1e6;
   applyPlan(c, p);
+  // 建てた建物は、できあがったものとして見る
+  for (const b of c.buildings) if (b.owner === 'me' && b.left > 0 && !s.buildings.some((x) => x.uid === b.uid)) b.left = 0;
+  syncFacilities(c);
   // いまのロットが終わってから替わる台は、替わったあとで見る
   for (const [k, x] of Object.entries(c.deleg?.pend ?? {})) {
     const sl = c.slots[Number(k)];
