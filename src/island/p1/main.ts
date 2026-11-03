@@ -286,24 +286,25 @@ function flushCardToasts() {
   if (!cardToasts.length || holdToasts()) return;
   for (const [x, img] of cardToasts.splice(0)) toast(x, img);
 }
-function toast(text: string, img?: string) {
+/** お知らせを出す。出したトーストの要素を返す（ためたときは null。同じ文が続いたときは前のトースト） */
+function toast(text: string, img?: string): HTMLElement | null {
   if (holdToasts()) {
     if (!cardToasts.some((x) => x[0] === text)) cardToasts.push([text, img]);
     if (cardToasts.length > 4) cardToasts.shift();
-    return;
+    return null;
   }
   // 発掘作業のあいだ（全画面の発掘画面）は、町で起きたことのお知らせは出さない。作業のあとにまとめて（多ければ新しい 4 つ）
   if (digOpen()) {
     if (!heldToasts.some((x) => x[0] === text)) heldToasts.push([text, img]);
     if (heldToasts.length > 4) heldToasts.shift();
-    return;
+    return null;
   }
   const prev = toasts.lastElementChild as HTMLElement | null;
   if (prev && prev.dataset.text === text) {
     const n = Number(prev.dataset.n ?? 1) + 1;
     prev.dataset.n = String(n);
     prev.textContent = `${text} ×${n}`;
-    return;
+    return prev;
   }
   const e = h('div', `isl-toast ${img ? 'has-icon' : ''}`, text);
   if (img) {
@@ -317,6 +318,20 @@ function toast(text: string, img?: string) {
   placeToasts();
   setTimeout(() => e.remove(), 3300);
   while (toasts.children.length > 3) toasts.firstChild?.remove();
+  return e;
+}
+/**
+ * 段 FX2：トーストの左の端（絵があれば絵）に小さな効果を付ける（トーストが動いても付いていく・消えたら隠す）。
+ * 小さな手応えは組「small」で 1 秒に 1 つまで（docs/ISLAND_FX.md の間引き）
+ */
+function toastFx(e: HTMLElement | null, id: FxId, o: Parameters<typeof playFx>[3] = {}) {
+  if (!e) return false;
+  const at = () => {
+    if (!e.isConnected) return null;
+    const r = (e.querySelector('.isl-toast-icon') ?? e).getBoundingClientRect();
+    return { x: e.querySelector('.isl-toast-icon') ? r.left + r.width / 2 : r.left + 14, y: r.top + r.height / 2 };
+  };
+  return playFx(id, 0, 0, { scale: innerWidth < 600 ? 1 : 4 / 3, thin: 'small', anchor: at, ...o });
 }
 
 const ctx: Ctx = {
@@ -567,7 +582,11 @@ function brandNews() {
     void statBrand.offsetWidth;
     statBrand.classList.add(e.d > 0 ? 'is-up' : 'is-down');
   }
-  if (fresh.some((e) => e.d > 0)) sfx.play('levelup');
+  if (fresh.some((e) => e.d > 0)) {
+    sfx.play('levelup');
+    // 段 FX2：上の帯のブランド力の札で光る（小さな手応え。1 秒に 1 つ）
+    fxAtEl('collect-burst', statBrand, { palette: FX_PAL.gold, dy: 30, scale: innerWidth < 600 ? 1 : 4 / 3, thin: 'small' });
+  }
 }
 
 /** エンブレム・研究ポイントが増えたら知らせる（上の帯には出さない。スキルツリーの通貨の帯に出す） */
@@ -584,8 +603,10 @@ function currencyNews() {
   }
   itemSeen = { ...s.heroItems };
   if (e > emblemSeen) {
-    toast(t(`🏅 エンブレムを獲得！（いま ${e}）`, `🏅 Emblem earned! (now ${e})`), 'mch/Image/Icons/emblem.webp');
+    const te = toast(t(`🏅 エンブレムを獲得！（いま ${e}）`, `🏅 Emblem earned! (now ${e})`), 'mch/Image/Icons/emblem.webp');
     sfx.play('levelup');
+    // 段 FX2：トーストのエンブレムの絵の上に、跳ねる金の星（星は原点の 25 ドット上に浮かぶ）
+    toastFx(te, 'power-star', { palette: FX_PAL.gold, opts: { shadow: false }, dy: 25, life: 1300 });
   }
   // 発掘場を開いているあいだは、パネルの演出で見せる（トーストを重ねない）
   if (d > rpSeen && !digOpen()) toast(t(`研究ポイント +${d - rpSeen}（いま ${d}）`, `Research points +${d - rpSeen} (now ${d})`));
@@ -4191,6 +4212,24 @@ function addCoin(uid: number, yen: number, t: number) {
   sfx.play('sale');
   coinFx(uid);
 }
+/** 建物の区画のまんなかの、手前の地面（ワールドの座標） */
+function bldFoot(uid: number): [number, number] | null {
+  const b = s.buildings.find((x) => x.uid === uid);
+  const def = b ? DEF[b.id] : undefined;
+  if (!b || !def) return null;
+  const cs = cells(def, b.i, b.j, b.dir);
+  return [cs.reduce((a, [i, j]) => a + (i - j) * 100, 0) / cs.length, cs.reduce((a, [i, j]) => a + (i + j) * 55, 0) / cs.length + 30];
+}
+/** 段 FX2：製造の槌の火花（工房の上。同じ工房は 1 秒に 1 つ・縮小の全体表示と発掘のあいだは出さない） */
+function craftFx(uid: number) {
+  if (overviewOn() || digOpen()) return;
+  const at = bldFoot(uid);
+  if (at) mapFx('hammer-sparks', at[0], at[1] - 40, { scale: Math.max(1, cam.zoom * 3), thin: `craft:${uid}`, seed: (uid * 17 + Math.floor(performance.now())) >>> 0 });
+}
+/** 段 FX2：外交の依頼を届けたトーストの横で自社の色の光 */
+function diploFx(e: HTMLElement | null) {
+  toastFx(e, 'collect-burst', { palette: FX_PAL.ours, dy: 30 });
+}
 /** 売上のコイン（pixelfx。docs/ISLAND_FX.md）：お店の足もとからコインが跳ねる。同じお店は 0.35 秒に 1 回まで・縮小の全体表示と発掘のあいだは出さない */
 const coinFxAt = new Map<number, number>();
 function coinFx(uid: number) {
@@ -4343,6 +4382,8 @@ function advance(days: number) {
     if (r.crafted.length) sfx.play('craft');
     const wsb = myWorkshop(s);
     if (wsb) for (const m of r.made) anim.plus.push({ uid: wsb.uid, n: m.n, t: anim.clock });
+    // 段 FX2：工房の上で槌の火花（同じ工房は 1 秒に 1 つ）
+    if (wsb && r.made.length) craftFx(wsb.uid);
     if (r.sales.length) spawnCustomers(r.sales);
     // 開いている店内の様子に、買うお客さんを来させる
     for (const x of r.sales) shopSceneSale(x.uid, x.sku, x.yen);
@@ -4367,7 +4408,7 @@ function advance(days: number) {
     // 法務（段 H2）：M&A の話の進み・特許の審査が終わった
     if (r.legal) for (const x of legalToasts(r.legal)) toast(x);
     // 外交（段 UI4）：使者の依頼がそろった・期限が切れた
-    for (const q of r.diplo?.done ?? []) toast(t(`🌐 ${landDef(q.land).name}の依頼を届けた！ +${q.reward.toLocaleString('en-US')} G・研究 +${q.rp} RP・仲 ${Math.round(relOf(s, q.land))}`, `🌐 Delivered ${landDef(q.land).name}’s request! +${q.reward.toLocaleString('en-US')} G, +${q.rp} RP, relations ${Math.round(relOf(s, q.land))}`));
+    for (const q of r.diplo?.done ?? []) diploFx(toast(t(`🌐 ${landDef(q.land).name}の依頼を届けた！ +${q.reward.toLocaleString('en-US')} G・研究 +${q.rp} RP・仲 ${Math.round(relOf(s, q.land))}`, `🌐 Delivered ${landDef(q.land).name}’s request! +${q.reward.toLocaleString('en-US')} G, +${q.rp} RP, relations ${Math.round(relOf(s, q.land))}`)));
     for (const q of r.diplo?.late ?? []) toast(t(`🌐 ${landDef(q.land).name}の依頼が期限切れ…仲が下がった（${Math.round(relOf(s, q.land))}）`, `🌐 ${landDef(q.land).name}’s request expired… relations fell (${Math.round(relOf(s, q.land))})`));
     for (const g of r.grew) toast(t(`${heroName(g.hero)}の ${g.stat.toUpperCase()} が 1 上がりました（バイトの経験）`, `${heroName(g.hero)}’s ${g.stat.toUpperCase()} rose by 1 (part-time work)`));
     if (r.procLv) {
@@ -4446,12 +4487,15 @@ function hrNews(x: HrDay) {
 }
 function levelNews(ups: LevelUp[]) {
   const names = (x: LevelUp) => (['phy', 'int', 'agi'] as const).filter((k) => (x.gain[k] ?? 0) > 0).map((k) => `${k.toUpperCase()} +${x.gain[k]}`).join(t('・', ', '));
+  let te: HTMLElement | null = null;
   if (ups.length <= 2)
     for (const x of ups) {
       const g = names(x);
-      toast(t(`⭐ ${heroName(x.hero)}が Lv ${x.to} に！${g ? ` ${g}` : ''}`, `⭐ ${heroName(x.hero)} reached Lv ${x.to}!${g ? ` ${g}` : ''}`));
+      te = toast(t(`⭐ ${heroName(x.hero)}が Lv ${x.to} に！${g ? ` ${g}` : ''}`, `⭐ ${heroName(x.hero)} reached Lv ${x.to}!${g ? ` ${g}` : ''}`)) ?? te;
     }
-  else toast(t(`⭐ ${ups.length} 人がレベルアップ！（くわしくは人事 → ヒーローの育成）`, `⭐ ${ups.length} heroes leveled up! (HR → Hero growth)`));
+  else te = toast(t(`⭐ ${ups.length} 人がレベルアップ！（くわしくは人事 → ヒーローの育成）`, `⭐ ${ups.length} heroes leveled up! (HR → Hero growth)`));
+  // 段 FX2：レベルアップのトーストの ⭐ で自社の色の光（小さな手応え。1 秒に 1 つ。地図には出さない）
+  if (ups.length) toastFx(te, 'collect-burst', { palette: FX_PAL.ours, dy: 30 });
   for (const x of ups) {
     for (const k of x.passives) toast(t(`✦ ${heroName(x.hero)}のパッシブ「${PASSIVES[k].name}」が開いた`, `✦ ${heroName(x.hero)} unlocked the passive “${PASSIVES[k].name}”`));
     if (x.cap) toast(t(`🎖 ${heroName(x.hero)}が上限 Lv ${x.to}！ 強化アイテムで昇格できるよ`, `🎖 ${heroName(x.hero)} hit the level cap (${x.to})! Promote with an item`));
@@ -4468,6 +4512,11 @@ function playShutters() {
     cam.y = (b.i + b.j) * 55 - 40;
   }
   pendingShutter.forEach((uid, k) => shutterFx.set(uid, now + 300 + k * 500));
+  // 段 FX2：シャッターが下りきったところで灰色の煙がぽんと出る（地図の層）
+  pendingShutter.forEach((uid, k) => {
+    const at = bldFoot(uid);
+    if (at) mapFx('poof', at[0], at[1], { palette: FX_PAL.smoke, opts: { stars: [FX_PAL.gold[4], FX_PAL.gold[6], '#ffffff'] }, scale: Math.max(1, cam.zoom * 3), delay: 300 + k * 500 + 2100, seed: uid });
+  });
   pendingShutter.length = 0;
   dirty = true;
 }
@@ -4830,7 +4879,7 @@ window.setTimeout(() => warmFx(), 3000);
   },
   speed: (v?: number) => (v != null ? ((speed = v), renderHud()) : speed),
   /** ドット絵のエフェクト（撮影・計測用）：鳴らす・数える・止める（比べる前の画面を撮る） */
-  fx: { play: (id: FxId, x: number, y: number, o?: Parameters<typeof playFx>[3]) => playFx(id, x, y, o), stats: (reset?: boolean) => fxStats(reset), enable: (v: boolean) => setFxEnabled(v), clear: () => clearFx(), coin: (uid: number) => coinFx(uid), letter: (conquered: boolean) => letterFx(conquered), letterDemo: (conquered: boolean) => showLetter(120, conquered ? null : 'U', null, 0, conquered), town: (kind: 'revive' | 'dungeon', site: number) => (townFx.push({ kind, site, homes: 0 }), townFxNow()), dept: (d: DeptId) => newDeptBanner(d), gate: () => (gateOf(s) && centerOn(gateOf(s)!.i, gateOf(s)!.j), gateFx()), level: (v?: FxLevel) => (v ? setFxLevel(v) : fxLevel()) },
+  fx: { play: (id: FxId, x: number, y: number, o?: Parameters<typeof playFx>[3]) => playFx(id, x, y, o), stats: (reset?: boolean) => fxStats(reset), enable: (v: boolean) => setFxEnabled(v), clear: () => clearFx(), coin: (uid: number) => coinFx(uid), letter: (conquered: boolean) => letterFx(conquered), letterDemo: (conquered: boolean) => showLetter(120, conquered ? null : 'U', null, 0, conquered), town: (kind: 'revive' | 'dungeon', site: number) => (townFx.push({ kind, site, homes: 0 }), townFxNow()), dept: (d: DeptId) => newDeptBanner(d), gate: () => (gateOf(s) && centerOn(gateOf(s)!.i, gateOf(s)!.j), gateFx()), level: (v?: FxLevel) => (v ? setFxLevel(v) : fxLevel()), levels: (hero: number) => levelNews([{ hero, from: 4, to: 5, gain: { phy: 1 }, passives: [], cap: false }]), diplo: () => diploFx(toast(t('🌐 依頼を届けた！（撮影）', '🌐 Delivered! (demo)'))), craft: () => { const w = myWorkshop(s); if (w) craftFx(w.uid); }, poof: (uid: number) => { pendingShutter.push(uid); playShutters(); } },
   /** 発掘との出会い（撮影スクリプト用）：操作がないまま進んだ日数 */
   idle: (v?: number) => (v != null ? (idleDays = v) : idleDays),
 };
