@@ -1,0 +1,291 @@
+/* ---------------------------------------------------------------- 段 I1：予算と部門（budgetui.ts）・組織図の数字（orgui.ts） */
+.isl-bd {
+  display: grid;
+  gap: 10px;
+}
+.isl-bd > * {
+  min-width: 0;
+}
+.isl-bd-lead {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.isl-bd-note {
+  font-size: 12px;
+}
+.isl-bd-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.isl-bd-kpi {
+  display: grid;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(15, 22, 38, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  min-width: 0;
+}
+.isl-bd-kpi small {
+  font-size: 12px;
+  color: var(--isl-dim);
+  overflow-wrap: anywhere;
+}
+.isl-bd-kpi b {
+  font-size: 16px;
+  white-space: nowrap;
+}
+.isl-bd-kpi.is-warn b {
+  color: var(--isl-gold);
+}
+.isl-bd-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.isl-bd-bulk small {
+  font-size: 13px;
+}
+.isl-bd-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+  gap: 8px;
+}
+.isl-bd-dept {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px 10px;
+  border: 2px solid var(--c, var(--isl-line));
+  border-radius: 12px;
+  background: rgba(15, 22, 38, 0.55);
+  min-width: 0;
+}
+.isl-bd-dept.is-nohead {
+  border-style: dashed;
+  opacity: 0.92;
+}
+.isl-bd-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.isl-bd-name {
+  color: var(--c, var(--isl-text));
+  font-size: 15px;
+  white-space: nowrap;
+}
+.isl-bd-who {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.isl-bd-face {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+}
+.isl-bd-head {
+  display: grid;
+  justify-items: start;
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--isl-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  min-width: 0;
+  max-width: 150px;
+}
+.isl-bd-head span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.isl-bd-star {
+  color: var(--isl-gold);
+  font-size: 12px;
+}
+.isl-bd-add {
+  font-size: 13px;
+}
+.isl-bd-row {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.isl-bd-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+}
+.isl-bd-line b {
+  font-size: 15px;
+}
+.isl-bd-line small {
+  font-size: 12px;
+}
+.isl-bd-k {
+  color: var(--c, var(--isl-dim));
+  font-weight: 700;
+  font-size: 12px;
+}
+.isl-bd-sub {
+  display: grid;
+  gap: 2px;
+}
+.isl-bd-seg {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+.isl-bd-lv {
+  min-height: 34px;
+  padding: 4px 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.isl-bd-lv.is-on {
+  outline: 2px solid var(--isl-gold);
+  background: rgba(242, 181, 68, 0.22);
+}
+.isl-bd-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.isl-bd-pm {
+  min-width: 36px;
+  min-height: 32px;
+  padding: 2px 8px;
+  font-size: 15px;
+}
+.isl-bd-num {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.isl-bd-num small {
+  font-size: 12px;
+}
+.isl-bd-input {
+  width: 9em;
+  min-height: 32px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--isl-text);
+  font: inherit;
+  font-size: 15px;
+}
+.isl-bd-acts {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.isl-bd-move {
+  display: grid;
+  gap: 2px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  min-width: 0;
+}
+.isl-bd-move-nm {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.isl-bd-move-nums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 12px;
+}
+.isl-bd-cost {
+  color: var(--isl-gold);
+}
+.isl-bd-labor {
+  color: #9fd0ff;
+}
+.isl-bd-tag {
+  padding: 0 6px;
+  border-radius: 6px;
+  font-weight: 700;
+}
+.isl-bd-tag.is-ok {
+  background: rgba(111, 208, 140, 0.22);
+  color: var(--isl-good);
+}
+.isl-bd-tag.is-over {
+  background: rgba(240, 112, 112, 0.22);
+  color: var(--isl-bad);
+}
+.isl-bd-res {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.isl-bd-ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(242, 181, 68, 0.6);
+  background: rgba(242, 181, 68, 0.12);
+}
+.isl-bd-ask-txt {
+  flex: 1 1 180px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+/* 組織図の数字（従業員・予算） */
+.isl-org-nums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  font-size: 12px;
+  color: var(--isl-dim);
+}
+.isl-org-nums b {
+  color: var(--isl-text);
+}
+.isl-org-nums .is-over {
+  color: var(--isl-bad);
+}
+@media (max-width: 520px) {
+  .isl-bd-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .isl-bd-lv {
+    padding: 4px 2px;
+    font-size: 12px;
+  }
+}
+#isl-ui .isl-btn.isl-bd-lv.is-on {
+  background: var(--isl-gold);
+  color: var(--isl-ink);
+  outline: 2px solid #fff3c4;
+  font-weight: 700;
+}
+.isl-bd-ok {
+  justify-self: start;
+  min-height: 30px;
+  padding: 2px 10px;
+  font-size: 13px;
+}

@@ -9,9 +9,10 @@
  */
 import { DELEG, DEPTS, DEPT_DUTIES, type DeptId, type DutyId, type Task } from './data';
 import { deptLevel, menuDepts } from './dept';
-import { headOf, leaderOf, quality } from './deleg';
+import { headLeft, headOf, leaderOf, quality } from './deleg';
 import { starOf } from './card';
 import { staffOf, type P1State, type Staff } from './model';
+import { amountOf, budgetOpen, deptBudget } from './budget';
 
 /** 席：役目と座っているヒーロー。hero が null なら空席（open：いま置ける・lockAt：置けるようになる理解度） */
 export interface Seat {
@@ -37,6 +38,8 @@ export interface OrgDept {
   head: Seat;
   leaders: Seat[];
   posts: Seat[];
+  /** 段 I1（Rare から）：部門の従業員の数・お店の従業員（物流だけ）・予算（部長のいる部門だけ。使った／月） */
+  nums?: { crew: number; shop: number; amt: number | null; used: number };
 }
 export interface OrgSector {
   sector: string;
@@ -72,14 +75,21 @@ export function orgChart(s: P1State): OrgChart {
     const lv = deptLevel(s, d.id);
     const byCeo = d.id === 'strategy';
     const H = byCeo ? null : headOf(s, d.id);
-    const head: Seat = byCeo ? { kind: 'head', dept: d.id, hero: null, open: false } : H ? seatOf(H, 'head', d.id) : { kind: 'head', dept: d.id, hero: null, open: lv >= DELEG.headAt, ...(lv < DELEG.headAt ? { lock: { at: DELEG.headAt, now: lv } } : {}) };
+    // 段 I1：Rare からは理解度に関係なく置ける（deleg.ts の headLeft）
+    const ready = headLeft(s, d.id) === 0;
+    const head: Seat = byCeo ? { kind: 'head', dept: d.id, hero: null, open: false } : H ? seatOf(H, 'head', d.id) : { kind: 'head', dept: d.id, hero: null, open: ready, ...(!ready ? { lock: { at: DELEG.headAt, now: lv } } : {}) };
     const leaders: Seat[] = DEPT_DUTIES[d.id].map((u) => {
       const L = leaderOf(s, u);
       if (L) return seatOf(L, 'leader', d.id, { duty: u });
       return { kind: 'leader', dept: d.id, duty: u, hero: null, open: lv >= DELEG.leaderAt, ...(lv < DELEG.leaderAt ? { lock: { at: DELEG.leaderAt, now: lv } } : {}) };
     });
     const posts: Seat[] = s.staff.filter((x) => x.task && TASK_DEPT[x.task] === d.id).map((x) => seatOf(x, 'post', d.id, { task: x.task! }));
-    depts.push({ dept: d.id, byCeo, head, leaders, posts });
+    const nums = budgetOpen(s) && !byCeo ? (() => {
+      const B = deptBudget(s, d.id);
+      const shop = d.id === 'logistics' ? Object.values(s.shops ?? {}).reduce((a, sh) => a + (sh?.part ?? 0), 0) : 0;
+      return { crew: B.crew, shop, amt: H ? amountOf(s, d.id) : null, used: B.used };
+    })() : undefined;
+    depts.push({ dept: d.id, byCeo, head, leaders, posts, ...(nums ? { nums } : {}) });
   }
   // セクター長：出店したセクタ（無ければ、いまのセクタだけ）
   const ids = s.land?.mine?.length ? s.land.mine : [s.sector ?? 'c1'];

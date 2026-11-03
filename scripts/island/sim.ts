@@ -23,6 +23,9 @@ import { CHARISMA, CS, CSM_RP, FATIGUE, FLAME, GRADE, GRADE_NAME, MORALE, PAY, T
 // v22（段 G）：販売の枝に足したカスタマーサポート・マーケの研究パネル（CSM_RP）は、通常の「詰まりの段の枝の研究パネル」には数えない（売り場の段に効かない）
 import { approve, delegatedDuties, headDepts, headLeft, headOf, leaderLeft, leaderOf, quality, runnerOf, setHead, setLeader } from '../../src/island/p1/deleg';
 import { DELEG, DEPTS, type DeptId, type DutyId } from '../../src/island/p1/data';
+import { deptLevel } from '../../src/island/p1/dept';
+import { BUDGET_OFF, budgetHeads, crewTotal, type BudgetStat } from '../../src/island/p1/budget';
+import { BUDGET } from '../../src/island/p1/data';
 import { CARD_SRCS, SIM_CARD_TAKE, cardInbox, chooseCard, simTake, type Card, type CardSrc, type CardStat } from '../../src/island/p1/card';
 import { EVENT_OFF, EV_KINDS, GOOD_KINDS, lightOpt, newEventStat, optName, type EvKind, type EventStat } from '../../src/island/p1/events';
 import { LAND_IDS, dipOpts, landName, newDipStat, type DipStat } from '../../src/island/p1/diplo';
@@ -34,7 +37,7 @@ import { DUOS, type DuoOptId } from '../../src/island/p1/duo';
 /** v25：通常の方針が受けるカードの手の名前（表 19） */
 const TAKE_NAME: Record<string, string> = { shelf: '棚 +1 と商品', goods: '品ぞろえの入れ替え', invest: '設備投資', part: 'アルバイト', famous: '名物店主', permit: '発掘許可', ad: '宣伝' };
 /** v25：カードの出どころの名前（表 19） */
-const SRC_NAME: Record<CardSrc, string> = { hr: '人事（雇う）', clerk: '店員', crafter: '職人', buyer: '調達係', idle: '手の空いた人', head: '部長', cs: '問い合わせ', flame: '炎上の予告', quit: '辞めたい', tax: '経理の助言', rally: '巻き返し・反撃', event: 'できごと', diplo: '外交', stall: '流れが止まった', duo: '組み合わせ', stock: '倉庫の売りさばき' };
+const SRC_NAME: Record<CardSrc, string> = { hr: '人事（雇う）', clerk: '店員', crafter: '職人', buyer: '調達係', idle: '手の空いた人', head: '部長', cs: '問い合わせ', flame: '炎上の予告', quit: '辞めたい', tax: '経理の助言', rally: '巻き返し・反撃', event: 'できごと', diplo: '外交', stall: '流れが止まった', duo: '組み合わせ', stock: '倉庫の売りさばき', budget: '部長の頼み（予算・人手）' };
 import {
   promote,
   takeVacant,
@@ -361,6 +364,8 @@ export interface RunResult {
   v26: { ev: EventStat; dip: DipStat; rel: Record<string, number> };
   /** v28（段 P2：ヒーローの組み合わせ）：見つけた組み合わせ・出したカードの数・選んだ手 */
   v28: { found: string[]; made: number; opt: Partial<Record<DuoOptId, number>> };
+  /** v30（段 I1：予算で任せる）：部長が予算の中で実行した施策の数と額・予算の効きで浮いた額・雇った／減らした従業員・給料・頼みの数・終わりの従業員と予算で任せた部門 */
+  v30?: BudgetStat & { crewEnd: number; heads: number };
 }
 
 /**
@@ -641,7 +646,7 @@ const ok = (r: unknown) => r === null || r === true || (typeof r === 'object' &&
 /** v25（段 UI1）：通常の方針がヒーローからの提案のカードを受ける（比べるときだけ止める） */
 export const SIM_CARDS = { on: true };
 /**
- * v30（段 UI5d）：倉庫が 85% を超えたら、建てる前にいまある倉庫を強化するか（倉庫の提案の推奨と同じ手）。
+ * v31（段 UI5d）：倉庫が 85% を超えたら、建てる前にいまある倉庫を強化するか（倉庫の提案の推奨と同じ手）。
  * 既定はオフ（以前どおり 2 棟まで建て、2 棟とも満杯なら強化）：オンにすると通常の合計 −5.5%・Uncommon −10%、100% の Uncommon +8%
  * （3 シード）と目安（合計 ±3%・ランクごと ±5%）を超えたため。比べるときは SIM_RACK_FIRST=1
  */
@@ -675,7 +680,8 @@ function delegPlace(s: P1State, c: Ctx, acts: Action[], budget: number, reserve:
   const fromPool = (d: DeptId) => (has(s, 'hire') && !hired && budget > 3000 + reserve && d !== 'support' ? ([...s.hirePool].sort((a, b) => quality({ stats: heroStatsOf(b) }, d) - quality({ stats: heroStatsOf(a) }, d))[0] ?? null) : null);
   for (const def of DEPTS) {
     const d = def.id;
-    if (headLeft(s, d) === 0 && !headOf(s, d)) {
+    // v30（段 I1）：Rare からは理解度に関係なく部長を置けるが、自動プレイの部長の置き方は前のまま（理解度 8 で。判断を変えない）
+    if (headLeft(s, d) === 0 && deptLevel(s, d) >= DELEG.headAt && !headOf(s, d)) {
       const lead = SIM_DELEG[c.policy].lead[d];
       const L = lead ? leaderOf(s, lead) : null;
       const hero = L?.hero ?? idle(d);
@@ -984,7 +990,7 @@ export function policy(s: P1State, c: Ctx): Action[] {
   }
 
   // ---- 倉庫：置き場所が 85% を超えたら（2 棟まで）
-  // v30（段 UI5d）：SIM_RACK_FIRST なら、建てる前にいまある倉庫を強化する（倉庫の提案の推奨と同じ。1 か月に 1 段。強化しきってから 2 棟目）
+  // v31（段 UI5d）：SIM_RACK_FIRST なら、建てる前にいまある倉庫を強化する（倉庫の提案の推奨と同じ。1 か月に 1 段。強化しきってから 2 棟目）
   const whs = s.buildings.filter((b) => b.owner === 'me' && b.id === 'warehouse').length;
   const rackAt = SIM_RACK_FIRST ? s.buildings.filter((b) => b.owner === 'me' && b.id === 'warehouse' && b.left <= 0 && investCost(b, 'rack') != null).sort((p, q) => invLv(p, 'rack') - invLv(q, 'rack'))[0] : undefined;
   if (poolUsed(s) > poolCap(s) * 0.85 && rackAt) {
@@ -2712,6 +2718,8 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   if (s.events) res.v26.ev = JSON.parse(JSON.stringify(s.events.stat));
   // v28（段 P2）：ヒーローの組み合わせ（会社のもの）
   if (s.duo) res.v28 = { found: Object.keys(s.duo.found), made: s.duo.stat.made, opt: { ...s.duo.stat.opt } };
+  // v30（段 I1）：予算で任せる（会社のもの）
+  if (s.budget) res.v30 = { ...JSON.parse(JSON.stringify(s.budget.stat)), crewEnd: crewTotal(s), heads: budgetHeads(s) };
   if (s.diplo) {
     res.v26.dip = { ...s.diplo.stat };
     res.v26.rel = Object.fromEntries(s.diplo.lands.map((x) => [x.id, Math.round(x.rel)]));
@@ -2784,6 +2792,8 @@ export interface Report2 {
   /** v28（段 P2）：適性と組み合わせを止めた 3 方針（段 P2 の前と同じ）・組み合わせだけ止めた 3 方針 */
   noP2?: RunResult[];
   noDuo?: RunResult[];
+  /** v30（段 I1）：予算で任せるを止めた通常（withoutBudget。段 I1 の前と同じ） */
+  noBudget?: RunResult[];
   ms: number;
 }
 
@@ -2984,6 +2994,48 @@ export function tables(rep: Report2): string {
     );
   }
   out.push('');
+  // v30（段 I1）：予算で任せる
+  if (rep.noBudget?.length || rep.runs.some((r) => r.v30)) {
+    out.push('### 表 23：予算で任せる（v30。段 I1）');
+    out.push('');
+    out.push(
+      `シード ${seeds.join('・')} の平均。会社が Rare の町に出店すると、部長のいる部門は月の予算（自動プレイはどの部門も「中」＝いまの町の先月の売上 × ${BUDGET.rate.M}・下限 R ${BUDGET.floor.R.toLocaleString('en-US')} G）の中で、施策を見込みの大きい順に月 ${BUDGET.perHead} 件まで実行する。労力は部長の手（${BUDGET.hand.base}＋${BUDGET.hand.star}×(★−1) 人日）と従業員（1 人 ${BUDGET.crew.labor} 人日・1 日 ${BUDGET.crew.wage} G・上限 ${BUDGET.crew.cap} 人）。予算の効き：★ 1 つ ${BUDGET.eff.star}・適性 S ${BUDGET.eff.fit.S}〜D ${BUDGET.eff.fit.D}。予算・労力の足りない施策は前と同じ部長の提案（自動プレイが承認）。部長の置き方は前のまま（理解度 ${DELEG.headAt}）。「I1 なし」は同じシードの通常を \`withoutBudget\`（段 I1 の前の main と同じ通し）で回した値。括弧の中は「あり − なし」。目安は合計 ±3%・ランクごと ±5%。`,
+    );
+    out.push('');
+    out.push('| 方針 | 合計（I1 なし・差） | うち C | うち U | うち R | うち E | 予算の中の施策（件・額） | 浮いた額 | 雇った／減らした従業員 | 給料 | 頼み（予算・使い切り・人手・成果なし） | 終わりの従業員・予算の部門 |');
+    out.push('|---|---|---|---|---|---|---|---|---|---|---|---|');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      const byTier = (xs: RunResult[], tier: Tier) => mean(xs.map((x) => x.sectors.filter((r) => r.tier === tier && !r.revisit).reduce((a, r) => a + (secOf(p, r, 'left') ?? 0), 0) + (tier === 'C' ? SIM_TIME[p].tutorial : 0)));
+      const pc = (a: number, b: number) => (b > 0 ? `${fmtH(a)}（${fmtH(b)}・${a >= b ? '+' : '−'}${((Math.abs(a - b) / b) * 100).toFixed(1)}%）` : '—');
+      const off = (rep.noBudget ?? []).filter((r) => r.policy === p);
+      const tot = mean(runs.map(totalSec));
+      const tierPc = (tier: Tier) => (off.length ? pc(byTier(runs, tier), byTier(off, tier)) : '—');
+      const v = (f: (x: NonNullable<RunResult['v30']>) => number) => mean(runs.map((r) => (r.v30 ? f(r.v30) : 0)));
+      const k = (x: number) => `${Math.round(x / 1000).toLocaleString('en-US')}k`;
+      out.push(
+        `| ${POLICY_NAME[p]} | ${off.length ? pc(tot, mean(off.map(totalSec))) : fmtH(tot)} | ${tierPc('C')} | ${tierPc('U')} | ${tierPc('R')} | ${tierPc('E')} | ${v((x) => x.acts).toFixed(1)} 件・${k(v((x) => x.spent))} G | ${k(v((x) => x.saved))} G | ${v((x) => x.hired).toFixed(1)}／${v((x) => x.fired).toFixed(1)} | ${k(v((x) => x.wages))} G | ${v((x) => x.asks.over ?? 0).toFixed(1)}・${v((x) => x.asks.spent ?? 0).toFixed(1)}・${v((x) => x.asks.labor ?? 0).toFixed(1)}・${v((x) => x.asks.idle ?? 0).toFixed(1)} | ${v((x) => x.crewEnd).toFixed(1)} 人・${v((x) => x.heads).toFixed(1)} |`,
+      );
+    }
+    out.push('');
+    out.push('シードごとの合計（秒。あり／I1 なし）');
+    out.push('');
+    out.push(`| 方針 | ${seeds.map((x) => `シード ${x}`).join(' | ')} |`);
+    out.push(`|---|${seeds.map(() => '---').join('|')}|`);
+    for (const p of pols) {
+      if (!(rep.noBudget ?? []).some((x) => x.policy === p)) continue;
+      const cell = (seed: number) => {
+        const f = (xs: RunResult[] | undefined) => {
+          const r = (xs ?? []).find((x) => x.policy === p && x.seed === seed);
+          return r ? Math.round(totalSec(r)).toLocaleString('en-US') : '—';
+        };
+        return `${f(rep.runs)}／${f(rep.noBudget)}`;
+      };
+      out.push(`| ${POLICY_NAME[p]} | ${seeds.map(cell).join(' | ')} |`);
+    }
+    out.push('');
+  }
   // v28（段 P2）：ヒーローの声と適性・組み合わせ
   if (rep.noP2?.length || rep.runs.some((r) => r.v28)) {
     out.push('### 表 22：ヒーローの適性と組み合わせ（v28。段 P2）');
@@ -3700,7 +3752,9 @@ export function runAll(seeds = SEEDS, opts: { ablation?: boolean } = {}): Report
   // v28（段 P2）：適性の倍率と組み合わせを止めた 3 方針（段 P2 の前と同じ）・組み合わせだけ止めた 3 方針
   const noP2 = opts.ablation ? (['rta', 'normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutP2(() => runOnce(p, seed)))) : undefined;
   const noDuo = opts.ablation ? (['rta', 'normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutP2(() => runOnce(p, seed), { duo: true }))) : undefined;
-  return { runs, ablation, noTech, noGrowth, noDeleg, noSave, noAcct, noHrHands, noCs, noMA, noPatent, noEvents, noP2, noDuo, ms: performance.now() - t0 };
+  // v30（段 I1）：予算で任せるを止めた通常（段 I1 の前と同じ。部長がいるのは通常の方針だけ）
+  const noBudget = opts.ablation ? seeds.map((seed) => withoutBudget(() => runOnce('normal', seed))) : undefined;
+  return { runs, ablation, noTech, noGrowth, noDeleg, noSave, noAcct, noHrHands, noCs, noMA, noPatent, noEvents, noP2, noDuo, noBudget, ms: performance.now() - t0 };
 }
 
 /** docs/ISLAND_BALANCE.md の「自動で書く」部分を差し替える（前後の手書きの文はそのまま） */
@@ -3724,6 +3778,15 @@ export function withoutCs<T>(f: () => T): T {
   }
 }
 
+/** v30（段 I1）：予算で任せるを止めて回す（Rare からの部長の置き方・予算・従業員・頼みを止める＝段 I1 の前と同じ。比べるためだけ。終わったら戻す） */
+export function withoutBudget<T>(f: () => T): T {
+  BUDGET_OFF.on = true;
+  try {
+    return f();
+  } finally {
+    BUDGET_OFF.on = false;
+  }
+}
 /** v24（段 H2）：M&A を止めて回す（打診できない。比べるためだけ。終わったら戻す） */
 export function withoutMA<T>(f: () => T): T {
   LEGAL_OFF.ma = true;
