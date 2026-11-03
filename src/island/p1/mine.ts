@@ -14,6 +14,7 @@ import { sectorDef, tierLabel } from './company';
 import { digMet, meetTip, topicsPage } from './digmeet';
 import { has, jamOf, stallOf, myShops, myWorkshop, rivalMonthGuess, type P1State, type Stage } from './model';
 import { ruinsOf } from './reset';
+import { menuDepts } from './dept';
 
 /** 会話の 1 枚の字数の上限（空白と [[ ]] を除く） */
 export const TALK_MAX = 60;
@@ -208,7 +209,7 @@ export const freeUi = (): TalkUi => ({ talk: false, card: false, report: false, 
 export const talkWaits = (ui: TalkUi, over = false) => ui.talk || ui.card || ui.report || ui.disaster || ui.moving || (!over && (ui.sheet || ui.modal || ui.placing || ui.tour));
 
 /** 部門の紹介の会話 */
-export type DeptTalk = 'acct' | 'cs' | 'sales' | 'legal';
+export type DeptTalk = 'acct' | 'cs' | 'sales' | 'legal' | 'foot';
 
 /**
  * 次に出してよい部門の紹介（無ければ null）。
@@ -220,12 +221,22 @@ export function deptTalkNext(s: P1State, ui: TalkUi, o: { intro: boolean; reset:
   if ((s.flags.talkDay ?? -1) >= s.day) return null;
   const depts = s.flags.depts ?? [];
   const tier = s.tier ?? 'C';
+  // 段 UI5b：下の帯がグループ（事業・戦略・管理・基盤）になった（部門が 7 つ以上。Uncommon に着いたとき）：いちばん先に、帯の変わり方の説明
+  if (!s.flags.footTalk && menuDepts(s).length > 6) return 'foot';
   if (!s.flags.legalTalk && depts.includes('legal') && tier === 'E') return 'legal';
   if (!s.flags.salesTalk && !!s.area && depts.includes('sales')) return 'sales';
   if (!s.flags.acctTalk && depts.includes('accounting') && tier !== 'C') return 'acct';
   if (!s.flags.csTalk && s.flags.acctTalk && depts.includes('support') && tier !== 'C') return 'cs';
   return null;
 }
+
+/**
+ * 段 UI5b：下の帯がグループの帯になったときのマインちゃんの説明（2 枚・60 字まで）。会話のあと、人事の入っているグループ（管理）を光らせる（main.ts の footGuide）
+ */
+export const FOOT_TALK = () => [
+  t('部門が増えたから、下の帯は[[事業・戦略・管理・基盤]]の 4 つのグループにまとめたよ。真ん中は[[経営企画]]のまま。', 'With more departments, the bottom bar now groups them into [[Business, Strategy, Admin and Base]]. [[Strategy]] stays in the middle.'),
+  t('グループを押すと部門が並ぶの。人を雇う[[人事]]は[[管理]]の中。光っている[[管理]]を押してみて！', 'Tap a group to see its departments. [[HR]], for hiring, is under [[Admin]]. Try the glowing [[Admin]]!'),
+];
 
 // ---------------------------------------------------------------- 地図の吹き出し・上の帯の「詰まり」の札
 

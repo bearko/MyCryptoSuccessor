@@ -218,8 +218,9 @@ export function moraleMul(st: Pick<Staff, 'morale'>): number {
   return B.low;
 }
 /** 役目の段：リーダー 1・部長 2・セクター長 3（無ければ 0） */
-export function roleRank(st: Pick<Staff, 'task' | 'target'>): number {
+export function roleRank(st: Pick<Staff, 'task' | 'target' | 'heads'>): number {
   if (st.task === 'manager') return 3;
+  if (st.heads?.length) return 2;
   if (st.task === 'lead' && typeof st.target === 'string') return st.target.startsWith('H:') ? 2 : 1;
   return 0;
 }

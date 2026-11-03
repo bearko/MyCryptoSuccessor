@@ -12,13 +12,13 @@ import { quarterNow } from './acct';
 import { CAPITAL, TIER_NAME, brandCap, brandPull, topTierOf, delegateCostOf, emptyLedger, managerRate, pl, quarters, revivePerMonth, RUIN, sectorDef, sectorState, sumLedger, tierLabel, type Balance, type Ledger, type RuinLike, type SectorState } from './company';
 import { crowned, letterLockOf, hasBusiness, lastRank, letterLocked, moveTo, recOf, type MoveErr } from './land';
 import { antiquesHeld, delegate, delegateLock, fundShort, rankUpTier, reviveView } from './reset';
-import { balance, clearGoal, clearWaiting, date, lvMul, staffOf, type P1State } from './model';
+import { balance, clearGoal, clearWaiting, date, lvMul, setSectorHead, staffOf, type P1State } from './model';
 import { sectorHeadOk } from './deleg';
 import { clearCondText } from './digmeet';
 import { pickHero, rankEl } from './heroui';
 import { adjacent } from './world';
 import { after, open, type Ctx } from './screens';
-import { btn, h, heroIcon, heroName, money, rich } from './ui';
+import { btn, h, heroIcon, heroName, money, rich, signed } from './ui';
 import { DONATE_LINE } from './mine';
 
 // ---------------------------------------------------------------- ランドマップ
@@ -535,20 +535,8 @@ function managerBox(ctx: Ctx, s: P1State, id: string): HTMLElement {
         current: null,
         onPick: (hero) => {
           if (hero == null) return;
-          const old = rec.manager != null ? staffOf(s, rec.manager) : null;
-          if (old && old.task === 'manager' && old.target === id) {
-            old.task = null;
-            old.target = null;
-          }
-          const nx = staffOf(s, hero);
-          if (!nx) return;
-          if (nx.task) ctx.toast(t('いまの仕事・役目を外して、セクター長にしました', 'Moved from their current job or role'));
-          nx.task = 'manager';
-          nx.target = id;
-          // ほかの仕事の枠からは外す
-          for (const sl of s.slots) if (sl.worker === hero) sl.worker = null;
-          for (const sh of Object.values(s.shops)) if (sh.staff === hero) sh.staff = null;
-          rec.manager = hero;
+          // 段 UI5b：組織図と同じ関数（役職は兼任しない：事業部長の役職は外れる。固有の能力 multiRole のヒーローは残る）
+          if (setSectorHead(s, id, hero)) ctx.toast(t('いまの仕事・役目を外して、セクター長にしました', 'Moved from their current job or role'));
           after(ctx);
         },
       }),
@@ -731,7 +719,7 @@ export function openBrand(ctx: Ctx) {
     if (!s.brandLog?.length) log.append(h('p', 'isl-dim', t('まだありません。最初の売上や依頼の達成で上がります。', 'Nothing yet. Your first sale or request will raise it.')));
     for (const e of s.brandLog ?? []) {
       const r = h('div', 'isl-brand-log');
-      r.append(h('b', e.d > 0 ? 'isl-good' : 'isl-bad', `${e.d > 0 ? '+' : ''}${e.d}`), h('span', '', e.why), h('small', 'isl-dim', dayLabel(s, e.day)));
+      r.append(h('b', e.d > 0 ? 'isl-good' : 'isl-bad', signed(e.d)), h('span', '', e.why), h('small', 'isl-dim', dayLabel(s, e.day)));
       log.append(r);
     }
     body.append(log);

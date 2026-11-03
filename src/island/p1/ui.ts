@@ -24,6 +24,17 @@ export function btn(text: string, on: () => void, cls = ''): HTMLButtonElement {
 export const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
 export const money = (n: number) => `${fmt(n)} G`;
 
+/**
+ * 増減の符号つきの数（段 UI5b）：増えた「+10」・減った「−10」（全角に近いマイナス記号 U+2212）・変わらない「±0」。
+ * 四捨五入した値で決める（+0.4 は ±0）。f：数の書き方（既定は 3 桁区切り。money を渡すと「+1,200 G」）
+ */
+export function signed(v: number, f: (n: number) => string = fmt): string {
+  const r = Math.round(v);
+  return r > 0 ? `+${f(r)}` : r < 0 ? `−${f(-r)}` : `±${f(0)}`;
+}
+/** 増減の色の class：増えた is-good（緑）・減った is-bad（赤）・変わらない is-even（灰） */
+export const signCls = (v: number) => (Math.round(v) > 0 ? 'is-good' : Math.round(v) < 0 ? 'is-bad' : 'is-even');
+
 /** マインちゃんの文：[[ ]] で囲んだ固有名詞に色をつける */
 export function rich(text: string): DocumentFragment {
   const f = document.createDocumentFragment();

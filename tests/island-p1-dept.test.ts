@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DIG_PANELS, ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, UI5_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
+import { DIG_PANELS, ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, UI5_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, REQUIRES_ORIG, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
 import { deptLevel, deptNews, deptOpen, deptReady, menuDepts, menuLayout, nextMark } from '../src/island/p1/dept';
 import { deserializeP1, newP1, serializeP1 } from '../src/island/p1/model';
 import { DEPT_LAYOUT, EDGES, HUBPOS, HUB_BOX, KNOTPOS, POS, RING_OUT, SLACK, UNPLACED, groupOf } from '../src/island/p1/treelayout';
@@ -70,18 +70,19 @@ describe('パネルの部門の割り振り', () => {
     expect(SKILLS.filter((k) => k.branch !== 'sales' && k.branch !== 'legal' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id)).map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
     for (const b of BEFORE) {
       const k = SKILL[b.id as string];
+      // 段 UI5b：先に要るものは、つながりの見直し（treelinks.ts）の前のもの（REQUIRES_ORIG）で比べる。見直しは tests/island-p1-ui5b.test.ts
       // 発掘の枝の 17 枚は研究パネル（RP）になった（2026-11-03）：区分・値段・Lv が変わるので、名前・先に要るもの・ランクだけ比べる
       if (DIG_PANELS.includes(b.id as string)) {
-        expect([k.name, k.requires ?? [], k.tier ?? 'C', k.emblem ?? null], k.id).toEqual([b.name, b.requires, b.tier, b.emblem]);
+        expect([k.name, REQUIRES_ORIG[k.id] ?? [], k.tier ?? 'C', k.emblem ?? null], k.id).toEqual([b.name, b.requires, b.tier, b.emblem]);
         continue;
       }
       if (b.id === 'e_ops_1' || b.id === 'e_tech_2') {
-        expect([k.name, k.cost, rpCost(k), k.cat, k.requires, k.tier], k.id).toEqual([b.name, b.cost, b.rp, b.cat, b.requires, b.tier]);
+        expect([k.name, k.cost, rpCost(k), k.cat, REQUIRES_ORIG[k.id], k.tier], k.id).toEqual([b.name, b.cost, b.rp, b.cat, b.requires, b.tier]);
         continue;
       }
       // 調整 v25c：無限の強化パネルの「手前の Lv5」は、手前（手早い掘り方など）が研究パネル（レベルなし）になったので外した（持っていればよい）
       if (k.inf && k.branch === 'dig') expect(k.reqLv ?? null, k.id).toBeNull();
-      const now = { id: k.id, name: k.name, note: k.note, cost: k.cost, rp: rpCost(k), cat: k.cat, max: maxLv(k) === Infinity ? 'inf' : maxLv(k), lv5: maxLv(k) >= 5 && maxLv(k) !== Infinity ? levelCost(k, 5) : null, requires: k.requires ?? [], reqLv: k.inf && k.branch === 'dig' ? b.reqLv : (k.reqLv ?? null), anyOf: k.anyOf ?? null, brand: k.brand ?? null, tier: k.tier ?? 'C', emblem: k.emblem ?? null, big: !!k.big, train: k.train ?? null, fx: k.fx ?? null, up: k.up ?? null, shown: shownOf(k) };
+      const now = { id: k.id, name: k.name, note: k.note, cost: k.cost, rp: rpCost(k), cat: k.cat, max: maxLv(k) === Infinity ? 'inf' : maxLv(k), lv5: maxLv(k) >= 5 && maxLv(k) !== Infinity ? levelCost(k, 5) : null, requires: REQUIRES_ORIG[k.id] ?? [], reqLv: k.inf && k.branch === 'dig' ? b.reqLv : (k.reqLv ?? null), anyOf: k.anyOf ?? null, brand: k.brand ?? null, tier: k.tier ?? 'C', emblem: k.emblem ?? null, big: !!k.big, train: k.train ?? null, fx: k.fx ?? null, up: k.up ?? null, shown: shownOf(k) };
       expect(JSON.parse(JSON.stringify(now)), k.id).toEqual(b);
     }
   });

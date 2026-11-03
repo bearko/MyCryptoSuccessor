@@ -189,6 +189,13 @@ const isGoalTier = (k: Skill) => skillTier(k) === 'E' || skillTier(k) === 'L';
 
 /** 画面を描き直しても、見ている場所・選んだスキルは覚えておく */
 const view = { x: 0, y: 0, zoom: 0, sel: null as string | null };
+/**
+ * 段 UI5b：絞り込み（スマホは部門の札 11 個を「🔍」にしまう）：部門・開けられるものだけ。合わないパネルと線は暗く。
+ * more：スマホの詳細カードを広げている（上に引く・「くわしく」）
+ */
+const filt = { dept: null as DeptId | null, open: false, panel: false, q: '' };
+let more = false;
+let moreFor: string | null = null;
 /** 本社を開放した時刻（放射状に広がる演出のあいだ） */
 let burst = 0;
 const BURST_MS = 2600;
@@ -613,6 +620,34 @@ export function openSkills(ctx: Ctx, focus?: string) {
       });
       cur.append(can);
     }
+    // 段 UI5b：絞り込み（部門・開けられるものだけ・名前で探す）。スマホは部門の札をここにしまう
+    const phone = innerWidth < 600;
+    const find = h('button', `isl-tree-curitem isl-tree-find ${filt.panel ? 'is-on' : ''}`);
+    find.type = 'button';
+    find.append(h('span', 'isl-tree-find-ic', '🔍'), h('b', '', t('絞り込み', 'Filter')));
+    find.title = t('部門・開けられるもので絞り込む・名前で探す', 'Filter by department or what you can unlock, or search by name');
+    find.addEventListener('click', (e) => {
+      e.stopPropagation();
+      filt.panel = !filt.panel;
+      after(ctx);
+    });
+    if (!sealed && !only) cur.append(find);
+    // いま絞り込んでいるもの（小さな札。✕ で外す）
+    if (!sealed && !only && (filt.dept || filt.open)) {
+      const fc = h('button', 'isl-tree-curitem isl-tree-fchip');
+      fc.type = 'button';
+      const parts = [filt.dept ? `${DEPT[filt.dept].icon} ${DEPT[filt.dept].short}` : '', filt.open ? t('開けられる', 'Unlockable') : ''].filter(Boolean);
+      if (filt.dept) fc.style.setProperty('--br', DEPT_LAYOUT[filt.dept].color);
+      fc.append(h('b', '', parts.join(t('・', ' · '))), h('span', 'isl-tree-fx', '✕'));
+      fc.title = t('絞り込みを外す', 'Clear the filter');
+      fc.addEventListener('click', (e) => {
+        e.stopPropagation();
+        filt.dept = null;
+        filt.open = false;
+        after(ctx);
+      });
+      cur.append(fc);
+    }
     top.append(tip, cur, chips);
     // 木
     /** マインちゃんが止める（チュートリアル中に、ほかのパネルを開放しようとした） */
@@ -794,6 +829,9 @@ export function openSkills(ctx: Ctx, focus?: string) {
      * 状態：開いている（親を取った・子はまだ）＝実線・鍵（親がまだ）＝細い点線・取得済みどうし＝実線で光る・外周が閉じている＝薄い点線
      */
     const bends = edgeBends();
+    /** 段 UI5b：絞り込みに合うか（部門・開けられるものだけ。取得済みでレベルを上げられるものも「開けられる」） */
+    const passes = (k: Skill, st = stateOf(s, k)) => (!filt.dept || deptOf(k) === filt.dept) && (!filt.open || st === 'open' || (st === 'done' && !k.donate && lvOf(s, k.id) < maxLv(k) && canLevel(s, k)));
+    const filtering = !sealed && !only && (!!filt.dept || filt.open);
     /** つながりの線（パネルの id → その線）。選んだ・マウスを乗せたパネルのつながりを強調する */
     const edgeEls: { e: TreeEdge; el: SVGPathElement }[] = [];
     /** 中心 c のひし形の縁を越える t（from=0 から、または 1 から戻る） */
@@ -875,7 +913,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       const up = e.from ? has(s, e.from) : true;
       const got = has(s, k.id) || (!!k.donate && donations(s) > 0);
       const cls = closed ? 'is-closed' : up && got ? 'is-done' : up ? 'is-open' : 'is-lock';
-      drawEdge(e, DEPT_LAYOUT[e.br].color, cls);
+      drawEdge(e, DEPT_LAYOUT[e.br].color, `${cls} ${filtering && !passes(k) ? 'is-dimf' : ''}`);
     }
     /** つながりの強調：そのパネルの「先に要る」パネルまでの線（根もとまで）と、そのパネルから先へ伸びる線。ほかの線は少し暗く */
     const nodeEls = new Map<string, HTMLElement>();
@@ -1014,6 +1052,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
         // 文字は出さないので、読み上げ用に名前を
         n.setAttribute('aria-label', st === 'ring' && !isGoalTier(k) ? '?' : shownName(s, k));
         nodeEls.set(k.id, n);
+        if (!passes(k, st)) n.classList.add('is-dimf');
         setBurst(n, POS.get(k.id)!);
         if (fx && tier === fx.tier) {
           n.classList.add('is-ringpop');
@@ -1175,8 +1214,102 @@ export function openSkills(ctx: Ctx, focus?: string) {
       detail.append(top2, b);
       }
     } else if (sealed) detail.append(h('p', 'isl-dim', t('真ん中の本社を押して、開放しましょう。開放すると、11 の部門の枝が広がります。', 'Tap HQ in the middle to unlock it. Branches for the 11 departments will spread out.')));
-    // 段 UI3：説明の帯はスマホで 2 行まで（短く）
-    else detail.append(h('p', 'isl-dim isl-tree-legend', t('四角＝研究ポイント・菱形＝お金。緑＝開けられる・赤＝足りない・暗い＝手前がまだ', 'Square = RP, diamond = money. Green = can unlock, red = short, dim = not yet')));
+    // 段 UI3：説明の帯はスマホで 2 行まで（短く）。段 UI5b：スマホは何も選んでいないときは出さない（木を広く。説明は絞り込みの中に）
+    else if (!phone || only) detail.append(h('p', 'isl-dim isl-tree-legend', t('四角＝研究ポイント・菱形＝お金。緑＝開けられる・赤＝足りない・暗い＝手前がまだ', 'Square = RP, diamond = money. Green = can unlock, red = short, dim = not yet')));
+    else detail.hidden = true;
+    // 段 UI5b：スマホの詳細カードは小さく（名前・区分・止めている理由の 1 行と、ボタン）。上に引くか「くわしく」で全部（チュートリアルのあいだは今までどおり）
+    if (view.sel !== moreFor) {
+      moreFor = view.sel;
+      more = false;
+    }
+    if (phone && sel && !only && !detail.hidden) {
+      const txt = detail.querySelector('.isl-tree-dtop > div:not(.isl-tree-dicon)');
+      let warned = false;
+      const keep = (el: Element) => {
+        if (el.matches('.isl-tree-title, .isl-tree-cat')) return true;
+        if (!warned && el.matches('small.isl-warn')) return (warned = true);
+        return false;
+      };
+      for (const el of [...(txt?.children ?? []), ...detail.querySelectorAll('.isl-tree-dtop > small')]) if (!keep(el)) el.classList.add('is-x');
+      detail.classList.add('is-mini');
+      detail.classList.toggle('is-more', more);
+      const mb = btn(more ? t('﹀ 閉じる', '﹀ Less') : t('︿ くわしく', '︿ More'), () => {
+        more = !more;
+        after(ctx);
+      }, 'isl-tree-more');
+      detail.prepend(mb);
+      // 上に引くと広げる・下に引くと閉じる
+      let y0: number | null = null;
+      detail.addEventListener('pointerdown', (e) => (y0 = e.clientY));
+      detail.addEventListener('pointerup', (e) => {
+        if (y0 == null) return;
+        const dy = e.clientY - y0;
+        y0 = null;
+        if ((dy < -28 && !more) || (dy > 28 && more)) {
+          more = dy < 0;
+          after(ctx);
+        }
+      });
+    }
+    // 段 UI5b：絞り込みのシート（部門・開けられるものだけ・名前で探す）
+    const fpanel = h('div', 'isl-tree-fpanel');
+    fpanel.hidden = !filt.panel || sealed || !!only;
+    if (!fpanel.hidden) {
+      fpanel.addEventListener('pointerdown', (e) => e.stopPropagation());
+      const fhead = h('div', 'isl-tree-fhead');
+      fhead.append(h('b', '', t('絞り込み・探す', 'Filter & search')), h('small', 'isl-dim', t(`★ ${s.brand ?? 0}・🏅 ${s.emblem ?? 0}`, `★ ${s.brand ?? 0} · 🏅 ${s.emblem ?? 0}`)), btn('✕', () => ((filt.panel = false), after(ctx)), 'isl-tree-fclose'));
+      // 名前で探す（押すと、そのパネルへ寄せて選ぶ）
+      const q = h('input', 'isl-tree-fq');
+      q.type = 'search';
+      q.value = filt.q;
+      q.placeholder = t('パネルの名前で探す', 'Search panels by name');
+      const hits = h('div', 'isl-tree-fhits');
+      const fill = () => {
+        filt.q = q.value.trim();
+        hits.replaceChildren();
+        if (!filt.q) return;
+        const low = filt.q.toLowerCase();
+        const found = SKILLS.filter((k) => !hidden(deptOf(k)) && shownName(s, k).toLowerCase().includes(low)).slice(0, 8);
+        if (!found.length) hits.append(h('small', 'isl-dim', t('見つかりません', 'No match')));
+        for (const k of found) {
+          const b = h('button', 'isl-tree-fhit');
+          b.type = 'button';
+          b.style.setProperty('--br', colorOf(k));
+          b.append(iconOf(k.id, 24), h('span', '', shownName(s, k)), h('small', 'isl-dim', branchName(k)));
+          b.addEventListener('click', () => {
+            filt.panel = false;
+            flyTo(k.id);
+          });
+          hits.append(b);
+        }
+      };
+      q.addEventListener('input', fill);
+      fill();
+      const open1 = btn(t('開けられるものだけ', 'Only what I can unlock'), () => ((filt.open = !filt.open), after(ctx)), `isl-tree-fopen ${filt.open ? 'is-on' : ''}`);
+      const all = btn(t('すべて表示', 'Show all'), () => ((filt.dept = null), (filt.open = false), after(ctx)), 'isl-tree-fall');
+      const row = h('div', 'isl-tree-frow');
+      row.append(open1, all);
+      const depts = h('div', 'isl-tree-fdepts');
+      for (const [d, c] of chipEls) {
+        const b = c.cloneNode(true) as HTMLButtonElement;
+        b.classList.add('isl-tree-fdept');
+        b.classList.toggle('is-on', filt.dept === d);
+        b.dataset.dept = d;
+        b.addEventListener('click', () => {
+          filt.dept = filt.dept === d ? null : d;
+          filt.panel = false;
+          if (filt.dept) {
+            const p = deptCenter(d);
+            view.x = p.x;
+            view.y = p.y;
+            view.sel = null;
+          }
+          after(ctx);
+        });
+        depts.append(b);
+      }
+      fpanel.append(fhead, q, hits, row, h('small', 'isl-tree-fk', t('部門', 'Departments')), depts, h('p', 'isl-dim isl-tree-legend', t('四角＝研究ポイント・菱形＝お金。緑＝開けられる・赤＝足りない・暗い＝手前がまだ', 'Square = RP, diamond = money. Green = can unlock, red = short, dim = not yet')));
+    }
     // ズーム
     const zoom = h('div', 'isl-tree-zoom');
     zoom.append(
@@ -1224,7 +1357,8 @@ export function openSkills(ctx: Ctx, focus?: string) {
       cur.hidden = true;
       zoom.hidden = true;
     }
-    wrap.append(vp, top, zoom, detail, card, stop);
+    wrap.append(vp, top, zoom, detail, card, stop, fpanel);
+    wrap.classList.toggle('is-phone', phone);
     // 外周が開く演出：終わるまで操作を受けない。最後にマインちゃんの一言と「OK」
     if (fx) {
       const curtain = h('div', 'isl-tree-curtain');
@@ -1297,7 +1431,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
     function fitAll() {
       const v = vp.getBoundingClientRect();
       const topH = Math.max(0, top.getBoundingClientRect().bottom - v.top);
-      const botH = Math.max(0, v.bottom - detail.getBoundingClientRect().top);
+      const botH = detail.hidden ? 0 : Math.max(0, v.bottom - detail.getBoundingClientRect().top);
       const hh = vp.clientHeight - (topH + botH) / 2;
       view.zoom = Math.max(ZMIN, Math.min(1, Math.min(vp.clientWidth - 16, hh) / (2 * (RING_OUT.L + PANEL / 2 + 0.1) * UNIT)));
       view.x = 0;
@@ -1356,7 +1490,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       if (view.zoom === ALL) fitAll();
       if (view.zoom < 0) view.zoom = fit();
       if (!view.zoom) view.zoom = innerWidth < 600 ? 0.7 : 0.8;
-      if (liftOnce && detail.isConnected) {
+      if (liftOnce && detail.isConnected && !detail.hidden) {
         liftOnce = false;
         view.y += (Math.max(0, wrap.getBoundingClientRect().bottom - detail.getBoundingClientRect().top) / 2) / (UNIT * view.zoom);
       }
@@ -1452,7 +1586,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
     // 説明の帯が高くなっても、ズームのボタンが隠れないように（PC でも、選んだパネルの詳細カードは高い）
     requestAnimationFrame(() => {
       if (!detail.isConnected) return;
-      const above = wrap.getBoundingClientRect().bottom - detail.getBoundingClientRect().top;
+      const above = detail.hidden ? 0 : wrap.getBoundingClientRect().bottom - detail.getBoundingClientRect().top;
       zoom.style.bottom = `${Math.max(innerWidth < 600 ? 0 : 120, above + 8)}px`;
     });
   });

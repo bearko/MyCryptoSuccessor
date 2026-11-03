@@ -5,6 +5,7 @@
 import { allSeries } from '../../game/catalog';
 import { t } from '../../i18n';
 import { OUTER_SKILLS } from './skillsx';
+import { TREE_LINKS } from './treelinks';
 
 export type Mat = 'iron' | 'wood' | 'clay' | 'glass' | 'cloth' | 'paper' | 'gem';
 export const MAT_KEYS: Mat[] = ['iron', 'wood', 'clay', 'glass', 'cloth', 'paper', 'gem'];
@@ -2250,6 +2251,17 @@ export const UI5_SKILLS = ['relief'];
       delete k.upShow;
     }
 }
+/**
+ * 段 UI5b：スキルツリーのつながりの見直し（線どうしの交わりを 0 に。treelinks.ts）。値段（RP の深さ）を決めたあとで置き換える。
+ * もとの「先に要る」は REQUIRES_ORIG に残す（見直しの探索・テスト用）
+ */
+export const REQUIRES_ORIG: Record<string, string[]> = Object.fromEntries(SKILLS.map((k) => [k.id, [...(k.requires ?? [])]]));
+for (const k of SKILLS) {
+  const r = TREE_LINKS[k.id];
+  if (!r) continue;
+  if (r.length) k.requires = [...r];
+  else delete k.requires;
+}
 /** 研究パネルの値段（RP。お金パネルは 0） */
 export const rpCost = (k: Skill) => (isResearch(k) ? (k.rp ?? 0) : 0);
 
@@ -3221,6 +3233,21 @@ export type PassiveKind = 'craft' | 'haul' | 'sell' | 'scout' | 'dig' | 'mentor'
  * - items：強化アイテムの入り方（町のランクごとにもらうアイテム）。dungeon：ダンジョンの layer 枚目より奥をはがしたマスごとに odds の確率、
  *   deep 枚目より奥は 1 つ上のアイテム（Legendary の町の奥の限定の王冠は、その ll 倍の確率）。
  */
+/**
+ * 役職（事業部長・セクター長）を兼ねられる数（段 UI5b・組織図の決まり。ユーザー 2026-11-03）。ふつうは 1（兼任しない）。
+ * ヒーローの固有の能力として、多くの分野で活躍した人物だけ 2 にする（docs/heroes/research の史実から。のちの段 P で見直す）。
+ * 持ち場（作業台・調達など）の仕事は役職と別に数える（部長は町の持ち場と兼ねてよい）。キーは MCH のヒーローの番号（下 4 桁。復刻の 1xxxx も同じ人物）
+ */
+export const HERO_MULTI_ROLE: Record<number, number> = {
+  /** レオナルド・ダ・ビンチ（絵画・解剖学・工学・建築） */
+  5005: 2,
+  /** ベンジャミン・フランクリン（印刷業・科学・外交・政治） */
+  2041: 2,
+  /** 平賀源内（本草学・発明・鉱山開発・戯作） */
+  3003: 2,
+};
+/** そのヒーローが兼ねられる役職の数（ふつう 1） */
+export const multiRole = (hero: number) => HERO_MULTI_ROLE[hero % 10000] ?? 1;
 export const HERO_GROWTH = {
   cap: { N: 40, C: 60, U: 70, R: 80, E: 90, L: 100, LL: 120 } as Record<HeroRarity, number>,
   mul: { atCap: 0.35, beyond: 0.002, limited: 0.0175, promo: 0.05, lo: 0.7, hi: 1.3 },

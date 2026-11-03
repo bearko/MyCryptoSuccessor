@@ -4,7 +4,8 @@
  * - 効果ごとに小さなキャンバスを 1 枚置き、image-rendering: pixelated で整数倍に拡大する（デバイスの画素で整数倍）。
  * - 層は 2 つ：'map'（地図の上・UI の下。地図のマスに付く効果）と 'ui'（いちばん上。お祝い）。どちらも pointer-events: none で、押す場所を隠さない。
  * - 動いている効果が無いときは、何も描かない（requestAnimationFrame も止める）。描くのは 30 コマ/秒まで。
- * - 「動きを減らす」（prefers-reduced-motion: reduce）のときは鳴らさない。画面を押すと 'ui' の効果はすぐ薄れて消える（待たせない）。
+ * - 設定の「演出：ふつう／控えめ／なし」（段 FX2。fxLevel）：控えめは花火・紙吹雪を出さず、光だけ小さく。なしは効果の層を出さない。
+ *   端末の「動きを減らす」（prefers-reduced-motion: reduce）は「なし」を初期値にする。画面を押すと 'ui' の効果はすぐ薄れて消える（待たせない）。
  * - 明るい地図の上でも読めるように、色のドットの外側に 1px の濃い縁（ink）を付け、光（加算）は弱めにする。
  */
 import { EFFECTS, clearFrame, composite, createFrame, createFx, type FxFrame, type FxId, type FxInstance } from './registry.js';
@@ -80,6 +81,36 @@ let enabled = true;
 const stats = { frames: 0, total: 0, max: 0, peak: 0, played: 0 };
 
 const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** 演出の強さ（段 FX2）：ふつう（full）・控えめ（calm：花火・紙吹雪を出さず、光だけ小さく）・なし（off） */
+export type FxLevel = 'full' | 'calm' | 'off';
+export const FX_LEVELS: FxLevel[] = ['full', 'calm', 'off'];
+const FX_KEY = 'isl.fxLevel';
+/** 控えめで出さない効果（大きなお祝い） */
+const LOUD: FxId[] = ['firework-burst', 'confetti'];
+let level: FxLevel | null = null;
+/** いまの演出の強さ（覚えていなければ、端末の「動きを減らす」なら「なし」・ほかは「ふつう」） */
+export function fxLevel(): FxLevel {
+  if (level) return level;
+  let v: string | null = null;
+  try {
+    v = localStorage.getItem(FX_KEY);
+  } catch {
+    // 読めなければ初期値
+  }
+  level = FX_LEVELS.includes(v as FxLevel) ? (v as FxLevel) : reduced() ? 'off' : 'full';
+  return level;
+}
+/** 演出の強さを変える（このブラウザに覚える）。なしにしたら、いま出ている効果も消す */
+export function setFxLevel(v: FxLevel) {
+  level = v;
+  try {
+    localStorage.setItem(FX_KEY, v);
+  } catch {
+    // 覚えられなくても切り替える
+  }
+  if (v === 'off') for (const x of live.splice(0)) x.cv.remove();
+}
 const phone = () => innerWidth < 600;
 
 function rootOf(layer: FxLayer): HTMLDivElement {
@@ -105,9 +136,9 @@ function skipUi() {
   for (const x of live) if (x.layer === 'ui' && x.wait <= 0 && x.age > 0.2) x.inst.stop();
 }
 
-/** 効果を出せるか（動きを減らす設定・止めているとき・画面が無いときは出さない） */
+/** 効果を出せるか（演出「なし」・止めているとき・画面が無いときは出さない。「動きを減らす」は演出の初期値「なし」で） */
 export function fxOn(): boolean {
-  return enabled && typeof document !== 'undefined' && !reduced();
+  return enabled && typeof document !== 'undefined' && fxLevel() !== 'off';
 }
 /** 効果を止める・戻す（撮影の比べ用） */
 export function setFxEnabled(v: boolean) {
@@ -121,6 +152,9 @@ export function setFxEnabled(v: boolean) {
  */
 export function playFx(id: FxId, x: number, y: number, o: PlayOpts = {}): boolean {
   if (!fxOn()) return false;
+  const calm = fxLevel() === 'calm';
+  // 控えめ：花火・紙吹雪は出さない
+  if (calm && LOUD.includes(id)) return false;
   const mod = EFFECTS[id];
   if (!mod) return false;
   const layer = o.layer ?? 'ui';
@@ -129,13 +163,15 @@ export function playFx(id: FxId, x: number, y: number, o: PlayOpts = {}): boolea
   if (mine.length >= MAX) drop(mine[0]);
   const [w, h] = mod.meta.size;
   const [ox, oy] = mod.meta.origin;
-  const opts: Record<string, unknown> = { x: ox, y: oy, light: o.light ?? (layer === 'map' ? 0.4 : 0.7), ...(o.opts ?? {}) };
+  // 控えめ：光は半分の強さ・小さく（1 ドットの大きさを 3/4。整数倍の丸めは下で）
+  const light = (o.light ?? (layer === 'map' ? 0.4 : 0.7)) * (calm ? 0.5 : 1);
+  const opts: Record<string, unknown> = { x: ox, y: oy, light, ...(o.opts ?? {}) };
   if (o.palette) opts.palette = [...o.palette];
   if (o.seed != null) opts.seed = o.seed;
   if (o.flip) opts.flip = true;
   const inst = createFx(mod, opts);
   const dpr = window.devicePixelRatio || 1;
-  const want = o.scale ?? (layer === 'map' ? 1 : phone() ? 4 / 3 : 2);
+  const want = (o.scale ?? (layer === 'map' ? 1 : phone() ? 4 / 3 : 2)) * (calm ? 0.75 : 1);
   const css = Math.max(1, Math.round(want * dpr)) / dpr;
   const cv = document.createElement('canvas');
   cv.width = w;

@@ -12,7 +12,7 @@ import { icon } from '../../ui/dom';
 import { DEF, artId } from '../defs';
 import { effectDone, image, loading, pick, waterFrame, type Camera, type Effect } from '../render';
 import { cells, type Dir } from '../sim';
-import { FX_PAL, clearFx, fxAtEl, fxStats, playFx, setFxEnabled, warmFx } from '../fx/layer';
+import { FX_LEVELS, FX_PAL, clearFx, fxAtEl, fxLevel, fxStats, playFx, setFxEnabled, setFxLevel, warmFx, type FxLevel } from '../fx/layer';
 import type { FxId } from '../fx/registry.js';
 import { BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, LEGAL_INTRO, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, HERO_RARITY, MORALE, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO, ACCT_INTRO, CS_INTRO } from './data';
 import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
@@ -130,6 +130,7 @@ import { openSupply } from './scm';
 import { openSales } from './sales';
 import { pickHooks } from './heroui';
 import { openDigSummary, openMonthReport } from './report';
+import { openOrg } from './orgui';
 import { openSkills } from './tree';
 import { openSide } from './side';
 import { resolveSub, subDefs, type ScreenId, type SubDef } from './menus';
@@ -147,7 +148,7 @@ import { IslandSfx } from './sfx';
 import { tileContent } from './tile';
 import { closeDig, digOpen, digRect, extIcon, openDig, openNotes, refreshDig, refreshTimer, showEndCard } from './digui';
 import { MEET_FOUND, MEET_LINES, canPresent, chiefHome, digMet, chiefOf, digSummary, letterToGet, lettersLeft, meetReady, meetTip, presentAfter, presentPages } from './digmeet';
-import { CHIP_SRC, CLEAR_LINE, HIRE_LINES, RP_LINE, DUNGEON_LINE, GATE_LINES, LAND_CLEAR_LINE, MUSEUM_LINE, RANK_LINES, RELIC_LINE, REVIVE_LINE, SIDE_LINES, TOUR, arrivalPages, bubbleKind, chipOf, deptTalkNext, introPages, needsIntro, talkWaits, type ArrivePage, type TalkUi, type TourEv, type TourPhase } from './mine';
+import { CHIP_SRC, CLEAR_LINE, FOOT_TALK, HIRE_LINES, RP_LINE, DUNGEON_LINE, GATE_LINES, LAND_CLEAR_LINE, MUSEUM_LINE, RANK_LINES, RELIC_LINE, REVIVE_LINE, SIDE_LINES, TOUR, arrivalPages, bubbleKind, chipOf, deptTalkNext, introPages, needsIntro, talkWaits, type ArrivePage, type TalkUi, type TourEv, type TourPhase } from './mine';
 import type { Stage } from './model';
 import { TIER_NOTE, openBooks, openBrand, openLand, openRankUp, startMove } from './landui';
 import { pendingReset, rankUpTier } from './reset';
@@ -158,7 +159,7 @@ import type { Sku as SkuT } from './data';
 import { STRIP, corners, overviewScale, worldOf } from './worldrender';
 import { landCleared, letterLockOf, letterLocked, playable } from './land';
 import { actOf, hlOf, pointOf, TUT, TUT_DONE, TUT_END, tutFix, tutOf, type TutGo, type TutPage, type TutStep } from './tut';
-import { btn, h, heroIcon, heroName, matIcon, money, plain, rich, skuIcon, skuName } from './ui';
+import { btn, h, heroIcon, heroName, matIcon, money, plain, rich, signed, skuIcon, skuName } from './ui';
 
 const q = new URLSearchParams(location.search);
 const TEST = q.get('test') === '2';
@@ -554,7 +555,7 @@ function brandNews() {
   const fresh = log.slice(0, k < 0 ? 1 : k).reverse();
   brandSeen = log[0];
   for (const e of fresh) {
-    toast(t(`ブランド力 ${e.d > 0 ? '+' : ''}${e.d}（${e.why}）`, `Brand ${e.d > 0 ? '+' : ''}${e.d} (${e.why})`));
+    toast(t(`ブランド力 ${signed(e.d)}（${e.why}）`, `Brand ${signed(e.d)} (${e.why})`));
     statBrand.classList.remove('is-up', 'is-down');
     void statBrand.offsetWidth;
     statBrand.classList.add(e.d > 0 ? 'is-up' : 'is-down');
@@ -686,6 +687,7 @@ const SCREEN: Record<ScreenId, () => void> = {
   ceo: () => openCharisma(ctx),
   ma: () => (menuDepts(s).includes('legal') ? openLegalScreen('ma') : openMA(ctx)),
   staff: () => openStaff(ctx),
+  org: () => openOrg(ctx),
   side: () => openSide(ctx),
   growth: () => openGrowth(ctx),
   // 人材登用の画面は「候補の一覧 → カリスマ（経営者の部分に 1 つだけ）」の順（カリスマの札が 2 回出ないように）
@@ -741,6 +743,9 @@ const tabbar = h('nav', 'isl-tabbar');
 let tabBtns = {} as Partial<Record<Menu, HTMLButtonElement>>;
 /** グループの引き出し（部門が 7 つ以上のとき。いまは器だけ） */
 let drawer: DeptGroup | null = null;
+/** 段 UI5b：グループの帯の説明のあと、光らせるグループ（人事の入っている「管理」）。押すか 60 秒で消える */
+let footGuide: DeptGroup | null = null;
+let footGuideAt = 0;
 const drawerEl = h('div', 'isl-drawer');
 drawerEl.hidden = true;
 let tabKey = '';
@@ -777,6 +782,8 @@ function buildTabs() {
       b.append(h('i', '', g.icon), h('span', 'is-full', g.name), h('span', 'is-short', g.name));
       b.addEventListener('click', () => {
         drawer = drawer === g.id ? null : g.id;
+        // 段 UI5b：光らせていたグループを押した：引き出しの人事を光らせる（人事を押すまで）
+        if (footGuide === g.id && drawer) footGuideAt = -1;
         drawerEl.replaceChildren(...g.depts.map((m) => tab(m)));
         drawerEl.hidden = !drawer;
         renderFoot();
@@ -821,6 +828,7 @@ function unlockHire() {
 /** 下の帯のタブ：押すと 1 つ目のサブタブの画面まで開く。もう一度押すと閉じる */
 function pickMenu(m: Menu) {
   if (s.digRun) return busyDig();
+  if (m === 'hr') footGuide = null;
   const ws = !!myWorkshop(s);
   if (menuLocked(m)) return lockedNote();
   // 工房がまだ：物流は開けない。人事はほかのセクタに来たばかりなら開ける（会社ぜんたいのスキルは経営企画 → スキルツリー）
@@ -903,6 +911,10 @@ function renderFoot() {
     tb(m)!.classList.toggle('is-lock', menuLocked(m));
   }
   for (const g of tabbar.querySelectorAll<HTMLElement>('.isl-tab.is-group')) g.classList.toggle('is-on', drawer === g.dataset.group);
+  // 段 UI5b：グループの帯の説明のあと：「管理」を光らせ、開いたら中の「人事」を光らせる（人事を押す・60 秒で消える）
+  if ((footGuide && footGuideAt >= 0 && performance.now() - footGuideAt > 60000) || menu === 'hr') footGuide = null;
+  for (const g of tabbar.querySelectorAll<HTMLElement>('.isl-tab.is-group')) g.classList.toggle('is-guide', !!footGuide && footGuide === g.dataset.group && drawer !== footGuide && !step);
+  if (footGuide && drawer === footGuide && !step) tabBtns.hr?.classList.add('is-guide');
   speedBtns[2].classList.toggle('is-guide', hm === 'speed' && speed !== 4);
   if (!menu) {
     placeBand();
@@ -3149,6 +3161,13 @@ function sysSheet(title: string, note: string, buttons: () => [string, () => voi
   });
 }
 
+/** 演出の強さの名前と説明（段 FX2） */
+const FX_LEVEL_NAME: Record<FxLevel, () => string> = { full: () => t('ふつう', 'Normal'), calm: () => t('控えめ', 'Subtle'), off: () => t('なし', 'Off') };
+const FX_LEVEL_NOTE: Record<FxLevel, () => string> = {
+  full: () => t('花火・紙吹雪・光', 'fireworks, confetti, sparkles'),
+  calm: () => t('花火・紙吹雪なし・光だけ小さく', 'no fireworks or confetti, small sparkles only'),
+  off: () => t('効果を出さない', 'no effects'),
+};
 function openSettings() {
   sysSheet(t('設定', 'Settings'), t('言語・マインちゃんの案内・音・街の人通りを切り替えます。', 'Language, Mine-chan’s guide, sound and crowd.'), () => [
     [isEn ? '日本語' : 'English', () => setLang(isEn ? 'ja' : 'en')], // i18n-ja
@@ -3176,6 +3195,17 @@ function openSettings() {
         }
         toast(t(`街の人通り：${CROWD_LEVELS[crowdLevel].name}（重いときは少なく）`, `Crowd: ${CROWD_LEVELS[crowdLevel].name} (lower it if the game feels slow)`));
       },
+    ],
+    // 段 FX2：演出（ドットのエフェクト）の強さ。押すたびに ふつう → 控えめ → なし
+    [
+      t(`演出：${FX_LEVEL_NAME[fxLevel()]()}`, `Effects: ${FX_LEVEL_NAME[fxLevel()]()}`),
+      () => {
+        const next = FX_LEVELS[(FX_LEVELS.indexOf(fxLevel()) + 1) % FX_LEVELS.length];
+        setFxLevel(next);
+        toast(t(`演出：${FX_LEVEL_NAME[next]()}（${FX_LEVEL_NOTE[next]()}）`, `Effects: ${FX_LEVEL_NAME[next]()} (${FX_LEVEL_NOTE[next]()})`));
+        if (next !== 'off') fxAtEl('collect-burst', root.querySelector('.isl-sheet-body .isl-btn.is-fxlevel'), { palette: FX_PAL.gold, dy: 30 });
+      },
+      'is-fxlevel',
     ],
     ...(tutOf(s) < TUT_DONE
       ? [
@@ -3672,9 +3702,13 @@ function placeToasts() {
   let y = placing ? selBox.getBoundingClientRect().bottom + 8 : hud.getBoundingClientRect().bottom + 8;
   // （見出しがトーストより下なら、そのまま）
   // 段 UI3：部門の帯が見出しの下にあれば、その下へ
-  const head = (root.querySelector('.isl-sheet-box > .isl-dband') ?? root.querySelector('.isl-sheet-head'))?.getBoundingClientRect();
-  if (head && head.top < y + Math.max(40, toasts.offsetHeight)) y = Math.max(y, head.bottom + 6);
-  toasts.style.top = `${Math.round(y)}px`;
+  // 段 UI5b：重なりは画面の見出し（✕ のある行）で調べ、置くのは部門の帯があればその下へ
+  // （前は部門の帯の位置だけで調べたので、見出しの行が上の帯のすぐ下にあると、トーストが見出しに重なっていた：外交の「✔ 引き受ける」）
+  const head = root.querySelector('.isl-sheet-head')?.getBoundingClientRect();
+  const band = root.querySelector('.isl-sheet-box > .isl-dband')?.getBoundingClientRect();
+  if (head && head.top < y + Math.max(40, toasts.offsetHeight)) y = Math.max(y, (band && band.height > 0 && band.top >= head.top ? band.bottom : head.bottom) + 6);
+  const top = `${Math.round(y)}px`;
+  if (toasts.style.top !== top) toasts.style.top = top;
 }
 function renderAll() {
   dirty = true;
@@ -3739,10 +3773,27 @@ function newDeptBanner(d: DeptId) {
  * 段 UI2：到着の案内・災害の演出・移動が終わってから、1 日に 1 つずつ（Uncommon に着いた日に 12 枚続いていた。mine.ts の deptTalkNext）
  */
 function deptTalk() {
+  // 段 UI5b：読み込んだときに兼任を外した（役職は 1 人 1 つ）：マインちゃんの一言（会話が出せるときに 1 回）
+  if (s.flags.roleFix?.length && tutOf(s) >= TUT_DONE && !talkWaits(uiNow())) {
+    const names = s.flags.roleFix.map((id) => heroName(id)).join(t('・', ', '));
+    delete s.flags.roleFix;
+    save();
+    talk([{ text: t(`[[${names}]]が役職を兼ねていたので、1 つだけ残して、ほかの席は[[あなた]]に戻したよ。`, `[[${names}]] held two posts, so I kept one and gave the rest back to [[you]].`) }], t('組織図を見る', 'See the org chart'), () => goSub('hr', 'org'));
+    return;
+  }
   const k = deptTalkNext(s, uiNow(), { intro: needsIntro(s), reset: !!pendingReset(s) });
   if (!k) return;
   s.flags.talkDay = s.day;
-  if (k === 'sales') {
+  if (k === 'foot') {
+    // 段 UI5b：下の帯がグループの帯になった。会話のあと、人事の入っているグループ（管理）を光らせる（自分で押してもらう）
+    s.flags.footTalk = true;
+    save();
+    talk(FOOT_TALK().map((text) => ({ text })), t('OK', 'OK'), () => {
+      footGuide = DEPT.hr.group;
+      footGuideAt = performance.now();
+      renderAll();
+    });
+  } else if (k === 'sales') {
     s.flags.salesTalk = true;
     save();
     talk(SALES_INTRO().map((text) => ({ text })), t('営業を開く', 'Open Sales'), () => goSub('sales', 'area'));
@@ -4461,6 +4512,9 @@ function frame(now: number) {
   }
   renderNext();
   maybeCard(now);
+  // 段 UI5b：トーストが出ているあいだは毎フレーム置き直す（画面が下から出てくる動きのあいだに置いたトーストが、
+  // 動きが終わると見出しに重なっていた：外交の「✔ 引き受ける」）
+  if (toasts.childElementCount) placeToasts();
   if (talkQ.length) flushTalk();
   // 発掘作業の残り時間（現実の秒。ゲームの速さに寄らない）
   if (s.digRun) {
@@ -4646,6 +4700,12 @@ window.setTimeout(() => warmFx(), 3000);
   rankUp: (id: string) => openRankUp(ctx, id),
   /** 撮影スクリプト用：スキルツリーを開く（focus のパネルを真ん中に・選んだ状態で） */
   skills: (focus?: string) => openSkills(ctx, focus),
+  /** 撮影スクリプト用（段 UI5b）：k 番目の月次報告を開く（無ければ最後） */
+  reportOpen: (k?: number) => {
+    const r = s.reports[k ?? s.reports.length - 1];
+    if (r) openMonthReport(ctx, r, reportHooks());
+    return !!r;
+  },
   speed: (v?: number) => (v != null ? ((speed = v), renderHud()) : speed),
   /** ドット絵のエフェクト（撮影・計測用）：鳴らす・数える・止める（比べる前の画面を撮る） */
   fx: { play: (id: FxId, x: number, y: number, o?: Parameters<typeof playFx>[3]) => playFx(id, x, y, o), stats: (reset?: boolean) => fxStats(reset), enable: (v: boolean) => setFxEnabled(v), clear: () => clearFx(), coin: (uid: number) => coinFx(uid), letter: (conquered: boolean) => letterFx(conquered), letterDemo: (conquered: boolean) => showLetter(120, conquered ? null : 'U', null, 0, conquered) },

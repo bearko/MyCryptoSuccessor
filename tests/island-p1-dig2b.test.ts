@@ -701,14 +701,16 @@ describe('画面のための数字', () => {
   it('発掘終了の札の「次の強化のおすすめ」：いちばん安い発掘のパネルの次の Lv（「発掘の追加申請 Lv2（4,000 G）で 21 秒に」）', () => {
     const s = met();
     // 発掘のパネルは研究パネル（RP）：値段は RP・開くと決まった段の効き目（調整 v25c：Lv2。発掘の追加申請は 21 秒）
-    // いちばん安いのはツルハシの鍛え直し（10 RP）。発掘の追加申請（15 RP）は「21 秒に」
+    // 段 UI5b：つながりの見直しで、ツルハシの鍛え直し（10 RP）は発掘の追加申請の先（線が交わらないように）。
+    // はじめに取れるのは発掘の追加申請（15 RP）で「21 秒に」→ そのあといちばん安いツルハシの鍛え直し
+    expect(SKILL.dig_power.requires).toEqual(['dig_ext']);
+    expect(digRec(s)).toMatchObject({ id: 'dig_ext', lv: 2, cost: rpCost(SKILL.dig_ext), text: `発掘の追加申請（${rpCost(SKILL.dig_ext)} RP）で 21 秒に` });
+    learn(s, 'dig_ext');
     expect(digRec(s)).toMatchObject({ id: 'dig_power', lv: 2, cost: rpCost(SKILL.dig_power) });
     expect(digRec(s)!.text).toContain(`ツルハシの鍛え直し（${rpCost(SKILL.dig_power)} RP）`);
     learn(s, 'dig_power');
-    expect(digRec(s)).toMatchObject({ id: 'dig_ext', lv: 2, cost: rpCost(SKILL.dig_ext), text: `発掘の追加申請（${rpCost(SKILL.dig_ext)} RP）で 21 秒に` });
-    learn(s, 'dig_ext');
     // 取ったものは出ない。次にいちばん安いもの
-    expect(digRec(s)?.id).not.toBe('dig_ext');
+    expect(digRec(s)?.id).not.toBe('dig_power');
     // 深い層の許可が要るマスを押した作業のあとは、深い層の許可を先に（手前の発掘の追加申請・発掘のランタンから）
     expect(digRec(s, 'dig_deep')?.id).toBe('dig_lamp');
     learn(s, 'dig_lamp');
