@@ -133,6 +133,7 @@ import { diploDay, takeDipMonth, tradeClose, type DipMonth, type DiploState, typ
 import { canHireRarity, charismaOf, hireCap, initMorale, moraleAdd, moraleAvg, moraleDay, moraleMul, newHrMonth, syncCharisma, wantsToQuit, type HrDay, type HrMonth } from './hr';
 import { fitSector, fitTask } from './voice';
 import { duoDrain, duoSpeed, type DuoState } from './duo';
+import { budgetClose, budgetDay, type BudgetReport, type BudgetState } from './budget';
 
 export type Ground = 'grass' | 'road';
 export type Owner = 'me' | 'town' | string;
@@ -365,6 +366,8 @@ export interface Report {
   deleg?: DelegReport;
   /** 提案と報告のカード（段 UI1）：今月出たカード・時間を止めて出した数・受け箱に回った数・任せて実行した提案 */
   cards?: CardReport;
+  /** 段 I1：予算で任せた部門の 1 行（budget.ts の budgetReport） */
+  budget?: BudgetReport;
   /** 突発のできごと（段 UI4）：前の報告から選んだできごと・締めの時点で効いている倍率 */
   events?: EvLog[];
   evFx?: ActiveFx[];
@@ -467,6 +470,8 @@ export interface Flags {
   headPick?: boolean;
   /** 段 UI6：一度でも事業部長を置いた（トロフィー「マイクロマネジメント」の判定だけに使う） */
   headEver?: boolean;
+  /** 段 I1：予算で任せるの紹介（マインちゃん。Rare に届いて営業の紹介のあと 1 回）を見た */
+  budgetTalk?: boolean;
 }
 
 export interface P1State {
@@ -474,7 +479,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25;
   kind: 'p1';
   seed: number;
   n: number;
@@ -669,6 +674,11 @@ export interface P1State {
    * 町ごとの M&A は商圏（area.ma）に。無ければ契約・特許・裁判・M&A は空
    */
   legal?: LegalState;
+  /**
+   * 段 I1（版 25。budget.ts）：予算で任せる。部門ごとの月の予算の段（小・中・大・数字）・従業員の数と上限・今月使った予算と労力・今月の施策・先月の記録・部長からの頼み。
+   * 会社のもの（災害でも残る・町を移っても残る）。無ければ、Rare に届いたときに「中」・従業員 0 人から
+   */
+  budget?: BudgetState;
 }
 
 /** ランクアップの災害 1 回の記録（演出・自動プレイの計測） */
@@ -816,7 +826,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 23,
+    v: 25,
     kind: 'p1',
     seed,
     n,
@@ -3871,6 +3881,8 @@ export function step(s: P1State): DayResult {
 
   // 任せ方の 4 段（段 D）：チームリーダー・事業部長が任された業務を回す（見直しの日に。採掘は毎日）
   const led = delegDay(s);
+  // 段 I1：部門の従業員の給料（お店の従業員と同じく毎日。その部門の予算から）
+  budgetDay(s);
   if (led.length) (res.dug ??= []).push(...led);
 
   // ヒーローの育成（段 E1）：今日働いた人に経験値（仕事ごと × ランク。OJT・社内研修・仲間の面倒見で上乗せ）
@@ -3907,7 +3919,9 @@ export function step(s: P1State): DayResult {
   checkMissions(s, res);
   if (s.open !== null && s.day > s.open && (s.day - s.open) % DAYS === 0) {
     res.report = endMonth(s);
-    // 担当の報告・部長の提案（段 D）
+    // 段 I1：予算の月の締め（今月の予算の記録を「先月」へ。従業員の見直し）。このあとの部長の施策は新しい月の予算で
+    budgetClose(s);
+    // 担当の報告・部長の提案（段 D）。段 I1：予算で任せた部門の部長は、予算の中で施策を実行する
     delegMonth(s, res.report);
     // 提案・報告のカード（段 UI1）：ヒーローからの提案・部長の提案・問い合わせ・炎上の予告・他社の巻き返し
     cardsMonth(s, res.report);
@@ -4590,7 +4604,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19 && o.v !== 20 && o.v !== 21 && o.v !== 22 && o.v !== 23) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19 && o.v !== 20 && o.v !== 21 && o.v !== 22 && o.v !== 23 && o.v !== 24 && o.v !== 25) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -4671,7 +4685,10 @@ export function deserializeP1(json: string): P1State | null {
     // 主力の指定（ShopState.main）は無し（いまの 1 番目の棚のまま）。調達係は 1 人のまま（定員のパネルを取るまで）
     if (o.v < 22) syncShelves(s);
     // 版 22 → 23（段 P2：ヒーローの組み合わせ）：見つけた組み合わせ（s.duo）は空から（いまの顔ぶれで条件がそろっていれば、次の締めで見つかる）
-    s.v = 23;
+    if (s.v < 23) s.v = 23;
+    // 版 23（と並行の段 UI5c の版 24）→ 25（段 I1：予算で任せる）：部門の予算・従業員（s.budget）は空から（はじめて使うときに、どの部門も「中」・従業員 0 人・
+    // 上限は BUDGET.crew.cap で作る）。足した項目が無いときの既定値で埋めるだけなので、23 からも 24 からも同じ
+    if (s.v === 23 || s.v === 24) s.v = 25;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);

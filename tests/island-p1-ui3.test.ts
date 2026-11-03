@@ -35,9 +35,9 @@ describe('画面の数（サブタブ）', () => {
     expect(menuDepts(newP1(1)).sort()).toEqual([...COMMON].sort());
     expect(subCount(COMMON)).toBeLessThanOrEqual(22);
     expect(subCount(ALL)).toBeLessThanOrEqual(30);
-    // 段 UI3 の目安：Common 29 → 21、Epic 38 → 29
+    // 段 UI3 の目安：Common 29 → 21、Epic 38 → 29。段 I1 で Rare から「予算と部門」（経営企画）を 1 つ足して 30
     expect(subCount(COMMON)).toBe(21);
-    expect(subCount(ALL)).toBe(29);
+    expect(subCount(ALL)).toBe(30);
   });
   it('経理が開くと、決算書は経営企画から経理へ（同じ画面が 2 つに出ない）', () => {
     expect(subDefs('strategy', COMMON).some((x) => x.key === 'books')).toBe(true);
