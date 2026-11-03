@@ -1487,6 +1487,13 @@ export interface DigTree {
   autoSpeed: number[];
   relay: number[];
   mat: number[];
+  /**
+   * 調整 v25c：発掘の枝の研究パネル（RP で開く・レベルなし）を開いたときの効き目の段（Lv1〜5 の表のどこか）。
+   * lv がふつうの段、keep は決め打ち（深い層の許可・研究の目利き・発掘隊の役所は、先へ進むのに要るので Lv5）
+   */
+  rpLv: { lv: number; keep: Record<string, number> };
+  /** 調整 v25c：発掘の枝の研究パネルの RP（決め打ち）。Common はほかの研究パネル（20〜80）より安く。書いていないものは RP の段の自動の値段 */
+  rp: Record<string, number>;
 }
 
 // ---------------------------------------------------------------- 発掘と研究ポイントの調整値（ここ 1 か所）
@@ -1707,6 +1714,12 @@ export const DIG_BALANCE: {
     autoSpeed: [0.1, 0.2, 0.3, 0.4, 0.5],
     relay: [0.15, 0.3, 0.45, 0.6, 0.75],
     mat: [0.2, 0.4, 0.6, 0.8, 1.0],
+    // 調整 v25c（PR #29 で研究パネルにした発掘の枝）：効き目は Lv3 の段（以前の最大 Lv5 のままだと、災害で消えなくなったぶん
+    // Rare・Epic の再発掘が速くなりすぎた）。深い層の許可・研究の目利き・発掘隊の役所は Lv5（Rare・Epic のお題の層・研究 Lv5・発掘隊 5 人に要る）
+    rpLv: { lv: 3, keep: { dig_deep: 5, dig_study: 5, dig_office: 5 } },
+    // 調整 v25c：Common の発掘のパネルの RP（前は Common の研究パネルの段 20〜80 で合計 550 → 合計 210）。
+    // Common の RP をほかの研究に回せるように（v25b で Common が +9〜12% 遅くなった）。Uncommon の 6 枚は段の自動の値段（60〜180）のまま
+    rp: { dig_ext: 5, dig_lamp: 10, dig_deep: 20, dig_power: 10, dig_office: 15, dig_speed: 15, dig_blast: 20, dig_crew: 25, dig_reach: 30, dig_drill: 30, dig_study: 30 },
   },
   // 発掘作業：15 秒（現実の秒）・長押し 0.17 秒ごと
   sessionSec: 15,
@@ -1930,11 +1943,12 @@ SKILLS.push(...DIG_SKILLS);
 /**
  * 発掘の枝のパネル（17 枚）。以前はお金パネル（Lv1〜5）だったが、ランクアップの災害でお金のパネルが未取得に戻って遊びにくいので、
  * **研究パネル（RP で開く・レベルなし）** にした（値段は同じランクの研究パネルの RP の段。下の RP の決め方）。
- * 効き目は以前の最大レベル（Lv5）の値：開いたとき skillLv を最大にする（model.ts の gainSkill）。無限の強化パネル・研究への寄付・発掘許可・発破とドリルの毎回の代金は、そのままお金
+ * 効き目は決まった段（調整 v25c：ふつう Lv3・深い層の許可・研究の目利き・発掘隊の役所は Lv5。DT.rpLv）：開いたとき skillLv をその段にする（model.ts の gainSkill）。
+ * 値段は DT.rp（Common は決め打ちで安く）。無限の強化パネル・研究への寄付・発掘許可・発破とドリルの毎回の代金は、そのままお金
  */
 export const DIG_PANELS = DIG_SKILLS.map((k) => k.id);
-/** 発掘パネルを開いたときの Lv（以前の最大レベル） */
-export const digMaxLv = (k: Skill) => k.max ?? 5;
+/** 発掘パネル（研究パネル）を開いたときの効き目の段（調整 v25c：ふつう Lv3・深い層の許可・研究の目利き・発掘隊の役所は Lv5。DT.rpLv） */
+export const digRpLv = (k: Skill) => Math.min(k.max ?? 5, DT.rpLv.keep[k.id] ?? DT.rpLv.lv);
 
 // ---------------------------------------------------------------- 無限の強化パネル・研究への寄付（発掘 v2 の 6 段目）
 
@@ -2188,14 +2202,20 @@ const RP_FIXED: Record<string, number> = { hire: START_RP };
     const P = RP_PRICE[tier];
     const round = (v: number) => Math.max(P.step, Math.round(v / P.step) * P.step);
     for (const b of new Set(SKILLS.map((k) => k.branch))) {
-      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null && ACCT_RP[k.id] == null && CSM_RP[k.id] == null && LEGAL_RP[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
+      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null && ACCT_RP[k.id] == null && CSM_RP[k.id] == null && LEGAL_RP[k.id] == null && DT.rp[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
       list.forEach((k, i) => (k.rp = round(P.lo + ((P.hi - P.lo) * (list.length > 1 ? i : 0)) / Math.max(1, list.length - 1))));
       // 1 枚だけの枝は真ん中の値段
       if (list.length === 1) list[0].rp = round((P.lo + P.hi) / 2);
     }
     for (const k of SKILLS) if (tierOf(k) === tier && k.big) k.rp = P.big;
   }
-  for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP, ...ACCT_RP, ...CSM_RP, ...LEGAL_RP })) if (byId.get(id)) byId.get(id)!.rp = v;
+  for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP, ...ACCT_RP, ...CSM_RP, ...LEGAL_RP, ...DT.rp })) if (byId.get(id)) byId.get(id)!.rp = v;
+  // 発掘の枝の研究パネルはレベルが無い（開いたときの段は決まっている）ので、「先に要る Lv」（長期の発掘許可＝追加申請 Lv5 など）は外す。持っていればよい
+  for (const k of SKILLS)
+    if (k.reqLv) {
+      for (const r of Object.keys(k.reqLv)) if (byId.get(r)?.branch === 'dig' && byId.get(r)?.cat === 'research') delete k.reqLv[r];
+      if (!Object.keys(k.reqLv).length) delete k.reqLv;
+    }
   // 無限の強化パネル：Lv1 の値段（Lv2 からは infCost）
   for (const k of INF_SKILLS) k.rp = infCost(1);
   // 研究パネルはレベルなし（効き目は Lv1 の値）：Lv2 からの効き目は持たない
@@ -3204,6 +3224,12 @@ export const CHARISMA = {
 };
 /** 雇えるレアリティの段（しきい値の順） */
 export const HIRE_RARITIES: HeroRarity[] = ['C', 'U', 'R', 'E', 'L'];
+/**
+ * 調整 v25c：雇うときの契約金（G。ヒーローのもとのレアリティごと。Novice・Common は 0）。雇う画面の「雇う」のボタンに出し、雇ったときに人件費として払う。
+ * PR #29 でカリスマ 10 だけでアンコモンが雇えるようになり（以前は研究パネル「憧れの職場」も要った）、Uncommon の町に着いてすぐ雇えるぶん
+ * Uncommon が速くなりすぎた（通常 −10%）。着いた直後（支度金 30,000 G）には払えず、売上が立ってから雇う
+ */
+export const HIRE_FEE: Partial<Record<HeroRarity, number>> = { U: 40000, R: 100000, E: 250000, L: 600000 };
 
 /**
  * 給与（段 E2）。月給 ＝（もとの月給 ＋ 給与の段 × 1 段の額）× 給料の倍率（パネル）。もとの月給はいままでどおり（MCH の能力値の合計 × WAGE_PER_STAT。創業の 3 人は 0）、
