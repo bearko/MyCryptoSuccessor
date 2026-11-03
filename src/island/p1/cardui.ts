@@ -11,6 +11,7 @@ import {
   cardInbox,
   cardStar,
   choiceText,
+  eventHead,
   chooseCard,
   markSeen,
   popLeft,
@@ -27,7 +28,8 @@ import {
 import { rankOf } from './heroui';
 import { staffOf, type P1State } from './model';
 import { traitOf } from './persona';
-import { after, type Ctx } from './screens';
+import { landDef, relOf, relTeaser } from './diplo';
+import { after, makeHooks, type Ctx } from './screens';
 import { btn, h, heroIcon, heroName, money, rich } from './ui';
 import { assetUrl } from '../../render/images';
 
@@ -66,7 +68,14 @@ function panel(s: P1State, c: Card, close: (res: ChooseRes | null, label: string
   // 話し手
   const who = h('div', 'isl-cardm-who');
   const face = h('div', 'isl-cardm-face');
-  if (c.hero != null) face.append(heroIcon(c.hero, 120));
+  const eh = eventHead(s, c);
+  if (c.src === 'diplo' && c.dip) {
+    // 使者の顔（仮の絵：ランドの色と紋。docs/ISLAND_ART_TODO.md）
+    const L = landDef(c.dip.land);
+    const crest = h('div', 'isl-crest', L.icon);
+    crest.style.setProperty('--lc', L.color);
+    face.append(crest);
+  } else if (c.hero != null) face.append(heroIcon(c.hero, 120));
   else {
     const mi = h('img');
     mi.src = assetUrl('mch/Image/Characters/navi_ain_speak_00_talk.png');
@@ -74,9 +83,11 @@ function panel(s: P1State, c: Card, close: (res: ChooseRes | null, label: string
     face.append(mi);
   }
   const id = h('div', 'isl-cardm-id');
-  id.append(h('span', 'isl-cardm-role', `${role.icon} ${role.text}`), h('b', 'isl-cardm-name', c.hero != null ? heroName(c.hero) : t('マインちゃん', 'Mine-chan')));
+  const nameTxt = eh && (c.hero == null || c.src === 'diplo') ? eh.title : c.hero != null ? heroName(c.hero) : t('マインちゃん', 'Mine-chan');
+  id.append(h('span', 'isl-cardm-role', `${role.icon} ${role.text}`), h('b', 'isl-cardm-name', nameTxt));
   const st = c.hero != null ? staffOf(s, c.hero) : null;
-  if (st && c.hero != null) {
+  if (eh) id.append(h('small', 'isl-cardm-tag', c.hero != null && c.src === 'event' ? eh.title : eh.tag));
+  else if (st && c.hero != null) {
     const bits = [`Lv ${st.level ?? 1}`];
     const task = TASK_OF[c.src];
     if (task) bits.push(t(`${TASK_NM[task]?.() ?? ''}の適性 ${rankOf(aptitude(st.stats, task))}`, `${TASK_NM[task]?.() ?? ''} ${rankOf(aptitude(st.stats, task))}`));
@@ -117,7 +128,13 @@ function panel(s: P1State, c: Card, close: (res: ChooseRes | null, label: string
     lab.append(h('b', '', `${x.icon} ${x.label}`), sub);
     if (why) lab.append(h('small', 'isl-bad', why));
     b.append(lab);
-    b.addEventListener('click', () => close(chooseCard(s, c.id, k), x.label));
+    b.addEventListener('click', () => {
+      // 段 UI4（追加の要望）：作業台を切り替える手のあとにも「お店の主力商品も替えますか？」
+      const before = s.slots.map((y) => y.sku);
+      const res = chooseCard(s, c.id, k);
+      close(res, x.label);
+      if (res.ok) s.slots.forEach((y, i) => before[i] && y.sku && before[i] !== y.sku && makeHooks.switched?.(before[i]!, y.sku));
+    });
     chs.append(b);
   }
   if (canTrust(s, c)) {
@@ -137,7 +154,9 @@ function panel(s: P1State, c: Card, close: (res: ChooseRes | null, label: string
   // 下の一行：読みの確かさ・あと何件
   const foot = h('div', 'isl-cardm-foot');
   const star = cardStar(s, c);
-  if (star) foot.append(h('span', '', t(`読みの確かさ ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（誤差 ±${Math.round((1 - c.q) * 100)}%）`, `Read ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${Math.round((1 - c.q) * 100)}%)`)));
+  if (c.src === 'diplo' && c.dip) foot.append(h('span', '', relTeaser(relOf(s, c.dip.land))));
+  else if (c.src === 'event' && eh) foot.append(h('span', '', eh.tag));
+  else if (star) foot.append(h('span', '', t(`読みの確かさ ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（誤差 ±${Math.round((1 - c.q) * 100)}%）`, `Read ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${Math.round((1 - c.q) * 100)}%)`)));
   else if (c.src === 'quit' && st) foot.append(h('span', '', t(`士気 ${Math.round(st.morale ?? 0)}`, `Morale ${Math.round(st.morale ?? 0)}`)));
   else foot.append(h('span', '', ''));
   const left = popLeft(s) - (c.seen ? 0 : 1);

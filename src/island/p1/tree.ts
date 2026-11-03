@@ -578,7 +578,9 @@ export function openSkills(ctx: Ctx, focus?: string) {
       // 数えるのは開いているエリアのパネル（閉じた外周は目標なので数えない）。パネルの無い部門は鍵の札
       const mine = SKILLS.filter((k) => deptOf(k) === d.id && !k.sealed && !k.soon && !k.donate && ringOpen(s, skillTier(k)));
       const got = mine.filter((k) => has(s, k.id)).length;
-      c.append(h('b', '', `${d.icon} ${d.short}`), h('small', '', L.groups.length ? t(`理解度 ${deptLevel(s, d.id)}・${got}/${mine.length}`, `Lv ${deptLevel(s, d.id)} · ${got}/${mine.length}`) : deptOpen(s, d.id) ? t('パネルは次の更新', 'Panels next update') : `🔒 ${deptLockText(d.id)}`));
+      const nm = h('b', '');
+      nm.append(h('span', 'isl-tree-chip-ic', d.icon), document.createTextNode(' '), h('span', 'isl-tree-chip-nm', d.short));
+      c.append(nm, h('small', '', L.groups.length ? t(`理解度 ${deptLevel(s, d.id)}・${got}/${mine.length}`, `Lv ${deptLevel(s, d.id)} · ${got}/${mine.length}`) : deptOpen(s, d.id) ? t('パネルは次の更新', 'Panels next update') : `🔒 ${deptLockText(d.id)}`));
       c.title = d.name;
       c.addEventListener('click', () => {
         const p = deptCenter(d.id);

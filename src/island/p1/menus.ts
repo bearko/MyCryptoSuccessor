@@ -38,6 +38,7 @@ export type ScreenId =
   | 'inbox'
   | 'sat'
   | 'area'
+  | 'diplo'
   | 'tax'
   | 'env'
   | 'contract'
@@ -97,7 +98,8 @@ export const SUB_DEFS = (): Record<DeptId, SubDef[]> => ({
     d('ranking', t('企業ランキング', 'Ranking'), t('企業ランキング', 'Ranking'), t('順位・広報・企業の格', 'Rank, PR, standing'), ['ranking', 'pr']),
   ],
   support: [d('inbox', t('問い合わせ', 'Inquiries'), t('問い合わせ', 'Inquiries'), t('返事・顧客満足度', 'Replies, satisfaction'), ['inbox', 'sat'])],
-  sales: [d('area', t('商圏の取り合い', 'Trade areas'), t('商圏', 'Areas'), t('取り分・他社の店・候補地', 'Shares, rival stores, sites'), ['area'])],
+  // 段 UI4：外交（Epic）は商圏の取り合いの画面にまとめる（サブタブは増やさない）
+  sales: [d('area', t('商圏の取り合い', 'Trade areas'), t('商圏', 'Areas'), t('取り分・他社の店・外交', 'Shares, rival stores, diplomacy'), ['area', 'diplo'])],
   accounting: [
     d('tax', t('税と節税', 'Tax & savings'), t('税と節税', 'Tax'), t('四半期の税・節税の見込み', 'Quarterly tax, savings plan'), ['tax']),
     d('books', t('決算書', 'Statements'), t('決算書', 'Books'), t('P/L・B/S・コストと助言', 'P/L, B/S, costs, advice'), ['books']),
@@ -137,6 +139,7 @@ export const SUB_ALIAS: Record<string, { m: DeptId; key: string; part: ScreenId 
   'support:sat': { m: 'support', key: 'inbox', part: 'sat' },
   'systems:pace': { m: 'systems', key: 'settings', part: 'pace' },
   'systems:save': { m: 'systems', key: 'settings', part: 'save' },
+  'sales:diplo': { m: 'sales', key: 'area', part: 'diplo' },
 };
 /** 部門 m のサブタブ key（前の key も）→ いまのサブタブと開く部分 */
 export function resolveSub(m: DeptId, key: string, depts: DeptId[]): { m: DeptId; key: string; part: ScreenId | null } | null {
