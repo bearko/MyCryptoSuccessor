@@ -295,6 +295,7 @@ export type TryRes = 'done' | 'over' | 'labor' | 'cash' | 'skip';
  */
 export function budgetTry(s: P1State, p: Proposal): TryRes {
   if (!budgetOpen(s) || p.src || p.est <= 0) return 'skip';
+  if (p.act.k === 'ad') return 'cash';
   const d = p.dept;
   if (d === 'strategy' || !headOf(s, d)) return 'skip';
   const B = deptBudget(s, d);
