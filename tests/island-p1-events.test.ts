@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { CARD, DIPLO, EVENT, PRODUCT, PRODUCTS, type Sku } from '../src/island/p1/data';
 import { cardsMonth, chooseCard, sayLength, sayOf, type Card } from '../src/island/p1/card';
-import { BAD_KINDS, EV_KINDS, GOOD_KINDS, applyEvent, evMul, eventDue, isGood, makeEvent, newEvents, type EvKind } from '../src/island/p1/events';
+import { BAD_KINDS, EV_KINDS, GOOD_KINDS, applyEvent, contestingTop, evMul, eventDue, isGood, makeEvent, newEvents, type EvKind } from '../src/island/p1/events';
 import { applyDiplo, diploCompany, diploDay, dipOpts, meetPages, relOf, tradeClose, tradeTerms } from '../src/island/p1/diplo';
 import { bulkMain, bulkMainNote, bulkMainRows, deserializeP1, jamOf, myShops, newP1, openGate, priceOf, serializeP1, setShelf, type P1State, type Report } from '../src/island/p1/model';
 import { advanceGo, advanceOf, edgeNear, EDGE_NEAR } from '../src/island/p1/world';
@@ -26,6 +26,10 @@ function town(): P1State {
   s.money = 1e6;
   s.events = undefined;
   s.cards = undefined;
+  // 1 位を争っていない月（争っている月はできごとを控える。下の「1 位を争っている月は出さない」で確かめる）
+  s.reports[s.reports.length - 1].rank = 5;
+  s.topStreak = 0;
+  s.comeback = null;
   return s;
 }
 const fakeReport = (s: P1State): Report => ({ ...(s.reports[s.reports.length - 1] ?? ({} as Report)), month: (s.reports[s.reports.length - 1]?.month ?? 0) + 1, comeback: undefined, rally: undefined });
@@ -35,7 +39,7 @@ function epic(): P1State {
   s.tut = 99;
   s.money = 1e8;
   s.day = 300;
-  s.reports.push({ month: 1, revenue: 4_000_000, bySeries: {}, costs: { materials: 1_000_000, wages: 0, part: 0, upkeep: 0, build: 0, ads: 0 }, profit: 0, area: [], rank: 2, news: [] });
+  s.reports.push({ month: 1, revenue: 4_000_000, bySeries: {}, costs: { materials: 1_000_000, wages: 0, part: 0, upkeep: 0, build: 0, ads: 0 }, profit: 0, area: [], rank: 4, news: [] });
   return s;
 }
 
@@ -75,6 +79,46 @@ describe('突発のできごと：出る時', () => {
       expect(kinds[k]).not.toBe(kinds[k - 1]);
       expect(isGood(kinds[k])).not.toBe(isGood(kinds[k - 1]));
     }
+  });
+
+  it('1 位を争っている月（2 位以内・1 位の続き・他社の巻き返し）は出さず、落ち着いた締めで出す。制覇した町では出る。外交の新しい使者も控える', () => {
+    const s = town();
+    // 出る予定の締めを探す（争っていない写しで）
+    const probe = town();
+    let due = -1;
+    for (let mk = 0; mk < 6 && due < 0; mk++) if (eventDue(probe, mk)) due = mk;
+    expect(due).toBeGreaterThanOrEqual(0);
+    const last = s.reports[s.reports.length - 1];
+    for (const set of [() => (last.rank = 1), () => (last.rank = 2), () => (s.topStreak = 1), () => (s.comeback = { rid: 'x', left: 2, cool: 0, bonus: 0.2, used: [] })]) {
+      last.rank = 5;
+      s.topStreak = 0;
+      s.comeback = null;
+      set();
+      expect(contestingTop(s)).toBe(true);
+      for (let mk = 0; mk <= due; mk++) expect(eventDue(s, mk)).toBeNull();
+    }
+    // 落ち着いた（3 位以下・続きなし・巻き返しなし）締めで、予定どおり出る
+    last.rank = 3;
+    s.topStreak = 0;
+    s.comeback = null;
+    expect(contestingTop(s)).toBe(false);
+    expect(eventDue(s, due)).not.toBeNull();
+    // 制覇した町では 1 位でも出る
+    const c = town();
+    c.reports[c.reports.length - 1].rank = 1;
+    c.topStreak = 3;
+    c.cleared = true;
+    expect(contestingTop(c)).toBe(false);
+    for (let mk = 0; mk < due; mk++) expect(eventDue(c, mk)).toBeNull();
+    expect(eventDue(c, due)).not.toBeNull();
+    // 外交：石板を読んでいても、1 位を争っている月は使者が来ない
+    const e = epic();
+    e.tablets = ['tab_e3b'];
+    e.day += 30;
+    e.reports[0].rank = 1;
+    expect(diploCompany(e)).toBeNull();
+    e.reports[0].rank = 4;
+    expect(diploCompany(e)?.kind).toBe('meet');
   });
 
   it('同じセーブ（シード）なら、同じできごとが同じ締めに出る（再現できる）', () => {

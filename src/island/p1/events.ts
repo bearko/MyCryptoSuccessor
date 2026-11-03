@@ -332,6 +332,16 @@ export function makeEvent(s: P1State, kind: EvKind, salt = 0): EvData | null {
 }
 
 /** この締めにできごとを出すか（出すなら作る）。EVENT.first より前・チュートリアル・お店が無い町・売上 0 の月は出さない */
+/**
+ * 1 位を争っている（まだ制覇していない町で、この月の締めが 2 位以内か、1 位が続いているか、他社の巻き返しのさなか）。
+ * このあいだはできごと（と外交の新しい使者・提案）を控える：1 位の取り合いの勝ち負けをできごとで変えない（できごとで遊ぶ時間を延ばさない。v26 の計測）。
+ */
+export function contestingTop(s: P1State): boolean {
+  if (s.cleared) return false;
+  const last = s.reports[s.reports.length - 1];
+  return (last?.rank ?? 99) <= EVENT.calmRank || (s.topStreak ?? 0) > 0 || (s.comeback?.left ?? 0) > 0;
+}
+
 export function eventDue(s: P1State, mk: number): EvData | null {
   if (EVENT_OFF.on) return null;
   // 1 か月目（チュートリアル）は出さない：この町の締めが EVENT.first 回目から（チュートリアルは 1 か月目だけ。出すのも nextPop がチュートリアルのあいだ止める）
@@ -340,6 +350,8 @@ export function eventDue(s: P1State, mk: number): EvData | null {
   const r = rng(s.seed * 7 + mk * 131 + 0xe7);
   if (E.next == null) E.next = mk + Math.floor(r() * (EVENT.gap[1] - EVENT.gap[0] + 1));
   if (mk < E.next) return null;
+  // 1 位を争っている月は控える（予定の月は動かさず、争いが落ち着いた締めで出す）
+  if (contestingTop(s)) return null;
   // 良いできごとと困りごとを交互に（はじめはどちらか）。同じ種類は続けない
   const good = E.lastGood == null ? r() < 0.5 : !E.lastGood;
   const pool = (good ? GOOD_KINDS : BAD_KINDS).filter((k) => k !== E.last);

@@ -12,7 +12,7 @@
 import { t } from '../../i18n';
 import { DIPLO, EVENT, PRODUCT, isRelic, skuParts, type Sku } from './data';
 import { book } from './company';
-import { EVENT_OFF } from './events';
+import { EVENT_OFF, contestingTop } from './events';
 import { DAYS, myShops, priceOf, spend, tierEntered, type P1State } from './model';
 
 /** 比べの計測で外交だけを止める（できごとは止めない） */
@@ -155,6 +155,8 @@ export function diploCompany(s: P1State): DipData | null {
   const m = companyMonth(s);
   D.since ??= m;
   if ((s.tier ?? 'C') !== 'E') return null;
+  // 1 位を争っている月は新しい使者・提案を控える（できごとと同じ。結んだ交易・受けた依頼はそのまま続く）
+  if (contestingTop(s)) return null;
   const host = hostCost(s);
   // 次のランドの使者（初めては石板 e3-b を読んだか、着いてから afterMonths か月）
   if (D.lands.length < LAND_IDS.length) {

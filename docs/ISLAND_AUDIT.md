@@ -2,7 +2,7 @@
 
 <!-- island:audit:begin（npm run island:audit が書き換える。手で直さない） -->
 
-最終更新：npm run island:audit（453 項目・計測 67.8 秒）
+最終更新：npm run island:audit（453 項目・計測 137.8 秒）
 
 ### 基準の状態
 
@@ -23,8 +23,8 @@
 ### 投資ごとの効き目
 
 判定：○ 278・× 0・対象外 175（全 453）
-- 研究パネル：○ 170・× 0・対象外 139（309 行）
-- お金パネル：○ 57・× 0・対象外 31（88 行）
+- 研究パネル：○ 170・× 0・対象外 156（326 行）
+- お金パネル：○ 57・× 0・対象外 14（71 行）
 
 | 投資 | 種類 | 効くはずの段 | 基準 | (a) 段の数字 前→後 | 詰まり 前→後 | (b) 90 日 ×3：作った・運んだ・売れた 前→後 | (b) 売上 前→後 | 判定 | 備考 |
 |---|---|---|---|---|---|---|---|---|---|
@@ -448,23 +448,23 @@
 | 匠の大学（l_tech_3） | 研究パネル | — | — | — | — | — | — | 対象外 | まだ遊べない（Legendary のセクタが無い） |
 | 永久保証（l_tech_4） | 研究パネル | — | — | — | — | — | — | 対象外 | まだ遊べない（Legendary のセクタが無い） |
 | 工芸の伝説（l_tech_d） | 研究パネル | — | — | — | — | — | — | 対象外 | まだ遊べない（Legendary のセクタが無い） |
-| 発掘の追加申請（dig_ext） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| ツルハシの鍛え直し（dig_power） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| 手早い掘り方（dig_speed） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| 広く掘る（dig_reach） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| 発掘のランタン（dig_lamp） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| 深い層の許可（dig_deep） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| 研究の目利き（dig_study） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| 発破（dig_blast） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| 掘削ドリル（dig_drill） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| 発掘隊の役所（dig_office） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| 発掘隊の手際（dig_crew） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| 長期の発掘許可（u_dig_ext2） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| 発掘隊の常駐（自動化）（u_dig_auto） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| 重機の貸し出し（u_dig_power2） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| 常駐の段取り（u_dig_route） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| 常駐の交代制（u_dig_relay） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
-| 素材の選り分け（u_dig_mat） | お金パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 発掘の追加申請（dig_ext） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| ツルハシの鍛え直し（dig_power） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 手早い掘り方（dig_speed） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 広く掘る（dig_reach） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 発掘のランタン（dig_lamp） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 深い層の許可（dig_deep） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 研究の目利き（dig_study） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 発破（dig_blast） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 掘削ドリル（dig_drill） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 発掘隊の役所（dig_office） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 発掘隊の手際（dig_crew） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 長期の発掘許可（u_dig_ext2） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 発掘隊の常駐（自動化）（u_dig_auto） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 重機の貸し出し（u_dig_power2） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 常駐の段取り（u_dig_route） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 常駐の交代制（u_dig_relay） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
+| 素材の選り分け（u_dig_mat） | 研究パネル | — | — | — | — | — | — | 対象外 | 発掘（tests/island-p1-dig2b.test.ts で確認） |
 | 立地調査（sa_survey） | 研究パネル | — | — | — | — | — | — | 対象外 | 表示（出店の候補地と下見に取り分の予測が出る。tests/island-p1-sales.test.ts で確認） |
 | 地域密着（sa_local） | お金パネル | Rare の町の自社の取り分（0.1% 単位） | — | 9 → 10 | — | — | — | ○ | Rare の町（他社の店のとなりに自社の店 2 軒） |
 | ドミナント出店（sa_dominant） | 研究パネル | Rare の町の自社の取り分（0.1% 単位） | — | 9 → 16 | — | — | — | ○ | Rare の町（となりどうしの自社の店 2 軒） |
