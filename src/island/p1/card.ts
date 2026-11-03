@@ -1284,8 +1284,12 @@ function core(s: P1State, c: Card): string {
 function budgetSay(s: P1State, d: DeptId, a: BudgetAsk): string {
   const B = deptBudget(s, d);
   switch (a.why) {
-    case 'over':
-      return t(`次の施策に[[ ${g(a.cost ?? 0)}]]要るが、予算が足りない。予算を増やしてほしい`, `the next move needs [[${g(a.cost ?? 0)}]] — please raise the budget`);
+    case 'over': {
+      // 段 UI5d：予算から払う額（予算の効きで割り引いた額。従業員の給料を含む）と、あなたが直接承認したときの額を書き分ける
+      const raw = a.pid != null ? s.deleg?.inbox.find((q) => q.id === a.pid)?.cost ?? 0 : 0;
+      const alt = raw > 0 && raw !== (a.cost ?? 0) ? t(`（直接の承認なら ${g(raw)}）`, ` (${g(raw)} if you approve it yourself)`) : '';
+      return t(`次の施策に予算から[[ ${g(a.cost ?? 0)}]]要る${alt}。予算を増やしてほしい`, `the next move needs [[${g(a.cost ?? 0)}]] from the budget${alt} — please raise it`);
+    }
     case 'spent':
       return t(`今月の予算[[ ${g(amountOf(s, d))}]]を使い切った。打てる手がまだある`, `this month’s [[${g(amountOf(s, d))}]] is spent, with more to do`);
     case 'labor':
@@ -1493,7 +1497,9 @@ export function choiceText(s: P1State, c: Card, ch: Choice): { icon: string; lab
       const est2 = p ? (p.unit === 'G' ? t(`月 ${sgn(p.est)} G`, `${sgn(p.est)} G/mo`) : p.unit === 'ad' ? t(`期間で ${sgn(p.est)} G`, `${sgn(p.est)} G over the run`) : p.unit === 'finds' ? t(`出土品 ${p.est} 個`, `${p.est} finds`) : p.unit === 'share' ? t(`取り分 +${p.est.toFixed(1)}%`, `share +${p.est.toFixed(1)}%`) : t(`月の売上 ${sgn(p.est)} G`, `${sgn(p.est)} G/mo sales`)) : '';
       // 段 I1：予算で任せている部門の施策は、労力（人日）も
       const lab = p && budgetOpen(s) && headOf(s, p.dept) ? `${SEP()}${t(`労力 ${laborNeed(s, p.dept, p.act)} 人日`, `${laborNeed(s, p.dept, p.act)} p-days`)}` : '';
-      return { icon: '✔', label: t(`承認：${p ? actName(s, p.act) : ''}`, `Approve: ${p ? actName(s, p.act) : ''}`), sub: `${cost}${SEP()}${EXPECT()} ${est2}${lab}` };
+      // 段 UI5d：部長からの頼みのカードでは、予算の外（会社のお金）で払う額だと分かるように
+      const cost2 = c.src === 'budget' && ch.cost > 0 && !ch.rp ? t(`直接の承認 ${g(ch.cost)}（予算の外）`, `${g(ch.cost)} direct (outside the budget)`) : cost;
+      return { icon: '✔', label: t(`承認：${p ? actName(s, p.act) : ''}`, `Approve: ${p ? actName(s, p.act) : ''}`), sub: `${cost2}${SEP()}${EXPECT()} ${est2}${lab}` };
     }
     case 'reject':
       return { icon: '✖', label: t('却下', 'Reject'), sub: t('この手はやめておく', 'Not this move') };

@@ -28,7 +28,7 @@ import {
 import { applyPlan, manualPlan, planCost, planRows, planTitle } from '../src/island/p1/plan';
 import { choiceText, enqueue, planOfChoice, sayLength, sayOf, stockDraft, storeAct, type Card } from '../src/island/p1/card';
 import { gatePlan, growBlock, oneShelf, shelfGate, storeFix } from '../src/island/p1/stock';
-import { findLot } from '../src/island/p1/deleg';
+import { findLot, newDeleg, type Proposal } from '../src/island/p1/deleg';
 import { runOnce } from '../scripts/island/sim';
 import raw from '../src/generated/catalog.json';
 const heroes = (raw as unknown as { heroes: { id: number }[] }).heroes;
@@ -374,6 +374,25 @@ describe('棚が 1 段のお店で売りさばきを選んだとき（3 択）',
     expect(g.map((y) => y.uid)).toContain(b.uid);
     const grow = gatePlan(plan, g, 'grow')!;
     expect(grow.steps.filter((y) => y.k === 'shelf')).toHaveLength(g.length);
+  });
+});
+
+describe('部長からの頼み（段 I1）の額の書き分け', () => {
+  it('セリフは予算から払う額（割り引き後）と、直接の承認の額（定価）を書き分ける。選択肢の承認は「直接の承認 定価（予算の外）」', () => {
+    const s = base();
+    const D = (s.deleg ??= newDeleg());
+    const p = { id: 9999, dept: 'logistics', hero: s.staff[0].hero, month: 0, act: { k: 'skill', id: 'hire' }, est: 1000, err: 0.1, unit: 'G', cost: 60000, status: 'new' } as unknown as Proposal;
+    D.inbox.push(p);
+    let n = 0;
+    for (const h of heroes.slice(0, 120)) {
+      const c = { id: 1, src: 'budget', kind: 'budget:logistics', hero: h.id, q: 0.8, dept: 'logistics', mk: 0, sector: 'c1', day: 0, issue: { k: 'budget', ask: { why: 'over', pid: 9999, cost: 57692 } }, choices: [], pop: false } as unknown as Card;
+      const say = sayOf(s, c);
+      expect(say).toMatch(/予算から\[\[ 57,692 G\]\]要る（直接の承認なら 60,000 G）/);
+      expect(sayLength(s, c), say).toBeLessThanOrEqual(CARD.sayMax);
+      if (n === 0) expect(choiceText(s, c, { act: { k: 'approve', pid: 9999 }, cost: 60000 }).sub).toMatch(/^直接の承認 60,000 G（予算の外）/);
+      n++;
+    }
+    expect(n).toBe(120);
   });
 });
 

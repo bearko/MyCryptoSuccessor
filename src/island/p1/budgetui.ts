@@ -32,7 +32,7 @@ import { done, pickHead } from './delegui';
 import { openGrowth } from './growthui';
 import type { P1State } from './model';
 import { after, open, type Ctx } from './screens';
-import { bar, btn, h, heroIcon, rich } from './ui';
+import { bar, btn, h, heroIcon, recTag, rich } from './ui';
 import './i1.css';
 
 const g = (v: number) => `${Math.round(v).toLocaleString('en-US')} G`;
@@ -168,8 +168,9 @@ function deptCard(ctx: Ctx, s: P1State, d: DeptId, ifs: ReturnType<typeof ifsOf>
     acts.append(h('small', 'isl-bd-k', t('予算の外：承認を待っている施策', 'Outside the budget: awaiting approval')));
     for (const p of wait.slice(0, 2)) {
       const row = moveRow(actName(s, p.act), costNeed(s, d, p.cost), laborNeed(s, d, p.act), [t('承認待ち', 'Awaiting'), 'is-over']);
+      // 段 UI5d：行の額は予算から払う額（予算の効きで割り引き後）。直接の承認は会社のお金で定価を払うので、ボタンに額を書く
       row.append(
-        btn(t('✔ 承認', '✔ Approve'), () => {
+        btn(p.cost > 0 ? t(`✔ 承認（${g(p.cost)}）`, `✔ Approve (${g(p.cost)})`) : t('✔ 承認', '✔ Approve'), () => {
           const e = approve(s, p.id);
           if (e === 'money' || e === 'rp') ctx.toast(e === 'money' ? t('資金が足りません', 'Not enough money') : t('研究ポイントが足りません', 'Not enough RP'));
           else ctx.toast(e ? t('もう打てない施策でした', 'That move is gone') : t(`承認：${actName(s, p.act)}`, `Approved: ${actName(s, p.act)}`));
@@ -198,7 +199,7 @@ function deptCard(ctx: Ctx, s: P1State, d: DeptId, ifs: ReturnType<typeof ifsOf>
     const ask = h('div', 'isl-bd-ask');
     ask.append(h('span', 'isl-bd-ask-txt', `💬 ${askText(s, d, B.ask)}`));
     if (B.ask.why === 'labor')
-      ask.append(btn(t(`上限を ${Math.min(BUDGET.crew.capMax, B.cap + 2)} 人に`, `Cap to ${Math.min(BUDGET.crew.capMax, B.cap + 2)}`), () => {
+      ask.append(recBtn(t(`上限を ${Math.min(BUDGET.crew.capMax, B.cap + 2)} 人に`, `Cap to ${Math.min(BUDGET.crew.capMax, B.cap + 2)}`), () => {
         setCrewCap(s, d, B.cap + 2);
         const r = budgetRetry(s, d);
         ctx.toast(r === 'done' ? t(`${D.name}部長が施策を実行しました`, `${D.name} head carried out a move`) : t('従業員の上限を上げました', 'Staff cap raised'));
@@ -206,7 +207,7 @@ function deptCard(ctx: Ctx, s: P1State, d: DeptId, ifs: ReturnType<typeof ifsOf>
       }, 'is-on'));
     else {
       const up = nextUp(s, d, B.ask.cost ?? 0);
-      ask.append(btn(t(`予算を ${g(up.to)} に`, `Budget to ${g(up.to)}`), () => {
+      ask.append(recBtn(t(`予算を ${g(up.to)} に`, `Budget to ${g(up.to)}`), () => {
         setBudget(s, d, up.lv, up.amt);
         const r = budgetRetry(s, d);
         ctx.toast(r === 'done' ? t(`${D.name}部長が施策を実行しました`, `${D.name} head carried out a move`) : t('予算を上げました', 'Budget raised'));
@@ -216,6 +217,13 @@ function deptCard(ctx: Ctx, s: P1State, d: DeptId, ifs: ReturnType<typeof ifsOf>
     card.append(ask);
   }
   return card;
+}
+
+/** 段 UI5d：推奨の答えのボタン（頭に「推奨」の札。決まり：docs/ISLAND_UX_CHARTER.md の 2-1） */
+function recBtn(text: string, on: () => void, cls = ''): HTMLButtonElement {
+  const b = btn(text, on, cls);
+  b.prepend(recTag());
+  return b;
 }
 
 /** 数字で予算を決める（その部門の札の中に入れる欄） */
