@@ -2382,6 +2382,53 @@ export const CARD = {
   /** 選択肢（任せるを除く）の数 */
   choices: 3,
 };
+/**
+ * 突発のできごと（段 UI4。events.ts。docs/ISLAND_PHASE1.md「突発のできごと」）：マインちゃん・関わるヒーロー・町の長が持ってくる、良いできごとと困りごと。
+ * 効き目は、いまある数字（来店・需要・値段・素材の値段・運ぶ日数・作る速さ・ブランド力・研究ポイント・士気）に一時的な倍率をかける形だけ。
+ * - first：この町の月の締めの回数（報告の数）がこれ以上のときから（1 か月目＝チュートリアルは出さない）。
+ * - gap：次のできごとまでの月の締めの回数（[最小, 最大]。ランクに関係なく 2〜3 か月に 1 回）。
+ * - conv：見込みの計算（需要の増えのうち売上になる割合・値段の上げのうち利益になる割合・運ぶ日数の遅れで落ちる売上の割合・作る速さの割合）。
+ * - brand・rp・morale：見込みに直すときの、1 点・1 RP・士気 1（全員）あたりの G（月の売上に対する割合）。
+ * - scale：金額・個数の元（月の売上・売れた数に掛ける）。ランクで月の売上が増えるので、規模も自然に上がる。
+ */
+export const EVENT = {
+  first: 2,
+  gap: [2, 3] as [number, number],
+  conv: { demand: 1, price: 1, haul: 0.3, craft: 0.3 },
+  val: { brand: 0.003, rp: 0.0004, morale: 0.0006 },
+  /** 大口の注文の上乗せ（1 個あたり）と、在庫から渡す数（今月売れた数の割合・最低 5 個） */
+  order: { premium: 0.25, share: 0.2, min: 5 },
+  /** ランクごとの研究ポイントとブランド力の量（ひらめき・旅人・有名人など） */
+  rp: { C: 60, U: 120, R: 240, E: 600, L: 900 } as Record<Tier, number>,
+  brand: { C: 4, U: 5, R: 6, E: 8, L: 10 } as Record<Tier, number>,
+};
+/**
+ * Epic の外交（段 UI4。diplo.ts。docs/ISLAND_PHASE1.md「外交（Epic）」）：霧の向こうのランドの使者。石板 e3-b「返事の光」の続き。
+ * - lands：会うランド（MCH のランドの名前。色と紋は仮の絵＝docs/ISLAND_ART_TODO.md）。順に会う。
+ * - start：初めの仲の良さ（0〜100）。afterMonths：Epic の町に初めて着いてから、この会社の月数で初めての使者（e3-b を読んだらすぐ）。
+ * - nextMonths：次のランドの使者が来るまでの会社の月数。every：提案（交易・依頼）を持ってくる間隔（会社の月数）。
+ * - rel：仲の上下（交易を守った月・守れなかった月・依頼の達成・期限切れ・断った・もてなした）。
+ * - trade：交易の約束（毎月の数＝Epic の町で売れた復刻品・骨董の数の share・最低 min。値段の上乗せ＝ bonus ＋ 仲 × bonusRel。
+ *   期間 months。届けられなかった月のお金の罰＝足りない数 × 値段 × penalty、上限 penaltyMax）。交易は Epic の町にいる月だけ（ほかの町にいる月と、町に着いて grace 日までは休み）。
+ * - req：使者の依頼（数＝その商品の月の売れた数の share・最低 min・期限 days 日）。届けた品は値段どおりの売上（町の売上に入る）、そろったらお礼＝ 数 × 値段 × (reward ＋ 仲 × rewardRel) と研究ポイント rp。
+ * - host：使者をもてなす費用（月の売上の割合・最低）。open：仲の予告（この値を超えると、いつか道が開く。Legendary・次の国＝段 J）。
+ */
+export const DIPLO = {
+  lands: [
+    { id: 'ruby', name: t('ルビー', 'Ruby'), icon: '💎', color: '#c8324a', envoy: t('交易組合の代表', 'Guild envoy') },
+    { id: 'strawberry', name: t('ストロベリー', 'Strawberry'), icon: '🍓', color: '#d9467a', envoy: t('果樹園の組合長', 'Orchard envoy') },
+    { id: 'blueberry', name: t('ブルーベリー', 'Blueberry'), icon: '🫐', color: '#4a63c8', envoy: t('港の船頭頭', 'Harbor envoy') },
+  ],
+  start: 30,
+  afterMonths: 3,
+  nextMonths: 3,
+  every: 2,
+  rel: { kept: 3, missed: -6, done: 10, late: -8, decline: -3, host: 8, sign: 5 },
+  trade: { grace: 60, share: 0.08, min: 3, bonus: 0.2, bonusRel: 0.002, months: 4, penalty: 0.1, penaltyMax: 30000 },
+  req: { share: 0.15, min: 4, days: 40, reward: 0.5, rewardRel: 0.01, rp: 300 },
+  host: { share: 0.01, min: 20000 },
+  open: 80,
+};
 /** 部門に向く能力値（ロードマップ 2-4）：物流 AGI・営業とマーケ PHY・R&D と経理と法務とシステム INT・ほか（人事・総務・CS・経営企画）は 3 つの平均 */
 export function deptApt(st: Stats, d: DeptId): number {
   switch (d) {

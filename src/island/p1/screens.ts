@@ -454,9 +454,12 @@ export { craftable };
 // ---------------------------------------------------------------- 工房
 
 /** 作業台 k で x を作る（作るものを選んだとき・市場データの「工房で作る」）。トーストを出し、描き直す */
+/** 段 UI4（追加の要望）：作業台の作る物を A から B に替えた（main.ts が「お店の主力商品も替えますか？」のシートを出す） */
+export const makeHooks: { switched?: (a: Sku, b: Sku) => void } = {};
 export function chooseMake(ctx: Ctx, s: P1State, k: number, x: Sku, msg?: string) {
   const sl = s.slots[k];
   if (!sl) return;
+  const prev = sl.sku;
   if (sl.sku !== x) {
     sl.sku = x;
     sl.running = false;
@@ -467,6 +470,7 @@ export function chooseMake(ctx: Ctx, s: P1State, k: number, x: Sku, msg?: string
   if (e && e !== 'busy') ctx.toast(craftErr(x, e, s));
   else ctx.toast(msg ?? t(`${skuName(x)}を作り始めました`, `Started making ${skuName(x)}`));
   after(ctx);
+  if (prev && prev !== x) makeHooks.switched?.(prev, x);
 }
 
 /** 画面の中の要素までスクロールして、しばらく金色に光らせる */

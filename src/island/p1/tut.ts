@@ -34,6 +34,8 @@ export interface TutPage {
   role?: string;
   /** 上に出す絵（到着の案内のお題のエクステなど。作るたびに新しい要素を返す） */
   el?: () => HTMLElement;
+  /** 段 UI4：話す人が使者（ランドの id。顔は仮の絵＝ランドの色と紋、名前は role） */
+  crest?: string;
 }
 
 export interface TutStep {

@@ -39,14 +39,16 @@ import { quitLeft, talk, talkGain } from './hr';
 import { dedRate, quarterNow, taxOn, taxPlan } from './acct';
 import { heroSay, quipOf, say, sayLen, type QuipCat } from './persona';
 import { DEF } from '../defs';
+import { applyEvent, eventDue, evIcon, evSay, evTitle, isGood, optIcon, optName, optSub, recOpt, EV_TEXT, type EvData } from './events';
+import { applyDiplo, diploCompany, dipOptText, dipOpts, dipRec, dipSay, dipTitle, landDef, relOf, type DipData } from './diplo';
 
 // ---------------------------------------------------------------- 型
 
 /** 出どころ（統計・受けた割合の数え） */
-export type CardSrc = 'clerk' | 'crafter' | 'buyer' | 'idle' | 'head' | 'cs' | 'flame' | 'quit' | 'tax' | 'rally';
+export type CardSrc = 'clerk' | 'crafter' | 'buyer' | 'idle' | 'head' | 'cs' | 'flame' | 'quit' | 'tax' | 'rally' | 'event' | 'diplo';
 /** ヒーローからの提案（★3 で「任せる」を選べる出どころ） */
 export const PROPOSAL_SRC: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head'];
-export const CARD_SRCS: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'cs', 'flame', 'quit', 'tax', 'rally'];
+export const CARD_SRCS: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'cs', 'flame', 'quit', 'tax', 'rally', 'event', 'diplo'];
 
 /** 選ぶと打つ手 */
 export type CardAct =
@@ -57,7 +59,10 @@ export type CardAct =
   | { k: 'apologize' }
   | { k: 'talk' | 'raise' | 'bonus'; hero: number }
   | { k: 'donate' }
-  | { k: 'open'; to: 'tax' | 'ads' };
+  | { k: 'open'; to: 'tax' | 'ads' }
+  /** 段 UI4：できごとの i 番目の選択肢・外交の i 番目の選択肢 */
+  | { k: 'ev'; i: number }
+  | { k: 'dip'; i: number };
 export interface Choice {
   act: CardAct;
   /** 見込み（ヒーローの読み。誤差つき）：G＝毎月の費用を引いた利益（G／月）・ad＝宣伝の期間の利益・finds＝出土品の数 ほか */
@@ -88,7 +93,9 @@ export type Issue =
   | { k: 'flame'; cause: 'out' | 'ignore' }
   | { k: 'rally'; by: string; sale: boolean; months: number }
   | { k: 'quit'; days: number }
-  | { k: 'tax'; q: number; need: number; save: number };
+  | { k: 'tax'; q: number; need: number; save: number }
+  | { k: 'event' }
+  | { k: 'diplo' };
 export interface Card {
   id: number;
   src: CardSrc;
@@ -115,6 +122,9 @@ export interface Card {
   ref?: number;
   /** 任せた提案で、資金が足りずに実行できなかった */
   held?: 'money' | 'rp';
+  /** 段 UI4：突発のできごと・外交の話（選ぶまでの中身） */
+  ev?: EvData;
+  dip?: DipData;
 }
 /** 任せた提案を実行した記録（トースト・月次報告） */
 export interface AutoRec {
@@ -215,7 +225,7 @@ const qOf = (s: P1State, hero: number | null, d: DeptId | null) => {
 
 // ---------------------------------------------------------------- 候補（月の締め）
 
-export type Draft = Omit<Card, 'id' | 'mk' | 'sector' | 'day' | 'pop'> & { pri: number };
+export type Draft = Omit<Card, 'id' | 'mk' | 'sector' | 'day' | 'pop'> & { pri: number; /** 上限に関係なく時間を止めて出す（できごと・初めての使者） */ force?: boolean };
 
 /** whatIf の手（設備投資・倉庫・パネル・レベル・人を置く）→ 選択肢。見込みは本当の値（あとで読みの誤差） */
 function fromWhatIf(s: P1State, w: StageIf, margin: number, me: number | null): Choice | null {
@@ -463,7 +473,7 @@ function srcStat(s: P1State, src: CardSrc) {
 export function enqueue(s: P1State, d: Draft, rep?: CardReport): Card | null {
   const C = cardsOf(s);
   const T = tierOf(s);
-  const { pri: _p, ...rest } = d;
+  const { pri: _p, force, ...rest } = d;
   // 任せた提案：おすすめの手を、手元に残すお金を残せるなら実行して報告（承認と同じ守り）
   if (d.hero != null && PROPOSAL_SRC.includes(d.src) && trusted(s, d)) {
     const rec = d.choices.find((c) => c.rec && (c.act.k === 'do' || c.act.k === 'approve'));
@@ -491,7 +501,7 @@ export function enqueue(s: P1State, d: Draft, rep?: CardReport): Card | null {
   }
   // 同じ出どころ・種類の古い提案は差し替える
   C.inbox = C.inbox.filter((c) => !(c.src === d.src && c.kind === d.kind && c.src !== 'cs' && c.src !== 'head' && c.src !== 'quit'));
-  const pop = !(rest as Card).held && admit(s, d);
+  const pop = !(rest as Card).held && (force ? true : d.src === 'diplo' ? C.popN < CARD.cap[tierOf(s)] : admit(s, d));
   const card: Card = { ...rest, id: ++C.seq, mk: C.mk, sector: here(s), day: s.day, pop };
   if (pop) {
     C.popN++;
@@ -535,6 +545,9 @@ export function cardsMonth(s: P1State, r: Report) {
     return live;
   });
   const rep: CardReport = { made: 0, pop: 0, boxed: 0, auto: [] };
+  // 段 UI4：突発のできごと（2〜3 か月に 1 回）。上限の枠を先に 1 つ使う（いつも時間を止めて出す）
+  const ev = eventDue(s, C.mk);
+  if (ev) enqueue(s, eventDraft(s, ev), rep);
   const drafts = [...noticeDrafts(s, r), ...heroDrafts(s), ...headDrafts(s, r)].sort((a, b) => b.pri - a.pri);
   for (const d of drafts) enqueue(s, d, rep);
   if (rep.made || rep.auto.length) r.cards = rep;
@@ -556,9 +569,44 @@ export function cardsDay(s: P1State, want: number[]) {
   }
 }
 
-/** 会社の月の締め（model.ts の step で closeCompanyMonth のあと）：決算の 1 か月前の経理の助言（あと ○○ G の投資で税が △△ G 減る） */
+/** できごと → カード（話し手：マインちゃん・ヒーロー・町の長。おすすめは払えるもののうち見込みのいちばん大きい手） */
+export function eventDraft(s: P1State, d: EvData): Draft {
+  const rec = recOpt(s, d);
+  return {
+    src: 'event',
+    kind: `ev:${d.kind}`,
+    hero: d.who === 'mine' ? null : d.hero ?? null,
+    q: DELEG.q.lo,
+    dept: null,
+    issue: { k: 'event' },
+    ev: d,
+    choices: d.opts.map((o, i) => ({ act: { k: 'ev', i }, est: o.ev, cost: o.cost, rec: i === rec })),
+    pri: 95,
+    force: true,
+  };
+}
+/** 外交の話 → カード（話し手：使者。初めての使者は上限に関係なく出す） */
+export function diploDraft(s: P1State, d: DipData): Draft {
+  const rec = dipRec(s, d);
+  return {
+    src: 'diplo',
+    kind: `dip:${d.land}:${d.kind}`,
+    hero: null,
+    q: DELEG.q.lo,
+    dept: null,
+    issue: { k: 'diplo' },
+    dip: d,
+    choices: dipOpts(s, d).map((o, i) => ({ act: { k: 'dip', i }, est: o.ev, cost: o.cost, rec: i === rec })),
+    pri: 85,
+    force: d.kind === 'meet',
+  };
+}
+
+/** 会社の月の締め（model.ts の step で closeCompanyMonth のあと）：決算の 1 か月前の経理の助言（あと ○○ G の投資で税が △△ G 減る）・外交（段 UI4） */
 export function cardsCompany(s: P1State) {
   const C = cardsOf(s);
+  const dp = diploCompany(s);
+  if (dp) enqueue(s, diploDraft(s, dp));
   const { inQ, q } = quarterNow(s);
   if (!taxOn(s) || inQ !== 3 - TAX.hint + 1 || C.taxQ === q) return;
   C.taxQ = q;
@@ -580,8 +628,12 @@ export function cardsCompany(s: P1State) {
 
 /** まだ選べるカードか（ほかの画面で済ませた・打てなくなった・ほかの町へ移った） */
 export function cardLive(s: P1State, c: Card): boolean {
+  // 外交の話は会社のもの（どの町にいても選べる）
+  if (c.src === 'diplo') return !!c.dip;
   if (c.sector !== here(s)) return false;
   switch (c.src) {
+    case 'event':
+      return !!c.ev;
     case 'head':
       return !!s.deleg?.inbox.some((p) => p.id === c.pid);
     case 'cs':
@@ -699,6 +751,10 @@ export function chooseCard(s: P1State, id: number, k: number): ChooseRes {
     case 'open':
       drop();
       return { ok: true, open: a.to };
+    case 'ev':
+      return done(c.ev ? applyEvent(s, c.ev, a.i) : 'none');
+    case 'dip':
+      return done(c.dip ? applyDiplo(s, c.dip, a.i) : 'none');
   }
 }
 /** 任せる（★3）：おすすめの手を打ち、次からその種類はカードを出さずに実行して報告する */
@@ -809,11 +865,22 @@ function core(s: P1State, c: Card): string {
       return t(`もう、ここを辞めようと思っている…あと[[ ${i.days} 日]]で`, `I am thinking of quitting… in [[${i.days} days]]`);
     case 'tax':
       return t(`あと[[ ${g(i.need)}]] 投資すると、税が[[ ${g(i.save)}]] 減る`, `investing [[${g(i.need)}]] more cuts tax by [[${g(i.save)}]]`);
+    case 'event':
+      return c.ev ? evSay(c.ev) : '';
+    case 'diplo':
+      return c.dip ? dipSay(c.dip) : '';
   }
 }
 /** カードのセリフ（話し手の口調の型で。CARD.sayMax 字まで） */
 export function sayOf(s: P1State, c: Card): string {
   const x = core(s, c);
+  // 段 UI4：使者は自分の言葉（言い出し・語尾は付けない）。できごとは、マインちゃんだけの話はそのまま、ヒーロー・町の長は口調の型、マインちゃんの報告は「〜よ！」
+  if (c.src === 'diplo') return x;
+  if (c.src === 'event' && c.ev) {
+    if (EV_TEXT[c.ev.kind].full) return x;
+    if (c.hero == null) return x + t('よ！', '!');
+    return heroSay(c.hero, x);
+  }
   // 辞めたい：本人の言葉なので、言い出し・語尾は付けない（型の味は上のウィットの一言で）
   if (c.issue.k === 'quit') return `${x}${t('。', '.')}`;
   if (c.hero == null) return say('polite', x);
@@ -821,7 +888,7 @@ export function sayOf(s: P1State, c: Card): string {
 }
 
 /** ウィットの一言（話し手の口調の型と属性から。課題の種類・月で回す）。ヒーローでない話し手は無し */
-export const quipOfCard = (c: Card): string | null => (c.hero != null ? quipOf(c.hero, c.issue.k as QuipCat, c.mk + c.id) : null);
+export const quipOfCard = (c: Card): string | null => (c.hero != null && c.src !== 'event' && c.src !== 'diplo' ? quipOf(c.hero, c.issue.k as QuipCat, c.mk + c.id) : null);
 
 /** 肩書き（部門の色・アイコン・文） */
 export function roleOfCard(s: P1State, c: Card): { icon: string; text: string; color: string } {
@@ -848,7 +915,29 @@ export function roleOfCard(s: P1State, c: Card): { icon: string; text: string; c
       return { icon: '🧾', text: t('経理の担当', 'Accounting lead'), color: DEPT.accounting.color };
     case 'quit':
       return { icon: '😣', text: t('辞めたい', 'Wants to quit'), color: DEPT.hr.color };
+    case 'event': {
+      const color = c.ev && !isGood(c.ev.kind) ? '#c4521b' : '#4a78c4';
+      if (!c.ev || c.ev.who === 'mine') return { icon: '📣', text: t('マインちゃんの報告', 'Mine-chan reports'), color };
+      if (c.ev.who === 'chief') return { icon: '🏘', text: t('町の長', 'Town elder'), color };
+      const st = c.hero != null ? staffOf(s, c.hero) : null;
+      const sh = st?.task === 'shop' ? s.buildings.find((b) => b.uid === st.target) : undefined;
+      const txt = st?.task === 'shop' ? t(`${sh ? nameOfB(sh.id) : t('お店', 'shop')}の店員`, `${sh ? nameOfB(sh.id) : 'Shop'} clerk`) : st?.task === 'craft' ? t('工房の職人', 'Workshop crafter') : st?.task === 'buy' ? t('調達係', 'Buyer') : t('ヒーロー', 'Hero');
+      return { icon: st?.task === 'shop' ? '🏪' : st?.task === 'craft' ? '🔨' : st?.task === 'buy' ? '📦' : '☕', text: txt, color };
+    }
+    case 'diplo': {
+      const L = landDef(c.dip?.land ?? 'ruby');
+      return { icon: '🌐', text: t(`${L.name}の使者`, `Envoy of ${L.name}`), color: L.color };
+    }
   }
+}
+/** 段 UI4：できごと・外交のカードの見出し（名前の行・小さい一行） */
+export function eventHead(s: P1State, c: Card): { title: string; tag: string } | null {
+  if (c.src === 'event' && c.ev) return { title: `${evIcon(c.ev.kind)} ${evTitle(c.ev)}`, tag: isGood(c.ev.kind) ? t('できごと（良い知らせ）', 'Event (good news)') : t('できごと（困りごと）', 'Event (trouble)') };
+  if (c.src === 'diplo' && c.dip) {
+    const rel = relOf(s, c.dip.land);
+    return { title: dipTitle(c.dip), tag: t(`${landDef(c.dip.land).envoy}・仲 ${Math.round(rel)} / 100`, `${landDef(c.dip.land).envoy} · Relations ${Math.round(rel)} / 100`) };
+  }
+  return null;
 }
 const nameOfB = (id: string) => DEF[id]?.name ?? id;
 
@@ -935,6 +1024,16 @@ export function choiceText(s: P1State, c: Card, ch: Choice): { icon: string; lab
       return { icon: '🎉', label: t('賞与を出す', 'Pay a bonus'), sub: t(`${g(ch.cost)} ・ 士気 +${Math.round(est)}`, `${g(ch.cost)} · morale +${Math.round(est)}`) };
     case 'donate':
       return { icon: '🔬', label: t('研究に寄付する', 'Donate to research'), sub: t(`${g(ch.cost)} ・ 税 −${g(est)}・研究ポイントも入る`, `${g(ch.cost)} · tax −${g(est)}, plus RP`) };
+    case 'ev': {
+      const o = c.ev?.opts[a.i];
+      if (!c.ev || !o) return { icon: '▶', label: '', sub: '' };
+      return { icon: optIcon(c.ev.kind, o.id), label: optName(c.ev.kind, o.id), sub: optSub(c.ev, o) };
+    }
+    case 'dip': {
+      const o = c.dip ? dipOpts(s, c.dip)[a.i] : undefined;
+      if (!c.dip || !o) return { icon: '▶', label: '', sub: '' };
+      return dipOptText(s, c.dip, o);
+    }
     case 'open':
       return a.to === 'tax' ? { icon: '🧾', label: t('税と節税を開く', 'Open tax'), sub: t(`設備に投資すると税 −${g(est)} まで`, `Investing can cut up to ${g(est)}`) } : { icon: '📣', label: t('宣伝を開く', 'Open ads'), sub: '' };
   }
