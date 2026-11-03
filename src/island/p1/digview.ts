@@ -3,7 +3,7 @@
  * 画面は digui.ts。仕様は docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」の「15 秒の発掘」「発掘場の画面」「研究ノート」。
  */
 import { t } from '../../i18n';
-import { digMaxLv, isResearch, rpCost, DIG, DIG_AUTO, DIG_BALANCE, DIG_PANELS, DIG_SITES, DUNGEON_FINDS, PRODUCT, isAntique, relicOf, relicSells, relicTier, RESEARCH_NEED, SKILL, TABLETS, levelCost, maxLv, type Skill, type Tablet, type Tier } from './data';
+import { digRpLv, isResearch, rpCost, DIG, DIG_AUTO, DIG_BALANCE, DIG_PANELS, DIG_SITES, DUNGEON_FINDS, PRODUCT, isAntique, relicOf, relicSells, relicTier, RESEARCH_NEED, SKILL, TABLETS, levelCost, maxLv, type Skill, type Tablet, type Tier } from './data';
 import { sectorDef } from './company';
 import {
   autoRate,
@@ -148,7 +148,7 @@ export function digRec(s: P1State, prefer?: string): DigRec | null {
       if (e !== null && e !== 'money' && e !== 'rp') continue;
     }
     // 研究パネル（RP）は資金ではなく RP が足りるもの。値段は RP（おすすめの並びは RP の安い順）
-    cand.push({ k, lv: isResearch(k) ? digMaxLv(k) : lv + 1, cost: isResearch(k) ? rpCost(k) : levelCost(k, lv + 1) });
+    cand.push({ k, lv: isResearch(k) ? digRpLv(k) : lv + 1, cost: isResearch(k) ? rpCost(k) : levelCost(k, lv + 1) });
   }
   if (!cand.length) return null;
   cand.sort((a, b) => a.cost - b.cost);
