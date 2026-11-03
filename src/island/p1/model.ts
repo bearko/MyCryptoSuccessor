@@ -31,7 +31,7 @@ import {
   TABLET_LAYERS,
   TABLETS,
   isResearch,
-  digMaxLv,
+  digRpLv,
   researchLv,
   rpCost,
   type DigTier,
@@ -2020,9 +2020,9 @@ export function gainSkill(s: P1State, id: string) {
   if (id === 'd_buy') for (const m of Object.keys(MATS) as Mat[]) if (!s.routes.includes(m)) s.routes.push(m);
   syncSlots(s);
   for (const b of myShops(s)) syncShop(s, b);
-  // 発掘の枝のパネルは研究パネル（レベルなし）：開いたら、以前の最大レベルの効き目（Lv5）で入る
+  // 発掘の枝のパネルは研究パネル（レベルなし）：開いたら、決まった段の効き目で入る（調整 v25c：ふつう Lv3・深い層の許可・研究の目利き・発掘隊の役所は Lv5）
   const dk = SKILL[id];
-  if (dk && dk.branch === 'dig' && isResearch(dk) && !dk.inf && !dk.donate) s.skillLv = { ...(s.skillLv ?? {}), [id]: digMaxLv(dk) };
+  if (dk && dk.branch === 'dig' && isResearch(dk) && !dk.inf && !dk.donate) s.skillLv = { ...(s.skillLv ?? {}), [id]: digRpLv(dk) };
   if (id === 'dig_study') syncResearchCap(s);
 }
 
@@ -4328,10 +4328,11 @@ export function deserializeP1(json: string): P1State | null {
     // 以前のセーブ：セクタ・ブランド力・帳簿・ランド
     // 流れの案内の途中で閉じたときに、売らないままにならないように
     s.holdSales = false;
-    // 発掘の枝のパネルは研究パネルになった：以前のセーブの途中のレベルのパネルは、最大レベルの効き目に（もうレベルは上げられない）
+    // 発掘の枝のパネルは研究パネルになった：以前のセーブのレベルは、決まった段の効き目にそろえる（もうレベルは上げられない。
+    // 調整 v25c で Lv5 → Lv3 にしたので、v25b のセーブの Lv5 も下がる。深い層の許可・研究の目利き・発掘隊の役所は Lv5）
     for (const id of s.skills) {
       const dk = SKILL[id];
-      if (dk && dk.branch === 'dig' && isResearch(dk) && !dk.inf && !dk.donate && lvOf(s, id) < digMaxLv(dk)) s.skillLv = { ...(s.skillLv ?? {}), [id]: digMaxLv(dk) };
+      if (dk && dk.branch === 'dig' && isResearch(dk) && !dk.inf && !dk.donate && lvOf(s, id) !== digRpLv(dk)) s.skillLv = { ...(s.skillLv ?? {}), [id]: digRpLv(dk) };
     }
     s.sector ??= 'c1';
     s.tier ??= 'C';
