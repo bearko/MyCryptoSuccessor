@@ -12,6 +12,8 @@ import { icon } from '../../ui/dom';
 import { DEF, artId } from '../defs';
 import { effectDone, image, loading, pick, waterFrame, type Camera, type Effect } from '../render';
 import { cells, type Dir } from '../sim';
+import { FX_PAL, clearFx, fxAtEl, fxStats, playFx, setFxEnabled, warmFx } from '../fx/layer';
+import type { FxId } from '../fx/registry.js';
 import { BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, LEGAL_INTRO, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, HERO_RARITY, MORALE, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO, ACCT_INTRO, CS_INTRO } from './data';
 import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
 import { bandText } from './deleg';
@@ -1912,6 +1914,27 @@ function showLetter(rp: number, letter: Tier | null, chief: number | null, left 
     true,
   );
   root.querySelector('.isl-modal:last-of-type')?.classList.add('is-letter');
+  letterFx(conquered);
+}
+/** 発表・制覇の花火（pixelfx）：手紙のまわりに 2 発（制覇は金の 3 発目と紙吹雪）。重ねるだけ・押せば消える */
+function letterFx(conquered: boolean) {
+  const card = root.querySelector('.isl-modal:last-of-type .isl-letter-card');
+  const r = card?.getBoundingClientRect();
+  const cx = r ? r.left + r.width / 2 : innerWidth / 2;
+  const cy = r ? r.top + r.height * 0.3 : innerHeight * 0.35;
+  const dx = Math.min(innerWidth * 0.3, 260);
+  // 手紙の暗い幕の上なので縁（ink）は付けない（軽くなる）。スマホは 1 発ずつ（重さ。docs/ISLAND_FX.md の上限）
+  const small = innerWidth < 600;
+  playFx('firework-burst', small ? cx : cx - dx, cy, { palette: FX_PAL.ours, opts: { core: FX_PAL.core }, ink: false, delay: 120, seed: 9 });
+  if (!small) playFx('firework-burst', cx + dx, cy - 20, { palette: FX_PAL.party, opts: { core: FX_PAL.core }, ink: false, delay: 650, seed: 4 });
+  if (conquered) {
+    // 制覇：金の 1 発（スマホは 1 発目が消えかけてから）と紙吹雪
+    playFx('firework-burst', cx, cy - 40, { palette: FX_PAL.core, opts: { core: FX_PAL.core }, ink: false, delay: small ? 2400 : 1150, seed: 7 });
+    // 紙吹雪は画面の下の縁から（手紙の文字に重ねない）。スマホは下のタブの上の縁から（押す場所に重ねない）
+    const tb = tabbar.getBoundingClientRect();
+    const floor = tb.height && tb.top > innerHeight / 2 ? tb.top - 4 : innerHeight - 6;
+    playFx('confetti', innerWidth / 2, floor, { palette: FX_PAL.party, delay: 300, scale: small ? 4 / 3 : 2 });
+  }
 }
 
 /** 関所の通行料を払って開通する */
@@ -2251,17 +2274,23 @@ function renderMissions() {
     row.append(h('span', 'isl-mis-box', done ? '✓' : ''), h('b', 'isl-mis-text', m.title));
     const pr = missionProgress(s, m.id);
     row.append(h('small', 'isl-dim', pr && !done ? t(`${m.text}（${pr[0]} / ${pr[1]}）`, `${m.text} (${pr[0]} / ${pr[1]})`) : m.text));
-    if (done)
-      row.append(
-        btn(t(`${rewardText(m)} を受け取る`, `Claim: ${rewardText(m)}`), () => {
+    if (done) {
+      const claimBtn = btn(
+        t(`${rewardText(m)} を受け取る`, `Claim: ${rewardText(m)}`),
+        () => {
           if (!claim(s, m.id)) {
             sfx.play('clear');
+            // 受け取った手応え（pixelfx）：押したボタンのまんなかで金の光
+            fxAtEl('collect-burst', claimBtn, { palette: FX_PAL.gold, dy: 30 });
             toast(t(`${rewardText(m)} を受け取りました`, `Received: ${rewardText(m)}`));
           }
           save();
           renderAll();
-        }, 'is-on'),
+        },
+        'is-on',
       );
+      row.append(claimBtn);
+    }
     list.append(row);
   }
   justChecked = new Set();
@@ -2426,6 +2455,8 @@ function tutTick() {
     cleared = { goal: c.goal, checks: c.checks, until: now + hold };
     tutIntroAfter = now + hold + 200;
     sfx.play('clear');
+    // クリアの手応え（pixelfx）：右上のミッションの「クリア！」のはんこで金の光。重ねるだけ（押す場所は隠さない・待たせない）
+    window.setTimeout(() => fxAtEl('collect-burst', missionBox.hidden ? null : (missionBox.querySelector('.isl-mis-stamp') ?? missionBox), { palette: FX_PAL.gold, dy: 30 }), 80);
     if (c.praise) praise(c.praise);
     if (c.focus) focusOn(c.focus);
     setTimeout(() => renderAll(), hold + 250);
@@ -3981,6 +4012,28 @@ function addCoin(uid: number, yen: number, t: number) {
   while (list.length > 12) list.shift();
   anim.coins.set(uid, list);
   sfx.play('sale');
+  coinFx(uid);
+}
+/** 売上のコイン（pixelfx。docs/ISLAND_FX.md）：お店の足もとからコインが跳ねる。同じお店は 0.35 秒に 1 回まで・縮小の全体表示と発掘のあいだは出さない */
+const coinFxAt = new Map<number, number>();
+function coinFx(uid: number) {
+  const now = performance.now();
+  if (now - (coinFxAt.get(uid) ?? -1e9) < 350 || overviewOn() || digOpen()) return;
+  const b = s.buildings.find((x) => x.uid === uid);
+  const def = b ? DEF[b.id] : undefined;
+  if (!b || !def) return;
+  const cs = cells(def, b.i, b.j, b.dir);
+  // 区画のまんなかの、手前の地面
+  const wx = cs.reduce((a, [i, j]) => a + (i - j) * 100, 0) / cs.length;
+  const wy = cs.reduce((a, [i, j]) => a + (i + j) * 55, 0) / cs.length + 30;
+  coinFxAt.set(uid, now);
+  playFx('coin-pop', 0, 0, {
+    layer: 'map',
+    // 地図の拡大率に合わせる（拡大率 0.5 で 1 ドット＝1.5 CSS px。デバイスの画素で整数倍に丸める）
+    scale: Math.max(1, cam.zoom * 3),
+    seed: (uid * 31 + Math.floor(now)) >>> 0,
+    anchor: () => (digOpen() ? null : { x: (wx - cam.x) * cam.zoom + W / 2, y: (wy - cam.y) * cam.zoom + H / 2 }),
+  });
 }
 // ---------------------------------------------------------------- 街の人通り（他社のお客さん・駅を行き交う人・散歩する人）
 
@@ -4449,6 +4502,8 @@ function frame(now: number) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+// ドット絵のエフェクトを暇なときに温めておく（初めて鳴らしたときに引っかからないように）
+window.setTimeout(() => warmFx(), 3000);
 
 (window as unknown as { islandDebug: unknown }).islandDebug = {
   state: () => s,
@@ -4557,6 +4612,8 @@ requestAnimationFrame(frame);
   /** 撮影スクリプト用：スキルツリーを開く（focus のパネルを真ん中に・選んだ状態で） */
   skills: (focus?: string) => openSkills(ctx, focus),
   speed: (v?: number) => (v != null ? ((speed = v), renderHud()) : speed),
+  /** ドット絵のエフェクト（撮影・計測用）：鳴らす・数える・止める（比べる前の画面を撮る） */
+  fx: { play: (id: FxId, x: number, y: number, o?: Parameters<typeof playFx>[3]) => playFx(id, x, y, o), stats: (reset?: boolean) => fxStats(reset), enable: (v: boolean) => setFxEnabled(v), clear: () => clearFx(), coin: (uid: number) => coinFx(uid), letter: (conquered: boolean) => letterFx(conquered), letterDemo: (conquered: boolean) => showLetter(120, conquered ? null : 'U', null, 0, conquered) },
   /** 発掘との出会い（撮影スクリプト用）：操作がないまま進んだ日数 */
   idle: (v?: number) => (v != null ? (idleDays = v) : idleDays),
 };
