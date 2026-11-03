@@ -109,6 +109,7 @@ import {
   setCraftPlan,
   setAutoCraft,
   wageOf,
+  hireFee,
   heroStats,
   type P1State,
   type Report,
@@ -1465,12 +1466,16 @@ export function openHire(ctx: Ctx, opts: { charisma?: boolean } = {}) {
           card.append(h('span', 'isl-best', t('調達にいちばん向いている', 'Best buyer')));
         }
         const r = h('div', 'isl-row');
+        // 調整 v25c：アンコモン以上は雇うときに契約金（HIRE_FEE）
+        const fee = hireFee(id);
         r.append(
-          btn(t(`雇う（月給 ${money(wageOf(id))}）`, `Hire (${money(wageOf(id))}/mo)`), () => {
-            hire(s, id);
+          btn(fee > 0 ? t(`雇う（契約金 ${money(fee)}・月給 ${money(wageOf(id))}）`, `Hire (${money(fee)} signing, ${money(wageOf(id))}/mo)`) : t(`雇う（月給 ${money(wageOf(id))}）`, `Hire (${money(wageOf(id))}/mo)`), () => {
+            const e = hire(s, id);
+            if (e === 'money') return ctx.toast(t(`契約金があと ${money(fee - s.money)} 足りません`, `${money(fee - s.money)} short for the signing fee`));
+            if (e) return;
             ctx.toast(t(`${heroName(id)}が仲間になりました`, `${heroName(id)} joined`));
             after(ctx);
-          }, 'is-on'),
+          }, fee > s.money ? '' : 'is-on'),
         );
         card.append(r);
         grid.append(card);
