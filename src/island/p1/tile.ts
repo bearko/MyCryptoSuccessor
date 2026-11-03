@@ -4,12 +4,14 @@
  */
 import { t } from '../../i18n';
 import { DEF } from '../defs';
-import { INTEL, MATS, P1B, PRODUCT, STORE, rivalDef, sku, skuParts, type Sku } from './data';
+import { INTEL, INVEST, MATS, P1B, PRODUCT, SELF_RUN, STORE, rivalDef, sku, skuParts, type Sku } from './data';
 import { DUNGEON, dungeonDepth, museumMarks, museumOpen, museumSlots, museumValue, revivedSites, permitFee, permitLock, presentLock, presentRes, researchOf, runLock, sessionSec, siteProgress, siteTopic, topicProgress, topicsOf, wasteAt, wasteName, extName, gateToll, invLv, isGate, poolCap, poolUsed, allowedDirs, assign, demolish, ground, invest, myWorkshop, order as placeOrder, LOT, intelLv, moveCost, occupant, oneWay, myShops, refundOf, shopArea, sidePay, speed, staffOf, storageCap, type P1State, type PBuilding } from './model';
 import { pickExt, pickHero } from './heroui';
-import { ackOf, benchToChange, craftable, inTut, ordersOf, shelfPicks, swapGain, weakShelf, type Order, type OrderBox } from './orders';
+import { ackOf, benchToChange, craftable, fieldPick, inTut, mainCands, ordersOf, shelfPicks, swapGain, weakShelf, type Order, type OrderBox } from './orders';
 import { stockMsg, stockPlan } from './moves';
-import { execute } from './deleg';
+import { execute, quality, type PropAct } from './deleg';
+import { applyPlan, manualPlan, planOf } from './plan';
+import { openProposal } from './proposalui';
 import { chooseMake, investList, openAds, openBuy, openShop, openWorkshop, pickClerk, rivalName, shopView, type Ctx } from './screens';
 import { bar, btn, h, heroIcon, heroName, money, skuIcon, skuName } from './ui';
 import { canPresent, chiefOf, digMet, isChiefHome } from './digmeet';
@@ -258,6 +260,58 @@ function runOrder(ctx: Ctx, box: OrderBox, o: Order, b: PBuilding, hooks: TileHo
           done();
         },
       });
+      return;
+    }
+    // ---- 段 UI5a：店長への指示（販売は「どうやって売るか」）。主力は選ぶだけ、ほかは担当者からの提案書
+    case 'main': {
+      const uid = b.uid;
+      const sh = s.shops[uid];
+      if (!sh) return;
+      pickExt(ctx.root, s, {
+        title: t('主力商品を選ぶ', 'Choose the main product'),
+        items: mainCands(s, uid),
+        current: sh.shelves[0] ?? null,
+        keep: true,
+        making: s.slots.map((y) => y.sku).filter((y): y is Sku => !!y),
+        note: t('主力は 1 番目の棚（目立つ棚）に並びます。並ぶ商品は工房で作っている商品です（作る物を変えると、棚も自動で入れ替わります）。', 'The main item takes the first (most visible) shelf. Shelves follow what the workshop makes.'),
+        onPick: (x) => {
+          if (!x) return;
+          applyPlan(s, manualPlan([{ k: 'main', uid, x }], box.hero));
+          ctx.sfx?.('tap');
+          ack(ctx, box.hero, t(`${skuName(x)}を主力にします`, `making ${skuName(x)} the main item`));
+          done();
+        },
+      });
+      return;
+    }
+    case 'tidy':
+    case 'field':
+    case 'staff': {
+      const uid = b.uid;
+      const sh = s.shops[uid];
+      if (!sh) return;
+      let act: PropAct | null = null;
+      let say = '';
+      if (o.k === 'staff') {
+        const n = Math.max(sh.part + 1, SELF_RUN.min);
+        act = { k: 'staff', uid, n };
+        say = sh.part >= SELF_RUN.min ? t(`いまの従業員は[[ ${sh.part} 人]]。もう 1 人いると、混む日も回せます`, `We have [[${sh.part} staff]]. One more handles the rush`) : t(`わたしが休む日は、[[従業員 ${SELF_RUN.min} 人]]いれば店を開けておけます`, `With [[${SELF_RUN.min} staff]], the shop stays open on my days off`);
+      } else {
+        const pick = o.k === 'field' || o.inv === 'shelves' ? fieldPick(s, uid) : null;
+        if (pick) {
+          const [key, rar] = skuParts(pick.x);
+          const free = sh.shelves.indexOf(null);
+          act = { k: 'stock', uid, key, rar: rar as 'C' | 'U', idx: pick.add ? -1 : free, add: pick.add, ...(pick.make != null ? { make: pick.make } : {}) };
+          say = t(`お客さんから「[[${skuName(pick.x)}]]は無いの？」とよく聞かれます。月[[ +${Math.round(pick.units)} 個]]は売れそうです`, `Customers keep asking for [[${skuName(pick.x)}]]. About [[+${Math.round(pick.units)}]] a month would sell`);
+        } else if (o.inv) {
+          act = { k: 'invest', id: o.inv, uid };
+          say = t(`[[${INVEST[o.inv]?.name ?? o.inv}]]で、月[[ +${Math.round(o.units ?? 0)} 個]]ほど売れるようになります`, `[[${INVEST[o.inv]?.name ?? o.inv}]] would sell about [[+${Math.round(o.units ?? 0)}]] more a month`);
+        }
+      }
+      if (!act) return;
+      const st = box.hero != null ? s.staff.find((x) => x.hero === box.hero) : null;
+      hooks.close();
+      openProposal(ctx, planOf(s, [act], { hero: box.hero, q: st ? quality(st, 'logistics') : undefined, dept: 'logistics' }), { say, role: box.role.text, done: () => hooks.redraw() });
       return;
     }
     case 'ad':

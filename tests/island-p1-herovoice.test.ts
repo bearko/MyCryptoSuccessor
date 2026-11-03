@@ -1,5 +1,5 @@
 // 段 P2（docs/ISLAND_PHASE1.md「ヒーローの声と適性」「ヒーローの組み合わせ」）：取り込んだセリフが字数の上限内・cautions の人物の決まり・
-// 適性の倍率の 1 か所・組み合わせの条件と 1 回だけ出る・効き目が期限や解消で切れる・古いセーブ（版 21）
+// 適性の倍率の 1 か所・組み合わせの条件と 1 回だけ出る・効き目が期限や解消で切れる・古いセーブ（版 22）
 import { beforeAll, describe, expect, it } from 'vitest';
 import fitJson from '../src/island/p1/heroes/fit.json';
 import voiceJson from '../src/island/p1/heroes/voice.json';
@@ -337,22 +337,22 @@ describe('ヒーローの組み合わせ：効き目と期限・解消', () => {
   });
 });
 
-describe('セーブ（版 22）', () => {
-  it('見つけた組み合わせ・効き目の期限が残る。古いセーブ（版 21）は空から', () => {
+describe('セーブ（版 23）', () => {
+  it('見つけた組み合わせ・効き目の期限が残る。古いセーブ（版 22）は空から', () => {
     const s = town();
     add(s, 5025, 'craft');
     add(s, 5026, 'craft');
     const d = duoDue(s, 0, false)!;
     applyDuo(s, d, 0);
     const back = deserializeP1(serializeP1(s))!;
-    expect(back.v).toBe(22);
+    expect(back.v).toBe(23);
     expect(back.duo!.found.chuhan.opt).toBe('compete');
     expect(back.duo!.found.chuhan.until).toBe(s.duo!.found.chuhan.until);
     const old = JSON.parse(serializeP1(s));
-    old.v = 21;
+    old.v = 22;
     delete old.duo;
     const o = deserializeP1(JSON.stringify(old))!;
-    expect(o.v).toBe(22);
+    expect(o.v).toBe(23);
     expect(o.duo).toBeUndefined();
     expect(duoMorale(o, 5025)).toBe(0);
   });

@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DIG_PANELS, ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, REQUIRES_ORIG, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
+import { DIG_PANELS, ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, UI5_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, REQUIRES_ORIG, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
 import { deptLevel, deptNews, deptOpen, deptReady, menuDepts, menuLayout, nextMark } from '../src/island/p1/dept';
 import { deserializeP1, newP1, serializeP1 } from '../src/island/p1/model';
 import { DEPT_LAYOUT, EDGES, HUBPOS, HUB_BOX, KNOTPOS, POS, RING_OUT, SLACK, UNPLACED, groupOf } from '../src/island/p1/treelayout';
@@ -66,7 +66,8 @@ describe('パネルの部門の割り振り', () => {
     // 段 C で足した営業のパネル（営業の枝）・段 E2 で足した人事のパネル（HR_SKILLS）・段 F の経理と総務のパネルは除いて比べる
     // 段 G のカスタマーサポート・マーケのパネル（CS_SKILLS・MKT_SKILLS）も除く
     // 段 H2 の法務のパネル（法務の枝）も除く。M&A の遊びに合わせて見直した Epic の 2 枚（M&A 部門・工芸の工房の買収）は効き目だけを比べから外す
-    expect(SKILLS.filter((k) => k.branch !== 'sales' && k.branch !== 'legal' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k)).map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
+    // 段 UI5a で足した調達の交代要員（UI5_SKILLS）も除く
+    expect(SKILLS.filter((k) => k.branch !== 'sales' && k.branch !== 'legal' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id)).map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
     for (const b of BEFORE) {
       const k = SKILL[b.id as string];
       // 段 UI5b：先に要るものは、つながりの見直し（treelinks.ts）の前のもの（REQUIRES_ORIG）で比べる。見直しは tests/island-p1-ui5b.test.ts
@@ -184,7 +185,7 @@ describe('部門のお知らせ（トースト）', () => {
 
 describe('セーブ（版 11）', () => {
   it('新しいゲームは版 11。版 10 の古いセーブは、取ったパネル・レベルがそのまま版 11 になり、届いていた節目はまとめて出さない', () => {
-    expect(newP1(1).v).toBe(22);
+    expect(newP1(1).v).toBe(23);
     const s = newP1(2);
     s.skills = ['host', 'display', 'vmd', 'golden', 'jig', 'lounge', 'shift'];
     s.skillLv = { host: 5, jig: 3 };
@@ -193,7 +194,7 @@ describe('セーブ（版 11）', () => {
     delete o.flags.depts;
     delete o.flags.deptMarks;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(22);
+    expect(back.v).toBe(23);
     expect(back.skills).toEqual(s.skills);
     expect(back.skillLv).toEqual(s.skillLv);
     expect(deptLevel(back, 'logistics')).toBe(5 + 1 + 3);

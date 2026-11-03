@@ -12,7 +12,7 @@ import { heroById } from '../../game/catalog';
 import { introFirstStep, P1B, type Tier } from './data';
 import { sectorDef, tierLabel } from './company';
 import { digMet, meetTip, topicsPage } from './digmeet';
-import { has, jamOf, myShops, myWorkshop, rivalMonthGuess, type P1State, type Stage } from './model';
+import { has, jamOf, stallOf, myShops, myWorkshop, rivalMonthGuess, type P1State, type Stage } from './model';
 import { ruinsOf } from './reset';
 import { menuDepts } from './dept';
 
@@ -250,14 +250,17 @@ export function bubbleKind(s: P1State): 'tut' | 'meet' | null {
   return null;
 }
 
-/** 上の帯の札：詰まりの段（SCM の詰まりと同じ jamOf）か、まだ無い建物（工房・お店） */
+/** 上の帯の札：課題ありの段（SCM の詰まりと同じ jamOf。流れが止まっていれば stallOf）か、まだ無い建物（工房・お店）。段 UI5a で「詰まり」→「課題あり」 */
 export type Chip = { k: 'jam'; stage: Stage } | { k: 'ws' } | { k: 'shop' };
 export function chipOf(s: P1State): Chip | null {
   if (typeof s.tut === 'number' && s.tut < 99) return null;
   const mine = s.buildings.filter((b) => b.owner === 'me');
   if (!myWorkshop(s)) return mine.some((b) => b.id === 'workshop') ? null : { k: 'ws' };
   if (!myShops(s).length) return mine.some((b) => P1B[b.id]?.kind === 'shop' && b.left > 0) ? null : { k: 'shop' };
-  return { k: 'jam', stage: jamOf(s) };
+  // 段 UI5a：流れが止まっていれば、いちばん上流の止まっている段（宣伝を勧めないように。月次報告の「課題あり」と同じ）
+  // （締めの報告で止まっていて、いまも止まっているときだけ。月の途中の一瞬の止まりでは替えない）
+  const st = s.reports[s.reports.length - 1]?.stall ? stallOf(s) : null;
+  return { k: 'jam', stage: st?.stage ?? jamOf(s) };
 }
 /** 詰まりの段から、その段の提案のカードを出すヒーロー（段 UI1 の出どころ） */
 export const CHIP_SRC: Record<Stage, 'buyer' | 'crafter' | 'clerk' | null> = { buy: 'buyer', craft: 'crafter', haul: null, sell: 'clerk' };
