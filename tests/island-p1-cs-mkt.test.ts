@@ -357,7 +357,7 @@ describe('セーブ（版 17）', () => {
     C.inbox = inquiriesFor(s, 4, 0);
     C.warn = { cause: 'out', day: s.day };
     const back = deserializeP1(serializeP1(s))!;
-    expect(back.v).toBe(20);
+    expect(back.v).toBe(21);
     expect(satOf(back)).toBe(77);
     expect(back.cs!.inbox).toHaveLength(2);
     expect(back.cs!.warn?.cause).toBe('out');
@@ -370,7 +370,7 @@ describe('セーブ（版 17）', () => {
     o.v = 16;
     delete o.cs;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(20);
+    expect(back.v).toBe(21);
     expect(satOf(back)).toBe(CS.start);
     expect(csOf(back).inbox).toEqual([]);
     expect(csOf(back).warn).toBeNull();
