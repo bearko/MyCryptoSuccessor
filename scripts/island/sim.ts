@@ -21,17 +21,20 @@ import { LEGAL } from '../../src/island/p1/data';
 import { bonus as giveBonus, bonusCost, raise, raiseStep, setRest, wageMul } from '../../src/island/p1/model';
 import { CHARISMA, CS, CSM_RP, FATIGUE, FLAME, GRADE, GRADE_NAME, MORALE, PAY, TAX, deptOf } from '../../src/island/p1/data';
 // v22（段 G）：販売の枝に足したカスタマーサポート・マーケの研究パネル（CSM_RP）は、通常の「詰まりの段の枝の研究パネル」には数えない（売り場の段に効かない）
-import { approve, candidatesFor, delegatedDuties, headDepts, headLeft, headOf, leaderLeft, leaderOf, quality, runnerOf, setHead, setLeader } from '../../src/island/p1/deleg';
+import { approve, delegatedDuties, headDepts, headLeft, headOf, leaderLeft, leaderOf, quality, runnerOf, setHead, setLeader } from '../../src/island/p1/deleg';
 import { DELEG, DEPTS, type DeptId, type DutyId } from '../../src/island/p1/data';
 import { CARD_SRCS, SIM_CARD_TAKE, cardInbox, chooseCard, simTake, type Card, type CardSrc, type CardStat } from '../../src/island/p1/card';
 import { EVENT_OFF, EV_KINDS, GOOD_KINDS, lightOpt, newEventStat, optName, type EvKind, type EventStat } from '../../src/island/p1/events';
 import { LAND_IDS, dipOpts, landName, newDipStat, type DipStat } from '../../src/island/p1/diplo';
 import { DIPLO, EVENT } from '../../src/island/p1/data';
 import { CARD } from '../../src/island/p1/data';
+import { DUO, HERO_FIT } from '../../src/island/p1/data';
+import { P2_OFF } from '../../src/island/p1/voice';
+import { DUOS, type DuoOptId } from '../../src/island/p1/duo';
 /** v25：通常の方針が受けるカードの手の名前（表 19） */
 const TAKE_NAME: Record<string, string> = { shelf: '棚 +1 と商品', goods: '品ぞろえの入れ替え', invest: '設備投資', part: 'アルバイト', famous: '名物店主', permit: '発掘許可', ad: '宣伝' };
 /** v25：カードの出どころの名前（表 19） */
-const SRC_NAME: Record<CardSrc, string> = { hr: '人事（雇う）', clerk: '店員', crafter: '職人', buyer: '調達係', idle: '手の空いた人', head: '部長', cs: '問い合わせ', flame: '炎上の予告', quit: '辞めたい', tax: '経理の助言', rally: '巻き返し・反撃', event: 'できごと', diplo: '外交', stall: '流れが止まった', stock: '倉庫の売りさばき' };
+const SRC_NAME: Record<CardSrc, string> = { hr: '人事（雇う）', clerk: '店員', crafter: '職人', buyer: '調達係', idle: '手の空いた人', head: '部長', cs: '問い合わせ', flame: '炎上の予告', quit: '辞めたい', tax: '経理の助言', rally: '巻き返し・反撃', event: 'できごと', diplo: '外交', stall: '流れが止まった', duo: '組み合わせ', stock: '倉庫の売りさばき' };
 import {
   promote,
   takeVacant,
@@ -356,6 +359,8 @@ export interface RunResult {
   v25: CardStat;
   /** v26（段 UI4：突発のできごと・外交）：できごとの数え（ランク・種類と選んだ手・良い／困りごと・選んだ手の見込みの合計）・外交（会ったランドと仲・交易・依頼） */
   v26: { ev: EventStat; dip: DipStat; rel: Record<string, number> };
+  /** v28（段 P2：ヒーローの組み合わせ）：見つけた組み合わせ・出したカードの数・選んだ手 */
+  v28: { found: string[]; made: number; opt: Partial<Record<DuoOptId, number>> };
 }
 
 /**
@@ -653,7 +658,13 @@ export function withoutDeleg<T>(f: () => T): T {
 /** 任命の人：待機中で出来のいちばん高い人。いなければ雇える候補から（1 日 1 人） */
 function delegPlace(s: P1State, c: Ctx, acts: Action[], budget: number, reserve: number, hired: boolean, setHired: () => void) {
   if (!s.reports.length) return;
-  const idle = (d: DeptId) => candidatesFor(s, d).filter((x) => x.st.task == null && !x.st.resting)[0]?.st.hero ?? null;
+  // v28（段 P2）：配置の判断は変えない。候補の順は、史実の適性の倍率を入れない出来（段 P2 の前の candidatesFor と同じ並び）。倍率は選んだあとの出来に効く
+  const idle = (d: DeptId) =>
+    s.staff
+      .filter((x) => x.task !== 'manager' && x.task !== 'train')
+      .map((st) => ({ st, q: quality({ stats: st.stats, level: st.level, passives: st.passives }, d) }))
+      .sort((a, b) => b.q - a.q || aptitude(b.st.stats, 'lead') - aptitude(a.st.stats, 'lead'))
+      .filter((x) => x.st.task == null && !x.st.resting)[0]?.st.hero ?? null;
   // v22：カスタマーサポートのリーダーは待機中の人から（問い合わせは月に数件。そのために雇わない）
   const fromPool = (d: DeptId) => (has(s, 'hire') && !hired && budget > 3000 + reserve && d !== 'support' ? ([...s.hirePool].sort((a, b) => quality({ stats: heroStatsOf(b) }, d) - quality({ stats: heroStatsOf(a) }, d))[0] ?? null) : null);
   for (const def of DEPTS) {
@@ -1361,7 +1372,8 @@ export function policy(s: P1State, c: Ctx): Action[] {
   // v24（段 H2）：法務と M&A の手（SIM_LEGAL。Epic の町だけ）
   legalPlace(s, c, acts, budget, reserve, take, can, dg);
   // v26（段 UI4）：突発のできごと・外交のカード（出た日に選ぶ。SIM_EVENT）
-  for (const x of cardInbox(s)) if (x.src === 'event' || x.src === 'diplo') acts.push({ kind: 'event', run: () => simEvent(s, x, c.policy) });
+  // v28（段 P2）：ヒーローの組み合わせのカードも、できごとと同じ方針で選ぶ（最短＝いまのまま・通常＝おすすめ・100%＝見込みのいちばん大きい手）
+  for (const x of cardInbox(s)) if (x.src === 'event' || x.src === 'diplo' || x.src === 'duo') acts.push({ kind: 'event', run: () => simEvent(s, x, c.policy) });
   return acts;
 }
 
@@ -1384,6 +1396,17 @@ function simEvent(s: P1State, x: Card, p: PolicyId): string | null {
   // 払えなかった：軽い手で済ませる（次の日に持ち越さない）
   if (!r.ok && (r.err === 'money' || r.err === 'stock')) return chooseCard(s, x.id, x.ev ? lightOpt(x.ev) : x.choices.length - 1).ok ? null : 'none';
   return r.ok ? null : 'none';
+}
+/** v28（段 P2）：適性の倍率と組み合わせを止めて回す（fit：適性・duo：組み合わせ。両方止めると段 P2 の前と同じ。比べるためだけ。終わったら戻す） */
+export function withoutP2<T>(f: () => T, o: { fit?: boolean; duo?: boolean } = { fit: true, duo: true }): T {
+  const was = { ...P2_OFF };
+  P2_OFF.fit = !!o.fit;
+  P2_OFF.duo = !!o.duo;
+  try {
+    return f();
+  } finally {
+    Object.assign(P2_OFF, was);
+  }
 }
 /** v26（段 UI4）：できごとと外交を止めて回す（段 UI4 の前と同じ。比べるためだけ。終わったら戻す） */
 export function withoutEvents<T>(f: () => T): T {
@@ -2034,7 +2057,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   const s = newP1(seed);
   Object.assign(csLog, { pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0 });
   const c: Ctx = { policy: p, route: routeOf(p), at: 0, lineup: [], lineupDirty: true, shopsThisMonth: 0, monthEnd: null, lastBn: null, ban: new Set(o.ban ?? []), onlyFirst: !!o.onlyFirst, dayInMonth: 0, handCarry: 0, rpMoves: 0, runLeft: 0, runsMonth: 0, divesMonth: 0, preInv: 0, preG: 0 };
-  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 }, v20: { paid: 0, saved: 0, quarters: 0, preInv: 0, preG: 0, fatigue: [], morale: [], slow: [] }, v21: { rev: 0, wages: 0, months: 0, morale: [], high: [] }, v22: { got: 0, answered: 0, auto: 0, expired: 0, good: 0, sat: [], warns: 0, flames: 0, flameMonths: 0, pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0, brandEnd: {}, gradeEnd: {} }, v23: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, hitR: 0, kept: 0, delegated: 0, delegatedR: 0, resWaitE: 0, comebackE: 0 }, v24: { ma: 0, maG: 0, acqRev: 0, patents: 0, stopped: 0, royalty: 0, suits: 0, won: 0, lost: 0, settled: 0, contracts: 0, saved: 0, penalty: 0, preDonateG: 0 }, v25: { made: {}, pop: {}, boxed: {}, auto: {}, months: {}, src: {} }, v26: { ev: newEventStat(), dip: newDipStat(), rel: {} } };
+  const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 }, v20: { paid: 0, saved: 0, quarters: 0, preInv: 0, preG: 0, fatigue: [], morale: [], slow: [] }, v21: { rev: 0, wages: 0, months: 0, morale: [], high: [] }, v22: { got: 0, answered: 0, auto: 0, expired: 0, good: 0, sat: [], warns: 0, flames: 0, flameMonths: 0, pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0, brandEnd: {}, gradeEnd: {} }, v23: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, hitR: 0, kept: 0, delegated: 0, delegatedR: 0, resWaitE: 0, comebackE: 0 }, v24: { ma: 0, maG: 0, acqRev: 0, patents: 0, stopped: 0, royalty: 0, suits: 0, won: 0, lost: 0, settled: 0, contracts: 0, saved: 0, penalty: 0, preDonateG: 0 }, v25: { made: {}, pop: {}, boxed: {}, auto: {}, months: {}, src: {} }, v26: { ev: newEventStat(), dip: newDipStat(), rel: {} }, v28: { found: [], made: 0, opt: {} } };
   /** v19：雇ったことのあるヒーロー（はじめの 3 人も入れる。新しく来た人を数える） */
   const heroSeen = new Set(s.staff.map((x) => x.hero));
   /** v14：任せた町の担当（能力値の伸びを数える） */
@@ -2673,6 +2696,8 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   if (s.cards) res.v25 = JSON.parse(JSON.stringify(s.cards.stat));
   // v26（段 UI4）：できごと・外交の数え（会社のもの）
   if (s.events) res.v26.ev = JSON.parse(JSON.stringify(s.events.stat));
+  // v28（段 P2）：ヒーローの組み合わせ（会社のもの）
+  if (s.duo) res.v28 = { found: Object.keys(s.duo.found), made: s.duo.stat.made, opt: { ...s.duo.stat.opt } };
   if (s.diplo) {
     res.v26.dip = { ...s.diplo.stat };
     res.v26.rel = Object.fromEntries(s.diplo.lands.map((x) => [x.id, Math.round(x.rel)]));
@@ -2742,6 +2767,9 @@ export interface Report2 {
   noPatent?: RunResult[];
   /** v26（段 UI4）：できごとなしの 3 方針（withoutEvents。段 UI4 の前と同じ） */
   noEvents?: RunResult[];
+  /** v28（段 P2）：適性と組み合わせを止めた 3 方針（段 P2 の前と同じ）・組み合わせだけ止めた 3 方針 */
+  noP2?: RunResult[];
+  noDuo?: RunResult[];
   ms: number;
 }
 
@@ -2942,6 +2970,50 @@ export function tables(rep: Report2): string {
     );
   }
   out.push('');
+  // v28（段 P2）：ヒーローの声と適性・組み合わせ
+  if (rep.noP2?.length || rep.runs.some((r) => r.v28)) {
+    out.push('### 表 22：ヒーローの適性と組み合わせ（v28。段 P2）');
+    out.push('');
+    out.push(
+      `シード ${seeds.join('・')} の平均。「P2 なし」は同じ方針・シードを \`withoutP2\`（適性の倍率と組み合わせを止める＝段 P2 の前の main と同じ通し）で回した値、「組み合わせなし」は組み合わせだけ止めた値（適性の倍率は入る）。括弧の中は「あり − なし」。目安は ±3%。適性の倍率（\`HERO_FIT\`）：S ×${HERO_FIT.mul.S}・A ×${HERO_FIT.mul.A}・B ×${HERO_FIT.mul.B}・C ×${HERO_FIT.mul.C}・D ×${HERO_FIT.mul.D}（任せた部門の出来・持ち場の速さ・セクター長の売上）。組み合わせ（\`DUO\`）：${DUOS.length} 組・町の ${DUO.first} か月目の締めから・カードの上限の中で 1 か月 1 つまで。方針はできごとと同じ（最短＝いまのまま・通常＝おすすめ・100%＝見込みのいちばん大きい手）。雇い方は変えない（雇う候補の比べは適性を入れない出来のまま）。リーダー・部長の候補の順も、適性を入れない出来の順（段 P2 の前と同じ。配置の判断は変えない）。倍率は選んだあとの出来・速さに効く。`,
+    );
+    out.push('');
+    out.push('| 方針 | 合計（P2 なし・差） | うち C | うち U | うち R | うち E | 合計（組み合わせなし・差） | 見つけた組み合わせ／通し | 選んだ手 | 詰まって止まるシード（あり／P2 なし） |');
+    out.push('|---|---|---|---|---|---|---|---|---|---|');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      const byTier = (xs: RunResult[], tier: Tier) => mean(xs.map((x) => x.sectors.filter((r) => r.tier === tier && !r.revisit).reduce((a, r) => a + (secOf(p, r, 'left') ?? 0), 0) + (tier === 'C' ? SIM_TIME[p].tutorial : 0)));
+      const pc = (a: number, b: number) => (b > 0 ? `${fmtH(a)}（${fmtH(b)}・${a >= b ? '+' : '−'}${((Math.abs(a - b) / b) * 100).toFixed(1)}%）` : '—');
+      const off = (rep.noP2 ?? []).filter((r) => r.policy === p);
+      const nod = (rep.noDuo ?? []).filter((r) => r.policy === p);
+      const tot = mean(runs.map(totalSec));
+      const tierPc = (tier: Tier) => (off.length ? pc(byTier(runs, tier), byTier(off, tier)) : '—');
+      const found = mean(runs.map((r) => r.v28?.found.length ?? 0)).toFixed(1);
+      const names = [...new Set(runs.flatMap((r) => r.v28?.found ?? []))].join('・') || '—';
+      const opt: Record<string, number> = {};
+      for (const r of runs) for (const [k, v] of Object.entries(r.v28?.opt ?? {})) opt[k] = (opt[k] ?? 0) + (v ?? 0);
+      out.push(
+        `| ${POLICY_NAME[p]} | ${off.length ? pc(tot, mean(off.map(totalSec))) : fmtH(tot)} | ${tierPc('C')} | ${tierPc('U')} | ${tierPc('R')} | ${tierPc('E')} | ${nod.length ? pc(tot, mean(nod.map(totalSec))) : '—'} | ${found}（${names}） | ${Object.entries(opt).map(([k, v]) => `${k} ${v}`).join('・') || '—'} | ${runs.filter((r) => !r.done).length}／${off.length ? off.filter((r) => !r.done).length : '—'} |`,
+      );
+    }
+    out.push('');
+    out.push('シードごとの合計（秒。あり／P2 なし／組み合わせなし）');
+    out.push('');
+    out.push(`| 方針 | ${seeds.map((x) => `シード ${x}`).join(' | ')} |`);
+    out.push(`|---|${seeds.map(() => '---').join('|')}|`);
+    for (const p of pols) {
+      const cell = (seed: number) => {
+        const f = (xs: RunResult[] | undefined) => {
+          const r = (xs ?? []).find((x) => x.policy === p && x.seed === seed);
+          return r ? Math.round(totalSec(r)).toLocaleString('en-US') : '—';
+        };
+        return `${f(rep.runs)}／${f(rep.noP2)}／${f(rep.noDuo)}`;
+      };
+      out.push(`| ${POLICY_NAME[p]} | ${seeds.map(cell).join(' | ')} |`);
+    }
+    out.push('');
+  }
   // 調整 v25c：v25（PR #29 の前の main）とのランクごとの時間の差（どのランクも ±5% が目安）
   {
     const sd = [...new Set(rep.runs.map((r) => r.seed))].sort((a, b) => a - b).join(',');
@@ -3611,7 +3683,10 @@ export function runAll(seeds = SEEDS, opts: { ablation?: boolean } = {}): Report
   const noPatent = opts.ablation ? (['normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutPatent(() => runOnce(p, seed)))) : undefined;
   // v26（段 UI4）：できごとと外交を止めた 3 方針（段 UI4 の前と同じ）
   const noEvents = opts.ablation ? (['rta', 'normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutEvents(() => runOnce(p, seed)))) : undefined;
-  return { runs, ablation, noTech, noGrowth, noDeleg, noSave, noAcct, noHrHands, noCs, noMA, noPatent, noEvents, ms: performance.now() - t0 };
+  // v28（段 P2）：適性の倍率と組み合わせを止めた 3 方針（段 P2 の前と同じ）・組み合わせだけ止めた 3 方針
+  const noP2 = opts.ablation ? (['rta', 'normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutP2(() => runOnce(p, seed)))) : undefined;
+  const noDuo = opts.ablation ? (['rta', 'normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutP2(() => runOnce(p, seed), { duo: true }))) : undefined;
+  return { runs, ablation, noTech, noGrowth, noDeleg, noSave, noAcct, noHrHands, noCs, noMA, noPatent, noEvents, noP2, noDuo, ms: performance.now() - t0 };
 }
 
 /** docs/ISLAND_BALANCE.md の「自動で書く」部分を差し替える（前後の手書きの文はそのまま） */
