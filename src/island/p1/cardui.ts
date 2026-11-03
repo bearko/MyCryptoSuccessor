@@ -34,7 +34,9 @@ import { traitOf } from './persona';
 import { landDef, relOf, relTeaser } from './diplo';
 import { after, type Ctx } from './screens';
 import { openProposal } from './proposalui';
-import { btn, h, heroIcon, heroName, money, rich } from './ui';
+import { shelfGate } from './stock';
+import { openShelfChoice } from './stockui';
+import { btn, h, heroIcon, heroName, money, recLine, rich } from './ui';
 import { assetUrl } from '../../render/images';
 import { cardReact, sayToast } from './p2ui';
 import { DUO_BY_ID } from './duo';
@@ -135,24 +137,41 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
       if (n) sub.append(t('・', ' · '));
       sub.append(h('span', 'isl-nw', part));
     });
-    lab.append(h('b', '', `${x.icon} ${x.label}`), sub);
+    // 段 UI5d：推奨の手には「推奨」の札
+    lab.append(recLine(`${x.icon} ${x.label}`, ch.rec), sub);
     if (why) lab.append(h('small', 'isl-bad', why));
     b.append(lab);
     b.addEventListener('click', () => {
       // 段 UI5a：手のある選択肢（ヒーローの提案・部長の提案）は、担当者からの提案書を開く（As-Is／To-Be・期待効果・導入コスト → 承認でハンコ → 一気に変更）
       const plan = ch.act.k === 'do' || ch.act.k === 'approve' ? planOfChoice(s, c, k) : null;
       if (plan) {
-        openProposal(ctx, plan, {
-          say: sayOf(s, c),
-          role: roleOfCard(s, c).text,
-          later: true,
-          approve: (p) => approveCard(s, c.id, p),
-          done: (w) => {
-            // 段 P2：提案書を承認したら、承認の反応（史実の調査のあるヒーロー）
-            if (w === 'ok' && PROPOSAL_SRC.includes(c.src)) sayToast(ctx.toast, c.hero, 'approved', c.id);
-            if (w === 'ok' || w === 'later') quiet();
-          },
-        });
+        const prop = (p: typeof plan) =>
+          openProposal(ctx, p, {
+            say: sayOf(s, c),
+            role: roleOfCard(s, c).text,
+            later: true,
+            rec: !!ch.rec,
+            approve: (pp) => approveCard(s, c.id, pp),
+            done: (w) => {
+              // 段 P2：提案書を承認したら、承認の反応（史実の調査のあるヒーロー）
+              if (w === 'ok' && PROPOSAL_SRC.includes(c.src)) sayToast(ctx.toast, c.hero, 'approved', c.id);
+              if (w === 'ok' || w === 'later') quiet();
+            },
+          });
+        // 段 UI5d：売りさばきで棚が 1 段のお店の主力が外れるときは、先に 3 択（主力を外す・残す・棚を拡張する（推奨））
+        const gate = shelfGate(s, plan);
+        if (gate.length) {
+          openShelfChoice(ctx, plan, gate, (p) => {
+            if (p) return prop(p);
+            // 主力を残す（ほかに変えるものが無い）：このカードは「いまはこのままで」
+            const skip = c.choices.findIndex((y) => y.act.k === 'skip');
+            if (skip < 0) return;
+            picked = c.choices[skip];
+            close(chooseCard(s, c.id, skip), choiceText(s, c, c.choices[skip]).label);
+          });
+          return;
+        }
+        prop(plan);
         return;
       }
       const res = chooseCard(s, c.id, k);
