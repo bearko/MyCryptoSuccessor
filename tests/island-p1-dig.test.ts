@@ -5,7 +5,7 @@
  * 正面の壁（v11。手前から奥へ・2 × 2 の大きいもの・覗き見）は tests/island-p1-dig2w.test.ts。
  */
 import { describe, expect, it } from 'vitest';
-import { ACCT_MONEY, GA_MONEY, BLAST, HR_MONEY, DIG, DIG_BALANCE, DIG_SITES, MISSIONS, MONEY_PANELS, RESEARCH_NEED, RP_GAIN, RP_PER_DUST, SECTORS, SKILL, SKILLS, START_RP, TABLETS, TIERS, WASTE, aptitude, isResearch, levelCost, maxLv, rpCost, researchLv, CS_MONEY, MKT_MONEY } from '../src/island/p1/data';
+import { ACCT_MONEY, GA_MONEY, BLAST, HR_MONEY, DIG, DIG_BALANCE, DIG_PANELS, DIG_SITES, MISSIONS, MONEY_PANELS, RESEARCH_NEED, RP_GAIN, RP_PER_DUST, SECTORS, SKILL, SKILLS, START_RP, TABLETS, TIERS, WASTE, aptitude, isResearch, levelCost, maxLv, rpCost, researchLv, CS_MONEY, MKT_MONEY } from '../src/island/p1/data';
 import { moveTo } from '../src/island/p1/land';
 import {
   allowedDirs,
@@ -669,13 +669,19 @@ describe('スキルツリーの 2 区分', () => {
   });
 
   it('RP の値段：Common 平均 50 前後（20〜80）・Uncommon 平均 120 前後・Rare 以降 2.5 倍ずつ・大きめの研究パネルは約 2.5 倍・人材の募集は 30', () => {
+    // 調整 v25c：Common の発掘の枝の 11 枚は決め打ちで安い（5〜30。DIG_BALANCE.tree.rp）ので、段の平均・範囲からは外す
+    const digC = (k: { id: string; tier?: string }) => !k.tier && DIG_PANELS.includes(k.id);
     const avg = (tier: string) => {
-      const r = SKILLS.filter((k) => (k.tier ?? 'C') === tier && isResearch(k) && !k.big && !k.inf);
+      const r = SKILLS.filter((k) => (k.tier ?? 'C') === tier && isResearch(k) && !k.big && !k.inf && !digC(k));
       return r.reduce((a, k) => a + rpCost(k), 0) / r.length;
     };
     expect(avg('C')).toBeGreaterThan(45);
     expect(avg('C')).toBeLessThan(55);
-    for (const k of SKILLS.filter((x) => !x.tier && isResearch(x) && !x.big)) {
+    for (const k of SKILLS.filter((x) => digC(x))) {
+      expect(rpCost(k), k.id).toBeGreaterThanOrEqual(5);
+      expect(rpCost(k), k.id).toBeLessThanOrEqual(30);
+    }
+    for (const k of SKILLS.filter((x) => !x.tier && isResearch(x) && !x.big && !digC(x))) {
       expect(rpCost(k), k.id).toBeGreaterThanOrEqual(20);
       expect(rpCost(k), k.id).toBeLessThanOrEqual(80);
     }

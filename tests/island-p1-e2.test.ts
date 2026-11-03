@@ -4,7 +4,7 @@
  * 給与の合計がいまの人件費と同じ・古いセーブ。
  */
 import { describe, expect, it } from 'vitest';
-import { CHARISMA, HIRE_POOL, MORALE, PAY, SALARY, SKILL, aptitude } from '../src/island/p1/data';
+import { CHARISMA, HIRE_FEE, HIRE_POOL, MORALE, PAY, SALARY, SKILL, aptitude } from '../src/island/p1/data';
 import { moveTo } from '../src/island/p1/land';
 import {
   bonus,
@@ -13,7 +13,9 @@ import {
   deserializeP1,
   endMonth,
   hire,
+  hireFee,
   newP1,
+  uncommonHeroes,
   openGate,
   pickHires,
   raise,
@@ -145,6 +147,28 @@ describe('カリスマ度', () => {
     expect(xs.filter((r) => r === 'R')).toEqual([]);
     expect(xs.some((r) => r === 'U')).toBe(true);
     expect(xs.filter((r) => r === 'E')).toHaveLength(1);
+  });
+
+  it('調整 v25c：アンコモン以上は雇うときに契約金（HIRE_FEE。人件費）。足りなければ「money」で何も変わらない。Common は 0', () => {
+    const s = game();
+    s.charismaBonus = CHARISMA.cap.U!;
+    const u = uncommonHeroes()[0];
+    const c = HIRE_POOL[0];
+    expect([hireFee(c), hireFee(u)]).toEqual([0, HIRE_FEE.U]);
+    expect(HIRE_FEE).toEqual({ U: 40000, R: 100000, E: 250000, L: 600000 });
+    s.hirePool = [u, c];
+    s.money = HIRE_FEE.U! - 1;
+    const n0 = s.staff.length;
+    expect(hire(s, u)).toBe('money');
+    expect([s.staff.length, s.money, s.hirePool]).toEqual([n0, HIRE_FEE.U! - 1, [u, c]]);
+    // Common は契約金なし
+    expect(hire(s, c)).toBeNull();
+    expect(s.money).toBe(HIRE_FEE.U! - 1);
+    s.money = 100000;
+    const w0 = s.monthCost.wages ?? 0;
+    expect(hire(s, u)).toBeNull();
+    expect(s.money).toBe(100000 - HIRE_FEE.U!);
+    expect((s.monthCost.wages ?? 0) - w0).toBe(HIRE_FEE.U!);
   });
 
   it('上がったら知らせる（雇えるレアリティが上がったときは cap）。ランクアップの災害でも減らない', () => {

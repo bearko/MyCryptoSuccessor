@@ -31,7 +31,7 @@ import {
   TABLET_LAYERS,
   TABLETS,
   isResearch,
-  digMaxLv,
+  digRpLv,
   researchLv,
   rpCost,
   type DigTier,
@@ -62,6 +62,7 @@ import {
   PROC,
   procNeed,
   HIRE_POOL,
+  HIRE_FEE,
   INTEL,
   INVEST,
   SKILL_TO_INVEST,
@@ -117,7 +118,7 @@ import {
   type PassiveKind,
   type PromoItem,
 } from './data';
-import { addXp, baseStats, initGrowth, levelForXp, passiveMul, passiveSum, promoteStaff, syncGrowth, type LevelUp, type PromoErr } from './hero';
+import { addXp, baseStats, heroRarityOf, initGrowth, levelForXp, passiveMul, passiveSum, promoteStaff, syncGrowth, type LevelUp, type PromoErr } from './hero';
 import { delegDay, delegMiss, delegMonth, headFx, roleXp, sectorApprove, type DelegReport, type DelegState } from './deleg';
 import { cardsCompany, cardsDay, cardsMonth, type CardReport, type CardState } from './card';
 import { acctMonth, deduct, panelKind, priceMul, type AcctState, type TaxRec } from './acct';
@@ -1239,9 +1240,18 @@ function unassign(s: P1State, st: Staff) {
   st.target = null;
 }
 
+/** 調整 v25c：雇うときの契約金（もとのレアリティごと。Novice・Common は 0。data.ts の HIRE_FEE） */
+export const hireFee = (hero: number) => HIRE_FEE[heroRarityOf(hero)] ?? 0;
+
 export function hire(s: P1State, hero: number): string | null {
   if (!has(s, 'hire')) return 'locked';
   if (!s.hirePool.includes(hero)) return 'gone';
+  const fee = hireFee(hero);
+  if (fee > 0 && s.money < fee) return 'money';
+  if (fee > 0) {
+    s.money -= fee;
+    spend(s, 'wages', fee);
+  }
   const st = newStaff(hero, wageOf(hero));
   // カリスマ採用（✨）：雇うときの能力 +20%（上限 100）
   if (has(s, 'd_people')) {
@@ -2006,9 +2016,9 @@ export function gainSkill(s: P1State, id: string) {
   if (id === 'd_buy') for (const m of Object.keys(MATS) as Mat[]) if (!s.routes.includes(m)) s.routes.push(m);
   syncSlots(s);
   for (const b of myShops(s)) syncShop(s, b);
-  // 発掘の枝のパネルは研究パネル（レベルなし）：開いたら、以前の最大レベルの効き目（Lv5）で入る
+  // 発掘の枝のパネルは研究パネル（レベルなし）：開いたら、決まった段の効き目で入る（調整 v25c：ふつう Lv3・深い層の許可・研究の目利き・発掘隊の役所は Lv5）
   const dk = SKILL[id];
-  if (dk && dk.branch === 'dig' && isResearch(dk) && !dk.inf && !dk.donate) s.skillLv = { ...(s.skillLv ?? {}), [id]: digMaxLv(dk) };
+  if (dk && dk.branch === 'dig' && isResearch(dk) && !dk.inf && !dk.donate) s.skillLv = { ...(s.skillLv ?? {}), [id]: digRpLv(dk) };
   if (id === 'dig_study') syncResearchCap(s);
 }
 
@@ -4247,10 +4257,11 @@ export function deserializeP1(json: string): P1State | null {
     // 以前のセーブ：セクタ・ブランド力・帳簿・ランド
     // 流れの案内の途中で閉じたときに、売らないままにならないように
     s.holdSales = false;
-    // 発掘の枝のパネルは研究パネルになった：以前のセーブの途中のレベルのパネルは、最大レベルの効き目に（もうレベルは上げられない）
+    // 発掘の枝のパネルは研究パネルになった：以前のセーブのレベルは、決まった段の効き目にそろえる（もうレベルは上げられない。
+    // 調整 v25c で Lv5 → Lv3 にしたので、v25b のセーブの Lv5 も下がる。深い層の許可・研究の目利き・発掘隊の役所は Lv5）
     for (const id of s.skills) {
       const dk = SKILL[id];
-      if (dk && dk.branch === 'dig' && isResearch(dk) && !dk.inf && !dk.donate && lvOf(s, id) < digMaxLv(dk)) s.skillLv = { ...(s.skillLv ?? {}), [id]: digMaxLv(dk) };
+      if (dk && dk.branch === 'dig' && isResearch(dk) && !dk.inf && !dk.donate && lvOf(s, id) !== digRpLv(dk)) s.skillLv = { ...(s.skillLv ?? {}), [id]: digRpLv(dk) };
     }
     s.sector ??= 'c1';
     s.tier ??= 'C';
@@ -4980,7 +4991,8 @@ function scratch(s: P1State): P1State {
 /** その仕事に置ける人：手の空いている人（いちばん適性の高い人）、いなければ雇える候補のいちばん適性の高い人 */
 function bestFor(s: P1State, task: Task, min = 0): { hero: number; hire: boolean; apt: number } | null {
   const idle = s.staff.filter((x) => x.task == null).map((x) => ({ hero: x.hero, hire: false, apt: aptOf(s, x, task) }));
-  const pool = has(s, 'hire') ? s.hirePool.map((id) => ({ hero: id, hire: true, apt: aptitude(heroStats(id), task) + aptBonus(s, task) })) : [];
+  // 調整 v25c：契約金（アンコモン以上）が払えない候補は出さない
+  const pool = has(s, 'hire') ? s.hirePool.filter((id) => hireFee(id) <= s.money).map((id) => ({ hero: id, hire: true, apt: aptitude(heroStats(id), task) + aptBonus(s, task) })) : [];
   const all = [...idle, ...pool].filter((x) => x.apt > min).sort((a, b) => b.apt - a.apt || Number(a.hire) - Number(b.hire));
   return all[0] ?? null;
 }
