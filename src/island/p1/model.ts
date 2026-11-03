@@ -83,6 +83,7 @@ import {
   RIVAL_GROWTH,
   SHOP,
   SELF_RUN,
+  CLEAR,
   CHEAP_RATE,
   SECTORS,
   rivalDef,
@@ -121,7 +122,7 @@ import {
   type PromoItem,
 } from './data';
 import { addXp, baseStats, initGrowth, levelForXp, passiveMul, passiveSum, promoteStaff, syncGrowth, type LevelUp, type PromoErr } from './hero';
-import { delegDay, delegMiss, delegMonth, headFx, roleXp, sectorApprove, type DelegReport, type DelegState } from './deleg';
+import { delegDay, delegMiss, delegMonth, headFx, newDeleg, roleXp, sectorApprove, type DelegReport, type DelegState } from './deleg';
 import { cardsCompany, cardsDay, cardsMonth, type CardReport, type CardState } from './card';
 import { acctMonth, deduct, panelKind, priceMul, type AcctState, type TaxRec } from './acct';
 import { fatigueMul } from './ga';
@@ -206,6 +207,11 @@ export interface Slot {
   left?: number;
   /** できあがった日に余った進み（次のロットに持ち越す。次の日に始められなければ消える） */
   over?: number;
+  /**
+   * 段 UI5c：使い切りの製造（手持ちの素材で作れるだけ作る）。作り終えたら（素材が切れたら）この商品の自動製造に戻る。
+   * null：戻る商品が無い（止まる）。無い＝使い切りでない
+   */
+  back?: Sku | null;
 }
 
 export interface ShopState {
@@ -237,6 +243,8 @@ export interface ShopState {
   /** 先月の self・off（締めで移す） */
   selfLast?: number;
   offLast?: number;
+  /** 段 UI5c：お店の方針「在庫を優先して売りさばく」の値引きの段（CLEAR.cuts の番号）。無い＝方針はオフ */
+  clear?: number;
 }
 
 export interface Trip {
@@ -2273,7 +2281,7 @@ export const recipeOf = (x: Sku) => {
 /** 復刻品を作る職人の製造の適性（アンコモンの格は UNCOMMON.minCraft・Rare の復刻品はそれより 1 段上・Epic の復刻品はさらに 1 段上（段 H1）） */
 export const relicMinCraft = (key: string) => (PRODUCT[key]?.relic?.epic ? DIG_BALANCE.relic.epic.minCraft : PRODUCT[key]?.relic?.rare ? DIG_BALANCE.relic.rare.minCraft : UNCOMMON.minCraft);
 /** その職人で作れるか（レアリティ・材料・設備） */
-export function craftCheck(s: P1State, x: Sku, worker: number | null): string | null {
+export function craftCheck(s: P1State, x: Sku, worker: number | null, useUp = false): string | null {
   const [k, r] = skuParts(x);
   // 復刻品：レシピが開いていれば、技・魔法の釜・商品開発は要らない（研究したこと自体が開発）。アンコモンの職人の適性は要る
   if (isRelic(k)) {
@@ -2296,7 +2304,8 @@ export function craftCheck(s: P1State, x: Sku, worker: number | null): string | 
   for (const [m, q] of Object.entries(recipeOf(x))) if ((s.mats[m as Mat] ?? 0) < (q ?? 0)) return 'mats';
   // できた商品を置く場所（素材を使ったぶんは空く）
   const freed = Object.values(recipeOf(x)).reduce<number>((a, q) => a + (q ?? 0), 0);
-  if (poolUsed(s) - freed + batchOf(x, s) > poolCap(s)) return 'full';
+  // 段 UI5c：使い切りの製造は、置いている数が増えない（素材のほうが多い）なら、置き場所がいっぱいでも作れる（倉庫を空ける手）
+  if (poolUsed(s) - freed + batchOf(x, s) > poolCap(s) && !(useUp && batchOf(x, s) <= freed)) return 'full';
   return null;
 }
 
@@ -2312,7 +2321,7 @@ export function startCraft(s: P1State, slot: number, x: Sku, repeat = true): str
   if (!sl) return 'no-slot';
   if (sl.running) return 'busy';
   if (sl.worker == null) return 'worker';
-  const e = craftCheck(s, x, sl.worker);
+  const e = craftCheck(s, x, sl.worker, sl.back !== undefined);
   if (e) return e;
   consume(s, x);
   sl.sku = x;
@@ -2550,9 +2559,104 @@ export function madeSkus(s: P1State): Sku[] {
   const out: Sku[] = [];
   const pend = (s.deleg?.pend ?? {}) as Record<number, Sku>;
   s.slots.forEach((sl, k) => {
-    for (const x of [sl.sku, pend[k]]) if (x && !out.includes(x) && !unsellableHere(s, skuParts(x)[0])) out.push(x);
+    // 段 UI5c：使い切りの製造のあいだも、戻る商品は作っている商品のまま（棚から外さない）
+    for (const x of [sl.sku, pend[k], sl.back]) if (x && !out.includes(x) && !unsellableHere(s, skuParts(x)[0])) out.push(x);
   });
   return out;
+}
+
+// ---------------------------------------------------------------- 段 UI5c：在庫の売りさばき・使い切りの製造
+
+/** 倉庫（工房の物置と倉庫）の埋まり方（1 で満杯。荒れ地の発掘で超えることがある。素材・運ぶ前の商品・注文中の素材） */
+export const poolRate = (s: P1State) => poolUsed(s) / Math.max(1, poolCap(s));
+/** いま作り続けている商品（作業台の自動製造。使い切りの製造をしている台は、戻る商品）。ロットのあとに替わる予定の商品も */
+export function steadySkus(s: P1State): Sku[] {
+  const out: Sku[] = [];
+  const pend = (s.deleg?.pend ?? {}) as Record<number, Sku>;
+  s.slots.forEach((sl, k) => {
+    for (const x of [sl.back === undefined ? sl.sku : sl.back, pend[k]]) if (x && !out.includes(x)) out.push(x);
+  });
+  return out;
+}
+/** 自社にある在庫の数（工房の倉庫・運んでいる途中・お店の裏と棚） */
+export function stockAll(s: P1State, x: Sku): number {
+  return (s.stock[x] ?? 0) + s.trips.reduce((a, t) => a + (t.cargo[x] ?? 0), 0) + Object.values(s.shops).reduce((a, sh) => a + (sh.storage[x] ?? 0) + (sh.shelf[x] ?? 0), 0);
+}
+/**
+ * 売りさばく品（在庫品）：この町で売れる商品のうち、在庫があって、いま作り続けていないもの
+ * （売れ残り・発掘で手に入れた品・手持ちの素材で使い切りに作った品）。在庫の多い順
+ */
+export function clearSkus(s: P1State): Sku[] {
+  const steady = steadySkus(s);
+  const all = new Set<Sku>([...(Object.keys(s.stock) as Sku[]), ...s.trips.flatMap((t) => Object.keys(t.cargo) as Sku[]), ...Object.values(s.shops).flatMap((sh) => [...(Object.keys(sh.storage) as Sku[]), ...(Object.keys(sh.shelf) as Sku[])])]);
+  return [...all].filter((x) => PRODUCT[skuParts(x)[0]] && !steady.includes(x) && !unsellableHere(s, skuParts(x)[0]) && stockAll(s, x) > 0).sort((a, b) => stockAll(s, b) - stockAll(s, a));
+}
+/** そのお店で、x を売りさばく品として値引きするか（方針がオンで、在庫品） */
+export function clearCut(s: P1State, sh: Pick<ShopState, 'clear'> | null | undefined, x: Sku): number {
+  if (sh?.clear == null || !shelvesAuto(s)) return 0;
+  if (steadySkus(s).includes(x)) return 0;
+  return CLEAR.cuts[Math.max(0, Math.min(CLEAR.cuts.length - 1, sh.clear))] ?? 0;
+}
+/** そのお店の方針を決める（cut：CLEAR.cuts の番号。null でオフ）。棚はすぐ並べ替える */
+export function setClear(s: P1State, uid: number, cut: number | null): boolean {
+  const sh = s.shops[uid];
+  if (!sh) return false;
+  if (cut == null) delete sh.clear;
+  else sh.clear = Math.max(0, Math.min(CLEAR.cuts.length - 1, Math.round(cut)));
+  syncShelves(s);
+  return true;
+}
+/** 手持ちの素材で作れるロット数（作業台の自動製造は見ない） */
+export function lotsHave(s: P1State, x: Sku): number {
+  let n = Infinity;
+  for (const [m, q] of Object.entries(recipeOf(x))) n = Math.min(n, Math.floor((s.mats[m as Mat] ?? 0) / Math.max(1, q ?? 1)));
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
+}
+/**
+ * 使い切りの製造：作業台 k で、手持ちの素材で作れるだけ x を作り（ロットに切り上げ）、作り終えたらいまの商品の自動製造に戻る。
+ * いま動いているロットはそのまま（終わってから替わる）。作れる数（個）。作れなければ 0
+ */
+export function useUp(s: P1State, k: number, x: Sku): number {
+  const sl = s.slots[k];
+  if (!sl) return 0;
+  const n = lotsHave(s, x) * batchOf(x, s);
+  if (n <= 0) return 0;
+  if (sl.back === undefined) sl.back = sl.sku && sl.sku !== x ? (sl.repeat || (sl.left ?? 0) > 0 || sl.running ? sl.sku : null) : null;
+  if (sl.running && sl.sku !== x) {
+    // いまのロットのあとに替える（できあがった品はいまの商品のまま）
+    (s.deleg ??= newDeleg()).pend[k] = x;
+    sl.repeat = false;
+    sl.left = n;
+    return n;
+  }
+  sl.sku = x;
+  sl.repeat = false;
+  sl.left = n;
+  sl.progress = sl.running ? sl.progress : 0;
+  if (!sl.running && sl.worker != null && !startCraft(s, k, x, false)) sl.left = Math.max(0, n - batchOf(x, s));
+  return n;
+}
+/** 使い切りの製造が終わった台を、戻る商品に戻す（毎日のクラフトの前）。戻した台の数 */
+function backFromUseUp(s: P1State): number {
+  let n = 0;
+  s.slots.forEach((sl, k) => {
+    if (sl.back === undefined || sl.running) return;
+    // いまのロットが終わった：使い切りの商品に替える（数は決めたまま）
+    const pend = s.deleg?.pend?.[k];
+    if (pend) {
+      sl.sku = pend;
+      sl.progress = 0;
+      delete s.deleg!.pend[k];
+      return;
+    }
+    const out = !sl.sku || (sl.left ?? 0) <= 0 || craftCheck(s, sl.sku, sl.worker, true) === 'mats';
+    if (!out) return;
+    if (sl.back) Object.assign(sl, { sku: sl.back, repeat: true, left: 0, progress: 0 });
+    else sl.left = 0;
+    delete sl.back;
+    n++;
+  });
+  return n;
 }
 /** その商品が、お店 uid に届けられる在庫（工房の倉庫・運んでいる途中・そのお店の裏と棚）を持っているか */
 function stockFor(s: P1State, uid: number, x: Sku): number {
@@ -2570,6 +2674,8 @@ function stockFor(s: P1State, uid: number, x: Sku): number {
 export function syncShelves(s: P1State, ready = false): number {
   if (!shelvesAuto(s)) return 0;
   const made = madeSkus(s);
+  // 段 UI5c：在庫を優先して売りさばくお店は、在庫品（いま作り続けていない商品の在庫）を先に並べる
+  const steady = s.shops && Object.values(s.shops).some((x) => x.clear != null) ? steadySkus(s) : null;
   let n = 0;
   for (const b of myShops(s)) {
     const sh = s.shops[b.uid];
@@ -2578,6 +2684,7 @@ export function syncShelves(s: P1State, ready = false): number {
     const score = (x: Sku): number => {
       if (unsellableHere(s, skuParts(x)[0])) return 0;
       const have = stockFor(s, b.uid, x) > 0;
+      if (sh.clear != null && steady && have && !steady.includes(x)) return 4;
       // 作っている商品は、いったん並んだら在庫が切れても棚に残す（運ぶ便が「並んでいる商品」を見て出るので、外すと 1 日遅れる）
       if (made.includes(x)) return have || ready || x === sh.main || sh.shelves.includes(x) ? 3 : 0;
       return have ? 2 : 0;
@@ -2709,7 +2816,9 @@ function pull(s: P1State, b: PBuilding, sh: ShopState, x: Sku, clerk: Clerk = 'n
   const service = st && !present && sh.part >= SELF_RUN.min ? Math.min(SELF_RUN.cap, sh.part * SELF_RUN.per) : staffed + sh.part * 0.15;
   if (service <= 0) return 0;
   const [k, r] = skuParts(x);
-  return (P1B[b.id].pull ?? 1) * skillPull(s) * shopPull(s, b, sh, x) * brandPull(s.brand, lvMul(s, 'd_ops')) * (1 + 0.1 * invLv(b, 'sign')) * (1 + adBoost(s)) * service * sh.sat * (r === 'U' ? UNCOMMON.pull : r === 'C' ? TIERS[s.tier ?? 'C'].commonPull : 1) * goodsMul(s, k, r) * knownOf(s, k);
+  // 段 UI5c：値引きした在庫品は、そのぶん売り場で目に留まる（値段 ×(1 − c)・強さ ×(1 + c)。売上の上乗せはしない）
+  const cut = sh.clear != null ? clearCut(s, sh, x) : 0;
+  return (1 + cut) * (P1B[b.id].pull ?? 1) * skillPull(s) * shopPull(s, b, sh, x) * brandPull(s.brand, lvMul(s, 'd_ops')) * (1 + 0.1 * invLv(b, 'sign')) * (1 + adBoost(s)) * service * sh.sat * (r === 'U' ? UNCOMMON.pull : r === 'C' ? TIERS[s.tier ?? 'C'].commonPull : 1) * goodsMul(s, k, r) * knownOf(s, k);
 }
 /**
  * スキルの売り場の強さ（すべてのお店）：接客の研修 ×1.15・ブランドの看板 ×1.25・接客の匠 ×1.2・インセンティブ ×1.05・
@@ -3578,9 +3687,11 @@ export function step(s: P1State): DayResult {
 
   // クラフト
   if (ws) s.util.cap += s.slots.length;
+  // 段 UI5c：使い切りの製造が終わった台は、もとの商品の自動製造に戻る
+  if (s.slots.some((sl) => sl.back !== undefined)) backFromUseUp(s);
   s.slots.forEach((sl, slotIdx) => {
     const st = sl.worker != null ? staffOf(s, sl.worker) : null;
-    if (!sl.running && (sl.repeat || (sl.left ?? 0) > 0) && sl.sku && st && !st.resting && !craftCheck(s, sl.sku, sl.worker)) {
+    if (!sl.running && (sl.repeat || (sl.left ?? 0) > 0) && sl.sku && st && !st.resting && !craftCheck(s, sl.sku, sl.worker, sl.back !== undefined)) {
       consume(s, sl.sku);
       sl.running = true;
       // 前のロットで余った進み（日の端数）を持ち越す（速さ・段取りの効き目が日単位で消えないように）
@@ -4591,7 +4702,9 @@ export const antiqueMul = (s: Pick<P1State, 'tier'>, key: string) => (antiqueHer
 /** そのお店で売るときの値段（セット販売：2 種類以上並べているお店で +5%） */
 export function priceAt(s: P1State, x: Sku, sh: ShopState | null): number {
   const kinds = sh ? new Set(sh.shelves.filter((y) => !!y)).size : 0;
-  return Math.round(priceOf(s, x) * (kinds >= 2 ? 1 + 0.05 * lvMul(s, 'set') : 1));
+  // 段 UI5c：在庫を優先して売りさばくお店の在庫品は値引き
+  const cut = sh?.clear != null ? clearCut(s, sh, x) : 0;
+  return Math.round(priceOf(s, x) * (kinds >= 2 ? 1 + 0.05 * lvMul(s, 'set') : 1) * (1 - cut));
 }
 
 // ---------------------------------------------------------------- セーブ
@@ -4802,14 +4915,14 @@ export function facilityStatus(s: P1State, b: PBuilding): FacilityStatus | null 
     // 作業中か、続けて作る設定で次も作れる作業台（1 回ぶんができた直後も「作っている」とみなす）
     const live = s.slots.filter((sl) => {
       const st = sl.worker != null ? staffOf(s, sl.worker) : null;
-      return sl.sku && st && !st.resting && (sl.running || ((sl.repeat || (sl.left ?? 0) > 0) && !craftCheck(s, sl.sku, sl.worker)));
+      return sl.sku && st && !st.resting && (sl.running || ((sl.repeat || (sl.left ?? 0) > 0) && !craftCheck(s, sl.sku, sl.worker, sl.back !== undefined)));
     });
     if (!live.length) {
       const sl = s.slots[0];
       if (!sl || sl.worker == null) return { level: 'error', stop: 'noCrafter' };
       if (staffOf(s, sl.worker)?.resting) return { level: 'error', stop: 'crafterRest' };
       if (!sl.sku) return { level: 'error', stop: 'noItem' };
-      const why = craftCheck(s, sl.sku, sl.worker);
+      const why = craftCheck(s, sl.sku, sl.worker, sl.back !== undefined);
       if (why === 'mats') return { level: 'error', stop: 'noMats' };
       if (why === 'full') return { level: 'error', stop: 'full' };
       return { level: 'error', stop: 'noItem' };

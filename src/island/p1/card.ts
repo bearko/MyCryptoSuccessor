@@ -10,7 +10,7 @@
  * 仕様は docs/ISLAND_PHASE1.md「提案・報告のカード」「ヒーローの個性」。数字は data.ts の CARD。
  */
 import { t } from '../../i18n';
-import { ADS, CARD, DELEG, DEPT, INVEST, MATS, MORALE, P1B, PAY, PRODUCT, SELF_RUN, SKILL, TAX, type DeptId, type InqKind, type ReplyKind, type Sku, type Task } from './data';
+import { ADS, CARD, CLEAR, DELEG, DEPT, INVEST, skuParts, MATS, MORALE, P1B, PAY, PRODUCT, SELF_RUN, SKILL, TAX, type DeptId, type InqKind, type ReplyKind, type Sku, type Task } from './data';
 import {
   actOk,
   actName,
@@ -32,11 +32,12 @@ import {
   type PropUnit,
   type Proposal,
 } from './deleg';
-import { adCost, bonus, bonusCost, bottleneck, buyCap, donate, donateLock, has, hasRoute, investCost as investCostOf, skillLock, myShops, nextDonateCost, partMax, raise, raiseStep, recipeOf, sellInfo, stageCaps, staffOf, whatIf, wageOf, type P1State, type Report, type Stage, type StageIf, type Staff, type StallWhy } from './model';
+import { madeSkus, adCost, bonus, bonusCost, bottleneck, buyCap, donate, donateLock, has, hasRoute, investCost as investCostOf, skillLock, myShops, nextDonateCost, partMax, raise, raiseStep, recipeOf, sellInfo, stageCaps, staffOf, whatIf, wageOf, type P1State, type Report, type Stage, type StageIf, type Staff, type StallWhy } from './model';
 import { adGain, goodsName, partMonthly, sellMoves, shopMonthly, stockMsg, stockPlan, type SellMove } from './moves';
 import { apologize, bestReply, csOn, noticeCost, refundCost, reply, replyGain, replyLock, swapItem } from './cs';
 import { quitLeft, talk, talkGain } from './hr';
-import { applyPlan, planOf, type Plan, type PlanRes } from './plan';
+import { afterOf, applyPlan, planOf, type Plan, type PlanRes } from './plan';
+import { clearInfo, clearUnits, fromStock, storeFull } from './stock';
 import { dedRate, quarterNow, taxOn, taxPlan } from './acct';
 import { heroSay, quipOf, say, sayLen, type QuipCat } from './persona';
 import { DEF } from '../defs';
@@ -50,10 +51,10 @@ import { BUDGET } from './data';
 // ---------------------------------------------------------------- 型
 
 /** 出どころ（統計・受けた割合の数え） */
-export type CardSrc = 'clerk' | 'crafter' | 'buyer' | 'idle' | 'head' | 'cs' | 'flame' | 'quit' | 'tax' | 'rally' | 'hr' | 'event' | 'diplo' | 'stall' | 'duo' | 'budget';
+export type CardSrc = 'clerk' | 'crafter' | 'buyer' | 'idle' | 'head' | 'cs' | 'flame' | 'quit' | 'tax' | 'rally' | 'hr' | 'event' | 'diplo' | 'stall' | 'duo' | 'stock' | 'budget';
 /** ヒーローからの提案（★3 で「任せる」を選べる出どころ） */
-export const PROPOSAL_SRC: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'stall'];
-export const CARD_SRCS: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'cs', 'flame', 'quit', 'tax', 'rally', 'hr', 'event', 'diplo', 'stall', 'duo', 'budget'];
+export const PROPOSAL_SRC: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'stall', 'stock'];
+export const CARD_SRCS: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'cs', 'flame', 'quit', 'tax', 'rally', 'hr', 'event', 'diplo', 'stall', 'duo', 'stock', 'budget'];
 
 /** 選ぶと打つ手 */
 export type CardAct =
@@ -113,6 +114,8 @@ export type Issue =
   | { k: 'stall'; stage: Stage; why: StallWhy }
   | { k: 'staff'; uid: number; off: number }
   | { k: 'duo' }
+  /** 段 UI5c：倉庫が埋まりそう（埋まり方 %・素材・運ぶ前の商品・在庫品の数） */
+  | { k: 'store'; pct: number; mats: number; goods: number; items: number }
   /** 段 I1：部長からの頼み（予算を増やしてください・人を雇わせてください） */
   | { k: 'budget'; ask: BudgetAsk };
 export interface Card {
@@ -483,6 +486,36 @@ export function staffDraft(s: P1State): Draft | null {
   }
   return null;
 }
+/**
+ * 段 UI5c：倉庫（工房の物置と倉庫）が CLEAR.warn を超えた月の締め：店長（いなければ運搬係）から
+ * 「倉庫が埋まりそうです。在庫を優先して売りさばきましょう」「いまある素材で○○が作れます」。どちらも提案書（承認で一気に）
+ */
+export function stockDraft(s: P1State): Draft | null {
+  if (inTutorial(s) || !myShops(s).length || !storeFull(s)) return null;
+  const info = clearInfo(s);
+  const xs: Choice[] = [];
+  // 在庫を優先して売りさばく（全部のお店・値引きは CLEAR.def の段）。見込み：在庫品がひと月に売れていく数
+  if (info.total > 0 && myShops(s).some((b) => s.shops[b.uid] && s.shops[b.uid].clear == null)) {
+    const a: PropAct = { k: 'clear', uid: -1, cut: CLEAR.def };
+    const u = clearUnits(afterOf(s, planOf(s, [a])), info.items.map((y) => y.x));
+    if (u > 0.5) xs.push({ act: { k: 'do', a }, cost: 0, kind: 'whatif', stage: 'sell', est: Math.round(u), units: u });
+  }
+  // いまある素材で作れる（余った素材を使うもの。使い切りに作って、もとの商品に戻る）
+  const slot = s.slots.findIndex((sl) => sl.worker != null && sl.back === undefined);
+  if (slot >= 0) {
+    // いま作り続けている商品は除いて、おすすめ順のいちばん上（余った素材を使うもの）
+    const steady = madeSkus(s);
+    const p = fromStock(s, s.slots[slot].worker).find((y) => y.spare > 0 && y.yen > 0 && !steady.includes(y.x));
+    if (p) {
+      const [key, rar] = skuParts(p.x);
+      xs.push({ act: { k: 'do', a: { k: 'useup', slot, key, rar } }, cost: 0, kind: 'whatif', stage: 'craft', est: p.units, units: p.units });
+    }
+  }
+  if (!xs.length) return null;
+  const cl = clerkOf(s);
+  const hero = cl?.hero ?? s.staff.find((x) => x.task === 'transport')?.hero ?? null;
+  return { src: 'stock', kind: 'stock', hero, ...(cl ? { uid: cl.uid } : {}), q: qOf(s, hero, 'logistics'), dept: 'logistics', issue: { k: 'store', pct: Math.round(info.rate * 100), mats: info.mats, goods: info.goods, items: info.total }, choices: markRec(s, [...xs, SKIP]), pri: 0 };
+}
 const SHOP_WAGE = () => partMonthly();
 const investCost0 = (s: P1State, uid: number) => {
   const b = s.buildings.find((x) => x.uid === uid && x.owner === 'me');
@@ -710,10 +743,15 @@ export function enqueue(s: P1State, d: Draft, rep?: CardReport): Card | null {
   srcStat(s, d.src).made++;
   if (rep) rep.made++;
   C.inbox.push(card);
-  while (C.inbox.length > CARD.keep) {
+  // 段 UI5c：倉庫の提案（src 'stock'）は数えない・押し出さない（ほかのカードの残り方を変えない）
+  const kept = () => C.inbox.filter((c) => c.src !== 'stock');
+  while (kept().length > CARD.keep) {
     // 古いものから（まだ出していない時間を止めるカードは残す）
-    const k = C.inbox.findIndex((c) => !c.pop || c.seen);
-    sweep(s, C.inbox.splice(k >= 0 ? k : 0, 1)[0]);
+    const xs = kept();
+    const k = xs.findIndex((c) => !c.pop || c.seen);
+    const c0 = xs[k >= 0 ? k : 0];
+    C.inbox.splice(C.inbox.indexOf(c0), 1);
+    sweep(s, c0);
   }
   return card;
 }
@@ -749,6 +787,9 @@ export function cardsMonth(s: P1State, r: Report) {
   const staff = stall ? null : staffDraft(s);
   const drafts = [...(stall ? [stall] : []), ...(staff ? [staff] : []), ...noticeDrafts(s, r), ...(stall ? heroDrafts(s).filter((d) => d.src !== 'clerk' || d.kind !== 'sell') : heroDrafts(s)), ...hrDrafts(s), ...headDrafts(s, r), ...budgetDrafts(s)].sort((a, b) => b.pri - a.pri);
   for (const d of drafts) enqueue(s, d, rep);
+  // 段 UI5c：倉庫が埋まりそうな月（ほかの提案のあと。受け箱の枚数に数えないので、ほかのカードを押し出さない）
+  const st = stockDraft(s);
+  if (st) enqueue(s, st, rep);
   if (rep.made || rep.auto.length) r.cards = rep;
 }
 
@@ -1195,6 +1236,10 @@ function core(s: P1State, c: Card): string {
       return stallSay(i.stage, i.why);
     case 'budget':
       return budgetSay(s, c.dept ?? 'logistics', i.ask);
+    case 'store':
+      return i.pct >= 100
+        ? t(`倉庫が[[いっぱい]]（素材 ${i.mats}・商品 ${i.goods}）。在庫を優先して売りさばこう`, `storage is [[full]] (${i.mats} materials, ${i.goods} goods). Let’s clear stock first`)
+        : t(`倉庫が[[ ${i.pct}%]]まで埋まっている（素材 ${i.mats}・商品 ${i.goods}）。在庫を優先して売りさばこう`, `storage is [[${i.pct}%]] full (${i.mats} materials, ${i.goods} goods). Let’s clear stock first`);
     case 'staff':
       return t(`先月は[[ ${i.off} 日]]、店長が休む日に店を回す人がいなかった。[[従業員 ${SELF_RUN.min} 人]]いれば開けておける`, `[[${i.off} days]] last month, nobody kept the shop open when the manager rested. With [[${SELF_RUN.min} staff]] it stays open`);
   }
@@ -1262,7 +1307,7 @@ export function sayOf(s: P1State, c: Card): string {
 /** 段 P2：史実の調査のあるヒーローは、その人の提案のセリフ・口ぐせ（辞めたいは疲れたときのセリフ）を回す（voice.ts） */
 export const quipOfCard = (c: Card): string | null => {
   if (c.hero == null || c.src === 'event' || c.src === 'diplo' || c.src === 'duo') return null;
-  const cat = (c.issue.k === 'hire' ? 'idle' : c.issue.k === 'stall' ? (c.issue.stage === 'sell' ? 'sell' : c.issue.stage === 'craft' ? 'craft' : 'buy') : c.issue.k === 'staff' ? 'sell' : c.issue.k === 'haul' ? 'buy' : c.issue.k === 'budget' ? 'head' : c.issue.k) as QuipCat;
+  const cat = (c.issue.k === 'hire' ? 'idle' : c.issue.k === 'stall' ? (c.issue.stage === 'sell' ? 'sell' : c.issue.stage === 'craft' ? 'craft' : 'buy') : c.issue.k === 'staff' || c.issue.k === 'store' ? 'sell' : c.issue.k === 'haul' ? 'buy' : c.issue.k === 'budget' ? 'head' : c.issue.k) as QuipCat;
   return voiceQuip(c.hero, cat, c.mk + c.id) ?? quipOf(c.hero, cat, c.mk + c.id);
 };
 
@@ -1306,6 +1351,11 @@ export function roleOfCard(s: P1State, c: Card): { icon: string; text: string; c
     case 'diplo': {
       const L = landDef(c.dip?.land ?? 'ruby');
       return { icon: '🌐', text: t(`${L.name}の使者`, `Envoy of ${L.name}`), color: L.color };
+    }
+    case 'stock': {
+      const st = c.hero != null ? staffOf(s, c.hero) : null;
+      if (st?.task === 'shop') return { icon: '📦', text: t(`${shopNm}の店長`, `${shopNm} manager`), color: DEPT.logistics.color };
+      return { icon: '📦', text: c.hero != null ? t('運搬係', 'Hauler') : t('マインちゃんの報告', 'Mine-chan reports'), color: DEPT.logistics.color };
     }
     case 'duo':
       return { icon: '✨', text: t('ヒーローの組み合わせ', 'Hero pairing'), color: '#b07cd8' };
@@ -1375,6 +1425,10 @@ export function choiceText(s: P1State, c: Card, ch: Choice): { icon: string; lab
           return { icon: '⛏', label: actName(s, p), sub: t(`${costTxt} ・ 出土品 ${Math.round(est)} 個ぶん`, `${costTxt} · ${Math.round(est)} finds`) };
         case 'staff':
           return { icon: '🧑‍🤝‍🧑', label: t(`従業員を ${p.n} 人にしよう`, `Have ${p.n} staff`), sub: [t(`毎月 ${g(ch.monthly ?? 0)}`, `${g(ch.monthly ?? 0)}/mo`), ...(ch.cost > 0 ? [t(`控室の増設 ${g(ch.cost)}`, `staff room ${g(ch.cost)}`)] : []), t('休む日も開く', 'open on rest days')].join(SEP()) };
+        case 'clear':
+          return { icon: '🏷', label: t('在庫を優先して売りさばきましょう', 'Let’s clear our stock first'), sub: [p.cut != null && CLEAR.cuts[p.cut] ? t(`在庫品だけ ${Math.round(CLEAR.cuts[p.cut] * 10)} 割引`, `${Math.round(CLEAR.cuts[p.cut] * 100)}% off stock items`) : t('値引きなし', 'No discount'), t(`在庫品 月 ${Math.round(ch.units ?? 0)} 個ほど`, `~${Math.round(ch.units ?? 0)} stock items/mo`)].join(SEP()) };
+        case 'useup':
+          return { icon: '🧪', label: t(`いまある素材で${goodsName(p.key)}${p.rar === 'U' ? '（アンコモン）' : ''}が作れます`, `We can make ${goodsName(p.key)}${p.rar === 'U' ? ' (Uncommon)' : ''} from what we have`), sub: [FREE(), t(`${Math.round(ch.units ?? 0)} 個（作業台 ${p.slot + 1}・作り終えたら戻る）`, `${Math.round(ch.units ?? 0)} (bench ${p.slot + 1}, then back)`)].join(SEP()) };
         case 'order':
           return { icon: '📦', label: t(`${MATS[p.m].name}を ${p.lots * 10} 個、問屋に注文しよう`, `Order ${p.lots * 10} ${MATS[p.m].name}`), sub: t('届けば作業台がまた動く（調達係が休むあいだの穴埋め）', 'Gets the benches moving again') };
         default:

@@ -37,7 +37,7 @@ import { DUOS, type DuoOptId } from '../../src/island/p1/duo';
 /** v25：通常の方針が受けるカードの手の名前（表 19） */
 const TAKE_NAME: Record<string, string> = { shelf: '棚 +1 と商品', goods: '品ぞろえの入れ替え', invest: '設備投資', part: 'アルバイト', famous: '名物店主', permit: '発掘許可', ad: '宣伝' };
 /** v25：カードの出どころの名前（表 19） */
-const SRC_NAME: Record<CardSrc, string> = { hr: '人事（雇う）', clerk: '店員', crafter: '職人', buyer: '調達係', idle: '手の空いた人', head: '部長', cs: '問い合わせ', flame: '炎上の予告', quit: '辞めたい', tax: '経理の助言', rally: '巻き返し・反撃', event: 'できごと', diplo: '外交', stall: '流れが止まった', duo: '組み合わせ', budget: '部長の頼み（予算・人手）' };
+const SRC_NAME: Record<CardSrc, string> = { hr: '人事（雇う）', clerk: '店員', crafter: '職人', buyer: '調達係', idle: '手の空いた人', head: '部長', cs: '問い合わせ', flame: '炎上の予告', quit: '辞めたい', tax: '経理の助言', rally: '巻き返し・反撃', event: 'できごと', diplo: '外交', stall: '流れが止まった', duo: '組み合わせ', stock: '倉庫の売りさばき', budget: '部長の頼み（予算・人手）' };
 import {
   promote,
   takeVacant,
@@ -364,8 +364,8 @@ export interface RunResult {
   v26: { ev: EventStat; dip: DipStat; rel: Record<string, number> };
   /** v28（段 P2：ヒーローの組み合わせ）：見つけた組み合わせ・出したカードの数・選んだ手 */
   v28: { found: string[]; made: number; opt: Partial<Record<DuoOptId, number>> };
-  /** v29（段 I1：予算で任せる）：部長が予算の中で実行した施策の数と額・予算の効きで浮いた額・雇った／減らした従業員・給料・頼みの数・終わりの従業員と予算で任せた部門 */
-  v29?: BudgetStat & { crewEnd: number; heads: number };
+  /** v30（段 I1：予算で任せる）：部長が予算の中で実行した施策の数と額・予算の効きで浮いた額・雇った／減らした従業員・給料・頼みの数・終わりの従業員と予算で任せた部門 */
+  v30?: BudgetStat & { crewEnd: number; heads: number };
 }
 
 /**
@@ -674,7 +674,7 @@ function delegPlace(s: P1State, c: Ctx, acts: Action[], budget: number, reserve:
   const fromPool = (d: DeptId) => (has(s, 'hire') && !hired && budget > 3000 + reserve && d !== 'support' ? ([...s.hirePool].sort((a, b) => quality({ stats: heroStatsOf(b) }, d) - quality({ stats: heroStatsOf(a) }, d))[0] ?? null) : null);
   for (const def of DEPTS) {
     const d = def.id;
-    // v29（段 I1）：Rare からは理解度に関係なく部長を置けるが、自動プレイの部長の置き方は前のまま（理解度 8 で。判断を変えない）
+    // v30（段 I1）：Rare からは理解度に関係なく部長を置けるが、自動プレイの部長の置き方は前のまま（理解度 8 で。判断を変えない）
     if (headLeft(s, d) === 0 && deptLevel(s, d) >= DELEG.headAt && !headOf(s, d)) {
       const lead = SIM_DELEG[c.policy].lead[d];
       const L = lead ? leaderOf(s, lead) : null;
@@ -2704,8 +2704,8 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   if (s.events) res.v26.ev = JSON.parse(JSON.stringify(s.events.stat));
   // v28（段 P2）：ヒーローの組み合わせ（会社のもの）
   if (s.duo) res.v28 = { found: Object.keys(s.duo.found), made: s.duo.stat.made, opt: { ...s.duo.stat.opt } };
-  // v29（段 I1）：予算で任せる（会社のもの）
-  if (s.budget) res.v29 = { ...JSON.parse(JSON.stringify(s.budget.stat)), crewEnd: crewTotal(s), heads: budgetHeads(s) };
+  // v30（段 I1）：予算で任せる（会社のもの）
+  if (s.budget) res.v30 = { ...JSON.parse(JSON.stringify(s.budget.stat)), crewEnd: crewTotal(s), heads: budgetHeads(s) };
   if (s.diplo) {
     res.v26.dip = { ...s.diplo.stat };
     res.v26.rel = Object.fromEntries(s.diplo.lands.map((x) => [x.id, Math.round(x.rel)]));
@@ -2778,7 +2778,7 @@ export interface Report2 {
   /** v28（段 P2）：適性と組み合わせを止めた 3 方針（段 P2 の前と同じ）・組み合わせだけ止めた 3 方針 */
   noP2?: RunResult[];
   noDuo?: RunResult[];
-  /** v29（段 I1）：予算で任せるを止めた通常（withoutBudget。段 I1 の前と同じ） */
+  /** v30（段 I1）：予算で任せるを止めた通常（withoutBudget。段 I1 の前と同じ） */
   noBudget?: RunResult[];
   ms: number;
 }
@@ -2980,9 +2980,9 @@ export function tables(rep: Report2): string {
     );
   }
   out.push('');
-  // v29（段 I1）：予算で任せる
-  if (rep.noBudget?.length || rep.runs.some((r) => r.v29)) {
-    out.push('### 表 23：予算で任せる（v29。段 I1）');
+  // v30（段 I1）：予算で任せる
+  if (rep.noBudget?.length || rep.runs.some((r) => r.v30)) {
+    out.push('### 表 23：予算で任せる（v30。段 I1）');
     out.push('');
     out.push(
       `シード ${seeds.join('・')} の平均。会社が Rare の町に出店すると、部長のいる部門は月の予算（自動プレイはどの部門も「中」＝いまの町の先月の売上 × ${BUDGET.rate.M}・下限 R ${BUDGET.floor.R.toLocaleString('en-US')} G）の中で、施策を見込みの大きい順に月 ${BUDGET.perHead} 件まで実行する。労力は部長の手（${BUDGET.hand.base}＋${BUDGET.hand.star}×(★−1) 人日）と従業員（1 人 ${BUDGET.crew.labor} 人日・1 日 ${BUDGET.crew.wage} G・上限 ${BUDGET.crew.cap} 人）。予算の効き：★ 1 つ ${BUDGET.eff.star}・適性 S ${BUDGET.eff.fit.S}〜D ${BUDGET.eff.fit.D}。予算・労力の足りない施策は前と同じ部長の提案（自動プレイが承認）。部長の置き方は前のまま（理解度 ${DELEG.headAt}）。「I1 なし」は同じシードの通常を \`withoutBudget\`（段 I1 の前の main と同じ通し）で回した値。括弧の中は「あり − なし」。目安は合計 ±3%・ランクごと ±5%。`,
@@ -2998,7 +2998,7 @@ export function tables(rep: Report2): string {
       const off = (rep.noBudget ?? []).filter((r) => r.policy === p);
       const tot = mean(runs.map(totalSec));
       const tierPc = (tier: Tier) => (off.length ? pc(byTier(runs, tier), byTier(off, tier)) : '—');
-      const v = (f: (x: NonNullable<RunResult['v29']>) => number) => mean(runs.map((r) => (r.v29 ? f(r.v29) : 0)));
+      const v = (f: (x: NonNullable<RunResult['v30']>) => number) => mean(runs.map((r) => (r.v30 ? f(r.v30) : 0)));
       const k = (x: number) => `${Math.round(x / 1000).toLocaleString('en-US')}k`;
       out.push(
         `| ${POLICY_NAME[p]} | ${off.length ? pc(tot, mean(off.map(totalSec))) : fmtH(tot)} | ${tierPc('C')} | ${tierPc('U')} | ${tierPc('R')} | ${tierPc('E')} | ${v((x) => x.acts).toFixed(1)} 件・${k(v((x) => x.spent))} G | ${k(v((x) => x.saved))} G | ${v((x) => x.hired).toFixed(1)}／${v((x) => x.fired).toFixed(1)} | ${k(v((x) => x.wages))} G | ${v((x) => x.asks.over ?? 0).toFixed(1)}・${v((x) => x.asks.spent ?? 0).toFixed(1)}・${v((x) => x.asks.labor ?? 0).toFixed(1)}・${v((x) => x.asks.idle ?? 0).toFixed(1)} | ${v((x) => x.crewEnd).toFixed(1)} 人・${v((x) => x.heads).toFixed(1)} |`,
@@ -3738,7 +3738,7 @@ export function runAll(seeds = SEEDS, opts: { ablation?: boolean } = {}): Report
   // v28（段 P2）：適性の倍率と組み合わせを止めた 3 方針（段 P2 の前と同じ）・組み合わせだけ止めた 3 方針
   const noP2 = opts.ablation ? (['rta', 'normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutP2(() => runOnce(p, seed)))) : undefined;
   const noDuo = opts.ablation ? (['rta', 'normal', 'full'] as PolicyId[]).flatMap((p) => seeds.map((seed) => withoutP2(() => runOnce(p, seed), { duo: true }))) : undefined;
-  // v29（段 I1）：予算で任せるを止めた通常（段 I1 の前と同じ。部長がいるのは通常の方針だけ）
+  // v30（段 I1）：予算で任せるを止めた通常（段 I1 の前と同じ。部長がいるのは通常の方針だけ）
   const noBudget = opts.ablation ? seeds.map((seed) => withoutBudget(() => runOnce('normal', seed))) : undefined;
   return { runs, ablation, noTech, noGrowth, noDeleg, noSave, noAcct, noHrHands, noCs, noMA, noPatent, noEvents, noP2, noDuo, noBudget, ms: performance.now() - t0 };
 }
@@ -3764,7 +3764,7 @@ export function withoutCs<T>(f: () => T): T {
   }
 }
 
-/** v29（段 I1）：予算で任せるを止めて回す（Rare からの部長の置き方・予算・従業員・頼みを止める＝段 I1 の前と同じ。比べるためだけ。終わったら戻す） */
+/** v30（段 I1）：予算で任せるを止めて回す（Rare からの部長の置き方・予算・従業員・頼みを止める＝段 I1 の前と同じ。比べるためだけ。終わったら戻す） */
 export function withoutBudget<T>(f: () => T): T {
   BUDGET_OFF.on = true;
   try {

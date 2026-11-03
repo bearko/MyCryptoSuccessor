@@ -12,6 +12,7 @@ import { stockMsg, stockPlan } from './moves';
 import { execute, quality, type PropAct } from './deleg';
 import { applyPlan, manualPlan, planOf } from './plan';
 import { openProposal } from './proposalui';
+import { pickClear, pickMake } from './stockui';
 import { chooseMake, investList, openAds, openBuy, openShop, openWorkshop, pickClerk, rivalName, shopView, type Ctx } from './screens';
 import { bar, btn, h, heroIcon, heroName, money, skuIcon, skuName } from './ui';
 import { canPresent, chiefOf, digMet, isChiefHome } from './digmeet';
@@ -325,19 +326,29 @@ function runOrder(ctx: Ctx, box: OrderBox, o: Order, b: PBuilding, hooks: TileHo
       const k = o.slot ?? benchToChange(s);
       const sl = s.slots[k];
       if (!sl) return;
+      const onPick = (x: Sku | null) => {
+        if (!x) return;
+        chooseMake(ctx, s, k, x, sl.worker != null ? t(`${heroName(sl.worker)}「${ackOf(sl.worker, t(`${skuName(x)}に切り替えます`, `switching to ${skuName(x)}`))}」`, `${heroName(sl.worker)}: “${ackOf(sl.worker, `switching to ${skuName(x)}`)}”`) : undefined);
+        hooks.redraw();
+      };
+      // 段 UI5c：チュートリアルのあとは、並び（いまの素材で作れる）・絞り込み・ランクアップの印つき
+      if (!inTut(s)) {
+        pickMake(ctx, k, { title: t(`作業台 ${k + 1} で作るもの`, `What bench ${k + 1} makes`), items: craftable(s), onPick });
+        return;
+      }
       pickExt(ctx.root, s, {
         title: t(`作業台 ${k + 1} で作るもの`, `What bench ${k + 1} makes`),
         items: craftable(s, inTut(s)),
         current: sl.sku,
         worker: sl.worker,
-        onPick: (x) => {
-          if (!x) return;
-          chooseMake(ctx, s, k, x, sl.worker != null ? t(`${heroName(sl.worker)}「${ackOf(sl.worker, t(`${skuName(x)}に切り替えます`, `switching to ${skuName(x)}`))}」`, `${heroName(sl.worker)}: “${ackOf(sl.worker, `switching to ${skuName(x)}`)}”`) : undefined);
-          hooks.redraw();
-        },
+        onPick,
       });
       return;
     }
+    // 段 UI5c：在庫を優先して売りさばく（段を選ぶ）
+    case 'clear':
+      pickClear(ctx, b.uid, box.hero, () => hooks.redraw());
+      return;
     case 'bench': {
       const ws = myWorkshop(s);
       if (!ws) return;

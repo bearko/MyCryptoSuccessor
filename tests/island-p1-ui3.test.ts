@@ -122,7 +122,7 @@ describe('建物の吹き出し：担当のヒーローへの指示', () => {
     expect(box.place).toBe('shop');
     expect(box.hero).toBe(s.shops[b.uid].staff);
     expect(box.role.text).toContain('店長');
-    expect(box.orders.map((o) => o.k)).toEqual(['main', 'tidy', 'ad', 'field', 'staff']);
+    expect(box.orders.map((o) => o.k)).toEqual(['main', 'tidy', 'ad', 'field', 'clear', 'staff']);
     expect(box.orders.map((o) => o.k)).not.toContain('shelf');
     expect(box.orders.map((o) => o.k)).not.toContain('swap');
     const shelf = box.orders.find((o) => o.k === 'tidy')!;
