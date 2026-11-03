@@ -82,6 +82,8 @@ export interface PlayOpts {
    * このとき (x, y) は host の左上からの CSS px。host は position が static でないこと（中で absolute に置く）。host が外されたら消える
    */
   host?: HTMLElement;
+  /** host の中で、この要素のすぐ下に描く（host の子。z-index を使わず、並びの順で重ねる。背景の模様の上・絵の下に置くとき） */
+  under?: Element;
   /** 間引きの組（段 FX2）：同じ組の効果は THIN_MS（1 秒）に 1 つまで。続けて来たら出さない（false を返す） */
   thin?: string;
 }
@@ -253,7 +255,10 @@ export function playFx(id: FxId, x: number, y: number, o: PlayOpts = {}): boolea
     // 要素の後ろ：host を重なりの基準にして（isolation）、中身の後ろ・背景の上に（z-index: -1）
     o.host.classList.add('isl-fx-host');
     cv.classList.add('is-behind');
-    o.host.prepend(cv);
+    if (o.under?.parentElement === o.host) {
+      cv.style.zIndex = 'auto';
+      o.under.before(cv);
+    } else o.host.prepend(cv);
     if (layer === 'ui') bindSkip();
   } else rootOf(layer).append(cv);
   const v: Live = { id, layer, inst, frame: createFrame(w, h), img: g.createImageData(w, h), cv, g, x, y, dy: o.dy ?? 0, css, ink: o.ink ?? true, wait: (o.delay ?? 0) / 1000, age: 0, life: (o.life ?? (mod.meta.loop ? 2000 : Infinity)) / 1000, anchor: o.anchor, host: o.host };
