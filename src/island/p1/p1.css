@@ -14204,7 +14204,8 @@ button.isl-dband-lead.is-on {
 .isl-gate-opt:disabled small {
   color: var(--isl-dim);
 }
-.isl-gate-opt .isl-gate-why {
+.isl-gate-opt .isl-gate-why,
+.isl-gate-opt:disabled .isl-gate-why {
   color: var(--isl-bad);
   font-size: 13px;
 }

@@ -160,7 +160,7 @@ export interface TileHooks {
 }
 
 const DESC: Record<string, string> = {
-  warehouse: t('素材と、お店へ運ぶ前の商品をしまっておく倉庫。1 棟で置き場所が 200 個ふえます。倉庫が無いと、工房の物置（80 個）を超えては調達できません。', 'Stores materials and goods waiting to be hauled. Each adds 200 spaces; without one you can only stock 80 in the workshop.'),
+  warehouse: t('素材と、お店へ運ぶ前の商品をしまっておく倉庫。1 棟で置き場所が 200 個ふえ、強化（設備投資）で 1 棟を 500 個まで広げられます。倉庫が無いと、工房の物置（80 個）を超えては調達できません。', 'Stores materials and goods waiting to be hauled. Each adds 200 spaces, and upgrades take one up to 500; without one you can only stock 80 in the workshop.'),
   wholesale: t('素材を卸している問屋。調達係は工房からここまで歩いて買い付けに来ます。', 'The wholesaler that sells materials. Your buyer walks here from the workshop.'),
   workshop: t('先代から引き継いだ本店。作業台で商品をクラフトし、できた商品を倉庫に置きます。', 'Your head office, inherited from your predecessor. Crafters make goods here and store them.'),
   general_store: t('小さな物販店。最初は棚 1 つ。店員かアルバイトがいると開店します。', 'A small retail shop with one shelf to start. Opens when a clerk or part-timer is there.'),
@@ -172,7 +172,7 @@ const DESC: Record<string, string> = {
   park: t('住民の憩いの場。休日は家族連れでにぎわいます。', 'Where residents relax. Busy with families on holidays.'),
   police: t('エリアの安全を守る交番。', 'The police box that keeps the area safe.'),
   museum: t('復興した町に、昔の Lime を伝える館。掘った遺物を飾ると、毎月お客さんが見に来て入館料が入ります。展示の価値が節目を超えるたびに、会社のブランド力と新商品の認知の上がり方が恒久に上がります。', 'A hall that tells of old Lime in the revived town. Display your relics and visitors pay to see them every month. Each value milestone permanently raises your brand and how fast new items become known.'),
-  logistics: t('工房からトラックの定期便で商品を運び、近くのお店へ荷車で届ける物流拠点。工房から遠いお店の便が速くなります。', 'A hub: a truck shuttles goods here from the workshop, and carts deliver to nearby shops. Speeds up runs to far shops.'),
+  logistics: t('工房からトラックの定期便で商品を運び、近くのお店へ荷車で届ける物流拠点。工房から遠いお店の便が速くなります。倉庫の代わりに置き場所 +150 個（保管棚で 300 個まで）にもなります。', 'A hub: a truck shuttles goods here from the workshop, and carts deliver to nearby shops. Speeds up runs to far shops, and stores 150 (up to 300 with racks) like a warehouse.'),
 };
 const HOME = t('エリアの住民が暮らす家。住民は近いお店ほどよく行きます（集合住宅は人が多い）。', 'Homes of the area’s residents. They shop at nearby stores (apartments hold more people).');
 

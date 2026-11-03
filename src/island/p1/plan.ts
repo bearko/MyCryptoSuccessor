@@ -522,8 +522,15 @@ function actDid(_s: P1State, a: PropAct): string {
       return t(`パネル「${SKILL[a.id]?.name ?? a.id}」を解放`, `Unlocked ${SKILL[a.id]?.name ?? a.id}`);
     case 'level':
       return t(`「${SKILL[a.id]?.name ?? a.id}」のレベルを上げた`, `Leveled up ${SKILL[a.id]?.name ?? a.id}`);
-    case 'invest':
+    case 'invest': {
+      // 段 UI5d：倉庫・物流拠点の強化は段で（「倉庫を強化した（1/3 段）」）
+      if (a.id === 'rack' || a.id === 'dock') {
+        const lv = invLv(_s.buildings.find((x) => x.uid === a.uid), a.id);
+        const max = INVEST[a.id].cost.length;
+        return a.id === 'rack' ? t(`倉庫を強化した（${lv}/${max} 段・置き場所 ${poolCap(_s)} 個）`, `Warehouse upgraded (${lv}/${max}, storage ${poolCap(_s)})`) : t(`物流拠点の保管を強化した（${lv}/${max} 段・置き場所 ${poolCap(_s)} 個）`, `Hub storage upgraded (${lv}/${max}, storage ${poolCap(_s)})`);
+      }
       return t(`${INVEST[a.id]?.name ?? a.id}を導入`, `Installed ${INVEST[a.id]?.name ?? a.id}`);
+    }
     case 'build':
       return t(`${nameOfB(a.id)}の建築を開始`, `Started building ${nameOfB(a.id)}`);
     case 'hire':

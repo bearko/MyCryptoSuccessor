@@ -142,7 +142,9 @@ export function openShelfChoice(ctx: Ctx, plan: Plan, gate: OneShelf[], go: (p: 
     opts.push({ pick: 'keep', name: t('主力商品を残して、在庫品は売らない', 'Keep the main item; don’t clear stock'), sub: t('方針はオンにしない・いまのまま', 'Policy stays off · as now') });
     const pg = gatePlan(plan, gate, 'grow');
     const og = block ? { units: 0, sales: 0 } : gateOutlook(s, pg, items);
-    opts.push({ pick: 'grow', name: t('棚を拡張して、両方売れるようにする', 'Add a shelf and sell both'), sub: [t(`棚の拡張 ${money(cost)}`, `Extra shelf ${money(cost)}`), ...(block ? [] : [t(`在庫品 月 ${Math.round(og.units)} 個ほど`, `~${Math.round(og.units)} stock items/mo`), sales(og.sales)])].join(t('・', ' · ')), rec: true, off: block });
+    opts.push({ pick: 'grow', name: t('棚を拡張して、両方売れるようにする', 'Add a shelf and sell both'), sub: [t(`棚の拡張 ${money(cost)}`, `Extra shelf ${money(cost)}`), ...(block ? [] : [t(`在庫品 月 ${Math.round(og.units)} 個ほど`, `~${Math.round(og.units)} stock items/mo`), sales(og.sales)])].join(t('・', ' · ')), rec: !block, off: block });
+    // 拡張が押せないときは、推奨を押せる手へ（売上の見込みの大きいほう：主力を外す／残す）
+    if (block) opts[od.sales > 0 ? 0 : 1].rec = true;
     for (const o of opts) {
       const b = h('button', `isl-clear-opt isl-gate-opt ${o.rec ? 'is-rec' : ''}`);
       b.type = 'button';
