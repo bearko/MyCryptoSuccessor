@@ -11,7 +11,7 @@
 import { isEn, t } from '../../i18n';
 import { heroById } from '../../game/catalog';
 import { DEF } from '../defs';
-import { ADS, DELEG, DEPT, DEPTS, DEPT_DUTIES, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
+import { ADS, CLEAR, DELEG, DEPT, DEPTS, DEPT_DUTIES, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
 import { deptLevel, menuDepts } from './dept';
 import {
   DAYS,
@@ -61,6 +61,9 @@ import {
   sellEstimate,
   setDustShop,
   setPart,
+  setClear,
+  useUp,
+  lotsHave,
   setRest,
   setShelf,
   shelvesAuto,
@@ -280,7 +283,10 @@ export type PropAct =
   | { k: 'assign'; hero: number; task: Task; target: number | string | null }
   | { k: 'order'; m: Mat; lots: number }
   // 段 UI5a：お店の従業員（アルバイト）を n 人に（控室の増設が要れば、提案書が先に増設する）
-  | { k: 'staff'; uid: number; n: number };
+  | { k: 'staff'; uid: number; n: number }
+  // 段 UI5c：お店の方針「在庫を優先して売りさばく」（uid -1：全部のお店。cut：値引きの段の番号・null でオフ）・手持ちの素材で使い切りに作る
+  | { k: 'clear'; uid: number; cut: number | null }
+  | { k: 'useup'; slot: number; key: string; rar: 'C' | 'U' };
 /** 見込みの単位：G（月の粗利）・ad（宣伝の期間の粗利 − 費用）・finds（出土品の数）・share（商圏の取り分 %）・legal（法務：守る・増える月の売上） */
 export type PropUnit = 'G' | 'ad' | 'finds' | 'share' | 'legal';
 export interface Proposal {
@@ -377,8 +383,11 @@ export function delegDay(s: P1State): ReturnType<typeof leadDigHits> {
     }
     if (sl.running) continue;
     sl.sku = x;
-    sl.repeat = true;
-    sl.left = 0;
+    // 段 UI5c：使い切りの製造（作れるだけ作って戻る）は、数を決めたまま
+    if (sl.back === undefined) {
+      sl.repeat = true;
+      sl.left = 0;
+    }
     sl.progress = 0;
     delete st.pend[Number(k)];
   }
@@ -1088,6 +1097,12 @@ export function actOk(s: P1State, a: PropAct): boolean {
       const b = s.buildings.find((x) => x.uid === a.uid && x.owner === 'me');
       return !!sh && !!b && a.n > sh.part && (a.n <= partMax(s, a.uid) || investCost(b, 'staffroom') != null);
     }
+    case 'clear':
+      return a.uid === -1 ? myShops(s).some((b) => s.shops[b.uid] && s.shops[b.uid].clear !== (a.cut ?? undefined)) : !!s.shops[a.uid] && s.shops[a.uid].clear !== (a.cut ?? undefined);
+    case 'useup': {
+      const sl = s.slots[a.slot];
+      return !!sl && sl.worker != null && lotsHave(s, sku(a.key, a.rar)) > 0;
+    }
   }
 }
 /** はかる数（結果の比べ）：G＝段の流れの数（個／月）・ad＝今月の売上・finds＝研究ノートの数・share＝取り分（%） */
@@ -1224,6 +1239,14 @@ export function execute(s: P1State, a: PropAct): 'money' | 'rp' | string | null 
       }
       return setPart(s, a.uid, a.n) ? null : 'gone';
     }
+    case 'clear': {
+      const uids = a.uid === -1 ? myShops(s).map((b) => b.uid) : [a.uid];
+      let n = 0;
+      for (const u of uids) if (setClear(s, u, a.cut)) n++;
+      return n ? null : 'gone';
+    }
+    case 'useup':
+      return useUp(s, a.slot, sku(a.key, a.rar)) > 0 ? null : 'gone';
   }
 }
 /** 自動で承認する（セクター長の任せきり・自動プレイ）：見込みがプラスのものを、お金があるだけ */
@@ -1325,6 +1348,14 @@ export function actName(s: P1State, a: PropAct): string {
       return t(`素材を ${a.lots} ロット注文する`, `Order ${a.lots} lot(s) of materials`);
     case 'staff':
       return t(`従業員を ${a.n} 人に`, `${a.n} staff`);
+    case 'clear': {
+      if (a.cut == null) return t('在庫の売りさばきをやめる', 'Stop clearing stock');
+      const c = CLEAR.cuts[a.cut] ?? 0;
+      const cut = c > 0 ? t(`${Math.round(c * 10)} 割引`, `${Math.round(c * 100)}% off`) : t('値引きなし', 'no discount');
+      return t(`在庫を優先して売りさばく（${cut}）`, `Clear stock first (${cut})`);
+    }
+    case 'useup':
+      return t(`いまある素材で「${PRODUCT_NAME(a.key)}${a.rar === 'U' ? '（アンコモン）' : ''}」を作る`, `Make ${PRODUCT_NAME(a.key)}${a.rar === 'U' ? ' (Uncommon)' : ''} from stock`);
   }
 }
 const nameOf = (id: string) => DEF[id]?.name ?? id;

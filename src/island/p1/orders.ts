@@ -11,6 +11,7 @@ import { madeSkus, partMax, recipeOf, adCost, bottleneck, stageCaps, type Stage,
 import { adGain, supplyFor } from './moves';
 import { toneOf, type Tone } from './persona';
 import { inTutorial } from './card';
+import { clearInfo, cutName, storeFull } from './stock';
 import { DEF } from '../defs';
 
 
@@ -219,7 +220,7 @@ export function lowMat(s: P1State): Mat | null {
 
 // ---------------------------------------------------------------- 担当と指示
 
-export type OrderKind = 'shelf' | 'swap' | 'ad' | 'clerk' | 'make' | 'bench' | 'crafter' | 'order' | 'buyopen' | 'buyer' | 'main' | 'tidy' | 'field' | 'staff';
+export type OrderKind = 'shelf' | 'swap' | 'ad' | 'clerk' | 'make' | 'bench' | 'crafter' | 'order' | 'buyopen' | 'buyer' | 'main' | 'tidy' | 'field' | 'staff' | 'clear';
 export interface Order {
   k: OrderKind;
   label: string;
@@ -335,6 +336,15 @@ function shopBox(s: P1State, uid: number): OrderBox {
     // 需要の読み（現場からの提言）：お客さんの声と需要から「○○の需要がありそう」。承認すると製造への提案書（作る物の切り替え・素材まで）
     const f = fieldPick(s, uid);
     orders.push(f ? { k: 'field', label: t('需要の読み（提言を見る）', 'Read demand (see the pitch)'), sub: [t(`${nameOfSku(f.x)}の需要がありそう`, `${nameOfSku(f.x)} looks wanted`), pm(f.units)].join(SEP()), units: f.units, cost: f.cost } : { k: 'field', label: t('需要の読み（提言を見る）', 'Read demand (see the pitch)'), sub: t('いま勧められる商品がない', 'No item to pitch now'), off: true });
+    // 段 UI5c：在庫を優先して売りさばく（売れ残り・発掘で出た品・使い切りに作った品を先に棚へ。値引きの段を選ぶ）
+    const ci = clearInfo(s);
+    const pct = Math.round(ci.rate * 100);
+    orders.push({
+      k: 'clear',
+      label: t('在庫を優先して売りさばく', 'Clear stock first'),
+      sub: [sh.clear != null ? t(`オン（${cutName(sh.clear)}）`, `On (${cutName(sh.clear)})`) : t('オフ', 'Off'), t(`倉庫 ${pct}%`, `storage ${pct}%`), t(`在庫品 ${ci.total} 個`, `${ci.total} stock items`)].join(SEP()),
+      ...(sh.clear == null && storeFull(s) && ci.total > 0 ? { rec: true } : {}),
+    });
     // 従業員（店長が休む日も、2 人いれば従業員で開ける）
     const want = Math.max(sh.part + 1, SELF_RUN.min);
     const can = want <= partMax(s, uid) || (b != null && investCost(b, 'staffroom') != null);
