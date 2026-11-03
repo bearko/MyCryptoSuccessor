@@ -32,6 +32,8 @@ import { landDef, relOf, relTeaser } from './diplo';
 import { after, makeHooks, type Ctx } from './screens';
 import { btn, h, heroIcon, heroName, money, rich } from './ui';
 import { assetUrl } from '../../render/images';
+import { cardReact } from './p2ui';
+import { DUO_BY_ID } from './duo';
 
 /** 小さい一行の適性（話し手の持ち場の仕事） */
 const TASK_OF: Partial<Record<Card['src'], Task>> = { clerk: 'shop', crafter: 'craft', buyer: 'buy', cs: 'shop' };
@@ -55,6 +57,8 @@ const ERR: Record<string, () => string> = {
   gone: () => t('もう打てない手でした（受け箱から消しました）', 'That move is no longer possible (removed)'),
 };
 
+/** 段 P2：いま選んだ選択肢（閉じるときの承認／却下の反応） */
+let picked: Card['choices'][number] | null = null;
 /** カードの中身（顔・肩書き・名前・一言・セリフ・選択肢・下の一行） */
 function panel(s: P1State, c: Card, close: (res: ChooseRes | null, label: string) => void): HTMLElement {
   const role = roleOfCard(s, c);
@@ -86,7 +90,7 @@ function panel(s: P1State, c: Card, close: (res: ChooseRes | null, label: string
   const nameTxt = eh && (c.hero == null || c.src === 'diplo') ? eh.title : c.hero != null ? heroName(c.hero) : t('マインちゃん', 'Mine-chan');
   id.append(h('span', 'isl-cardm-role', `${role.icon} ${role.text}`), h('b', 'isl-cardm-name', nameTxt));
   const st = c.hero != null ? staffOf(s, c.hero) : null;
-  if (eh) id.append(h('small', 'isl-cardm-tag', c.hero != null && c.src === 'event' ? eh.title : eh.tag));
+  if (eh) id.append(h('small', 'isl-cardm-tag', c.hero != null && (c.src === 'event' || c.src === 'duo') ? eh.title : eh.tag));
   else if (st && c.hero != null) {
     const bits = [`Lv ${st.level ?? 1}`];
     const task = TASK_OF[c.src];
@@ -132,6 +136,7 @@ function panel(s: P1State, c: Card, close: (res: ChooseRes | null, label: string
       // 段 UI4（追加の要望）：作業台を切り替える手のあとにも「お店の主力商品も替えますか？」
       const before = s.slots.map((y) => y.sku);
       const res = chooseCard(s, c.id, k);
+      picked = ch;
       close(res, x.label);
       if (res.ok) s.slots.forEach((y, i) => before[i] && y.sku && before[i] !== y.sku && makeHooks.switched?.(before[i]!, y.sku));
     });
@@ -156,6 +161,8 @@ function panel(s: P1State, c: Card, close: (res: ChooseRes | null, label: string
   const star = cardStar(s, c);
   if (c.src === 'diplo' && c.dip) foot.append(h('span', '', relTeaser(relOf(s, c.dip.land))));
   else if (c.src === 'event' && eh) foot.append(h('span', '', eh.tag));
+  // 段 P2：組み合わせは、関係と条件・史実の一言
+  else if (c.src === 'duo' && eh && c.duo) foot.append(h('span', '', `${eh.tag}　${DUO_BY_ID[c.duo.id]?.note() ?? ''}`));
   else if (star) foot.append(h('span', '', t(`読みの確かさ ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（誤差 ±${Math.round((1 - c.q) * 100)}%）`, `Read ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${Math.round((1 - c.q) * 100)}%)`)));
   else if (c.src === 'quit' && st) foot.append(h('span', '', t(`士気 ${Math.round(st.morale ?? 0)}`, `Morale ${Math.round(st.morale ?? 0)}`)));
   else foot.append(h('span', '', ''));
@@ -185,6 +192,9 @@ export function showCard(ctx: Ctx, c: Card, hooks: CardHooks) {
       ctx.sfx?.(label && res.open ? 'page' : 'levelup');
       if (!res.open) ctx.toast(res.did ? `✔ ${res.did}` : label.startsWith('🤝') ? label : t(`✔ ${label}`, `✔ ${label}`));
     }
+    // 段 P2：承認／却下の反応（史実の調査のあるヒーロー。トーストはカードを閉じたあとに出る）
+    if (res && picked) cardReact(ctx.toast, c, picked, res);
+    picked = null;
     m.remove();
     ctx.save();
     if (res?.open) hooks.open?.(res.open);

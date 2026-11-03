@@ -41,14 +41,16 @@ import { heroSay, quipOf, say, sayLen, type QuipCat } from './persona';
 import { DEF } from '../defs';
 import { applyEvent, eventDue, evIcon, evSay, evTitle, isGood, optIcon, optName, optSub, recOpt, EV_TEXT, type EvData } from './events';
 import { applyDiplo, diploCompany, dipOptText, dipOpts, dipRec, dipSay, dipTitle, landDef, relOf, type DipData } from './diplo';
+import { applyDuo, duoDraft, duoDue, duoHead, duoOptSub, duoOptText, duoSay, type DuoData } from './duo';
+import { voiceQuip, voiceSay } from './voice';
 
 // ---------------------------------------------------------------- 型
 
 /** 出どころ（統計・受けた割合の数え） */
-export type CardSrc = 'clerk' | 'crafter' | 'buyer' | 'idle' | 'head' | 'cs' | 'flame' | 'quit' | 'tax' | 'rally' | 'hr' | 'event' | 'diplo';
+export type CardSrc = 'clerk' | 'crafter' | 'buyer' | 'idle' | 'head' | 'cs' | 'flame' | 'quit' | 'tax' | 'rally' | 'hr' | 'event' | 'diplo' | 'duo';
 /** ヒーローからの提案（★3 で「任せる」を選べる出どころ） */
 export const PROPOSAL_SRC: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head'];
-export const CARD_SRCS: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'cs', 'flame', 'quit', 'tax', 'rally', 'hr', 'event', 'diplo'];
+export const CARD_SRCS: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'cs', 'flame', 'quit', 'tax', 'rally', 'hr', 'event', 'diplo', 'duo'];
 
 /** 選ぶと打つ手 */
 export type CardAct =
@@ -62,7 +64,9 @@ export type CardAct =
   | { k: 'open'; to: 'tax' | 'ads' }
   /** 段 UI4：できごとの i 番目の選択肢・外交の i 番目の選択肢 */
   | { k: 'ev'; i: number }
-  | { k: 'dip'; i: number };
+  | { k: 'dip'; i: number }
+  /** 段 P2：ヒーローの組み合わせの i 番目の選択肢 */
+  | { k: 'duo'; i: number };
 export interface Choice {
   act: CardAct;
   /** 見込み（ヒーローの読み。誤差つき）：G＝毎月の費用を引いた利益（G／月）・ad＝宣伝の期間の利益・finds＝出土品の数 ほか */
@@ -96,7 +100,8 @@ export type Issue =
   | { k: 'quit'; days: number }
   | { k: 'tax'; q: number; need: number; save: number }
   | { k: 'event' }
-  | { k: 'diplo' };
+  | { k: 'diplo' }
+  | { k: 'duo' };
 export interface Card {
   id: number;
   src: CardSrc;
@@ -126,6 +131,8 @@ export interface Card {
   /** 段 UI4：突発のできごと・外交の話（選ぶまでの中身） */
   ev?: EvData;
   dip?: DipData;
+  /** 段 P2：ヒーローの組み合わせ */
+  duo?: DuoData;
 }
 /** 任せた提案を実行した記録（トースト・月次報告） */
 export interface AutoRec {
@@ -570,6 +577,9 @@ export function cardsMonth(s: P1State, r: Report) {
   // 段 UI4：突発のできごと（2〜3 か月に 1 回）。上限の枠を先に 1 つ使う（いつも時間を止めて出す）
   const ev = eventDue(s, C.mk);
   if (ev) enqueue(s, eventDraft(s, ev), rep);
+  // 段 P2：ヒーローの組み合わせ（条件が初めてそろった締め。上限の残りがあるときだけ・1 つまで）
+  const dd = duoDue(s, C.popN, inTutorial(s));
+  if (dd) enqueue(s, duoDraft(s, dd), rep);
   const drafts = [...noticeDrafts(s, r), ...heroDrafts(s), ...hrDrafts(s), ...headDrafts(s, r)].sort((a, b) => b.pri - a.pri);
   for (const d of drafts) enqueue(s, d, rep);
   if (rep.made || rep.auto.length) r.cards = rep;
@@ -652,6 +662,8 @@ export function cardsCompany(s: P1State) {
 export function cardLive(s: P1State, c: Card): boolean {
   // 外交の話は会社のもの（どの町にいても選べる）
   if (c.src === 'diplo') return !!c.dip;
+  // 段 P2：ヒーローの組み合わせも会社のもの
+  if (c.src === 'duo') return !!c.duo;
   if (c.sector !== here(s)) return false;
   switch (c.src) {
     case 'event':
@@ -783,6 +795,8 @@ export function chooseCard(s: P1State, id: number, k: number): ChooseRes {
       return done(c.ev ? applyEvent(s, c.ev, a.i) : 'none');
     case 'dip':
       return done(c.dip ? applyDiplo(s, c.dip, a.i) : 'none');
+    case 'duo':
+      return done(c.duo ? applyDuo(s, c.duo, a.i) : 'none');
   }
 }
 /** 任せる（★3）：おすすめの手を打ち、次からその種類はカードを出さずに実行して報告する */
@@ -899,26 +913,34 @@ function core(s: P1State, c: Card): string {
       return c.ev ? evSay(c.ev) : '';
     case 'diplo':
       return c.dip ? dipSay(c.dip) : '';
+    case 'duo':
+      return c.duo ? duoSay(c.duo) : '';
   }
 }
 /** カードのセリフ（話し手の口調の型で。CARD.sayMax 字まで） */
 export function sayOf(s: P1State, c: Card): string {
   const x = core(s, c);
   // 段 UI4：使者は自分の言葉（言い出し・語尾は付けない）。できごとは、マインちゃんだけの話はそのまま、ヒーロー・町の長は口調の型、マインちゃんの報告は「〜よ！」
-  if (c.src === 'diplo') return x;
+  if (c.src === 'diplo' || c.src === 'duo') return x;
   if (c.src === 'event' && c.ev) {
     if (EV_TEXT[c.ev.kind].full) return x;
     if (c.hero == null) return x + t('よ！', '!');
-    return heroSay(c.hero, x);
+    return voiceSay(c.hero, x) ?? heroSay(c.hero, x);
   }
   // 辞めたい：本人の言葉なので、言い出し・語尾は付けない（型の味は上のウィットの一言で）
   if (c.issue.k === 'quit') return `${x}${t('。', '.')}`;
   if (c.hero == null) return say('polite', x);
-  return heroSay(c.hero, x);
+  // 段 P2：史実の調査のあるヒーローは、社長の呼び方で（voice.ts。無ければ口調の型）
+  return voiceSay(c.hero, x) ?? heroSay(c.hero, x);
 }
 
 /** ウィットの一言（話し手の口調の型と属性から。課題の種類・月で回す）。ヒーローでない話し手は無し */
-export const quipOfCard = (c: Card): string | null => (c.hero != null && c.src !== 'event' && c.src !== 'diplo' ? quipOf(c.hero, (c.issue.k === 'hire' ? 'idle' : c.issue.k) as QuipCat, c.mk + c.id) : null);
+/** 段 P2：史実の調査のあるヒーローは、その人の提案のセリフ・口ぐせ（辞めたいは疲れたときのセリフ）を回す（voice.ts） */
+export const quipOfCard = (c: Card): string | null => {
+  if (c.hero == null || c.src === 'event' || c.src === 'diplo' || c.src === 'duo') return null;
+  const cat = (c.issue.k === 'hire' ? 'idle' : c.issue.k) as QuipCat;
+  return voiceQuip(c.hero, cat, c.mk + c.id) ?? quipOf(c.hero, cat, c.mk + c.id);
+};
 
 /** 肩書き（部門の色・アイコン・文） */
 export function roleOfCard(s: P1State, c: Card): { icon: string; text: string; color: string } {
@@ -960,10 +982,13 @@ export function roleOfCard(s: P1State, c: Card): { icon: string; text: string; c
       const L = landDef(c.dip?.land ?? 'ruby');
       return { icon: '🌐', text: t(`${L.name}の使者`, `Envoy of ${L.name}`), color: L.color };
     }
+    case 'duo':
+      return { icon: '✨', text: t('ヒーローの組み合わせ', 'Hero pairing'), color: '#b07cd8' };
   }
 }
 /** 段 UI4：できごと・外交のカードの見出し（名前の行・小さい一行） */
 export function eventHead(s: P1State, c: Card): { title: string; tag: string } | null {
+  if (c.src === 'duo' && c.duo) return duoHead(c.duo);
   if (c.src === 'event' && c.ev) return { title: `${evIcon(c.ev.kind)} ${evTitle(c.ev)}`, tag: isGood(c.ev.kind) ? t('できごと（良い知らせ）', 'Event (good news)') : t('できごと（困りごと）', 'Event (trouble)') };
   if (c.src === 'diplo' && c.dip) {
     const rel = relOf(s, c.dip.land);
@@ -1065,6 +1090,11 @@ export function choiceText(s: P1State, c: Card, ch: Choice): { icon: string; lab
       const o = c.dip ? dipOpts(s, c.dip)[a.i] : undefined;
       if (!c.dip || !o) return { icon: '▶', label: '', sub: '' };
       return dipOptText(s, c.dip, o);
+    }
+    case 'duo': {
+      const o = c.duo?.opts[a.i];
+      if (!c.duo || !o) return { icon: '▶', label: '', sub: '' };
+      return { ...duoOptText(c.duo, o), sub: duoOptSub(c.duo, o) };
     }
     case 'open':
       return a.to === 'tax' ? { icon: '🧾', label: t('税と節税を開く', 'Open tax'), sub: t(`設備に投資すると税 −${g(est)} まで`, `Investing can cut up to ${g(est)}`) } : { icon: '📣', label: t('宣伝を開く', 'Open ads'), sub: '' };

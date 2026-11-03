@@ -41,6 +41,8 @@ import { sectorDef } from './company';
 import { bar, btn, h, heroIcon, money, rich } from './ui';
 import { cardInboxCard } from './cardui';
 import { cardInbox, starOf } from './card';
+import { fitTag, sayToast } from './p2ui';
+import { lineOf } from './voice';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 /** 役目の札（リーダー・部長・セクター長。形で見分ける：リーダーは角、部長は丸、セクター長は二重の枠） */
@@ -85,6 +87,9 @@ export function pickFor(ctx: Ctx, dept: DeptId, title: string, current: number |
         lv.append(rarityBadge(st.rarity ?? 'C'), h('small', '', `Lv ${st.level ?? 1}`));
         const sn = starOf(q, st.level ?? 1);
         card.append(heroIcon(st.hero, 56), h('b', '', heroNm(st.hero)), lv, h('b', q >= 0.85 ? 'isl-good' : 'isl-gold', qText(q)), h('small', 'isl-pick-star', `${'★'.repeat(sn)}${'☆'.repeat(3 - sn)}`));
+        // 段 P2：史実の適性（「人事 S：家臣の才を見抜き登用した」）
+        const ft = fitTag(st.hero, dept);
+        if (ft) card.append(ft);
         const r = roleOf(st);
         if (r) card.append(roleBadge(r));
         card.append(h('small', st.task == null ? 'isl-good isl-pick-job' : 'isl-dim isl-pick-job', st.hero === current ? t('いまの担当', 'Current') : jobLabel(s, st)));
@@ -93,6 +98,8 @@ export function pickFor(ctx: Ctx, dept: DeptId, title: string, current: number |
           e.stopPropagation();
           close();
           onPick(st.hero);
+          // 段 P2：着任のあいさつ（史実の調査のあるヒーロー）
+          sayToast(ctx.toast, st.hero, 'greet', s.day);
         });
         grid.append(card);
       }
@@ -160,7 +167,11 @@ function personRow(st: Staff, dept: DeptId, q?: number): HTMLElement {
   const name = h('div', 'isl-dl-name');
   const lv = h('div', 'isl-row');
   lv.append(rarityBadge(st.rarity ?? 'C'), h('b', '', heroNm(st.hero)), h('small', 'isl-dim', `Lv ${st.level ?? 1}`));
-  name.append(lv, qBar(q ?? p.total), h('small', 'isl-dim', t(`内訳：能力値（${deptAptName(dept)}）${pct(p.base)}・Lv +${pct(p.lv)}・パッシブ +${pct(p.passive)}${q != null && q > p.total ? `・部長の下 +${pct(q - p.total)}` : ''}`, `From ${deptAptName(dept)} ${pct(p.base)}, level +${pct(p.lv)}, passives +${pct(p.passive)}${q != null && q > p.total ? `, under head +${pct(q - p.total)}` : ''}`)));
+  const fitTxt = Math.abs(p.fit) >= 0.005 ? `${p.fit > 0 ? '+' : '−'}${pct(Math.abs(p.fit))}` : '';
+  name.append(lv, qBar(q ?? p.total), h('small', 'isl-dim', t(`内訳：能力値（${deptAptName(dept)}）${pct(p.base)}・Lv +${pct(p.lv)}・パッシブ +${pct(p.passive)}${fitTxt ? `・史実の適性 ${fitTxt}` : ''}${q != null && q > p.total ? `・部長の下 +${pct(q - p.total)}` : ''}`, `From ${deptAptName(dept)} ${pct(p.base)}, level +${pct(p.lv)}, passives +${pct(p.passive)}${fitTxt ? `, historical fit ${fitTxt}` : ''}${q != null && q > p.total ? `, under head +${pct(q - p.total)}` : ''}`)));
+  // 段 P2：史実の適性の根拠
+  const ft = fitTag(st.hero, dept);
+  if (ft) name.append(ft);
   row.append(heroIcon(st.hero, 48), name);
   return row;
 }
@@ -375,7 +386,10 @@ export function delegReportText(s: P1State, r: { deleg?: import('./deleg').Deleg
     short.push(t(`提案 ${d.waiting}`, `${d.waiting} prop.`));
   }
   if (d?.results.length) {
-    parts.push(t(`提案の結果 ${d.results.length} 件`, `${d.results.length} results`));
+    // 段 P2：いちばんうまくいった提案のヒーローのひとこと（史実の調査のあるヒーロー）
+    const win = [...d.results].filter((x) => x.real > 0).sort((a, b) => b.real - a.real)[0];
+    const yay = win ? lineOf(win.hero, 'success', r.deleg?.props ?? 0) : null;
+    parts.push(t(`提案の結果 ${d.results.length} 件${yay ? `（${heroNm(win!.hero)}「${yay}」）` : ''}`, `${d.results.length} results`));
     short.push(t(`結果 ${d.results.length}`, `${d.results.length} res.`));
   }
   // 段 UI1：任せた提案（自分で実行して報告）・ヒーローからの提案のカード

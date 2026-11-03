@@ -130,6 +130,8 @@ import { acqMonth, boughtHere, legalDay, legalMonth, maClose, noteGranted, paten
 import { evMul, evSales, takeEvYen, takeEventLog, activeFx, type ActiveFx, type EvLog, type EventState } from './events';
 import { diploDay, takeDipMonth, tradeClose, type DipMonth, type DiploState, type Req } from './diplo';
 import { canHireRarity, charismaOf, hireCap, initMorale, moraleAdd, moraleAvg, moraleDay, moraleMul, newHrMonth, syncCharisma, wantsToQuit, type HrDay, type HrMonth } from './hr';
+import { fitSector, fitTask } from './voice';
+import { duoDrain, duoSpeed, type DuoState } from './duo';
 
 export type Ground = 'grass' | 'road';
 export type Owner = 'me' | 'town' | string;
@@ -455,7 +457,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22;
   kind: 'p1';
   seed: number;
   n: number;
@@ -624,6 +626,8 @@ export interface P1State {
   events?: EventState;
   /** 外交（段 UI4・版 21。diplo.ts。Epic）：会ったランドと仲の良さ・交易の約束・使者の依頼。古いセーブには無い（仲は初めの値から） */
   diplo?: DiploState;
+  /** ヒーローの組み合わせ（段 P2・版 22。duo.ts）：見つけた組み合わせ・選んだ手・効き目の期限。古いセーブには無い（空から） */
+  duo?: DuoState;
   /**
    * 人事（段 E2・版 15。hr.ts）：ブランド力のいちばん高かった値（カリスマ度のブランドの分）・お知らせ済みのカリスマ度・
    * テストの札と監査で足すカリスマ度（ふつうのゲームでは無し）・今月の人事の記録（月次報告）・辞めた人の記録。どれも会社のもの（災害でも残る）
@@ -795,7 +799,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 21,
+    v: 22,
     kind: 'p1',
     seed,
     n,
@@ -1107,7 +1111,8 @@ export const aptOf = (s: P1State | undefined, st: Pick<Staff, 'stats'>, task: Ta
 const TASK_DEPT: Partial<Record<Task, DeptId>> = { craft: 'logistics', transport: 'logistics', buy: 'logistics', shop: 'logistics', dig: 'rnd', explore: 'marketing', intel: 'marketing' };
 /** 作業の速さ：適性 × 昇給（上げた段だけ。下げた段は速さでなく士気に出る）× パッシブ × 部長の補正 × 士気（段 E2。ふつうの帯は ×1） */
 /** 段 F：× 疲れ（総務。Uncommon から。疲れが 60% を超えると下がる） */
-export const speed = (st: Staff, task: Task, s?: P1State) => speedOf(aptOf(s, st, task)) * (1 + PAY.raiseSpeed * Math.max(0, st.lv ?? 0)) * passiveMul(st, task) * (s && TASK_DEPT[task] ? 1 + headFx(s, TASK_DEPT[task]!) : 1) * moraleMul(st) * (s ? fatigueMul(s, st) : 1);
+/** 段 P2：× 史実の適性（voice.ts の fitTask）× ヒーローの組み合わせ（duo.ts の duoSpeed） */
+export const speed = (st: Staff, task: Task, s?: P1State) => speedOf(aptOf(s, st, task)) * (1 + PAY.raiseSpeed * Math.max(0, st.lv ?? 0)) * passiveMul(st, task) * (s && TASK_DEPT[task] ? 1 + headFx(s, TASK_DEPT[task]!) : 1) * moraleMul(st) * (s ? fatigueMul(s, st) : 1) * fitTask(st.hero, task) * (s ? duoSpeed(s, st.hero) : 1);
 /** 休むと 1 日に戻るスタミナ（休憩室・福利厚生で +50% ずつ） */
 export const restRateOf = (s: P1State) => STAMINA.rest * (1 + 0.5 * lvMul(s, 'lounge') + 0.5 * lvMul(s, 'welfare') + fxSum(s, 'rest'));
 /**
@@ -1126,7 +1131,9 @@ export function drainOf(s: P1State, st: Pick<Staff, 'task'> & Partial<Pick<Staff
     Math.max(0.5, 1 - passiveSum(st, 'system')) *
     // システム部長の補正（段 D）・総務部長の補正（段 F）
     (1 - headFx(s, 'systems')) *
-    (1 - headFx(s, 'general'));
+    (1 - headFx(s, 'general')) *
+    // 段 P2：ヒーローの組み合わせ（宿敵と競う・疲れ）
+    ('hero' in st ? duoDrain(s, (st as { hero: number }).hero) : 1);
   return STAMINA.work * easy;
 }
 /**
@@ -4156,7 +4163,7 @@ export function closeCompanyMonth(s: P1State): CompanyMonth {
         continue;
       }
       // マネージャー研修：売上の倍率 +0.1・持株会社：利益 +10%。被災した町は直った割合ぶん
-      const r = runSector(rec, st?.stats ?? null, m, rng(s.seed + s.day * 31 + id.length * 7 + id.charCodeAt(1)), { rate: 0.1 * lvMul(s, 'mgr') + fxSum(s, 'manager') + (st ? passiveSum(st, 'manage') : 0) + headFx(s, 'strategy'), profit: 1 + 0.1 * lvMul(s, 'holding'), scale: reviveScale(rec) });
+      const r = runSector(rec, st?.stats ?? null, m, rng(s.seed + s.day * 31 + id.length * 7 + id.charCodeAt(1)), { rate: 0.1 * lvMul(s, 'mgr') + fxSum(s, 'manager') + (st ? passiveSum(st, 'manage') + fitSector(st.hero) : 0) + headFx(s, 'strategy'), profit: 1 + 0.1 * lvMul(s, 'holding'), scale: reviveScale(rec) });
       // セクター長の任せきり（段 D）：部長たちの提案を自分で承認して、そのセクタへ投資
       rec.heads = undefined;
       if (st) sectorApprove(s, rec, r);
@@ -4430,7 +4437,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19 && o.v !== 20 && o.v !== 21) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19 && o.v !== 20 && o.v !== 21 && o.v !== 22) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -4507,7 +4514,8 @@ export function deserializeP1(json: string): P1State | null {
     // 版 18 → 19（段 H2：Epic の町 ②）：契約・特許・裁判（s.legal）と町ごとの M&A（area.ma）は空から（はじめて使うときに作る）
     // 版 19 → 20（段 UI1：提案・報告のカード）：カードの受け箱・任せた種類（s.cards）は空から（はじめて出すときに作る）。部長の提案の受け箱（s.deleg）はそのまま
     // 版 20 → 21（段 UI4：突発のできごと・外交）：できごと（s.events）と外交（s.diplo）は空から（はじめて使うときに作る。仲は初めの値）
-    s.v = 21;
+    // 版 21 → 22（段 P2：ヒーローの組み合わせ）：見つけた組み合わせ（s.duo）は空から（いまの顔ぶれで条件がそろっていれば、次の締めで見つかる）
+    s.v = 22;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);
