@@ -394,6 +394,8 @@ const STOP: Record<Stop, [string, string]> = {
   noClerk: [t('店員', 'No'), t('不在', 'clerk')],
   clerkRest: [t('店員', 'Clerk'), t('休憩中', 'resting')],
   soldOut: [t('在庫', 'Sold'), t('切れ', 'out')],
+  // 段 UI5a（お店の自走）：店長は休み・従業員で営業中
+  selfRun: [t('店長は休み', 'Manager off'), t('従業員で営業', 'staff run it')],
 };
 const BUBBLE = { craft: '#6fd08c', sell: '#f2b544', error: '#e0524f', warn: '#f39a3c', info: '#7cc6f2', line: '#0f1626' };
 const FONT = "'Hiragino Kaku Gothic ProN', 'Noto Sans JP', system-ui, sans-serif";

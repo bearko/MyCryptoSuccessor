@@ -63,6 +63,8 @@ import {
   setPart,
   setRest,
   setShelf,
+  shelvesAuto,
+  syncShelves,
   shelfCount,
   skillLock,
   stageCaps,
@@ -86,6 +88,7 @@ import { bestReply, fits, refundCost, reply } from './cs';
 import { filePatent, guidePrice, keepRate, legalHere, maLock, patentLock, patentOf, patentable, signSupply, startDeal, supplyLock } from './legal';
 import { copyIn } from './mkt';
 import { adGain, grossRate, sellMoves } from './moves';
+import { applyPlan, planOf, stepsOf } from './plan';
 import type { SectorRec } from './company';
 
 // ---------------------------------------------------------------- 役目
@@ -275,7 +278,9 @@ export type PropAct =
   | { k: 'part'; uid: number }
   | { k: 'famous'; uid: number }
   | { k: 'assign'; hero: number; task: Task; target: number | string | null }
-  | { k: 'order'; m: Mat; lots: number };
+  | { k: 'order'; m: Mat; lots: number }
+  // 段 UI5a：お店の従業員（アルバイト）を n 人に（控室の増設が要れば、提案書が先に増設する）
+  | { k: 'staff'; uid: number; n: number };
 /** 見込みの単位：G（月の粗利）・ad（宣伝の期間の粗利 − 費用）・finds（出土品の数）・share（商圏の取り分 %）・legal（法務：守る・増える月の売上） */
 export type PropUnit = 'G' | 'ad' | 'finds' | 'share' | 'legal';
 export interface Proposal {
@@ -622,6 +627,11 @@ function doCraft(s: P1State, r: Runner, rec: DutyStat, rnd: () => number) {
 
 /** 物流：品出し（棚の入れ替え。作っている商品を並べ、作らなくなった商品は売り切ってから入れ替える） */
 function doShelf(s: P1State, _r: Runner, rec: DutyStat) {
+  // 段 UI5a：チュートリアルのあとは、棚は製造に合わせて自動で並ぶ（model.ts の syncShelves）。品出しのリーダーは、その並べ替えを毎回見届ける
+  if (shelvesAuto(s)) {
+    rec.acts += syncShelves(s);
+    return;
+  }
   const made = madeSkus(s);
   if (!made.length) return;
   for (const b of myShops(s)) {
@@ -1073,6 +1083,11 @@ export function actOk(s: P1State, a: PropAct): boolean {
     }
     case 'order':
       return hasRoute(s, a.m);
+    case 'staff': {
+      const sh = s.shops[a.uid];
+      const b = s.buildings.find((x) => x.uid === a.uid && x.owner === 'me');
+      return !!sh && !!b && a.n > sh.part && (a.n <= partMax(s, a.uid) || investCost(b, 'staffroom') != null);
+    }
   }
 }
 /** はかる数（結果の比べ）：G＝段の流れの数（個／月）・ad＝今月の売上・finds＝研究ノートの数・share＝取り分（%） */
@@ -1103,7 +1118,8 @@ export function approve(s: P1State, id: number): ApproveErr | null {
     return 'gone';
   }
   const before = measure(s, p);
-  const e = execute(s, p.act);
+  // 段 UI5a：承認は提案書と同じく、一緒に変わるもの全部を一気に（plan.ts の applyPlan。棚・作業台・担当・素材の注文）
+  const e = runPlanned(s, p.act);
   if (e === 'money' || e === 'rp') {
     p.status = 'held';
     p.note = e;
@@ -1127,6 +1143,12 @@ export function hold(s: P1State, id: number): boolean {
   if (!p) return false;
   p.status = 'held';
   return true;
+}
+/** 提案の手を、一緒に変わるもの全部に広げて実行する（plan.ts）。'money'・'rp'：足りない・'gone'：打てない */
+export function runPlanned(s: P1State, a: PropAct): 'money' | 'rp' | string | null {
+  if (a.k === 'stock') return execute(s, a);
+  const r = applyPlan(s, planOf(s, [a]));
+  return r.ok ? null : r.err ?? 'gone';
 }
 /** 手を打つ（いまのゲームの関数をそのまま使う）。'money'・'rp'：足りない */
 export function execute(s: P1State, a: PropAct): 'money' | 'rp' | string | null {
@@ -1171,24 +1193,11 @@ export function execute(s: P1State, a: PropAct): 'money' | 'rp' | string | null 
       return typeof d === 'string' ? d : null;
     }
     case 'stock': {
-      // 棚を増やして並べる：棚の設備投資のあと、増えた棚（空いた棚のいちばん後ろ）に並べる
-      if (a.add) {
-        const e = invest(s, a.uid, 'shelves');
-        if (e) return e;
-      }
-      const sh = s.shops[a.uid];
-      if (!sh) return 'gone';
-      const idx = a.add ? sh.shelves.lastIndexOf(null) : a.idx;
-      if (idx < 0) return 'gone';
-      const x = sku(a.key, a.rar);
-      if (!setShelf(s, a.uid, idx, x)) return 'gone';
-      // 作っていない商品：作業台を 1 台その商品に（いまのロットが終わってから）。棚が空のまま満足度が下がらないように
-      const sl = a.make != null ? s.slots[a.make] : undefined;
-      if (sl && sl.sku !== x) {
-        if (sl.running) D(s).pend[a.make!] = x;
-        else Object.assign(sl, { sku: x, repeat: true, left: 0, progress: 0 });
-      }
-      return null;
+      // 段 UI5a：何を売るかは製造が決める。「棚に並べる」は、棚の増設 ＋ 作業台をその商品に（足りなければ作業台を足して人を置く）＋ 素材の注文
+      // （plan.ts の stepsOf。提案書の承認・カード・店長への指示が同じ）。棚は製造に合わせて自動で並ぶ（できしだい）
+      if (s.shops[a.uid] == null) return 'gone';
+      const r = applyPlan(s, { hero: null, q: 0, dept: null, acts: [a], steps: stepsOf(s, a).steps });
+      return r.ok ? null : r.err ?? 'gone';
     }
     case 'part': {
       const sh = s.shops[a.uid];
@@ -1206,6 +1215,15 @@ export function execute(s: P1State, a: PropAct): 'money' | 'rp' | string | null 
       return assign(s, a.hero, a.task, a.target);
     case 'order':
       return order(s, a.m, a.lots);
+    case 'staff': {
+      const sh = s.shops[a.uid];
+      if (!sh) return 'gone';
+      if (partMax(s, a.uid) < a.n) {
+        const e = invest(s, a.uid, 'staffroom');
+        if (e) return e;
+      }
+      return setPart(s, a.uid, a.n) ? null : 'gone';
+    }
   }
 }
 /** 自動で承認する（セクター長の任せきり・自動プレイ）：見込みがプラスのものを、お金があるだけ */
@@ -1305,6 +1323,8 @@ export function actName(s: P1State, a: PropAct): string {
       return t(`${heroNm(a.hero)}を持ち場に置く`, `Put ${heroNm(a.hero)} to work`);
     case 'order':
       return t(`素材を ${a.lots} ロット注文する`, `Order ${a.lots} lot(s) of materials`);
+    case 'staff':
+      return t(`従業員を ${a.n} 人に`, `${a.n} staff`);
   }
 }
 const nameOf = (id: string) => DEF[id]?.name ?? id;

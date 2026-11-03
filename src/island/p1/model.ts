@@ -82,6 +82,7 @@ import {
   relicSells,
   RIVAL_GROWTH,
   SHOP,
+  SELF_RUN,
   CHEAP_RATE,
   SECTORS,
   rivalDef,
@@ -206,8 +207,10 @@ export interface Slot {
 
 export interface ShopState {
   uid: number;
-  /** 棚ごとの商品。0 番が主力商品 */
+  /** 棚ごとの商品。0 番が主力商品（段 UI5a：チュートリアルのあとは、工房で作っている商品が自動で並ぶ。syncShelves） */
   shelves: (Sku | null)[];
+  /** 段 UI5a：プレイヤー（店長への指示）が決めた主力商品。並んでいれば 1 番目の棚に。無ければ作っている順の先頭 */
+  main?: Sku | null;
   staff: number | null;
   part: number;
   storage: Partial<Record<Sku, number>>;
@@ -225,6 +228,12 @@ export interface ShopState {
   aw?: number;
   /** 品出しの端数（次の日に持ち越す） */
   dcarry?: number;
+  /** 段 UI5a（お店の自走）：今月、店長が休んだ日のうち、従業員で開けた日（self）・回す人が足りず閉まった／弱かった日（off） */
+  self?: number;
+  off?: number;
+  /** 先月の self・off（締めで移す） */
+  selfLast?: number;
+  offLast?: number;
 }
 
 export interface Trip {
@@ -307,6 +316,8 @@ export interface Report {
   brand?: number;
   /** その月のボトルネック（締めの時点） */
   bottleneck?: Stage;
+  /** 段 UI5a：流れが止まっている（全段が 0 の月・作業台が全部止まっている）ときの、いちばん上流の止まっている段と理由。月次報告はこちらを「課題あり」に */
+  stall?: Stall;
   /** 締めの時点で続けて 1 位の月の数（制覇の「いま 1 / 2」）。以前のセーブには無い */
   streak?: number;
   /** この月に他社の反撃が始まった（宣伝を始めた他社＝その月の 2 位・月数） */
@@ -455,7 +466,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22;
   kind: 'p1';
   seed: number;
   n: number;
@@ -795,7 +806,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 21,
+    v: 22,
     kind: 'p1',
     seed,
     n,
@@ -1331,6 +1342,7 @@ export function swapStops(s: P1State, hero: number, toTask: Task | null): boolea
       return toTask !== 'transport' && !s.staff.some((x) => x.hero !== hero && x.task === 'transport');
     case 'buy':
       return toTask !== 'buy' && !s.staff.some((x) => x.hero !== hero && x.task === 'buy');
+    // （段 UI5a：交代要員がいれば、ほかの調達係が代わりに出るので止まらない）
     case 'craft':
       return !!s.slots.find((sl) => sl.worker === hero)?.sku;
     case 'shop': {
@@ -2162,6 +2174,13 @@ function startTraining(s: P1State, id: string, st: Staff) {
 
 /** セクタに属する仕事（セクタを離れるときに外し、戻ったら空いていれば元に戻す。land.ts の moveTo） */
 export const SECTOR_TASKS: readonly Task[] = ['craft', 'transport', 'shop', 'buy', 'intel', 'dig'];
+/**
+ * 段 UI5a：調達係の定員（調達の交代要員 +1）。買い付けに出るのは休んでいない調達係の 1 人
+ * （1 人目が休む日は 2 人目が代わりに出る＝1 人がスタミナ切れでも調達が止まらない）。古いセーブ・パネルなしは 1 人
+ */
+export const buyCap = (s: Pick<P1State, 'skills'>) => 1 + (has(s, 'relief') ? 1 : 0);
+/** 調達係（定員の中。並びは雇った順＝いつも先頭が 1 人目） */
+export const buyersOf = (s: P1State) => s.staff.filter((x) => x.task === 'buy');
 /** 運搬係の上限（物流の画面の四角の数） */
 export const MAX_HAULERS = 3;
 
@@ -2181,7 +2200,7 @@ export function postFree(s: P1State, hero: number, task: Task, target: number | 
       return !!sh && (sh.staff == null || sh.staff === hero);
     }
     case 'buy':
-      return !s.staff.some((x) => x.hero !== hero && x.task === 'buy');
+      return s.staff.filter((x) => x.hero !== hero && x.task === 'buy').length < buyCap(s);
     case 'transport':
       return s.staff.filter((x) => x.hero !== hero && x.task === 'transport').length < MAX_HAULERS;
     case 'lead':
@@ -2499,6 +2518,108 @@ export function setShelf(s: P1State, uid: number, idx: number, x: Sku | null): b
   return true;
 }
 
+// ---------------------------------------------------------------- 段 UI5a：製造と販売の連動（何を売るかは製造が決める）
+
+/** チュートリアル（タオックスの 1 か月目）のあいだは、棚はプレイヤーが決める（教える手順を変えない）。そのあとは製造に連動 */
+export const shelvesAuto = (s: Pick<P1State, 'tut'>) => !(typeof s.tut === 'number' && s.tut < 99);
+/** 工房で作っている商品（作業台の順。ロットが終わってから切り替わる予定の商品も。この町で売れない商品は除く） */
+export function madeSkus(s: P1State): Sku[] {
+  const out: Sku[] = [];
+  const pend = (s.deleg?.pend ?? {}) as Record<number, Sku>;
+  s.slots.forEach((sl, k) => {
+    for (const x of [sl.sku, pend[k]]) if (x && !out.includes(x) && !unsellableHere(s, skuParts(x)[0])) out.push(x);
+  });
+  return out;
+}
+/** その商品が、お店 uid に届けられる在庫（工房の倉庫・運んでいる途中・そのお店の裏と棚）を持っているか */
+function stockFor(s: P1State, uid: number, x: Sku): number {
+  const sh = s.shops[uid];
+  return (s.stock[x] ?? 0) + s.trips.reduce((a, t) => a + (t.cargo[x] ?? 0), 0) + (sh?.storage[x] ?? 0) + (sh?.shelf[x] ?? 0);
+}
+/**
+ * 棚を製造に合わせる（毎日の初め・作る物を変えたとき・棚を増やしたとき・読み込み）。並べる順番は：
+ * 1. 作っていて在庫がある商品（工房の倉庫・運んでいる途中・お店）
+ * 2. 作らなくなったが、まだ在庫が残っている商品（売り切るまで。空いた棚があれば）
+ * 3. 作り始めたばかりで、まだ 1 個もできていない商品は新しくは並べない（並べると棚が空のまま満足度が下がる。できたら翌日に並ぶ。もう並んでいる商品は残す）
+ * 並んでいる商品はなるべく同じ棚のまま（品出しの手間を増やさない）。主力（1 番目の棚）はプレイヤーの指定（main）、無ければ作っている順の先頭。
+ * ready：見込みの計算用に、作っている商品は在庫があるものとして並べる。チュートリアルのあいだは何もしない。替えた棚の数
+ */
+export function syncShelves(s: P1State, ready = false): number {
+  if (!shelvesAuto(s)) return 0;
+  const made = madeSkus(s);
+  let n = 0;
+  for (const b of myShops(s)) {
+    const sh = s.shops[b.uid];
+    if (!sh || !sh.shelves.length) continue;
+    const cap = sh.shelves.length;
+    const score = (x: Sku): number => {
+      if (unsellableHere(s, skuParts(x)[0])) return 0;
+      const have = stockFor(s, b.uid, x) > 0;
+      // 作っている商品は、いったん並んだら在庫が切れても棚に残す（運ぶ便が「並んでいる商品」を見て出るので、外すと 1 日遅れる）
+      if (made.includes(x)) return have || ready || x === sh.main || sh.shelves.includes(x) ? 3 : 0;
+      return have ? 2 : 0;
+    };
+    const cands = new Set<Sku>([...made, ...(sh.shelves.filter((x): x is Sku => !!x)), ...(Object.keys(sh.storage) as Sku[]).filter((x) => (sh.storage[x] ?? 0) > 0), ...(Object.keys(s.stock) as Sku[]).filter((x) => (s.stock[x] ?? 0) > 0)]);
+    const order = (x: Sku) => (made.includes(x) ? made.indexOf(x) : 100 + (sh.shelves.includes(x) ? sh.shelves.indexOf(x) : 50));
+    const want = [...cands]
+      .filter((x) => score(x) > 0)
+      .sort((a, c) => score(c) - score(a) || order(a) - order(c))
+      .slice(0, cap);
+    // 主力：指定があってその商品が並ぶならそれ。無ければ、いまの 1 番目が並び続けるならそのまま、そうでなければ作っている順の先頭
+    const cur0 = sh.shelves[0];
+    const main = sh.main && want.includes(sh.main) ? sh.main : cur0 && want.includes(cur0) ? cur0 : want[0] ?? null;
+    const next: (Sku | null)[] = sh.shelves.map((x) => (x && want.includes(x) ? x : null));
+    // 主力を 1 番目に（いま別の棚にあれば入れ替え）
+    if (main && next[0] !== main) {
+      const at = next.indexOf(main);
+      if (at > 0) next[at] = next[0];
+      next[0] = main;
+    }
+    for (const x of want) {
+      if (next.includes(x)) continue;
+      const k = next.indexOf(null);
+      if (k < 0) break;
+      next[k] = x;
+    }
+    // 重ならないように（同じ商品が 2 つの棚に）
+    next.forEach((x, k) => {
+      if (x && next.indexOf(x) !== k) next[k] = null;
+    });
+    if (next.every((x, k) => x === sh.shelves[k])) continue;
+    // 外す商品から先に（setShelf が棚の残りを裏へ戻す）、そのあと並べる
+    const prev = [...sh.shelves];
+    prev.forEach((x, k) => {
+      if (x && !next.includes(x)) {
+        setShelf(s, b.uid, k, null);
+        n++;
+      }
+    });
+    next.forEach((x, k) => {
+      if (sh.shelves[k] !== x) {
+        sh.shelves[k] = x;
+        n++;
+      }
+    });
+  }
+  return n;
+}
+/** 主力商品を決める（店長への指示。並んでいる・作っている商品だけ）。並べ替えはすぐ（syncShelves） */
+export function setMain(s: P1State, uid: number, x: Sku | null): boolean {
+  const sh = s.shops[uid];
+  if (!sh) return false;
+  if (x && unsellableHere(s, skuParts(x)[0])) return false;
+  sh.main = x;
+  if (!shelvesAuto(s)) return x ? setShelf(s, uid, 0, x) : true;
+  syncShelves(s);
+  if (x && sh.shelves[0] !== x) {
+    // まだ在庫が無い（作り始めたばかり）：1 番目の棚に先に置いておく（入荷待ち）
+    const at = sh.shelves.indexOf(x);
+    if (at > 0) sh.shelves[at] = sh.shelves[0];
+    setShelf(s, uid, 0, x);
+  }
+  return true;
+}
+
 /**
  * 段 UI4（追加の要望）：工房の作業台の「作る物」を A から B に替えたとき、主力商品（1 番目の棚）が A のお店（まとめて替えるシートの行）。
  * チュートリアル（1 か月目）・A と B が同じ・A を主力に並べているお店が無いときは空。stock：そのお店の A の数（棚と裏）
@@ -2560,7 +2681,9 @@ function pull(s: P1State, b: PBuilding, sh: ShopState, x: Sku, clerk: Clerk = 'n
   const st = sh.staff != null ? staffOf(s, sh.staff) : null;
   const present = !!st && (clerk === 'in' || (clerk === 'now' && !st.resting));
   const staffed = st && present ? 0.6 + 0.4 * speed(st, 'shop', s) : 0;
-  const service = staffed + sh.part * 0.15;
+  // 段 UI5a（お店の自走）：店長が休んでいる日は、店長が管理する従業員（アルバイト。2 人から）が店を回す。売る力は人数に応じて、店長がいる日より弱い。
+  // 従業員 1 人・店長のいないお店（アルバイトだけ）は前のまま
+  const service = st && !present && sh.part >= SELF_RUN.min ? Math.min(SELF_RUN.cap, sh.part * SELF_RUN.per) : staffed + sh.part * 0.15;
   if (service <= 0) return 0;
   const [k, r] = skuParts(x);
   return (P1B[b.id].pull ?? 1) * skillPull(s) * shopPull(s, b, sh, x) * brandPull(s.brand, lvMul(s, 'd_ops')) * (1 + 0.1 * invLv(b, 'sign')) * (1 + adBoost(s)) * service * sh.sat * (r === 'U' ? UNCOMMON.pull : r === 'C' ? TIERS[s.tier ?? 'C'].commonPull : 1) * goodsMul(s, k, r) * knownOf(s, k);
@@ -3277,6 +3400,8 @@ export interface DayResult {
   legal?: LegalDay;
   /** 外交（段 UI4）：今日そろった依頼・期限が切れた依頼 */
   diplo?: { done: Req[]; late: Req[] };
+  /** 段 UI5a（お店の自走）：今日、店長が休んで従業員もいないので閉まったお店（uid） */
+  closed?: number[];
 }
 
 // ---------------------------------------------------------------- ヒーローの育成（段 E1。hero.ts・docs/ISLAND_PHASE1.md「ヒーローの育成」）
@@ -3347,6 +3472,8 @@ export function step(s: P1State): DayResult {
   const ws = myWorkshop(s);
   const shops = myShops(s);
   const working = new Set<number>();
+  // 段 UI5a：何を売るかは製造が決める（棚は作っている商品に自動でそろう。チュートリアルのあいだは手で）
+  syncShelves(s);
 
   // 注文：納期に問屋の人が工房に着いたら在庫になる
   if (s.orders?.length) {
@@ -3621,6 +3748,14 @@ export function step(s: P1State): DayResult {
     }
     sh.dcarry = moved > 0 ? Math.min(0.99, cap - Math.floor(cap)) : 0;
     const open = (st && !st.resting) || sh.part > 0;
+    // 段 UI5a（お店の自走）：店長が休んだ日。従業員が 2 人以上なら従業員で営業、足りなければ閉まる（1 人ならレジの手伝いだけ）
+    if (st && st.resting) {
+      if (sh.part >= SELF_RUN.min) sh.self = (sh.self ?? 0) + 1;
+      else {
+        sh.off = (sh.off ?? 0) + 1;
+        if (sh.part === 0) (res.closed ??= []).push(b.uid);
+      }
+    }
     if (open) sh.aw = Math.min(1, (sh.aw ?? 1) + AWARE.perDay);
     const empty = sh.shelves.some((x) => x && (sh.shelf[x] ?? 0) <= 0);
     if (open) sh.sat = empty ? Math.max(0.5, sh.sat - 0.01) : Math.min(1, sh.sat + 0.02);
@@ -4026,7 +4161,14 @@ export function endMonth(s: P1State): Report {
   s.utilLast = { ...s.util };
   s.util = { work: 0, cap: 0 };
   s.proc.bought = 0;
-  for (const sh of Object.values(s.shops)) sh.rev = 0;
+  for (const sh of Object.values(s.shops)) {
+    sh.rev = 0;
+    // お店の自走の数え（月次の提案「休む日に店を回す人がいません」は締めのあとのカード。cardsMonth が先に読む）
+    sh.selfLast = sh.self ?? 0;
+    sh.offLast = sh.off ?? 0;
+    sh.self = 0;
+    sh.off = 0;
+  }
   s.rivalSales = Object.fromEntries(s.rivals.map((r) => [r.id, 0]));
   s.monthCost = { materials: 0, wages: 0, part: 0, upkeep: 0, build: 0, ads: 0 };
   s.hirePool = pickHires(s);
@@ -4035,6 +4177,11 @@ export function endMonth(s: P1State): Report {
   s.brandStart = s.brand ?? 0;
   // 詰まり：締めが終わった時点（他社・需要の伸びも入れたあと）の能力で。月末ポーズで開く SCM ダッシュボードと同じ値になる
   report.bottleneck = jamOf(s);
+  // 段 UI5a：流れの全段が 0 の月・いま流れが止まっている月は、いちばん上流の止まっている段とその理由（月次報告の「課題あり」）
+  const f = report.flow;
+  const st = stallOf(s);
+  // （月末に作業台がたまたま止まっているだけの月は入れない：この月に作った数も売れた数も 0 の月だけ）
+  if (st && (!f || f.made + f.sold === 0)) report.stall = st;
   // 月次 PDCA：来月の見込み（売上・利益）
   if (has(s, 'pdca')) report.forecast = forecastNext(s, report);
   return report;
@@ -4430,7 +4577,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19 && o.v !== 20 && o.v !== 21) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19 && o.v !== 20 && o.v !== 21 && o.v !== 22) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -4507,7 +4654,10 @@ export function deserializeP1(json: string): P1State | null {
     // 版 18 → 19（段 H2：Epic の町 ②）：契約・特許・裁判（s.legal）と町ごとの M&A（area.ma）は空から（はじめて使うときに作る）
     // 版 19 → 20（段 UI1：提案・報告のカード）：カードの受け箱・任せた種類（s.cards）は空から（はじめて出すときに作る）。部長の提案の受け箱（s.deleg）はそのまま
     // 版 20 → 21（段 UI4：突発のできごと・外交）：できごと（s.events）と外交（s.diplo）は空から（はじめて使うときに作る。仲は初めの値）
-    s.v = 21;
+    // 版 21 → 22（段 UI5a：製造と販売の連動・調達の交代要員・お店の自走）：棚を製造に合わせる（作っていない商品が棚に乗ったまま売上 0 の状態を残さない）。
+    // 主力の指定（ShopState.main）は無し（いまの 1 番目の棚のまま）。調達係は 1 人のまま（定員のパネルを取るまで）
+    if (o.v < 22) syncShelves(s);
+    s.v = 22;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);
@@ -4607,7 +4757,7 @@ export function migrateEquipSkills(s: P1State) {
 
 // ---------------------------------------------------------------- 地図の吹き出し（自社の施設）
 
-export type Stop = 'sale' | 'gateShut' | 'gateOpen' | 'noCrafter' | 'crafterRest' | 'noItem' | 'noMats' | 'full' | 'noHauler' | 'noProduct' | 'noClerk' | 'clerkRest' | 'soldOut';
+export type Stop = 'sale' | 'gateShut' | 'gateOpen' | 'noCrafter' | 'crafterRest' | 'noItem' | 'noMats' | 'full' | 'noHauler' | 'noProduct' | 'noClerk' | 'clerkRest' | 'soldOut' | 'selfRun';
 /** 施設のようす：動いているなら作っている／売っている商品、止まっているなら理由（error＝止まっている、warn＝流れが詰まりかけ） */
 export type FacilityStatus = { kind: 'craft' | 'sell'; items: Sku[] } | { level: 'error' | 'warn' | 'info'; stop: Stop };
 
@@ -4646,6 +4796,8 @@ export function facilityStatus(s: P1State, b: PBuilding): FacilityStatus | null 
     const st = sh.staff != null ? staffOf(s, sh.staff) : null;
     if (!st && sh.part === 0) return { level: 'error', stop: 'noClerk' };
     if (st?.resting && sh.part === 0) return { level: 'error', stop: 'clerkRest' };
+    // 段 UI5a（お店の自走）：店長は休み、従業員で営業中
+    if (st?.resting && sh.part >= SELF_RUN.min) return { level: 'info', stop: 'selfRun' };
     if ((sh.shelf[main] ?? 0) <= 0 && (sh.storage[main] ?? 0) <= 0) return { level: 'warn', stop: 'soldOut' };
     return { kind: 'sell', items: [main] };
   }
@@ -4739,6 +4891,19 @@ function potentialOf(s: P1State, mul = 1) {
     }
   }
   return { units, yen, byKey, byShelf };
+}
+
+/** 段 UI5a：商品ごとのひと月に売れる見込み（需要から取れる数。お店の処理力で頭打ちなら、その割合で縮める）。提案書の商品の行 */
+export function goodsSales(s: P1State): Partial<Record<Sku, { units: number }>> {
+  const pot = potentialOf(s);
+  const cap = displayCap(s);
+  const k = pot.units > 0 ? Math.min(1, cap / pot.units) : 0;
+  const out: Partial<Record<Sku, { units: number }>> = {};
+  for (const [key, v] of Object.entries(pot.byShelf)) {
+    const x = key.slice(key.indexOf(':') + 1) as Sku;
+    (out[x] ??= { units: 0 }).units += v * k;
+  }
+  return out;
 }
 
 export function salesPotential(s: P1State): number {
@@ -5053,6 +5218,17 @@ export function buyTripMonth(s: P1State, st: Staff): number {
   return (uptime(s, st) * DAYS * perTrip) / days;
 }
 
+/** 調達係みんなでひと月に運べる素材の数（1 人目の往復 × 交代要員を合わせた稼働率。1 人なら buyTripMonth と同じ） */
+export function buyMonthAll(s: P1State): number {
+  const bs = buyersOf(s);
+  if (!bs.length) return 0;
+  const one = buyTripMonth(s, bs[0]);
+  if (bs.length === 1) return one;
+  const u0 = uptime(s, bs[0]);
+  const up = Math.min(1, bs.reduce((a, st) => a + uptime(s, st), 0));
+  return u0 > 0 ? (one * up) / u0 : one;
+}
+
 /** exact：数字を丸めない（監査・見込みの比べ用）。noSell：④ 販売を計算しない（見込みの比べで、ほかの段だけ要るとき） */
 export function stageCaps(s: P1State, exact = false, noSell = false): Record<Stage, StageCap> {
   const R = (v: number) => (exact ? v : Math.round(v));
@@ -5064,8 +5240,9 @@ export function stageCaps(s: P1State, exact = false, noSell = false): Record<Sta
   let f = 1;
   if (buyer) {
     const total = procMats(s).reduce((a, o) => a + procQty(s, o.m), 0);
-    // 休んだ日のぶんは次の買い付けで取り戻すので、稼働率は 1 往復で運べる量（buyTripMonth）の回数にだけ効く
-    if (total > 0) f = Math.min(1, procCap(s) / total, buyTripMonth(s, buyer) / total);
+    // 休んだ日のぶんは次の買い付けで取り戻すので、稼働率は 1 往復で運べる量（buyTripMonth）の回数にだけ効く。
+    // 段 UI5a：交代要員（2 人目の調達係）がいれば、1 人目が休む日も出られる（稼働率は合わせて 1 まで）
+    if (total > 0) f = Math.min(1, procCap(s) / total, buyMonthAll(s) / total);
   }
   for (const [m, q] of Object.entries(plan.need)) {
     const have = buyer ? (hasRoute(s, m as Mat) && procMats(s).some((o) => o.m === m) ? procQty(s, m as Mat) * f : 0) : s.mats[m as Mat] ?? 0;
@@ -5112,6 +5289,65 @@ export function bottleneck(c: Record<Stage, StageCap>): Stage {
   const pref: Stage[] = ['craft', 'sell', 'haul', 'buy'];
   const min = Math.min(...order.map((k) => c[k].perMonth));
   return pref.find((k) => c[k].perMonth <= min + 1e-9) ?? order[0];
+}
+
+/**
+ * 段 UI5a：流れが止まっている理由（「全段が 0」の月の見立て）。いまの状態で、いちばん上流の止まっている段とその理由。
+ * 工房のどの作業台も動いていない（作れない）か、売り場が開いていないときだけ返す（流れているなら null）。
+ * - 作業台が素材切れ → ① 調達：調達係がいない（none）・みんな休んでいる（rest）・置き場所がいっぱい（full）・お金が無い（money）・月の上限（cap）・
+ *   ルートが無い（route）。工房の商品が運ばれずにたまって買い付けを控えている → ③ 物流（backlog）
+ * - 作業台が置き場所いっぱい → ③ 物流（運搬係がいない・休んでいる：none・rest）か ① 調達（使わない素材でいっぱい：full）
+ * - 作るものが無い・職人がいない → ② 製造（nomake・noworker）
+ * - 運ぶ人がいない → ③ 物流（none）・売り場に人がいない／棚が空 → ④ 販売（noclerk・empty）
+ * docs/ISLAND_PHASE1.md「課題ありの見立て（全段が 0 のとき）」
+ */
+export type StallWhy = 'none' | 'rest' | 'full' | 'money' | 'cap' | 'route' | 'backlog' | 'nomake' | 'noworker' | 'noclerk' | 'empty';
+export interface Stall {
+  stage: Stage;
+  why: StallWhy;
+  /** その段の担当（休んでいる調達係など） */
+  hero?: number;
+}
+export function stallOf(s: P1State): Stall | null {
+  if (!myWorkshop(s) || !myShops(s).length) return null;
+  const set = s.slots.filter((sl) => sl.sku);
+  const live = set.filter((sl) => sl.worker != null);
+  const running = live.some((sl) => sl.running);
+  if (!running) {
+    if (!set.length) return { stage: 'craft', why: 'nomake' };
+    if (!live.length) return { stage: 'craft', why: 'noworker' };
+    const errs = live.map((sl) => craftCheck(s, sl.sku!, sl.worker));
+    if (errs.some((e) => e == null)) return null;
+    const haulers = s.staff.filter((x) => x.task === 'transport');
+    const goods = sum(s.stock);
+    if (errs.includes('mats')) {
+      const bs = buyersOf(s);
+      const need = new Set(live.flatMap((sl) => Object.keys(recipeOf(sl.sku!)) as Mat[]));
+      const cheapest = Math.min(...[...need].map((m) => matPrice(s, m)));
+      if (!bs.length) return { stage: 'buy', why: 'none' };
+      if (bs.every((x) => x.resting)) return { stage: 'buy', why: 'rest', hero: bs[0].hero };
+      if ([...need].some((m) => !hasRoute(s, m) && (s.mats[m] ?? 0) <= 0)) return { stage: 'buy', why: 'route' };
+      if (poolFree(s) <= 0) return goods > poolCap(s) * 0.3 && (!haulers.length || haulers.every((x) => x.resting)) ? { stage: 'haul', why: haulers.length ? 'rest' : 'none', hero: haulers[0]?.hero } : { stage: 'buy', why: 'full' };
+      if (s.money < cheapest) return { stage: 'buy', why: 'money' };
+      if (procLeft(s) <= 0) return { stage: 'buy', why: 'cap' };
+      if (goods >= 20 && (!haulers.length || haulers.every((x) => x.resting))) return { stage: 'haul', why: haulers.length ? 'rest' : 'none', hero: haulers[0]?.hero };
+      // できた品が運ばれずにたまって、調達係が買い付けを控えている（運ぶのが追いつかない）
+      if (goods >= 20) return { stage: 'haul', why: 'backlog' };
+      return null;
+    }
+    if (errs.includes('full')) {
+      if (!haulers.length) return { stage: 'haul', why: 'none' };
+      if (haulers.every((x) => x.resting)) return { stage: 'haul', why: 'rest', hero: haulers[0].hero };
+      return { stage: 'buy', why: 'full' };
+    }
+    return null;
+  }
+  // 作れている：運ぶ人・売り場
+  if (!s.staff.some((x) => x.task === 'transport')) return { stage: 'haul', why: 'none' };
+  const open = myShops(s).filter((b) => s.shops[b.uid] && (s.shops[b.uid].staff != null || s.shops[b.uid].part > 0));
+  if (!open.length) return { stage: 'sell', why: 'noclerk' };
+  if (!open.some((b) => s.shops[b.uid].shelves.some((x) => x))) return { stage: 'sell', why: 'empty' };
+  return null;
 }
 
 /**

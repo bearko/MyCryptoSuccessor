@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { SKILL, isResearch } from '../src/island/p1/data';
 import { moveTo } from '../src/island/p1/land';
-import { allowedDirs, build, carriedRp, craftDays, deserializeP1, has, jamOf, learn, missingFront, myShops, newP1, pickHires, uncommonHeroes, openGate, serializeP1, skillLock, step, type P1State } from '../src/island/p1/model';
+import { allowedDirs, build, carriedRp, craftDays, deserializeP1, has, jamOf, learn, missingFront, myShops, newP1, pickHires, uncommonHeroes, openGate, serializeP1, skillLock, step, syncShelves, type P1State } from '../src/island/p1/model';
 import { execute } from '../src/island/p1/deleg';
 import { stockMsg, stockPlan } from '../src/island/p1/moves';
 import { shapeById } from '../src/island/p1/treelayout';
@@ -127,7 +127,7 @@ function sellJam(): P1State {
   return s;
 }
 
-describe('棚に並べる手（提案カード・指示の箱・受け箱の承認が同じ execute を使う）', () => {
+describe('棚に並べる手（提案カード・指示の箱・受け箱の承認が同じ execute を使う。段 UI5a：作業台の切り替えと一緒に）', () => {
   it('棚が +1 され、新しい棚にその商品が置かれ、作業台がその商品に切り替わる。知らせの文に棚の番号と作業台の番号が入る', () => {
     const s = sellJam();
     const b = myShops(s)[0];
@@ -140,8 +140,11 @@ describe('棚に並べる手（提案カード・指示の箱・受け箱の承�
     const money = s.money;
     expect(execute(s, act)).toBeNull();
     expect(s.shops[b.uid].shelves.length).toBe(n0 + 1);
-    expect(s.shops[b.uid].shelves[n0]).toBe(p.x);
-    expect(s.money).toBe(money - p.cost);
+    // 段 UI5a：棚は製造に連動。作り始めた商品は、できしだい並ぶ（在庫があるものとして並べると、増えた棚に入る）
+    syncShelves(s, true);
+    expect(s.shops[b.uid].shelves).toContain(p.x);
+    // 作り始めの素材の注文（足りない素材だけ）も一緒に払う
+    expect(s.money).toBeLessThanOrEqual(money - p.cost);
     // 作業台：止まっていれば今すぐ、動いていればいまのロットが終わってから
     const sl = s.slots[p.make!];
     if (plan.later) expect(s.deleg?.pend[p.make!]).toBe(p.x);

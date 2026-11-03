@@ -230,7 +230,7 @@ describe('★3 の「任せる」', () => {
     const before = s.cards.stat.auto.C ?? 0;
     const rep = fakeReport(s);
     cardsMonth(s, rep);
-    const again = cardInbox(s).filter((x) => x.src === 'clerk' && x.hero === c.hero && !x.held);
+    const again = cardInbox(s).filter((x) => x.src === 'clerk' && x.kind === 'sell' && x.hero === c.hero && !x.held);
     if ((s.cards.stat.auto.C ?? 0) > before) {
       expect(again.length).toBe(0);
       expect(rep.cards?.auto.length).toBeGreaterThan(0);
@@ -328,7 +328,7 @@ describe('古いセーブ（版 19）', () => {
     o.v = 19;
     delete o.cards;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(21);
+    expect(back.v).toBe(22);
     expect(back.cards).toBeUndefined();
     back.tut = 99;
     cardsMonth(back, fakeReport(back));

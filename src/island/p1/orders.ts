@@ -6,8 +6,8 @@
  * 仕様は docs/ISLAND_PHASE1.md「画面の並び（UI3）」の「建物の吹き出しの指示」。
  */
 import { t } from '../../i18n';
-import { ADS, INVEST, MATS, P1B, PRODUCTS, sku, skuParts, techSkill, type Mat, type Sku } from './data';
-import { recipeOf, adCost, bottleneck, stageCaps, type Stage, craftCheck, fullUse, has, hasRoute, investCost, invLv, leadDays, matPrice, myWorkshop, openRelics, procCap, procMats, relicSku, sellNow, tierOk, unsellableHere, whatIf, LOT, type P1State, type PBuilding } from './model';
+import { ADS, INVEST, MATS, P1B, PRODUCTS, SELF_RUN, SHOP, sku, skuParts, techSkill, type Mat, type Sku } from './data';
+import { madeSkus, partMax, recipeOf, adCost, bottleneck, stageCaps, type Stage, craftCheck, fullUse, has, hasRoute, investCost, invLv, leadDays, matPrice, myWorkshop, openRelics, procCap, procMats, relicSku, sellNow, tierOk, unsellableHere, whatIf, LOT, type P1State, type PBuilding } from './model';
 import { adGain, supplyFor } from './moves';
 import { toneOf, type Tone } from './persona';
 import { inTutorial } from './card';
@@ -219,7 +219,7 @@ export function lowMat(s: P1State): Mat | null {
 
 // ---------------------------------------------------------------- 担当と指示
 
-export type OrderKind = 'shelf' | 'swap' | 'ad' | 'clerk' | 'make' | 'bench' | 'crafter' | 'order' | 'buyopen' | 'buyer';
+export type OrderKind = 'shelf' | 'swap' | 'ad' | 'clerk' | 'make' | 'bench' | 'crafter' | 'order' | 'buyopen' | 'buyer' | 'main' | 'tidy' | 'field' | 'staff';
 export interface Order {
   k: OrderKind;
   label: string;
@@ -235,6 +235,8 @@ export interface Order {
   /** 作業台・素材 */
   slot?: number;
   m?: Mat;
+  /** 段 UI5a：棚を整える（設備投資の id） */
+  inv?: string;
 }
 export type OrderPlace = 'shop' | 'workshop' | 'wholesale';
 export interface OrderBox {
@@ -292,7 +294,11 @@ const shopName = (s: P1State, uid: number) => {
 };
 const nameOfSku = (x: Sku) => PRODUCTS.find((p) => p.key === skuParts(x)[0])?.name ?? x;
 
-/** お店の店長への指示：棚を増やして並べる（空き棚があれば空き棚に）・品を入れ替える・宣伝を頼む。店長がいなければ「担当を置く」 */
+/**
+ * お店の店長への指示（段 UI5a：販売は「どうやって売るか」だけ。何を売るかは製造が決め、棚は自動でついてくる）：
+ * 主力を決める・棚を整える（設備投資のいちばん効くもの）・宣伝を頼む・需要の読み（現場からの提言）・従業員（店長が休む日も開ける）。
+ * 店長がいなければ「担当を置く」が先頭。どれも押すと担当者からの提案書（「主力」「宣伝」は画面）
+ */
 function shopBox(s: P1State, uid: number): OrderBox {
   const sh = s.shops[uid];
   const nm = shopName(s, uid);
@@ -300,24 +306,21 @@ function shopBox(s: P1State, uid: number): OrderBox {
   const role = { icon: '🏪', text: t(`${nm}の店長`, `${nm} manager`) };
   const status = sh ? t(`今月の売上 ${fmt(sh.rev)}${sh.last ? `${SEP()}先月 ${fmt(sh.last.rev)}` : ''}`, `This month ${fmt(sh.rev)}${sh.last ? `${SEP()}last ${fmt(sh.last.rev)}` : ''}`) : '';
   const orders: Order[] = [];
-  if (hero == null) orders.push({ k: 'clerk', label: t('担当を置く', 'Assign a manager'), sub: (sh?.part ?? 0) > 0 ? t('いまはアルバイトだけ', 'Part-timers only now') : t('売り場に人がいません', 'Nobody on the floor'), rec: true });
+  if (hero == null) orders.push({ k: 'clerk', label: t('担当を置く', 'Assign a manager'), sub: (sh?.part ?? 0) > 0 ? t('いまは従業員だけ', 'Staff only now') : t('売り場に人がいません', 'Nobody on the floor'), rec: true });
   if (sh) {
-    const picks = shelfPicks(s, uid);
-    const top = picks.find((p) => p.ok) ?? picks[0];
-    const empty = sh.shelves.includes(null);
+    // 主力を決める（並んでいる・作っている商品から）
+    const cands = mainCands(s, uid);
+    const main = sh.shelves[0];
+    orders.push({ k: 'main', label: t('主力を決める', 'Pick the main item'), sub: main ? t(`いま：${nameOfSku(main)}${cands.length < 2 ? `${SEP()}並ぶ商品は 1 つだけ` : ''}`, `Now: ${nameOfSku(main)}${cands.length < 2 ? `${SEP()}only one item` : ''}`) : t('まだ並んでいない', 'Nothing on the shelves yet'), off: cands.length < 2 && !!main });
+    // 棚を整える：お店の設備投資のいちばん効くもの（棚の増設は、作って並べる商品とセット）
     const b = shopB(s, uid);
-    const full = !empty && (!b || investCost(b, 'shelves') == null);
+    const top = b ? shopInvestOrder(s, b).find((x) => !x.weak) : undefined;
+    const cost = b && top ? investCost(b, top.id) : null;
     orders.push(
-      full
-        ? { k: 'shelf', label: t('棚を増やして並べる', 'Add a shelf & stock it'), sub: t('棚はいっぱい（最大）', 'Shelves maxed'), off: true }
-        : !top
-          ? { k: 'shelf', label: empty ? t('空き棚に並べる', 'Fill the empty shelf') : t('棚を増やして並べる', 'Add a shelf & stock it'), sub: t('並べられる新しい商品がない', 'No new item to stock'), off: true }
-          : { k: 'shelf', label: empty ? t('空き棚に並べる', 'Fill the empty shelf') : t('棚を増やして並べる', 'Add a shelf & stock it'), sub: [pm(top.units), top.cost ? fmt(top.cost) : t('費用なし', 'Free'), ...(top.make != null ? [t('作業台も切り替え', 'switches a bench')] : [])].join(SEP()), units: top.units, cost: top.cost },
+      top && cost != null
+        ? { k: 'tidy', label: t('棚を整える', 'Improve the shelves'), sub: [INVEST[top.id]?.name ?? top.id, pm(top.units), fmt(cost)].join(SEP()), units: top.units, cost, inv: top.id }
+        : { k: 'tidy', label: t('棚を整える', 'Improve the shelves'), sub: t('いま効く設備投資がない', 'No upgrade helps now'), off: true },
     );
-    // 品を入れ替える：いちばん売れていない棚を、いちばん効く商品に
-    const k = weakShelf(s, uid);
-    const sw = picks.filter((p) => p.ok).map((p) => ({ p, u: swapGain(s, uid, k, p.x) })).sort((a, b2) => b2.u - a.u)[0];
-    if (sh.shelves.some((y) => y)) orders.push({ k: 'swap', label: t('品を入れ替える', 'Swap an item'), sub: sw && sw.u > 0.5 ? t(`棚 ${k + 1}${SEP()}${pm(sw.u)}`, `Shelf ${k + 1}${SEP()}${pm(sw.u)}`) : t(`棚 ${k + 1}${SEP()}いまがいちばん売れる`, `Shelf ${k + 1}${SEP()}already the best`), slot: k, units: sw?.u ?? 0 });
     // 宣伝を頼む：いちばん見込みの大きい宣伝（この町で元が取れるか）
     const run = ADS.find((a) => (s.ads[a.id] ?? 0) > 0);
     const ad = ADS.filter((a) => (s.ads[a.id] ?? 0) <= 0)
@@ -329,11 +332,28 @@ function shopBox(s: P1State, uid: number): OrderBox {
       sub: run ? t(`${run.name} 実施中（あと ${s.ads[run.id]} 日）`, `${run.name} running (${s.ads[run.id]} d)`) : ad ? (ad.g > 0 ? t(`${ad.a.name}${SEP()}見込み +${fmt(ad.g)}`, `${ad.a.name}${SEP()}+${fmt(ad.g)} expected`) : t(`この町では元が取れない（${ad.a.name} −${fmt(-ad.g)}）`, `Won’t pay off here (${ad.a.name} −${fmt(-ad.g)})`)) : '',
       cost: ad ? adCost(s, ad.a.id) : undefined,
     });
+    // 需要の読み（現場からの提言）：お客さんの声と需要から「○○の需要がありそう」。承認すると製造への提案書（作る物の切り替え・素材まで）
+    const f = fieldPick(s, uid);
+    orders.push(f ? { k: 'field', label: t('需要の読み（提言を見る）', 'Read demand (see the pitch)'), sub: [t(`${nameOfSku(f.x)}の需要がありそう`, `${nameOfSku(f.x)} looks wanted`), pm(f.units)].join(SEP()), units: f.units, cost: f.cost } : { k: 'field', label: t('需要の読み（提言を見る）', 'Read demand (see the pitch)'), sub: t('いま勧められる商品がない', 'No item to pitch now'), off: true });
+    // 従業員（店長が休む日も、2 人いれば従業員で開ける）
+    const want = Math.max(sh.part + 1, SELF_RUN.min);
+    const can = want <= partMax(s, uid) || (b != null && investCost(b, 'staffroom') != null);
+    orders.push({ k: 'staff', label: t('従業員を増やす', 'Add staff'), sub: [t(`いま ${sh.part} 人`, `${sh.part} now`), sh.part >= SELF_RUN.min ? t('休む日も従業員で営業', 'open on days off') : t('休む日は閉まる', 'closes on days off'), t(`毎月 +${fmt((want - sh.part) * SHOP.partTimeWage * 30)}`, `+${fmt((want - sh.part) * SHOP.partTimeWage * 30)}/mo`)].join(SEP()), off: !can });
   }
   // いちばん効く指示（金色）：見込みのいちばん大きいもの
   const best = orders.filter((o) => !o.off && (o.units ?? 0) > 0.5).sort((a, b) => (b.units ?? 0) - (a.units ?? 0))[0];
   if (best && hero != null) best.rec = true;
   return { place: 'shop', hero, role, greet: hero != null ? greetOf(hero) : t('店長がいません。', 'No manager here.'), status, orders };
+}
+/** 主力にできる商品（そのお店に並んでいる商品と、工房で作っている商品） */
+export function mainCands(s: P1State, uid: number): Sku[] {
+  const sh = s.shops[uid];
+  if (!sh) return [];
+  return [...new Set([...sh.shelves.filter((x): x is Sku => !!x), ...madeSkus(s)])].filter((x) => !unsellableHere(s, skuParts(x)[0]));
+}
+/** 現場からの提言：そのお店に並べると、いちばん売れそうな新しい商品（作り手のいるもの。空き棚が無ければ棚の増設とセット） */
+export function fieldPick(s: P1State, uid: number): ShelfPick | null {
+  return shelfPicks(s, uid).find((p) => p.ok && p.units > 0.5) ?? null;
 }
 
 /** 工房の職人への指示：作る物を変える・作業台を足す・空いた作業台に職人を置く */
