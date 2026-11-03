@@ -469,6 +469,12 @@ export interface Flags {
   roleFix?: number[];
   /** 段 UI2：到着の案内か部門の紹介を最後に出した日（部門の紹介は 1 日に 1 つずつ。無くてもよい項目なのでセーブの版は変えない） */
   talkDay?: number;
+  /** 段 UI6：初めて部長を置けるようになったときのマインちゃんの一言を見た（無くてもよい項目なのでセーブの版は変えない） */
+  headTalk?: boolean;
+  /** 段 UI6：初めて部長を任命するときのマインちゃんの一言を見た */
+  headPick?: boolean;
+  /** 段 UI6：一度でも事業部長を置いた（トロフィー「マイクロマネジメント」の判定だけに使う） */
+  headEver?: boolean;
 }
 
 export interface P1State {

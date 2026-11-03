@@ -244,6 +244,8 @@ export function setHead(s: P1State, d: DeptId, hero: number | null): DelegErr | 
   const r = roleOf({ task: st.task, target: st.target });
   if (r?.kind === 'leader' && r.dept === d) clearRole(s, st);
   if (!st.heads?.includes(d)) st.heads = [...(st.heads ?? []), d];
+  // 段 UI6：一度でも部長を置いた（トロフィー「マイクロマネジメント」の判定。数字には効かない）
+  s.flags.headEver = true;
   return null;
 }
 /** 役目の経験値（1 日）：部長 > リーダー（セクター長＝マネージャーは会社の月の締めで 30 日 × 20） */

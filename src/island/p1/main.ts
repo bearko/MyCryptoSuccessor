@@ -17,7 +17,11 @@ import type { FxId } from '../fx/registry.js';
 import { BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardText, P1B, PACES, PRODUCT, SIDE, SKILL, TIERS, LEGAL_INTRO, skuParts, STORE, DEPT, PASSIVES, PROMO_ITEM, PROMO_ITEMS, HERO_RARITY, MORALE, type PromoItem, type DeptGroup, type DeptId, type Mat, type Tier, SALES_INTRO, ACCT_INTRO, CS_INTRO } from './data';
 import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
 import { bandText } from './deleg';
-import { openDeleg, openProps } from './delegui';
+import { headHooks, openDeleg, openProps } from './delegui';
+import { openHeadTalk } from './headtalkui';
+import { HEAD_OPEN_TALK, HEAD_PICK_TALK, headTalkDue, talkMode } from './headtalk';
+import { openTrophies, trophyEl, trophyTick } from './trophyui';
+import type { TrophyDef } from './trophy';
 import { autoText, cardInbox, cardsCompany, cardsDay, cardsMonth, demoDraft, diploDraft, stockDraft, enqueue, eventDraft, markSeen, nextPop, takeAuto } from './card';
 import { duoPages } from './duo';
 import { cardNav, showCard } from './cardui';
@@ -718,6 +722,7 @@ const SCREEN: Record<ScreenId, () => void> = {
   settings: () => openSettings(),
   pace: () => openPace(),
   save: () => openSaveMenu(),
+  trophy: () => openTrophies(ctx),
   test: () => TEST && openTest(),
 };
 /** サブタブの画面を開く（まとめた画面は縦に並べて。チュートリアルのあいだは 1 つ目の画面だけ：教える画面を変えない）。part：はじめにその部分へ */
@@ -848,6 +853,15 @@ function pickMenu(m: Menu) {
     return;
   }
   drawer = null;
+  // 段 UI6：部長との会話で動かす部門（いまは人事）。部長がいれば部長、置けるのにいなければマインちゃん。チュートリアルのあいだは変えない
+  if (!tutStep() && talkMode(s, m)) {
+    closeSheet();
+    sub = null;
+    sfx.play('tap');
+    openHeadTalk(ctx, m, { detail: (key) => goSub(m, key) });
+    renderAll();
+    return;
+  }
   // チュートリアル中は、いま開いてほしい小メニューから開く
   const ts = tutStep();
   const [hm, hk] = (ts ? hlOf(ts, s) : '').split(':');
@@ -3741,9 +3755,45 @@ function renderAll() {
   sectorChecks();
   deptChecks();
   deptTalk();
+  trophyCheck();
   // 撤退した他社の店のシャッター：報告・画面を閉じて地図が見えたら
   if (pendingShutter.length && !root.querySelector('.isl-modal, .isl-rp-reveal') && !sheetOpen()) playShutters();
 }
+/** 段 UI6：トロフィーの判定（日が変わったか、判定に効く記録が変わったときだけ）。取ったら上に帯と音 */
+let trophyKey = '';
+function trophyCheck() {
+  const key = `${s.day}|${!!s.flags.headEver}|${!!s.flags.landEpic}|${!!s.cleared}|${Object.keys(s.duo?.found ?? {}).length}`;
+  if (key === trophyKey) return;
+  trophyKey = key;
+  trophyQ.push(...trophyTick(s));
+  trophyFlush();
+}
+/** 取ったトロフィーの帯の順番待ち：そのときのトースト・カード・会話・発掘画面が消えてから 1 つずつ（トーストの列に入れるので、あとのトーストとも重ならない） */
+const trophyQ: TrophyDef[] = [];
+let trophyWait = 0;
+function trophyFlush() {
+  if (!trophyQ.length || trophyWait) return;
+  if (toasts.querySelector('.isl-toast') || holdToasts() || digOpen()) {
+    trophyWait = window.setTimeout(() => {
+      trophyWait = 0;
+      trophyFlush();
+    }, 400);
+    return;
+  }
+  const d = trophyQ.shift()!;
+  const e = trophyEl(d);
+  e.dataset.text = d.id;
+  toasts.append(e);
+  placeToasts();
+  sfx.play('win');
+  trophyWait = window.setTimeout(() => {
+    e.remove();
+    trophyWait = 0;
+    trophyFlush();
+  }, 4000);
+}
+/** 段 UI6：初めて部長を任命するとき（候補を選ぶ前）のマインちゃんの一言。画面の上に出す */
+headHooks.first = (go) => talk(HEAD_PICK_TALK().map((text) => ({ text })), t('部長を選ぶ', 'Pick a head'), go, { over: true });
 /** 部門のお知らせ（新しく開いた部門・理解度の節目。1 回だけ。docs/ISLAND_PHASE1.md「部門」） */
 function deptChecks() {
   const had = s.flags.depts?.includes('sales');
@@ -3789,6 +3839,15 @@ function deptTalk() {
     delete s.flags.roleFix;
     save();
     talk([{ text: t(`[[${names}]]が役職を兼ねていたので、1 つだけ残して、ほかの席は[[あなた]]に戻したよ。`, `[[${names}]] held two posts, so I kept one and gave the rest back to [[you]].`) }], t('組織図を見る', 'See the org chart'), () => goSub('hr', 'org'));
+    return;
+  }
+  // 段 UI6：初めて部長を置けるようになった（どこかの部門の理解度 8）：部長を選ぶと操作の仕方が大きく変わることを、先に一言
+  const hd = headTalkDue(s);
+  if (hd && !talkWaits(uiNow()) && !needsIntro(s) && !pendingReset(s) && (s.flags.talkDay ?? -1) < s.day) {
+    s.flags.headTalk = true;
+    s.flags.talkDay = s.day;
+    save();
+    talk(HEAD_OPEN_TALK(hd).map((text) => ({ text })), t('組織図を開く', 'Open the org chart'), () => goSub('hr', 'org'));
     return;
   }
   const k = deptTalkNext(s, uiNow(), { intro: needsIntro(s), reset: !!pendingReset(s) });

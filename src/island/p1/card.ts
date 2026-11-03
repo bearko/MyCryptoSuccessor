@@ -560,6 +560,19 @@ function hrDrafts(s: P1State): Draft[] {
   return [];
 }
 
+/**
+ * 段 UI6：人事部長の「採用の状況」の話題（会話の中の提案）。月の締めの「人を雇いませんか？」と同じ下書き（hrDrafts）を、
+ * 受け箱に入れない仮のカード（id −1）にする。k はおすすめの「雇う」の選択肢。雇える手が無ければ null
+ */
+export function hireOffer(s: P1State): { card: Card; k: number } | null {
+  const d = hrDrafts(s)[0];
+  if (!d) return null;
+  const card = { ...d, id: -1, mk: cardsOf(s).mk, sector: here(s), day: s.day, pop: false } as Card;
+  const rec = card.choices.findIndex((x) => x.rec && x.act.k === 'do');
+  const k = rec >= 0 ? rec : card.choices.findIndex((x) => x.act.k === 'do');
+  return k >= 0 ? { card, k } : null;
+}
+
 /** いまある「選ばせる知らせ」：問い合わせ・炎上の予告・他社の巻き返し／反撃 */
 function noticeDrafts(s: P1State, r: Report): Draft[] {
   const out: Draft[] = [];

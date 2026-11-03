@@ -12,6 +12,7 @@ import {
   bandText,
   candidatesFor,
   dutyLine,
+  headDepts,
   headLeft,
   headOf,
   heroNm,
@@ -108,6 +109,26 @@ export function pickFor(ctx: Ctx, dept: DeptId, title: string, current: number |
   );
 }
 
+/** 段 UI6：初めて部長を任命するとき（候補を選ぶ前）のマインちゃんの一言。main.ts が first を結ぶ（一言のあとに go で候補を出す） */
+export const headHooks: { first?: (go: () => void) => void } = {};
+/**
+ * 段 UI6：部長の候補を出す（部門の担当・組織図・部長との会話から）。まだ部長が 1 人もいなくて、初めて任命するときは、
+ * 先にマインちゃんの一言（部長を選ぶと操作の仕方が大きく変わる）。onPick を省くと、その部門の部長にする
+ */
+export function pickHead(ctx: Ctx, dept: DeptId, current: number | null, onPick?: (hero: number) => void, onClear?: () => void) {
+  const s = ctx.s();
+  const d = DEPT[dept];
+  const pick = onPick ?? ((hero: number) => done(ctx, setHead(s, dept, hero), t(`${heroNm(hero)}を${d.name}部長にしました！`, `${heroNm(hero)} now heads ${d.name}!`)));
+  const go = () => pickFor(ctx, dept, t(`${d.name}部長`, `${d.name} head`), current, pick, onClear);
+  if (!s.flags.headPick && current == null && !headDepts(s).length && headHooks.first) {
+    s.flags.headPick = true;
+    ctx.save();
+    headHooks.first(go);
+    return;
+  }
+  go();
+}
+
 /** 部門の担当（部門の画面の上の帯の「担当」から）：事業部長・業務ごとのチームリーダー */
 export function openDeleg(ctx: Ctx, dept: DeptId) {
   const d = DEPT[dept];
@@ -143,7 +164,7 @@ export function openDeleg(ctx: Ctx, dept: DeptId) {
       );
       hc.append(row);
     } else {
-      const add = btn(t('＋ 部長を置く', '+ Place a head'), () => pickFor(ctx, dept, t(`${d.name}部長`, `${d.name} head`), null, (hero) => done(ctx, setHead(s, dept, hero), t(`${heroNm(hero)}を${d.name}部長にしました！`, `${heroNm(hero)} now heads ${d.name}!`))), 'is-on isl-dl-add');
+      const add = btn(t('＋ 部長を置く', '+ Place a head'), () => pickHead(ctx, dept, null, (hero) => done(ctx, setHead(s, dept, hero), t(`${heroNm(hero)}を${d.name}部長にしました！`, `${heroNm(hero)} now heads ${d.name}!`))), 'is-on isl-dl-add');
       hc.append(add);
     }
     hc.append(h('small', 'isl-dim', t(`部長がいると、この部門の業務がすべて自動で回り、月に 1 回、提案を持ってきます（承認／却下／保留）。部門の効き目に小さな補正（出来しだい ±）。リーダーがいれば、部長の下で出来 +${Math.round(DELEG.q.underHead * 100)}%。`, `With a head, every task here runs on its own and a proposal arrives monthly (approve / reject / hold). A small ± to the department’s effects. Leaders under a head get +${Math.round(DELEG.q.underHead * 100)}% quality.`)));

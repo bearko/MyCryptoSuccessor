@@ -8,7 +8,7 @@ import { t } from '../../i18n';
 import { DEPT, DUTY, MORALE, aptitude } from './data';
 import { sectorDef } from './company';
 import { heroNm, setHead, setLeader } from './deleg';
-import { done, pickFor } from './delegui';
+import { done, pickFor, pickHead } from './delegui';
 import { openGrowth } from './growthui';
 import { jobLabel, pickHero } from './heroui';
 import { orgChart, orgCounts, type Seat } from './org';
@@ -78,10 +78,9 @@ export function openOrg(ctx: Ctx) {
       else
         box.append(
           seatEl(ctx, s, d.head, headTitle, () =>
-            pickFor(
+            pickHead(
               ctx,
               d.dept,
-              headTitle,
               d.head.hero,
               (hero) => done(ctx, setHead(s, d.dept, hero), t(`${heroNm(hero)}を${D.name}部長にしました`, `${heroNm(hero)} now heads ${D.name}`)),
               () => done(ctx, setHead(s, d.dept, null), t(`${D.name}部長を外しました（あなたに戻る）`, `${D.name} head removed (back to you)`)),
