@@ -35,6 +35,8 @@ import {
   invLv,
   jamOf,
   myShops,
+  poolCap,
+  poolUsed,
   myWorkshop,
   newP1,
   openRelic,
@@ -318,7 +320,7 @@ const shopOf = (s: P1State) => myShops(s)[0];
 const wsOf = (s: P1State) => myWorkshop(s)!;
 const mainSku = (s: P1State) => s.slots[0].sku as Sku;
 /** 投資：その建物の、その設備をいまの段から 1 段 */
-const targetOf = (s: P1State, id: string) => (INVEST[id].kind === 'workshop' ? wsOf(s) : INVEST[id].kind === 'shop' ? shopOf(s) : s.buildings.find((x) => x.owner === 'me' && x.id === 'warehouse')!);
+const targetOf = (s: P1State, id: string) => (INVEST[id].kind === 'workshop' ? wsOf(s) : INVEST[id].kind === 'shop' ? shopOf(s) : s.buildings.find((x) => x.owner === 'me' && x.id === (INVEST[id].kind === 'depot' ? 'logistics' : 'warehouse'))!);
 const inv = (id: string) => (s: P1State) => {
   const b = targetOf(s, id);
   const e = invest(s, b.uid, id);
@@ -392,6 +394,11 @@ const depot = (s: P1State) => {
 const warehouse = (s: P1State) => {
   const ws = wsOf(s);
   buildNow(s, 'warehouse', place(s, 'warehouse', (i, j) => -(Math.abs(i - ws.i) + Math.abs(j - ws.j))));
+};
+/** 置き場所を、使わない素材（粘土）で空きが free 個になるまで埋める（倉庫の強化の監査） */
+const fillPool = (s: P1State, free = 30) => {
+  const n = poolCap(s) - poolUsed(s) - free;
+  if (n > 0) s.mats.clay = (s.mats.clay ?? 0) + n;
 };
 const truck = (s: P1State) => {
   if (!invLv(wsOf(s), 'truck')) invest(s, wsOf(s).uid, 'truck');
@@ -683,7 +690,9 @@ export const INVEST_SPEC: Record<string, { expect: Stage[]; base?: Item['base'];
   stockroom: { expect: ['buy'], base: 'j_trip', note: '往復で運べる量（置き場所）が詰まりのとき' },
   tools: { expect: ['craft'] },
   breakroom: { expect: ['craft'], note: 'スタミナ → 稼働率' },
-  rack: { expect: ['buy'], base: 'j_trip', setup: (s) => (warehouse(s), void (s.mats.clay = (s.mats.clay ?? 0) + 190)), note: '倉庫があって、置き場所がいっぱいに近いとき（使わない素材 190）' },
+  rack: { expect: ['buy'], base: 'j_trip', setup: warehouse, note: '倉庫があって、置き場所がいっぱいに近いとき（使わない素材で、空きを 30 個に。段 UI5d：3 段）' },
+  // 段 UI5d：物流拠点の保管棚（拠点の置き場所 +75／段）
+  dock: { expect: ['buy'], base: 'j_trip', setup: depot, note: '物流拠点があって、置き場所がいっぱいに近いとき（使わない素材で、空きを 30 個に）' },
   // 発掘の道具（ツルハシ・ランタン・発破）は、発掘 v2 の 2 段目でスキルツリーの発掘の枝へ移した（監査では「発掘」の対象外）
   // 遺物の展示館の展示室の増築（発掘 v2 の 4 段目）：SCM の段ではなく、入館料と節目のボーナス
   hall: { expect: [], out: '展示館（tests/island-p1-dungeon.test.ts で確認）' },
@@ -733,6 +742,7 @@ export function items(): Item[] {
           fitEquipment(s);
         }
         while (invLv(b, x.id) < lv - 1) inv(x.id)(s);
+        if (x.id === 'rack' || x.id === 'dock') fillPool(s);
         if (x.id === 'bench') for (let k = 1; k < s.slots.length; k++) if (s.slots[k].worker == null) assign(s, hireFor(s, 'craft'), 'craft', k);
       };
       out.push({

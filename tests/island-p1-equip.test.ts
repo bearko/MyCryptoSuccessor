@@ -76,7 +76,8 @@ describe('設備投資（スキルツリーから移した設備）', () => {
     expect(INVEST.stockroom.cost).toEqual([2500]);
     expect(INVEST.carts.cost).toEqual([3000, 7000]);
     expect(INVEST.truck.cost).toEqual([8000]);
-    expect(INVEST.rack.cost).toEqual([6000]);
+    // 段 UI5d：倉庫の強化は 3 段（1 個あたり 20〜30 G。建てる 4,000 G で +200 ＝ 20 G と同じくらいで、維持費のぶん少し得）
+    expect(INVEST.rack.cost).toEqual([2000, 2500, 3000]);
     expect(INVEST.rack.kind).toBe('warehouse');
     // 残るスキルの「先に要る」が、外したスキルを指していない
     for (const k of SKILLS) for (const r of k.requires ?? []) expect(SKILL[r]).toBeTruthy();
@@ -141,7 +142,7 @@ describe('設備投資（スキルツリーから移した設備）', () => {
     expect(partMax(s, two.uid)).toBe(1);
   });
 
-  it('倉庫：高い棚はその倉庫だけ +100', () => {
+  it('倉庫：強化（高い棚）はその倉庫だけ +100／段（3 段まで）', () => {
     const s = newP1(23);
     setup(s);
     s.money = 1e6;
@@ -152,6 +153,9 @@ describe('設備投資（スキルツリーから移した設備）', () => {
     expect(pool).toBe(STORE.base + STORE.warehouse);
     expect(invest(s, w.uid, 'rack')).toBeNull();
     expect(poolCap(s)).toBe(pool + 100);
+    expect(invest(s, w.uid, 'rack')).toBeNull();
+    expect(invest(s, w.uid, 'rack')).toBeNull();
+    expect(poolCap(s)).toBe(pool + 300);
     expect(invest(s, w.uid, 'rack')).toBe('max');
   });
 

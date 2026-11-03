@@ -4,8 +4,8 @@
  */
 import { t } from '../../i18n';
 import { DEF } from '../defs';
-import { INTEL, INVEST, MATS, P1B, PRODUCT, SELF_RUN, STORE, rivalDef, sku, skuParts, type Sku } from './data';
-import { DUNGEON, dungeonDepth, museumMarks, museumOpen, museumSlots, museumValue, revivedSites, permitFee, permitLock, presentLock, presentRes, researchOf, runLock, sessionSec, siteProgress, siteTopic, topicProgress, topicsOf, wasteAt, wasteName, extName, gateToll, invLv, isGate, poolCap, poolUsed, allowedDirs, assign, demolish, ground, invest, myWorkshop, order as placeOrder, LOT, intelLv, moveCost, occupant, oneWay, myShops, refundOf, shopArea, sidePay, speed, staffOf, storageCap, type P1State, type PBuilding } from './model';
+import { INTEL, INVEST, MATS, P1B, PRODUCT, SELF_RUN, rivalDef, sku, skuParts, type Sku } from './data';
+import { DUNGEON, dungeonDepth, museumMarks, museumOpen, museumSlots, museumValue, revivedSites, permitFee, permitLock, presentLock, presentRes, researchOf, runLock, sessionSec, siteProgress, siteTopic, topicProgress, topicsOf, wasteAt, wasteName, extName, gateToll, invLv, isGate, poolCap, poolUsed, allowedDirs, assign, demolish, ground, invest, myWorkshop, order as placeOrder, LOT, intelLv, moveCost, occupant, oneWay, myShops, refundOf, shopArea, sidePay, speed, staffOf, storageCap, roomOf, type P1State, type PBuilding } from './model';
 import { pickExt, pickHero } from './heroui';
 import { ackOf, benchToChange, craftable, fieldPick, inTut, mainCands, ordersOf, shelfPicks, swapGain, weakShelf, type Order, type OrderBox } from './orders';
 import { stockMsg, stockPlan } from './moves';
@@ -14,7 +14,7 @@ import { applyPlan, manualPlan, planOf } from './plan';
 import { openProposal } from './proposalui';
 import { pickClear, pickMake } from './stockui';
 import { chooseMake, investList, openAds, openBuy, openShop, openWorkshop, pickClerk, rivalName, shopView, type Ctx } from './screens';
-import { bar, btn, h, heroIcon, heroName, money, skuIcon, skuName } from './ui';
+import { bar, btn, h, heroIcon, heroName, money, recLine, skuIcon, skuName } from './ui';
 import { canPresent, chiefOf, digMet, isChiefHome } from './digmeet';
 import { extIcon } from './digui';
 import { DEEP_LOCK, standing } from './digview';
@@ -312,7 +312,7 @@ function runOrder(ctx: Ctx, box: OrderBox, o: Order, b: PBuilding, hooks: TileHo
       if (!act) return;
       const st = box.hero != null ? s.staff.find((x) => x.hero === box.hero) : null;
       hooks.close();
-      openProposal(ctx, planOf(s, [act], { hero: box.hero, q: st ? quality(st, 'logistics') : undefined, dept: 'logistics' }), { say, role: box.role.text, done: () => hooks.redraw() });
+      openProposal(ctx, planOf(s, [act], { hero: box.hero, q: st ? quality(st, 'logistics') : undefined, dept: 'logistics' }), { say, role: box.role.text, rec: !!o.rec, done: () => hooks.redraw() });
       return;
     }
     case 'ad':
@@ -425,7 +425,7 @@ function orderBox(ctx: Ctx, b: PBuilding, hooks: TileHooks): HTMLElement | null 
     bt.type = 'button';
     bt.dataset.order = o.k;
     bt.disabled = !!o.off;
-    bt.append(h('b', '', o.label), h('small', '', o.sub));
+    bt.append(recLine(o.label, o.rec), h('small', '', o.sub));
     bt.addEventListener('click', (e) => {
       e.stopPropagation();
       runOrder(ctx, box, o, b, hooks);
@@ -738,10 +738,14 @@ function mine(ctx: Ctx, b: PBuilding, body: HTMLElement, hooks: TileHooks): HTML
   } else if (kind === 'depot') {
     const served = myShops(s).filter((x) => oneWay(s, x).from?.uid === b.uid);
     stat(grid, t('ここから運ぶお店', 'Shops served from here'), served.length ? served.map((x) => DEF[x.id].name).join(t('・', ', ')) : t('なし（工房からのほうが近い）', 'None (the workshop is closer)'), 'is-wide');
+    // 段 UI5d：物流拠点も倉庫の代わりに置ける（置き場所の合計に入る）
+    stat(grid, t('置き場所（全体）', 'Storage (total)'), t(`${poolUsed(s)} / ${poolCap(s)} 個（${Math.round((poolUsed(s) / Math.max(1, poolCap(s))) * 100)}%）`, `${poolUsed(s)} / ${poolCap(s)} (${Math.round((poolUsed(s) / Math.max(1, poolCap(s))) * 100)}%)`), 'is-wide');
+    stat(grid, t('この拠点', 'This hub'), t(`${roomOf(b)} 個（保管棚 ${invLv(b, 'dock')}/${INVEST.dock.cost.length} 段）`, `${roomOf(b)} (racks ${invLv(b, 'dock')}/${INVEST.dock.cost.length})`), 'is-wide');
     body.append(grid, h('small', 'isl-dim', t('工房からここまではトラックの定期便で速く運び、ここから近くのお店へ荷車で届けます。遠くにお店を出したら、そのそばに建てましょう。', 'A truck shuttles goods here from the workshop; carts deliver from here to nearby shops. Build one near your far shops.')));
   } else if (kind === 'warehouse') {
-    stat(grid, t('置き場所（全体）', 'Storage (total)'), t(`${poolUsed(s)} / ${poolCap(s)} 個`, `${poolUsed(s)} / ${poolCap(s)}`), 'is-wide');
-    stat(grid, t('この倉庫', 'This warehouse'), t(`${STORE.warehouse + 100 * invLv(b, 'rack')} 個`, `${STORE.warehouse + 100 * invLv(b, 'rack')}`), 'is-wide');
+    stat(grid, t('置き場所（全体）', 'Storage (total)'), t(`${poolUsed(s)} / ${poolCap(s)} 個（${Math.round((poolUsed(s) / Math.max(1, poolCap(s))) * 100)}%）`, `${poolUsed(s)} / ${poolCap(s)} (${Math.round((poolUsed(s) / Math.max(1, poolCap(s))) * 100)}%)`), 'is-wide');
+    // 段 UI5d：倉庫の強化の段
+    stat(grid, t('この倉庫', 'This warehouse'), t(`${roomOf(b)} 個（強化 ${invLv(b, 'rack')}/${INVEST.rack.cost.length} 段）`, `${roomOf(b)} (upgrade ${invLv(b, 'rack')}/${INVEST.rack.cost.length})`), 'is-wide');
     body.append(grid);
   } else if (kind === 'museum') {
     // 遺物の展示館：展示の数・価値・先月の来館と入館料・次の節目
@@ -791,7 +795,7 @@ function mine(ctx: Ctx, b: PBuilding, body: HTMLElement, hooks: TileHooks): HTML
       }, 'is-danger'),
     );
   body.append(acts, h('small', 'isl-dim', t(`移転すると約 ${Math.max(1, Math.ceil((P1B[b.id]?.days ?? 2) / 2))} 日休業します。在庫と設備はそのままです。`, `Moving closes it for about ${Math.max(1, Math.ceil((P1B[b.id]?.days ?? 2) / 2))} days; stock and upgrades stay.`)));
-  if (kind === 'shop' || kind === 'workshop' || kind === 'warehouse' || kind === 'museum') body.append(h('h4', '', t('設備投資', 'Capital investment')), investList(ctx, b, hooks.redraw));
+  if (kind === 'shop' || kind === 'workshop' || kind === 'warehouse' || kind === 'depot' || kind === 'museum') body.append(h('h4', '', t('設備投資', 'Capital investment')), investList(ctx, b, hooks.redraw));
   return body;
 }
 
