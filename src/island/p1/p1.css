@@ -9717,6 +9717,11 @@ small.isl-note-series.is-bad {
   opacity: 0.25;
   animation-duration: 1.4s;
 }
+/* 段 FX2b：ドット絵の雨（rain-band）が帯に降っているあいだは、全画面の CSS の雨と白い光を止める（雲と揺れは残す。docs/ISLAND_FX.md） */
+.isl-disaster.is-fxrain.is-storm .isl-disaster-rain,
+.isl-disaster.is-fxrain.is-storm .isl-disaster-flash {
+  display: none;
+}
 .isl-disaster-flash {
   position: absolute;
   inset: 0;
@@ -10730,6 +10735,10 @@ small.isl-note-series.is-bad {
   height: 140vmin;
   background: radial-gradient(circle, color-mix(in srgb, var(--c) 70%, transparent) 0%, transparent 60%);
   animation: isl-hpfx-glow 2.4s ease-out both;
+}
+/* 段 FX2b：顔の後ろの光の放射（sunburst）が出るときは、全画面の CSS の光を出さない */
+.isl-hpfx.has-fx .isl-hpfx-glow {
+  display: none;
 }
 .isl-hpfx.is-ll .isl-hpfx-glow {
   background: conic-gradient(from 0deg, #ff5fc888, #ffb62788, #63d47188, #4fa8ff88, #c77dff88, #ff5fc888);
@@ -13169,6 +13178,14 @@ button.isl-dband-lead.is-on {
   pointer-events: none;
   image-rendering: pixelated;
   will-change: transform;
+}
+/* 要素の後ろに描く効果（段 FX2。layer.ts の host）：要素を重なりの基準にして、中身の後ろ・背景の上に */
+.isl-fx-host {
+  isolation: isolate;
+}
+.isl-fx-cv.is-behind {
+  position: absolute !important;
+  z-index: -1;
 }
 
 /* ================================================================ 段 UI5b：月次報告の KPI ② 月次売上推移（スマホ） */

@@ -21,6 +21,7 @@ import { assign, blast, blastCost, blastSize, dig, digRepeatMs, digSite, drill, 
 import { DEEP_LOCK, DUNGEON_TAB, EPIC_VALUE_TEXT, RARE_RELIC_NOTE, seriesTag, anyPeek, autoDiggers, biggestFx, cellView, crewCount, digBlock, digErrText, digRec, digSpec, digSpecText, digStatus, dungeonNotes, findLabel, fxOf, gotLines, lockedLayer, nextLvText, noteEntries, noteTablets, noteTabs, noteTotals, relicLine, runBar, stars, type CellView } from './digview';
 import { AGAIN_TIP, DEEP_TIP, MEET_WALL, PEEK_TIP } from './digmeet';
 import { pickHero } from './heroui';
+import { FX_PAL, FX_RARITY, fxAtEl, playFx } from '../fx/layer';
 import { open, refreshSheet, sheetOpen, type Ctx } from './screens';
 import { btn, extImage, h, heroIcon, heroName, matIcon, money, rich } from './ui';
 
@@ -871,13 +872,24 @@ function flyToNotes(c: HTMLElement, id: number, label: string, rp: number) {
   f.style.setProperty('--tx', `${Math.round(nb.left + nb.width / 2 - sx)}px`);
   f.style.setProperty('--ty', `${Math.round(nb.top + nb.height / 2 - sy)}px`);
   p.ctx.root.append(f);
+  // 段 FX2：掘り出したマスから、レアリティの色の光の柱（すぐ消える。次に打てば消える）
+  if (r.width) playFx('loot-beam', sx, r.bottom - r.height * 0.2, { palette: FX_RARITY[extRarity(id)] ?? FX_RARITY.Common, opts: { item: false }, scale: innerWidth < 600 ? 1 : 1.5, life: 700, seed: id });
   window.setTimeout(() => {
     f.remove();
     if (!P) return;
     P.notes.classList.remove('is-gulp');
     void P.notes.offsetWidth;
     P.notes.classList.add('is-gulp');
+    // 研究ノートに吸い込まれたところで光る（続けて来たら 1 秒に 1 つ）
+    fxAtEl('collect-burst', P.notes, { palette: FX_PAL.gold, dy: 30, scale: innerWidth < 600 ? 1 : 4 / 3, thin: 'dig-notes' });
   }, 1500);
+}
+/** 段 FX2：札・窓の中の絵の後ろに、レアリティの色の光の柱（host の中に。絵の足もとから上へ。放射の模様の上・文字と絵の下） */
+function beamBehind(host: HTMLElement, icon: HTMLElement, id: number, life: number) {
+  const rays = host.querySelector(':scope > .isl-dig-rare-rays, :scope > .isl-dig-big-rays');
+  const x = icon.offsetLeft + icon.offsetWidth / 2;
+  const y = icon.offsetTop + icon.offsetHeight * 0.85;
+  playFx('loot-beam', x, y, { host, under: rays?.nextElementSibling ?? icon, palette: FX_RARITY[extRarity(id)] ?? FX_RARITY.Common, opts: { item: false }, ink: false, scale: innerWidth < 600 ? 4 / 3 : 2, life, seed: id });
 }
 /** 新しいレシピ（作業中）：画面の上に小さく「📜 新しいレシピ！『復刻 ○○』」。作業は止めない */
 function recipePing(key: string) {
@@ -930,11 +942,13 @@ function rareFind(c: HTMLElement, id: number, hit: DigHit) {
   if (!p) return;
   p.el.querySelector('.isl-dig-rare')?.remove();
   const w = h('div', 'isl-dig-rare');
-  w.append(h('i', 'isl-dig-rare-rays'), h('span', 'isl-dig-rare-tag', t(`${RARITY_JA.Rare}の遺物！`, 'A Rare relic!')), extIcon(id, 96), h('b', '', extName(id)), h('small', '', `${findLabel(hit)}${hit.rp ? t(`・研究 +${hit.rp}`, ` · RP +${hit.rp}`) : ''}`));
+  const ic = extIcon(id, 96);
+  w.append(h('i', 'isl-dig-rare-rays'), h('span', 'isl-dig-rare-tag', t(`${RARITY_JA.Rare}の遺物！`, 'A Rare relic!')), ic, h('b', '', extName(id)), h('small', '', `${findLabel(hit)}${hit.rp ? t(`・研究 +${hit.rp}`, ` · RP +${hit.rp}`) : ''}`));
   // 売れるシリーズ：ダンジョン由来（Rare の町の市場に無い）なら「Epic の町で価値が出る」
   const tag = seriesTag(id);
   if (tag && !tag[1]) w.append(h('small', 'isl-dig-epicval', EPIC_VALUE_TEXT()));
   p.el.append(w);
+  beamBehind(w, ic, id, 2000);
   window.setTimeout(() => {
     w.remove();
     if (P) flyToNotes(c, id, '', 0);
@@ -954,7 +968,8 @@ function bigFind(id: number, rp: number, topic: boolean, hit: DigHit) {
   const rname = RARITY_JA[extRarity(id) as keyof typeof RARITY_JA] ?? '';
   const tag = topic ? t('お題を発見！', 'Target found!') : t(`${rname}の大きな遺物を発見！`, `A large ${rname} relic!`);
   const sub = topic ? t(`研究 Lv5・研究ポイント +${rp}`, `Research Lv5 · RP +${rp}`) : `${findLabel(hit)}${rp ? t(`・研究ポイント +${rp}`, ` · RP +${rp}`) : ''}`;
-  box.append(rays, h('span', 'isl-dig-big-tag', tag), extIcon(id, 128), h('b', 'isl-dig-big-name', extName(id)), h('span', 'isl-dig-big-rp', sub));
+  const ic = extIcon(id, 128);
+  box.append(rays, h('span', 'isl-dig-big-tag', tag), ic, h('b', 'isl-dig-big-name', extName(id)), h('span', 'isl-dig-big-rp', sub));
   if (topic && st) box.append(h('small', 'isl-dig-big-prog', st.topics[0] >= st.topics[1] ? t(`お題 ${st.topics[0]} / ${st.topics[1]}：全部そろった！ 町の長に発表しよう`, `Targets ${st.topics[0]} / ${st.topics[1]}: all found! Present to the town head`) : t(`お題 ${st.topics[0]} / ${st.topics[1]}`, `Targets ${st.topics[0]} / ${st.topics[1]}`)));
   if (!topic) box.append(h('small', 'isl-dig-big-prog', t(`4 マスぶんの大きな遺物（${rname}）。本来このセクタでは手に入らない！`, `A 4-cell ${rname} relic — not normally found here!`)));
   // ダンジョンの Rare 以上：Epic の町の骨董の需要（準備中）
@@ -965,6 +980,9 @@ function bigFind(id: number, rp: number, topic: boolean, hit: DigHit) {
   w.addEventListener('click', close);
   w.addEventListener('pointerdown', (e) => e.stopPropagation());
   p.ctx.root.append(w);
+  // 段 FX2：絵の後ろにレアリティの色の光の柱（窓を閉じたら消える）と、出てきた瞬間の光
+  beamBehind(box, ic, id, 4600);
+  fxAtEl('collect-burst', ic, { palette: FX_RARITY[extRarity(id)] ?? FX_PAL.gold, dy: 30, delay: 200 });
   window.setTimeout(close, 5000);
 }
 
