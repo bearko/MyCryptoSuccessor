@@ -5,6 +5,7 @@ name: Sim
 # 回し方：
 #   - 計測したいブランチを `sim-run/<名前>` という名前で push する（例：git push origin HEAD:sim-run/ui5）
 #   - または Actions の画面から、ブランチを選んで「Run workflow」
+# シードを増やすとき：ブランチ名の後ろに `--seeds-1-2-3-4-5-6` のように付ける（例：sim-run/ui4--seeds-1-2-3-4-5-6-7-8-9）。
 # 結果：docs/ISLAND_BALANCE.md を書き直したコミットを、ブランチ `sim-out/<ブランチ名>` に push する（取り込むかは手で決める）。
 #   git fetch origin sim-out/<ブランチ名> && git show FETCH_HEAD:docs/ISLAND_BALANCE.md > docs/ISLAND_BALANCE.md
 on:
@@ -39,9 +40,12 @@ jobs:
       - run: node scripts/sync-assets.mjs
       - name: 分けた分を回す
         env:
+          REF_NAME: ${{ github.ref_name }}
           SIM_SHARD: ${{ matrix.i }}/16
           SIM_OUT: sim-shard-${{ matrix.i }}.json
-        run: npx vitest run tests/island-p1-simshard.test.ts --silent=false --reporter=verbose
+        run: |
+          case "$REF_NAME" in *--seeds-*) export SIM_SEEDS=$(echo "${REF_NAME##*--seeds-}" | tr '-' ',');; esac
+          npx vitest run tests/island-p1-simshard.test.ts --silent=false --reporter=verbose
       - uses: actions/upload-artifact@v4
         with:
           name: sim-shard-${{ matrix.i }}
@@ -69,8 +73,11 @@ jobs:
           path: sim-out
       - name: まとめて docs/ISLAND_BALANCE.md を書く
         env:
+          REF_NAME: ${{ github.ref_name }}
           SIM_MERGE: sim-out
-        run: npx vitest run tests/island-p1-simshard.test.ts --silent=false --reporter=verbose
+        run: |
+          case "$REF_NAME" in *--seeds-*) export SIM_SEEDS=$(echo "${REF_NAME##*--seeds-}" | tr '-' ',');; esac
+          npx vitest run tests/island-p1-simshard.test.ts --silent=false --reporter=verbose
       - name: 結果を sim-out/<ブランチ名> に push する
         env:
           SRC: ${{ github.ref_name }}
