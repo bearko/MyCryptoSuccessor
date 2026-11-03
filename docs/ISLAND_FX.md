@@ -14,7 +14,7 @@
 | `src/island/fx/registry.js`・`registry.d.ts` | 使う効果の一覧（id → モジュール）と型。効果を足したら両方に書く |
 | `src/island/fx/pixelfx/core/` | pixelfx の core（`fx.js`・`index.js` は character（actor）を外して短くした。ほかはそのまま） |
 | `src/island/fx/pixelfx/fx/<分類>/` | 写した効果（ファイルの頭に出どころ。中身はそのまま） |
-| `src/island/fx/pixelfx/fx/island/` | ゲームが自分で作った効果（`coin-pop.js`・`hammer-sparks.js`）。pixelfx の作法で書き、pixelfx の道具（render・check）でそのまま描ける |
+| `src/island/fx/pixelfx/fx/island/` | ゲームが自分で作った効果（`coin-pop.js`・`hammer-sparks.js`・`rain-band.js`）。pixelfx の作法で書き、pixelfx の道具（render・check）でそのまま描ける |
 
 - JS のまま写す（TypeScript に直さない。直すと元と比べられなくなる）。型は `registry.d.ts` に、使う所だけ書く。
 - pixelfx の `act`（キャラクターの動き）・`actor`（効果がキャラクターの体に付く）は写していない。`meta.actor` のある効果（holy/halo・status/burning・ui/level-up など）は、そのままでは使えない。
@@ -45,6 +45,7 @@ playFx('coin-pop', 0, 0, { layer: 'map', scale: Math.max(1, cam.zoom * 3), ancho
 | `opts` | 効果ごとの設定（firework-burst の `core` など） | — |
 | `host`・`under` | 要素の後ろに描く（段 FX2）：`host` の中にキャンバスを入れ、(x, y) は host の左上からの CSS px。`under` を渡すとその要素のすぐ下（並びの順で重ねる。放射の模様の上・文字と絵の下）、無ければ host の中身すべての下（z-index: -1・host は isolation）。host が外されたら消える | — |
 | `thin` | 間引きの組（段 FX2）：同じ組は 1 秒（`THIN_MS`）に 1 つまで。続けて来たら出さない（false） | — |
+| `keep` | 画面を押しても消さない（段 FX2b）：窓の中で段をまたいで続く演出（災害の雨）。host の中身を入れ替える・窓を閉じると消える | false |
 
 - **待たせない**：効果は `pointer-events: none` で重ねるだけ。画面を押すと `ui` の効果はすぐ薄れて消える（出てすぐ 0.2 秒は除く）。効果のあいだ操作を止めない・効果が終わるのを待って次へ進めない。
 - **チュートリアル（1 か月目）**：効果を足すのはよいが、押す場所（光るボタン・指さし・下のタブ）の上に長く残る効果は置かない。
@@ -73,6 +74,7 @@ playFx('coin-pop', 0, 0, { layer: 'map', scale: Math.max(1, cam.zoom * 3), ancho
 | `leaf`・`petal`・`heart` | 葉と草（leaf・grass・field）／屋根の赤 roofA／灯り lantern（どれも砂の白で明るく） | 復興の花（healing-bloom の palette・petal・heart） |
 | `dust` | `#704536 #b38e76 #c7ac8f #dbcaab #f0e6c9`（道 road ＋ 幹の影） | ダンジョンの入り口の岩と土ぼこり（summon-rise の stone） |
 | `smoke` | 中立 neutral ＋ 広場 plaza ＋ 白 | 他社の撤退の煙（poof） |
+| `rain` | 屋根 roofB の影 ＋ 海 water ＋ 窓 glass ＋ 白 | 災害の雨と稲光（rain-band） |
 | `FX_RARITY` | Common：中立／Uncommon：葉と草／Rare：海と窓／Epic：`#c77dff` を中心のランプ／Legendary：gold | 発掘の光の柱・昇格の光の放射（レアリティの色） |
 | `rampOf(色)` | 1 つの色から 7 段（#181818 と白へ混ぜる） | 新しい部門の花火（data.ts の DEPT の color） |
 
@@ -175,7 +177,7 @@ pixelfx の見本は暗い背景で作られている。明るい草地（`#94b3
 
 ### 棚卸し：いまの手応えと、pixelfx で足すなら
 
-（○＝段 FX1・FX2 で入れた。段 FX2 で、おすすめの順 1〜6 はすべて「済」。7 の災害は見送り。— は足さない）
+（○＝段 FX1・FX2・FX2b で入れた。おすすめの順 1〜7 はすべて「済」（7 の災害は段 FX2b で、全画面ではなく帯だけの自作の雨に）。— は足さない）
 
 | できごと | いまの演出 | pixelfx で足すなら（色） | 順 |
 | --- | --- | --- | --- |
@@ -188,7 +190,7 @@ pixelfx の見本は暗い背景で作られている。明るい草地（`#94b3
 | 研究成果の発表・制覇 | 手紙の窓（CSS の放射の帯）・👑 の帯・音 mining → clear／win | ○ `firework-burst` ＋ `confetti`（ours・party・core） | 済 |
 | 発掘の出土品（エクステ・お題・Epic） | CSS（`isl-dig-boom`・回る放射の窓・`isl-dig-fly`）・音 treasure／mining | ○ `loot-beam`（レアリティの色の光の柱）・`collect-burst` | 済 |
 | ヒーローのレベルアップ | トースト ⭐・音 levelup | ○ `collect-burst`（ours）をトーストの ⭐ で（地図には出さない。育成の画面は開いていないことが多いのでトーストに） | 済 |
-| 昇格 | 全画面の CSS（`isl-hpfx-glow`・回る光）・音 | ○ `sunburst`（新しいレアリティの色。L・LL は gold。`life: 2400`）を顔の後ろに。CSS の光は残す | 済 |
+| 昇格 | 全画面の CSS（`isl-hpfx-glow`・回る光）・音 | ○ `sunburst`（新しいレアリティの色。L・LL は gold。`life: 2400`）を顔の後ろに。出るときは全画面の CSS の光を出さない（段 FX2b） | 済 |
 | 提案の承認（カード） | 音 levelup／page・トースト。段 UI5a から、手のある選択肢は提案書のハンコ＋ `collect-burst`（gold） | 済（提案書のハンコ） | 済 |
 | できごと（突発） | カード・音 | — （カードの絵で足りる。`ui/exclamation` は character 付きで写せない） | — |
 | 新しい部門 | CSS の帯と火花（`isl-newdept`・`isl-spark`）・音 levelup | ○ `firework-burst`（部門の色。`rampOf`）1 発 | 済 |
@@ -200,7 +202,7 @@ pixelfx の見本は暗い背景で作られている。明るい草地（`#94b3
 | 関所が開く | 音 spend → win・会話 | ○ `firework-burst`（ours）を関所の上で 1 発（map。会話の箱の下） | 済 |
 | 遺物の展示館に展示 | 音 check／levelup | ○ `collect-burst`（gold）を飾った枠で | 済 |
 | 外交の約束・依頼を届けた | トーストだけ（🌐） | ○ 依頼を届けた：`collect-burst`（ours）をトーストの 🌐 で。約束はカードの提案書のハンコ（段 UI5a）のまま | 済 |
-| ランクアップの災害 | 全画面の CSS（雲・雨・稲光・揺れ）・音 katsun | `weather/storm`・`weather/rain`（320 × 180 の全画面）→ **見送り**（重い。下の「段 FX2」） | 見送り |
+| ランクアップの災害 | 全画面の CSS（雲・雨・稲光・揺れ）・音 katsun | ○ 自作の `rain-band`（町の札の帯だけに降る雨と稲光）。全画面の CSS の雨と白い光は止める（段 FX2b。`weather/storm`・`rain` の全画面は重いので使わない） | 済 |
 | 炎上 | 上の帯の札（CSS `isl-flame-glow`）・音 error | — （悪い知らせは控えめに。必要なら小さな炎の札の絵） | — |
 | 辞めたい・エラー | トースト・音 error | — （効果は足さない） | — |
 | お金を使った | 資金の「−N G」が飛ぶ（CSS `isl-spend`）・音 spend | — （文字で足りる） | — |
@@ -216,7 +218,7 @@ pixelfx の見本は暗い背景で作られている。明るい草地（`#94b3
 
 ## 検証の結果（段 FX2）
 
-FX1 の「おすすめの順」1〜6 を入れた。7（災害の全画面の天気）は重さで見送り。
+FX1 の「おすすめの順」1〜6 を入れた。7（災害の全画面の天気）は重さで見送り、段 FX2b で帯だけの自作の雨にした（下の「災害の雨」）。
 
 ### 入れた所
 
@@ -224,7 +226,7 @@ FX1 の「おすすめの順」1〜6 を入れた。7（災害の全画面の天
 | --- | --- | --- | --- | --- | --- |
 | 発掘：エクステを掘り出した | `loot-beam`（`item: false`）をマスから・0.7 秒 → 研究ノートに吸い込まれたところで `collect-burst` | レアリティ（`FX_RARITY`）／ノートは gold | ui・1.5（スマホ 1）／ノートは 4/3（1）。ノートの光は組 `dig-notes` で 1 秒に 1 つ | 光の柱は出さない。ノートの光は小さく | `digui.ts` の `flyToNotes` |
 | 発掘：Rare の札・Epic とお題の窓 | `loot-beam` を絵の後ろ（`host`・`under`：放射の模様の上・文字の下）。Epic・お題は出た瞬間に絵の上で `collect-burst` も | レアリティ | 札・窓の中・2（スマホ 4/3）・ink なし。札 2 秒・窓 4.6 秒（閉じたら消える） | 光の柱は出さない（`collect-burst` は小さく） | `digui.ts` の `rareFind`・`bigFind`（`beamBehind`） |
-| 昇格 | `sunburst` を顔の後ろ（`host`） | 新しいレアリティ（L・LL は gold） | 窓の中・1.5（スマホ 4/3）・ink なし・2.4 秒 | 小さく・光は半分 | `growthui.ts` の `playPromotion` |
+| 昇格 | `sunburst` を顔の後ろ（`host`）。出るときは全画面の CSS の光（`isl-hpfx-glow`・LL の回る光）を出さない（段 FX2b。`.isl-hpfx.has-fx`）。「なし」では CSS の光だけ | 新しいレアリティ（L・LL は gold） | 窓の中・1.5（スマホ 4/3）・ink なし・2.4 秒 | 小さく・光は半分 | `growthui.ts` の `playPromotion` |
 | 復興 | `healing-bloom` を荒れ地のまんなか（PC は左右にも。0.4・0.75・1.05 秒後） | leaf・petal・heart | map・寄ったあとの拡大率 × 3（左右 × 2） | 小さく | `main.ts` の `wasteFx` |
 | ダンジョンの入り口 | `summon-rise`（`beast: false`・`dust: true`）を門の下 | 輪は gold・岩と土ぼこりは dust | map・拡大率 × 2 | 小さく | `main.ts` の `wasteFx` |
 | 新しい部門 | `firework-burst` 1 発。PC は帯の右上・スマホは帯の上の縁ではじける（部門の名前に重ねない） | 部門の色（`rampOf`）＋芯 core | ui・2（スマホ 4/3）・ink あり | 出さない | `main.ts` の `newDeptBanner` |
@@ -271,9 +273,45 @@ FX1 の「おすすめの順」1〜6 を入れた。7（災害の全画面の天
 
 どの場面もページの p50・p95 は 16.7 ms のまま（最悪の 1 コマは効果なしでも 100 ms ある。計測の環境の CPU を別の作業と分けているため）。PC（CPU 等倍）では効果 1 コマ 0.4〜3 ms。
 
-### 見送り：災害の全画面の天気（`weather/storm`・`weather/rain`）
+### 災害の雨（段 FX2b）
 
-320 × 180 の全画面で、node で 1 コマ（update＋draw＋合成）が rain p50 3.6 ms・storm p50 5.3 ms（p95 32 ms）。花火（node p50 1.8 ms → スマホ CPU 4 倍遅くで 1 コマ 10.8 ms）から見積もると、スマホで rain 22 ms・storm 30 ms 以上になり、1 コマ 16 ms を超える（しかも災害の演出のあいだ数秒続く）。新しい効果の目安（node 2.5 ms 以下）も超えるので入れていない。入れるなら、粒の数を減らした自作の軽い雨（画面の一部・160 × 90 を 4 倍）か、スプライトシートにして 12 コマ/秒で流す。
+段 FX2 では、pixelfx の `weather/storm`・`weather/rain`（320 × 180 の全画面）が重い（node で 1 コマ rain p50 3.6 ms・storm 5.3 ms。スマホ CPU 4 倍遅くで 22〜30 ms 以上の見積もり）ので見送った。段 FX2b で、**画面の一部（町の札の帯）だけに降る軽い雨**を自作した（`fx/island/rain-band.js`）。
+
+| | 中身 |
+| --- | --- |
+| 効果 | 細い斜めの雨すじ（奥は暗く 4 ドット・手前は明るく 8 ドット）が帯に降り、床で 2 ドットはねる。帯の上から稲光が 1 本、2 コマ光ってもう一度ちらつく（2.6 秒のループ）。帯の端では薄れる（四角く見えないように） |
+| 置く所 | 災害の窓の中（`host`：`.isl-disaster-stage`）、町の札の並び（`.isl-disaster-map`）の下の縁が床。札の後ろに降る（札の文字を隠さない）。1 ドット＝PC 4 px（720 × 400 px）・スマホ 2 px |
+| 長さ | ① 災害 → ② 被害の一覧のあいだ降り続ける（`keep`：押して次の段へ進んでも消えない）。③ 役人の通知で中身を入れ替えると消える |
+| 色 | `FX_PAL.rain`・ink なし（暗い窓の上） |
+| 控えめ | 粒 170 → 80・稲光なし（ほかの効果と同じく 1 ドット 3/4・光は半分） |
+| なし・動きを減らす | 出さない。いままでの CSS（雲・雨・白い光・揺れ）のまま |
+
+**いまの CSS との重なり**：ドット絵の雨が出たとき（`.isl-disaster.is-fxrain`）は、① ② のあいだ**全画面の CSS の雨と白い光を止め、雲と揺れは残す**（置き換え）。理由：
+
+- 雨が 2 種類（なめらかな CSS の線とドット絵のすじ）重なると、粒の大きさがそろわず濁る。
+- CSS の白い光は画面全体が 0.55 まで白くなる強い点滅で、帯の中の稲光（効果の層の一瞬の光）と二重になる。帯の稲光だけのほうが、光る所がはっきりする。
+- 全画面の CSS の雨は、動く背景の模様を毎コマ描き直すので、PC（DPR 2）では効果なしの「なし」のほうがかえって重かった（下の表）。
+- 雲（ぼかした楕円）と揺れはドット絵と重ならず、嵐の空気を出すので残す。③ 以降の小雨（CSS の雨 0.25）もそのまま。
+
+重さ（`/tmp/claude-0/pl/shots/fx2b_perf.cjs`。災害の ① ② の 2.4 秒。町は止めて）：
+
+| | スマホ 390 × 844・DPR 2・CPU 4 倍遅く | PC 1280 × 800・DPR 2・CPU 等倍 |
+| --- | --- | --- |
+| ふつう（ドット絵の雨・稲光） | ページ p50 16.7 ms・p95 33.4 ms／効果 1 コマ平均 2.16 ms（最大 18.5 ms） | ページ p50 16.7 ms・p95 33.3 ms／効果 1.03 ms |
+| 控えめ（粒 80・稲光なし） | ページ p50 16.7 ms・p95 16.8 ms／効果 1.17 ms（最大 5.1 ms） | ページ p50 16.7 ms／効果 0.48 ms |
+| なし（CSS の雨と白い光） | ページ p50 16.7 ms・p95 33.3 ms | ページ p50 50.0 ms・p95 133 ms |
+
+node で 1 コマ p50 0.2 ms（`tools/check.mjs` は通る）。稲光の帯を照らす光は、半径 80 では稲光のコマが重かったので 48 にした。
+
+作例（下書き → 見る → 直す）：
+
+| 回 | 見たこと | 直したこと |
+| --- | --- | --- |
+| 下書き | A：細い斜めのすじ・はね・稲光／B：A ＋ 太めの粒と床の低いしぶきの帯 | B のしぶきの帯は点線の帯に見える → A |
+| 1 | 粒が少なく（1 コマに 5 つほど）、すじが短く点線に見える | 粒を 36 → 120、手前のすじを 6 → 8 ドット |
+| 2 | 見える粒の数がコマごとにばらつく（ランダムに生まれる時刻が固まる）・尾がディザで点線 | 生まれる時刻を等間隔に（少しずらす）。尾の最後の 2 ドットだけ薄れる |
+| 3 | `check.mjs`：すじの尾がキャンバスの上にはみ出す | 降り始めを 10 ドット下げた |
+| ゲームの中 | 札の後ろに降るので、見える粒が少ない。稲光のコマが重い | 粒 170（控えめ 80）。帯の光の半径を 80 → 48 |
 
 ## 作例：製造の槌の火花（`fx/island/hammer-sparks.js`）の直し
 

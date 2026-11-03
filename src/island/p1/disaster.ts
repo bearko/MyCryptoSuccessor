@@ -11,6 +11,7 @@ import { sectorIcon } from './landui';
 import type { P1State, ResetRec } from './model';
 import type { Sfx } from './sfx';
 import { btn, h, money } from './ui';
+import { FX_PAL, fxLevel, playFx } from '../fx/layer';
 
 /** 店の名前の幅（全角 2・半角 1。16 まで＝全角 8 文字・英語 16 文字） */
 export const nameWidth = (x: string) => [...x].reduce((a, c) => a + (/[\u0000-ÿ｡-ﾟ]/.test(c) ? 1 : 2), 0);
@@ -98,10 +99,31 @@ export function playDisaster(root: HTMLElement, s: P1State, rec: ResetRec, hooks
       map.append(card);
     }
     stage.append(title, map);
+    stormRain(map);
     hooks.toast(t('🌀 ランドを大きな災害が襲った…', '🌀 A great disaster struck the land…'));
     hooks.sfx('error', 1, 0.6);
     window.setTimeout(() => hooks.sfx('katsun', 1, 0.5), 500);
     later(2600, damage);
+  };
+
+  /**
+   * 段 FX2b：町の札の帯だけに降るドット絵の雨と、帯の中の稲光（rain-band。docs/ISLAND_FX.md）。
+   * 出せたら（演出が「ふつう」「控えめ」）、全画面の CSS の雨と白い光は止める（is-fxrain。雲と揺れは残す）。控えめは粒を半分・稲光なし。
+   * 被害の一覧の段まで降り続け（押しても消えない）、役人の通知で中身を入れ替えると消える
+   */
+  const stormRain = (map: HTMLElement) => {
+    const fs = Math.max(2, Math.min(4, Math.floor((innerWidth * 0.92) / 180)));
+    const calm = fxLevel() === 'calm';
+    const ok = playFx('rain-band', map.offsetLeft + map.offsetWidth / 2, map.offsetTop + map.offsetHeight + 4, {
+      host: stage,
+      keep: true,
+      palette: FX_PAL.rain,
+      ink: false,
+      scale: fs,
+      life: 60000,
+      opts: { count: calm ? 80 : 170, bolt: !calm },
+    });
+    m.classList.toggle('is-fxrain', ok);
   };
 
   /** ② 被害の一覧：札が順に「🏚 被災」に（建物の数） */
