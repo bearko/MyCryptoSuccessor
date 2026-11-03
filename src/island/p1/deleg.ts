@@ -11,7 +11,7 @@
 import { isEn, t } from '../../i18n';
 import { heroById } from '../../game/catalog';
 import { DEF } from '../defs';
-import { ADS, DELEG, DEPT, DEPTS, DEPT_DUTIES, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
+import { ADS, BUDGET, DELEG, DEPT, DEPTS, DEPT_DUTIES, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
 import { deptLevel, menuDepts } from './dept';
 import { fitDept } from './voice';
 import {
@@ -90,6 +90,7 @@ import { filePatent, guidePrice, keepRate, legalHere, maLock, patentLock, patent
 import { copyIn } from './mkt';
 import { adGain, grossRate, sellMoves } from './moves';
 import { applyPlan, planOf, stepsOf } from './plan';
+import { budgetOpen, budgetReport, budgetTry } from './budget';
 import type { SectorRec } from './company';
 
 // ---------------------------------------------------------------- 役目
@@ -168,6 +169,8 @@ export function leaderLeft(s: P1State, d: DeptId): number | null {
 }
 export function headLeft(s: P1State, d: DeptId): number | null {
   if (!menuDepts(s).includes(d)) return null;
+  // 段 I1：会社が Rare に届いたら、理解度に関係なく全部門に部長を置ける（予算で任せる。経営企画は社長）
+  if (d !== 'strategy' && budgetOpen(s)) return 0;
   return Math.max(0, DELEG.headAt - deptLevel(s, d));
 }
 export type DelegErr = 'closed' | 'locked' | 'no-staff' | 'away' | 'training' | 'busy';
@@ -959,6 +962,11 @@ export function candidates(s: P1State, d: DeptId, ifs: () => StageIf[]): Cand[] 
   return out;
 }
 const actKey = (a: PropAct) => JSON.stringify(a);
+/** 部長の候補の元（詰まりの段の whatIf。はじめて要るときに 1 回だけ計算） */
+export function ifsOf(s: P1State): () => StageIf[] {
+  let cache: StageIf[] | null = null;
+  return () => (cache ??= myShops(s).length ? (() => { const bn = bottleneck(stageCaps(s)); return bn === 'sell' ? [] : whatIf(s, bn); })() : []);
+}
 
 /**
  * 月の締め（いまのセクタ）：先月の提案の結果をはかり、部長ごとに提案を 1 枚（見込みの読みは出来しだいの誤差つき）、
@@ -984,9 +992,9 @@ export function delegMonth(s: P1State, r: Report) {
   // 保留は expire か月で消える。受け箱は keep 枚まで
   st.inbox = st.inbox.filter((p) => r.month - p.month < P.expire && stillOk(s, p));
   // 部長ごとの提案（毎月、どの部長も 1 枚ずつ考え、見込みの大きい順に perMonth 枚）
-  let cache: StageIf[] | null = null;
-  const ifs = () => (cache ??= myShops(s).length ? (() => { const bn = bottleneck(stageCaps(s)); return bn === 'sell' ? [] : whatIf(s, bn); })() : []);
+  const ifs = ifsOf(s);
   const fresh: Proposal[] = [];
+  const budgeted = budgetOpen(s);
   for (const d of heads) {
     const H = headOf(s, d)!;
     const q = quality(H, d);
@@ -996,9 +1004,7 @@ export function delegMonth(s: P1State, r: Report) {
       .map((c) => ({ c, est: c.real * errMul(rnd, q, P.err) }))
       .filter((x) => x.est > 0)
       .sort((a, b) => b.est - a.est);
-    const top = cs[0];
-    if (!top) continue;
-    fresh.push({
+    const mk = (top: (typeof cs)[number]): Proposal => ({
       id: ++st.seq,
       dept: d,
       hero: H.hero,
@@ -1015,6 +1021,30 @@ export function delegMonth(s: P1State, r: Report) {
       status: 'new',
       dig: top.c.dig,
     });
+    // 段 I1：予算で任せた部門（Rare から）は、部長が見込みの大きい順に予算と労力の中で BUDGET.perHead 件まで実行する（budget.ts の budgetTry）。
+    // 予算・労力の足りない施策は、いままでどおり部長の提案として受け箱へ（社長が承認すれば打てる）
+    if (budgeted && d !== 'strategy') {
+      let n = 0;
+      let left: Proposal | null = null;
+      for (const x of cs) {
+        if (n >= BUDGET.perHead) break;
+        if (!actOk(s, x.c.act) || st.inbox.some((p) => actKey(p.act) === actKey(x.c.act))) continue;
+        const p = mk(x);
+        const res = budgetTry(s, p);
+        if (res === 'done') {
+          n++;
+          continue;
+        }
+        if (res === 'skip') continue;
+        left = p;
+        break;
+      }
+      if (left) fresh.push(left);
+      continue;
+    }
+    const top = cs[0];
+    if (!top) continue;
+    fresh.push(mk(top));
   }
   const order = (p: Proposal) => (p.unit === 'G' ? p.est * 3 : p.unit === 'ad' ? p.est : p.unit === 'share' ? p.est * 2000 : p.est * 1500);
   fresh.sort((a, b) => order(b) - order(a));
@@ -1032,6 +1062,8 @@ export function delegMonth(s: P1State, r: Report) {
   r.deleg = { duties, heads: heads.map((d) => ({ dept: d, hero: headOf(s, d)!.hero, q: quality(headOf(s, d)!, d) })), props: add.length, waiting: st.inbox.length, results };
   if (!duties.length && !heads.length && !results.length) delete r.deleg;
   st.stat = {};
+  // 段 I1：予算で任せた部門の 1 行（月次報告）
+  budgetReport(s, r);
 }
 /** その提案がまだ打てる手か */
 function stillOk(s: P1State, p: Proposal): boolean {

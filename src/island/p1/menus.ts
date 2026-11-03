@@ -50,6 +50,7 @@ export type ScreenId =
   | 'pace'
   | 'save'
   | 'trophy'
+  | 'budget'
   | 'test';
 
 export interface SubDef {
@@ -63,7 +64,7 @@ export interface SubDef {
   note: string;
   /** この画面に縦に並べる画面（1 つ目が主。チュートリアルのあいだは 1 つ目だけ） */
   parts: ScreenId[];
-  needs?: 'workshop' | 'land' | 'hire' | 'tree' | 'museum';
+  needs?: 'workshop' | 'land' | 'hire' | 'tree' | 'museum' | 'budget';
 }
 
 const d = (key: string, name: string, short: string, note: string, parts: ScreenId[], needs?: SubDef['needs']): SubDef => ({ key, name, short, note, parts, ...(needs ? { needs } : {}) });
@@ -81,6 +82,8 @@ export const SUB_DEFS = (): Record<DeptId, SubDef[]> => ({
     d('land', t('ランドマップ', 'Land map'), t('ランド', 'Land'), t('関所の先のセクタ', 'Sectors beyond the gate'), ['land'], 'land'),
     d('books', t('決算書', 'Statements'), t('決算書', 'Books'), t('四半期の P/L・B/S', 'Quarterly P/L, B/S'), ['books']),
     d('props', t('受け箱', 'Inbox'), t('受け箱', 'Inbox'), t('提案・報告・問い合わせ', 'Proposals, reports, inquiries'), ['props', 'inbox']),
+    // 段 I1：予算と部門（Rare から。営業の部門が開くのも Rare なので、営業が開いていなければ出さない：subDefs）
+    d('budget', t('予算と部門', 'Budgets'), t('予算', 'Budget'), t('部門の予算・従業員・施策', 'Dept budgets, staff, moves'), ['budget'], 'budget'),
   ],
   hr: [
     // 段 UI5b：組織図（役目の木）をヒーローの配置の画面にまとめる（サブタブは増やさない）
@@ -124,7 +127,7 @@ export const SUB_DEFS = (): Record<DeptId, SubDef[]> => ({
 /** その部門のサブタブ（経理が開いたら、決算書は経営企画から外す） */
 export function subDefs(m: DeptId, depts: DeptId[]): SubDef[] {
   const xs = SUB_DEFS()[m] ?? [];
-  return xs.filter((x) => !(m === 'strategy' && x.key === 'books' && depts.includes('accounting')));
+  return xs.filter((x) => !(m === 'strategy' && x.key === 'books' && depts.includes('accounting')) && !(x.key === 'budget' && !depts.includes('sales')));
 }
 /** 開いている部門のサブタブの数（画面の数の目安） */
 export const subCount = (depts: DeptId[]) => depts.reduce((a, m) => a + subDefs(m, depts).length, 0);

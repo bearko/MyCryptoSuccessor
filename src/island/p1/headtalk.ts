@@ -11,7 +11,7 @@
 import { t } from '../../i18n';
 import { DELEG, DEPT, DEPTS, type DeptId } from './data';
 import { deptLevel, menuDepts } from './dept';
-import { actName, headDepts, headOf, heroNm, type Proposal } from './deleg';
+import { actName, headDepts, headLeft, headOf, heroNm, type Proposal } from './deleg';
 import { cardInbox, hireOffer, inTutorial, sayOf, type Card } from './card';
 import { moraleAvg, wantsToQuit } from './hr';
 import { say, toneOf, type Tone } from './persona';
@@ -40,7 +40,8 @@ export type TalkMode = 'head' | 'mine';
 export function talkMode(s: P1State, d: DeptId): TalkMode | null {
   if (inTutorial(s) || !TALK_DEPTS.includes(d) || !menuDepts(s).includes(d)) return null;
   if (headOf(s, d)) return 'head';
-  return deptLevel(s, d) >= DELEG.headAt ? 'mine' : null;
+  // 段 I1：Rare からは理解度に関係なく部長を置ける（deleg.ts の headLeft）
+  return deptLevel(s, d) >= DELEG.headAt || headLeft(s, d) === 0 ? 'mine' : null;
 }
 
 // ---------------------------------------------------------------- 確認したいこと

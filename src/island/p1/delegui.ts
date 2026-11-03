@@ -44,6 +44,7 @@ import { cardInboxCard } from './cardui';
 import { cardInbox, starOf } from './card';
 import { fitTag, sayToast } from './p2ui';
 import { lineOf } from './voice';
+import { budgetLine } from './budget';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 /** 役目の札（リーダー・部長・セクター長。形で見分ける：リーダーは角、部長は丸、セクター長は二重の枠） */
@@ -390,11 +391,11 @@ export function rolesCard(ctx: Ctx, s: P1State): HTMLElement | null {
 }
 
 /** 月次報告の「担当の報告」の文（長い・短い）。無ければ null */
-export function delegReportText(s: P1State, r: { deleg?: import('./deleg').DelegReport; cards?: import('./card').CardReport }): [string, string] | null {
+export function delegReportText(s: P1State, r: { deleg?: import('./deleg').DelegReport; cards?: import('./card').CardReport; budget?: import('./budget').BudgetReport }): [string, string] | null {
   const d = r.deleg;
   const sec = sectorLines(s).length;
   const cr = r.cards;
-  if (!d && !sec && !cr) return null;
+  if (!d && !sec && !cr && !r.budget) return null;
   const parts: string[] = [];
   const short: string[] = [];
   if (d?.duties.length) {
@@ -422,6 +423,12 @@ export function delegReportText(s: P1State, r: { deleg?: import('./deleg').Deleg
   if (cr?.made) {
     parts.push(t(`提案のカード ${cr.made} 件（受け箱 ${cr.boxed}）`, `${cr.made} proposal cards (${cr.boxed} to inbox)`));
     short.push(t(`カード ${cr.made}`, `${cr.made} cards`));
+  }
+  // 段 I1：予算で任せた部門（施策・従業員・頼み）
+  const bl = budgetLine(r as { budget?: import('./budget').BudgetReport });
+  if (bl) {
+    parts.push(bl[0]);
+    short.push(bl[1]);
   }
   if (sec) {
     parts.push(t(`セクター長 ${sec} 町`, `${sec} sector heads`));
