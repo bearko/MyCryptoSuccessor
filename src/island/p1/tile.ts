@@ -4,10 +4,12 @@
  */
 import { t } from '../../i18n';
 import { DEF } from '../defs';
-import { INTEL, P1B, PRODUCT, STORE, rivalDef, sku, skuParts } from './data';
-import { DUNGEON, dungeonDepth, museumMarks, museumOpen, museumSlots, museumValue, revivedSites, permitFee, permitLock, presentLock, presentRes, researchOf, runLock, sessionSec, siteProgress, siteTopic, topicProgress, topicsOf, wasteAt, wasteName, extName, gateToll, invLv, isGate, poolCap, poolUsed, allowedDirs, assign, demolish, ground, intelLv, moveCost, occupant, oneWay, myShops, refundOf, shopArea, sidePay, speed, staffOf, storageCap, type P1State, type PBuilding } from './model';
-import { pickHero } from './heroui';
-import { investList, openBuy, openShop, openWorkshop, pickClerk, rivalName, shopView, type Ctx } from './screens';
+import { INTEL, MATS, P1B, PRODUCT, STORE, rivalDef, sku, skuParts, type Sku } from './data';
+import { DUNGEON, dungeonDepth, museumMarks, museumOpen, museumSlots, museumValue, revivedSites, permitFee, permitLock, presentLock, presentRes, researchOf, runLock, sessionSec, siteProgress, siteTopic, topicProgress, topicsOf, wasteAt, wasteName, extName, gateToll, invLv, isGate, poolCap, poolUsed, allowedDirs, assign, demolish, ground, invest, myWorkshop, order as placeOrder, LOT, intelLv, moveCost, occupant, oneWay, myShops, refundOf, shopArea, sidePay, speed, staffOf, storageCap, type P1State, type PBuilding } from './model';
+import { pickExt, pickHero } from './heroui';
+import { ackOf, benchToChange, craftable, inTut, ordersOf, shelfPicks, swapGain, weakShelf, type Order, type OrderBox } from './orders';
+import { execute } from './deleg';
+import { chooseMake, investList, openAds, openBuy, openShop, openWorkshop, pickClerk, rivalName, shopView, type Ctx } from './screens';
 import { bar, btn, h, heroIcon, heroName, money, skuIcon, skuName } from './ui';
 import { canPresent, chiefOf, digMet, isChiefHome } from './digmeet';
 import { extIcon } from './digui';
@@ -188,6 +190,182 @@ function stat(grid: HTMLElement, k: string, v: string, cls = '') {
 
 const rate = (rev: number, cost: number) => (rev > 0 ? `${Math.round(((rev - cost) / rev) * 100)}%` : '—');
 
+// ---------------------------------------------------------------- 担当のヒーローへの指示（段 UI3）
+
+const unitsText = (u: number) => t(`+${Math.max(0, Math.round(u * 10) / 10)} 個／月`, `+${Math.max(0, Math.round(u * 10) / 10)}/mo`);
+/** 指示を受けた担当のひと言をトーストで（「ガリレオ「承知！鋏に切り替えます」」） */
+function ack(ctx: Ctx, hero: number | null, core: string) {
+  if (hero == null) return ctx.toast(core);
+  ctx.toast(t(`${heroName(hero)}「${ackOf(hero, core)}」`, `${heroName(hero)}: “${ackOf(hero, core)}”`));
+}
+/** お金が足りないときのトースト */
+const short = (ctx: Ctx, s: P1State, cost: number) => ctx.toast(t(`資金が足りません（あと ${money(cost - s.money)}）`, `Not enough funds (${money(cost - s.money)} short)`));
+
+/** 指示を打つ（いまの関数のまま。見込みと値段は変えない） */
+function runOrder(ctx: Ctx, box: OrderBox, o: Order, b: PBuilding, hooks: TileHooks) {
+  const s = ctx.s();
+  const done = () => {
+    ctx.save();
+    ctx.refresh();
+    hooks.redraw();
+  };
+  const crafterOf = (k: number) => s.slots[k]?.worker ?? null;
+  switch (o.k) {
+    case 'shelf':
+    case 'swap': {
+      // 並べる商品をカードで選ぶ（店長の見込みの大きい順）。作っていない商品なら、工房の作業台 1 台もその商品に切り替える
+      const uid = b.uid;
+      const picks = shelfPicks(s, uid);
+      const k = o.k === 'swap' ? weakShelf(s, uid) : -1;
+      const gainOf = (x: Sku) => {
+        const p = picks.find((y) => y.x === x);
+        if (!p) return null;
+        const u = o.k === 'swap' ? swapGain(s, uid, k, x) : p.units;
+        // 作業台を切り替えると止まる商品があれば、それも添える
+        return p.ok ? unitsText(u) + (p.stops ? t(`・${skuName(p.stops)}は止まる`, ` · ${skuName(p.stops)} stops`) : '') : t('作り手がいない', 'No one can make it');
+      };
+      pickExt(ctx.root, s, {
+        title: o.k === 'swap' ? t(`棚 ${k + 1} に並べる商品（${box.role.text}の読み）`, `Item for shelf ${k + 1} (${box.role.text}’s view)`) : t(`新しく並べる商品（${box.role.text}の読み）`, `New item to stock (${box.role.text}’s view)`),
+        items: picks.map((p) => p.x),
+        current: null,
+        keep: true,
+        gain: gainOf,
+        making: s.slots.map((y) => y.sku).filter((y): y is Sku => !!y),
+        badge: picks[0]?.ok ? { x: picks[0].x, text: t('店長のおすすめ', 'Manager’s pick') } : null,
+        note: o.k === 'swap' ? t('いちばん売れていない棚を入れ替えます。工房で作っていない商品なら、作業台 1 台も切り替えます。', 'Replaces the weakest shelf. If the workshop isn’t making it, one bench switches too.') : t('見込みは、いまの商圏と需要から店長が読んだ数です。工房で作っていない商品なら、作業台 1 台も切り替えます。', 'Estimates are the manager’s read of your area and demand. If the workshop isn’t making it, one bench switches too.'),
+        blocked: (x) => !picks.find((y) => y.x === x)?.ok,
+        onBlocked: () => ctx.toast(t('作れる職人・素材のルートがありません（工房で作れる商品を選びましょう）', 'Nobody can make it (no crafter or material route)')),
+        onPick: (x) => {
+          if (!x) return;
+          const p = picks.find((y) => y.x === x);
+          if (!p) return;
+          const sh = s.shops[uid];
+          const [key, rar] = skuParts(x);
+          const add = o.k === 'shelf' && p.add;
+          const idx = o.k === 'swap' ? k : sh.shelves.indexOf(null);
+          if (add && s.money < p.cost) return short(ctx, s, p.cost);
+          const e = execute(s, { k: 'stock', uid, key, rar, idx: add ? -1 : idx, add, ...(p.make != null ? { make: p.make } : {}) });
+          if (e === 'money') return short(ctx, s, p.cost);
+          if (e) return ctx.toast(t('いまは並べられません', 'Can’t stock it now'));
+          ctx.sfx?.(add ? 'spend' : 'tap');
+          ack(ctx, box.hero, add ? t(`棚を足して${skuName(x)}を並べます`, `adding a shelf for ${skuName(x)}`) : t(`${skuName(x)}を並べます`, `stocking ${skuName(x)}`));
+          if (p.make != null) ack(ctx, crafterOf(p.make), t(`${skuName(x)}に切り替えます`, `switching to ${skuName(x)}`));
+          done();
+        },
+      });
+      return;
+    }
+    case 'ad':
+      hooks.close();
+      openAds(ctx);
+      return;
+    case 'clerk':
+      pickClerk(ctx, b.uid, done);
+      return;
+    case 'make': {
+      const k = o.slot ?? benchToChange(s);
+      const sl = s.slots[k];
+      if (!sl) return;
+      pickExt(ctx.root, s, {
+        title: t(`作業台 ${k + 1} で作るもの`, `What bench ${k + 1} makes`),
+        items: craftable(s, inTut(s)),
+        current: sl.sku,
+        worker: sl.worker,
+        onPick: (x) => {
+          if (!x) return;
+          chooseMake(ctx, s, k, x, sl.worker != null ? t(`${heroName(sl.worker)}「${ackOf(sl.worker, t(`${skuName(x)}に切り替えます`, `switching to ${skuName(x)}`))}」`, `${heroName(sl.worker)}: “${ackOf(sl.worker, `switching to ${skuName(x)}`)}”`) : undefined);
+          hooks.redraw();
+        },
+      });
+      return;
+    }
+    case 'bench': {
+      const ws = myWorkshop(s);
+      if (!ws) return;
+      const e = invest(s, ws.uid, 'bench');
+      if (e === 'money') return short(ctx, s, o.cost ?? 0);
+      if (e) return;
+      ctx.sfx?.('spend');
+      ack(ctx, box.hero, t('作業台を足します', 'adding a workbench'));
+      done();
+      return;
+    }
+    case 'crafter': {
+      const k = o.slot ?? 0;
+      pickHero(ctx.root, s, {
+        title: t(`作業台 ${k + 1} の職人`, `Crafter for bench ${k + 1}`),
+        task: 'craft',
+        current: s.slots[k]?.worker ?? null,
+        onPick: (v) => {
+          if (v != null) assign(s, v, 'craft', k);
+          done();
+        },
+      });
+      return;
+    }
+    case 'order': {
+      if (!o.m) return;
+      const e = placeOrder(s, o.m, 1);
+      if (e === 'money') return short(ctx, s, o.cost ?? 0);
+      if (e === 'storage') return ctx.toast(t('置き場所がありません（倉庫を建てるか、お店へ運びましょう）', 'No storage room (build a warehouse or haul to shops)'));
+      if (e === 'cap') return ctx.toast(t('今月の調達の上限です', 'This month’s buying limit is reached'));
+      if (e) return;
+      ctx.sfx?.('spend');
+      ack(ctx, box.hero, t(`${matName(o.m)}を ${LOT} 個頼みます`, `ordering ${LOT} ${matName(o.m)}`));
+      done();
+      return;
+    }
+    case 'buyopen':
+      hooks.close();
+      openBuy(ctx);
+      return;
+    case 'buyer':
+      pickHero(ctx.root, s, {
+        title: t('調達係', 'Buyer'),
+        task: 'buy',
+        current: null,
+        onPick: (v) => {
+          if (v != null) assign(s, v, 'buy');
+          done();
+        },
+      });
+      return;
+  }
+}
+const matName = (m: string) => MATS[m as keyof typeof MATS]?.name ?? m;
+
+/** 吹き出しのいちばん上：担当のヒーローの顔・名前・肩書き・ひと言と、指示のボタン（見込みつき） */
+function orderBox(ctx: Ctx, b: PBuilding, hooks: TileHooks): HTMLElement | null {
+  const s = ctx.s();
+  // チュートリアル（1 か月目）のあいだは出さない（教える順と押す場所を変えない）
+  if (inTut(s)) return null;
+  const box = ordersOf(s, b);
+  if (!box) return null;
+  const el = h('div', 'isl-orders');
+  el.dataset.place = box.place;
+  const head = h('div', 'isl-orders-head');
+  if (box.hero != null) head.append(heroIcon(box.hero, 56));
+  const who = h('div', 'isl-orders-who');
+  who.append(h('span', 'isl-orders-role', `${box.role.icon} ${box.role.text}`), h('b', '', box.hero != null ? heroName(box.hero) : t('担当がいません', 'No one assigned')), h('p', 'isl-orders-say', t(`「${box.greet}」`, `“${box.greet}”`)));
+  if (box.status) who.append(h('small', 'isl-orders-status', box.status));
+  head.append(who);
+  const list = h('div', 'isl-orders-list');
+  for (const o of box.orders) {
+    const bt = h('button', `isl-order ${o.rec ? 'is-rec' : ''}`);
+    bt.type = 'button';
+    bt.dataset.order = o.k;
+    bt.disabled = !!o.off;
+    bt.append(h('b', '', o.label), h('small', '', o.sub));
+    bt.addEventListener('click', (e) => {
+      e.stopPropagation();
+      runOrder(ctx, box, o, b, hooks);
+    });
+    list.append(bt);
+  }
+  el.append(head, list);
+  return el;
+}
+
 /** マス (i, j) の吹き出しの中身 */
 export function tileContent(ctx: Ctx, i: number, j: number, hooks: TileHooks): { title: string; body: HTMLElement } {
   const s = ctx.s();
@@ -203,12 +381,18 @@ export function tileContent(ctx: Ctx, i: number, j: number, hooks: TileHooks): {
     if (isGate(b)) return { title: t('関所', 'Gate'), body: gate(s, body, hooks) };
     if (digMet(s) && isChiefHome(s, b)) return { title: t('町の長の家', 'Town head’s house'), body: chiefPop(s, body, hooks) };
     if (b.id === 'wholesale') {
+      // 段 UI3：調達係への指示（素材を注文する・調達を開く）
+      const ob = orderBox(ctx, b, hooks);
+      if (ob) body.append(ob);
       body.append(meta([[t('建築者', 'Builder'), t('地元の工務店', 'Local builders')], [t('所有者', 'Owner'), t('卸問屋', 'Wholesaler')]]), h('p', '', DESC.wholesale));
       const trip = s.buyTrip;
       if (trip) body.append(h('p', 'isl-dim', t(`${heroName(trip.hero)}が買い付けの途中です（あと ${trip.left} 日）。`, `${heroName(trip.hero)} is on a buying trip (${trip.left} days left).`)));
-      const row = h('div', 'isl-row');
-      row.append(btn(t('調達を開く', 'Open buying'), () => openBuy(ctx), 'is-on'));
-      body.append(row);
+      // 指示の箱があれば「調達を開く」はその中（同じボタンを 2 つ出さない）
+      if (!ob) {
+        const row = h('div', 'isl-row');
+        row.append(btn(t('調達を開く', 'Open buying'), () => openBuy(ctx), 'is-on'));
+        body.append(row);
+      }
       return { title: name, body };
     }
     body.append(meta(isHome ? [[t('建築者', 'Builder'), t('地元の工務店', 'Local builders')], [t('所有者', 'Owner'), t('住民', 'Residents')]] : [[t('建築者', 'Builder'), t('エリアの自治体', 'Local government')], [t('所有者', 'Owner'), t('エリアの自治体', 'Local government')]]));
@@ -433,7 +617,10 @@ function mine(ctx: Ctx, b: PBuilding, body: HTMLElement, hooks: TileHooks): HTML
     ctx.refresh();
     hooks.redraw();
   };
-  // お店：いちばん上に店内の様子（店員・主力商品が決まっていなければ、その場で決める枠）
+  // 段 UI3：いちばん上に担当のヒーローへの指示（工房の職人・お店の店長）
+  const ob = orderBox(ctx, b, hooks);
+  if (ob) body.append(ob);
+  // お店：店内の様子（店員・主力商品が決まっていなければ、その場で決める枠）
   if (kind === 'shop' && b.left <= 0 && s.shops[b.uid]) body.append(shopView(ctx, b.uid, redo));
   body.append(meta([[t('建築者', 'Builder'), t('あなたの会社', 'Your company')], [t('所有者', 'Owner'), t('あなたの会社', 'Your company')]]));
   body.append(h('p', '', DESC[b.id] ?? ''));

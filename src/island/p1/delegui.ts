@@ -39,6 +39,7 @@ import { after, open, type Ctx } from './screens';
 import { sectorDef } from './company';
 import { bar, btn, h, heroIcon, money, rich } from './ui';
 import { cardInboxCard } from './cardui';
+import { cardInbox } from './card';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 /** 役目の札（リーダー・部長・セクター長。形で見分ける：リーダーは角、部長は丸、セクター長は二重の枠） */
@@ -248,9 +249,11 @@ export function openProps(ctx: Ctx) {
   open(ctx, t('部長の提案', 'Proposals from your heads'), (body) => {
     const s = ctx.s();
     body.classList.add('isl-dl');
-    // 段 UI1：ヒーローからの提案・報告のカード（時間を止めて出せなかったもの）と、任せている提案
-    body.append(cardInboxCard(ctx));
-    body.append(h('p', 'isl-dim', t('事業部長は、月に 1 回、いま打てる手の中から効き目の見込みが大きいものを持ってきます。部長の出来が高いほど、見込みの誤差が小さくなります。承認すると、すぐに実行します。', 'Each month your heads bring the move they expect to pay off most. Better heads misjudge less. Approving carries it out right away.')));
+    // 段 UI1：ヒーローからの提案・報告のカード（時間を止めて出せなかったもの）と、任せている提案。
+    // 段 UI3：受け箱は「押せるもの」を上に（承認まで 2 タップ）。カードが無ければ、説明は部長の提案の下へ
+    const hasCards = cardInbox(s).some((x) => x.src !== 'head') || !!s.cards?.trust?.length;
+    if (hasCards) body.append(cardInboxCard(ctx));
+    const how = h('p', 'isl-dim', t('事業部長は、月に 1 回、いま打てる手の中から効き目の見込みが大きいものを持ってきます。部長の出来が高いほど、見込みの誤差が小さくなります。承認すると、すぐに実行します。', 'Each month your heads bring the move they expect to pay off most. Better heads misjudge less. Approving carries it out right away.'));
     const here = s.sector ?? 'c1';
     const inbox = (s.deleg?.inbox ?? []).filter((p) => (p.sector ?? here) === here);
     if (!inbox.length) {
@@ -259,7 +262,8 @@ export function openProps(ctx: Ctx) {
     }
     const grid = h('div', 'isl-prop-grid');
     for (const p of inbox) grid.append(propCard(ctx, s, p));
-    body.append(grid);
+    body.append(grid, how);
+    if (!hasCards) body.append(cardInboxCard(ctx));
     // 承認した提案（翌月の報告で結果）
     const done = (s.deleg?.done ?? []).filter((x) => (x.p.sector ?? here) === here);
     if (done.length) {

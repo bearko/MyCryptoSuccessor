@@ -34,7 +34,6 @@ import {
   sku,
   skuParts,
   skuPrice,
-  techSkill,
   type Mat,
   type Rar,
   type Sku,
@@ -100,10 +99,8 @@ import {
   recommend,
   relicMarket,
   relicsSoon,
-  openRelics,
   relicSku,
   makeSku,
-  tierOk,
   setPart,
   setShelf,
   speed,
@@ -125,6 +122,8 @@ import { UNSELLABLE_TEXT, seriesTag } from './digview';
 import { bar, btn, extImage, fmt, h, heroIcon, heroName, matIcon, money, sheet, skuIcon, skuName, rich } from './ui';
 import { bomRow, extCard, extSlot, jobLabel, knownBar, lotsFromStock, needText, pickExt, pickHero, profitPerDay, radar, rankEl, slot, techNeed } from './heroui';
 import { rolesCard } from './delegui';
+import { adGain } from './moves';
+import { craftable, shopInvestOrder } from './orders';
 import { charismaCard, charismaNeeds, openPayroll as openPayrollHr } from './hrui';
 
 export interface Ctx {
@@ -307,13 +306,94 @@ export const sheetOpen = () => !!current;
 export function closeSheet() {
   current?.close();
   current = null;
+  together = null;
 }
+
+/**
+ * まとめた画面（段 UI3：似た画面を 1 つの画面に縦に並べる）。capture のあいだは open() が札を開かずに、中身を作る関数だけを集める。
+ * together：いま開いているまとめた画面の部分（部分の中のボタンがその画面を開き直したら、まとめた画面のその部分だけを差し替える）
+ */
+interface Part {
+  title: string;
+  render: (body: HTMLElement) => void;
+  onClose?: () => void;
+}
+let capture: Part[] | null = null;
+let together: { titles: string[]; parts: Part[] } | null = null;
+/** f が開く画面の中身（札は開かない）。開かなかったら null */
+function grab(f: () => void): Part | null {
+  capture = [];
+  let p: Part | null = null;
+  try {
+    f();
+    p = capture[0] ?? null;
+  } finally {
+    capture = null;
+  }
+  return p;
+}
+/**
+ * いくつかの画面を 1 つの画面にまとめて開く（上から順に見出しをつけて並べる。2 つ以上なら上に「↓ 見出し」の近道）。
+ * focus：はじめにその部分（番号）までスクロールする。開けた部分が 1 つなら、その画面をそのまま開く
+ */
+export function openTogether(ctx: Ctx, title: string, opens: (() => void)[], focus = 0) {
+  const got = opens.map(grab);
+  const parts = got.filter((x): x is Part => !!x);
+  // focus は opens の番号 → 開けた部分の番号
+  focus = got.slice(0, focus).filter((x) => !!x).length;
+  if (!parts.length) return;
+  if (parts.length === 1) {
+    open(ctx, parts[0].title, parts[0].render, parts[0].onClose);
+    return;
+  }
+  open(
+    ctx,
+    title,
+    (body) => {
+      body.classList.add('isl-together');
+      const jump = h('div', 'isl-part-jump');
+      const secs: HTMLElement[] = [];
+      parts.forEach((p, k) => {
+        const sec = h('section', 'isl-part');
+        sec.dataset.part = String(k);
+        sec.append(h('h3', 'isl-part-title', p.title));
+        p.render(sec);
+        secs.push(sec);
+        if (k > 0) {
+          const b = btn(`↓ ${p.title}`, () => sec.scrollIntoView({ block: 'start', behavior: 'smooth' }), 'isl-part-go');
+          jump.append(b);
+        }
+      });
+      body.append(jump, ...secs);
+    },
+    () => parts.forEach((p) => p.onClose?.()),
+  );
+  together = { titles: parts.map((p) => p.title), parts };
+  if (focus > 0) requestAnimationFrame(() => document.querySelector<HTMLElement>(`.isl-sheet .isl-part[data-part="${Math.min(focus, parts.length - 1)}"]`)?.scrollIntoView({ block: 'start' }));
+}
+
+/** 画面を開いたとき（main.ts：部門の帯を画面の見出しの下に置く。段 UI3） */
+export const sheetHooks: { opened?: () => void } = {};
 
 /** 画面を開いてよいか（発掘作業のあいだは研究ノートだけ。main.ts が決める。false なら開かない） */
 let openGuard: ((title: string) => boolean) | null = null;
 export const setOpenGuard = (f: ((title: string) => boolean) | null) => (openGuard = f);
 
 export function open(ctx: Ctx, title: string, render: (body: HTMLElement) => void, onClose?: () => void) {
+  // まとめた画面の中身を集めているあいだ：札は開かない
+  if (capture) {
+    capture.push({ title, render, onClose });
+    return;
+  }
+  // まとめた画面の部分の中のボタンが、その画面を開き直した（ランキングのエリア／ランド／世界など）：その部分だけ差し替える
+  if (together && current) {
+    const k = together.titles.indexOf(title);
+    if (k >= 0) {
+      together.parts[k] = { title, render, onClose };
+      current.render();
+      return;
+    }
+  }
   if (openGuard && !openGuard(title)) return;
   closeSheet();
   const sh = sheet(
@@ -321,6 +401,7 @@ export function open(ctx: Ctx, title: string, render: (body: HTMLElement) => voi
     title,
     () => {
       current = null;
+      together = null;
       hideDock();
       onClose?.();
       ctx.refresh();
@@ -335,6 +416,7 @@ export function open(ctx: Ctx, title: string, render: (body: HTMLElement) => voi
   };
   current = { render: draw, close: sh.close };
   draw();
+  sheetHooks.opened?.();
   // チュートリアルで光らせた枠が見えるところまで送る
   const hot = sh.body.querySelector('.is-hot');
   if (hot && hot.getBoundingClientRect().bottom > sh.body.getBoundingClientRect().bottom) requestAnimationFrame(() => hot.scrollIntoView({ block: 'center' }));
@@ -364,28 +446,15 @@ const craftErr = (x: Sku, e: string, s?: P1State) =>
   CRAFT_ERR[e] ??
   e;
 
-/**
- * 作れる商品（Common と、開発したアンコモン）。技がまだの商品は、うしろに（カードに「技：○○が要る」）。
- * 最初のチュートリアルのあいだは、技が要る商品を出さない（基礎の 5 つだけ）。このセクタのランクで出ない商品も出さない
- */
-export function craftable(s: P1State, tut = false): Sku[] {
-  const ready = (key: string) => !PRODUCT[key].tech || has(s, techSkill(PRODUCT[key].tech!));
-  // このセクタのランクで出ない商品（Common のオルゴールなど）は出さない
-  const list = PRODUCTS.filter((p) => (!tut || !p.tech) && tierOk(p, s.tier ?? 'C'));
-  const out: Sku[] = list.filter((p) => ready(p.key)).map((p) => sku(p.key, 'C'));
-  out.push(...list.filter((p) => s.dev.includes(p.key) && ready(p.key)).map((p) => sku(p.key, 'U')));
-  out.push(...list.filter((p) => !ready(p.key)).map((p) => sku(p.key, 'C')));
-  // 復刻品（会社で開いたもの。遺物のランクで作る）。チュートリアルのあいだは出さない
-  if (!tut) out.push(...openRelics(s).map((p) => relicSku(p.key)));
-  return out;
-}
+/** 作れる商品（DOM なしの orders.ts へ移した。ほかの画面はここから読む） */
+export { craftable };
 
 
 
 // ---------------------------------------------------------------- 工房
 
 /** 作業台 k で x を作る（作るものを選んだとき・市場データの「工房で作る」）。トーストを出し、描き直す */
-function chooseMake(ctx: Ctx, s: P1State, k: number, x: Sku) {
+export function chooseMake(ctx: Ctx, s: P1State, k: number, x: Sku, msg?: string) {
   const sl = s.slots[k];
   if (!sl) return;
   if (sl.sku !== x) {
@@ -396,7 +465,7 @@ function chooseMake(ctx: Ctx, s: P1State, k: number, x: Sku) {
   sl.repeat = true;
   const e = sl.worker == null ? 'worker' : startCraft(s, k, x, true);
   if (e && e !== 'busy') ctx.toast(craftErr(x, e, s));
-  else ctx.toast(t(`${skuName(x)}を作り始めました`, `Started making ${skuName(x)}`));
+  else ctx.toast(msg ?? t(`${skuName(x)}を作り始めました`, `Started making ${skuName(x)}`));
   after(ctx);
 }
 
@@ -1786,6 +1855,11 @@ export function openAds(ctx: Ctx) {
       if (left > 0) card.append(bar(left / a.days, 'var(--isl-gold)'), h('p', '', t(`実施中：あと ${left} 日`, `Running: ${left} days left`)));
       else {
         const cost = adCost(s, a.id);
+        // 段 UI3：見込み（期間の粗利の伸び − 費用。この町で元が取れるか。moves.ts の adGain）
+        if (myShops(s).length) {
+          const g = adGain(s, a.id);
+          card.append(h('p', `isl-ad-gain ${g > 0 ? 'isl-good' : 'isl-warn'}`, g > 0 ? t(`見込み：+${money(g)}（この町で元が取れる）`, `Expected: +${money(g)} (pays off here)`) : t(`見込み：−${money(-g)}（この町ではまだ元が取れない）`, `Expected: −${money(-g)} (won’t pay off here yet)`)));
+        }
         const b = btn(t(`実施する ${money(cost)}`, `Run ${money(cost)}`), () => {
           const e = runAd(s, a.id);
           if (e === 'money') ctx.toast(t('資金が足りません', 'Not enough funds'));
@@ -1872,12 +1946,26 @@ export function investList(ctx: Ctx, b: PBuilding, onDone: () => void): HTMLElem
   const s = ctx.s();
   const box = h('div', 'isl-invest');
   const kind = P1B[b.id]?.kind;
-  for (const x of INVESTS.filter((v) => v.kind === kind)) {
+  // 段 UI3：お店の設備投資は、いま効く順（販売の見込みの大きい順）に並べて「+N 個／月」を添える。効かないもの（序盤の陳列の什器・裏の倉庫）は下に薄く
+  const gains = kind === 'shop' && b.left <= 0 && s.shops[b.uid] && !ctx.step?.() ? shopInvestOrder(s, b) : null;
+  const list = INVESTS.filter((v) => v.kind === kind);
+  if (gains) list.sort((p, q) => gains.findIndex((g) => g.id === p.id) - gains.findIndex((g) => g.id === q.id));
+  for (const x of list) {
     const lv = invLv(b, x.id);
     const cost = investCost(b, x.id);
-    const row = h('div', 'isl-invest-row');
+    const gi = gains?.find((g) => g.id === x.id);
+    const row = h('div', `isl-invest-row ${gi?.weak && cost != null ? 'is-weak' : ''}`);
+    row.dataset.invest = x.id;
     const name = h('div');
     name.append(h('b', '', `${x.name}${x.cost.length > 1 ? `  ${lv}/${x.cost.length}` : lv ? ' ✓' : ''}`), h('small', 'isl-dim', x.note));
+    if (gi && cost != null)
+      name.append(
+        h(
+          'small',
+          gi.weak ? 'isl-dim' : 'isl-invest-gain',
+          gi.weak ? t('いまは効かない（販売は増えない）', 'No effect now (sales won’t rise)') : x.id === 'shelves' ? t(`別の商品を並べて +${Math.round(gi.units * 10) / 10} 個／月`, `+${Math.round(gi.units * 10) / 10}/mo with a new item`) : t(`見込み +${Math.round(gi.units * 10) / 10} 個／月`, `+${Math.round(gi.units * 10) / 10}/mo expected`),
+        ),
+      );
     // 資金が足りないときは、その場で「あと ○○ G」
     if (cost != null && s.money < cost && b.left <= 0) name.append(h('small', 'isl-warn', t(`あと ${money(cost - s.money)}`, `${money(cost - s.money)} short`)));
     const go = btn(cost == null ? t('最大', 'Max') : money(cost), () => {

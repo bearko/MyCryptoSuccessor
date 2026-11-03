@@ -1157,7 +1157,8 @@ export function openSkills(ctx: Ctx, focus?: string) {
       detail.append(top2, b);
       }
     } else if (sealed) detail.append(h('p', 'isl-dim', t('真ん中の本社を押して、開放しましょう。開放すると、11 の部門の枝が広がります。', 'Tap HQ in the middle to unlock it. Branches for the 11 departments will spread out.')));
-    else detail.append(h('p', 'isl-dim', t('枝の色の枠は研究パネル（研究ポイントで開く・レベルなし）、金の二重の枠はお金パネル（資金で開く・Lv5 まで上げられる）。パネルを押すと名前と説明が出ます（ダブルタップでも開く）。', 'Branch-coloured frames are research panels (RP, no levels); gold double frames are money panels (funds, up to Lv5). Tap a panel for its name and details (or double-tap to unlock).')));
+    // 段 UI3：説明の帯はスマホで 2 行まで（短く）
+    else detail.append(h('p', 'isl-dim isl-tree-legend', t('枝の色の枠＝研究パネル（RP）、金の二重の枠＝お金パネル（Lv5 まで）。押すと説明が出ます。', 'Branch-coloured frame = research panel (RP); gold double frame = money panel (to Lv5). Tap one for details.')));
     // ズーム
     const zoom = h('div', 'isl-tree-zoom');
     zoom.append(
@@ -1344,6 +1345,10 @@ export function openSkills(ctx: Ctx, focus?: string) {
       world.style.transform = `translate(${vp.clientWidth / 2 - c.x * view.zoom}px, ${vp.clientHeight / 2 - c.y * view.zoom}px) scale(${view.zoom})`;
       // 線の太さは画面の上で 3px 前後に（引いて見たときは細くなりすぎないよう、木の上で 10px まで）
       world.style.setProperty('--lw', `${Math.min(10, 3 / view.zoom).toFixed(2)}px`);
+      // 段 UI3：引いて見ても字が 12px より小さくならないように、部門の札と角の印は縮んだぶん大きく（引きすぎたら角の印は出さない）
+      world.style.setProperty('--hs', Math.min(1.7, Math.max(1, 1 / view.zoom)).toFixed(3));
+      world.classList.toggle('is-mid', view.zoom < 0.9);
+      world.classList.toggle('is-far', view.zoom < 0.6);
       markChip();
     }
     // 引っぱって動かす・2 本指でつまんで拡大縮小（スマホ）・ホイールで拡大（PC）
