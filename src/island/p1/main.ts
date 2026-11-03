@@ -19,6 +19,7 @@ import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
 import { bandText } from './deleg';
 import { openDeleg, openProps } from './delegui';
 import { autoText, cardInbox, cardsCompany, cardsDay, cardsMonth, demoDraft, diploDraft, enqueue, eventDraft, markSeen, nextPop, takeAuto } from './card';
+import { duoPages } from './duo';
 import { cardNav, showCard } from './cardui';
 import { crestEl, openDiplo } from './diploui';
 import { offerBulk } from './bulkui';
@@ -3046,6 +3047,13 @@ function maybeCard(now: number) {
   closePop();
   // 段 UI4：初めての使者は、物語の会話（マインちゃんと使者）のあとにカード
   if (meetTalk(c)) return;
+  // 段 P2：ヒーローの組み合わせは、掛け合いの会話のあとにカード
+  if (c.src === 'duo' && c.duo && !c.duo.told && duoPages(c.duo).length) {
+    c.duo.told = true;
+    markSeen(s, c.id);
+    talk(duoPages(c.duo), t('どうする？', 'What now?'), () => showCard(ctx, c, { done: cardDone, open: cardOpen }));
+    return;
+  }
   showCard(ctx, c, { done: cardDone, open: cardOpen });
 }
 /** 段 UI4：初めての使者の物語の会話（まだ見ていなければ出して true。会話のあとにカード） */
