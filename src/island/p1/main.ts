@@ -111,6 +111,8 @@ import {
   shopScene,
   shopSceneSale,
   open as openSheet,
+  openTogether,
+  sheetHooks,
   setOpenGuard,
 } from './screens';
 import { openSupply } from './scm';
@@ -119,6 +121,7 @@ import { pickHooks } from './heroui';
 import { openDigSummary, openMonthReport } from './report';
 import { openSkills } from './tree';
 import { openSide } from './side';
+import { resolveSub, subDefs, type ScreenId, type SubDef } from './menus';
 import { openGrowth } from './growthui';
 import { openCharisma } from './hrui';
 import { openGa, openTax } from './acctui';
@@ -255,10 +258,16 @@ const toasts = h('div', 'isl-toasts');
 /** 発掘画面のあいだに来たお知らせ（作業のあとに出す） */
 let heldToasts: [string, string | undefined][] = [];
 /** お知らせ（icon：左に添える絵。エンブレム・ゴールドダストなど） */
-/** 提案・報告のカードが出ているあいだのお知らせ（カードの上にかぶらないように、閉じたあとにまとめて。段 UI1） */
+/** 提案・報告のカード・会話が出ているあいだのお知らせ（カードの上にかぶらないように、閉じたあとにまとめて。段 UI1・UI3） */
 const cardToasts: [string, string | undefined][] = [];
+/** 会話・カードのあいだはトーストをためる（段 UI3：会話の箱・カードに重ねない。閉じたあとにまとめて出す。流れの案内のあいだは前のまま出さない） */
+const holdToasts = () => !!root.querySelector('.isl-cardm, .isl-talk');
+function flushCardToasts() {
+  if (!cardToasts.length || holdToasts()) return;
+  for (const [x, img] of cardToasts.splice(0)) toast(x, img);
+}
 function toast(text: string, img?: string) {
-  if (root.querySelector('.isl-cardm')) {
+  if (holdToasts()) {
     if (!cardToasts.some((x) => x[0] === text)) cardToasts.push([text, img]);
     if (cardToasts.length > 4) cardToasts.shift();
     return;
@@ -415,6 +424,36 @@ statJam.addEventListener('click', () => {
   if (card) showCard(ctx, card, { done: cardDone, open: cardOpen });
   else openSupply(ctx, { breakdown: c.stage === 'sell' });
 });
+/**
+ * 上の帯の「受け箱」（段 UI3）：部長の提案・ヒーローからの提案と報告・お客さんの問い合わせの数。押すと受け箱
+ * （経営企画 → 受け箱：部長の提案に問い合わせをまとめた画面）。承認・返事まで 2 タップ
+ */
+const statInbox = h('button', 'isl-stat isl-stat-btn isl-stat-inbox');
+statInbox.type = 'button';
+statInbox.hidden = true;
+statInbox.title = t('受け箱：提案・報告・問い合わせ', 'Inbox: proposals, reports, inquiries');
+statInbox.addEventListener('click', () => {
+  if (tutStep()) return lockedNote();
+  closePop();
+  goSub('strategy', 'props');
+});
+/** 受け箱の数（いまのセクタの部長の提案・ヒーローからのカード・問い合わせ） */
+function inboxCount(): number {
+  const here = s.sector ?? 'c1';
+  const props = (s.deleg?.inbox ?? []).filter((p) => (p.sector ?? here) === here).length;
+  const cards = cardInbox(s).filter((x) => x.src !== 'head').length;
+  const cs = menuDepts(s).includes('support') && csOn(s) ? (s.cs?.inbox.length ?? 0) : 0;
+  return props + cards + cs;
+}
+let inboxKey = '';
+function renderInbox() {
+  const n = tutOf(s) < TUT_DONE ? 0 : inboxCount();
+  statInbox.hidden = !n;
+  const key = `${n}:${isEn}`;
+  if (key === inboxKey) return;
+  inboxKey = key;
+  statInbox.replaceChildren(h('small', '', t('受け箱', 'Inbox')), h('b', '', `📥 ${n}`));
+}
 let jamKey = '';
 function renderJam() {
   const c = chipOf(s);
@@ -451,7 +490,7 @@ const speedBtns = SPEEDS.map((v) =>
 );
 const speedBox = h('div', 'isl-speed');
 speedBox.append(...speedBtns);
-hud.append(statMoney, statBrand, statFlame, statSales, statRank, statSector, statDate, statJam, h('div', 'isl-spacer'), speedBox);
+hud.append(statMoney, statBrand, statFlame, statSales, statRank, statSector, statDate, statJam, statInbox, h('div', 'isl-spacer'), speedBox);
 
 /** 流れの案内：売れたけれど、店内のレジでまだ払っていない額（上の帯にはまだ出さない） */
 let tourUnpaid = 0;
@@ -559,6 +598,7 @@ function renderHud() {
   // 見習い期間で時間を止めている段・月末ポーズのあいだは、速さのボタンを薄く（押しても進まない）
   speedBox.classList.toggle('is-off', tutHold() || !!s.monthPause);
   renderJam();
+  renderInbox();
 }
 
 // ---------------------------------------------------------------- 下の帯：事業別メニュー
@@ -571,77 +611,65 @@ type Menu = DeptId;
 interface Sub {
   key: string;
   name: string;
+  /** スマホのサブタブの短い名前（段 UI3） */
+  short: string;
   note: string;
-  go: () => void;
+  def: SubDef;
   needs?: 'workshop' | 'land' | 'hire' | 'tree' | 'museum';
 }
-const SUBS: Partial<Record<Menu, Sub[]>> = {
-  logistics: [
-    { key: 'flow', name: t('サプライチェーン', 'Supply chain'), note: t('流れと詰まり', 'Flow and bottlenecks'), go: () => openSupply(ctx) },
-    { key: 'bom', name: 'BOM', note: t('素材 → 商品', 'Materials → products'), go: () => openBom(ctx) },
-    { key: 'buy', name: t('調達', 'Buy'), note: t('素材を買う・開拓', 'Buy and scout'), go: () => openBuy(ctx) },
-    { key: 'sales', name: t('販売管理', 'Sales'), note: t('お店の一覧・一括で変える', 'Shops at a glance, bulk changes'), go: () => openSales(ctx) },
-  ],
-  strategy: [
-    { key: 'tree', name: t('スキルツリー', 'Skill tree'), note: t('全社の方針・パネル', 'Company policy, panels'), go: () => openSkills(ctx), needs: 'tree' },
-    { key: 'build', name: t('建築', 'Build'), note: t('工房・お店・倉庫', 'Workshop, shops, storage'), go: () => openBuildSheet() },
-    { key: 'land', name: t('ランドマップ', 'Land map'), note: t('関所の先のセクタ', 'Sectors beyond the gate'), go: () => openLand(ctx), needs: 'land' },
-    { key: 'books', name: t('決算書', 'Statements'), note: t('四半期の P/L・B/S', 'Quarterly P/L, B/S'), go: () => openBooks(ctx) },
-    { key: 'props', name: t('部長の提案', 'Proposals'), note: t('承認・却下・保留', 'Approve, reject, hold'), go: () => openProps(ctx) },
-    { key: 'ceo', name: t('経営者', 'Executive'), note: t('カリスマ度・雇える格', 'Charisma, hiring rank'), go: () => openCharisma(ctx) },
-    { key: 'ma', name: 'M&A', note: t('他社の買収（法務・Epic の町）', 'Acquisitions (Legal, Epic towns)'), go: () => (menuDepts(s).includes('legal') ? openLegalScreen('ma') : openMA(ctx)) },
-  ],
-  hr: [
-    { key: 'staff', name: t('ヒーローの配置', 'Assign heroes'), note: t('4 つの仕事に置く', 'Four jobs'), go: () => openStaff(ctx) },
-    { key: 'growth', name: t('ヒーローの育成', 'Hero growth'), note: t('Lv・昇格・パッシブ', 'Levels, promotion, passives'), go: () => openGrowth(ctx) },
-    { key: 'hire', name: t('人材登用', 'Recruiting'), note: t('ヒーローを雇う', 'Hire heroes'), go: () => openHire(ctx), needs: 'hire' },
-    { key: 'pay', name: t('給与・労務', 'Pay & welfare'), note: t('給与・士気・休み', 'Pay, morale, rest'), go: () => openPayroll(ctx) },
-    { key: 'side', name: t('他店でバイト', 'Part-time'), note: t('資金が足りないとき', 'When funds run low'), go: () => openSide(ctx) },
-  ],
-  rnd: [
-    { key: 'notes', name: t('研究ノート', 'Notebook'), note: t('出土品・石板', 'Finds and tablets'), go: () => openNotes(ctx) },
-    { key: 'dev', name: t('商品開発', 'Products'), note: t('アンコモンを開発', 'Develop Uncommons'), go: () => openDev(ctx), needs: 'workshop' },
-    { key: 'museum', name: t('遺物の展示館', 'Relic museum'), note: t('展示と来館', 'Exhibits, visitors'), go: () => openMuseum(ctx), needs: 'museum' },
-  ],
-  marketing: [
-    { key: 'ads', name: t('宣伝広報', 'Advertising'), note: t('売り場を強くする', 'Boost your shops'), go: () => openAds(ctx), needs: 'workshop' },
-    { key: 'missions', name: t('依頼', 'Requests'), note: t('受ける・報酬', 'Accept, rewards'), go: () => openMissions(ctx) },
-    { key: 'data', name: t('市場調査データ', 'Market data'), note: t('売れ筋・ニーズ', 'Demand and sellers'), go: () => openData(ctx) },
-    { key: 'ranking', name: t('企業ランキング', 'Ranking'), note: t('エリア・ランド・世界', 'Area, land, world'), go: () => openRanking(ctx) },
-    // 段 G：市場の見通し（需要と他社の先読み・宣伝の打ち時）と、広報と企業の格
-    { key: 'outlook', name: t('市場の見通し', 'Market outlook'), note: t('需要と他社の先読み', 'Demand and rivals ahead'), go: () => openOutlook() },
-    { key: 'pr', name: t('広報と企業の格', 'PR & standing'), note: t('良いニュース・火消し・格', 'Good news, damage control, standing'), go: () => openPrScreen() },
-  ],
-  // カスタマーサポート（段 G：Uncommon の町に進出すると開く）：問い合わせと顧客満足度
-  support: [
-    { key: 'inbox', name: t('問い合わせ', 'Inquiries'), note: t('返事を選ぶ・期限', 'Choose replies, deadlines'), go: () => openInboxScreen() },
-    { key: 'sat', name: t('顧客満足度', 'Satisfaction'), note: t('満足度・効き目・炎上', 'Satisfaction, effects, backlash'), go: () => openSatScreen() },
-  ],
-  // 営業（段 C：Rare の町に進出すると開く）：商圏の取り合い
-  sales: [{ key: 'area', name: t('商圏の取り合い', 'Trade areas'), note: t('取り分・他社の店・候補地', 'Shares, rival stores, sites'), go: () => openTradeScreen() }],
-  // 経理・総務（段 F：Uncommon の町に進出すると開く）。決算書は経理が開くと経営企画から経理へ
-  accounting: [
-    { key: 'tax', name: t('税と節税', 'Tax & savings'), note: t('四半期の税・節税の見込み', 'Quarterly tax, savings plan'), go: () => openTaxScreen() },
-    { key: 'books', name: t('決算書', 'Statements'), note: t('P/L・B/S・コストと助言', 'P/L, B/S, costs, advice'), go: () => openBooks(ctx) },
-  ],
-  general: [{ key: 'env', name: t('疲れと職場の環境', 'Fatigue & workplace'), note: t('疲れ・休ませる・設備', 'Fatigue, rest, facilities'), go: () => openGaScreen() }],
-  // 法務（段 H1：Epic の町に進出すると開く。段 H2 で中身：M&A・契約・特許・争い）
-  legal: [
-    { key: 'ma', name: 'M&A', note: t('他社の買収', 'Acquire rivals'), go: () => openLegalScreen('ma') },
-    { key: 'contract', name: t('契約', 'Contracts'), note: t('仕入れの契約・条項', 'Supply deals, clauses'), go: () => openLegalScreen('contract') },
-    { key: 'patent', name: t('特許', 'Patents'), note: t('復刻品を守る・使用料', 'Protect revivals, royalties'), go: () => openLegalScreen('patent') },
-    { key: 'suit', name: t('争い', 'Disputes'), note: t('訴え・裁判・和解', 'Suits, trials, settling'), go: () => openLegalScreen('suit') },
-  ],
-  systems: [
-    { key: 'invest', name: t('設備投資', 'Investment'), note: t('建物ごとの設備', 'Per-building upgrades'), go: () => openInvest(ctx), needs: 'workshop' },
-    { key: 'pace', name: t('進行速度', 'Game speed'), note: t('標準・1.5 倍・2 倍', 'Normal, 1.5×, 2×'), go: () => openPace() },
-    { key: 'settings', name: t('設定', 'Settings'), note: t('言語・案内・音・人通り', 'Language, guide, sound, crowd'), go: () => openSettings() },
-    { key: 'save', name: t('セーブ', 'Save'), note: t('やり直す・工房へ', 'Restart, back'), go: () => openSaveMenu() },
-    ...(TEST ? [{ key: 'test', name: t('テスト', 'Test'), note: '?test=2', go: () => openTest() }] : []),
-  ],
+/**
+ * 画面ごとに開く関数（段 UI3：サブタブは menus.ts の SUB_DEFS。似た画面は 1 つのサブタブに縦に並べる）。
+ * 部門がまだ開いていない画面（問い合わせなど）は何もしない（まとめた画面から外れる）
+ */
+const SCREEN: Record<ScreenId, () => void> = {
+  flow: () => openSupply(ctx),
+  buy: () => openBuy(ctx),
+  bom: () => openBom(ctx),
+  sales: () => openSales(ctx),
+  tree: () => openSkills(ctx),
+  build: () => openBuildSheet(),
+  land: () => openLand(ctx),
+  books: () => openBooks(ctx),
+  props: () => openProps(ctx),
+  ceo: () => openCharisma(ctx),
+  ma: () => (menuDepts(s).includes('legal') ? openLegalScreen('ma') : openMA(ctx)),
+  staff: () => openStaff(ctx),
+  side: () => openSide(ctx),
+  growth: () => openGrowth(ctx),
+  hire: () => openHire(ctx),
+  pay: () => openPayroll(ctx),
+  notes: () => openNotes(ctx),
+  dev: () => openDev(ctx),
+  museum: () => openMuseum(ctx),
+  ads: () => openAds(ctx),
+  missions: () => openMissions(ctx),
+  data: () => openData(ctx),
+  outlook: () => openForecast(ctx, { skills: () => panelsOf('marketing'), ads: () => openAds(ctx) }),
+  ranking: () => openRanking(ctx),
+  pr: () => openPr(ctx, { ...csHooks(), skills: () => panelsOf('marketing') }),
+  inbox: () => menuDepts(s).includes('support') && openInbox(ctx, csHooks()),
+  sat: () => openSat(ctx, csHooks()),
+  area: () => openTradeScreen(),
+  tax: () => openTax(ctx, { books: () => openBooks(ctx), skills: () => panelsOf('accounting') }),
+  env: () => openGa(ctx, { invest: () => openInvest(ctx), skills: () => panelsOf('general') }),
+  contract: () => openLegalScreen('contract'),
+  patent: () => openLegalScreen('patent'),
+  suit: () => openLegalScreen('suit'),
+  invest: () => openInvest(ctx),
+  settings: () => openSettings(),
+  pace: () => openPace(),
+  save: () => openSaveMenu(),
+  test: () => TEST && openTest(),
 };
-/** 部門のサブタブ。経理が開いたら、決算書は経営企画から外す（経理へ移る。段 F） */
-const subsOf = (m: Menu) => (SUBS[m] ?? []).filter((x) => !(m === 'strategy' && x.key === 'books' && menuDepts(s).includes('accounting')));
+/** サブタブの画面を開く（まとめた画面は縦に並べて。チュートリアルのあいだは 1 つ目の画面だけ：教える画面を変えない）。part：はじめにその部分へ */
+function openDef(x: SubDef, part: ScreenId | null = null) {
+  const parts = x.parts.filter((p) => p !== 'test' || TEST);
+  if (x.key === 'settings' && TEST) parts.push('test');
+  if (tutStep() || parts.length === 1) return SCREEN[part && tutStep() ? part : parts[0]]();
+  openTogether(ctx, x.name, parts.map((p) => () => SCREEN[p]()), Math.max(0, parts.indexOf(part ?? parts[0])));
+}
+/** 部門のサブタブ（経理が開いたら、決算書は経営企画から外す） */
+const subsOf = (m: Menu): Sub[] => subDefs(m, menuDepts(s)).map((x) => ({ key: x.key, name: x.name, short: x.short, note: x.note, needs: x.needs, def: x }));
 /** 部門の名前（タブ・マインちゃんの案内の「「物流」タブ」） */
 const MENU_NAME = (m: Menu) => DEPT[m].name;
 
@@ -770,8 +798,8 @@ function pickMenu(m: Menu) {
   openSub(first);
 }
 
-/** サブタブ：画面を切り替える（下の帯は出したまま） */
-function openSub(x: Sub) {
+/** サブタブ：画面を切り替える（下の帯は出したまま）。part：まとめた画面のその部分から */
+function openSub(x: Sub, part: ScreenId | null = null) {
   if (menu && subLocked(menu, x.key)) return lockedNote();
   if (x.needs === 'workshop' && !myWorkshop(s)) return needWs();
   if (x.needs === 'land' && !s.land) return toast(t('ランドのふちの関所を開くと使えます', 'Open the gate at the edge of the land first'));
@@ -785,7 +813,7 @@ function openSub(x: Sub) {
   sub = x.key;
   if (x.key !== 'build' && placing && !placing.move) placing = null;
   closeSheet();
-  x.go();
+  openDef(x.def, part);
   renderAll();
 }
 
@@ -806,8 +834,11 @@ function renderFoot() {
   tb('logistics')?.classList.toggle('is-off', !ws);
   const ready = MISSIONS.some((m) => s.missions[m.id] === 'done');
   tb('marketing')?.classList.toggle('has-dot', ready);
-  // スマホでスキルツリーを開いているあいだは、木を広く見せる（上の帯と小メニューは、ツリーを閉じると出る）
-  panel.hidden = !menu || !!placing?.move || (menu === 'strategy' && sub === 'tree' && sheetOpen() && innerWidth < 600);
+  // 段 UI3：スキルツリーもほかのサブタブと同じ（サブタブを隠さない）
+  panel.hidden = !menu || !!placing?.move;
+  // グループの引き出し：開いているあいだはサブタブの代わりに出す（下に積むのは 2 段まで：引き出しかサブタブ ＋ タブ）
+  drawerEl.hidden = !drawer;
+  root.classList.toggle('has-drawer', !!drawer);
   // チュートリアル：次に押すところを光らせる
   const tk = tutOf(s);
   const step = tk < TUT_DONE ? TUT[tk] : undefined;
@@ -819,13 +850,16 @@ function renderFoot() {
   }
   for (const g of tabbar.querySelectorAll<HTMLElement>('.isl-tab.is-group')) g.classList.toggle('is-on', drawer === g.dataset.group);
   speedBtns[2].classList.toggle('is-guide', hm === 'speed' && speed !== 4);
-  if (!menu) return;
+  if (!menu) {
+    placeBand();
+    return;
+  }
   renderBand(menu);
   subRow.replaceChildren(
     ...subsOf(menu).map((x) => {
       const b = h('button', `isl-sub ${sub === x.key ? 'is-on' : ''} ${needsOff(x) ? 'is-off' : ''} ${hm === menu && hk === x.key && sub !== x.key ? 'is-guide' : ''} ${subLocked(menu as Menu, x.key) ? 'is-lock' : ''}`);
       b.type = 'button';
-      b.append(h('b', '', x.name), h('small', '', x.note));
+      b.append(h('b', 'is-full', x.name), h('b', 'is-short', x.short), h('small', '', x.note));
       if (x.key === 'missions' && ready) b.classList.add('has-dot');
       // 人材登用：「人材の募集」を開放するまでは 🔒。開放したあと、はじめて人事を開いたときにロックが外れる演出
       if (x.needs === 'hire') {
@@ -846,8 +880,26 @@ function renderFoot() {
     }),
   );
   cards.hidden = true;
-  subRow.hidden = !!placing;
+  subRow.hidden = !!placing || !!drawer;
   deptBand.hidden = !!placing;
+  placeBand();
+}
+
+sheetHooks.opened = () => placeBand();
+/**
+ * 部門の帯（理解度・担当・パネル）の置き場所（段 UI3）：PC（右の帯）は帯の中、スマホは開いている画面の見出しの下の 1 行（下に段として積まない）。
+ * 画面が開いていなければ出さない
+ */
+function placeBand() {
+  // （右の帯かどうかは layout() が付ける is-rail で見る：RAIL はこのファイルの後ろで作る）
+  if (root.classList.contains('is-rail')) {
+    if (deptBand.parentElement !== panel) panel.prepend(deptBand);
+    return;
+  }
+  const head = root.querySelector('.isl-sheet .isl-sheet-head');
+  if (head && menu) {
+    if (head.nextElementSibling !== deptBand) head.after(deptBand);
+  } else if (deptBand.parentElement) deptBand.remove();
 }
 
 /** 部門の画面の上の帯（どの部門も同じ形）。担当（チームリーダー・事業部長。段 D）を押すと任命の画面。奥義は準備中 */
@@ -889,7 +941,11 @@ function renderBand(m: Menu) {
     renderAll();
   });
   deptBand.replaceChildren(
-    h('span', 'isl-dband-name', `${d.icon} ${d.name}`),
+    (() => {
+      const nm = h('span', 'isl-dband-name');
+      nm.append(...two(`${d.icon} ${d.name}`, `${d.icon} ${d.short}`));
+      return nm;
+    })(),
     h('span', 'isl-dband-lv', t(`理解度 ${lv}`, `Understanding ${lv}`)),
     next,
     lead,
@@ -2184,10 +2240,17 @@ function praise(text: string) {
 
 /** 下の帯の小メニューをコードから開く（チュートリアルの吹き出し・撮影スクリプト用） */
 function goSub(m: Menu, key: string) {
-  const x = subsOf(m).find((y) => y.key === key);
-  if (!x) return;
-  menu = m;
-  openSub(x);
+  // 段 UI3：まとめた画面の前の key（outlook・pr・bom・side ほか）は、まとめた画面のその部分へ
+  const r = resolveSub(m, key, menuDepts(s));
+  const x = r ? subsOf(r.m).find((y) => y.key === r.key) : undefined;
+  if (!r || !x) return;
+  if (!menuDepts(s).includes(r.m)) {
+    openDef(x.def, r.part);
+    renderAll();
+    return;
+  }
+  menu = r.m;
+  openSub(x, r.part);
 }
 
 // ---------------------------------------------------------------- チュートリアル（tut.ts の段を進める）
@@ -2885,6 +2948,7 @@ let cardCheck = 0;
 function maybeCard(now: number) {
   if (now - cardCheck < 400) return;
   cardCheck = now;
+  flushCardToasts();
   if (placing || menu || pop || sheetOpen() || tour || s.digRun || digOpen() || meetPing || tutOf(s) < TUT_DONE) return;
   if (root.querySelector('.isl-modal, .isl-rp-reveal, .isl-tour:not([hidden])')) return;
   const c = nextPop(s);
@@ -3440,7 +3504,8 @@ function layout() {
 function placeToasts() {
   let y = placing ? selBox.getBoundingClientRect().bottom + 8 : hud.getBoundingClientRect().bottom + 8;
   // （見出しがトーストより下なら、そのまま）
-  const head = root.querySelector('.isl-sheet-head')?.getBoundingClientRect();
+  // 段 UI3：部門の帯が見出しの下にあれば、その下へ
+  const head = (root.querySelector('.isl-sheet-box > .isl-dband') ?? root.querySelector('.isl-sheet-head'))?.getBoundingClientRect();
   if (head && head.top < y + Math.max(40, toasts.offsetHeight)) y = Math.max(y, head.bottom + 6);
   toasts.style.top = `${Math.round(y)}px`;
 }
@@ -3531,25 +3596,19 @@ function deptTalk() {
 const csHooks = () => ({ skills: () => panelsOf('support'), sat: () => openSatScreen(), inbox: () => openInboxScreen(), pr: () => openPrScreen() });
 /** カスタマーサポート → 問い合わせ・顧客満足度 */
 function openInboxScreen() {
-  openInbox(ctx, csHooks());
+  goSub('support', 'inbox');
 }
+/** 顧客満足度（段 UI3：問い合わせの画面にまとめた。その部分へ） */
 function openSatScreen() {
-  openSat(ctx, csHooks());
+  goSub('support', 'sat');
 }
-/** マーケ → 市場の見通し・広報と企業の格 */
-function openOutlook() {
-  openForecast(ctx, { skills: () => panelsOf('marketing'), ads: () => openAds(ctx) });
-}
+/** 広報と企業の格（段 UI3：ランキングの画面にまとめた。その部分へ） */
 function openPrScreen() {
-  openPr(ctx, { ...csHooks(), skills: () => panelsOf('marketing') });
+  goSub('marketing', 'pr');
 }
 /** 経理 → 税と節税 */
 function openTaxScreen() {
   openTax(ctx, { books: () => openBooks(ctx), skills: () => panelsOf('accounting') });
-}
-/** 総務 → 疲れと職場の環境 */
-function openGaScreen() {
-  openGa(ctx, { invest: () => openInvest(ctx), skills: () => panelsOf('general') });
 }
 /** 法務の画面（M&A・契約・特許・争い）。どの画面からもほかの 3 つへ行ける */
 const legalHooks = (): LegalHooks => ({ skills: () => panelsOf('legal'), ma: () => openLegalScreen('ma'), contract: () => openLegalScreen('contract'), patent: () => openLegalScreen('patent'), suit: () => openLegalScreen('suit') });

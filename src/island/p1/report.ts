@@ -156,15 +156,23 @@ function monthLabel(m: number): string {
 function chart(reports: Report[]): SVGSVGElement {
   const rs = chartRange ? reports.slice(-chartRange) : reports.slice();
   const W = 360;
-  const H = 150;
-  const padL = 30;
-  const padR = 30;
-  const padT = 10;
-  const padB = 20;
+  // 段 UI3：スマホは報告を 1 画面に収めるためグラフが低いので、横長にして幅いっぱいに（目盛りの字が縮まないように）
+  const H = typeof innerWidth === 'number' && innerWidth < 600 ? 110 : 150;
+  // 段 UI3：目盛りは画面の上で 12px 以上（CSS の --ck でグラフの縮み具合を割る）。そのぶん左右と下を少し広く
+  const padL = 40;
+  const padR = 40;
+  const padT = 12;
+  const padB = 24;
   const plotH = H - padT - padB;
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.classList.add('isl-rp-chart');
+  // グラフの縮み具合（画面の幅 ÷ 360）：目盛りの字の大きさに使う
+  if (typeof ResizeObserver !== 'undefined')
+    new ResizeObserver(() => {
+      const w = svg.getBoundingClientRect().width;
+      if (w > 0) svg.style.setProperty('--ck', (w / W).toFixed(3));
+    }).observe(svg);
   const n = Math.max(1, rs.length);
   const maxR = Math.max(1, ...rs.map((r) => r.revenue));
   const hiP = Math.max(1, ...rs.map((r) => r.profit));
@@ -176,11 +184,11 @@ function chart(reports: Report[]): SVGSVGElement {
   // 目盛り（左＝売上、右＝利益）と薄い横線
   for (const v of [0, maxR / 2, maxR]) {
     svg.append(mk('line', { x1: padL, y1: yR(v), x2: W - padR, y2: yR(v), class: 'isl-rp-grid' }));
-    svg.append(mk('text', { x: padL - 4, y: yR(v) + 3, 'text-anchor': 'end', class: 'isl-rp-yl is-l' }, kfmt(v)));
+    svg.append(mk('text', { x: padL - 4, y: yR(v) + 5, 'text-anchor': 'end', class: 'isl-rp-yl is-l' }, kfmt(v)));
   }
   // 利益が全部赤字の月だけなら、0・中・最小（下）を出す
   const pTicks = hiP > 1 ? [0, hiP / 2, hiP] : [loP, loP / 2, 0];
-  for (const v of pTicks) svg.append(mk('text', { x: W - padR + 4, y: yP(v) + 3, 'text-anchor': 'start', class: 'isl-rp-yl is-r' }, kfmt(v)));
+  for (const v of pTicks) svg.append(mk('text', { x: W - padR + 4, y: yP(v) + 5, 'text-anchor': 'start', class: 'isl-rp-yl is-r' }, kfmt(v)));
   // 利益の 0 の線
   svg.append(mk('line', { x1: padL, y1: yP(0), x2: W - padR, y2: yP(0), class: 'isl-rp-zero' }));
   // 利益の棒（赤字は 0 の線から下へ）
@@ -195,7 +203,9 @@ function chart(reports: Report[]): SVGSVGElement {
   if (rs.length > 1) svg.append(mk('polyline', { points: rs.map((r, k) => `${x(k).toFixed(1)},${yR(r.revenue).toFixed(1)}`).join(' '), class: 'isl-rp-line' }));
   rs.forEach((r, k) => {
     svg.append(mk('circle', { cx: x(k), cy: yR(r.revenue), r: k === rs.length - 1 ? 4.5 : 3.2, class: `isl-rp-dot ${k === rs.length - 1 ? 'is-last' : ''}` }));
-    svg.append(mk('text', { x: x(k), y: H - 6, 'text-anchor': 'middle', class: 'isl-rp-xl' }, monthLabel(r.month)));
+    // 月の目盛りは 6 つまで（多いときは間引く。最後の月は必ず）
+    const every = Math.ceil(rs.length / 6);
+    if ((rs.length - 1 - k) % every === 0) svg.append(mk('text', { x: x(k), y: H - 6, 'text-anchor': 'middle', class: 'isl-rp-xl' }, monthLabel(r.month)));
   });
   // 吹き出し（押した月の上に）
   let tip: SVGGElement | null = null;
@@ -209,18 +219,32 @@ function chart(reports: Report[]): SVGSVGElement {
     }
     tipK = k;
     const r = rs[k];
-    const tw = 104;
-    const th = 46;
     const top = Math.min(yR(r.revenue), r.profit >= 0 ? yP(r.profit) : yP(0));
-    const tx = Math.max(2, Math.min(W - tw - 2, x(k) - tw / 2));
-    const ty = Math.max(2, top - th - 6);
     const g = document.createElementNS(NS, 'g') as SVGGElement;
     g.classList.add('isl-rp-tip');
-    g.append(mk('rect', { x: tx, y: ty, width: tw, height: th, rx: 6 }));
-    g.append(mk('text', { x: tx + 8, y: ty + 13, class: 'is-m' }, monthLabel(r.month)));
-    g.append(mk('text', { x: tx + 8, y: ty + 26 }, t(`売上 ${money(r.revenue)}`, `Sales ${money(r.revenue)}`)));
-    g.append(mk('text', { x: tx + 8, y: ty + 39, class: r.profit >= 0 ? 'is-good' : 'is-bad' }, t(`利益 ${r.profit < 0 ? '−' : ''}${money(Math.abs(r.profit))}`, `Profit ${r.profit < 0 ? '−' : ''}${money(Math.abs(r.profit))}`)));
+    const box = mk('rect', { x: 0, y: 0, width: 104, height: 46, rx: 6 });
+    const lines = [
+      mk('text', { x: 0, y: 0, class: 'is-m' }, monthLabel(r.month)),
+      mk('text', { x: 0, y: 0 }, t(`売上 ${money(r.revenue)}`, `Sales ${money(r.revenue)}`)),
+      mk('text', { x: 0, y: 0, class: r.profit >= 0 ? 'is-good' : 'is-bad' }, t(`利益 ${r.profit < 0 ? '−' : ''}${money(Math.abs(r.profit))}`, `Profit ${r.profit < 0 ? '−' : ''}${money(Math.abs(r.profit))}`)),
+    ];
+    g.append(box, ...lines);
     svg.append(g);
+    // 吹き出しの字は画面の上で 12px 以上（CSS の --ck で割る）。字の大きさから箱の大きさと位置を決める
+    const fs = parseFloat(getComputedStyle(lines[0]).fontSize) || 10;
+    const lh = fs * 1.25;
+    const tw = Math.max(104, ...lines.map((e) => (e as SVGTextElement).getComputedTextLength?.() ?? 0)) + 14;
+    const th = lh * 3 + 8;
+    const tx = Math.max(2, Math.min(W - tw - 2, x(k) - tw / 2));
+    const ty = Math.max(2, top - th - 6);
+    box.setAttribute('x', String(tx));
+    box.setAttribute('y', String(ty));
+    box.setAttribute('width', String(tw));
+    box.setAttribute('height', String(th));
+    lines.forEach((e, i) => {
+      e.setAttribute('x', String(tx + 7));
+      e.setAttribute('y', String(ty + 4 + lh * (i + 1) - lh * 0.25));
+    });
   };
   // 月ごとの縦の当たり判定（透明）
   rs.forEach((_r, k) => {

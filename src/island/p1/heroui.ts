@@ -545,22 +545,37 @@ export function knownBar(v: number): HTMLElement {
 export function pickExt(
   root: HTMLElement,
   s: P1State,
-  o: { title: string; items: Sku[]; current: Sku | null; worker?: number | null; note?: string; onPick: (x: Sku | null) => void; allowNone?: boolean; badge?: { x: Sku; text: string } | null; making?: Sku[]; blocked?: (x: Sku) => boolean; onBlocked?: (x: Sku) => void },
+  o: {
+    title: string;
+    items: Sku[];
+    current: Sku | null;
+    worker?: number | null;
+    note?: string;
+    onPick: (x: Sku | null) => void;
+    allowNone?: boolean;
+    badge?: { x: Sku; text: string } | null;
+    making?: Sku[];
+    blocked?: (x: Sku) => boolean;
+    onBlocked?: (x: Sku) => void;
+    /** 段 UI3：カードに添える見込み（担当のヒーローの読み「+9 個／月」）。keep：items の順のまま並べる（見込みの大きい順） */
+    gain?: (x: Sku) => string | null;
+    keep?: boolean;
+  },
 ) {
   // 技がまだの商品はうしろへ（カードに「技：○○が要る」）
   const locked = (x: Sku) => Number(craftCheck(s, x, null) === 'tech');
   // この町で売れない商品（棚に並べられない）は、いちばんうしろへ
   const off = (x: Sku) => Number(!!o.blocked?.(x));
-  const list = [...o.items].sort((a, b) => off(a) - off(b) || locked(a) - locked(b) || profitPerDay(s, b) - profitPerDay(s, a));
+  const list = o.keep ? [...o.items] : [...o.items].sort((a, b) => off(a) - off(b) || locked(a) - locked(b) || profitPerDay(s, b) - profitPerDay(s, a));
   // 印をつけたもの（おすすめ・工房で作っているもの）を先頭に
   if (o.badge && list.includes(o.badge.x)) list.splice(0, 0, ...list.splice(list.indexOf(o.badge.x), 1));
   const ok = list.filter((x) => !off(x) && lotsFromStock(s, x) > 0 && !craftCheck(s, x, o.worker ?? null));
   const best = ok[0] ?? null;
   drawer(root, o.title, o.note ?? t('素材 → 商品のつながりと、今の素材で何ロット作れるか、1 日あたりの粗利を見比べて選びましょう。', 'Compare materials → product, how many lots your stock makes, and gross profit per day.'), (body, close) => {
     const grid = h('div', 'isl-ext-grid');
-    for (const x of list)
-      grid.append(
-        extCard(s, x, {
+    for (const x of list) {
+      const g = o.gain?.(x);
+      const card = extCard(s, x, {
           worker: o.worker,
           on: x === o.current,
           best: !o.badge && x === best,
@@ -576,8 +591,10 @@ export function pickExt(
             close();
             o.onPick(x);
           },
-        }),
-      );
+        });
+      if (g) card.querySelector('.isl-ext-r')?.prepend(h('div', 'isl-ext-gain', g));
+      grid.append(card);
+    }
     body.append(grid);
     if (o.allowNone && o.current)
       body.append(
