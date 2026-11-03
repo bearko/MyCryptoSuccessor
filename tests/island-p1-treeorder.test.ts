@@ -1,17 +1,20 @@
 /**
  * スキルツリーの並び（treelayout.ts の POOLS・treeorder.ts の TREE_ORDER）：つながりの線が交わらない。
  * ISLAND_TREE_OPT=1 で回すと、scripts/island/treeopt.ts で並びを探して src/island/p1/treeorder.ts を書き直す（スキルを足したあとに）。
+ * ISLAND_TREE_LINKS=1 で回すと、scripts/island/treelinks.ts でつながり（枝をまたぐ「先に要る」を同じ束にまとめ直す）と並びを一緒に探し、
+ * 描く弧で数えて仕上げて、src/island/p1/treelinks.ts と treeorder.ts を書き直す（段 UI5b。交わりを 0 に）。
  * ふだんは、いまの並びの線の交わりを数える（四角＝研究・菱形＝お金の大きさ、日本語・英語の札の大きさ）。
  */
 import { writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { optimize } from '../scripts/island/treeopt';
+import { optimizeLinks, polishLinks } from '../scripts/island/treelinks';
 import { EDGES, EDGE_CLEAR, POS, SQ_SIDE, PANEL, edgeBends, edgeEnd, curveAt, halfOf, hubsAround, linfSeg, polyInBox, shapeById } from '../src/island/p1/treelayout';
 import { SKILL, SKILLS, isResearch } from '../src/island/p1/data';
 import { TREE_ORDER } from '../src/island/p1/treeorder';
 
-/** いまの線どうしの交わりの数（四角＝研究・菱形＝お金の大きさ。端を共有する線は数えない）。0 を目指して減らしたら、この数も下げる */
-const CROSS_NOW = 64;
+/** いまの線どうしの交わりの数（四角＝研究・菱形＝お金の大きさ。端を共有する線は数えない）。段 UI5b でつながりを見直して 0 */
+const CROSS_NOW = 0;
 type P = { x: number; y: number };
 const orient = (p: P, q: P, r: P) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
 const segX = (a: P, b: P, c: P, d: P) => {
@@ -65,8 +68,29 @@ describe.runIf(!!process.env.ISLAND_TREE_OPT)('並びを探す（ISLAND_TREE_OPT
   }, 3_600_000);
 });
 
+describe.runIf(!!process.env.ISLAND_TREE_LINKS)('つながりと並びを探す（ISLAND_TREE_LINKS=1）', () => {
+  it('まっすぐな線で探す → 描く弧で仕上げる → treelinks.ts と treeorder.ts に書く', () => {
+    const a = optimizeLinks({ seed: 5, iters: 250000, start: { order: TREE_ORDER }, w: { x: 10, hit: 0.15, hub: 0.5, inward: 0.2, len: 0.004 }, change: 1, t0: 0.6, t1: 0.01 });
+    // 仕上げは 3 回：替えるつながりの費用を上げながら（交わり・パネルの下を 0 にしたまま、替えたつながりを戻していく）
+    const it = Number(process.env.ISLAND_TREE_ITERS ?? 30000);
+    let r = polishLinks({ seed: 7, iters: it, start: { order: a.order, links: a.links }, cw: 1, t0: 0.8, t1: 0.02 });
+    r = polishLinks({ seed: 11, iters: it, start: { order: r.order, links: r.links }, cw: 4, t0: 0.3, t1: 0.01 });
+    r = polishLinks({ seed: 13, iters: it, start: { order: r.order, links: r.links }, cw: 8, t0: 0.3, t1: 0.01 });
+    process.stderr.write(`LINKS: crossings ${r.curve.x} hits ${r.curve.hit} hub ${r.curve.hub} changed ${r.changed}\n`);
+    const body = Object.entries(r.order)
+      .map(([k, v]) => `  '${k}': [${v.map((x) => `'${x}'`).join(', ')}],`)
+      .join('\n');
+    writeFileSync('src/island/p1/treeorder.ts', `/**\n * スキルツリーの並びの入れ替え（組の key → パネルの id の並び。treelayout.ts の POOLS）。\n * つながりの線が交わらないように選んだもの。tests/island-p1-treeorder.test.ts（ISLAND_TREE_OPT=1・ISLAND_TREE_LINKS=1）が書く。手で直さない。\n */\nexport const TREE_ORDER: Record<string, string[]> = {\n${body}\n};\n`);
+    const lb = SKILLS.filter((k) => r.links[k.id])
+      .map((k) => `  ${k.id}: [${r.links[k.id].map((x) => `'${x}'`).join(', ')}],`)
+      .join('\n');
+    writeFileSync('src/island/p1/treelinks.ts', `/**\n * スキルツリーのつながりの見直し（段 UI5b）：パネルの id → 新しい「先に要る」（[] は根もとから）。\n * 線どうしの交わりを 0 にするため、枝をまたぐ「先に要る」を同じ束の中にまとめ直したもの（効き目・値段は変えない。値段は見直しの前のつながりで決める）。\n * tests/island-p1-treeorder.test.ts（ISLAND_TREE_LINKS=1）が scripts/island/treelinks.ts で探して書く。手で直さない。\n */\nexport const TREE_LINKS: Record<string, string[]> = {\n${lb}\n};\n`);
+    expect(r.curve.x).toBe(0);
+  }, 3_600_000);
+});
+
 describe('スキルツリーの並び：線が交わらない', () => {
-  it('つながりの線どうしの交わりを増やさない（もとの並びは 298 か所 → 並べ直して 64 か所。0 にはまだ届いていない：docs/ISLAND_PHASE1.md「並び（線が交わらない）」）', () => {
+  it('つながりの線どうしの交わりが 0（もとの並びは 298 か所 → 並べ直して 64 か所 → 段 UI5b でつながりを見直して 0：docs/ISLAND_PHASE1.md「並び（線が交わらない）」）', () => {
     const x = crossings();
     expect(x.length, x.slice(0, 30).join('\n')).toBeLessThanOrEqual(CROSS_NOW);
   });

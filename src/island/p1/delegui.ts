@@ -40,7 +40,7 @@ import { after, open, type Ctx } from './screens';
 import { sectorDef } from './company';
 import { bar, btn, h, heroIcon, money, rich } from './ui';
 import { cardInboxCard } from './cardui';
-import { cardInbox } from './card';
+import { cardInbox, starOf } from './card';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 /** 役目の札（リーダー・部長・セクター長。形で見分ける：リーダーは角、部長は丸、セクター長は二重の枠） */
@@ -57,8 +57,11 @@ function qBar(q: number): HTMLElement {
   wrap.append(bar(q, q >= 0.9 ? 'var(--isl-good)' : q >= 0.8 ? 'var(--isl-gold)' : 'var(--isl-warn, #f2b544)'), h('b', '', qText(q)));
   return wrap;
 }
-/** 任命の候補の引き出し：出来の高い順（向く能力値・Lv・パッシブで）。いまの担当・役目は札で */
-function pickFor(ctx: Ctx, dept: DeptId, title: string, current: number | null, onPick: (hero: number) => void) {
+/**
+ * 任命の候補の引き出し：出来の高い順（向く能力値・Lv・パッシブで）。いまの担当・役目は札で。
+ * 段 UI5b：組織図からも使う（読みの確かさ ★ を添える。onClear があれば「外す（自分に戻す）」）
+ */
+export function pickFor(ctx: Ctx, dept: DeptId, title: string, current: number | null, onPick: (hero: number) => void, onClear?: () => void) {
   const s = ctx.s();
   const list = candidatesFor(s, dept);
   const best = list.find((x) => !x.st.resting)?.st.hero;
@@ -67,13 +70,21 @@ function pickFor(ctx: Ctx, dept: DeptId, title: string, current: number | null, 
     title,
     t(`数字は「出来」（手でやると 100%）。${DEPT[dept].name}に向く能力値（${deptAptName(dept)}）・Lv・${DEPT[dept].name}のパッシブで上がります。ほかの仕事・役目の人を選ぶと、そこから外れます。`, `Numbers are quality (by hand = 100%). It rises with ${deptAptName(dept)}, level and ${DEPT[dept].name} passives. Picking someone with another job moves them here.`),
     (body, close) => {
+      if (onClear && current != null)
+        body.append(
+          btn(t('外す（自分に戻す）', 'Remove (back to you)'), () => {
+            close();
+            onClear();
+          }, 'isl-pick-clear'),
+        );
       const grid = h('div', 'isl-pick-grid');
       for (const { st, q } of list) {
         const card = h('button', `isl-hero-pick ${st.hero === current ? 'is-on' : ''} ${st.task != null && st.hero !== current ? 'is-grey' : ''}`);
         card.type = 'button';
         const lv = h('div', 'isl-row');
         lv.append(rarityBadge(st.rarity ?? 'C'), h('small', '', `Lv ${st.level ?? 1}`));
-        card.append(heroIcon(st.hero, 56), h('b', '', heroNm(st.hero)), lv, h('b', q >= 0.85 ? 'isl-good' : 'isl-gold', qText(q)));
+        const sn = starOf(q, st.level ?? 1);
+        card.append(heroIcon(st.hero, 56), h('b', '', heroNm(st.hero)), lv, h('b', q >= 0.85 ? 'isl-good' : 'isl-gold', qText(q)), h('small', 'isl-pick-star', `${'★'.repeat(sn)}${'☆'.repeat(3 - sn)}`));
         const r = roleOf(st);
         if (r) card.append(roleBadge(r));
         card.append(h('small', st.task == null ? 'isl-good isl-pick-job' : 'isl-dim isl-pick-job', st.hero === current ? t('いまの担当', 'Current') : jobLabel(s, st)));
@@ -184,8 +195,9 @@ const ERR: Record<string, string> = {
   'no-staff': t('そのヒーローはいません', 'No such hero'),
   away: t('そのヒーローは、ほかのセクタのセクター長です', 'That hero heads another sector'),
   training: t('そのヒーローは修行中です', 'That hero is training'),
+  busy: t('そのヒーローは、ほかの部長を務めています（役職の兼任はできません）', 'That hero already heads another division (no double posts)'),
 };
-function done(ctx: Ctx, e: string | null, ok: string) {
+export function done(ctx: Ctx, e: string | null, ok: string) {
   if (e) {
     ctx.sfx?.('error');
     ctx.toast(ERR[e] ?? e);

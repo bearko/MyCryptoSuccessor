@@ -22,6 +22,7 @@ export type ScreenId =
   | 'ceo'
   | 'ma'
   | 'staff'
+  | 'org'
   | 'side'
   | 'growth'
   | 'hire'
@@ -81,7 +82,8 @@ export const SUB_DEFS = (): Record<DeptId, SubDef[]> => ({
     d('props', t('受け箱', 'Inbox'), t('受け箱', 'Inbox'), t('提案・報告・問い合わせ', 'Proposals, reports, inquiries'), ['props', 'inbox']),
   ],
   hr: [
-    d('staff', t('ヒーローの配置', 'Assign heroes'), t('ヒーローの配置', 'Assign heroes'), t('持ち場・他店でバイト', 'Posts, part-time work'), ['staff', 'side']),
+    // 段 UI5b：組織図（役目の木）をヒーローの配置の画面にまとめる（サブタブは増やさない）
+    d('staff', t('ヒーローの配置', 'Assign heroes'), t('ヒーローの配置', 'Assign heroes'), t('持ち場・組織図・他店でバイト', 'Posts, org chart, part-time work'), ['staff', 'org', 'side']),
     d('growth', t('ヒーローの育成', 'Hero growth'), t('育成', 'Growth'), t('Lv・昇格・パッシブ', 'Levels, promotion, passives'), ['growth']),
     d('hire', t('人材登用', 'Recruiting'), t('人材登用', 'Recruiting'), t('雇う・カリスマ度', 'Hire, charisma'), ['hire', 'ceo'], 'hire'),
     d('pay', t('給与・労務', 'Pay & welfare'), t('給与・労務', 'Pay'), t('給与・士気・休み', 'Pay, morale, rest'), ['pay']),
@@ -134,6 +136,7 @@ export const SUB_ALIAS: Record<string, { m: DeptId; key: string; part: ScreenId 
   'strategy:ceo': { m: 'hr', key: 'hire', part: 'ceo' },
   'strategy:ma': { m: 'legal', key: 'ma', part: 'ma' },
   'hr:side': { m: 'hr', key: 'staff', part: 'side' },
+  'hr:org': { m: 'hr', key: 'staff', part: 'org' },
   'marketing:outlook': { m: 'marketing', key: 'data', part: 'outlook' },
   'marketing:pr': { m: 'marketing', key: 'ranking', part: 'pr' },
   'support:sat': { m: 'support', key: 'inbox', part: 'sat' },

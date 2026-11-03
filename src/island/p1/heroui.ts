@@ -110,7 +110,7 @@ export function jobLabel(s: P1State, st: Staff): string {
       return t(`セクター長：${SECTORS.find((x) => x.id === st.target)?.name ?? ''}`, `Sector head: ${SECTORS.find((x) => x.id === st.target)?.name ?? ''}`);
     case 'lead': {
       // 任せ方の 4 段（段 D）：チームリーダー・事業部長
-      const r = roleOf(st);
+      const r = roleOf({ task: st.task, target: st.target });
       return r ? roleText(r) : t('リーダー', 'Leader');
     }
     case 'train': {
@@ -119,7 +119,8 @@ export function jobLabel(s: P1State, st: Staff): string {
       return t(`修行中：${name}（あと ${left} 日）`, `Training: ${name} (${left} d left)`);
     }
     default:
-      return t('待機中', 'Free');
+      // 段 UI5b：事業部長の役職だけ（持ち場の仕事なし）
+      return st.heads?.length ? roleText({ kind: 'head', dept: st.heads[0] }) : t('待機中', 'Free');
   }
 }
 

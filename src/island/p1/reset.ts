@@ -9,7 +9,7 @@ import { cells } from '../sim';
 import { acctReset } from './acct';
 import { MANAGER, P1B, PRODUCT, SECTORS, SKILL, grantOf, isAntique, isResearch, skuParts, type Sku, type Tier } from './data';
 import { book, delegateCostOf, repairCostOf, repairDaysOf, repairOrder, ruinCount, RUIN, sectorDef, type Land, type RuinLike, type SectorRec } from './company';
-import { assign, newDig, reviveMul, spend, staffOf, wasteSpots, type DigState, type P1State, type PBuilding, type ResetRec } from './model';
+import { assign, trimForSector, newDig, reviveMul, spend, staffOf, wasteSpots, type DigState, type P1State, type PBuilding, type ResetRec } from './model';
 
 const TIER_ORDER: Tier[] = ['C', 'U', 'R', 'E', 'L'];
 const rankOf = (t0: Tier) => TIER_ORDER.indexOf(t0);
@@ -300,6 +300,8 @@ export function delegate(s: P1State, id: string, hero: number, fund: number): De
     st.task = 'manager';
     st.target = id;
   }
+  // 段 UI5b：役職は兼任しない（事業部長の役職は外れる。固有の能力 multiRole のヒーローは残る）
+  trimForSector(st);
   rec.manager = hero;
   if (fund > 0) {
     s.money -= fund;

@@ -22,7 +22,7 @@ import { jamOf, myShops, whatIf, type P1State, type Report, type Stage } from '.
 import { moveUp, sellBigUp } from './scm';
 import { bestSell } from './moves';
 import { closeSheet, open, type Ctx } from './screens';
-import { btn, h, heroName, money, rich, select, skuIcon } from './ui';
+import { btn, h, heroName, money, rich, select, signCls, signed, skuIcon } from './ui';
 import { ZERO_LINE } from './mine';
 
 const STAGE_NAME: Record<Stage, string> = { buy: t('① 調達', '① Buy'), craft: t('② 製造', '② Craft'), haul: t('③ 物流', '③ Haul'), sell: t('④ 販売', '④ Sell') };
@@ -159,9 +159,11 @@ function monthLabel(m: number): string {
 /** 売上（左軸・折れ線）と利益（右軸・棒）。押すとその月の吹き出し */
 function chart(reports: Report[]): SVGSVGElement {
   const rs = chartRange ? reports.slice(-chartRange) : reports.slice();
-  const W = 360;
-  // 段 UI3：スマホは報告を 1 画面に収めるためグラフが低いので、横長にして幅いっぱいに（目盛りの字が縮まないように）
-  const H = typeof innerWidth === 'number' && innerWidth < 600 ? 110 : 150;
+  // 段 UI5b：スマホはカードの幅いっぱい・高さ 160px（1 単位＝画面の 1px なので目盛りは 12px のまま。月次報告はスクロールしてよい）。
+  // 前（段 UI3）は 1 画面に収めるため高さ 110 で、縮めて置いたので幅の 3 割ほど・目盛りが読めなかった
+  const phone = typeof innerWidth === 'number' && innerWidth < 600;
+  const W = phone ? Math.max(280, Math.round(innerWidth - 44)) : 360;
+  const H = phone ? 160 : 150;
   // 段 UI3：目盛りは画面の上で 12px 以上（CSS の --ck でグラフの縮み具合を割る）。そのぶん左右と下を少し広く
   const padL = 40;
   const padR = 40;
@@ -209,7 +211,10 @@ function chart(reports: Report[]): SVGSVGElement {
     svg.append(mk('circle', { cx: x(k), cy: yR(r.revenue), r: k === rs.length - 1 ? 4.5 : 3.2, class: `isl-rp-dot ${k === rs.length - 1 ? 'is-last' : ''}` }));
     // 月の目盛りは 6 つまで（多いときは間引く。最後の月は必ず）
     const every = Math.ceil(rs.length / 6);
-    if ((rs.length - 1 - k) % every === 0) svg.append(mk('text', { x: x(k), y: H - 6, 'text-anchor': 'middle', class: 'isl-rp-xl' }, monthLabel(r.month)));
+    // 段 UI5b：スマホは「年」を最初の目盛りと 1 月だけに（「2年 2月2年 3月…」と重ならないように）
+    const first = (rs.length - 1) % every;
+    const lab = phone && k !== first && ym(r.month).month !== 1 ? t(`${ym(r.month).month}月`, `M${ym(r.month).month}`) : monthLabel(r.month);
+    if ((rs.length - 1 - k) % every === 0) svg.append(mk('text', { x: x(k), y: H - 6, 'text-anchor': 'middle', class: 'isl-rp-xl' }, lab));
   });
   // 吹き出し（押した月の上に）
   let tip: SVGGElement | null = null;
@@ -313,7 +318,8 @@ function cardHead(tag: string, kgi: boolean, title: string, right?: HTMLElement,
 /** 前月比のチップ */
 function diffChip(cur: number, prev: number): HTMLElement {
   const d = cur - prev;
-  return h('span', `isl-rp-diff ${d >= 0 ? 'is-up' : 'is-down'}`, d >= 0 ? t(`先月比 +${money(d)}`, `+${money(d)} vs last`) : t(`先月比 −${money(-d)}`, `−${money(-d)} vs last`));
+  const c = signCls(d);
+  return h('span', `isl-rp-diff ${c === 'is-good' ? 'is-up' : c === 'is-bad' ? 'is-down' : 'is-even'}`, t(`先月比 ${signed(d, money)}`, `${signed(d, money)} vs last`));
 }
 
 /** 発表の長さ（ミリ秒）：カウント（金額に関係なく一定）→ 跳ね → 金貨 → 「タップで続ける」。待ちきれなければ 6 秒で自動 */
@@ -433,6 +439,26 @@ function fitPhone(body: HTMLElement) {
 }
 
 /**
+ * 段 UI5b：スマホで推移のグラフを大きくしたので、報告はスクロールしてよい。KPI ③（サプライチェーン管理）が 1 画面目に見えないときだけ、
+ * 下の端に「↓ KPI ③」の近道を出す（押すとそこまで送る。KPI ③ が見えたら消える）
+ */
+function jumpKpi3(body: HTMLElement, c4: HTMLElement) {
+  if (!window.matchMedia?.('(max-width: 599px)').matches || typeof IntersectionObserver === 'undefined') return;
+  const jump = btn(t('↓ KPI ③ サプライチェーン', '↓ KPI 3 Supply chain'), () => c4.scrollIntoView({ behavior: 'smooth', block: 'start' }), 'isl-rp-jump');
+  jump.hidden = true;
+  body.append(jump);
+  const io = new IntersectionObserver(
+    (xs) => {
+      const seen = xs.some((x) => x.isIntersecting);
+      jump.hidden = seen;
+      if (seen) io.disconnect();
+    },
+    { root: body, threshold: 0.35 },
+  );
+  io.observe(c4);
+}
+
+/**
  * 発表（ドラムロール）を済ませた報告。1 回の報告で発表は 1 回だけ：同じ報告を開き直したとき（まとめ報告の「くわしい報告を見る」など）は
  * 発表を飛ばして本体をすぐ出す（カードの出る演出・順位のポンもしない）
  */
@@ -471,7 +497,7 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       left.append(h('small', 'isl-rp-k', t('売上', 'Sales')), h('b', `isl-rp-rev ${r.revenue <= 0 ? 'is-zero' : ''}`, money(r.revenue)));
       if (prev) left.append(diffChip(r.revenue, prev.revenue));
       const right = h('div', 'isl-rp-col');
-      right.append(h('small', 'isl-rp-k', t('利益', 'Profit')), h('b', `isl-rp-pf ${r.profit >= 0 ? 'is-good' : 'is-bad'}`, (r.profit >= 0 ? '+' : '−') + money(Math.abs(r.profit))));
+      right.append(h('small', 'isl-rp-k', t('利益', 'Profit')), h('b', `isl-rp-pf ${signCls(r.profit)}`, signed(r.profit, money)));
       right.append(h('small', 'isl-rp-k', t('資金の変化', 'Cash')));
       if (r.money) {
         right.append(h('span', 'isl-rp-cash', `${money(r.money.start)} → ${money(r.money.end)}`));
@@ -480,9 +506,10 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       const sub = h('span', 'isl-rp-subrow');
       if (r.money) {
         const dm = r.money.end - r.money.start;
-        sub.append(h('small', `isl-rp-dm ${dm >= 0 ? 'is-good' : 'is-bad'}`, t(`（${dm >= 0 ? '+' : '−'}${money(Math.abs(dm))}）`, `(${dm >= 0 ? '+' : '−'}${money(Math.abs(dm))})`)));
+        sub.append(h('small', `isl-rp-dm ${signCls(dm)}`, t(`（${signed(dm, money)}）`, `(${signed(dm, money)})`)));
       }
-      if (r.brand) sub.append(h('small', 'isl-rp-brand', `★ +${r.brand}`));
+      // ブランド力の増減（段 UI5b：減った月が「★ +-10」になっていた → ★ −10（赤）・★ +10（緑））
+      if (r.brand) sub.append(h('small', `isl-rp-brand ${signCls(r.brand)}`, `★ ${signed(r.brand)}`));
       if (sub.childElementCount) right.append(sub);
       // 売上のうち復刻品のぶん（1 行）
       if (r.relic) left.append(h('small', 'isl-rp-relic', t(`うち復刻品 ${money(r.relic)}`, `incl. revivals ${money(r.relic)}`)));
@@ -493,9 +520,9 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
         const fc = h('p', 'isl-rp-fc');
         // スマホは短い文（1 行に収める）
         const fl = h('span', 'is-long');
-        fl.append(h('span', '', t(`来月の見込み：売上 ${money(r.forecast.sales)}・利益 `, `Next month: sales ${money(r.forecast.sales)}, profit `)), h('b', r.forecast.profit >= 0 ? 'isl-good' : 'isl-bad', (r.forecast.profit >= 0 ? '+' : '−') + money(Math.abs(r.forecast.profit))));
+        fl.append(h('span', '', t(`来月の見込み：売上 ${money(r.forecast.sales)}・利益 `, `Next month: sales ${money(r.forecast.sales)}, profit `)), h('b', r.forecast.profit >= 0 ? 'isl-good' : 'isl-bad', signed(r.forecast.profit, money)));
         const fs = h('span', 'is-short');
-        fs.append(h('span', '', t(`来月 売上 ${kfmt(r.forecast.sales)} G・利益 `, `Next: sales ${kfmt(r.forecast.sales)} G, profit `)), h('b', r.forecast.profit >= 0 ? 'isl-good' : 'isl-bad', (r.forecast.profit >= 0 ? '+' : '−') + kfmt(Math.abs(r.forecast.profit)) + ' G'));
+        fs.append(h('span', '', t(`来月 売上 ${kfmt(r.forecast.sales)} G・利益 `, `Next: sales ${kfmt(r.forecast.sales)} G, profit `)), h('b', r.forecast.profit >= 0 ? 'isl-good' : 'isl-bad', signed(r.forecast.profit, (n) => `${kfmt(n)} G`)));
         fc.append(h('span', 'isl-tag is-good', t('月次 PDCA', 'Monthly PDCA')), fl, fs);
         c1.append(fc);
       }
@@ -799,6 +826,7 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       cards.forEach((c, k) => c.style.setProperty('--d', `${k * 0.08}s`));
       body.append(...cards);
       fitPhone(body);
+      jumpKpi3(body, c4);
     },
     then,
   );
@@ -892,7 +920,7 @@ export function openDigSummary(ctx: Ctx, sum: DigSummary, hooks: DigSummaryHooks
       cash.append(h('small', '', t('資金', 'Funds')));
       if (sum.money) {
         const dm = sum.money.end - sum.money.start;
-        cash.append(h('b', '', `${money(sum.money.start)} → ${money(sum.money.end)}`), h('small', dm >= 0 ? 'isl-good' : 'isl-bad', `${dm >= 0 ? '+' : '−'}${money(Math.abs(dm))}`));
+        cash.append(h('b', '', `${money(sum.money.start)} → ${money(sum.money.end)}`), h('small', dm >= 0 ? 'isl-good' : 'isl-bad', signed(dm, money)));
       } else cash.append(h('b', '', '—'));
       row.append(cash);
       c1.append(row);

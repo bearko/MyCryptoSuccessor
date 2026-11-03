@@ -3,7 +3,9 @@
  * チームリーダー（業務を 1 つ任せる。理解度 3）・事業部長（部門を丸ごと任せる。理解度 8）と部長の提案のカード・セクター長（いまのセクタのマネージャーと復興の委任）・昇進。
  * 仕様は docs/ISLAND_PHASE1.md「任せ方」、数字は data.ts の DELEG（1 か所）。
  *
- * 役目は Staff に持つ（task 'lead'・target 'L:業務' ／ 'H:部門'）。ほかの仕事には就かない（役目の枠を 1 つ使う）。外すと task は null（手に戻る）。
+ * 役目は Staff に持つ：チームリーダーは task 'lead'・target 'L:業務'（ほかの仕事には就かない）。事業部長は役職 Staff.heads（段 UI5b：町の持ち場の仕事と兼ねてよい）。
+ * 役職（事業部長・セクター長）の兼任はしない（固有の能力 multiRole のヒーローだけ 2 つまで）：決まりは model.ts の roleCount・canHoldRole の 1 か所。
+ * 外すと手に戻る（席は「自分」）。
  * セクター長は、いまのマネージャー（task 'manager'）の呼び名。数字（runSector・reviveMonth）は変えない。
  */
 import { isEn, t } from '../../i18n';
@@ -92,8 +94,10 @@ const LKEY = (d: DutyId) => `L:${d}`;
 const HKEY = (d: DeptId) => `H:${d}`;
 /** ヒーローの役目（リーダー・部長・セクター長）。無ければ null */
 export type Role = { kind: 'leader'; dept: DeptId; duty: DutyId } | { kind: 'head'; dept: DeptId } | { kind: 'sector'; sector: string };
-export function roleOf(st: Pick<Staff, 'task' | 'target'>): Role | null {
+/** いちばん上の役目（セクター長 → 事業部長 → リーダー）。無ければ null */
+export function roleOf(st: Pick<Staff, 'task' | 'target' | 'heads'>): Role | null {
   if (st.task === 'manager' && typeof st.target === 'string') return { kind: 'sector', sector: st.target };
+  if (st.heads?.length) return { kind: 'head', dept: st.heads[0] };
   if (st.task !== 'lead' || typeof st.target !== 'string') return null;
   const [k, id] = st.target.split(':');
   if (k === 'L' && DUTY[id as DutyId]) return { kind: 'leader', dept: DUTY[id as DutyId].dept, duty: id as DutyId };
@@ -101,7 +105,11 @@ export function roleOf(st: Pick<Staff, 'task' | 'target'>): Role | null {
   return null;
 }
 export const leaderOf = (s: Pick<P1State, 'staff'>, d: DutyId) => s.staff.find((x) => x.task === 'lead' && x.target === LKEY(d)) ?? null;
-export const headOf = (s: Pick<P1State, 'staff'>, d: DeptId) => s.staff.find((x) => x.task === 'lead' && x.target === HKEY(d)) ?? null;
+export const headOf = (s: Pick<P1State, 'staff'>, d: DeptId) => s.staff.find((x) => x.heads?.includes(d)) ?? s.staff.find((x) => x.task === 'lead' && x.target === HKEY(d)) ?? null;
+
+// 役職の決まり（段 UI5b・組織図）：roleCount・canHoldRole・fixRoles・trimForSector は model.ts の 1 か所（ここから使う）
+export { canHoldRole, fixRoles, roleCount } from './model';
+import { canHoldRole } from './model';
 /** 事業部長のいる部門 */
 export const headDepts = (s: Pick<P1State, 'staff'>): DeptId[] => DEPTS.map((d) => d.id).filter((d) => headOf(s, d));
 /** 任せた業務（リーダーか部長が回している） */
@@ -156,7 +164,7 @@ export function headLeft(s: P1State, d: DeptId): number | null {
   if (!menuDepts(s).includes(d)) return null;
   return Math.max(0, DELEG.headAt - deptLevel(s, d));
 }
-export type DelegErr = 'closed' | 'locked' | 'no-staff' | 'away' | 'training';
+export type DelegErr = 'closed' | 'locked' | 'no-staff' | 'away' | 'training' | 'busy';
 /** 任命できるか（ヒーロー）：ほかのセクタのセクター長・修行中は不可 */
 function pickErr(st: Staff | null): DelegErr | null {
   if (!st) return 'no-staff';
@@ -169,11 +177,12 @@ function clearRole(s: P1State, st: Staff) {
   st.task = null;
   st.target = null;
 }
-/** 役目を外す（手に戻す）。その人は待機中に */
+/** 役目を外す（手に戻す）。リーダーは待機中に、事業部長は役職だけ外れる（持ち場の仕事はそのまま） */
 export function dismiss(s: P1State, hero: number): boolean {
   const st = staffOf(s, hero);
-  if (!st || st.task !== 'lead') return false;
-  clearRole(s, st);
+  if (!st || (st.task !== 'lead' && !st.heads?.length)) return false;
+  if (st.heads?.length) delete st.heads;
+  if (st.task === 'lead') clearRole(s, st);
   return true;
 }
 /** チームリーダーを置く（hero が null なら外す＝手に戻す）。いまの仕事・役目からは外れる（部長から下げることもできる） */
@@ -196,28 +205,41 @@ export function setLeader(s: P1State, d: DutyId, hero: number | null): DelegErr 
   st!.target = LKEY(d);
   return null;
 }
-/** 事業部長を置く（昇進：その部門や別の部門のリーダーからでもよい）。hero が null なら外す */
+/** 事業部長の役職を外す（持ち場の仕事はそのまま。古い形の task 'lead'・'H:' なら手に戻す） */
+function dropHead(s: P1State, st: Staff, d: DeptId) {
+  if (st.heads) {
+    st.heads = st.heads.filter((x) => x !== d);
+    if (!st.heads.length) delete st.heads;
+  }
+  if (st.task === 'lead' && st.target === HKEY(d)) clearRole(s, st);
+}
+/**
+ * 事業部長を置く（段 UI5b：役職。町の持ち場の仕事と兼ねてよい）。hero が null なら外す（席は「自分」に戻る）。
+ * 兼任はしない：ほかの部門の部長・セクター長なら 'busy'（固有の能力 multiRole のヒーローはその数まで）。
+ * 同じ部門のリーダーからの昇進は、リーダーの役目を外す（部長がまとめて回す）。ほかの仕事・持ち場はそのまま
+ */
 export function setHead(s: P1State, d: DeptId, hero: number | null): DelegErr | null {
   const cur = headOf(s, d);
   if (hero == null) {
-    if (cur) clearRole(s, cur);
+    if (cur) dropHead(s, cur, d);
     return null;
   }
   const left = headLeft(s, d);
   if (left == null) return 'closed';
   if (left > 0) return 'locked';
   const st = staffOf(s, hero);
-  const e = pickErr(st);
-  if (e) return e;
-  if (cur && cur.hero !== hero) clearRole(s, cur);
-  releaseCover(s, hero);
-  if (st!.task !== 'lead') assign(s, hero, null);
-  st!.task = 'lead';
-  st!.target = HKEY(d);
+  if (!st) return 'no-staff';
+  if (st.task === 'train') return 'training';
+  if (!canHoldRole(st, { head: d })) return st.task === 'manager' ? 'away' : 'busy';
+  if (cur && cur.hero !== hero) dropHead(s, cur, d);
+  const r = roleOf({ task: st.task, target: st.target });
+  if (r?.kind === 'leader' && r.dept === d) clearRole(s, st);
+  if (!st.heads?.includes(d)) st.heads = [...(st.heads ?? []), d];
   return null;
 }
 /** 役目の経験値（1 日）：部長 > リーダー（セクター長＝マネージャーは会社の月の締めで 30 日 × 20） */
-export const roleXp = (st: Pick<Staff, 'task' | 'target'>) => {
+export const roleXp = (st: Pick<Staff, 'task' | 'target' | 'heads'>) => {
+  if (st.heads?.length) return HERO_GROWTH.xp.head;
   const r = roleOf(st);
   return r?.kind === 'head' ? HERO_GROWTH.xp.head : r?.kind === 'leader' ? HERO_GROWTH.xp.leader : 0;
 };
@@ -337,7 +359,7 @@ export const errMul = (r: () => number, q: number, k: number) => 1 + (r() * 2 - 
 
 /** 1 日の業務：任せた業務を、見直しの日に回す（採掘・交代の戻しは毎日）。採掘で打ったマスを返す（地図の演出用） */
 export function delegDay(s: P1State): ReturnType<typeof leadDigHits> {
-  const any = s.staff.some((x) => x.task === 'lead');
+  const any = s.staff.some((x) => x.task === 'lead' || !!x.heads?.length);
   if (!any && !s.deleg?.cover.length && !Object.keys(s.deleg?.pend ?? {}).length) return [];
   const st = D(s);
   let hits: ReturnType<typeof leadDigHits> = [];
