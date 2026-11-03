@@ -7,8 +7,9 @@
  * docs/ISLAND_PHASE1.md「スキルツリー」「部門」。
  */
 import { t } from '../../i18n';
-import { CS_SKILLS, DEPTS, DEPT_SKILLS, GA_SKILLS, MKT_SKILLS, SKILLS, deptOf, type Branch, type DeptId, type Skill, type Tier } from './data';
+import { CS_SKILLS, DEPTS, DEPT_SKILLS, GA_SKILLS, MKT_SKILLS, SKILL, SKILLS, deptOf, isResearch, type Branch, type DeptId, type Skill, type Tier } from './data';
 import { ROW_CAP } from './skillsx';
+import { TREE_ORDER } from './treeorder';
 
 /** スキルのランク（外周）。無ければ C */
 const tierOf = (k: { tier?: Tier }): Tier => k.tier ?? 'C';
@@ -19,6 +20,16 @@ export const UNIT = 96;
  * 中のアイコンは正立のまま、ひし形の内側に収まる正方形（幅の半分＝32px。64×64 のエクステの絵はちょうど 1/2）
  */
 export const PANEL = 2 / 3;
+/**
+ * パネルの形は **払うもので決まる**：研究ポイント（RP）で開くパネルは **四角**（辺は SQ_SIDE。傾けない）、お金（資金）で開くパネルは **菱形**（PANEL）。
+ * 四角の辺は菱形の外接の幅の 0.78 倍（50px。見た目の大きさをそろえる）。線がパネルの下を通らないかの判定は、四角は L∞（四角そのもの）・菱形は L1
+ */
+export const SQ_SIDE = PANEL * 0.78;
+export type PanelShape = 'square' | 'diamond';
+export const shapeOf = (k: { id: string; cat?: string }): PanelShape => (isResearch(k as never) ? 'square' : 'diamond');
+export const shapeById = (id: string): PanelShape => (SKILL[id] ? shapeOf(SKILL[id]) : 'diamond');
+/** パネルの形の半分の大きさ（線との距離の判定に使う。余白は含まない）：四角は辺の半分（L∞）・菱形は外接の幅の半分（L1） */
+export const halfOf = (id: string) => (shapeById(id) === 'square' ? SQ_SIDE / 2 : PANEL / 2);
 /** 内側（Common）の段：1 段目の半径・段の間・パネルの間（弧の長さ）。パネルのすき間はひし形の幅の 0.8〜1 枚分 */
 export const R0 = 3.6;
 export const STEP = 1.3;
@@ -278,24 +289,45 @@ export const POS = new Map<string, { x: number; y: number }>();
 export const HUBPOS = new Map<DeptId, { x: number; y: number }>();
 /** 束の根もとの節（物流のように束が複数ある部門だけ） */
 export const KNOTPOS = new Map<string, { x: number; y: number }>();
+/**
+ * パネルを置く場所（段）ごとの組：同じ段（内側の 1 段・束のあるランクの外周）のパネルと、その段の場所の並び。
+ * 並びの入れ替え（TREE_ORDER。線が交わらないように選んだもの）は、同じ組の中でだけ（内側は同じ段の中・外周は束とランクの中）
+ */
+export interface Pool {
+  key: string;
+  /** 初めの並び（根もとから外へ・角度の小さい側から） */
+  ids: string[];
+  /** 場所（ids と同じ数） */
+  slots: { x: number; y: number }[];
+}
+export const POOLS: Pool[] = [];
 for (const d of DEPTS) {
   const L = DEPT_LAYOUT[d.id];
   HUBPOS.set(d.id, polar(deptAngle(d.id), L.hubR));
   for (const g of L.groups) {
     if (L.groups.length > 1) KNOTPOS.set(g.key, polar(g.a, KNOT));
-    const row = (ids: string[], r: number) => ids.forEach((id, i) => POS.set(id, polar(g.a + ((i - (ids.length - 1) / 2) * GAP) / r, r)));
-    (INNER[g.key] ?? []).forEach((ids, k) => row(ids, R0 + STEP * k));
+    const row = (n: number, r: number) => Array.from({ length: n }, (_, i) => polar(g.a + ((i - (n - 1) / 2) * GAP) / r, r));
+    (INNER[g.key] ?? []).forEach((ids, k) => POOLS.push({ key: `${g.key}|C|${k}`, ids, slots: row(ids.length, R0 + STEP * k) }));
     for (const tier of OUTER) {
       const ids = outerOf(g.skills, tier).map((k) => k.id);
+      if (!ids.length) continue;
       let at = 0;
+      const slots: { x: number; y: number }[] = [];
       for (const r of RING_ROWS[tier]) {
         const c = capAt(g.w, r);
-        row(ids.slice(at, at + c), r);
+        slots.push(...row(ids.slice(at, at + c).length, r));
         at += c;
       }
+      POOLS.push({ key: `${g.key}|${tier}`, ids, slots });
     }
   }
 }
+/** 並びの表から、組の並びを決める（表が無い・パネルが変わっていれば、初めの並び） */
+export const orderOf = (p: Pool, table: Record<string, string[]> = TREE_ORDER) => {
+  const o = table[p.key];
+  return o && o.length === p.ids.length && p.ids.every((id) => o.includes(id)) ? o : p.ids;
+};
+for (const p of POOLS) orderOf(p).forEach((id, i) => POS.set(id, p.slots[i]));
 // 大きめの研究パネル・研究への寄付：根もとの近くの横（束の向きから左右どちらか。ほかのパネル・札からいちばん離れる側）
 // （先に置いた枝の側に寄らないように、3 回置き直す。内側の段に並べたものは除く）
 const INNER_IDS = new Set(Object.values(INNER).flat(2));
@@ -383,11 +415,12 @@ export function edgeBend(a: { x: number; y: number }, b: { x: number; y: number 
   const near = [...POS].filter(([id, p]) => !skip(id) && p.x > Math.min(a.x, b.x) - pad && p.x < Math.max(a.x, b.x) + pad && p.y > Math.min(a.y, b.y) - pad && p.y < Math.max(a.y, b.y) + pad);
   const nearHubs = hubs.filter((p) => p.x > Math.min(a.x, b.x) - pad - p.w && p.x < Math.max(a.x, b.x) + pad + p.w && p.y > Math.min(a.y, b.y) - pad - p.h && p.y < Math.max(a.y, b.y) + pad + p.h);
   // 判定はテスト（折れ線にして 120 区間）よりほんの少し広い余白で（細かさの違いで、かすめる線を見落とさない）
-  const r = PANEL / 2 + EDGE_CLEAR + 0.005;
+  const rOf = (id: string) => halfOf(id) + EDGE_CLEAR + 0.005;
+  const sq = (id: string) => shapeById(id) === 'square';
   // パネルを横切らないのが先（札の下を通るのは、パネルを横切るより軽い）
   const hits = (m: Bend) => {
     const pts = curvePoly(a, b, m);
-    return near.filter(([, p]) => polyNear(pts, p, r)).length * 10 + nearHubs.filter((p) => polyInBox(pts, p, p)).length;
+    return near.filter(([id, p]) => polyNear(pts, p, rOf(id), sq(id))).length * 10 + nearHubs.filter((p) => polyInBox(pts, p, p)).length;
   };
   let bestN = hits(0);
   if (!bestN) return 0;
@@ -403,7 +436,7 @@ export function edgeBend(a: { x: number; y: number }, b: { x: number; y: number 
     }
   for (const m of TWO_OK) {
     const pts = curvePoly(a, b, m);
-    if (!near.some(([, p]) => polyNear(pts, p, r)) && !nearHubs.some((p) => polyInBox(pts, p, p))) return m;
+    if (!near.some(([id, p]) => polyNear(pts, p, rOf(id), sq(id))) && !nearHubs.some((p) => polyInBox(pts, p, p))) return m;
   }
   return best;
 }
@@ -480,14 +513,37 @@ function curvePoly(a: { x: number; y: number }, b: { x: number; y: number }, m: 
   return pts;
 }
 /** 折れ線が、点 p のひし形（L1 の半径 r）に入るか（区間ごとに。区間の箱から離れていれば調べない） */
-function polyNear(pts: { x: number; y: number }[], p: { x: number; y: number }, r: number) {
+function polyNear(pts: { x: number; y: number }[], p: { x: number; y: number }, r: number, square = false) {
   for (let i = 1; i < pts.length; i++) {
     const q0 = pts[i - 1];
     const q1 = pts[i];
     if (p.x + r < Math.min(q0.x, q1.x) || p.x - r > Math.max(q0.x, q1.x) || p.y + r < Math.min(q0.y, q1.y) || p.y - r > Math.max(q0.y, q1.y)) continue;
-    if (l1Seg(p, q0, q1) < r) return true;
+    if ((square ? linfSeg(p, q0, q1) : l1Seg(p, q0, q1)) < r) return true;
   }
   return false;
+}
+/** 点 p と線分 q0–q1 の L∞ の距離（四角のパネル。|dx| と |dy| が等しくなる所と両端を調べる） */
+export function linfSeg(p: { x: number; y: number }, q0: { x: number; y: number }, q1: { x: number; y: number }) {
+  const dx = q1.x - q0.x;
+  const dy = q1.y - q0.y;
+  const f = (t: number) => Math.max(Math.abs(q0.x + dx * t - p.x), Math.abs(q0.y + dy * t - p.y));
+  let best = Math.min(f(0), f(1));
+  // |q.x − p.x| = |q.y − p.y| になる t（4 通り）
+  const ax = q0.x - p.x;
+  const ay = q0.y - p.y;
+  for (const sg of [1, -1]) {
+    const den = dx - sg * dy;
+    if (Math.abs(den) > 1e-12) {
+      const t = -(ax - sg * ay) / den;
+      if (t > 0 && t < 1) best = Math.min(best, f(t));
+    }
+    const den2 = dx + sg * dy;
+    if (Math.abs(den2) > 1e-12) {
+      const t = -(ax + sg * ay) / den2;
+      if (t > 0 && t < 1) best = Math.min(best, f(t));
+    }
+  }
+  return best;
 }
 /** 折れ線が、中心 c・大きさ box の札（長方形）の中を通るか（区間ごとに、長方形で切り取って調べる） */
 export function polyInBox(pts: { x: number; y: number }[], c: { x: number; y: number }, box: { w: number; h: number }) {

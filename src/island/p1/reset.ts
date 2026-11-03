@@ -177,7 +177,9 @@ export function resetForTier(s: P1State, tier: Tier, to: string): ResetRec {
     s.museum.items = [];
     s.museum.lv = 0;
   }
-  const rec: ResetRec = { day: s.day, tier, to, levy, grant, ruins, ...(Object.keys(keep).length ? { keep } : {}) };
+  // 引き継いだ研究パネル（RP で開けたもの）：スキルツリーで「引き継ぎ」と分かるように覚える
+  const kept = s.skills.filter((id) => SKILL[id] && isResearch(SKILL[id]));
+  const rec: ResetRec = { day: s.day, tier, to, levy, grant, ruins, ...(kept.length ? { kept } : {}), ...(Object.keys(keep).length ? { keep } : {}) };
   (s.resets ??= []).push(rec);
   return rec;
 }

@@ -4,6 +4,8 @@
  * 店員の提案（card.ts）・物流部長の提案（deleg.ts）・SCM の「④ 販売の内訳」の大きいボタン（scm.ts）・月次報告の「いちばん効く手」（report.ts）が同じ順を使う。
  * 見込みの計算はいまの手のまま（sellNow を状態の写しに当てる）。効き目・値段は変えない。
  */
+import { t } from '../../i18n';
+import { DEF } from '../defs';
 import { ADS, INVEST, P1B, PRODUCT, SHOP, SKILL, isResearch, rpCost, sku, skuParts, type Rar, type Sku } from './data';
 import { DAYS, adCost, allowedDirs, batchOf, canBuild, craftCheck, has, hasRoute, investCost, myShops, recipeOf, sellNow, sellWhatIf, skillLock, type P1State, type WhatIf, type WhatIfKind } from './model';
 import type { Mat } from './data';
@@ -203,3 +205,40 @@ export const goodsName = (key: string) => PRODUCT[skuParts(key as Sku)[0]]?.name
 export const skuOfAct = (a: { key: string; rar: Rar }) => sku(a.key, a.rar);
 /** 棚の設備投資の名前 */
 export const shelfName = () => INVEST.shelves?.name ?? 'shelves';
+
+/** 棚に並べる手を打つ前の写し（打ったあと、何がどう変わったかを言うため） */
+export interface StockPlan {
+  shop: string;
+  /** 並べる棚の番号（1 から。棚を増やすときは増えたあとの番号） */
+  shelf: number;
+  add: boolean;
+  /** 作業台を替えるとき：台の番号（1 から）・いま作っているロットが終わってから替わる・前の商品 */
+  bench?: number;
+  later?: boolean;
+  prev?: string | null;
+}
+export function stockPlan(s: P1State, a: Extract<SellAct, { k: 'stock' }>): StockPlan | null {
+  const sh = s.shops[a.uid];
+  const b = s.buildings.find((x) => x.uid === a.uid);
+  if (!sh || !b) return null;
+  const sl = a.make != null ? s.slots[a.make] : undefined;
+  const x = sku(a.key, a.rar);
+  return {
+    shop: DEF[b.id]?.name ?? t('お店', 'shop'),
+    shelf: a.add ? sh.shelves.length + 1 : a.idx + 1,
+    add: a.add,
+    ...(sl && sl.sku !== x ? { bench: (a.make ?? 0) + 1, later: !!sl.running, prev: sl.sku ? goodsName(sl.sku) : null } : {}),
+  };
+}
+/** 棚に並べたあとの知らせ（トースト）：棚が増えた・どの棚にどの商品を並べた・作業台がどう替わるか */
+export function stockMsg(p: StockPlan, key: string): string {
+  const nm = goodsName(key);
+  const shelf = p.add
+    ? t(`${p.shop}の棚を 1 段増やして、${p.shelf} 段目に「${nm}」を並べました`, `Added a shelf to ${p.shop} and stocked ${nm} on shelf ${p.shelf}`)
+    : t(`${p.shop}の棚 ${p.shelf} 段目に「${nm}」を並べました`, `Stocked ${nm} on shelf ${p.shelf} of ${p.shop}`);
+  if (p.bench == null) return shelf;
+  const bench = p.later
+    ? t(`作業台 ${p.bench} は、いまのロットが終わったら「${nm}」に切り替わります`, `Bench ${p.bench} switches to ${nm} after the current lot`)
+    : t(`作業台 ${p.bench} を「${nm}」に切り替えました`, `Switched bench ${p.bench} to ${nm}`);
+  return `${shelf} / ${bench}`;
+}
