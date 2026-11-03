@@ -1007,6 +1007,14 @@ export const SHOP = { shelfCap: 10, storageCap: 20, displayPerDay: 6, partTimeDi
  * docs/ISLAND_PHASE1.md「お店の自走」
  */
 export const SELF_RUN = { min: 2, per: 0.3, cap: 0.75 };
+/**
+ * 段 UI5c：お店の方針「在庫を優先して売りさばく」。cuts：値引きの段（0＝値引きなしで棚の順だけ・1 割・2 割・3 割）。
+ * 売りさばく品（在庫品：いま作り続けていない商品の在庫と、手持ちの素材で使い切りに作った品）だけ、値段 ×(1 − 値引き)・売り場の強さ ×(1 + 値引き)。
+ * 1 個あたりの売上は (1 − c)(1 + c) ＝ 1 − c² 以下になる（売上の上乗せはしない。在庫を減らす手）。
+ * warn：倉庫（工房の物置と倉庫）がこの割合を超えた月の締めに、店長（いなければ運搬係）から提案のカード。
+ * docs/ISLAND_PHASE1.md「在庫の売りさばき（段 UI5c）」
+ */
+export const CLEAR = { cuts: [0, 0.1, 0.2, 0.3], warn: 0.8, def: 1 };
 /** 新しいお店の認知度：開店した日は 0.2、1 日 0.02 ずつ上がって 1 まで（売れる数にかかる） */
 export const AWARE = { start: 0.35, perDay: 0.025 };
 /**

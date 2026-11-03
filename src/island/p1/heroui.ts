@@ -11,6 +11,7 @@ import { assign, canSwap, DAYS, relicMinCraft, releaseForSwap, restDaysLeft, swa
 import { bar, btn, h, heroIcon, heroName, matIcon, money, skuIcon, skuName } from './ui';
 import { seriesTag } from './digview';
 import { roleOf, roleText } from './deleg';
+import { fromStock, rankUp, rankable, sellFilter, sellNo, upPrice } from './stock';
 
 export const TASK_NAME: Record<Task, string> = { ...(Object.fromEntries(TASKS.map((x) => [x.key, x.name])) as Record<Task, string>), side: t('バイト', 'Part-time'), manager: t('セクター長', 'Sector head'), train: t('修行', 'Training'), dig: t('発掘', 'Digging'), lead: t('リーダー・部長', 'Leader / head') };
 
@@ -566,8 +567,14 @@ export function pickExt(
     /** 段 UI3：カードに添える見込み（担当のヒーローの読み「+9 個／月」）。keep：items の順のまま並べる（見込みの大きい順） */
     gain?: (x: Sku) => string | null;
     keep?: boolean;
+    /**
+     * 段 UI5c：作業台の作る物を選ぶとき。並び（効率の順・いまの素材で作れる）・絞り込み「今のセクタで売れるもの」・ランクアップの印。
+     * stock：「いまの素材で作れる」の並びで選んだとき（使い切りの製造）・rank：ランクアップの詳しい窓・tab：開いたときの並び
+     */
+    craft?: { stock: (x: Sku) => void; rank: (x: Sku, close: () => void) => void; tab?: 'all' | 'stock' };
   },
 ) {
+  if (o.craft) return pickMake(root, s, o as Parameters<typeof pickExt>[2] & { craft: NonNullable<Parameters<typeof pickExt>[2]['craft']> });
   // 技がまだの商品はうしろへ（カードに「技：○○が要る」）
   const locked = (x: Sku) => Number(craftCheck(s, x, null) === 'tech');
   // この町で売れない商品（棚に並べられない）は、いちばんうしろへ
@@ -609,6 +616,129 @@ export function pickExt(
           o.onPick(null);
         }),
       );
+  });
+}
+
+/** 段 UI5c：作る物の一覧の絞り込み「今のセクタで売れるもの」（初期値オン。この遊びのあいだ覚えておく） */
+export const makeView = { sellable: true };
+
+/**
+ * 段 UI5c：作業台の作る物を選ぶ引き出し。上に並びの切り替え（「おすすめ（効率）」「いまの素材で作れる」）と絞り込み「今のセクタで売れるもの」。
+ * いまの素材で作れる：作れる数・この町で売れる見込み・余った素材を使うか（stock.ts の fromStock）。選ぶと使い切りの製造（作り終えたら戻る）。
+ * 売れないもの（絞り込みをオフにしたとき）は理由を 1 行で。ランクアップできるエクステは「⬆ ランクアップ」（できない理由は 1 行で）
+ */
+function pickMake(
+  root: HTMLElement,
+  s: P1State,
+  o: Parameters<typeof pickExt>[2] & { craft: { stock: (x: Sku) => void; rank: (x: Sku, close: () => void) => void; tab?: 'all' | 'stock' } },
+) {
+  let tab: 'all' | 'stock' = o.craft.tab ?? 'all';
+  const locked = (x: Sku) => Number(craftCheck(s, x, null) === 'tech');
+  drawer(root, o.title, o.note ?? '', (body, close) => {
+    const bar0 = h('div', 'isl-make-bar');
+    const tabs = h('div', 'isl-make-tabs');
+    const tAll = h('button', 'isl-make-tab', t('おすすめ（効率）', 'Best (efficiency)'));
+    const tStock = h('button', 'isl-make-tab', t('いまの素材で作れる', 'From what we have'));
+    tAll.type = tStock.type = 'button';
+    tabs.append(tAll, tStock);
+    const fl = h('label', 'isl-make-filter');
+    const cb = h('input');
+    cb.type = 'checkbox';
+    cb.checked = makeView.sellable;
+    fl.append(cb, h('span', '', t('今のセクタで売れるもの', 'Sells in this sector')));
+    bar0.append(tabs, fl);
+    const lead = h('p', 'isl-dim isl-make-lead');
+    const grid = h('div', 'isl-ext-grid');
+    body.append(bar0, lead, grid);
+    const render = () => {
+      tAll.classList.toggle('is-on', tab === 'all');
+      tStock.classList.toggle('is-on', tab === 'stock');
+      grid.replaceChildren();
+      const cur = o.current ? s.slots.find((y) => y.sku === o.current) : undefined;
+      const backTo = cur?.back !== undefined ? cur.back : o.current;
+      lead.textContent =
+        tab === 'stock'
+          ? t(`手持ちの素材で作れるだけ作ります（素材は買い足さない）。${backTo ? `作り終えたら${skuName(backTo)}に戻ります。` : ''}`, `Makes as many as your stock allows (no new materials).${backTo ? ` Then back to ${skuName(backTo)}.` : ''}`)
+          : t('素材 → 商品のつながりと、今の素材で何ロット作れるか、1 日あたりの粗利を見比べて選びましょう。', 'Compare materials → product, how many lots your stock makes, and gross profit per day.');
+      const add = (x: Sku, extra: (card: HTMLElement) => void, onTap: () => void, badge?: string, best?: boolean) => {
+        const no = sellNo(s, x);
+        const card = extCard(s, x, { worker: o.worker, on: x === o.current, best: !badge && !!best, badge, making: o.making?.includes(x), onTap });
+        if (no) card.querySelector('.isl-ext-l')?.append(h('div', 'isl-ext-no', `✕ ${no}`));
+        extra(card);
+        const wrap = h('div', 'isl-ext-wrap');
+        wrap.append(card);
+        // ランクアップ（Common → Uncommon）：印と、そのまま進めるボタン（できない理由は 1 行で）
+        const ru = rankable(s, x) ? rankUp(s, x, o.worker ?? null) : null;
+        if (ru) {
+          const row = h('div', `isl-rankup ${ru.why ? 'is-why' : ''}`);
+          const go = h('button', 'isl-rankup-btn', ru.next === 'make' ? t(`⬆ ランクアップ（${skuName(ru.to)}を作る）`, `⬆ Rank up (make ${skuName(ru.to)})`) : t('⬆ ランクアップ', '⬆ Rank up'));
+          go.type = 'button';
+          go.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (ru.next === 'make') {
+              close();
+              o.onPick(ru.to);
+              return;
+            }
+            o.craft.rank(x, close);
+          });
+          row.append(go, h('small', '', ru.why ?? (ru.next === 'dev' ? t(`開発 ${money(ru.cost)}・${ru.days} 日で ${money(upPrice(x))} の品に`, `Develop ${money(ru.cost)}, ${ru.days} d → a ${money(upPrice(x))} item`) : t(`${money(upPrice(x))} の品`, `a ${money(upPrice(x))} item`))));
+          wrap.append(row);
+        }
+        grid.append(wrap);
+      };
+      if (tab === 'stock') {
+        const xs = fromStock(s, o.worker ?? null, makeView.sellable);
+        if (!xs.length) grid.append(h('p', 'isl-dim', makeView.sellable ? t('いまの素材だけで作れて、この町で売れる商品はありません。', 'Nothing sellable here can be made from stock alone.') : t('いまの素材だけで作れる商品はありません。', 'Nothing can be made from stock alone.')));
+        for (const p of xs)
+          add(
+            p.x,
+            (card) => {
+              const g = h('div', 'isl-ext-gain is-stock');
+              g.append(h('b', '', t(`いまの素材で ${p.units} 個`, `${p.units} from stock`)));
+              if (!p.no) g.append(h('small', '', t(`この町で月 ${Math.round(p.sell)} 個売れる見込み`, `~${Math.round(p.sell)}/mo sell here`)));
+              if (p.spareRate >= 0.5) g.append(h('span', 'isl-tag is-good isl-ext-spare', t('余った素材を使う', 'Uses spare materials')));
+              card.querySelector('.isl-ext-r')?.prepend(g);
+            },
+            () => {
+              close();
+              o.craft.stock(p.x);
+            },
+            p.rec ? t('いまの素材でのおすすめ', 'Best from stock') : undefined,
+          );
+        return;
+      }
+      const items = sellFilter(s, o.items, makeView.sellable);
+      const list = [...items].sort((a, b) => Number(!!sellNo(s, a)) - Number(!!sellNo(s, b)) || locked(a) - locked(b) || profitPerDay(s, b) - profitPerDay(s, a));
+      if (o.badge && list.includes(o.badge.x)) list.splice(0, 0, ...list.splice(list.indexOf(o.badge.x), 1));
+      const best = list.find((x) => !sellNo(s, x) && lotsFromStock(s, x) > 0 && !craftCheck(s, x, o.worker ?? null)) ?? null;
+      const hidden = o.items.length - items.length;
+      if (hidden > 0) grid.append(h('p', 'isl-dim isl-make-hidden', t(`この町で売れない ${hidden} 品を隠しています（「今のセクタで売れるもの」を外すと出ます）`, `${hidden} item(s) that won’t sell here are hidden (untick the filter to show)`)));
+      for (const x of list)
+        add(
+          x,
+          () => undefined,
+          () => {
+            close();
+            o.onPick(x);
+          },
+          o.badge?.x === x ? o.badge.text : undefined,
+          x === best,
+        );
+    };
+    tAll.addEventListener('click', () => {
+      tab = 'all';
+      render();
+    });
+    tStock.addEventListener('click', () => {
+      tab = 'stock';
+      render();
+    });
+    cb.addEventListener('change', () => {
+      makeView.sellable = cb.checked;
+      render();
+    });
+    render();
   });
 }
 

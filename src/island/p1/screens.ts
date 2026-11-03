@@ -3,6 +3,7 @@
  * どれも下から出る大きな札（sheet）。中身は state から毎回作り直す。
  */
 import { t, isEn } from '../../i18n';
+import { pickMake } from './stockui';
 import type { Sfx } from './sfx';
 import { assetUrl, drawRef } from '../../render/images';
 import { heroById, heroFacesRight } from '../../game/catalog';
@@ -464,6 +465,8 @@ export function chooseMake(ctx: Ctx, s: P1State, k: number, x: Sku, msg?: string
   const sl = s.slots[k];
   if (!sl) return;
   const prev = sl.sku;
+  // 段 UI5c：使い切りの製造をやめて、ふつうの自動製造に
+  delete sl.back;
   if (sl.sku !== x) {
     sl.sku = x;
     sl.running = false;
@@ -575,17 +578,21 @@ export function openWorkshop(ctx: Ctx, opt: boolean | { invest?: boolean; make?:
           label: t('作るもの', 'Making'),
           x: sl.sku,
           hot: ctx.step?.() === 'craft' && k === 0 && sl.worker != null && !sl.sku,
-          sub: sl.sku ? (sl.repeat ? t('自動製造', 'Auto') : (sl.left ?? 0) > 0 ? t(`あと ${sl.left} 個`, `${sl.left} more`) : t('この 1 ロットで止める', 'Stops after this lot')) : undefined,
-          warn: !!sl.sku && !sl.running && !!craftCheck(s, sl.sku, sl.worker),
+          // 段 UI5c：使い切りの製造は「いまの素材で あと N 個 → ○○に戻る」
+          sub: sl.sku ? (sl.back !== undefined ? (sl.back ? t(`いまの素材で あと ${(sl.left ?? 0) + (sl.running && !s.deleg?.pend?.[k] ? batchOf(sl.sku, s) : 0)} 個 → ${skuName(sl.back)}に戻る`, `From stock: ${(sl.left ?? 0) + (sl.running && !s.deleg?.pend?.[k] ? batchOf(sl.sku, s) : 0)} more → back to ${skuName(sl.back)}`) : t(`いまの素材で あと ${(sl.left ?? 0) + (sl.running && !s.deleg?.pend?.[k] ? batchOf(sl.sku, s) : 0)} 個`, `From stock: ${(sl.left ?? 0) + (sl.running && !s.deleg?.pend?.[k] ? batchOf(sl.sku, s) : 0)} more`)) : sl.repeat ? t('自動製造', 'Auto') : (sl.left ?? 0) > 0 ? t(`あと ${sl.left} 個`, `${sl.left} more`) : t('この 1 ロットで止める', 'Stops after this lot')) : undefined,
+          warn: !!sl.sku && !sl.running && !!craftCheck(s, sl.sku, sl.worker, sl.back !== undefined),
           onTap: () =>
-            pickExt(ctx.root, s, {
-              title: t(`作業台 ${k + 1} で作るもの`, `What bench ${k + 1} makes`),
-              items: craftable(s, !!ctx.step?.()),
-              current: sl.sku,
-              worker: sl.worker,
-              badge: ctx.step?.() === 'craft' ? { x: sku(recommend(s), 'C'), text: t('マインちゃんのおすすめ', 'Mine-chan’s pick') } : null,
-              onPick: (x) => x && chooseMake(ctx, s, k, x),
-            }),
+            // 段 UI5c：チュートリアルのあとは、並び（いまの素材で作れる）・絞り込み・ランクアップの印つき
+            !ctx.step?.()
+              ? pickMake(ctx, k, { title: t(`作業台 ${k + 1} で作るもの`, `What bench ${k + 1} makes`), items: craftable(s), onPick: (x) => chooseMake(ctx, s, k, x) })
+              : pickExt(ctx.root, s, {
+                  title: t(`作業台 ${k + 1} で作るもの`, `What bench ${k + 1} makes`),
+                  items: craftable(s, !!ctx.step?.()),
+                  current: sl.sku,
+                  worker: sl.worker,
+                  badge: ctx.step?.() === 'craft' ? { x: sku(recommend(s), 'C'), text: t('マインちゃんのおすすめ', 'Mine-chan’s pick') } : null,
+                  onPick: (x) => x && chooseMake(ctx, s, k, x),
+                }),
         }),
       );
       card.append(row);
@@ -600,7 +607,7 @@ export function openWorkshop(ctx: Ctx, opt: boolean | { invest?: boolean; make?:
         p.append(h('span', '', t('進み', 'Progress')), bar(sl.progress / need, 'var(--isl-gold)'), h('span', 'isl-dim', st?.resting ? t('休憩中', 'Resting') : t(`あと約 ${left} 日`, `~${left} days left`)));
         card.append(p);
       }
-      const err = sl.worker == null ? 'worker' : sl.sku ? craftCheck(s, sl.sku, sl.worker) : null;
+      const err = sl.worker == null ? 'worker' : sl.sku ? craftCheck(s, sl.sku, sl.worker, sl.back !== undefined) : null;
       if (err && !sl.running) card.append(h('p', 'isl-warn', sl.sku ? craftErr(sl.sku, err, s) : CRAFT_ERR[err] ?? err));
       if (sl.sku) card.append(craftPlan(ctx, s, k));
       body.append(card);
@@ -646,19 +653,24 @@ export function openWorkshop(ctx: Ctx, opt: boolean | { invest?: boolean; make?:
     else if (s0.slots[0]) {
       // 空いている作業台が無い：1 台目の作るものの選択を、その商品を先頭にして開く
       const x = o.make;
-      pickExt(ctx.root, s0, {
-        title: t('作業台 1 で作るもの', 'What bench 1 makes'),
-        items: craftable(s0, !!ctx.step?.()),
-        current: s0.slots[0].sku,
-        worker: s0.slots[0].worker,
-        badge: { x, text: o.from ?? t('市場データで選んだ', 'Picked from market data') },
-        note: t('作業台は全部ふさがっています。作業台 1 の作るものを替えるなら、ここで選びましょう。', 'Every bench is busy. Choose here to switch what bench 1 makes.'),
-        onPick: (v) => {
-          if (!v) return;
-          chooseMake(ctx, s0, 0, v);
-          flashTo(document.querySelector<HTMLElement>('.isl-sheet .isl-bench .isl-plan-wrap'));
-        },
-      });
+      const onPick = (v: Sku | null) => {
+        if (!v) return;
+        chooseMake(ctx, s0, 0, v);
+        flashTo(document.querySelector<HTMLElement>('.isl-sheet .isl-bench .isl-plan-wrap'));
+      };
+      const badge = { x, text: o.from ?? t('市場データで選んだ', 'Picked from market data') };
+      const note = t('作業台は全部ふさがっています。作業台 1 の作るものを替えるなら、ここで選びましょう。', 'Every bench is busy. Choose here to switch what bench 1 makes.');
+      if (!ctx.step?.()) pickMake(ctx, 0, { title: t('作業台 1 で作るもの', 'What bench 1 makes'), items: craftable(s0), badge, note, onPick });
+      else
+        pickExt(ctx.root, s0, {
+          title: t('作業台 1 で作るもの', 'What bench 1 makes'),
+          items: craftable(s0, !!ctx.step?.()),
+          current: s0.slots[0].sku,
+          worker: s0.slots[0].worker,
+          badge,
+          note,
+          onPick,
+        });
     }
   }
 }

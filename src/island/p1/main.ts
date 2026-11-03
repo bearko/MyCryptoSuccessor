@@ -22,7 +22,7 @@ import { openHeadTalk } from './headtalkui';
 import { HEAD_OPEN_TALK, HEAD_PICK_TALK, headTalkDue, talkMode } from './headtalk';
 import { openTrophies, trophyEl, trophyTick } from './trophyui';
 import type { TrophyDef } from './trophy';
-import { autoText, cardInbox, cardsCompany, cardsDay, cardsMonth, demoDraft, diploDraft, enqueue, eventDraft, markSeen, nextPop, takeAuto } from './card';
+import { autoText, cardInbox, cardsCompany, cardsDay, cardsMonth, demoDraft, diploDraft, stockDraft, enqueue, eventDraft, markSeen, nextPop, takeAuto } from './card';
 import { duoPages } from './duo';
 import { cardNav, showCard } from './cardui';
 import { crestEl, openDiplo } from './diploui';
@@ -95,6 +95,8 @@ import {
   revivedSites,
   museumOpen,
   shelvesAuto,
+  poolUsed as poolUsedOf,
+  poolCap as poolCapOf,
 } from './model';
 import type { LevelUp } from './hero';
 import { openMuseum } from './museumui';
@@ -4665,6 +4667,14 @@ window.setTimeout(() => warmFx(), 3000);
   cardsCompany: () => cardsCompany(s),
   cardDemo: (src: 'clerk' | 'crafter' | 'buyer' | 'idle', hero?: number) => {
     const d = demoDraft(s, src, hero);
+    const c = d ? enqueue(s, d) : null;
+    if (c) showCard(ctx, c, { done: cardDone, open: cardOpen });
+    return c?.id ?? null;
+  },
+  /** 段 UI5c（撮影スクリプト用）：倉庫が埋まりそうな月の提案を作って出す。作れなければ null */
+  pool: () => ({ used: poolUsedOf(s), cap: poolCapOf(s) }),
+  stockDemo: () => {
+    const d = stockDraft(s);
     const c = d ? enqueue(s, d) : null;
     if (c) showCard(ctx, c, { done: cardDone, open: cardOpen });
     return c?.id ?? null;
