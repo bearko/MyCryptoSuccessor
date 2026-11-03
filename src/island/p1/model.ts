@@ -125,6 +125,8 @@ import { fatigueMul } from './ga';
 import { csDay, csMonth, visitMul, type CsReport, type CsState } from './cs';
 import { gradeArea, gradeHire, prNews } from './mkt';
 import { acqMonth, boughtHere, legalDay, legalMonth, maClose, noteGranted, patentBlocks, patentStopped, supplyCut, type LegalDay, type LegalReport, type LegalState, type TownMA } from './legal';
+import { evMul, evSales, takeEvYen, takeEventLog, activeFx, type ActiveFx, type EvLog, type EventState } from './events';
+import { diploDay, takeDipMonth, tradeClose, type DipMonth, type DiploState, type Req } from './diplo';
 import { canHireRarity, charismaOf, hireCap, initMorale, moraleAdd, moraleAvg, moraleDay, moraleMul, newHrMonth, syncCharisma, wantsToQuit, type HrDay, type HrMonth } from './hr';
 
 export type Ground = 'grass' | 'road';
@@ -342,6 +344,13 @@ export interface Report {
   deleg?: DelegReport;
   /** 提案と報告のカード（段 UI1）：今月出たカード・時間を止めて出した数・受け箱に回った数・任せて実行した提案 */
   cards?: CardReport;
+  /** 突発のできごと（段 UI4）：前の報告から選んだできごと・締めの時点で効いている倍率 */
+  events?: EvLog[];
+  evFx?: ActiveFx[];
+  /** できごとの来店・需要・値段の倍率で、この月に上乗せ（下げ）になった売上（G。町の順位には入れない） */
+  evYen?: number;
+  /** 外交（段 UI4。Epic の町）：交易で届けた数と売上・足りなかった数と罰・依頼の達成と期限切れ */
+  dip?: DipMonth;
   /** カスタマーサポートと炎上（段 G。Uncommon 以上の町の報告だけ）：問い合わせ・返事・期限切れ・満足度・炎上のおそれ・炎上 */
   cs?: CsReport;
   /** 法務（段 H2）：成立した買収・引き継いだ商売の売上・特許（審査が終わった・切れた・止めた追随・使用料）・裁判・仕入れの契約で安くなったぶん */
@@ -434,7 +443,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21;
   kind: 'p1';
   seed: number;
   n: number;
@@ -599,6 +608,10 @@ export interface P1State {
   deleg?: DelegState;
   /** 提案・報告のカード（段 UI1。card.ts）：受け箱・任せた種類・出した数。古いセーブには無い（はじめて出すときに作る） */
   cards?: CardState;
+  /** 突発のできごと（段 UI4・版 21。events.ts）：次に出す締め・前の種類・効いている倍率・数え。古いセーブには無い（はじめて出すときに作る） */
+  events?: EventState;
+  /** 外交（段 UI4・版 21。diplo.ts。Epic）：会ったランドと仲の良さ・交易の約束・使者の依頼。古いセーブには無い（仲は初めの値から） */
+  diplo?: DiploState;
   /**
    * 人事（段 E2・版 15。hr.ts）：ブランド力のいちばん高かった値（カリスマ度のブランドの分）・お知らせ済みのカリスマ度・
    * テストの札と監査で足すカリスマ度（ふつうのゲームでは無し）・今月の人事の記録（月次報告）・辞めた人の記録。どれも会社のもの（災害でも残る）
@@ -770,7 +783,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 20,
+    v: 21,
     kind: 'p1',
     seed,
     n,
@@ -1663,7 +1676,8 @@ export function buy(s: P1State, m: Mat, qty: number, gain = 1): string | null {
   if (qty <= 0) return null;
   if (qty > procLeft(s)) return 'cap';
   if (qty > poolFree(s)) return 'storage';
-  const cost = matPrice(s, m) * qty;
+  // 段 UI4：突発のできごとの素材の値段（払う時だけ。見込みの計算には入れない）
+  const cost = Math.round(matPrice(s, m) * evMul(s, 'mat', m)) * qty;
   if (cost > s.money) return 'money';
   s.money -= cost;
   spend(s, 'materials', cost);
@@ -1711,7 +1725,7 @@ export function order(s: P1State, m: Mat, lots: number): string | null {
   if (qty <= 0) return null;
   if (qty > procLeft(s)) return 'cap';
   if (qty > poolFree(s)) return 'storage';
-  const cost = matPrice(s, m) * qty;
+  const cost = Math.round(matPrice(s, m) * evMul(s, 'mat', m)) * qty;
   if (cost > s.money) return 'money';
   s.money -= cost;
   spend(s, 'materials', cost);
@@ -2374,6 +2388,51 @@ export function setShelf(s: P1State, uid: number, idx: number, x: Sku | null): b
     delete sh.shelf[prev];
   }
   return true;
+}
+
+/**
+ * 段 UI4（追加の要望）：工房の作業台の「作る物」を A から B に替えたとき、主力商品（1 番目の棚）が A のお店（まとめて替えるシートの行）。
+ * チュートリアル（1 か月目）・A と B が同じ・A を主力に並べているお店が無いときは空。stock：そのお店の A の数（棚と裏）
+ */
+export function bulkMainRows(s: P1State, a: Sku | null | undefined, b: Sku): { uid: number; stock: number }[] {
+  if (!a || a === b || (typeof s.tut === 'number' && s.tut < 99)) return [];
+  if (unsellableHere(s, skuParts(b)[0])) return [];
+  return myShops(s)
+    .filter((x) => s.shops[x.uid]?.shelves[0] === a)
+    .map((x) => ({ uid: x.uid, stock: (s.shops[x.uid].shelf[a] ?? 0) + (s.shops[x.uid].storage[a] ?? 0) }));
+}
+/**
+ * A の扱い：A をまだ別の作業台で作っている・お店か工房に A の在庫が残っているなら、売り切るまで棚の 2 段目以降（空いた棚か、B を並べていた棚）へ移す。
+ * 置ける棚が無ければ、棚の A はお店の裏へ戻る（setShelf と同じ）。shelf2：2 段目へ移せる店の数・left：残っている A の数（お店と工房）・still：まだ作っている
+ */
+export function bulkMainNote(s: P1State, a: Sku, rows: { uid: number; stock: number }[]): { left: number; still: boolean; shelf2: number } {
+  const still = s.slots.some((x) => x.sku === a);
+  const left = rows.reduce((n, r) => n + r.stock, 0) + (s.stock[a] ?? 0);
+  const shelf2 = rows.filter((r) => s.shops[r.uid].shelves.some((x, k) => k > 0 && x == null)).length;
+  return { left, still, shelf2 };
+}
+/** まとめて替える：選んだお店（uids）の主力商品を B に。A は残っていれば 2 段目以降へ（bulkMainNote）。替えたお店の数 */
+export function bulkMain(s: P1State, a: Sku, b: Sku, uids: number[]): number {
+  const rows = bulkMainRows(s, a, b).filter((r) => uids.includes(r.uid));
+  const keepA = (r: { stock: number }) => r.stock > 0 || (s.stock[a] ?? 0) > 0 || s.slots.some((x) => x.sku === a);
+  let n = 0;
+  for (const r of rows) {
+    const sh = s.shops[r.uid];
+    const bAt = sh.shelves.indexOf(b);
+    if (keepA(r)) {
+      // B が別の棚にあれば入れ替え、無ければ空いた棚へ A を移す
+      const to = bAt > 0 ? bAt : sh.shelves.findIndex((x, k) => k > 0 && x == null);
+      if (to > 0) {
+        sh.shelves[to] = a;
+        sh.shelves[0] = b;
+        n++;
+        continue;
+      }
+    }
+    if (bAt > 0) sh.shelves[bAt] = null;
+    if (setShelf(s, r.uid, 0, b)) n++;
+  }
+  return n;
 }
 
 export function setPart(s: P1State, uid: number, n: number): boolean {
@@ -3107,6 +3166,8 @@ export interface DayResult {
   hr?: HrDay;
   /** 法務（段 H2）：M&A の話の進み（打診の返事・調査の終わり・提示の返事）・審査が終わった特許 */
   legal?: LegalDay;
+  /** 外交（段 UI4）：今日そろった依頼・期限が切れた依頼 */
+  diplo?: { done: Req[]; late: Req[] };
 }
 
 // ---------------------------------------------------------------- ヒーローの育成（段 E1。hero.ts・docs/ISLAND_PHASE1.md「ヒーローの育成」）
@@ -3271,7 +3332,8 @@ export function step(s: P1State): DayResult {
     if (!sl.running || !sl.sku || !st || st.resting) return;
     working.add(st.hero);
     s.util.work += 1;
-    sl.progress += speed(st, 'craft', s);
+    // 段 UI4：突発のできごとの作る速さ（その日の進みだけ。見込みの計算には入れない）
+    sl.progress += speed(st, 'craft', s) * evMul(s, 'craft');
     if (sl.progress >= craftDays(s, sl.sku)) {
       s.stock[sl.sku] = (s.stock[sl.sku] ?? 0) + batchOf(sl.sku, s);
       s.ws.made += batchOf(sl.sku, s);
@@ -3324,7 +3386,8 @@ export function step(s: P1State): DayResult {
           if (load > 0) {
             // 往復の日数：道のりで決まる（遠いお店ほどかかる。物流拠点が近ければそこから）。前の便の日の端数を持ち越す
             const way = oneWay(s, shop, ws);
-            const days = Math.max(1, (way.days * 2) / speed(st, 'transport', s));
+            // 段 UI4：突発のできごとの運ぶ日数（出す便だけ。見込みの計算には入れない）
+            const days = Math.max(1, (way.days * 2 * evMul(s, 'haul')) / speed(st, 'transport', s));
             s.trips.push({ hauler: st.hero, from: way.from?.uid, to: shop.uid, cargo, left: Math.max(0.01, days - (st.lag ?? 0)), total: days });
             st.lag = 0;
             working.add(st.hero);
@@ -3473,6 +3536,10 @@ export function step(s: P1State): DayResult {
       o.sh.shelf[o.x] = (o.sh.shelf[o.x] ?? 0) - sold;
       const unit = priceAt(s, o.x, o.sh);
       const yen = sold * unit;
+      // 段 UI4：突発のできごとの来店・需要・値段の倍率は、その日の売上の上乗せ（下げ）としてお金に入る（町の外からのお客さん・特需。
+      // 棚の数と町の順位（エリアの売上）は動かさない。見込みの計算にも入れない）
+      const em = evMul(s, 'demand', p.key) * evMul(s, 'price', p.key);
+      if (em !== 1 && yen > 0) evSales(s, Math.round(yen * (em - 1)));
       if (sold > 0) today[p.key] = (today[p.key] ?? 0) + sold;
       s.money += yen;
       s.monthSales[p.key] = (s.monthSales[p.key] ?? 0) + yen;
@@ -3514,6 +3581,9 @@ export function step(s: P1State): DayResult {
     res.legal = lg;
     noteGranted(s, lg.granted);
   }
+  // 外交（段 UI4。Epic の町）：使者の依頼の品を工房の在庫から渡す・期限
+  const dd = diploDay(s);
+  if (dd) res.diplo = dd;
   // カスタマーサポート（段 G。Uncommon 以上の町）：品切れの日・閉まっていた日を数え、期限の切れた問い合わせを消す
   const expired = csDay(s);
   if (expired) delegMiss(s, 'reply', expired);
@@ -3634,7 +3704,9 @@ export function endMonth(s: P1State): Report {
   spend(s, 'upkeep', upkeep);
   spend(s, 'wages', wages);
   // 法務（段 H2）：引き継いだ商売の今月の売上（買った店のエクステ以外の売上。商品ごとの売上の内訳には入れない）
-  const revenue = Object.values(s.monthSales).reduce<number>((a, v) => a + (v ?? 0), 0) + acqMonth(s);
+  // 外交（段 UI4。Epic の町）：交易の約束の数を工房の在庫から届ける（売上に入れる。商品ごとの内訳には入れない）
+  const traded = tradeClose(s);
+  const revenue = Object.values(s.monthSales).reduce<number>((a, v) => a + (v ?? 0), 0) + acqMonth(s) + traded;
   // 法務（段 H2）：成立した買収の店が自社の店になる（相手は町から消え、この月のランキングにも出ない）
   const closed = s.area?.ma ? maClose(s, month) : [];
   const rivals: Record<string, number> = {};
@@ -3670,6 +3742,15 @@ export function endMonth(s: P1State): Report {
     ...(s.dig ? { revive: { done: s.dig.sites.filter((x) => x.done).length, all: s.dig.sites.length, dungeon: !!s.dig.dungeon } } : {}),
   };
   // 被災した町の復興（ほかのセクタ。まだ廃墟が残っている町と、先月に直し終えた町）
+  // 突発のできごと・外交（段 UI4）：前の報告から選んだできごと・いま効いている倍率・交易と依頼
+  const evs = takeEventLog(s);
+  if (evs.length) report.events = evs;
+  const fxNow = activeFx(s);
+  if (fxNow.length) report.evFx = fxNow.map((f) => ({ ...f }));
+  const ey = takeEvYen(s);
+  if (ey) report.evYen = ey;
+  const dm = takeDipMonth(s);
+  if (dm) report.dip = dm;
   const rb = rebuildRows(s);
   if (rb.length) report.rebuild = rb;
   void brandStart;
@@ -4240,7 +4321,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19 && o.v !== 20) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19 && o.v !== 20 && o.v !== 21) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -4316,7 +4397,8 @@ export function deserializeP1(json: string): P1State | null {
     }
     // 版 18 → 19（段 H2：Epic の町 ②）：契約・特許・裁判（s.legal）と町ごとの M&A（area.ma）は空から（はじめて使うときに作る）
     // 版 19 → 20（段 UI1：提案・報告のカード）：カードの受け箱・任せた種類（s.cards）は空から（はじめて出すときに作る）。部長の提案の受け箱（s.deleg）はそのまま
-    s.v = 20;
+    // 版 20 → 21（段 UI4：突発のできごと・外交）：できごと（s.events）と外交（s.diplo）は空から（はじめて使うときに作る。仲は初めの値）
+    s.v = 21;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);

@@ -303,7 +303,7 @@ describe('3. 研究への寄付（お金で RP・回数の上限なし）', () =
     donate(s);
     donate(s);
     const back = deserializeP1(serializeP1(s))!;
-    expect([back.v, donations(back), nextDonateCost(back)]).toEqual([20, 2, 26400]);
+    expect([back.v, donations(back), nextDonateCost(back)]).toEqual([21, 2, 26400]);
   });
 });
 
@@ -378,7 +378,7 @@ describe('5. 古いセーブ（版 6 → 7）', () => {
     o.v = 6;
     delete o.rpBuys;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(20);
+    expect(back.v).toBe(21);
     expect(donations(back)).toBe(0);
     for (const id of INF_PANELS) expect(lvOf(back, id)).toBe(0);
     expect(presentLock(back)).toBe('done');

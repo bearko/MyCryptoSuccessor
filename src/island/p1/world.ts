@@ -8,7 +8,8 @@
 import { t } from '../../i18n';
 import { P1B, SECTORS, TIERS, aptitude, type SectorDef, type Sku, type Tier } from './data';
 import { TIER_NAME, sectorDef, sectorState, type SectorState } from './company';
-import { crowned, hasBusiness, lastRank, moveTo, townSeed, type MoveErr } from './land';
+import { crowned, hasBusiness, lastRank, letterLocked, moveTo, townSeed, type MoveErr } from './land';
+import { rankUpTier } from './reset';
 import { clearWaiting, newP1, staffOf, type P1State, type PBuilding, type Report, type ShopState } from './model';
 
 // ---------------------------------------------------------------- 階層と隣
@@ -235,4 +236,46 @@ export function sectorBadges(s: P1State): SectorBadge[] {
     if (state === 'open') return base;
     return { ...base, need: needLine(s, d) };
   });
+}
+
+// ---------------------------------------------------------------- 段 UI4（追加の要望）：境界の近くの町の名前と、進出のポップアップ
+
+/** 境界の名前を出す近さ（マス）：画面の中心が、隣のセクタの名前の場所（その町側の外周 3 マスの真ん中）からこれだけ以内（向きに沿って） */
+export const EDGE_NEAR = 6;
+/** 画面の中心のマス（カメラの位置から。main.ts の screenOf の逆） */
+export const camCell = (camX: number, camY: number): [number, number] => [(camX / 100 + camY / 55) / 2, (camY / 55 - camX / 100) / 2];
+/**
+ * 画面の中心 center が、隣の町（向き dx・dy、名前の場所 at）の境界に近いか：向きに沿った距離が EDGE_NEAR 以内で、横は町の幅の半分 ＋ 2 マスまで。
+ * 近づいたら雲の上に町の名前を出し、離れたら消す
+ */
+export function edgeNear(n: number, center: [number, number], dir: { dx: number; dy: number }, at: [number, number]): boolean {
+  const along = dir.dx !== 0 ? Math.abs(center[0] - at[0]) : Math.abs(center[1] - at[1]);
+  const across = dir.dx !== 0 ? Math.abs(center[1] - at[1]) : Math.abs(center[0] - at[0]);
+  return along <= EDGE_NEAR && across <= n / 2 + 2;
+}
+/** 町の名前を押したポップアップの「進出する」で何をするか（go：出店済みへ移動・move：入国料を払って進出・rankup：ランクアップの確認・letter：調査依頼状が要る・short：資金不足・locked：まだ行けない） */
+export type AdvanceKind = 'go' | 'move' | 'rankup' | 'letter' | 'short' | 'locked';
+export function advanceOf(s: P1State, id: string): { k: AdvanceKind; fee: number; short: number } {
+  const d = sectorDef(id);
+  const st = s.land ? sectorState(s.land, id) : 'cloud';
+  if (st === 'mine') return { k: 'go', fee: 0, short: 0 };
+  if (st !== 'open') return { k: 'locked', fee: d.fee, short: 0 };
+  if (letterLocked(s, id)) return { k: 'letter', fee: d.fee, short: 0 };
+  if (rankUpTier(s, id)) return { k: 'rankup', fee: 0, short: 0 };
+  const short = Math.max(0, d.fee - s.money);
+  return { k: short > 0 ? 'short' : 'move', fee: d.fee, short };
+}
+/** ポップアップの中身：他社の数・需要の多い商品（gap の商品と需要の倍率の大きい順に 3 つ） */
+export function sectorFacts(id: string): { rivals: number; hot: string[] } {
+  const p = sectorDef(id).profile;
+  const hot = [...new Set([...(p.gap ?? []), ...Object.entries(p.demand ?? {}).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0)).map(([k]) => k)])].slice(0, 3);
+  return { rivals: p.rivals?.length ?? 0, hot };
+}
+/** ポップアップの「進出する」：いまの進出の関数を呼ぶ（go：移動・move：startMove（入国料と確認・移動の演出はいまのまま）・rankup：ランクアップの確認）。押せないときは false */
+export function advanceGo(k: AdvanceKind, f: { go: () => void; move: () => void; rankup: () => void }): boolean {
+  if (k === 'go') f.go();
+  else if (k === 'move') f.move();
+  else if (k === 'rankup') f.rankup();
+  else return false;
+  return true;
 }

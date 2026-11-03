@@ -16,8 +16,12 @@ import { BRAND, BUILD_CATS, DAY_BASE_MS, MATS, MISSIONS, P1_BUILDINGS, rewardTex
 import { deptLevel, deptNews, menuDepts, menuLayout, nextMark } from './dept';
 import { bandText } from './deleg';
 import { openDeleg, openProps } from './delegui';
-import { autoText, cardInbox, cardsCompany, cardsDay, cardsMonth, demoDraft, enqueue, nextPop, takeAuto } from './card';
+import { autoText, cardInbox, cardsCompany, cardsDay, cardsMonth, demoDraft, diploDraft, enqueue, eventDraft, markSeen, nextPop, takeAuto } from './card';
 import { cardNav, showCard } from './cardui';
+import { crestEl, openDiplo } from './diploui';
+import { offerBulk } from './bulkui';
+import { diploOf, hostCost, landDef, meetPages, relOf, reqTerms, tradeTerms, type LandId } from './diplo';
+import { activeFx, evIcon, fxText, isGood, makeEvent, type EvKind } from './events';
 import {
   allowedDirs,
   digSite,
@@ -89,6 +93,7 @@ import { areaOverlay, drawP1, shutterFx, type P1Ghost } from './render';
 import { openTrade } from './tradeui';
 import { storeName, surveyed } from './trade';
 import {
+  makeHooks,
   closeSheet,
   openAds,
   openBom,
@@ -138,11 +143,12 @@ import { closeDig, digOpen, digRect, extIcon, openDig, openNotes, refreshDig, re
 import { MEET_FOUND, MEET_LINES, canPresent, chiefHome, digMet, chiefOf, digSummary, letterToGet, lettersLeft, meetReady, meetTip, presentAfter, presentPages } from './digmeet';
 import { CHIP_SRC, CLEAR_LINE, HIRE_LINES, RP_LINE, DUNGEON_LINE, GATE_LINES, LAND_CLEAR_LINE, MUSEUM_LINE, RANK_LINES, RELIC_LINE, REVIVE_LINE, SIDE_LINES, TOUR, arrivalPages, bubbleKind, chipOf, deptTalkNext, introPages, needsIntro, talkWaits, type ArrivePage, type TalkUi, type TourEv, type TourPhase } from './mine';
 import type { Stage } from './model';
-import { openBooks, openBrand, openLand, openRankUp, startMove } from './landui';
+import { TIER_NOTE, openBooks, openBrand, openLand, openRankUp, startMove } from './landui';
 import { pendingReset, rankUpTier } from './reset';
 import { playDisaster } from './disaster';
 import { brandAdd, sectorDef, sectorState, tierLabel, TIER_NAME } from './company';
-import { camShift, enteredSector, gridDelta, layerOf, needLine, sectorBadges, switchSector, type SectorBadge } from './world';
+import { advanceGo, advanceOf, camCell, camShift, edgeNear, enteredSector, gridDelta, layerOf, needLine, sectorBadges, sectorFacts, switchSector, type SectorBadge } from './world';
+import type { Sku as SkuT } from './data';
 import { STRIP, corners, overviewScale, worldOf } from './worldrender';
 import { landCleared, letterLockOf, letterLocked, playable } from './land';
 import { actOf, hlOf, pointOf, TUT, TUT_DONE, TUT_END, tutFix, tutOf, type TutGo, type TutPage, type TutStep } from './tut';
@@ -454,6 +460,32 @@ function renderInbox() {
   inboxKey = key;
   statInbox.replaceChildren(h('small', '', t('受け箱', 'Inbox')), h('b', '', `📥 ${n}`));
 }
+/**
+ * 段 UI4：「効き目」の札（上の帯）。突発のできごとで選んだ手の、いま効いている倍率（アイコンと残りの日数）。押すと中身をトーストで
+ */
+const statEv = h('button', 'isl-stat isl-stat-btn isl-stat-ev');
+statEv.type = 'button';
+statEv.hidden = true;
+statEv.addEventListener('click', () => {
+  const xs = activeFx(s);
+  if (!xs.length) return;
+  for (const f of xs) toast(t(`${evIcon(f.ev)} ${fxText(f)}：あと ${Math.max(0, f.until - s.day)} 日`, `${evIcon(f.ev)} ${fxText(f)}: ${Math.max(0, f.until - s.day)}d left`));
+});
+let evKey = '';
+function renderEv() {
+  const xs = tutOf(s) < TUT_DONE ? [] : activeFx(s);
+  statEv.hidden = !xs.length;
+  if (!xs.length) return;
+  const left = Math.max(...xs.map((f) => f.until - s.day));
+  const f = xs[0];
+  const bad = xs.some((x) => !isGood(x.ev) && (x.k === 'haul' || x.k === 'mat' ? x.mul > 1 : x.mul < 1));
+  const key = `${f.ev}:${left}:${xs.length}:${bad}:${isEn}`;
+  if (key === evKey) return;
+  evKey = key;
+  statEv.classList.toggle('is-bad', bad);
+  statEv.title = xs.map((x) => fxText(x)).join(' / ');
+  statEv.replaceChildren(h('small', '', t('効き目', 'Effect')), h('b', '', `${evIcon(f.ev)}${xs.length > 1 ? `×${xs.length}` : ''} ${t(`${left} 日`, `${left}d`)}`));
+}
 let jamKey = '';
 function renderJam() {
   const c = chipOf(s);
@@ -490,7 +522,7 @@ const speedBtns = SPEEDS.map((v) =>
 );
 const speedBox = h('div', 'isl-speed');
 speedBox.append(...speedBtns);
-hud.append(statMoney, statBrand, statFlame, statSales, statRank, statSector, statDate, statJam, statInbox, h('div', 'isl-spacer'), speedBox);
+hud.append(statMoney, statBrand, statFlame, statSales, statRank, statSector, statDate, statJam, statEv, statInbox, h('div', 'isl-spacer'), speedBox);
 
 /** 流れの案内：売れたけれど、店内のレジでまだ払っていない額（上の帯にはまだ出さない） */
 let tourUnpaid = 0;
@@ -598,8 +630,18 @@ function renderHud() {
   // 見習い期間で時間を止めている段・月末ポーズのあいだは、速さのボタンを薄く（押しても進まない）
   speedBox.classList.toggle('is-off', tutHold() || !!s.monthPause);
   renderJam();
+  renderEv();
   renderInbox();
+  // 段 UI4（UI3 の残り）：札が増えて上の帯の行が増えたら、画面（シート）の上端を下げ直す（スマホで「受け箱」の札がシートに半分隠れていた）
+  const hb = hud.offsetHeight;
+  if (hb !== hudH) {
+    hudH = hb;
+    if (root.childElementCount) layout();
+  }
 }
+let hudH = 0;
+// 上の帯の大きさが変わったら（札が増えて行が増えた・字の大きさ）、いつでも画面の上端を下げ直す
+if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => root.childElementCount && layout()).observe(hud);
 
 // ---------------------------------------------------------------- 下の帯：事業別メニュー
 
@@ -651,6 +693,7 @@ const SCREEN: Record<ScreenId, () => void> = {
   inbox: () => menuDepts(s).includes('support') && openInbox(ctx, csHooks()),
   sat: () => openSat(ctx, csHooks()),
   area: () => openTradeScreen(),
+  diplo: () => openDiplo(ctx),
   tax: () => openTax(ctx, { books: () => openBooks(ctx), skills: () => panelsOf('accounting') }),
   env: () => openGa(ctx, { invest: () => openInvest(ctx), skills: () => panelsOf('general') }),
   contract: () => openLegalScreen('contract'),
@@ -2807,10 +2850,13 @@ function showTalk(pages: TutPage[], ok: string, then: () => void) {
     }
     const last = k === pages.length - 1;
     mine.src = assetUrl(last ? 'mch/Image/Characters/navi_ain_cross_01_smile.png' : 'mch/Image/Characters/navi_ain_speak_00_talk.png');
-    mine.hidden = pg.who != null;
-    face.hidden = pg.who == null;
-    box.classList.toggle('is-who', pg.who != null);
-    if (pg.who != null) {
+    mine.hidden = pg.who != null || pg.crest != null;
+    face.hidden = pg.who == null && pg.crest == null;
+    box.classList.toggle('is-who', pg.who != null || pg.crest != null);
+    if (pg.crest != null) {
+      face.replaceChildren(crestEl(pg.crest));
+      name.textContent = pg.role ?? '';
+    } else if (pg.who != null) {
       face.replaceChildren(heroIcon(pg.who, innerWidth < 600 ? 72 : 96));
       name.textContent = pg.role ? `${pg.role} ${heroName(pg.who)}` : heroName(pg.who);
     } else name.textContent = t('マインちゃん', 'Mine-chan');
@@ -2955,7 +3001,21 @@ function maybeCard(now: number) {
   const c = nextPop(s);
   if (!c) return;
   closePop();
+  // 段 UI4：初めての使者は、物語の会話（マインちゃんと使者）のあとにカード
+  if (meetTalk(c)) return;
   showCard(ctx, c, { done: cardDone, open: cardOpen });
+}
+/** 段 UI4：初めての使者の物語の会話（まだ見ていなければ出して true。会話のあとにカード） */
+function meetTalk(c: NonNullable<ReturnType<typeof nextPop>>): boolean {
+  if (c.src !== 'diplo' || c.dip?.kind !== 'meet') return false;
+  const L = diploOf(s).lands.find((x) => x.id === c.dip!.land);
+  if (!L || L.told) return false;
+  L.told = true;
+  markSeen(s, c.id);
+  const def = landDef(c.dip.land);
+  const pages = meetPages(c.dip.land).map((pg) => (pg.who === 'envoy' ? { text: pg.text, crest: c.dip!.land, role: t(`${def.name}の使者`, `Envoy of ${def.name}`) } : { text: pg.text }));
+  talk(pages, t('話を聞く', 'Hear them out'), () => showCard(ctx, c, { done: cardDone, open: cardOpen }));
+  return true;
 }
 function cardDone() {
   for (const [x, img] of cardToasts.splice(0)) toast(x, img);
@@ -2968,6 +3028,8 @@ function cardOpen(to: 'tax' | 'ads') {
   else openAds(ctx);
 }
 cardNav.done = cardDone;
+// 段 UI4（追加の要望）：作業台の作る物を替えたら「お店の主力商品も替えますか？」（チュートリアル・並べていないときは出さない）
+makeHooks.switched = (a, b) => void offerBulk(ctx, a, b, () => renderAll());
 cardNav.open = cardOpen;
 
 function renderAdvisor() {
@@ -3379,7 +3441,7 @@ function advanceBtn(id: string): HTMLButtonElement {
 /** 地図の上に浮く札（境界の近くの「このセクタに進出」・縮小したときの状況の札） */
 const worldUi = h('div', 'isl-world');
 let worldKey = '';
-let worldEls: { el: HTMLElement; i: number; j: number }[] = [];
+let worldEls: { el: HTMLElement; i: number; j: number; dir?: { dx: number; dy: number } }[] = [];
 
 function badgeEl(b: SectorBadge, mini: boolean): HTMLElement {
   const el = h('button', `isl-wbadge is-${b.state} ${mini ? 'is-mini' : ''}`);
@@ -3403,7 +3465,7 @@ function badgeEl(b: SectorBadge, mini: boolean): HTMLElement {
   el.addEventListener('click', () => {
     if (b.state === 'mine') goSector(b.id);
     else if (b.state === 'open' && letterLocked(s, b.id)) toast(letterLockOf(s, b.id));
-    else if (b.state === 'open') (rankUpTier(s, b.id) ? openRankUp(ctx, b.id) : startMove(ctx, b.id));
+    else if (b.state === 'open') openSectorCard(b.id);
     else if (b.state === 'here') {
       const c = (s.n - 1) / 2;
       tween = { x0: cam.x, y0: cam.y, x1: 0, y1: c * 110, t0: performance.now(), z0: cam.zoom, z1: innerWidth < 600 ? 0.3 : 0.5, dur: 600 };
@@ -3412,21 +3474,78 @@ function badgeEl(b: SectorBadge, mini: boolean): HTMLElement {
   return el;
 }
 
-/** 隣のセクタの境界の近くの札（未進出：ランド名＋進出のボタン／出店済み：移動／まだ行けない：🔒 と条件） */
+/**
+ * 隣のセクタの境界の雲の上の町の名前（段 UI4・追加の要望）：ふだんは出さず、画面の中心が境界に近づいたら（world.ts の edgeNear）ふわっと出す。
+ * 文字の札だけ（金色のボタンにしない）。押すと町の詳細と進出のポップアップ（openSectorCard）
+ */
 function edgeEl(id: string): HTMLElement {
   const d = sectorDef(id);
   const st = s.land ? sectorState(s.land, id) : 'cloud';
-  const el = h('div', `isl-wedge is-${st}`);
+  const el = h('button', `isl-wname is-${st}`);
+  (el as HTMLButtonElement).type = 'button';
   el.style.setProperty('--tc', TIERS[d.tier].color);
-  const head = h('div', 'isl-wedge-head');
-  head.append(h('span', 'isl-wedge-tier', d.tier), h('b', '', st === 'cloud' ? '???' : d.name));
-  el.append(head);
-  if (st === 'open') {
-    el.append(advanceBtn(id));
-    if (letterLocked(s, id)) el.append(h('small', 'isl-wedge-need', letterLockOf(s, id)));
-  } else if (st === 'mine') el.append(btn(t(`${d.name}へ移動 ▶`, `Go to ${d.name} ▶`), () => goSector(id)));
-  else el.append(h('small', 'isl-wedge-need', `🔒 ${needLine(s, d) ?? ''}`));
+  el.append(h('span', 'isl-wedge-tier', d.tier), h('b', '', st === 'cloud' ? '???' : d.name));
+  if (st === 'mine') el.append(h('small', '', '▶'));
+  else if (st !== 'open') el.append(h('small', '', '🔒'));
+  el.addEventListener('click', () => openSectorCard(id));
   return el;
+}
+/** 町の名前を押したポップアップ（UI1 のカードの形）：名前・ランク・ひと言・他社の数・需要の多い商品・入国料と「進出する」「閉じる」 */
+function openSectorCard(id: string) {
+  root.querySelector('.isl-sectm')?.remove();
+  closePop();
+  const d = sectorDef(id);
+  const st = s.land ? sectorState(s.land, id) : 'cloud';
+  const adv = advanceOf(s, id);
+  const facts = sectorFacts(id);
+  const m = h('div', 'isl-modal isl-bulk isl-sectm');
+  m.dataset.sector = id;
+  const p = h('div', 'isl-bulk-panel isl-sectm-panel');
+  p.style.setProperty('--tc', TIERS[d.tier].color);
+  const who = h('div', 'isl-sectm-who');
+  who.append(h('div', 'isl-sectm-face', d.tier));
+  const idb = h('div', 'isl-sectm-id');
+  idb.append(h('span', 'isl-sectm-role', t('🗺 となりの町', '🗺 Next town')), h('b', 'isl-sectm-name', st === 'cloud' ? '???' : d.name), h('small', '', tierLabel(d.tier)));
+  who.append(idb);
+  p.append(who);
+  if (st !== 'cloud') {
+    if (d.profile.tag) p.append(h('p', 'isl-sectm-tag', d.profile.tag));
+    p.append(h('small', 'isl-sectm-note', TIER_NOTE[d.tier]));
+    const fx = h('div', 'isl-sectm-facts');
+    fx.append(h('span', '', t(`🏪 他社 ${facts.rivals} 社`, `🏪 ${facts.rivals} rivals`)));
+    if (facts.hot.length) {
+      const hot = h('span', 'isl-sectm-hot', t('🔥 需要の多い商品：', '🔥 In demand: '));
+      for (const k of facts.hot) hot.append(skuIcon(`${k}:C` as SkuT, 24), h('span', '', PRODUCT[k]?.name ?? k));
+      fx.append(hot);
+    }
+    if (adv.fee > 0 && adv.k !== 'go') fx.append(h('span', '', t(`💴 入国料 ${money(adv.fee)}`, `💴 Permit ${money(adv.fee)}`)));
+    p.append(fx);
+  }
+  const close = () => m.remove();
+  const row = h('div', 'isl-bulk-btns');
+  const why =
+    adv.k === 'short'
+      ? t(`資金が足りません（あと ${money(adv.short)}）`, `Not enough funds (${money(adv.short)} short)`)
+      : adv.k === 'letter'
+        ? letterLockOf(s, id)
+        : adv.k === 'locked'
+          ? `🔒 ${needLine(s, d) ?? ''}`
+          : '';
+  const label = adv.k === 'go' ? t(`${d.name}へ移動`, `Go to ${d.name}`) : adv.k === 'rankup' ? t('進出する（災害と徴収あり）…', 'Expand (disaster & levy)…') : t(`進出する（入国料 ${money(adv.fee)}）`, `Expand (permit ${money(adv.fee)})`);
+  const go = btn(label, () => {
+    close();
+    advanceGo(adv.k, { go: () => goSector(id), move: () => startMove(ctx, id), rankup: () => openRankUp(ctx, id) });
+  }, adv.k === 'go' || adv.k === 'move' || adv.k === 'rankup' ? 'is-on' : '');
+  go.disabled = !(adv.k === 'go' || adv.k === 'move' || adv.k === 'rankup');
+  row.append(go, btn(t('閉じる', 'Close'), close));
+  if (why) p.append(h('small', 'isl-bad isl-sectm-why', why));
+  p.append(row);
+  m.addEventListener('click', (e) => {
+    if (e.target === m) close();
+  });
+  m.append(p);
+  root.append(m);
+  sfx.play('page');
 }
 
 /** 浮く札を作り直し（中身が変わったときだけ）、カメラに合わせて動かす */
@@ -3443,7 +3562,7 @@ function placeWorldUi() {
   const sw = n * 200 * cam.zoom;
   const mini = sw < 240;
   let key: string;
-  let items: { id: string; i: number; j: number; make: () => HTMLElement }[];
+  let items: { id: string; i: number; j: number; dir?: { dx: number; dy: number }; make: () => HTMLElement }[];
   if (ov) {
     const bs = sectorBadges(s);
     key = `ov|${mini}|${JSON.stringify(bs)}|${Math.round(s.money)}|${s.letters.join()}`;
@@ -3456,23 +3575,27 @@ function placeWorldUi() {
     const mid = (STRIP - 1) / 2;
     items = adj.map((r) => {
       const [li, lj] = r.dx === 1 ? [mid, c] : r.dx === -1 ? [n - 1 - mid, c] : r.dy === 1 ? [c, mid] : [c, n - 1 - mid];
-      return { id: r.id, i: li + r.oi, j: lj + r.oj, make: () => edgeEl(r.id) };
+      return { id: r.id, i: li + r.oi, j: lj + r.oj, dir: { dx: r.dx, dy: r.dy }, make: () => edgeEl(r.id) };
     });
   }
   if (key !== worldKey) {
     worldKey = key;
-    worldEls = items.map((x) => ({ el: x.make(), i: x.i, j: x.j }));
+    worldEls = items.map((x) => ({ el: x.make(), i: x.i, j: x.j, dir: x.dir }));
     worldUi.replaceChildren(...worldEls.map((x) => x.el));
   }
   worldUi.hidden = false;
+  // 境界の町の名前：画面の中心が境界に近いときだけ（world.ts の edgeNear）
+  const center = camCell(cam.x, cam.y);
   for (const x of worldEls) {
     const p = toScreen(x.i, x.j);
     const off = p.x < -40 || p.x > W + 40 || p.y < 40 || p.y > H - 40;
+    if (x.dir) x.el.classList.toggle('is-near', !off && edgeNear(n, center, x.dir, [x.i, x.j]));
     x.el.hidden = off;
     if (off) continue;
     // 境界の札は、画面の左右の端で切れないように少し内側へ（縮小の札はセクタの真ん中のまま）
     const hw = ov ? 0 : x.el.offsetWidth / 2;
-    const right = W - (root.classList.contains('is-rail') ? foot.getBoundingClientRect().width : 0);
+    // 境界の町の名前は、スマホでは右の「＋／−」ボタンに重ならないように少し内側へ
+    const right = W - (root.classList.contains('is-rail') ? foot.getBoundingClientRect().width : 0) - (x.dir && W < 600 ? 64 : 0);
     const px = ov ? p.x : Math.max(hw + 6, Math.min(right - hw - 6, p.x));
     x.el.style.transform = `translate(${Math.round(px)}px, ${Math.round(p.y)}px) translate(-50%, -50%)`;
   }
@@ -4003,6 +4126,9 @@ function advance(days: number) {
     if (r.hr) hrNews(r.hr);
     // 法務（段 H2）：M&A の話の進み・特許の審査が終わった
     if (r.legal) for (const x of legalToasts(r.legal)) toast(x);
+    // 外交（段 UI4）：使者の依頼がそろった・期限が切れた
+    for (const q of r.diplo?.done ?? []) toast(t(`🌐 ${landDef(q.land).name}の依頼を届けた！ +${q.reward.toLocaleString('en-US')} G・研究 +${q.rp} RP・仲 ${Math.round(relOf(s, q.land))}`, `🌐 Delivered ${landDef(q.land).name}’s request! +${q.reward.toLocaleString('en-US')} G, +${q.rp} RP, relations ${Math.round(relOf(s, q.land))}`));
+    for (const q of r.diplo?.late ?? []) toast(t(`🌐 ${landDef(q.land).name}の依頼が期限切れ…仲が下がった（${Math.round(relOf(s, q.land))}）`, `🌐 ${landDef(q.land).name}’s request expired… relations fell (${Math.round(relOf(s, q.land))})`));
     for (const g of r.grew) toast(t(`${heroName(g.hero)}の ${g.stat.toUpperCase()} が 1 上がりました（バイトの経験）`, `${heroName(g.hero)}’s ${g.stat.toUpperCase()} rose by 1 (part-time work)`));
     if (r.procLv) {
       toast(t(`調達ランクが Lv.${r.procLv} に上がりました`, `Buying rank is now Lv.${r.procLv}`));
@@ -4191,7 +4317,7 @@ function companyNews(c: NonNullable<ReturnType<typeof step>['company']>) {
 }
 
 /** 月次報告の画面からほかの画面へ */
-const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), openProps: () => openProps(ctx), openPay: () => openPayroll(ctx), openCs: () => openInboxScreen(), openLegal: () => openLegalScreen('ma'), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
+const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), openProps: () => openProps(ctx), openPay: () => openPayroll(ctx), openCs: () => openInboxScreen(), openLegal: () => openLegalScreen('ma'), openDiplo: () => goSub('sales', 'diplo'), sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
 
 function showReport(r: NonNullable<ReturnType<typeof step>['report']>) {
   speed = 0;
@@ -4346,6 +4472,32 @@ requestAnimationFrame(frame);
     if (c) showCard(ctx, c, { done: cardDone, open: cardOpen });
     return c?.id ?? null;
   },
+  /** 段 UI4（撮影スクリプト用）：できごとを作って出す（種類・乱数の塩）。作れなければ null */
+  eventDemo: (kind: EvKind, salt = 0) => {
+    const d = makeEvent(s, kind, salt);
+    if (!d) return null;
+    const c = enqueue(s, eventDraft(s, d));
+    if (c) showCard(ctx, c, { done: cardDone, open: cardOpen });
+    return c?.id ?? null;
+  },
+  /** 段 UI4（撮影スクリプト用）：外交の話を作って出す（meet は物語の会話のあとにカード） */
+  diploDemo: (kind: 'meet' | 'trade' | 'req', land: LandId = 'ruby') => {
+    const D = diploOf(s);
+    if (!D.lands.some((x) => x.id === land)) D.lands.push({ id: land, rel: 30, met: Math.round(s.day / 30) });
+    D.since ??= Math.round(s.day / 30);
+    const L = D.lands.find((x) => x.id === land)!;
+    const req = kind === 'req' ? reqTerms(s, land) : undefined;
+    const dd = { kind, land, host: hostCost(s), ...(kind === 'req' ? { req: req ?? undefined } : { trade: tradeTerms(s, land) }) };
+    const c = enqueue(s, diploDraft(s, dd));
+    if (!c) return null;
+    L.told = kind !== 'meet';
+    if (!meetTalk(c)) showCard(ctx, c, { done: cardDone, open: cardOpen });
+    return c.id;
+  },
+  /** 追加の要望（撮影スクリプト用）：主力商品のまとめ替えのシートを出す・境界の町の名前（位置と近いか）・町のポップアップ */
+  bulk: (a: SkuT, b: SkuT) => offerBulk(ctx, a, b, () => renderAll()),
+  edges: () => worldEls.filter((x) => x.dir).map((x) => ({ i: x.i, j: x.j, near: x.el.classList.contains('is-near'), text: x.el.textContent, dir: x.dir })),
+  sectorCard: (id: string) => openSectorCard(id),
   cardShow: (id: number) => {
     const c = s.cards?.inbox.find((x) => x.id === id);
     if (c) showCard(ctx, c, { done: cardDone, open: cardOpen });
