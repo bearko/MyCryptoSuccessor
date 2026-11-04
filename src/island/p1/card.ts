@@ -36,7 +36,8 @@ import { invLv, myWarehouses, poolCap, poolUsed, madeSkus, adCost, bonus, bonusC
 import { adGain, goodsName, partMonthly, sellMoves, shopMonthly, stockMsg, stockPlan, type SellMove } from './moves';
 import { apologize, bestReply, csOn, noticeCost, refundCost, reply, replyGain, replyLock, swapItem } from './cs';
 import { quitLeft, talk, talkGain } from './hr';
-import { afterOf, applyPlan, planOf, type Plan, type PlanRes } from './plan';
+import { afterOf, applyPlan, baseOf, planOf, type Plan, type PlanRes } from './plan';
+import { valueOfPlan } from './brief';
 import { clearInfo, clearUnits, fromStock, storeFix, storeFull, type StoreFix } from './stock';
 import { dedRate, quarterNow, taxOn, taxPlan } from './acct';
 import { heroSay, quipOf, say, sayLen, type QuipCat } from './persona';
@@ -1056,6 +1057,36 @@ export function chooseCard(s: P1State, id: number, k: number): ChooseRes {
 /** 2 つの手がぶつかるか（同じ種類・同じお店の棚・同じ人） */
 const clash = (a: PropAct, b: PropAct) => a.k === b.k || ('uid' in a && 'uid' in b && a.uid === b.uid && (a.k === 'stock' || b.k === 'stock')) || ('hero' in a && 'hero' in b && a.hero === b.hero);
 /**
+ * 段 UI7c：画面に出す推奨（「推奨」の札・金色）の選択肢の番号。ヒーロー・部長の提案のカード（PROPOSAL_SRC）は、手のある選択肢を社長の経営方針の価値
+ * （brief.ts の valueOfPlan。手 1 つの提案書）で比べ、払える手のうち価値がいちばん大きくプラスのものに付ける。どれもプラスでなければ「このまま」
+ * （無ければ却下）に付ける。ほかのカード（頼み・問い合わせ・できごと など）と、チュートリアルのあいだは、もとの推奨（c.choices の rec）のまま。
+ * 「任せる（★3）」の自動の手・自動プレイは、もとの推奨（お金の見込み）のまま（ユーザーの判断 2026-11-04）。無ければ −1
+ */
+export function shownRec(s: P1State, c: Card): number {
+  const orig = c.choices.findIndex((x) => x.rec);
+  if (!PROPOSAL_SRC.includes(c.src) || inTutorial(s)) return orig;
+  const xs = c.choices.map((x, k) => ({ x, k })).filter(({ x }) => x.act.k === 'do' || x.act.k === 'approve');
+  if (!xs.length) return orig;
+  const base = baseOf(s);
+  let best = -1;
+  let bv = 0;
+  for (const { x, k } of xs) {
+    const a = x.act.k === 'do' ? x.act.a : x.act.k === 'approve' ? s.deleg?.inbox.find((p) => p.id === (x.act as { pid: number }).pid)?.act : undefined;
+    if (!a || !actOk(s, a)) continue;
+    if ((x.cost ?? 0) > s.money || (x.rp ?? 0) > (s.rp ?? 0)) continue;
+    const v = valueOfPlan(s, planOf(s, [a], { hero: c.hero, q: c.q, dept: c.dept }), base);
+    if (v > bv) {
+      bv = v;
+      best = k;
+    }
+  }
+  if (best >= 0) return best;
+  const no = c.choices.findIndex((x) => x.act.k === 'skip');
+  if (no >= 0) return no;
+  const rj = c.choices.findIndex((x) => x.act.k === 'reject');
+  return rj >= 0 ? rj : orig;
+}
+/**
  * カードの選択肢 k の提案書。選んだ手に、同じ担当のほかの改善案（見込みがプラスで、ぶつからないもの）を sizeOf（町のランク × ★）まで足す。
  * 手の無い選択肢（このまま・返事・面談など）は null
  */
@@ -1071,6 +1102,10 @@ export function planOfChoice(s: P1State, c: Card, k: number): Plan | null {
   }
   if (!acts.length) return null;
   const n = sizeOf(s, c);
+  const who = { hero: c.hero, q: c.q, dept: c.dept };
+  // 段 UI7c：束ねるのは、社長の経営方針の価値が増えるときだけ（brief.ts の valueOfPlan。このまま側は 1 回だけ計算する）
+  let base: P1State | null = null;
+  let cur: number | null = null;
   for (const x of [...c.choices].sort((a, b) => (b.est ?? 0) - (a.est ?? 0))) {
     if (acts.length >= n) break;
     if (x === ch || x.act.k !== 'do' || (x.est ?? 0) <= 0) continue;
@@ -1078,9 +1113,14 @@ export function planOfChoice(s: P1State, c: Card, k: number): Plan | null {
     if (!actOk(s, a) || acts.some((y) => clash(y, a))) continue;
     // 段 UI5d：倉庫の提案の「倉庫を強化する」は、ほかの手（売りさばき・使い切り）と束ねない（費用のかかる手を黙って足さない）
     if (c.src === 'stock' && (storeAct(a) || storeAct(acts[0]))) continue;
+    base ??= baseOf(s);
+    cur ??= valueOfPlan(s, planOf(s, acts, who), base);
+    const next = valueOfPlan(s, planOf(s, [...acts, a], who), base);
+    if (next <= cur) continue;
     acts.push(a);
+    cur = next;
   }
-  return planOf(s, acts, { hero: c.hero, q: c.q, dept: c.dept });
+  return planOf(s, acts, who);
 }
 /** その段の担当（店員・職人・調達係・運搬係）。いなければ null（マインちゃん） */
 export function stageHand(s: P1State, stage: Stage): number | null {

@@ -14471,3 +14471,170 @@ button.isl-dband-lead.is-on {
   font-weight: 700;
   opacity: 0.85;
 }
+/* 段 UI7c：提案書の指標の札・見積もりの根拠 */
+.isl-prop-chips {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+.isl-prop-chip {
+  padding: 1px 7px;
+  border-radius: 8px;
+  border: 1px solid #c9b48c;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.isl-prop-chip.is-good {
+  color: #2f8a4c;
+  border-color: #8cc9a0;
+}
+.isl-prop-chip.is-bad {
+  color: #c8202a;
+  border-color: #e3a0a4;
+}
+.isl-prop-chip.is-even {
+  color: #6b5a44;
+}
+.isl-prop-whys {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #6b5a44;
+}
+.isl-prop-vals .isl-prop-efflabel {
+  font-size: 13px;
+}
+/* 段 UI7c：経営方針を選ぶ窓（policyui.ts） */
+.isl-modal.isl-pol > .isl-pol-panel {
+  position: absolute;
+  top: calc(var(--hud-h, 56px) + 8px);
+  max-height: calc(100% - var(--hud-h, 56px) - var(--foot-h, 0px) - 20px);
+  left: 0;
+  right: 0;
+  width: min(640px, calc(100% - 24px));
+  margin: 0 auto;
+  padding: 12px 14px 10px;
+  border: 3px solid #2a2016;
+  border-radius: 18px;
+  background: #fbf3df;
+  color: #2a2016;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  animation: isl-up 0.2s ease-out;
+}
+@media (max-width: 599px) {
+  .isl-modal.isl-pol > .isl-pol-panel {
+    top: 8px;
+    max-height: calc(100% - 16px);
+    width: calc(100% - 16px);
+    padding: 10px 10px 8px;
+  }
+}
+.isl-pol-head {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.isl-pol-head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.isl-pol-mine {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border: 2px solid #2a2016;
+  border-radius: 12px;
+  background: #e9dcbd;
+}
+.isl-pol-say p {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.isl-pol-lead {
+  margin: 0;
+  font-size: 12px;
+  color: #6b5a44;
+}
+.isl-pol-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+@media (max-width: 599px) {
+  .isl-pol-list {
+    grid-template-columns: 1fr;
+  }
+}
+.isl-pol-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 7px 10px;
+  border: 2px solid #2a2016;
+  border-radius: 12px;
+  background: #fff9ea;
+  color: #2a2016;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.isl-pol-opt b {
+  font-size: 15px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.isl-pol-opt small {
+  font-size: 12px;
+  color: #6b5a44;
+}
+.isl-pol-opt.is-on {
+  background: #fff0c4;
+  box-shadow: inset 0 0 0 2px var(--isl-gold, #f2c14e);
+}
+.isl-pol-cur {
+  padding: 0 6px;
+  border-radius: 6px;
+  background: #2a2016;
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+}
+.isl-pol-foot {
+  display: flex;
+  justify-content: flex-end;
+}
+.isl-pol-foot .isl-btn {
+  min-height: 44px;
+}
+.isl-pol-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.isl-pol-row > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}

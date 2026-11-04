@@ -187,22 +187,13 @@ describe('提案書の中身（briefOf）', () => {
     expect(actDept({ k: 'hire', hero: 1001, task: 'craft', target: null })).toBe('hr');
     expect(SKILL[hr.id]).toBeTruthy();
   });
-  it('推奨：払えない → 見送る・カードの推奨から → 承認・カードの推奨がほかの手 → 見送る・数字だけなら利益が増えると承認', () => {
-    const base = {
-      block: [] as string[],
-      co: { n: 0, money: 0, cash: 1000, left: 500, reserve: 100 },
-      dProfit: 1000,
-      err: 0.1,
-      after: {} as never,
-      now: { profit: 100_000 } as never,
-    };
+  it('推奨：払えない・資金が足りなくなるなら見送る（方針の価値の推奨は段 UI7c のテスト）', () => {
+    const vals = { policy: 'balance' as const, list: [], value: 1000, parts: { short: 0, long: 1000, morale: 0, sat: 0, brand: 0, rp: 0 }, scale: 1, rpG: 1 };
+    const base = { block: [] as string[], co: { n: 0, money: 0, cash: 1000, left: 500, reserve: 100 }, vals };
     expect(recOf(base).rec).toBe('ok');
-    expect(recOf({ ...base, dProfit: -10 }).rec).toBe('skip');
-    expect(recOf({ ...base, block: ['資金不足'] }, true).rec).toBe('skip');
-    expect(recOf(base, false).rec).toBe('skip');
-    expect(recOf({ ...base, dProfit: 0 }, true).rec).toBe('ok');
-    // カードの推奨から開いても、束ねた手で利益がはっきり減るなら見送る
-    expect(recOf({ ...base, dProfit: -5000 }, true).rec).toBe('skip');
+    expect(recOf({ ...base, block: ['資金不足'] }).rec).toBe('skip');
+    expect(recOf({ ...base, co: { ...base.co, left: -1 } }).rec).toBe('skip');
+    expect(recOf({ ...base, vals: { ...vals, value: -1 } }).rec).toBe('skip');
   });
 });
 

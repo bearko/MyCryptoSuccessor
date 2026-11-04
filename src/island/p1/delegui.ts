@@ -2,6 +2,8 @@
  * 任せ方の 4 段の画面（段 D）：部門の担当（チームリーダー・事業部長の任命）・部長の提案の受け箱（承認／却下／保留）・人事の役目の札。
  * 計算は deleg.ts（DOM なし）。仕様は docs/ISLAND_PHASE1.md「任せ方」。
  */
+import { policySort } from './brief';
+import { policyCard } from './policyui';
 import { stockMsg, stockPlan } from './moves';
 import { t } from '../../i18n';
 import { DELEG, DEPT, DEPT_DUTIES, DUTY, deptAptName, type DeptId, type DutyId } from './data';
@@ -326,6 +328,8 @@ export function openProps(ctx: Ctx) {
     body.classList.add('isl-dl');
     // 段 UI1：ヒーローからの提案・報告のカード（時間を止めて出せなかったもの）と、任せている提案。
     // 段 UI3：受け箱は「押せるもの」を上に（承認まで 2 タップ）。カードが無ければ、説明は部長の提案の下へ
+    // 段 UI7c：経営方針（推奨・並び・言い方を決める）。いつでも変えられる
+    body.append(policyCard(ctx));
     const hasCards = cardInbox(s).some((x) => x.src !== 'head') || !!s.cards?.trust?.length;
     if (hasCards) body.append(cardInboxCard(ctx));
     const how = h('p', 'isl-dim', t('事業部長は、月に 1 回、いま打てる手の中から効き目の見込みが大きいものを持ってきます。部長の出来が高いほど、見込みの誤差が小さくなります。承認すると、すぐに実行します。', 'Each month your heads bring the move they expect to pay off most. Better heads misjudge less. Approving carries it out right away.'));
@@ -336,7 +340,8 @@ export function openProps(ctx: Ctx) {
       body.append(h('p', 'isl-dim isl-prop-empty', hasHead ? t('いまは提案がありません（月の締めで届きます）。', 'No proposals right now (they arrive at the monthly close).') : t(`事業部長を置くと（部門の理解度 ${DELEG.headAt} から。部門の画面の上の「担当」）、ここに提案が届きます。`, `Place a division head (from understanding ${DELEG.headAt}, via “Lead” on a department’s band) to get proposals here.`)));
     }
     const grid = h('div', 'isl-prop-grid');
-    for (const p of inbox) grid.append(propCard(ctx, s, p));
+    // 段 UI7c：社長の経営方針の価値の大きい順に（画面の並びだけ。部長の自動の施策・自動プレイは前のまま）
+    for (const p of policySort(s, inbox)) grid.append(propCard(ctx, s, p));
     body.append(grid, how);
     if (!hasCards) body.append(cardInboxCard(ctx));
     // 承認した提案（翌月の報告で結果）
