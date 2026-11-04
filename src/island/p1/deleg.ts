@@ -11,7 +11,7 @@
 import { isEn, t } from '../../i18n';
 import { heroById } from '../../game/catalog';
 import { DEF } from '../defs';
-import { ADS, BUDGET, CLEAR, DELEG, DEPT, DEPTS, DEPT_DUTIES, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
+import { ADS, CLEAR, DELEG, DEPT, DEPTS, DEPT_DUTIES, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
 import { deptLevel, menuDepts } from './dept';
 import { fitDept } from './voice';
 import {
@@ -94,6 +94,7 @@ import { copyIn } from './mkt';
 import { adGain, grossRate, sellMoves } from './moves';
 import { applyPlan, planOf, stepsOf } from './plan';
 import { budgetOpen, budgetReport, budgetTry } from './budget';
+import { perHeadOf } from './board';
 import type { SectorRec } from './company';
 
 // ---------------------------------------------------------------- 役目
@@ -310,6 +311,8 @@ export interface Proposal {
   /** 見込み（部長の読み。誤差つき）と、誤差の幅（±割合） */
   est: number;
   err: number;
+  /** 段 I2：本当の見込み（誤差の前。経営会議の実績と社内監査が使う。前のセーブには無い） */
+  real?: number;
   unit: PropUnit;
   /** 段の流れの見込み（個／月。物流・人事・システム・経営企画） */
   units?: number;
@@ -1022,6 +1025,7 @@ export function delegMonth(s: P1State, r: Report) {
       act: top.c.act,
       est: top.c.unit === 'finds' ? Math.max(1, Math.round(top.est)) : top.c.unit === 'share' ? Math.round(top.est * 10) / 10 : Math.round(top.est),
       err: Math.round((1 - q) * P.err * 100) / 100,
+      real: top.c.real,
       unit: top.c.unit,
       units: top.c.units != null ? Math.max(1, Math.round(top.c.units * (top.est / Math.max(1e-9, top.c.real)))) : undefined,
       stage: top.c.stage,
@@ -1036,7 +1040,8 @@ export function delegMonth(s: P1State, r: Report) {
       let n = 0;
       let left: Proposal | null = null;
       for (const x of cs) {
-        if (n >= BUDGET.perHead) break;
+        // 段 I2：経営会議で目標を上げた部門は月の施策 +1（perHeadOf）
+        if (n >= perHeadOf(s, d)) break;
         if (!actOk(s, x.c.act) || st.inbox.some((p) => actKey(p.act) === actKey(x.c.act))) continue;
         const p = mk(x);
         const res = budgetTry(s, p);

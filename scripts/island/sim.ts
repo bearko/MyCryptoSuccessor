@@ -17,7 +17,7 @@ import { fatigueAvg, fatigueMul, fatigueOf, gaOn } from '../../src/island/p1/ga'
 import { CS_OFF, apologize, bestReply, putLock, putOut, reply } from '../../src/island/p1/cs';
 import { copyIn, forecast, gradeOf, prLock, publish } from '../../src/island/p1/mkt';
 import { LEGAL_OFF, clauseSlots, dealOf, filePatent, guidePrice, infringers, keepRate, legalHere, maLock, offerChance, offerLock, openSuits, patentLock, patentOf, patentable, rivalSales, sendOffer, setLicense, settle, signSupply, startDD, startDeal, sueInfringer, suitChance, supplyLock, type Clauses, type OfferLevel } from '../../src/island/p1/legal';
-import { LEGAL } from '../../src/island/p1/data';
+import { BOARD, LEGAL } from '../../src/island/p1/data';
 import { bonus as giveBonus, bonusCost, raise, raiseStep, setRest, wageMul } from '../../src/island/p1/model';
 import { CHARISMA, CS, CSM_RP, FATIGUE, FLAME, GRADE, GRADE_NAME, MORALE, PAY, TAX, deptOf } from '../../src/island/p1/data';
 // v22（段 G）：販売の枝に足したカスタマーサポート・マーケの研究パネル（CSM_RP）は、通常の「詰まりの段の枝の研究パネル」には数えない（売り場の段に効かない）
@@ -25,6 +25,7 @@ import { approve, delegatedDuties, headDepts, headLeft, headOf, leaderLeft, lead
 import { DELEG, DEPTS, type DeptId, type DutyId } from '../../src/island/p1/data';
 import { deptLevel } from '../../src/island/p1/dept';
 import { BUDGET_OFF, budgetHeads, crewTotal, type BudgetStat } from '../../src/island/p1/budget';
+import { BOARD_OFF, boardAuto, boardDue, type BoardStat } from '../../src/island/p1/board';
 import { BUDGET } from '../../src/island/p1/data';
 import { CARD_SRCS, SIM_CARD_TAKE, cardInbox, chooseCard, simTake, type Card, type CardSrc, type CardStat } from '../../src/island/p1/card';
 import { EVENT_OFF, EV_KINDS, GOOD_KINDS, lightOpt, newEventStat, optName, type EvKind, type EventStat } from '../../src/island/p1/events';
@@ -366,6 +367,8 @@ export interface RunResult {
   v28: { found: string[]; made: number; opt: Partial<Record<DuoOptId, number>> };
   /** v30（段 I1：予算で任せる）：部長が予算の中で実行した施策の数と額・予算の効きで浮いた額・雇った／減らした従業員・給料・頼みの数・終わりの従業員と予算で任せた部門 */
   v30?: BudgetStat & { crewEnd: number; heads: number };
+  /** v32（段 I2：経営会議と社内監査）：会議の数（自動プレイは全部「推奨」）・話し手・選んだ番号・期末の結果・監査の指摘 */
+  v32?: BoardStat;
 }
 
 /**
@@ -2361,6 +2364,8 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
 
     // ---- 1 日（v9：作業のあいだは発掘隊も打つ。作業の日数が尽きた・荒れ地を掘りきったら作業を終える）
     const d = step(s);
+    // v32（段 I2）：経営会議は全部「推奨」で決める（画面の一括承認と同じ）
+    if (boardDue(s)) boardAuto(s);
     o.onDay?.(s, cur.id);
     cur.dig.auto += d.dug?.length ?? 0;
     // v18：任せ方の記録
@@ -2706,6 +2711,8 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   if (s.duo) res.v28 = { found: Object.keys(s.duo.found), made: s.duo.stat.made, opt: { ...s.duo.stat.opt } };
   // v30（段 I1）：予算で任せる（会社のもの）
   if (s.budget) res.v30 = { ...JSON.parse(JSON.stringify(s.budget.stat)), crewEnd: crewTotal(s), heads: budgetHeads(s) };
+  // v32（段 I2）：経営会議（会社のもの）
+  if (s.board) res.v32 = JSON.parse(JSON.stringify(s.board.stat));
   if (s.diplo) {
     res.v26.dip = { ...s.diplo.stat };
     res.v26.rel = Object.fromEntries(s.diplo.lands.map((x) => [x.id, Math.round(x.rel)]));
@@ -2980,6 +2987,24 @@ export function tables(rep: Report2): string {
     );
   }
   out.push('');
+  // v32（段 I2）：経営会議と社内監査
+  if (rep.runs.some((r) => r.v32)) {
+    out.push('### 表 24：経営会議と社内監査（v32。段 I2）');
+    out.push('');
+    out.push(
+      `シード ${seeds.join('・')} の平均。会社の四半期の締め（経理の決算）に、部長のいる部門とセクター長が「予実の報告 → 来期の計画 → 必要予算（＋その他の要求）」を話し、自動プレイは全員「推奨」で決める（計画は承認・据え置きの予算は承認・増額の要求は前の目標に届いた部長だけ承認・RP の使用は承認・部長のいない部門へのヒーローは理解度 ${BOARD.heroAt} から承認）。目標の上乗せは +${BOARD.plan.slice(1).map((x) => Math.round(x * 100)).join('%・+')}%（推奨はいつも承認なので、自動プレイでは使わない）。監査は経理部長（★ で見抜ける盛り：${Object.values(BOARD.audit.see).map((x) => Math.round(x * 100)).join('%・')}%）。時間の比べは、段 I2 の前の main（85809a3）の同じ 9 シード（下の「v32」の節）。`,
+    );
+    out.push('');
+    out.push('| 方針 | 会議 | 話し手 | 計画（承認・+10%・+20%） | 予算（承認・増額・減額） | その他（承認・否認） | 期末（届いた・届かなかった） | 監査の指摘 |');
+    out.push('|---|---|---|---|---|---|---|---|');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      const v = (f: (x: BoardStat) => number) => mean(runs.map((r) => (r.v32 ? f(r.v32) : 0))).toFixed(1);
+      out.push(`| ${POLICY_NAME[p]} | ${v((x) => x.held)} | ${v((x) => x.items)} | ${v((x) => x.plan[0])}・${v((x) => x.plan[1])}・${v((x) => x.plan[2])} | ${v((x) => x.budget[0])}・${v((x) => x.budget[1])}・${v((x) => x.budget[2])} | ${v((x) => x.other[0])}・${v((x) => x.other[1])} | ${v((x) => x.met)}・${v((x) => x.missed)} | ${v((x) => x.flags)} |`);
+    }
+    out.push('');
+  }
   // v30（段 I1）：予算で任せる
   if (rep.noBudget?.length || rep.runs.some((r) => r.v30)) {
     out.push('### 表 23：予算で任せる（v30。段 I1）');
@@ -3789,5 +3814,14 @@ export function withoutPatent<T>(f: () => T): T {
     return f();
   } finally {
     LEGAL_OFF.patent = false;
+  }
+}
+/** v32（段 I2）：経営会議と社内監査を止めて回す（会議を作らず、目標も効かない＝段 I2 の前と同じ。比べるためだけ。終わったら戻す） */
+export function withoutBoard<T>(f: () => T): T {
+  BOARD_OFF.on = true;
+  try {
+    return f();
+  } finally {
+    BOARD_OFF.on = false;
   }
 }

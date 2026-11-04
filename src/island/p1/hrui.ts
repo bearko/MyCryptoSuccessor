@@ -170,6 +170,8 @@ function partsText(s: P1State, st: Staff): string {
     Math.round(p.tired) ? t(`疲れ ${sg(p.tired)}`, `fatigue ${sg(p.tired)}`) : '',
     // 段 P2：ヒーローの組み合わせ
     p.duo ? t(`組み合わせ ${sg(p.duo)}`, `pairing ${sg(p.duo)}`) : '',
+    // 段 I2：経営会議の目標の重さ
+    Math.round(p.goal) ? t(`目標の重さ ${sg(p.goal)}`, `target pressure ${sg(p.goal)}`) : '',
   ].filter(Boolean);
   return t(`士気の目標 ${Math.round(p.total)} ＝ ${xs.join('・')}`, `Morale target ${Math.round(p.total)} = ${xs.join(', ')}`);
 }

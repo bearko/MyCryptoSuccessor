@@ -135,6 +135,7 @@ import { canHireRarity, charismaOf, hireCap, initMorale, moraleAdd, moraleAvg, m
 import { fitSector, fitTask } from './voice';
 import { duoDrain, duoSpeed, type DuoState } from './duo';
 import { budgetClose, budgetDay, type BudgetReport, type BudgetState } from './budget';
+import { boardQuarter, sectorPush, type BoardClose, type BoardState } from './board';
 
 export type Ground = 'grass' | 'road';
 export type Owner = 'me' | 'town' | string;
@@ -487,7 +488,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26;
   kind: 'p1';
   seed: number;
   n: number;
@@ -687,6 +688,11 @@ export interface P1State {
    * 会社のもの（災害でも残る・町を移っても残る）。無ければ、Rare に届いたときに「中」・従業員 0 人から
    */
   budget?: BudgetState;
+  /**
+   * 段 I2（版 26。board.ts）：経営会議と社内監査。開くのを待っている会議の議題・いまの四半期の目標（目標の上乗せと予算の増減）・
+   * 前の四半期の結果・数え。会社のもの（災害でも残る）。無ければ、次の四半期の締めから
+   */
+  board?: BoardState;
 }
 
 /** ランクアップの災害 1 回の記録（演出・自動プレイの計測） */
@@ -834,7 +840,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 25,
+    v: 26,
     kind: 'p1',
     seed,
     n,
@@ -3504,6 +3510,8 @@ export interface DayResult {
   report: Report | null;
   /** 会社の月の締め（30 日ごと） */
   company?: CompanyMonth;
+  /** 段 I2：四半期の締め（目標の結果と、新しい経営会議） */
+  board?: BoardClose;
   /** 新しく達成した依頼・調査が進んだ他社・開発できた商品 */
   missions: string[];
   intel: { rid: string; lv: number }[];
@@ -4041,6 +4049,11 @@ export function step(s: P1State): DayResult {
   // 会社の月の締め（ゲームの最初から 30 日ごと）：ほかのセクタの運営と、帳簿
   if (s.day % DAYS === 0) {
     res.company = closeCompanyMonth(s);
+    // 段 I2：四半期の締めなら、前の四半期の目標の結果と、次の四半期の経営会議の議題
+    if (res.company.quarter != null) {
+      const bc = boardQuarter(s, res.company.quarter, res.company.m);
+      if (bc) res.board = bc;
+    }
     // 経理の助言（決算の 1 か月前）のカード
     cardsCompany(s);
   }
@@ -4441,7 +4454,7 @@ export function closeCompanyMonth(s: P1State): CompanyMonth {
         continue;
       }
       // マネージャー研修：売上の倍率 +0.1・持株会社：利益 +10%。被災した町は直った割合ぶん
-      const r = runSector(rec, st?.stats ?? null, m, rng(s.seed + s.day * 31 + id.length * 7 + id.charCodeAt(1)), { rate: 0.1 * lvMul(s, 'mgr') + fxSum(s, 'manager') + (st ? passiveSum(st, 'manage') + fitSector(st.hero) : 0) + headFx(s, 'strategy'), profit: 1 + 0.1 * lvMul(s, 'holding'), scale: reviveScale(rec) });
+      const r = runSector(rec, st?.stats ?? null, m, rng(s.seed + s.day * 31 + id.length * 7 + id.charCodeAt(1)), { rate: 0.1 * lvMul(s, 'mgr') + fxSum(s, 'manager') + (st ? passiveSum(st, 'manage') + fitSector(st.hero) + sectorPush(s, id) : 0) + headFx(s, 'strategy'), profit: 1 + 0.1 * lvMul(s, 'holding'), scale: reviveScale(rec) });
       // セクター長の任せきり（段 D）：部長たちの提案を自分で承認して、そのセクタへ投資
       rec.heads = undefined;
       if (st) sectorApprove(s, rec, r);
@@ -4717,7 +4730,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19 && o.v !== 20 && o.v !== 21 && o.v !== 22 && o.v !== 23 && o.v !== 24 && o.v !== 25) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19 && o.v !== 20 && o.v !== 21 && o.v !== 22 && o.v !== 23 && o.v !== 24 && o.v !== 25 && o.v !== 26) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -4802,6 +4815,9 @@ export function deserializeP1(json: string): P1State | null {
     // 版 23（と並行の段 UI5c の版 24）→ 25（段 I1：予算で任せる）：部門の予算・従業員（s.budget）は空から（はじめて使うときに、どの部門も「中」・従業員 0 人・
     // 上限は BUDGET.crew.cap で作る）。足した項目が無いときの既定値で埋めるだけなので、23 からも 24 からも同じ
     if (s.v === 23 || s.v === 24) s.v = 25;
+    // 版 25 → 26（段 I2：経営会議と社内監査）：会議・目標（s.board）は空から（次の四半期の締めで、はじめての会議の議題を作る）。
+    // 部門の四半期の記録（DeptBudget の qv など）は 0 から・部長の提案の本当の見込み（Proposal.real）は無い（見込みを使う）
+    if (s.v === 25) s.v = 26;
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);

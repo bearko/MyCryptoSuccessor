@@ -15,12 +15,13 @@
  * - 予算の決め方は関数（setBudget・setBudgets・setCrewCap）に分けてある：段 I2 の経営会議から同じ関数で決める。
  */
 import { t } from '../../i18n';
-import { BUDGET, DEPT, DEPTS, SHOP, type DeptId, type Tier } from './data';
+import { BOARD, BUDGET, DEPT, DEPTS, SHOP, type DeptId, type Tier } from './data';
 import { book, topTierOf, type LedgerKey } from './company';
 import { menuDepts } from './dept';
 import { actName, actOk, approve, candidates, headOf, ifsOf, newDeleg, quality, reserveOf, type PropAct, type PropUnit, type Proposal } from './deleg';
 import { DAYS, type P1State, type Report } from './model';
 import { gradeOf, P2_OFF } from './voice';
+import { laborPush } from './board';
 
 // ---------------------------------------------------------------- 型
 
@@ -68,6 +69,17 @@ export interface DeptBudget {
   dry?: number;
   /** 今月の締めで出た頼み（次の締めで消える） */
   ask?: BudgetAsk | null;
+  /**
+   * 段 I2（経営会議）：四半期の記録（会社の四半期の締めで 0 から。board.ts の boardQuarter）。qv＝実行した施策の成果（G に直した本当の見込み）・qn＝施策の数・
+   * qamt＝月の予算の合計・qused＝使った額の合計・qask＝頼みの出た月の数・qnm＝施策の名前（4 つまで）。noRp＝会議で RP の使用を否認した（この四半期は RP の施策を打たない）
+   */
+  qv?: number;
+  qn?: number;
+  qamt?: number;
+  qused?: number;
+  qask?: number;
+  qnm?: string[];
+  noRp?: boolean;
 }
 export interface BudgetStat {
   /** 予算の中で実行した施策の数・額・予算の効きで浮いた額・雇った人・減らした人・頼みの数 */
@@ -164,7 +176,16 @@ export function handOf(s: P1State, d: DeptId): number {
   return star == null ? 0 : BUDGET.hand.base + BUDGET.hand.star * (star - 1);
 }
 /** 部門の月の労力（人日）：部長の手 ＋ 従業員 */
-export const laborCap = (s: P1State, d: DeptId) => handOf(s, d) + deptBudget(s, d).crew * BUDGET.crew.labor;
+export const laborCap = (s: P1State, d: DeptId) => Math.round((handOf(s, d) + deptBudget(s, d).crew * BUDGET.crew.labor) * laborPush(s, d));
+/**
+ * 施策の成果を G に直す（段 I2 の経営会議の計画と実績を同じ単位で）：G・宣伝・法務はそのまま、出土品は 1 個 BOARD.findG、
+ * 商圏の取り分（%）は先月の売上 × 割合
+ */
+export function valG(s: P1State, unit: PropUnit, v: number): number {
+  if (unit === 'finds') return v * BOARD.findG;
+  if (unit === 'share') return (v / 100) * budgetBase(s);
+  return v;
+}
 /** 施策の労力（人日。効きを入れる前） */
 export const laborOf = (a: Pick<PropAct, 'k'>) => BUDGET.labor[a.k] ?? BUDGET.laborDef;
 /** その部長が払う労力（効きで減る。1 人日から） */
@@ -245,6 +266,12 @@ export function budgetClose(s: P1State): void {
     if (!B) continue;
     const cap = laborCap(s, d);
     B.last = { amt: amountOf(s, d), used: Math.round(B.used), labor: B.labor, laborCap: cap, acts: B.acts, crew: B.crew };
+    // 段 I2：四半期の記録（経営会議の予実の報告）。部長のいる月だけ
+    if (headOf(s, d)) {
+      B.qamt = (B.qamt ?? 0) + B.last.amt;
+      B.qused = (B.qused ?? 0) + B.last.used;
+      if (B.ask) B.qask = (B.qask ?? 0) + 1;
+    }
     const head = !!headOf(s, d);
     // 労力が 1 人ぶん以上余った月が続く → 1 人減らす（部長が予算の中で判断）
     if (B.crew > 0 && cap - B.labor >= BUDGET.crew.labor) B.idle = (B.idle ?? 0) + 1;
@@ -299,6 +326,8 @@ export function budgetTry(s: P1State, p: Proposal): TryRes {
   if (d === 'strategy' || !headOf(s, d)) return 'skip';
   const B = deptBudget(s, d);
   const BS = budgetOf(s);
+  // 段 I2：経営会議で RP の使用を否認した部門は、この四半期は RP の施策を打たない（次の候補へ）
+  if (B.noRp && (p.rp ?? 0) > 0) return 'skip';
   const eff = effOf(s, d);
   const cost = costNeed(s, d, p.cost);
   const rest = restOf(s, d);
@@ -348,6 +377,10 @@ export function budgetTry(s: P1State, p: Proposal): TryRes {
   B.used += r.spent;
   B.labor += need;
   B.acts.push({ act: p.act, nm: actName(s, p.act), cost: r.spent, labor: need, est: p.est, unit: p.unit, pid: p.id });
+  // 段 I2：四半期の成果（本当の見込みを G に直して）・施策の数と名前
+  B.qv = (B.qv ?? 0) + valG(s, p.unit, p.real ?? p.est);
+  B.qn = (B.qn ?? 0) + 1;
+  B.qnm = [...(B.qnm ?? []), B.acts[B.acts.length - 1].nm].slice(-4);
   BS.stat.acts++;
   BS.stat.spent += r.spent;
   BS.stat.saved += r.saved;
