@@ -22,14 +22,14 @@ export function sgn(v: number, unit = ''): string {
   return r > 0 ? `+${fmt(r)}${u}` : r < 0 ? `−${fmt(r)}${u}` : `±0${u}`;
 }
 /** 増減の矢印（色だけに頼らない） */
-export const arrow = (v: number) => (Math.round(v) > 0 ? '▲' : Math.round(v) < 0 ? '▼' : '＝');
+export const arrow = (v: number) => (Math.round(v) > 0 ? '▲' : Math.round(v) < 0 ? '▼' : '=');
 const tone = (v: number) => (Math.round(v) > 0 ? 'is-good' : Math.round(v) < 0 ? 'is-bad' : 'is-even');
 /** 目盛りの短い書き方（日本語は「万」、英語は k・M） */
 export function short(v: number): string {
   const a = Math.abs(v);
   const s = v < 0 ? '−' : '';
   if (a >= 10000) {
-    const ja = a >= 1e8 ? `${+(a / 1e8).toFixed(1)}億` : `${Math.round(a / 1e4).toLocaleString('en-US')}万`;
+    const ja = a >= 1e8 ? `${+(a / 1e8).toFixed(1)}億` : `${Math.round(a / 1e4).toLocaleString('en-US')}万`; // i18n-ja
     const en = a >= 1e6 ? `${+(a / 1e6).toFixed(1)}M` : `${Math.round(a / 1e3)}k`;
     return s + t(ja, en);
   }
@@ -67,7 +67,7 @@ export function deck(slides: { id: string; name: string; el: HTMLElement }[], on
   for (const [k, s] of slides.entries()) {
     s.el.classList.add('isl-sl');
     s.el.dataset.slide = s.id;
-    s.el.setAttribute('aria-label', `${k + 1} / ${slides.length}：${s.name}`);
+    s.el.setAttribute('aria-label', `${k + 1} / ${slides.length} ${s.name}`);
     track.append(s.el);
   }
   el.append(track);

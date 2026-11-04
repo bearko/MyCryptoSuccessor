@@ -15465,7 +15465,9 @@ button.isl-dband-lead.is-on {
 }
 .isl-sl-arrow:disabled,
 .isl-sl-side:disabled {
-  opacity: 0.35;
+  border-color: #d8c8a4;
+  background: #f5ecd6;
+  color: #c9b48c;
   cursor: default;
 }
 .isl-sl-dots {

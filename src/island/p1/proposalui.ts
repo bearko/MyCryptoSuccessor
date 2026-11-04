@@ -488,7 +488,8 @@ function appendix(body: HTMLElement, ctx: Ctx, s: P1State, plan: Plan, B: Brief,
   // 予想されるリスク（全部）
   const s4 = sec(t('予想されるリスク（全部）', 'All risks'));
   const rl = h('ul', 'isl-prop-risks');
-  for (const x of B.rk) rl.append(h('li', '', `${RISK_LV[x.lv]()}｜${x.text}`));
+  const bar = t('｜', ' | ');
+  for (const x of B.rk) rl.append(h('li', '', RISK_LV[x.lv]() + bar + x.text));
   s4.append(rl);
   // As-Is ／ To-Be
   const s5 = sec(t('As-Is ／ To-Be', 'As-Is / To-Be'), 'isl-prop-more');
