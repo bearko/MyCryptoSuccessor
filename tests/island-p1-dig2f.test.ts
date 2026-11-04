@@ -378,7 +378,7 @@ describe('5. 古いセーブ（版 6 → 7）', () => {
     o.v = 6;
     delete o.rpBuys;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(26);
+    expect(back.v).toBe(27);
     expect(donations(back)).toBe(0);
     for (const id of INF_PANELS) expect(lvOf(back, id)).toBe(0);
     expect(presentLock(back)).toBe('done');

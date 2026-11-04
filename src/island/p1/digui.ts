@@ -21,6 +21,7 @@ import { assign, blast, blastCost, blastSize, dig, digRepeatMs, digSite, drill, 
 import { DEEP_LOCK, DUNGEON_TAB, EPIC_VALUE_TEXT, RARE_RELIC_NOTE, seriesTag, anyPeek, autoDiggers, biggestFx, cellView, crewCount, digBlock, digErrText, digRec, digSpec, digSpecText, digStatus, dungeonNotes, findLabel, fxOf, gotLines, lockedLayer, nextLvText, noteEntries, noteTablets, noteTabs, noteTotals, relicLine, runBar, stars, type CellView } from './digview';
 import { AGAIN_TIP, DEEP_TIP, MEET_WALL, PEEK_TIP } from './digmeet';
 import { pickHero } from './heroui';
+import { polSync, tabletKnow } from './policy';
 import { FX_PAL, FX_RARITY, fxAtEl, playFx } from '../fx/layer';
 import { open, refreshSheet, sheetOpen, type Ctx } from './screens';
 import { btn, extImage, h, heroIcon, heroName, matIcon, money, rich } from './ui';
@@ -932,6 +933,12 @@ function readTablet(id: string, rp: number) {
   const head = h('div', 'isl-dig-read-head');
   head.append(tabletIcon(32), h('b', '', t(`石板「${tab.title}」`, `Tablet: ${tab.title}`)));
   w.append(head, h('p', '', tab.text));
+  // 段 K：ランドの運営のノウハウの一節と、開いた経営方針
+  const kn = tabletKnow(p.ctx.s(), id);
+  if (kn) {
+    w.append(h('p', 'isl-dig-know', `「${kn.know}」`), h('small', kn.open ? 'isl-dig-know-open' : 'isl-dim', kn.line));
+    polSync(p.ctx.s());
+  }
   if (rp) w.append(h('small', 'isl-gold', t(`研究 +${rp} RP・研究ノートに残りました`, `RP +${rp} · saved to your notebook`)));
   w.append(btn(t('閉じる', 'Close'), () => w.remove(), 'is-on'));
   p.el.append(w);
@@ -1088,8 +1095,20 @@ export function openNotes(ctx: Ctx, o: { fromDig?: DigHooks; sector?: string } =
           const txt = h('p', '', tab.text);
           txt.hidden = true;
           b.append(txt);
+          // 段 K：ノウハウの一節と、開いた経営方針（開いているときは方針の名前も札に）
+          const kn = tabletKnow(s, tab.id);
+          const kx: HTMLElement[] = [];
+          if (kn) {
+            b.append(h('small', kn.open ? 'isl-note-pol is-open' : 'isl-note-pol', kn.open ? t(`📜 ${kn.policy.name}`, `📜 ${kn.policy.name}`) : t(`📜 ${kn.policy.name}（1 / 2）`, `📜 ${kn.policy.name} (1 / 2)`)));
+            kx.push(h('p', 'isl-note-know', `「${kn.know}」`), h('small', kn.open ? 'isl-dig-know-open' : 'isl-dim', kn.line));
+            for (const x of kx) {
+              x.hidden = true;
+              b.append(x);
+            }
+          }
           b.addEventListener('click', () => {
             txt.hidden = !txt.hidden;
+            for (const x of kx) x.hidden = txt.hidden;
             b.classList.toggle('is-open', !txt.hidden);
           });
         } else b.append(h('small', 'isl-dim', t('この町の荒れ地のどこかに眠っている', 'Somewhere under this town’s wastelands')));

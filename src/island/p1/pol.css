@@ -1,0 +1,159 @@
+/* 段 K：経営方針（policyui.ts）。方針の画面・方針を選ぶ窓・経営方針発表会・石板のノウハウ。字はどれも 12px 以上 */
+
+/* 方針を選ぶ窓（段 UI7c の .isl-pol に足す） */
+.isl-pol-fx {
+  font-size: 12px;
+  color: #2f7a43;
+  font-weight: 700;
+}
+.isl-pol-free {
+  margin: 0;
+  font-size: 12px;
+  color: #c98a1b;
+  font-weight: 700;
+}
+.isl-pol-count {
+  font-size: 14px;
+}
+.isl-pol-opt:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+.isl-pol-opt .isl-rec-tag {
+  font-size: 12px;
+}
+
+/* 方針の画面（シート。暗い地） */
+.isl-pv {
+  display: grid;
+  gap: 10px;
+}
+.isl-pv-lead {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.isl-pv-sec {
+  display: grid;
+  gap: 8px;
+}
+.isl-pv-sec h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.isl-pv .isl-pol-fx {
+  color: #8fe0a2;
+}
+.isl-pv .isl-pol-free {
+  color: #f2c86a;
+}
+.isl-pv-row {
+  display: grid;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 2px solid #3a4a6e;
+  border-radius: 10px;
+  background: #1f2b46;
+}
+.isl-pv-row b {
+  font-size: 15px;
+}
+.isl-pv-row small {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.isl-pv-dept {
+  display: grid;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px dashed #3a4a6e;
+}
+.isl-pv-dept:first-of-type {
+  border-top: none;
+}
+.isl-pv-dept .isl-pol-row small {
+  font-size: 12px;
+}
+.isl-pv-pick {
+  min-height: 40px;
+  flex: none;
+}
+.isl-pv-h {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #f2c86a;
+}
+.isl-pv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px;
+}
+.isl-pv-item {
+  display: grid;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 2px solid #3a4a6e;
+  border-radius: 10px;
+  background: #1f2b46;
+  min-width: 0;
+}
+.isl-pv-item b {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.isl-pv-item small {
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.isl-pv-item.is-lock {
+  border-style: dashed;
+  background: #1a2238;
+  color: var(--isl-dim);
+}
+
+/* 経営方針発表会（会議の画面 .isl-bm に差し込む） */
+.isl-bm-pol .isl-bm-opts.isl-bm-polopts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.isl-bm-polcnt {
+  font-size: 14px;
+  color: #f7e3a8;
+}
+.isl-bm-polopt b {
+  font-size: 14px;
+}
+.isl-bm-polopt small {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.isl-bm-polopt .isl-rec-tag {
+  font-size: 12px;
+}
+@media (max-width: 420px) {
+  .isl-bm-pol .isl-bm-opts.isl-bm-polopts {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 石板のノウハウ（読み物の窓・研究ノート。どちらも暗い茶の地） */
+.isl-dig-know,
+.isl-note-tablet p.isl-note-know {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #f3e3c0;
+}
+.isl-dig-know-open {
+  font-size: 12px;
+  font-weight: 700;
+  color: #9be3a9;
+}
+.isl-note-pol {
+  font-size: 12px;
+  color: #d8c6a4;
+}
+.isl-note-pol.is-open {
+  color: #9be3a9;
+  font-weight: 700;
+}

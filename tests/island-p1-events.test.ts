@@ -331,7 +331,7 @@ describe('セーブ（版 21）', () => {
     delete o.events;
     delete o.diplo;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(26);
+    expect(back.v).toBe(27);
     expect(back.events).toBeUndefined();
     expect(back.diplo).toBeUndefined();
     expect(relOf(back, 'ruby')).toBe(DIPLO.start);

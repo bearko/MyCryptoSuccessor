@@ -69,7 +69,7 @@ export const BOARD_SCENES: BoardScene[] = [];
 /**
  * 段 K へのつなぎ口：部長 1 人ずつの発表に足す行（「事業別の方針」など）。② 来期の計画の前に、返した数だけ段として並べる（無ければ null）
  */
-export type BoardItemLine = (s: P1State, it: BoardItem, a: BoardAgenda) => { title: string; say: string; note?: string } | null;
+export type BoardItemLine = (s: P1State, it: BoardItem, a: BoardAgenda) => { title: string; say: string; note?: string; el?: HTMLElement } | null;
 export const BOARD_ITEM_LINES: BoardItemLine[] = [];
 
 /** いまの演出が「なし」か（CSS の動きも止める） */
@@ -212,6 +212,8 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
       if (!x) continue;
       const bx = block('isl-bm-bx', x.title, x.say);
       if (x.note) bx.append(h('small', 'isl-bm-dim', x.note));
+      // 段 K：選択肢（事業別の方針の承認・別の方針の指示）
+      if (x.el) bx.append(x.el);
       card.append(bx);
     }
     // ② 来期の計画

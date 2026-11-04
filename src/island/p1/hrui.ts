@@ -172,6 +172,8 @@ function partsText(s: P1State, st: Staff): string {
     p.duo ? t(`組み合わせ ${sg(p.duo)}`, `pairing ${sg(p.duo)}`) : '',
     // 段 I2：経営会議の目標の重さ
     Math.round(p.goal) ? t(`目標の重さ ${sg(p.goal)}`, `target pressure ${sg(p.goal)}`) : '',
+    // 段 K：経営方針
+    Math.round(p.pol) ? t(`経営方針 ${sg(p.pol)}`, `policy ${sg(p.pol)}`) : '',
   ].filter(Boolean);
   return t(`士気の目標 ${Math.round(p.total)} ＝ ${xs.join('・')}`, `Morale target ${Math.round(p.total)} = ${xs.join(', ')}`);
 }

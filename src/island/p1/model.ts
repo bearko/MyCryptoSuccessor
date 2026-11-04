@@ -9,6 +9,7 @@ import { cells, type Dir } from '../sim';
 import { book, brandAdd, brandCap, brandPull, emptyLedger, newBooks, newLand, reviveMonth, reviveScale, ruinCount, runSector, sectorDef, sectorProfile, type BrandEv, type Books, type Land, type LedgerKey, type ReviveMonth, type RuinLike } from './company';
 import {
   ADS,
+  deptOf,
   levelCost,
   lvMulOf,
   OLD_DIG_TOOLS,
@@ -137,6 +138,8 @@ import { fitSector, fitTask } from './voice';
 import { duoDrain, duoSpeed, type DuoState } from './duo';
 import { budgetClose, budgetDay, type BudgetReport, type BudgetState } from './budget';
 import { boardQuarter, sectorPush, type BoardClose, type BoardState } from './board';
+import { migratePol, polFx, polSync, type PolState } from './policy';
+import { deptLevel } from './dept';
 
 export type Ground = 'grass' | 'road';
 export type Owner = 'me' | 'town' | string;
@@ -484,6 +487,9 @@ export interface Flags {
   headEver?: boolean;
   /** 段 I1：予算で任せるの紹介（マインちゃん。Rare に届いて営業の紹介のあと 1 回）を見た */
   budgetTalk?: boolean;
+  /** 段 K：マインちゃんの一言（初めて石板のノウハウを読んだ・初めて全社方針の枠が増えた）を見た */
+  polKnowTalk?: boolean;
+  polSlotTalk?: boolean;
 }
 
 export interface P1State {
@@ -491,7 +497,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27;
   kind: 'p1';
   seed: number;
   n: number;
@@ -698,9 +704,14 @@ export interface P1State {
   board?: BoardState;
   /**
    * 段 UI7c：経営方針（社長の価値観。policy.ts）。提案書の推奨・要約の一言・部長の提案の並び・束ね方だけに使い、ゲームの数字には効かせない。
-   * 無くてよい（無ければ「バランス」）ので、セーブの版は上げない
+   * 無くてよい（無ければ「バランス」）ので、セーブの版は上げない。段 K からは s.pol の全社方針の 1 つ目と同じ
    */
   policy?: PolicyId;
+  /**
+   * 段 K（版 27。policy.ts）：経営方針。全社方針（枠の数まで）・事業別の方針（部門ごと）・発表会を開いた年・開いた順・発表会の途中の選び。
+   * 無ければ、はじめて使うときに s.policy（無ければバランス）から作る
+   */
+  pol?: PolState;
 }
 
 /** ランクアップの災害 1 回の記録（演出・自動プレイの計測） */
@@ -848,7 +859,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 26,
+    v: 27,
     kind: 'p1',
     seed,
     n,
@@ -1131,7 +1142,8 @@ const fxCache = new WeakMap<object, { len: number; lv: object | undefined; sums:
  */
 export function fxSum(s: Pick<P1State, 'skills' | 'skillLv'>, kind: FxKind): number {
   const hit = fxCache.get(s.skills);
-  if (hit && hit.len === s.skills.length && hit.lv === s.skillLv) return hit.sums[kind] ?? 0;
+  // 段 K：経営方針の効き目（policy.ts の polFx。チュートリアルのあいだ・スキルだけの写しは 0）を足す
+  if (hit && hit.len === s.skills.length && hit.lv === s.skillLv) return (hit.sums[kind] ?? 0) + polFx(s, kind);
   const sums: Partial<Record<FxKind, number>> = {};
   for (const id of s.skills) {
     const k = SKILL[id];
@@ -1142,7 +1154,7 @@ export function fxSum(s: Pick<P1State, 'skills' | 'skillLv'>, kind: FxKind): num
     for (const f of k.up ?? []) sums[f.kind] = (sums[f.kind] ?? 0) + f.v * (lv - 1);
   }
   fxCache.set(s.skills, { len: s.skills.length, lv: s.skillLv, sums });
-  return sums[kind] ?? 0;
+  return (sums[kind] ?? 0) + polFx(s, kind);
 }
 /** 汎用の下げ（日数・値段など）：1 − 合計（−80% まで） */
 export const fxCut = (s: Pick<P1State, 'skills' | 'skillLv'>, kind: FxKind) => Math.max(0.2, 1 - fxSum(s, kind));
@@ -2020,7 +2032,9 @@ export const LEARNABLE = () => SKILLS.filter((k) => !skillSoon(k) && !k.donate);
 /** スキルが取れない理由（null なら取れる。資金だけが足りないときは 'money'、研究ポイントが足りないときは 'rp'） */
 /** hidden：発掘の枝（発掘との出会いの前・Lime でないランド）は雲の中 */
 /** donate：研究への寄付は開放するパネルではない（押すたびに寄付する。donateLock・donate） */
-export type SkillLock = 'done' | 'training' | 'hidden' | 'sealed' | 'soon' | 'ring' | 'requires' | 'brand' | 'emblem' | 'rp' | 'money' | 'donate';
+export type SkillLock = 'done' | 'training' | 'hidden' | 'sealed' | 'soon' | 'ring' | 'requires' | 'dept' | 'brand' | 'emblem' | 'rp' | 'money' | 'donate';
+/** 段 K：部門の理解度の条件（経営方針のパネル。Skill.deptLv）がそろっている */
+export const deptLvMet = (s: Pick<P1State, 'skills' | 'skillLv' | 'legal'>, k: Skill) => !k.deptLv || deptLevel(s, deptOf(k)) >= k.deptLv;
 /** 先に要るパネル（requires と、そのレベル reqLv）がそろっている */
 export const requiresMet = (s: P1State, k: Skill) => !k.requires?.some((r) => !has(s, r) || lvOf(s, r) < (k.reqLv?.[r] ?? 1)) && anyOfMet(k, (r) => has(s, r));
 /**
@@ -2048,6 +2062,7 @@ export function skillLock(s: P1State, k: Skill): SkillLock | null {
   if (skillSoon(k)) return 'soon';
   if (!ringOpen(s, skillTier(k))) return 'ring';
   if (!requiresMet(s, k)) return 'requires';
+  if (!deptLvMet(s, k)) return 'dept';
   if (k.brand && (s.brand ?? 0) < k.brand) return 'brand';
   if (k.emblem && (s.emblem ?? 0) < k.emblem) return 'emblem';
   if (isResearch(k)) return (s.rp ?? 0) < rpCost(k) ? 'rp' : null;
@@ -2070,6 +2085,7 @@ export function learn(s: P1State, id: string, hero?: number): string | null {
   if (skillSoon(k)) return 'soon';
   if (!ringOpen(s, skillTier(k))) return 'ring';
   if (!requiresMet(s, k)) return 'requires';
+  if (!deptLvMet(s, k)) return 'dept';
   if (k.brand && (s.brand ?? 0) < k.brand) return 'brand';
   if (k.emblem && (s.emblem ?? 0) < k.emblem) return 'emblem';
   let trainee: Staff | null = null;
@@ -4081,6 +4097,8 @@ export function step(s: P1State): DayResult {
     // 経理の助言（決算の 1 か月前）のカード
     cardsCompany(s);
   }
+  // 段 K：新しく開いた経営方針（石板を読んだ・パネルを取った）を、開いた順に残す
+  polSync(s);
   return res;
 }
 
@@ -4754,7 +4772,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19 && o.v !== 20 && o.v !== 21 && o.v !== 22 && o.v !== 23 && o.v !== 24 && o.v !== 25 && o.v !== 26) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19 && o.v !== 20 && o.v !== 21 && o.v !== 22 && o.v !== 23 && o.v !== 24 && o.v !== 25 && o.v !== 26 && o.v !== 27) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -4842,6 +4860,13 @@ export function deserializeP1(json: string): P1State | null {
     // 版 25 → 26（段 I2：経営会議と社内監査）：会議・目標（s.board）は空から（次の四半期の締めで、はじめての会議の議題を作る）。
     // 部門の四半期の記録（DeptBudget の qv など）は 0 から・部長の提案の本当の見込み（Proposal.real）は無い（見込みを使う）
     if (s.v === 25) s.v = 26;
+    // 版 26 → 27（段 K：経営方針）：全社方針は段 UI7c の s.policy（無ければバランス）を 1 つ目に・事業別の方針は無し（次の年初の会議か、方針の画面で）。
+    // 開いた順は、いま開いている方針（読んである石板・取ってあるパネル）を表の順に（読み込んだときに「選べるようになった」を出さない）。
+    // 発表会はまだ（次の会議が年初の回か、その年の初めての会議なら開く）
+    if (s.v === 26) {
+      migratePol(s);
+      s.v = 27;
+    }
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく
     if (!s.buildings.some((b) => b.id === 'wholesale')) placeTown(s, 'wholesale', rng(s.seed + 11), 'town', [1, 14]);
@@ -6468,6 +6493,9 @@ export function syncResearchCap(s: P1State): { rp: number; lv: number } {
 }
 /** RP を足す（今月の出土品・発掘作業の出土にも数える） */
 function gainRp(s: P1State, v: number) {
+  // 段 K：経営方針（研究重視・オープン・イノベーションなど）の「入る研究ポイント +%」
+  const pr = polFx(s, 'rp');
+  if (pr > 0) v = Math.round(v * (1 + pr));
   s.rp = (s.rp ?? 0) + v;
   if (s.dig) s.dig.month.rp += v;
   if (s.digRun) s.digRun.got.rp += v;
