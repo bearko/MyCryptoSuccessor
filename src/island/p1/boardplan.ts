@@ -104,9 +104,11 @@ export function coLive(s: P1State, base: CoSlack | undefined): CoSlack {
 // ---------------------------------------------------------------- パネルの打ち手（効き目をはかる）
 
 type Flow = Record<Stage, number>;
+/** 打ち手の見込みの近道（効き目が無いと分かっている手は、販売の数をはかり直さない）。止めると全部はかる。テストで「答えが同じ」を確かめる */
+export const LEVER_FAST = { on: true };
 /** 会社の流れ（個／月）：調達・製造・輸送はその段の処理力、販売は売れる数。お店が無ければ販売は数えない */
-function flowOf(s: P1State, sell?: number): Flow {
-  const c = stageCaps(s, true, true);
+function flowOf(s: P1State, sell?: number, caps?: ReturnType<typeof stageCaps>): Flow {
+  const c = caps ?? stageCaps(s, true, true);
   const v = (k: Stage) => (c[k].stopped ? 0 : c[k].perMonth);
   return { buy: v('buy'), craft: v('craft'), haul: v('haul'), sell: sell ?? (myShops(s).length ? sellNow(s).units : Infinity) };
 }
@@ -156,8 +158,15 @@ export function panelLevers(s: P1State, d: DeptId): Extract<Lever, { k: 'panel' 
     if (!lv && pre.length && !okLock(skillLock(c, k))) continue;
     if (lv) setLevel(c, k.id, lvOf(s, k.id) + 1);
     else gainSkill(c, k.id);
-    // 販売の数（重い）は、販売がいまの詰まりか次の詰まりのときだけはかり直す（ほかは変わらないものとして数える）
-    const f1 = flowOf(c, bn === 'sell' || next === 'sell' ? undefined : f0.sell);
+    // 販売の数（重い）は、販売がいまの詰まりか次の詰まりのときだけはかり直す（ほかは変わらないものとして数える）。
+    // 販売がいまの詰まりで、ほかの段がどれも「いまの数 + minUnits」に届かなければ、販売がいくら増えても now にならない：はかり直さない（結果は同じ）
+    let sell1: number | undefined = bn === 'sell' || next === 'sell' ? undefined : f0.sell;
+    const c1 = stageCaps(c, true, true);
+    if (LEVER_FAST.on && bn === 'sell' && next !== 'sell') {
+      const v = (k: Stage) => (c1[k].stopped ? 0 : c1[k].perMonth);
+      if (Math.min(v('buy'), v('craft'), v('haul')) - out0 < BOARD.lever.minUnits) sell1 = f0.sell;
+    }
+    const f1 = flowOf(c, sell1, c1);
     const nowU = outOf(f1) - out0;
     const nextU = next ? f1[next] - f0[next] : 0;
     const now = nowU >= BOARD.lever.minUnits;
