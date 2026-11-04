@@ -1,0 +1,206 @@
+/* ================================================================ 段 N1：ニュースのテロップ（上の帯の下の黒い帯。ticker.ts） */
+/* 位置（top・右の端）は main.ts の layout() が上の帯の下に合わせる。PC は右の帯の手前まで */
+#isl-ui .isl-news {
+  position: absolute;
+  top: var(--news-top, 56px);
+  left: 0;
+  right: var(--rail-w, 0px);
+  z-index: 3;
+  display: flex;
+  align-items: stretch;
+  height: 30px;
+  border-top: 1px solid #2c3550;
+  border-bottom: 1px solid #2c3550;
+  background: #07090f;
+  color: #f4f1e6;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 28px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#isl-ui .isl-news:focus-visible {
+  outline: 2px solid var(--isl-gold, #f2b544);
+  outline-offset: -2px;
+}
+/* 左の札：赤地に白の「NEWS」（流れる字はこの札の下にもぐる） */
+.isl-news-tag {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px 0 8px;
+  background: #c8323a;
+  color: #fff;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  box-shadow: 6px 0 8px #07090f;
+}
+.isl-news-tag i {
+  font-style: normal;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+.isl-news-track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.isl-news-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  white-space: nowrap;
+  will-change: transform;
+}
+.isl-news-dot {
+  margin-right: 8px;
+  color: var(--isl-gold, #f2b544);
+  font-style: normal;
+  font-size: 12px;
+}
+.isl-news-n {
+  margin-left: 6px;
+  color: var(--isl-gold, #f2b544);
+}
+.isl-news-item.is-sum {
+  color: #b8c0d8;
+}
+/* 動きを減らす設定：流さず、1 件ずつ（長い文は … で切る。全文は一覧で） */
+.isl-news-item.is-still {
+  right: 0;
+  padding-left: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.isl-news-idle {
+  display: block;
+  padding-left: 10px;
+  overflow: hidden;
+  color: #8f9bb8;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.isl-news-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+#isl-ui .isl-news.is-open {
+  background: #10141f;
+}
+@media (min-width: 600px) {
+  #isl-ui .isl-news {
+    height: 32px;
+    font-size: 15px;
+    line-height: 30px;
+  }
+  .isl-news-tag {
+    padding: 0 12px 0 10px;
+    font-size: 13px;
+  }
+}
+
+/* 押すと出る一覧（最近の 20 件。帯のすぐ下・左から） */
+#isl-ui .isl-news-list {
+  position: absolute;
+  left: 8px;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  width: min(440px, calc(100% - 16px - var(--rail-w, 0px)));
+  max-height: calc(100% - var(--news-top, 56px) - var(--foot-h, 0px) - 52px);
+  border: 2px solid var(--isl-line, #2c3550);
+  border-radius: 12px;
+  background: #0d111c;
+  color: #f4f1e6;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.isl-news-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 6px 6px 12px;
+  border-bottom: 1px solid #2c3550;
+  font-size: 14px;
+}
+.isl-btn.isl-news-x {
+  min-width: 40px;
+  min-height: 36px;
+  margin: 0;
+  padding: 0 10px;
+}
+.isl-news-rows {
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.isl-news-row {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid #1c2235;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.isl-news-row:last-child {
+  border-bottom: 0;
+}
+.isl-news-row small {
+  color: #8f9bb8;
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: nowrap;
+}
+.isl-news-row.is-empty {
+  display: block;
+  color: #8f9bb8;
+}
+@media (max-width: 599px) {
+  .isl-news-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 地図の上の札は、テロップの下から（--news-h は main.ts の layout()。画面（シート）・窓は上の帯の下から --hud-h のまま） */
+#isl-ui .isl-missions {
+  top: calc(var(--news-h, var(--hud-h, 56px)) + 2px);
+}
+#isl-ui .isl-toasts {
+  top: calc(var(--news-h, var(--hud-h, 56px)) + 4px);
+}
+#isl-ui .isl-praise {
+  top: calc(var(--news-h, var(--hud-h, 56px)) + 96px);
+}
+#isl-ui .isl-sector-pill {
+  top: max(calc(var(--news-h, var(--hud-h, 64px)) + 120px), 24%);
+}
+#isl-ui .isl-area-pill {
+  top: calc(var(--news-h, var(--hud-h, 64px)) + 10px);
+}
+@media (max-width: 599px) {
+  #isl-ui .isl-praise {
+    top: calc(var(--news-h, var(--hud-h, 56px)) + 64px);
+  }
+  #isl-ui .isl-area-pill {
+    top: calc(var(--news-h, var(--hud-h, 64px)) + 4px);
+  }
+}
+/* 画面（シート）を開いているあいだ・流れの案内のあいだ・建てるモード（上の帯の右に「選択中」の札が重なる）は、テロップを隠す
+   （画面は上の帯のすぐ下から。流れは止めて、閉じたら続きから） */
+#isl-ui:has(.isl-sheet) .isl-news,
+#isl-ui.is-placing .isl-news,
+#isl-ui.is-tour .isl-news,
+#isl-ui:has(.isl-tour:not([hidden])) .isl-news {
+  visibility: hidden;
+}
