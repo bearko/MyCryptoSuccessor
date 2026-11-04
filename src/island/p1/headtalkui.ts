@@ -328,6 +328,7 @@ function showPlan(ctx: Ctx, card: Card, plan: Plan, rec = false) {
   const s = ctx.s();
   openProposal(ctx, plan, {
     rec,
+    src: 'talk',
     say: sayOf(s, card),
     role: roleOfCard(s, card).text,
     later: card.id >= 0,
