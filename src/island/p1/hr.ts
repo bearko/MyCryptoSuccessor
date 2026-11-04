@@ -14,6 +14,7 @@ import { CHARISMA, DEPT_SKILLS, HIRE_POOL, SKILL, HERO_RARITY, HIRE_RARITIES, MO
 import { heroRarityOf, rarIdx } from './hero';
 import { fatigueMorale } from './ga';
 import { duoMorale } from './duo';
+import { goalMorale } from './board';
 import { assign, growthOn, has, lvMul, staffOf, uncommonHeroes, wageMul, wageOf, ringOpen, type P1State, type Staff } from './model';
 import { heroById } from '../../game/catalog';
 
@@ -230,7 +231,7 @@ export const envPanels = (s: P1State) => DEPT_SKILLS.general.filter((k) => has(s
 /** 同じ仕事が続いた日（リーダー・セクター長・修行・バイトは数えない） */
 const countsSame = (task: Task | null) => task != null && task !== 'lead' && task !== 'manager' && task !== 'train' && task !== 'side';
 /** 士気の目標の内訳（画面の「士気の内訳」と毎日の寄り先） */
-export function moraleParts(s: P1State, st: Staff): { base: number; pay: number; env: number; role: number; same: number; table: number; tired: number; duo: number; total: number } {
+export function moraleParts(s: P1State, st: Staff): { base: number; pay: number; env: number; role: number; same: number; table: number; tired: number; duo: number; goal: number; total: number } {
   const P = MORALE.pay;
   const gap = payGap(st);
   const pay = Math.max(P.lo, Math.min(P.hi, gap >= 0 ? gap * P.up : gap * P.down)) - P.cut * Math.max(0, -payStep(st));
@@ -243,8 +244,10 @@ export function moraleParts(s: P1State, st: Staff): { base: number; pay: number;
   const tired = fatigueMorale(s, st);
   // 段 P2：ヒーローの組み合わせ（盟友・兄弟は +・緊張は −。duo.ts）
   const duo = duoMorale(s, st.hero);
-  const total = Math.max(0, Math.min(100, MORALE.base + pay + env + role + same + table + tired + duo));
-  return { base: MORALE.base, pay, env, role, same, table, tired, duo, total };
+  // 段 I2：経営会議で決めた目標の重さ（目標の上乗せ・予算の増減。board.ts の goalMorale。ここだけで数える）
+  const goal = goalMorale(s, st.hero);
+  const total = Math.max(0, Math.min(100, MORALE.base + pay + env + role + same + table + tired + duo + goal));
+  return { base: MORALE.base, pay, env, role, same, table, tired, duo, goal, total };
 }
 export const moraleTarget = (s: P1State, st: Staff) => moraleParts(s, st).total;
 /** 士気を足す（0〜100） */

@@ -275,7 +275,7 @@ describe('セクター長（マネージャーと復興の委任のまとめ直�
     o.v = 13;
     delete o.deleg;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(25);
+    expect(back.v).toBe(26);
     expect(back.deleg).toBeUndefined();
     expect(roleOf(staffOf(back, st.hero)!)).toEqual({ kind: 'sector', sector: 'c2' });
     expect(back.staff.filter((x) => x.task === 'lead')).toEqual([]);

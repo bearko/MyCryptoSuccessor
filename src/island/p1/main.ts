@@ -154,6 +154,8 @@ import { gradeName, gradeOf } from './mkt';
 import { taxHint } from './acct';
 import { quitLeft, type HrDay } from './hr';
 import { IslandSfx } from './sfx';
+import { boardDue, boardOf, boardQuarter, closeText } from './board';
+import { openBoard, type BoardHooks } from './boardui';
 import { tileContent } from './tile';
 import { closeDig, digOpen, digRect, extIcon, openDig, openNotes, refreshDig, refreshTimer, showEndCard } from './digui';
 import { MEET_FOUND, MEET_LINES, canPresent, chiefHome, digMet, chiefOf, digSummary, letterToGet, lettersLeft, meetReady, meetTip, presentAfter, presentPages } from './digmeet';
@@ -3131,6 +3133,12 @@ function maybeCard(now: number) {
   flushCardToasts();
   if (placing || menu || pop || sheetOpen() || tour || s.digRun || digOpen() || meetPing || tutOf(s) < TUT_DONE) return;
   if (root.querySelector('.isl-modal, .isl-rp-reveal, .isl-tour:not([hidden])')) return;
+  // 段 I2：経営会議（四半期の締めのあと。カードより先に。開いているあいだは時間が止まる）
+  if (boardDue(s)) {
+    closePop();
+    openBoard(ctx, boardHooks());
+    return;
+  }
   const c = nextPop(s);
   if (!c) return;
   closePop();
@@ -3145,6 +3153,16 @@ function maybeCard(now: number) {
   }
   showCard(ctx, c, { done: cardDone, open: cardOpen });
 }
+/** 段 I2：経営会議の画面の道具（効果音・BGM・閉じたら描き直す） */
+const boardHooks = (): BoardHooks => ({
+  sfx: (k, gain, rate) => sfx.play(k, gain, rate),
+  bgm: (k) => sound.fadeBgm(k),
+  bgmNow: () => sound.currentBgm(),
+  done: () => {
+    save();
+    renderAll();
+  },
+});
 /** 段 UI4：初めての使者の物語の会話（まだ見ていなければ出して true。会話のあとにカード） */
 function meetTalk(c: NonNullable<ReturnType<typeof nextPop>>): boolean {
   if (c.src !== 'diplo' || c.dip?.kind !== 'meet') return false;
@@ -4434,6 +4452,14 @@ function advance(days: number) {
       sfx.play('levelup');
     }
     for (const id of r.missions) toast(t(`依頼「${MISSIONS.find((m) => m.id === id)?.title ?? ''}」を達成しました`, `Request done: ${MISSIONS.find((m) => m.id === id)?.title ?? ''}`));
+    // 段 I2：四半期の目標の結果・経営会議のお知らせ
+    if (r.board) {
+      const bt = closeText(r.board);
+      if (bt) {
+        if (holdReport(s)) heldNews.push(() => toast(bt));
+        else toast(bt);
+      }
+    }
     if (r.company) {
       const c = r.company;
       // 発掘作業のあいだに締めた月のトーストは、作業のあとにまとめて
@@ -4850,6 +4876,19 @@ window.setTimeout(() => warmFx(), 3000);
   /** 下の帯の小メニューを開く（撮影スクリプト用） */
   sub: goSub,
   bgm: () => ({ key: sound.currentBgm(), src: sound.bgmSrc(), playing: sound.bgmPlaying(), sfx: sfx.info() }),
+  /** 段 I2（撮影・確かめ用）：いまの状態で経営会議の議題を作る（四半期の締めと同じ）・開く・議題の中身 */
+  board: {
+    make: () => {
+      const m = Math.round(s.day / 30);
+      const c = boardQuarter(s, Math.max(1, Math.floor(m / 3)), m);
+      return c?.open ?? 0;
+    },
+    open: () => openBoard(ctx, boardHooks()),
+    agenda: () => boardOf(s).agenda,
+    /** 会議が開かない理由（maybeCard の条件） */
+    why: () => ({ due: boardDue(s), placing: !!placing, menu, pop: !!pop, sheet: sheetOpen(), tour: !!tour, dig: !!s.digRun || digOpen(), meetPing, tut: tutOf(s) }),
+    state: () => boardOf(s),
+  },
   tick: () => renderAll(),
   /** 建てる・置くモードを始める（撮影スクリプト用） */
   place: (id: string) => startPlacing(id),

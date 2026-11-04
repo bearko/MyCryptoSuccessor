@@ -328,7 +328,7 @@ describe('古いセーブ（版 19）', () => {
     o.v = 19;
     delete o.cards;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(25);
+    expect(back.v).toBe(26);
     expect(back.cards).toBeUndefined();
     back.tut = 99;
     cardsMonth(back, fakeReport(back));
