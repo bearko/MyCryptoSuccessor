@@ -2627,8 +2627,8 @@ const ev = (e: PolEvKind, v: number): PolSide => ({ k: 'ev', ev: e, v });
  */
 export const POL_SIDES: Record<string, { side: PolSide[]; when: string }> = {
   // ---- 全社方針
-  balance: { side: [mo('strategy', 2), mo('accounting', 2), ev('tired', -0.3), sfx('ads', -0.03)], when: t('まだ会社の形が決まらず、どこも少しずつ伸ばしたいとき', 'When the company is still finding its shape and everything needs a little growth') },
-  profit: { side: [mo('accounting', 3), mo('hr', -2), less('workplace'), ev('scout', 0.5)], when: t('売上はあるのに、お金が手元に残らないとき', 'When sales come in but the money doesn’t stay') },
+  balance: { side: [mo('strategy', 2), mo('accounting', 2), ev('tired', -0.3), mo('marketing', -1)], when: t('まだ会社の形が決まらず、どこも少しずつ伸ばしたいとき', 'When the company is still finding its shape and everything needs a little growth') },
+  profit: { side: [mo('accounting', 3), mo('hr', -2), less('workplace'), ev('scout', 0.3)], when: t('売上はあるのに、お金が手元に残らないとき', 'When sales come in but the money doesn’t stay') },
   growth: { side: [mo('marketing', 3), mo('accounting', -2), sfx('upkeep', -0.02), ev('tired', 0.3)], when: t('Common の町で、まず売上を伸ばしたいとき', 'In a Common town, when you want sales to grow first') },
   brand: { side: [mo('marketing', 3), ev('celebrity', 0.6), sfx('matPrice', -0.02), less('cost')], when: t('名前が知られる前に、上のランクの町へ進みたいとき', 'Before moving up to a higher-rank town, while your name is still unknown') },
   people: { side: [mo('hr', 3), sfx('wage', -0.03), less('cost'), ev('scout', -0.5)], when: t('辞めたい人が出はじめた・士気が下がってきたとき', 'When people start wanting to quit or morale is sagging') },
