@@ -20,6 +20,8 @@ import { adjacent } from './world';
 import { after, open, type Ctx } from './screens';
 import { btn, h, heroIcon, heroName, money, rich, signed } from './ui';
 import { DONATE_LINE } from './mine';
+import { cvBox, donutEl, fallEl, fallLegend, shortN, trendEl, trendLegend, type TSer } from './chartkit';
+import { bsParts, plFall, quarterTrend } from './dash';
 
 // ---------------------------------------------------------------- ランドマップ
 
@@ -596,9 +598,33 @@ export function openBooks(ctx: Ctx) {
     const idx = list.findIndex((x) => x.q === qSel);
     const cur = list[idx];
     const p = pl(cur.l);
+    // 段 UI8：決算書をグラフに（P/L の差し引き＝ウォーターフォール・B/S の資産の中身＝ドーナツ・四半期の推移＝線と棒）。表は「表で見る」に
+    const pair = h('div', 'isl-cv-pair');
+    const f = cvBox(t(`P/L：売上高から当期の利益まで（${cur.label}）`, `P/L: sales to net profit (${cur.label})`), p.sales > 0 ? t(`売上高の ${Math.round((p.net / p.sales) * 100)}% が当期の利益`, `Net margin ${Math.round((p.net / p.sales) * 100)}%`) : '');
+    f.body.append(fallEl(plFall(cur.l), t(`売上高 ${money(p.sales)}・当期の利益 ${money(p.net)}`, `Sales ${money(p.sales)}, net ${money(p.net)}`)), fallLegend());
+    const bsv = cur.bs ?? (balance(s) as Balance);
+    const parts = bsParts(bsv);
+    const assets = parts.reduce((a, x) => a + x.v, 0);
+    const d = cvBox(t('B/S：資産の中身', 'B/S: what you own'), parts.length ? t(`いちばん大きいのは${parts.slice().sort((a, b) => b.v - a.v)[0].name}・借入なし`, `Largest: ${parts.slice().sort((a, b) => b.v - a.v)[0].name} · no loans`) : '');
+    d.body.append(donutEl(parts, { big: shortN(assets), small: t('資産の合計', 'Total assets') }, t(`資産の合計 ${money(assets)}`, `Total assets ${money(assets)}`)));
+    pair.append(f.el, d.el);
+    body.append(pair);
+    const qt = quarterTrend(books);
+    if (qt.length >= 2) {
+      const g = cvBox(t('四半期ごとの売上高と当期の利益', 'Sales and net profit by quarter'), t('最後の四半期は途中まで', 'The last quarter is still in progress'));
+      const series: TSer[] = [
+        { name: t('当期の利益', 'Net profit'), kind: 'bar', cls: 'is-teal', vals: qt.map((x) => x.net) },
+        { name: t('売上高', 'Sales'), kind: 'line', cls: 'is-gold', vals: qt.map((x) => x.sales) },
+      ];
+      g.body.append(trendEl({ labels: qt.map((x) => (x.done ? `Q${x.q}` : t(`Q${x.q} 途中`, `Q${x.q}…`))), heads: qt.map((x) => (x.done ? t(`第 ${x.q} 四半期`, `Q${x.q}`) : t(`第 ${x.q} 四半期（途中）`, `Q${x.q} (in progress)`))), series, aria: t('四半期ごとの売上高と当期の利益', 'Sales and net profit by quarter'), ends: true }), trendLegend(series));
+      body.append(g.el);
+    }
+    const tbl = h('details', 'isl-rp-detail isl-books-more');
+    tbl.append(h('summary', '', t('表で見る（P/L・B/S）', 'As tables (P/L, B/S)')));
     const wrap = h('div', 'isl-books');
     wrap.append(plTable(p), bsTable(cur.bs, s));
-    body.append(wrap);
+    tbl.append(wrap);
+    body.append(tbl);
     // 経理（段 F）：コストの大きい順と経理からの助言（前の四半期と比べる）
     const prev = idx > 0 ? list[idx - 1] : null;
     body.append(costCard(s, cur.l, prev && prev.q === cur.q - 1 ? prev.l : null, cur.label, cur.q));

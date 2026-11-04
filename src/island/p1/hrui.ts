@@ -33,6 +33,9 @@ import {
 import { bonus, bonusCost, has, raise, setRest, wageMul, type P1State, type Report, type Staff } from './model';
 import { after, open, type Ctx } from './screens';
 import { bar, btn, h, heroIcon, heroName, money } from './ui';
+import { cvBox, kpiCardEl, kpiRow, trendEl, trendLegend, type TSer } from './chartkit';
+import { MORALE_REFS, delta, monHead, monLab, moraleHist } from './dash';
+import { infoTip } from './slideui';
 
 // ---------------------------------------------------------------- カリスマ度
 
@@ -186,25 +189,34 @@ export function openPayroll(ctx: Ctx) {
     const market = Math.round(s.staff.reduce((a, x) => a + marketPay(s, x), 0));
     const quitting = wantsToQuit(s);
     const head = h('div', 'isl-card2 isl-pay-head');
-    const sum = h('div', 'isl-row');
-    sum.append(h('b', 'isl-big', money(total)), h('small', 'isl-dim', t(`月の給料の合計（相場どおりなら ${money(market)}）`, `Monthly payroll (at market: ${money(market)})`)));
+    // 段 UI8：数字のカード（前の月の締めとの差 ▲▼）と、士気の平均の推移（帯の基準線つき）。説明は ⓘ に
     const avg = moraleAvg(s);
-    const mood = h('div', 'isl-row');
-    if (avg != null) mood.append(h('span', '', t(`士気の平均 ${avg}`, `Average morale ${avg}`)));
-    if (quitting.length) mood.append(h('span', 'isl-bad', t(`😣 辞めたい ${quitting.length} 人`, `😣 ${quitting.length} want to quit`)));
-    head.append(
-      h('h3', '', t('給与と士気', 'Pay and morale')),
-      sum,
-      mood,
-      h(
-        'p',
-        'isl-dim',
+    const hist = moraleHist(s.reports);
+    const prevAvg = hist.length ? hist[hist.length - 1].v : null;
+    const h3 = h('h3', '', t('給与と士気', 'Pay and morale'));
+    h3.append(
+      infoTip(
         t(
           `給料は月の締めに払います。相場（レアリティと Lv で決まる）より上だと士気が上がり、下だと下がります。士気が ${MORALE.band.hi} を超えると働きが速くなり（100 で ×${MORALE.band.top}）、${MORALE.band.lo} を切ると遅くなります。休ませる・昇給・賞与・昇進で上がり、働きすぎ（スタミナが尽きるまで）と同じ仕事の続きすぎで下がります。`,
           `Wages are paid at each month’s close. Paying above market (set by rarity and Lv) lifts morale; below it, morale drops. Over ${MORALE.band.hi} heroes work faster (×${MORALE.band.top} at 100); under ${MORALE.band.lo} they slow down. Rest, raises, bonuses and promotions lift it; overwork (running out of stamina) and staying in one job too long lower it.`,
         ),
       ),
     );
+    head.append(
+      h3,
+      kpiRow([
+        kpiCardEl({ icon: '💴', label: t('月の給料の合計', 'Monthly payroll'), v: money(total), d: total - market, dFmt: (v) => (Math.round(v) >= 0 ? `+${money(Math.round(v))}` : `−${money(-Math.round(v))}`), dLab: t('相場と比べて', 'vs market'), goodUp: true, sub: t(`相場どおりなら ${money(market)}`, `At market: ${money(market)}`) }),
+        kpiCardEl({ icon: '😊', label: t('士気の平均', 'Average morale'), v: avg != null ? String(avg) : '—', d: avg != null ? delta(avg, prevAvg) : null, dLab: t('先月の締めから', 'since last close'), sub: t(`${MORALE.band.hi} 超えで速く・${MORALE.band.lo} 未満で遅く`, `>${MORALE.band.hi} faster · <${MORALE.band.lo} slower`) }),
+        kpiCardEl({ icon: quitting.length ? '😣' : '🙂', label: t('辞めたい', 'Want to quit'), v: t(`${quitting.length} 人`, `${quitting.length}`), sub: quitting.length ? t('下のカードで引き止めを', 'Talk them round below') : t('いまはいない', 'Nobody right now'), cls: quitting.length ? 'is-warn' : '' }),
+      ]),
+    );
+    if (hist.length >= 2) {
+      const refs = MORALE_REFS();
+      const series: TSer[] = [{ name: t('士気の平均', 'Avg morale'), kind: 'line', cls: 'is-gold', vals: hist.map((x) => x.v) }];
+      const g = cvBox(t('士気の平均の推移（月の締め）', 'Average morale at each close'), t('緑の点線より上で働きが速く、赤の点線より下で遅くなる', 'Above the green line work speeds up; below the red line it slows'));
+      g.body.append(trendEl({ labels: hist.map((x, k) => monLab(x.month, k === 0)), heads: hist.map((x) => monHead(x.month)), series, refs, lo: 0, hi: 100, fmt: (v) => String(Math.round(v)), axis: (v) => String(v), aria: t(`士気の平均の推移：いま ${hist[hist.length - 1].v}`, `Average morale: now ${hist[hist.length - 1].v}`), height: 150 }), trendLegend(series, refs));
+      head.append(g.el);
+    }
     body.append(head);
     // 並び：辞めたい人 → 士気の低い順
     const list = [...s.staff].sort((a, b) => Number(b.quit != null) - Number(a.quit != null) || moraleOf(a) - moraleOf(b));

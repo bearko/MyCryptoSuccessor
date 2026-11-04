@@ -327,8 +327,10 @@ export interface Report {
   news: string[];
   /** その月の流れ（商品の数）：買った素材・作った・運んだ・売れた。以前のセーブには無い */
   flow?: { bought: number; made: number; hauled: number; sold: number };
-  /** 月のはじめと終わりの資金 */
-  money?: { start: number; end: number };
+  /**
+   * 月のはじめと終わりの資金。段 UI8：その月のいちばん高い・安い資金（日ごとの締めの値。資金のろうそく足。以前の報告には無い＝はじめと終わりの範囲だけ）
+   */
+  money?: { start: number; end: number; hi?: number; lo?: number };
   /** その月に上がったブランド力 */
   brand?: number;
   /** その月のボトルネック（締めの時点） */
@@ -589,6 +591,9 @@ export interface P1State {
   orders?: Order[];
   /** 月のはじめの資金とブランド力（報告の「この月で」用） */
   moneyStart?: number;
+  /** 段 UI8：今月のいちばん高い・安い資金（日ごとに見る。月の締めで報告の money.hi・lo に移す。以前のセーブには無い＝その月はろうそく足の高い・安いが途中から） */
+  moneyHi?: number;
+  moneyLo?: number;
   brandStart?: number;
   /** チュートリアルの流れの案内：お店の中を見せるまで、売るのを待つ */
   holdSales?: boolean;
@@ -3661,7 +3666,23 @@ export function promote(s: P1State, hero: number): ReturnType<typeof promoteStaf
 }
 export type { PromoErr };
 
+/** 段 UI8：今月のいちばん高い・安い資金を、いまの資金で更新する */
+export function trackMoney(s: P1State) {
+  const m = Math.round(s.money);
+  s.moneyHi = Math.max(s.moneyHi ?? m, m);
+  s.moneyLo = Math.min(s.moneyLo ?? m, m);
+}
+/** 月の締めの資金の記録（はじめ・終わり・いちばん高い・安い） */
+function moneyRec(s: P1State): NonNullable<Report['money']> {
+  trackMoney(s);
+  const start = s.moneyStart ?? Math.round(s.money);
+  const end = Math.round(s.money);
+  return { start, end, hi: Math.max(start, end, s.moneyHi ?? end), lo: Math.min(start, end, s.moneyLo ?? end) };
+}
+
 export function step(s: P1State): DayResult {
+  // 段 UI8：きのうの終わりの資金で、今月のいちばん高い・安いを更新する（表示だけ。資金のろうそく足）
+  trackMoney(s);
   s.day++;
   const res: DayResult = { finished: [], crafted: [], delivered: [], routes: [], report: null, missions: [], intel: [], developed: [], made: [], sales: [], grew: [] };
 
@@ -3680,6 +3701,7 @@ export function step(s: P1State): DayResult {
             s.open = s.day;
             s.rivalSales = Object.fromEntries(s.rivals.map((r) => [r.id, 0]));
             s.moneyStart = Math.round(s.money);
+            s.moneyHi = s.moneyLo = s.moneyStart;
             s.brandStart = s.brand ?? 0;
           }
         }
@@ -4211,7 +4233,7 @@ export function endMonth(s: P1State): Report {
     rank,
     news,
     flow: { bought: s.proc.bought, made: s.ws.last.made, hauled: hauledThisMonth, sold },
-    money: { start: s.moneyStart ?? s.money, end: Math.round(s.money) },
+    money: moneyRec(s),
     brand: 0,
     ...(mus ? { museum: mus } : {}),
     ...(s.dig ? { revive: { done: s.dig.sites.filter((x) => x.done).length, all: s.dig.sites.length, dungeon: !!s.dig.dungeon } } : {}),
@@ -4410,6 +4432,7 @@ export function endMonth(s: P1State): Report {
   s.hirePool = pickHires(s);
   report.brand = (s.brand ?? 0) - brandStart;
   s.moneyStart = Math.round(s.money);
+  s.moneyHi = s.moneyLo = s.moneyStart;
   s.brandStart = s.brand ?? 0;
   // 詰まり：締めが終わった時点（他社・需要の伸びも入れたあと）の能力で。月末ポーズで開く SCM ダッシュボードと同じ値になる
   report.bottleneck = jamOf(s);

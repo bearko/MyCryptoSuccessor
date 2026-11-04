@@ -5,6 +5,8 @@
  * docs/ISLAND_PHASE1.md「販売管理」。
  */
 import { t } from '../../i18n';
+import { bubbleEl, cvBox } from './chartkit';
+import { shopBubbles } from './dash';
 import { DEF } from '../defs';
 import { aptitude, SHOP, skuParts, type Sku } from './data';
 import { UNSELLABLE_TEXT } from './digview';
@@ -166,6 +168,27 @@ export function openSales(ctx: Ctx) {
       );
     top.append(sorts, btn(t('販売の内訳（ダッシュボード）', 'Sales breakdown (dashboard)'), () => openSupply(ctx, { breakdown: true }), 'isl-sales-dash'));
     body.append(top);
+    // 段 UI8：お店ごとの売上 × 利益率（大きさ＝商圏の家）のバブル。右上ほど稼いでいる・下の赤い点線の円は赤字の店
+    const bs = shopBubbles(rows, s.shops);
+    if (bs.length >= 2) {
+      const lastMo = bs.every((x) => x.last);
+      const best = [...bs].sort((a, b) => b.x * b.y - a.x * a.y)[0];
+      const box = cvBox(t(`お店の売上と利益率（${lastMo ? '先月' : '今月のここまで'}）`, `Shop sales and margin (${lastMo ? 'last month' : 'this month so far'})`), t(`右上ほど稼ぐ店・いちばんは${best.name}`, `Top right earns most · best: ${best.name}`));
+      box.body.append(
+        bubbleEl(bs, {
+          xName: t('売上', 'Sales'),
+          yName: t('利益率', 'Margin'),
+          rName: t('商圏の家', 'Homes'),
+          xFmt: money,
+          yFmt: (v) => `${Math.round(v)}%`,
+          rFmt: (v) => t(`${v} 軒`, `${v}`),
+          aria: t(`お店 ${bs.length} 軒の売上と利益率`, `Sales and margin of ${bs.length} shops`),
+          yRef: { v: 0, label: t('0%（これより下は赤字）', '0% (below = loss)'), cls: 'is-lo' },
+        }),
+        h('p', 'isl-cv-line1', t('利益率＝（売上 − 素材代とアルバイト代）÷ 売上。円の大きさ＝商圏の家の数（維持費は入れない）', 'Margin = (sales − materials and part-timers) ÷ sales. Circle size = homes nearby (upkeep not included)')),
+      );
+      body.append(box.el);
+    }
 
     // 一括の操作
     const bulk = h('div', 'isl-card2 isl-sales-bulk');
