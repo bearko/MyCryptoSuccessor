@@ -198,17 +198,19 @@ describe('提案書の中身（briefOf）', () => {
 });
 
 describe('提案書の画面（proposalui.ts）', () => {
-  it('並びの順：承認してほしいこと → 課題の背景 → 期待効果 → リスク → 詳しく（As-Is／To-Be）。ボタンは本文の外（下に固定）。フレーバーの一言は外した', () => {
+  it('段 UI7d：スライド型（結論 → 何が変わる → 効果 → 影響とリスク → 付録）。付録は 課題の背景 → 期待効果 → リスク → As-Is／To-Be。ボタンはスライドの外（下に固定）。フレーバーの一言は外した', () => {
     const src = readFileSync('src/island/p1/proposalui.ts', 'utf8');
     const at = (x: string) => src.indexOf(x);
-    const keys = ["t('承認してほしいこと'", "t('課題の背景'", 't(`期待効果', "t('予想されるリスク'", "t('詳しく：As-Is"];
+    const slides = ["case 'sum':", "case 'change':", "case 'effect':", "case 'risk':", "case 'more':"];
+    const sp = slides.map(at);
+    expect(sp.every((x) => x > 0)).toBe(true);
+    expect([...sp].sort((a, b) => a - b)).toEqual(sp);
+    const keys = ["t('課題の背景'", 't(`期待効果', "t('予想されるリスク（全部）'", "t('As-Is ／ To-Be'"];
     const pos = keys.map(at);
     expect(pos.every((x) => x > 0)).toBe(true);
     expect([...pos].sort((a, b) => a - b)).toEqual(pos);
-    expect(at('panel.append(body)')).toBeLessThan(at('panel.append(foot)'));
+    expect(at('panel.append(dk.el, dk.nav)')).toBeLessThan(at('panel.append(foot)'));
     expect(src).not.toContain('voiceQuip');
     expect(src).not.toContain('isl-prop-quip');
-    // スマホでは「詳しく」を閉じておく
-    expect(src).toContain('det.open = !phone');
   });
 });
