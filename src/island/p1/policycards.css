@@ -41,8 +41,9 @@
 
 /* ---- 机（手前の木の天板）と点線の枠 */
 .pc-desk {
-  --cw: 70px;
+  --cw: 104px;
   position: relative;
+  overflow: hidden;
   flex: none;
   padding: 10px 8px 12px;
   border: 3px solid #1d1410;
@@ -57,7 +58,7 @@
 }
 .pc-slots {
   display: grid;
-  grid-template-columns: repeat(var(--n), minmax(0, var(--cw)));
+  grid-template-columns: repeat(auto-fit, var(--cw));
   justify-content: center;
   gap: 8px;
 }
@@ -65,7 +66,7 @@
   position: relative;
   display: grid;
   place-items: center;
-  aspect-ratio: 70 / 96;
+  aspect-ratio: 104 / 80;
   border: 2px dashed #f2c86a;
   border-radius: 8px;
   background: #5b3820;
@@ -114,16 +115,17 @@
     transform: translateX(5px);
   }
 }
-.pc-desk .pc-stamp {
+/* ハンコは会議室の壁の左上（机のカード・役員の顔に重ねない） */
+.isl-bm-room .pc-stamp {
   position: absolute;
-  right: 6px;
-  bottom: 4px;
-  width: 62px;
-  height: 62px;
+  left: 10px;
+  top: 8px;
+  width: 58px;
+  height: 58px;
   font-size: 15px;
-  z-index: 3;
+  z-index: 4;
 }
-.pc-desk .pc-stamp.is-long {
+.isl-bm-room .pc-stamp.is-long {
   font-size: 12px;
 }
 
@@ -136,10 +138,6 @@
 }
 .pc-desk.has-side .pc-slots {
   justify-content: start;
-}
-.pc-desk.has-side .pc-stamp {
-  right: auto;
-  left: 40px;
 }
 .pc-desk .pc-say {
   grid-template-columns: auto minmax(0, 1fr);
@@ -155,7 +153,7 @@
 
 /* ---- カード（紙の枠・大きなアイコン・下に名前）。枠の内側の線の色＝開放のしかた（はじめ 鋼・石板 銅・パネル 部門の色）、札の字でも示す */
 .pc-card {
-  --cw: 84px;
+  --cw: 110px;
   --ch: 118px;
   --fr: #8f9bb8;
   position: relative;
@@ -239,14 +237,16 @@
 }
 .pc-nm {
   width: 100%;
-  font-size: 12px;
-  line-height: 1.25;
+  font-size: 13px;
+  line-height: 1.2;
   text-align: center;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow-wrap: anywhere;
+}
+/* 名前は意味の切れ目ごとの塊（policycards.ts の cardSegs）。塊の中では折らない。8 字の塊があるカードは 1 段小さく（12px 未満にしない） */
+.pc-seg {
+  white-space: nowrap;
+}
+.pc-nm.is-long {
+  font-size: 12px;
 }
 .pc-card:focus-visible {
   outline: 3px solid #94d2e0;
@@ -266,17 +266,18 @@
 .pc-slot .pc-card {
   --cw: 100%;
   --ch: 100%;
-  padding: 3px 2px 4px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  padding: 2px 1px 3px;
+  border-width: 2px;
+}
+.pc-slot .pc-top {
+  display: none;
 }
 .pc-slot .pc-nm {
-  font-size: 12px;
   line-height: 1.15;
 }
-.pc-slot .pc-src {
-  padding: 0 2px;
-}
 .pc-slot .pc-ic {
-  font-size: 28px;
+  font-size: 24px;
 }
 .pc-slot .pc-card > .isl-rec-tag {
   display: none;
@@ -696,18 +697,16 @@
     height: 136px;
   }
   .pc-desk {
-    --cw: 60px;
     padding: 8px 8px 10px;
   }
   .pc-slot .pc-ic {
-    font-size: 24px;
+    font-size: 22px;
   }
   .pc-card {
-    --cw: 78px;
-    --ch: 108px;
+    --ch: 112px;
   }
   .pc-ic {
-    font-size: 34px;
+    font-size: 30px;
   }
   .pc-title {
     font-size: 16px;
@@ -735,11 +734,10 @@
     height: 120px;
   }
   .pc-card {
-    --cw: 74px;
-    --ch: 100px;
+    --ch: 106px;
   }
   .pc-ic {
-    font-size: 30px;
+    font-size: 26px;
   }
 }
 /* ---- PC：大きなカード。机と手札は左、詳細は右の縦長の箱 */
@@ -768,20 +766,23 @@
     grid-row: 1 / 4;
   }
   .pc-desk {
-    --cw: 96px;
+    --cw: 120px;
   }
   .pc-card {
-    --cw: 104px;
-    --ch: 146px;
+    --cw: 124px;
+    --ch: 150px;
   }
   .pc-ic {
-    font-size: 50px;
+    font-size: 48px;
   }
   .pc-nm {
     font-size: 14px;
   }
+  .pc-nm.is-long {
+    font-size: 13px;
+  }
   .pc-slot .pc-ic {
-    font-size: 38px;
+    font-size: 34px;
   }
   .pc-title {
     font-size: 20px;

@@ -15,25 +15,35 @@ import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { DEPT, POLICY_OF, type DeptId, type PolicyDef } from './data';
 import { openPolicies, presCorp, presDepts, presDue, presOf, presPickCorp, presPickDept, presRec, recCorp, slotsOf, whenOf } from './policy';
-import { cardLines, deptBase, reactOf, type CardLine } from './policycards';
+import { cardLines, cardSegs, deptBase, reactOf, segEm, type CardLine } from './policycards';
 import { BOARD_SCENES, type BoardHooks } from './boardui';
 import { yearOfBoard, roleOf, type BoardAgenda } from './board';
 import { heroLine } from './headtalk';
 import { headOf, heroNm } from './deleg';
 import { powerLines } from './policyui';
-import { FX_PAL, fxAtEl, fxLevel } from '../fx/layer';
+import { FX_PAL, fxLevel, playFx } from '../fx/layer';
 import type { Ctx } from './screens';
 import { btn, h, heroIcon, recTag } from './ui';
 import type { P1State } from './model';
 import './policycards.css';
 
-/** カードの名前（かっこの中は詳細だけに：「DX（デジタル・…）」→「DX」） */
-export const cardName = (p: PolicyDef) => p.name.replace(/[（(].*?[）)]/g, '').trim() || p.name;
 /** 開放のしかたの札（色だけに頼らず字で） */
 const srcName = (p: PolicyDef) => (p.open.k === 'start' ? t('はじめ', 'Base') : p.open.k === 'tablet' ? t('石板', 'Tablet') : t('パネル', 'Panel'));
 const still = () => fxLevel() === 'off';
 const wait = (ms: number) => new Promise<void>((r) => window.setTimeout(r, still() ? 0 : ms));
 
+/** カードの名前：意味の切れ目ごとの塊（塊の中では折らない）。8 字の塊があるときは字を 1 段小さく（12px 未満にはしない） */
+function nameEl(p: PolicyDef): HTMLElement {
+  const segs = cardSegs(p);
+  const b = h('b', `pc-nm ${Math.max(...segs.map(segEm)) > 7.01 ? 'is-long' : ''}`);
+  // 塊の中は折らない（nowrap）。塊の間だけ折れる（<wbr>。末尾の空白は塊の外に出す）
+  segs.forEach((x, k) => {
+    if (k) b.append(h('wbr'));
+    b.append(h('span', 'pc-seg', x.trimEnd()));
+    if (x !== x.trimEnd()) b.append(document.createTextNode(' '));
+  });
+  return b;
+}
 /** 方針のカード（ボタン。大きなアイコン・下に名前・開放のしかたの札・推奨の札） */
 export function policyCardEl(p: PolicyDef, rec = false): HTMLButtonElement {
   const b = h('button', `pc-card is-${p.open.k} is-${p.kind}`);
@@ -43,7 +53,7 @@ export function policyCardEl(p: PolicyDef, rec = false): HTMLButtonElement {
   b.setAttribute('aria-label', t(`${p.name}（${srcName(p)}${rec ? '・推奨' : ''}）`, `${p.name} (${srcName(p)}${rec ? ', recommended' : ''})`));
   const top = h('span', 'pc-top');
   top.append(h('span', 'pc-src', srcName(p)));
-  b.append(top, h('span', 'pc-ic', p.icon), h('b', 'pc-nm', cardName(p)));
+  b.append(top, h('span', 'pc-ic', p.icon), nameEl(p));
   // 推奨の札はカードの角（右上にはみ出して）
   if (rec) b.append(recTag());
   return b;
@@ -350,8 +360,24 @@ function seatFaces(wrap: HTMLElement) {
         x.querySelector('.pc-face')?.remove();
         x.classList.remove('is-on');
       });
+      wrap.querySelector('.isl-bm-room .pc-stamp')?.remove();
     },
   };
+}
+
+/**
+ * 演出の層を、会議室の絵と机の中だけに描く（反応の一覧・吹き出しの字に重ねない）。
+ * 会議室：壁の上・机と席の下（host＝会議室・under＝机）。机：天板の上・カードの下（host＝机・under＝枠の並び）。どちらも外へははみ出さない（overflow: hidden）
+ */
+function roomFx(wrap: HTMLElement) {
+  const room = wrap.querySelector<HTMLElement>('.isl-bm-room');
+  const under = room?.querySelector('.isl-bm-table') ?? undefined;
+  if (!room) return;
+  playFx('firework-burst', room.clientWidth * 0.3, room.clientHeight * 0.4, { host: room, under, palette: FX_PAL.ours, opts: { core: FX_PAL.core } });
+  playFx('firework-burst', room.clientWidth * 0.7, room.clientHeight * 0.35, { host: room, under, palette: FX_PAL.party, opts: { core: FX_PAL.core }, delay: 260 });
+}
+function deskFx(desk: HTMLElement, under: Element) {
+  playFx('collect-burst', desk.clientWidth / 2, desk.clientHeight / 2, { host: desk, under, palette: FX_PAL.gold, dy: 24 });
 }
 
 /** マインちゃんの一言の箱 */
@@ -365,8 +391,10 @@ function mineSay(text: string): HTMLElement {
   e.append(im, b);
   return e;
 }
-/** ハンコ（会社の赤い丸印。段 I2 の CSS をそのまま） */
-function stampOn(at: HTMLElement, s: P1State) {
+/** ハンコ（会社の赤い丸印。段 I2 の CSS をそのまま）。会議室の壁の左上に押す：机のカードの名前・役員の顔を隠さない */
+function stampOn(desk: HTMLElement, s: P1State) {
+  const at = (desk.closest('.isl-bm')?.querySelector('.isl-bm-room') as HTMLElement | null) ?? desk;
+  at.querySelector('.pc-stamp')?.remove();
   const st = h('span', 'isl-bm-stamp pc-stamp');
   st.textContent = s.storeName || t('承認', 'OK');
   st.classList.toggle('is-long', [...(s.storeName || '')].length > 4);
@@ -468,7 +496,8 @@ function corpStep(ctx: Ctx, s: P1State, a: BoardAgenda, panel: HTMLElement, moda
     stampOn(tb.deskEl, s);
     await wait(260);
     hooks.sfx('jingle');
-    fxAtEl('firework-burst', tb.deskEl, { palette: FX_PAL.ours, opts: { core: FX_PAL.core }, dy: -10 });
+    roomFx(tb.deskEl.closest('.isl-bm') as HTMLElement);
+    deskFx(tb.deskEl, tb.slotsEl);
     // 役員の反応（部長：その部門の士気 ± と、方針の部門か）
     const rows: { k: number; emo: string; cls: string; text: string; score: number }[] = [];
     a.items.forEach((it, k) => {
@@ -625,7 +654,7 @@ function deptSteps(ctx: Ctx, s: P1State, a: BoardAgenda, panel: HTMLElement, mod
       if (H && k >= 0) faces.face(k, id === rec ? '😊' : '😮', id === rec ? 'is-glad' : 'is-nod');
       await wait(240);
       hooks.sfx(H && id !== rec ? 'buff' : 'okay');
-      fxAtEl('collect-burst', tb.deskEl, { palette: FX_PAL.gold, dy: 10 });
+      deskFx(tb.deskEl, tb.slotsEl);
       await wait(650);
       step(i + 1);
     }

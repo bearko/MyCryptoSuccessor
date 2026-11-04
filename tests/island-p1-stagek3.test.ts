@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { DEPTS, FX_LABEL, POL, POLICIES, POLICY_OF, POL_SIDES, type PolSide } from '../src/island/p1/data';
 import { EV_KINDS, GOOD_KINDS } from '../src/island/p1/events';
 import { POL_OFF, lessOf, polEvW, polFx, polStaffMorale, setCorp, sidesOf, staffDepts, tiltOf, tiltOfSet, whenOf } from '../src/island/p1/policy';
-import { cardLines, deptStaff, reactOf, sideText } from '../src/island/p1/policycards';
+import { cardLines, cardName, cardSegs, deptStaff, reactOf, segEm, sideText } from '../src/island/p1/policycards';
 import { moraleParts } from '../src/island/p1/hr';
 import { fxSum, newP1, type P1State } from '../src/island/p1/model';
 
@@ -141,5 +141,19 @@ describe('カードの詳細（As-Is → To-Be）と役員の反応', () => {
     expect(reactOf(s, 'logistics', ['profit']).score).toBe(0);
     // 人を大事に：全員の士気 + が入るので、どの部門の部長も喜ぶ
     expect(reactOf(s, 'logistics', ['people']).score).toBeGreaterThan(0);
+  });
+});
+
+describe('カードの名前（意味の切れ目でだけ折る）', () => {
+  it('37 枚すべて：切れ目の塊をつなぐと名前になり、どの塊も 8 字まで（カードの幅に 12px で 1 行に入る。撮影 k3_*_30_names で確かめる）。塊は 3 つまで', () => {
+    for (const p of POLICIES) {
+      const xs = cardSegs(p);
+      expect(xs.join(''), p.id).toBe(cardName(p));
+      expect(xs.length, p.id).toBeLessThanOrEqual(3);
+      for (const x of xs) expect(segEm(x), `${p.id}:${x}`).toBeLessThanOrEqual(8);
+    }
+    // 単語の途中で切らない例
+    expect(cardSegs(POLICY_OF.brand)).toEqual(['ブランド', '重視']);
+    expect(cardSegs(POLICY_OF.focus)).toEqual(['選択と', '集中']);
   });
 });

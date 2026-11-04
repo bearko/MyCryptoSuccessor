@@ -4,11 +4,65 @@
  * - reactOf：発表したときの役員（部長）の反応（その部門の士気の ± と、方針の部門が自分の部門か）。
  * 数字はゲームの数字そのもの（policy.ts の sumsOf・tiltOfSet、hr.ts の moraleTarget）。表示だけの効果は作らない。
  */
-import { t } from '../../i18n';
+import { isEn, t } from '../../i18n';
 import { DEPT, FX_DOWN, POLICY_OF, type DeptId, type PolEvKind, type PolFxKind, type PolicyDef, type PolTheme } from './data';
 import { deptPolicyOf, fxName, polFx, polStaffMorale, sidesOf, staffDepts, sumsOf, tiltOfSet, type PolSums } from './policy';
 import { moraleTarget } from './hr';
 import type { P1State } from './model';
+
+// ---------------------------------------------------------------- カードの名前（意味の切れ目でだけ折る）
+
+/** カードの名前（かっこの中は詳細だけに：「DX（デジタル・…）」→「DX」） */
+export const cardName = (p: PolicyDef) => p.name.replace(/[（(].*?[）)]/g, '').trim() || p.name;
+/**
+ * カードの名前の切れ目（日本語。「|」で区切る。区切りの中では折らない）。無い方針は「・」と空白の後で区切る。
+ * どの切れ目も 8 字（全角）まで：カードの幅に 12px で 1 行に入る（tests/island-p1-stagek3.test.ts・撮影の k3_*_30_names）
+ */
+const CARD_SEG: Record<string, string> = {
+  profit: '利益|重視', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  growth: '成長|重視', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  brand: 'ブランド|重視', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  people: '人を|大事に', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  customer: 'お客様|第一', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  research: '研究|重視', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  empower: '権限|委譲', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  focus: '選択と|集中', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  purpose: 'パーパス|経営', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  esg: 'サステナビリティ|経営', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  leanStartup: 'リーン・|スタートアップ', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  ambidex: '両利きの|経営', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  stp: 'STP |マーケティング', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  blueOcean: 'ブルー・|オーシャン|戦略', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  jit: 'ジャスト・|イン・|タイム', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  lean: 'リーン|生産', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  agile: 'アジャイル|開発', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  openInnov: 'オープン・|イノベーション', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  stageGate: 'ステージ|ゲート法', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  designThinking: 'デザイン|思考', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  teal: 'ティール|組織', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  oneOnOne: '1on1 |ミーティング', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  jobBased: 'ジョブ型|雇用', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  wellbeing: 'ウェルビーイング|経営', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  workLife: 'ワーク・|ライフ・|バランス', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  custSuccess: 'カスタマー|サクセス', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  serviceProfit: 'サービス・|プロフィット・|チェーン', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  zeroBased: 'ゼロベース|予算', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  abc: '活動基準|原価計算', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  solution: 'ソリューション|営業', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  insideSales: 'インサイド・|セールス', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  compliance: 'コンプライアンス|経営', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+  ipStrategy: '知財|戦略', // i18n-ja（日本語の名前の切れ目。英語は空白で切る）
+};
+/** カードの名前の区切り（英語は単語ごと） */
+export function cardSegs(p: PolicyDef): string[] {
+  const nm = cardName(p);
+  if (isEn) return nm.split(/(?<= )/);
+  const x = CARD_SEG[p.id];
+  if (x && x.replace(/\|/g, '') === nm) return x.split('|');
+  return nm.split(/(?<=[・ ])/);
+}
+/** 区切りの長さ（全角 1・半角 0.6） */
+export const segEm = (x: string) => [...x.trim()].reduce((a, c) => a + (c.charCodeAt(0) < 0x80 ? 0.6 : 1), 0);
 
 /** 提案の種類の名前（副次効果の「提案が増える／減る」） */
 export const THEME_NAME: Record<PolTheme, () => string> = {
