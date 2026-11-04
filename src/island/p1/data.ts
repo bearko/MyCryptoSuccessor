@@ -2610,7 +2610,7 @@ export const POLICY_OF: Record<string, PolicyDef> = Object.fromEntries(POLICIES.
  * - slots：全社方針の枠（はじめ。経営企画の「全社方針の枠」パネルの Lv ごとに +1、max まで）。
  * - tilt：方針の推す種類の提案の、出やすさ・並びの重み（× (1 + tilt)）。
  */
-export const POL = { lv: 0.02, lvCap: 20, head: 0.35, slots: 1, max: 5, tilt: 0.25 };
+export const POL = { lv: 0.02, lvCap: 20, head: 0.35, slots: 1, max: 5, tilt: 0 };
 
 export const BUDGET = {
   from: 'R' as Tier,
