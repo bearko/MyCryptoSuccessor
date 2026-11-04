@@ -4,8 +4,11 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { BOARD, BUDGET, MANAGER, type DeptId } from '../src/island/p1/data';
 import {
+  BOARD_FINISH_HOOKS,
   BOARD_OFF,
   askLine,
+  isYearOpening,
+  yearOfBoard,
   auditorOf,
   boardAgenda,
   boardAuto,
@@ -319,6 +322,25 @@ describe('自動プレイと止めたとき', () => {
     const s = newP1(2);
     expect(boardQuarter(s, 1, 3)).toBeNull();
     expect(s.board).toBeUndefined();
+  });
+});
+
+describe('段 K へのつなぎ口', () => {
+  it('年初の回は四半期 1・5・9…（会社の年の最初の四半期）。何年目か', () => {
+    expect([1, 2, 4, 5, 9, 12].map((q) => isYearOpening({ q }))).toEqual([true, false, false, true, true, false]);
+    expect([1, 4, 5, 9].map((q) => yearOfBoard({ q }))).toEqual([1, 1, 2, 3]);
+  });
+  it('会議を閉じる前のフック：どの閉じ方でも、推奨で決める前に 1 回呼ばれる', () => {
+    const s = withAgenda();
+    const seen: string[] = [];
+    const f = (_s: P1State, a: { items: BoardItem[] }, how: string) => seen.push(`${how}:${a.items.filter((x) => x.done).length}`);
+    BOARD_FINISH_HOOKS.push(f);
+    try {
+      boardAuto(s);
+    } finally {
+      BOARD_FINISH_HOOKS.splice(BOARD_FINISH_HOOKS.indexOf(f), 1);
+    }
+    expect(seen).toEqual(['auto:0']);
   });
 });
 

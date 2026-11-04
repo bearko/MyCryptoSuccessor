@@ -139,6 +139,17 @@ export const boardOf = (s: P1State): BoardState => (s.board ??= { agenda: null, 
 /** 会議が開くのを待っているか（画面が開く） */
 export const boardDue = (s: P1State) => !BOARD_OFF.on && !!s.board?.agenda && s.board.agenda.items.some((x) => !x.done);
 export const deptKey = (d: DeptId) => `d:${d}`;
+/**
+ * 年初の回（段 K の「経営方針発表会」を兼ねる回）：会社の年の最初の四半期の会議（四半期の番号 1・5・9…。会社の月は最初から 30 日ごと、1 年は 4 四半期）
+ */
+export const isYearOpening = (a: Pick<BoardAgenda, 'q'>) => (a.q - 1) % 4 === 0;
+/** 会社の何年目の会議か（1 始まり） */
+export const yearOfBoard = (a: Pick<BoardAgenda, 'q'>) => Math.floor((a.q - 1) / 4) + 1;
+/**
+ * 段 K へのつなぎ口（DOM なし）：会議を閉じる前（1 人ずつ・一括承認・飛ばす・開かずに＝自動プレイ のどれでも、残りを推奨で決める前）に呼ぶ。
+ * 年初の回に方針が決まっていなければ、標準の方針で決める、などに使う（いまは空）
+ */
+export const BOARD_FINISH_HOOKS: ((s: P1State, a: BoardAgenda, how: 'one' | 'bulk' | 'skip' | 'auto') => void)[] = [];
 export const sectorKey = (id: string) => `s:${id}`;
 
 // ---------------------------------------------------------------- 目標の押し上げ（budget.ts・model.ts・hr.ts から）
@@ -373,6 +384,7 @@ export function boardFinish(s: P1State, how: 'one' | 'bulk' | 'skip' | 'auto'): 
   const B = boardOf(s);
   const A = B.agenda;
   if (!A) return [];
+  for (const f of BOARD_FINISH_HOOKS) f(s, A, how);
   for (const it of A.items) if (!it.done) decide(s, it, it.rec);
   B.stat.held++;
   B.stat[how]++;

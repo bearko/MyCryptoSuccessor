@@ -19,16 +19,20 @@ import {
   budgetOptText,
   canRaise,
   decide,
+  isYearOpening,
   itemTitle,
+  yearOfBoard,
   moraleHint,
   otherLine,
   planLine,
   planOptText,
   reportLine,
   roleOf,
+  type BoardAgenda,
   type BoardItem,
   type BoardPick,
 } from './board';
+import type { P1State } from './model';
 import { lineOf } from './voice';
 import { heroNm } from './deleg';
 import { FX_PAL, fxAtEl, fxLevel } from '../fx/layer';
@@ -50,6 +54,23 @@ export interface BoardHooks {
   /** 閉じた（時間を戻す・描き直す） */
   done: () => void;
 }
+
+/**
+ * 段 K へのつなぎ口：入場のあと・1 人目の発表の前に差し込む場面（年初の回の「経営方針発表会」：社長が全社方針を選ぶ → 部長が事業別の方針を発表する、など）。
+ * when が true の場面を順に出す。run は panel を自分で描き、終わったら next を呼ぶ（next を呼ぶと次の場面か、1 人目の発表へ）。
+ * 一括承認・飛ばすで会議を閉じたときは出さない（決めることは board.ts の BOARD_FINISH_HOOKS で）
+ */
+export interface BoardScene {
+  id: string;
+  when: (s: P1State, a: BoardAgenda) => boolean;
+  run: (ctx: Ctx, a: BoardAgenda, panel: HTMLElement, next: () => void, hooks: BoardHooks) => void;
+}
+export const BOARD_SCENES: BoardScene[] = [];
+/**
+ * 段 K へのつなぎ口：部長 1 人ずつの発表に足す行（「事業別の方針」など）。② 来期の計画の前に、返した数だけ段として並べる（無ければ null）
+ */
+export type BoardItemLine = (s: P1State, it: BoardItem, a: BoardAgenda) => { title: string; say: string; note?: string } | null;
+export const BOARD_ITEM_LINES: BoardItemLine[] = [];
 
 /** いまの演出が「なし」か（CSS の動きも止める） */
 const still = () => fxLevel() === 'off';
@@ -111,6 +132,8 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
     panel.replaceChildren();
     const box = h('div', 'isl-bm-intro');
     box.append(h('h2', 'isl-bm-title', t(`🏛 第 ${A!.q} 四半期 経営会議`, `🏛 Q${A!.q} board meeting`)));
+    // 年初の回（段 K で「経営方針発表会」を兼ねる）
+    if (isYearOpening(A!)) box.append(h('p', 'isl-bm-year', t(`📅 ${yearOfBoard(A!)} 年目の年初の会議`, `📅 Opening meeting of year ${yearOfBoard(A!)}`)));
     const secTxt = secs ? t(`・セクター長 ${secs} 人`, `, ${secs} sector heads`) : '';
     box.append(h('p', 'isl-bm-lead', t(`出席：事業部長 ${heads} 人${secTxt}。1 人ずつ「予実の報告 → 来期の計画 → 必要予算」を聞いて、承認するか決めます。`, `Attending: ${heads} division heads${secTxt}. Hear each one’s results, plan and budget, then decide.`)));
     const au = A!.auditor;
@@ -125,12 +148,26 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
     );
     const row = h('div', 'isl-bm-foot');
     row.append(
-      btn(t('▶ 会議を始める', '▶ Start'), () => speaker(), 'is-on isl-bm-start'),
+      btn(t('▶ 会議を始める', '▶ Start'), () => scenes(0), 'is-on isl-bm-start'),
       btn(t('⚡ 全員 推奨で一括承認', '⚡ Approve all as recommended'), () => bulk(), 'isl-bm-bulk'),
     );
     box.append(row);
     panel.append(box);
     hooks.sfx('page');
+  }
+
+  // ---- 差し込みの場面（段 K。入場のあと・1 人目の前）
+  function scenes(i: number) {
+    const xs = BOARD_SCENES.filter((x) => x.when(s, A!));
+    if (i >= xs.length) return speaker();
+    panel.replaceChildren();
+    panel.scrollTop = 0;
+    let gone = false;
+    xs[i].run(ctx, A!, panel, () => {
+      if (gone) return;
+      gone = true;
+      scenes(i + 1);
+    }, hooks);
   }
 
   // ---- 1 人ずつの発表
@@ -168,6 +205,14 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
       ab.append(h('b', '', al.length ? t('🔍 監査の指摘', '🔍 Audit findings') : t('🔍 監査：指摘なし', '🔍 Audit: no findings')));
       for (const x of al) ab.append(h('p', '', x));
       card.append(ab);
+    }
+    // 段 K へのつなぎ口：足す行（事業別の方針など）
+    for (const f of BOARD_ITEM_LINES) {
+      const x = f(s, it, A!);
+      if (!x) continue;
+      const bx = block('isl-bm-bx', x.title, x.say);
+      if (x.note) bx.append(h('small', 'isl-bm-dim', x.note));
+      card.append(bx);
     }
     // ② 来期の計画
     const b2 = block('isl-bm-b2', t('② 来期の計画', '② Plan'), planLine(it));
