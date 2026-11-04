@@ -2451,6 +2451,35 @@ export const DELEG = {
  * - labor：施策（いまの手）ごとの労力（人日）。無い手は def。
  * - ask：予算の使い切り（spent：使った割合）・成果なし（idle：施策を打てない月がこの数つづく）。
  */
+// ---------------------------------------------------------------- 段 UI7c：経営方針（社長の価値観。policy.ts・brief.ts）
+
+/** 経営方針（7 つ。初めは balance） */
+export type PolicyId = 'profit' | 'growth' | 'brand' | 'people' | 'customer' | 'research' | 'balance';
+/** 提案書の指標（短期利益・長期利益・士気・顧客満足度・ブランド力・研究ポイント） */
+export type ValueKey = 'short' | 'long' | 'morale' | 'sat' | 'brand' | 'rp';
+/**
+ * 経営方針の重み（1 か所）。提案の「価値」＝ Σ 重み × 指標（お金に直したもの）。価値がプラスなら承認を推奨する。ゲームの数字には効かせない（推奨・並び・言い方・束ね方だけ）。
+ * - w：方針ごとの重み。短期利益と長期利益は G のまま、士気・満足度・ブランド・研究は下の unit で G に直してから掛ける。
+ * - unit：お金以外の指標 1 つぶんを、何 G とみなすか（月の売上 × 割合。売上が小さい町は floor G を下限に）。士気は全員の目指す値の平均 1 点・満足度は落ち着く先の 1 点・
+ *   ブランド力は 12 か月で増える 1。研究ポイントは研究への寄付の初めの値段（DIG_BALANCE.buyRp：100 RP が 20,000 G）で直す。
+ * - months：長期利益を見る月数。
+ */
+export const POLICY = {
+  ids: ['balance', 'profit', 'growth', 'brand', 'people', 'customer', 'research'] as PolicyId[],
+  w: {
+    balance: { short: 0.4, long: 0.6, morale: 0.5, sat: 0.5, brand: 0.5, rp: 0.5 },
+    profit: { short: 0.6, long: 0.6, morale: 0, sat: 0, brand: 0, rp: 0 },
+    growth: { short: 0.2, long: 1, morale: 0.3, sat: 0.3, brand: 0.5, rp: 0.5 },
+    brand: { short: 0.3, long: 0.5, morale: 0.2, sat: 0.7, brand: 2, rp: 0.2 },
+    people: { short: 0.3, long: 0.5, morale: 2, sat: 0.3, brand: 0.3, rp: 0.2 },
+    customer: { short: 0.3, long: 0.5, morale: 0.3, sat: 2, brand: 0.7, rp: 0.2 },
+    research: { short: 0.3, long: 0.5, morale: 0.3, sat: 0.2, brand: 0.3, rp: 2 },
+  } as Record<PolicyId, Record<ValueKey, number>>,
+  unit: { morale: 0.02, sat: 0.01, brand: 0.004 },
+  floor: 5000,
+  months: 12,
+};
+
 export const BUDGET = {
   from: 'R' as Tier,
   rate: { S: 0.02, M: 0.05, L: 0.1 } as Record<'S' | 'M' | 'L', number>,

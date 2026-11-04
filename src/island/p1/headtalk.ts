@@ -8,6 +8,7 @@
  * ゲームの数字（効き目・値段・時間）は変えない：打つ手は、いまのカード・部長の提案・提案書の関数をそのまま使う。
  * 仕様は docs/SUCCESSOR_ROADMAP.md「段 UI6 の実装」。
  */
+import { policySort } from './brief';
 import { t } from '../../i18n';
 import { DELEG, DEPT, DEPTS, type DeptId } from './data';
 import { deptLevel, menuDepts } from './dept';
@@ -56,7 +57,8 @@ export function checkItems(s: P1State, d: DeptId): CheckItem[] {
   const pids = new Set(cards.flatMap((c) => c.choices.map((x) => (x.act.k === 'approve' ? x.act.pid : -1))));
   const here = s.sector ?? 'c1';
   const props = (s.deleg?.inbox ?? []).filter((p) => p.dept === d && !p.src && (p.sector ?? here) === here && !pids.has(p.id));
-  return [...cards.map((c): CheckItem => ({ k: 'card', c })), ...props.map((p): CheckItem => ({ k: 'prop', p }))];
+  // 段 UI7c：部長の提案は、社長の経営方針の価値の大きい順に（画面の並びだけ）
+  return [...cards.map((c): CheckItem => ({ k: 'card', c })), ...policySort(s, props).map((p): CheckItem => ({ k: 'prop', p }))];
 }
 
 // ---------------------------------------------------------------- 話題

@@ -36,7 +36,8 @@ import { invLv, myWarehouses, poolCap, poolUsed, madeSkus, adCost, bonus, bonusC
 import { adGain, goodsName, partMonthly, sellMoves, shopMonthly, stockMsg, stockPlan, type SellMove } from './moves';
 import { apologize, bestReply, csOn, noticeCost, refundCost, reply, replyGain, replyLock, swapItem } from './cs';
 import { quitLeft, talk, talkGain } from './hr';
-import { afterOf, applyPlan, planOf, type Plan, type PlanRes } from './plan';
+import { afterOf, applyPlan, baseOf, planOf, type Plan, type PlanRes } from './plan';
+import { valueOfPlan } from './brief';
 import { clearInfo, clearUnits, fromStock, storeFix, storeFull, type StoreFix } from './stock';
 import { dedRate, quarterNow, taxOn, taxPlan } from './acct';
 import { heroSay, quipOf, say, sayLen, type QuipCat } from './persona';
@@ -1071,6 +1072,10 @@ export function planOfChoice(s: P1State, c: Card, k: number): Plan | null {
   }
   if (!acts.length) return null;
   const n = sizeOf(s, c);
+  const who = { hero: c.hero, q: c.q, dept: c.dept };
+  // 段 UI7c：束ねるのは、社長の経営方針の価値が増えるときだけ（brief.ts の valueOfPlan。このまま側は 1 回だけ計算する）
+  let base: P1State | null = null;
+  let cur: number | null = null;
   for (const x of [...c.choices].sort((a, b) => (b.est ?? 0) - (a.est ?? 0))) {
     if (acts.length >= n) break;
     if (x === ch || x.act.k !== 'do' || (x.est ?? 0) <= 0) continue;
@@ -1078,9 +1083,14 @@ export function planOfChoice(s: P1State, c: Card, k: number): Plan | null {
     if (!actOk(s, a) || acts.some((y) => clash(y, a))) continue;
     // 段 UI5d：倉庫の提案の「倉庫を強化する」は、ほかの手（売りさばき・使い切り）と束ねない（費用のかかる手を黙って足さない）
     if (c.src === 'stock' && (storeAct(a) || storeAct(acts[0]))) continue;
+    base ??= baseOf(s);
+    cur ??= valueOfPlan(s, planOf(s, acts, who), base);
+    const next = valueOfPlan(s, planOf(s, [...acts, a], who), base);
+    if (next <= cur) continue;
     acts.push(a);
+    cur = next;
   }
-  return planOf(s, acts, { hero: c.hero, q: c.q, dept: c.dept });
+  return planOf(s, acts, who);
 }
 /** その段の担当（店員・職人・調達係・運搬係）。いなければ null（マインちゃん） */
 export function stageHand(s: P1State, stage: Stage): number | null {
