@@ -642,21 +642,23 @@ export function contraOf(s: P1State, dept: DeptId | null, v: Pick<Values, 'list'
  * 3. 課題の解消につながらない（解く課題が無い）か、損が大きい（方針の価値もマイナスで、長期も損）
  * ほかは承認。方針の重みは、並びと、同じ課題に効く手どうしの選び分け（card.ts の shownRec）に使う。理由の 1 行は課題か 3 つのどれかで言う
  */
-export function recOf(b: Pick<Brief, 'block' | 'co' | 'vals'> & Partial<Pick<Brief, 'iss' | 'issue' | 'solved' | 'contra'>>): { rec: 'ok' | 'skip'; why: string } {
-  if (b.block.length) return { rec: 'skip', why: t('見送る：予算・資金が足りません（いまは払えない）', 'Pass: not enough budget or funds right now') };
-  if (b.co.left < 0) return { rec: 'skip', why: t('見送る：資金が足りません（承認すると資金がマイナス）', 'Pass: funds would go negative') };
-  if (b.contra) return { rec: 'skip', why: t(`見送る：方針（${b.contra.pn}）と真っ向から反する（${b.contra.chip}）`, `Pass: runs straight against your policy (${b.contra.pn}): ${b.contra.chip}`) };
+/** 段 UI7h：見送りの理由の種類（受け箱の取り下げの理由の一行：card.ts の staleWhy） */
+export type NoKind = 'money' | 'policy' | 'issue' | 'loss';
+export function recOf(b: Pick<Brief, 'block' | 'co' | 'vals'> & Partial<Pick<Brief, 'iss' | 'issue' | 'solved' | 'contra'>>): { rec: 'ok' | 'skip'; why: string; no?: NoKind } {
+  if (b.block.length) return { rec: 'skip', no: 'money', why: t('見送る：予算・資金が足りません（いまは払えない）', 'Pass: not enough budget or funds right now') };
+  if (b.co.left < 0) return { rec: 'skip', no: 'money', why: t('見送る：資金が足りません（承認すると資金がマイナス）', 'Pass: funds would go negative') };
+  if (b.contra) return { rec: 'skip', no: 'policy', why: t(`見送る：方針（${b.contra.pn}）と真っ向から反する（${b.contra.chip}）`, `Pass: runs straight against your policy (${b.contra.pn}): ${b.contra.chip}`) };
   const v = b.vals;
   const top = b.iss?.[0] ?? null;
   if (b.iss && !b.issue) {
     // いちばんの課題と、SCM のボトルネック（違えば両方）
     const fl = b.iss.find((x) => isFlowKey(x.key));
     const nm = [top, fl && fl !== top ? fl : null].filter((x): x is CoIssue => !!x).map((x) => issueName(x.key)).join(t('・', ', '));
-    return { rec: 'skip', why: nm ? t(`見送る：課題（${nm}）の解消につながらない`, `Pass: doesn’t address the issue (${nm})`) : t('見送る：解くべき課題が見当たらない', 'Pass: no issue to address') };
+    return { rec: 'skip', no: 'issue', why: nm ? t(`見送る：課題（${nm}）の解消につながらない`, `Pass: doesn’t address the issue (${nm})`) : t('見送る：解くべき課題が見当たらない', 'Pass: no issue to address') };
   }
   const L = v.list.find((m) => m.key === 'long');
   // 止まっている流れを戻す手は、その月の損では見送りにしない（流れを戻すのが先）
-  if (v.value <= 0 && (L?.d ?? 0) < 0 && !b.issue?.stopped) return { rec: 'skip', why: t(`見送る：損が大きい（${chip(L!)}）`, `Pass: too costly (${chip(L!)})`) };
+  if (v.value <= 0 && (L?.d ?? 0) < 0 && !b.issue?.stopped) return { rec: 'skip', no: 'loss', why: t(`見送る：損が大きい（${chip(L!)}）`, `Pass: too costly (${chip(L!)})`) };
   const goods = v.list.filter((m) => m.d > 0.5).sort((x, y) => v.parts[y.key] - v.parts[x.key]);
   const plus = goods.slice(0, 2).map(chip).join(t('・', ', '));
   // 複数の課題に効くなら 2 つまで並べる（「課題（資金繰り・販売がボトルネック）に効く」）
@@ -696,7 +698,7 @@ export function stanceOf(b: Pick<Brief, 'cost' | 'dProfit' | 'err' | 'vals' | 'b
  * 段 UI7g：提案の手 1 つ分の判断（カードの選択肢を提案書にする前のふるい分け：card.ts）。提案書の推奨と同じ決め方（recOf）。
  * 提案書を作らない軽い形（背景・リスクの文は作らない）
  */
-export function judgeOf(s: P1State, p: Plan, iss: CoIssue[], base = baseOf(s)): { rec: 'ok' | 'skip'; why: string; issue: CoIssue | null; value: number; dProfit: number; long: number } {
+export function judgeOf(s: P1State, p: Plan, iss: CoIssue[], base = baseOf(s)): { rec: 'ok' | 'skip'; why: string; no?: NoKind; issue: CoIssue | null; value: number; dProfit: number; long: number } {
   const after = afterOf(s, p);
   const cost = planCost(s, p);
   const block = planBlock(s, p, cost);

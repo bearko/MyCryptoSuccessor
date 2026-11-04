@@ -15,6 +15,10 @@ import {
   cardInbox,
   cardStar,
   choiceText,
+  goneLine,
+  goneNow,
+  staleCard,
+  withdrawStale,
   eventHead,
   chooseCard,
   markSeen,
@@ -237,6 +241,14 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
 /** カードを出す（時間が止まる）。選ぶと手を打って閉じる。足りないときはトーストで知らせてカードを残す */
 export function showCard(ctx: Ctx, c: Card, hooks: CardHooks) {
   const s = ctx.s();
+  // 段 UI7h：開く前に同じ判断でもう一度見る。推奨が承認にならなくなっていたら、見せずに取り下げ（理由の一行）
+  const g = staleCard(s, c);
+  if (g) {
+    ctx.toast(`🗂 ${goneLine(g)}`);
+    ctx.save();
+    hooks.done();
+    return;
+  }
   markSeen(s, c.id);
   ctx.root.querySelector('.isl-cardm')?.remove();
   const m = h('div', 'isl-modal isl-cardm');
@@ -276,6 +288,8 @@ export function cardInboxCard(ctx: Ctx): HTMLElement {
   const s = ctx.s();
   const hooks: CardHooks = { done: () => (cardNav.done ? cardNav.done() : after(ctx)), open: (to) => cardNav.open?.(to) };
   const c = h('div', 'isl-card2 isl-cardbox');
+  // 段 UI7h：推奨が承認にならなくなった提案は取り下げる（理由の一行は部長の提案の画面の上：goneBox）
+  withdrawStale(s);
   // 段 UI7g：会社の課題の一覧（いちばん上。ボトルネックを先に、優先の順）
   c.append(issueList(s));
   const list = cardInbox(s).filter((x) => x.src !== 'head');
@@ -310,6 +324,20 @@ export function cardInboxCard(ctx: Ctx): HTMLElement {
     }
   }
   return c;
+}
+
+/** 段 UI7h：今月取り下げた提案の一行ずつ（「状況が変わったので、○○は取り下げました（理由：…）」）。無ければ null */
+export function goneBox(s: P1State): HTMLElement | null {
+  const xs = goneNow(s);
+  if (!xs.length) return null;
+  const e = h('div', 'isl-gone');
+  for (const g of xs.slice(0, 3)) {
+    const row = h('small', 'isl-gone-row');
+    if (g.hero != null) row.append(heroIcon(g.hero, 24));
+    row.append(h('span', '', `🗂 ${goneLine(g)}`));
+    e.append(row);
+  }
+  return e;
 }
 
 /**

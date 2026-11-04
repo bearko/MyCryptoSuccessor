@@ -16172,3 +16172,31 @@ button.isl-dband-lead.is-on {
   font-size: 12px;
   color: #6b5a40;
 }
+/* 段 UI7h：取り下げた提案の一行（部長の提案の画面の上） */
+.isl-gone {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 10px;
+}
+.isl-gone-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #5d4a2c;
+  background: #f3ecdc;
+  border: 1px dashed #c9b48a;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.isl-gone-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.isl-gone-row img,
+.isl-gone-row canvas {
+  flex: none;
+}

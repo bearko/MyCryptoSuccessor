@@ -45,8 +45,8 @@ import type { P1State, Staff } from './model';
 import { after, open, type Ctx } from './screens';
 import { sectorDef } from './company';
 import { bar, btn, h, heroIcon, money, rich } from './ui';
-import { cardInboxCard } from './cardui';
-import { cardInbox, starOf } from './card';
+import { cardInboxCard, goneBox } from './cardui';
+import { cardInbox, starOf, withdrawStale } from './card';
 import { fitTag, sayToast } from './p2ui';
 import { lineOf } from './voice';
 import { budgetLine } from './budget';
@@ -330,6 +330,10 @@ export function openProps(ctx: Ctx) {
     // 段 UI3：受け箱は「押せるもの」を上に（承認まで 2 タップ）。カードが無ければ、説明は部長の提案の下へ
     // 段 UI7c：経営方針（推奨・並び・言い方を決める）。いつでも変えられる
     body.append(policyCard(ctx));
+    // 段 UI7h：一覧に出すのは推奨が承認になるものだけ。ならなくなったものは取り下げて、理由の一行を上に
+    withdrawStale(s);
+    const gone = goneBox(s);
+    if (gone) body.append(gone);
     const hasCards = cardInbox(s).some((x) => x.src !== 'head') || !!s.cards?.trust?.length;
     if (hasCards) body.append(cardInboxCard(ctx));
     const how = h('p', 'isl-dim', t('事業部長は、月に 1 回、いま打てる手の中から効き目の見込みが大きいものを持ってきます。部長の出来が高いほど、見込みの誤差が小さくなります。承認すると、すぐに実行します。', 'Each month your heads bring the move they expect to pay off most. Better heads misjudge less. Approving carries it out right away.'));

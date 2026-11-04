@@ -27,7 +27,7 @@ import { craftedText, makeTicker } from './ticker';
 import { openBudget } from './budgetui';
 import { budgetOpen } from './budget';
 import type { TrophyDef } from './trophy';
-import { autoText, cardInbox, cardsCompany, cardsDay, cardsMonth, demoDraft, diploDraft, stockDraft, enqueue, eventDraft, markSeen, nextPop, takeAuto } from './card';
+import { autoText, cardInbox, cardsCompany, cardsDay, cardsMonth, demoDraft, diploDraft, stockCard, enqueue, eventDraft, markSeen, nextPop, takeAuto } from './card';
 import { duoPages } from './duo';
 import { cardNav, showCard } from './cardui';
 import { crestEl, openDiplo } from './diploui';
@@ -4911,7 +4911,8 @@ window.setTimeout(() => warmFx(), 3000);
   /** 段 UI5c（撮影スクリプト用）：倉庫が埋まりそうな月の提案を作って出す。作れなければ null */
   pool: () => ({ used: poolUsedOf(s), cap: poolCapOf(s) }),
   stockDemo: () => {
-    const d = stockDraft(s);
+    // 段 UI7h：月の締めと同じふるい分けのあと（推奨が承認になる手だけ。出さない月は null）
+    const d = stockCard(s);
     const c = d ? enqueue(s, d) : null;
     if (c) showCard(ctx, c, { done: cardDone, open: cardOpen });
     return c?.id ?? null;
