@@ -3941,3 +3941,22 @@ export const LEGAL_MASTERY = () => [
 /** 掛け合わせの予告（法務。効き目は段 I。表示だけ。特許そのものは法務のパネルで開く＝二重にしない） */
 export const CROSS_RND_LEGAL = () => t('掛け合わせ（R&D × 法務）：特許の取得 — 研究の成果を守り、使用料を受け取る力が上がる（両方の理解度 10 で開く・準備中）', 'Cross panel (R&D × Legal): patent strategy — stronger protection and royalties for your research (opens at understanding 10 in both; coming soon)');
 export const CROSS_SALES_LEGAL = () => t('掛け合わせ（営業 × 法務）：有利な契約の雛形 — 契約の条項を 1 つ多く選べる（両方の理解度 10 で開く・段 I・準備中）', 'Cross panel (Sales × Legal): favorable contract templates — pick one more clause (opens at understanding 10 in both; stage I; coming soon)');
+
+// ---------------------------------------------------------------- 段 UI7g：契約金・課題の一覧
+
+/**
+ * 段 UI7g：契約金（雇うときに 1 回払う。model.ts の signFee）。目安は月給 1 か月分（給料の倍率込み）× レアリティの倍率（高いほど高い）。
+ * 序盤の Common（と Novice）のヒーローは 0：GitHub の Sim（9 シード）で Common も ×1 にすると通常の合計が +1.3%（C +2.4%・R +2.5%・E +2.4%）延びたため
+ * （遊ぶ時間を延ばさない決まり。docs/ISLAND_BALANCE.md の v36）。Uncommon から払う。
+ * 最初の町の 1 か月目（タオックスのチュートリアル。月次報告がまだ無い）は 0（チュートリアルの通しを変えない）。毎月の給与は今までどおり月の締めに払う
+ */
+export const SIGN = { mul: { N: 0, C: 0, U: 1.25, R: 1.5, E: 2, L: 3, LL: 3 } as Record<HeroRarity, number>, round: 10 };
+
+/**
+ * 段 UI7g：課題の一覧（issues.ts）。会社（いまの町）の課題を、いまのモデルの数字から並べる。
+ * - next：SCM の詰まりの段の「次に細い段まで太くしたら」の流れの増え（個／月）を G に直したものが優先の元（boost は詰まりの段を先に置く倍率）
+ * - store：倉庫の埋まり（CLEAR.warn を超えたら課題）。あふれるまでの日数が短いほど重い（days 日で 1 か月の粗利ぶん）
+ * - morale：士気の平均がこれ未満・辞めたい人がいる。sat：顧客満足度がこれ未満（Uncommon から）。cash：資金がひと月の固定費を下回る・先月が赤字
+ * - grow：成長の余地（ブランド力・研究）は、ほかの課題が無いときの下の段（優先は小さく）
+ */
+export const ISSUE = { boost: 2, storeDays: 60, morale: 55, sat: 50, grow: 0.05, min: 1 };

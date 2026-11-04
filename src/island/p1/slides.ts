@@ -7,8 +7,10 @@
 import { t } from '../../i18n';
 import { DEPT, POLICY, type DeptId, type ValueKey } from './data';
 import { METRIC_TEXT, type Ask, type Brief, type Risk } from './brief';
-import type { Stage } from './model';
+import { DAYS, type P1State, type Stage } from './model';
 import type { Plan } from './plan';
+import { amountOf, budgetDepts, budgetOpen, deptBudget } from './budget';
+import { quarterNow } from './acct';
 
 // ---------------------------------------------------------------- スライドの枚数
 
@@ -18,7 +20,7 @@ import type { Plan } from './plan';
 export type SlideId = 'sum' | 'change' | 'effect' | 'long' | 'risk' | 'more';
 export const SLIDE_NAME: Record<SlideId, () => string> = {
   sum: () => t('結論', 'Summary'),
-  change: () => t('何が変わる', 'What changes'),
+  change: () => t('変更点', 'Changes'),
   effect: () => t('効果：来月', 'Effect: next month'),
   long: () => t(`効果：${POLICY.months} か月`, `Effect: ${POLICY.months} months`),
   risk: () => t('影響とリスク', 'Impact and risks'),
@@ -235,16 +237,22 @@ export function metersOf(b: Pick<Brief, 'vals'>): Meter[] {
 
 // ---------------------------------------------------------------- 影響とリスク
 
-/** 4 段の地図（調達・製造・輸送・販売）：変わる段と、細いところ（このまま → 承認後） */
+/**
+ * 4 段の地図（調達・製造・輸送・販売）：影響を受ける段（on）と、その段のひと月に流せる数の差を 1 日あたりに直したもの（d。個／日）。
+ * 段 UI7g：「変わる」「細い」の札はやめ、数字で見せる（課題は結論の「課題」で出す）。narrow0・narrow1 は詰まりの段（このまま・承認後）
+ */
 export interface StageMap {
-  stages: { id: Stage; icon: string; name: string; on: boolean; narrow0: boolean; narrow1: boolean }[];
+  stages: { id: Stage; icon: string; name: string; on: boolean; d: number; narrow0: boolean; narrow1: boolean }[];
   /** 承認事項を受け持つ部門（提案した部門を先に）と、提案した部門か */
   depts: { id: DeptId; icon: string; name: string; color: string; own: boolean; n: number }[];
 }
 export const STAGE_ICON: Record<Stage, string> = { buy: '🛒', craft: '🔨', haul: '🚚', sell: '🏪' };
 export const STAGE_NAME: Record<Stage, () => string> = { buy: () => t('調達・保管', 'Buy · store'), craft: () => t('製造', 'Craft'), haul: () => t('輸送', 'Haul'), sell: () => t('販売', 'Sell') };
-export function stageMap(b: Pick<Brief, 'asks' | 'dept'>, touched: Stage[], bn0: Stage, bn1: Stage): StageMap {
-  const stages = (['buy', 'craft', 'haul', 'sell'] as Stage[]).map((id) => ({ id, icon: STAGE_ICON[id], name: STAGE_NAME[id](), on: touched.includes(id), narrow0: id === bn0, narrow1: id === bn1 }));
+export function stageMap(b: Pick<Brief, 'asks' | 'dept'>, touched: Stage[], bn0: Stage, bn1: Stage, per: Partial<Record<Stage, number>> = {}): StageMap {
+  const stages = (['buy', 'craft', 'haul', 'sell'] as Stage[]).map((id) => {
+    const d = per[id] ?? 0;
+    return { id, icon: STAGE_ICON[id], name: STAGE_NAME[id](), on: touched.includes(id) || Math.abs(d) >= 0.05, d, narrow0: id === bn0, narrow1: id === bn1 };
+  });
   const ids: DeptId[] = [];
   if (b.dept) ids.push(b.dept);
   for (const a of b.asks) if (!ids.includes(a.dept)) ids.push(a.dept);
@@ -265,7 +273,7 @@ export function topRisks(rk: Risk[], n = 4): Risk[] {
     .map((y) => y.x);
 }
 
-/** 予算のメーター：月の予算（使った・この提案・残り。超えた分）。予算の無い町は null */
+/** 予算のメーター：月の予算（使った・この提案・残り。超えた分）。予算の無い町は null（段 UI7g から画面は縦の積み上げ棒 propStacks。数字の確かめに残す） */
 export interface BudgetBar {
   dept: DeptId;
   amt: number;
@@ -281,6 +289,116 @@ export function budgetBar(b: Pick<Brief, 'budget'>): BudgetBar | null {
   const room = Math.max(0, x.rest);
   const mine = Math.min(x.need, room);
   return { dept: x.dept, amt: x.amt, used: Math.max(0, x.amt - room), mine, over: Math.max(0, x.need - room), left: Math.max(0, room - mine) };
+}
+
+// ---------------------------------------------------------------- 段 UI7g：予算の縦の積み上げ棒（事業部・会社）
+
+/**
+ * 予算の縦の積み上げ棒 1 本の材料（提案書の「予算」・経営会議の ③ 必要予算で同じ部品）。
+ * mode 'spend'：使う額の増減（提案書：この施策で使う額が増える・減る）。'cap'：予算の枠の増減（経営会議：増額・減額）
+ */
+export interface Stack {
+  title: string;
+  /** 予算（枠。この施策の前） */
+  total: number;
+  /** 使った（期初から今日まで）・使う見込み（今日から期末まで） */
+  used: number;
+  expect: number;
+  /** この施策による増減（＋増額・−減額） */
+  delta: number;
+  mode: 'spend' | 'cap';
+  /** 凡例の名前（使った・使う見込み・この施策） */
+  labUsed: string;
+  labExp: string;
+  labDelta: string;
+}
+export interface StackSeg {
+  cls: 'is-used' | 'is-exp' | 'is-delta' | 'is-left';
+  v: number;
+  lab: string;
+}
+/**
+ * 積み上げの段（下から）：使った（濃い灰）・使う見込み（薄い灰）・この施策（赤）・残り（緑）。
+ * 増額は赤帯の上辺に点線（line＝赤帯の上の高さ）、減額は赤帯の下辺に点線（line＝赤帯の下の高さ）。どちらも「新しい水準」の線。
+ * 'spend' の減額：使う見込みのうち減る分を赤に（その下が新しい見込み）。'cap' の増額：枠の上に足す分を赤・減額：枠の上から削る分を赤。
+ * over：枠を超える分（使った ＋ 見込み ＋ 増える分 − 枠）。max：棒の目盛りの上（枠・新しい枠・使う合計の大きいほう）
+ */
+export function stackSegs(x: Stack): { segs: StackSeg[]; max: number; line: number | null; over: number; left: number } {
+  const inc = Math.max(0, x.delta);
+  const dec = Math.max(0, -x.delta);
+  const segs: StackSeg[] = [];
+  const add = (cls: StackSeg['cls'], v: number, lab: string) => v > 0.5 && segs.push({ cls, v, lab });
+  let line: number | null = null;
+  let left = 0;
+  let over = 0;
+  const base = x.used + x.expect;
+  if (x.mode === 'spend') {
+    const cut = Math.min(dec, x.expect);
+    const exp = x.expect - cut;
+    left = Math.max(0, x.total - x.used - exp - cut - inc);
+    over = Math.max(0, x.used + exp + inc - x.total);
+    add('is-used', x.used, x.labUsed);
+    add('is-exp', exp, x.labExp);
+    if (inc > 0.5) {
+      add('is-delta', inc, x.labDelta);
+      line = base + inc;
+    } else if (cut > 0.5) {
+      add('is-delta', cut, x.labDelta);
+      line = x.used + exp;
+    }
+    add('is-left', left, '');
+  } else {
+    const t1 = Math.max(0, x.total + x.delta);
+    left = Math.max(0, Math.min(x.total, t1) - base);
+    over = Math.max(0, base - t1);
+    add('is-used', x.used, x.labUsed);
+    add('is-exp', x.expect, x.labExp);
+    const room0 = Math.max(0, x.total - base);
+    if (inc > 0.5) {
+      add('is-left', room0, '');
+      add('is-delta', inc, x.labDelta);
+      line = Math.max(x.total, base) + inc;
+    } else if (dec > 0.5) {
+      add('is-left', left, '');
+      const cut = Math.min(dec, x.total);
+      add('is-delta', cut, x.labDelta);
+      line = Math.max(base, x.total) - cut;
+    } else add('is-left', room0, '');
+  }
+  // 上に少し余白（点線が枠に隠れないように）
+  const max = Math.max(1, x.total, x.total + inc, segs.reduce((a, y) => a + y.v, 0)) * 1.08;
+  return { segs, max, line, over, left };
+}
+
+/**
+ * 提案書の予算の 2 本（事業部・会社＝全部門の予算の合計）。今期（四半期）の予算 ＝ この四半期に締めた月の予算 ＋ いまの月の予算 × 残りの月（いまの月を含む）。
+ * 使った ＝ この四半期に締めた月の使った額 ＋ 今月ここまで。使う見込み ＝ いまのペース（この四半期の月の平均。無ければ先月。部門の従業員の給料を含む）で期末まで。
+ * この施策 ＝ その部門の導入費用 ＋ 毎月の費用 × 期末までの月数。予算で任せる（Rare から）が開いていなければ空
+ */
+export function propStacks(s: P1State, b: Pick<Brief, 'budget' | 'asks' | 'cost'>): Stack[] {
+  if (!b.budget || !budgetOpen(s)) return [];
+  const q = quarterNow(s);
+  const rest = q.days / DAYS;
+  const one = (d: DeptId) => {
+    const B = deptBudget(s, d);
+    const amt = amountOf(s, d);
+    const total = (B.qamt ?? 0) + amt * (4 - q.inQ);
+    const used = (B.qused ?? 0) + B.used;
+    const pace = q.inQ > 1 && B.qused ? B.qused / (q.inQ - 1) : (B.last?.used ?? B.used);
+    const expect = Math.max(0, pace - B.used) + pace * (3 - q.inQ);
+    return { total, used, expect };
+  };
+  const d = b.budget.dept;
+  const mine = b.asks.filter((x) => x.dept === d);
+  const delta = mine.reduce((a, x) => a + x.money + x.monthly * rest, 0);
+  const all = budgetDepts(s).map(one);
+  const sum = (k: 'total' | 'used' | 'expect') => all.reduce((a, x) => a + x[k], 0);
+  const L = { labUsed: t('使った', 'Used'), labExp: t('使う見込み', 'Planned'), labDelta: delta >= 0 ? t('この施策', 'This plan') : t('この施策で減る', 'Saved by this') };
+  const D = one(d);
+  return [
+    { title: t(`${DEPT[d].name}部（今期）`, `${DEPT[d].name} (this quarter)`), ...D, delta, mode: 'spend', ...L },
+    { title: t('会社（全部門の合計・今期）', 'Company (all divisions, this quarter)'), total: sum('total'), used: sum('used'), expect: sum('expect'), delta, mode: 'spend', ...L },
+  ];
 }
 
 // ---------------------------------------------------------------- 承認事項の行
@@ -340,4 +458,11 @@ export function srcOfPlan(p: Pick<Plan, 'acts'>): PropSrc {
   if (p.acts.some((a) => (a.k === 'build' && (a.id === 'warehouse' || a.id === 'logistics')) || (a.k === 'invest' && (a.id === 'rack' || a.id === 'dock')))) return 'store';
   if (p.acts.length && p.acts.every((a) => a.k === 'clear' || a.k === 'useup')) return 'stock';
   return 'staff';
+}
+
+/** 段 UI7g：影響を受ける箇所の数字（1 日あたり。「+2.4 個／日」「±0」） */
+export function perDayText(d: number): string {
+  if (Math.abs(d) < 0.05) return '±0';
+  const v = Math.abs(d) < 10 ? (Math.round(Math.abs(d) * 10) / 10).toString() : Math.round(Math.abs(d)).toLocaleString('en-US');
+  return t(`${d > 0 ? '+' : '−'}${v}個/日`, `${d > 0 ? '+' : '−'}${v}/day`);
 }

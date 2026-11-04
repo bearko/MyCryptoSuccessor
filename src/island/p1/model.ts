@@ -122,8 +122,9 @@ import {
   type PassiveKind,
   type PolicyId,
   type PromoItem,
+  SIGN,
 } from './data';
-import { addXp, baseStats, initGrowth, levelForXp, passiveMul, passiveSum, promoteStaff, syncGrowth, type LevelUp, type PromoErr } from './hero';
+import { addXp, baseStats, heroRarityOf, initGrowth, levelForXp, passiveMul, passiveSum, promoteStaff, syncGrowth, type LevelUp, type PromoErr } from './hero';
 import { delegDay, delegMiss, delegMonth, headFx, newDeleg, roleXp, sectorApprove, type DelegReport, type DelegState } from './deleg';
 import { cardsCompany, cardsDay, cardsMonth, type CardReport, type CardState } from './card';
 import { acctMonth, deduct, panelKind, priceMul, type AcctState, type TaxRec } from './acct';
@@ -1435,9 +1436,28 @@ function unassign(s: P1State, st: Staff) {
   st.target = null;
 }
 
-export function hire(s: P1State, hero: number): string | null {
+/**
+ * 段 UI7g：契約金（雇うときに 1 回）＝ 月給（給料の倍率込み）× レアリティの倍率（data.ts の SIGN）。最初の町の 1 か月目（チュートリアル）は 0
+ */
+export function signFee(s: P1State, hero: number): number {
+  // 最初の町の 1 か月目（タオックスのチュートリアル。月次報告がまだ無い）は 0
+  if (!s.reports.length && (s.sector ?? 'c1') === 'c1') return 0;
+  const mul = SIGN.mul[heroRarityOf(hero)] ?? 1;
+  return Math.round((wageOf(hero) * wageMul(s) * mul) / SIGN.round) * SIGN.round;
+}
+
+/** pay：契約金を払う（見込みの写し whatIf では払わない：帳簿を書き換えない） */
+export function hire(s: P1State, hero: number, pay = true): string | null {
   if (!has(s, 'hire')) return 'locked';
   if (!s.hirePool.includes(hero)) return 'gone';
+  // 段 UI7g：契約金（払えなければ雇えない）
+  const fee = pay ? signFee(s, hero) : 0;
+  if (fee > 0 && s.money < fee) return 'money';
+  if (fee > 0) {
+    s.money -= fee;
+    s.monthCost.wages = (s.monthCost.wages ?? 0) + fee;
+    book(s, 'wages', fee);
+  }
   const st = newStaff(hero, wageOf(hero));
   // カリスマ採用（✨）：雇うときの能力 +20%（上限 100）
   if (has(s, 'd_people')) {
@@ -5654,7 +5674,7 @@ function bestFor(s: P1State, task: Task, min = 0): { hero: number; hire: boolean
   return all[0] ?? null;
 }
 function putPerson(c: P1State, p: { hero: number; hire: boolean }, task: Task, target: number | string | null, replace: number | null) {
-  if (p.hire) hire(c, p.hero);
+  if (p.hire) hire(c, p.hero, false);
   if (replace != null) {
     const old = staffOf(c, replace);
     if (old) unassign(c, old);

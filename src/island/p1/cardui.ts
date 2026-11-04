@@ -43,6 +43,7 @@ import { btn, h, heroIcon, heroName, money, recLine, rich } from './ui';
 import { assetUrl } from '../../render/images';
 import { cardReact, sayToast } from './p2ui';
 import { DUO_BY_ID } from './duo';
+import { ISSUE_ICON, issueName, issueTag, issuesOf } from './issues';
 
 /** 小さい一行の適性（話し手の持ち場の仕事） */
 const TASK_OF: Partial<Record<Card['src'], Task>> = { clerk: 'shop', crafter: 'craft', buyer: 'buy', cs: 'shop' };
@@ -113,6 +114,8 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
   const quip = quipOfCard(c);
   if (quip) main.append(h('p', 'isl-cardm-quip', t(`— ${quip}`, `— ${quip}`)));
   // 課題のセリフ（数字の要所だけ色）
+  // 段 UI7g：この提案が解く課題（会社の課題の一覧の優先つき）
+  if (c.iss) main.append(h('div', 'isl-cardm-iss', `🎯 ${issueTag(c.iss)}`));
   const say = h('div', 'isl-cardm-say');
   say.append(t('「', '“'), rich(sayOf(s, c)), t('」', '”'));
   main.append(say);
@@ -273,6 +276,8 @@ export function cardInboxCard(ctx: Ctx): HTMLElement {
   const s = ctx.s();
   const hooks: CardHooks = { done: () => (cardNav.done ? cardNav.done() : after(ctx)), open: (to) => cardNav.open?.(to) };
   const c = h('div', 'isl-card2 isl-cardbox');
+  // 段 UI7g：会社の課題の一覧（いちばん上。ボトルネックを先に、優先の順）
+  c.append(issueList(s));
   const list = cardInbox(s).filter((x) => x.src !== 'head');
   c.append(h('h3', '', t(`ヒーローからの提案・報告（${list.length}）`, `From your heroes (${list.length})`)));
   if (!list.length) c.append(h('small', 'isl-dim', t('月の締めのあとに、持ち場のヒーローや手の空いたヒーローが提案を持ってきます。時間を止めて出すのは月に数枚まで（あふれたものはここに入ります）。', 'After each monthly close, heroes at their posts or with free hands bring proposals. Only a few a month pop up; the rest wait here.')));
@@ -286,6 +291,7 @@ export function cardInboxCard(ctx: Ctx): HTMLElement {
     const say = h('small', '');
     say.append(rich(sayOf(s, x)));
     txt.append(h('b', '', `${role.icon} ${role.text}${x.hero != null ? `・${heroName(x.hero)}` : ''}`), say);
+    if (x.iss) txt.append(h('small', 'isl-cardbox-iss', `🎯 ${issueTag(x.iss)}`));
     row.append(txt, h('span', 'isl-tag', x.held ? t('資金不足', 'Short of funds') : t('開く', 'Open')));
     row.addEventListener('click', () => showCard(ctx, x, hooks));
     c.append(row);
@@ -304,4 +310,32 @@ export function cardInboxCard(ctx: Ctx): HTMLElement {
     }
   }
   return c;
+}
+
+/**
+ * 段 UI7g：会社の課題の一覧（issues.ts）。優先の順に、アイコン・名前・優先・根拠の 1 行と、受け箱でその課題を解く提案の数。
+ * 受け箱（経営企画 → 部長の提案）の上
+ */
+export function issueList(s: P1State): HTMLElement {
+  const e = h('div', 'isl-iss');
+  const xs = issuesOf(s);
+  e.append(h('h3', '', t('会社の課題（優先の順）', 'Company issues (by priority)')));
+  if (!xs.length) {
+    e.append(h('small', 'isl-dim', t('お店を開くと、課題（SCM のボトルネック・倉庫・資金・士気など）がここに並びます。', 'Open a shop to see issues here (SCM bottleneck, storage, cash, morale...).')));
+    return e;
+  }
+  const inbox = cardInbox(s);
+  const ol = h('ol', 'isl-iss-list');
+  for (const x of xs.slice(0, 6)) {
+    const li = h('li', `isl-iss-row ${x.pri === 1 ? 'is-top' : ''}`);
+    li.dataset.issue = x.key;
+    const n = inbox.filter((c) => c.iss?.key === x.key).length;
+    const top = h('div', 'isl-iss-top');
+    top.append(h('span', 'isl-iss-pri', t(`優先 ${x.pri}`, `P${x.pri}`)), h('b', '', `${ISSUE_ICON[x.key]} ${issueName(x.key)}`));
+    if (n) top.append(h('span', 'isl-tag', t(`提案 ${n} 件`, `${n} proposal${n > 1 ? 's' : ''}`)));
+    li.append(top, h('small', 'isl-iss-note', x.note));
+    ol.append(li);
+  }
+  e.append(ol);
+  return e;
 }

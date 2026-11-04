@@ -101,13 +101,15 @@ describe('経営方針（社長の価値観）', () => {
     const a = briefOf(s, p);
     expect(a.vals.list.some((x) => x.key === 'morale' && x.d > 0)).toBe(true);
     expect(a.vals.list.find((x) => x.key === 'short')!.d).toBeLessThan(0);
+    if (a.rec !== 'ok') SKILL.ga_canteen.cost = cost0;
     expect(a.rec).toBe('ok');
     expect(a.why).toContain('人を大事に');
     setPolicy(s, 'profit');
     const b = briefOf(s, p);
     SKILL.ga_canteen.cost = cost0;
+    // 段 UI7g：利益重視では、士気が方針の大事なものではなく、長期も損なので「損が大きい」で見送る（方針に届かないだけでは見送らない）
     expect(b.rec).toBe('skip');
-    expect(b.why).toContain('利益重視');
+    expect(b.why).toContain('損が大きい');
   });
   it('同じ見積もり（このまま・承認後）なら、指標は方針で変わらない（変わるのは価値と推奨。方針の効き目は段 K の tests/island-p1-stagek.test.ts）', () => {
     const s = uTown();
@@ -166,8 +168,11 @@ describe('経営方針（社長の価値観）', () => {
     const b = { block: [] as string[], co: { n: 0, money: 0, cash: 1000, left: 500, reserve: 100 }, vals };
     const r = recOf(b);
     expect(r.rec).toBe('ok');
-    expect(r.why).toBe('社長の方針（ブランド重視）なら承認：短期 −2,247 G でも ★ +12');
-    expect(recOf({ ...b, vals: { ...vals, value: -1 } }).rec).toBe('skip');
+    // 段 UI7g：理由は課題（無ければ「効果あり」）と上がる指標・方針に合うこと
+    expect(r.why).toBe('効果あり：★ +12。方針（ブランド重視）にも合う');
+    // 段 UI7g：方針の価値がマイナスで長期も損なら見送る（損が大きい）。方針に届かないだけでは見送らない
+    expect(recOf({ ...b, vals: { ...vals, value: -1 } }).rec).toBe('ok');
+    expect(recOf({ ...b, vals: { ...vals, value: -1, list: [...vals.list, { key: 'long' as const, now: 0, after: -2247, d: -2247, why: '' }] } }).rec).toBe('skip');
   });
 });
 
