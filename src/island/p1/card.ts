@@ -38,7 +38,7 @@ import { apologize, bestReply, csOn, noticeCost, refundCost, reply, replyGain, r
 import { quitLeft, talk, talkGain } from './hr';
 import { afterOf, applyPlan, baseOf, planOf, type Plan, type PlanRes } from './plan';
 import { valueOfPlan } from './brief';
-import { clearInfo, clearUnits, fromStock, storeFix, storeFull, type StoreFix } from './stock';
+import { clearFrees, clearInfo, clearUnits, fromStock, storeFix, storeFull, type StoreFix } from './stock';
 import { dedRate, quarterNow, taxOn, taxPlan } from './acct';
 import { heroSay, quipOf, say, sayLen, type QuipCat } from './persona';
 import { DEF } from '../defs';
@@ -121,7 +121,7 @@ export type Issue =
    * 段 UI5c：倉庫が埋まりそう（埋まり方 %・素材・運ぶ前の商品・在庫品の数）。
    * 段 UI5d：fix＝推奨の倉庫の手（rack：倉庫の強化・dock：拠点の保管・build：倉庫を建てる・more：もう 1 棟・hub：物流拠点を建てる。無ければ売りさばき）
    */
-  | { k: 'store'; pct: number; mats: number; goods: number; items: number; fix?: StoreFixKind }
+  | { k: 'store'; pct: number; mats: number; goods: number; items: number; fix?: StoreFixKind; next?: 'useup' | 'clear' }
   /** 段 I1：部長からの頼み（予算を増やしてください・人を雇わせてください） */
   | { k: 'budget'; ask: BudgetAsk };
 /** 段 UI5d：倉庫の提案の推奨の手の種類 */
@@ -507,8 +507,9 @@ export function stockDraft(s: P1State): Draft | null {
   // 倉庫を強化する（推奨）
   const fix = storeFix(s);
   if (fix) xs.push({ act: { k: 'do', a: fixAct(fix) }, cost: fix.cost, ...(fix.k === 'build' ? { monthly: fix.monthly } : {}), kind: 'whatif', stage: 'buy', est: fix.room, room: fix.room });
-  // 在庫を優先して売りさばく（全部のお店・値引きは CLEAR.def の段）。見込み：在庫品がひと月に売れていく数
-  if (info.total > 0 && myShops(s).some((b) => s.shops[b.uid] && s.shops[b.uid].clear == null)) {
+  // 在庫を優先して売りさばく（全部のお店・値引きは CLEAR.def の段）。見込み：在庫品がひと月に売れていく数。
+  // 段 UI7d：倉庫を埋めているのが素材なら出さない（売りさばいても倉庫は空かない。clearFrees）
+  if (info.total > 0 && clearFrees(info) && myShops(s).some((b) => s.shops[b.uid] && s.shops[b.uid].clear == null)) {
     const a: PropAct = { k: 'clear', uid: -1, cut: CLEAR.def };
     const u = clearUnits(afterOf(s, planOf(s, [a])), info.items.map((y) => y.x));
     if (u > 0.5) xs.push({ act: { k: 'do', a }, cost: 0, kind: 'whatif', stage: 'sell', est: Math.round(u), units: u });
@@ -530,7 +531,9 @@ export function stockDraft(s: P1State): Draft | null {
   // 推奨：倉庫の手（払えるとき）。払えなければ、ほかの手のうち見込みのいちばん大きいもの
   const all = [...xs, SKIP];
   const choices = fix && fix.cost <= s.money ? all.map((c, k) => ({ ...c, rec: k === 0 })) : markRec(s, fix ? all.map((c, k) => (k === 0 ? { ...c, est: 0 } : c)) : all).map((c, k) => (fix && k === 0 ? { ...c, est: fix.room } : c));
-  return { src: 'stock', kind: 'stock', hero, ...(cl ? { uid: cl.uid } : {}), q: qOf(s, hero, 'logistics'), dept: 'logistics', issue: { k: 'store', pct: Math.round(info.rate * 100), mats: info.mats, goods: info.goods, items: info.total, ...(fix ? { fix: fixKind(fix) } : {}) }, choices, pri: 0 };
+  // 段 UI7d：倉庫の手が無いときのセリフの結び（いまの素材で作る・売りさばく）
+  const next = fix ? undefined : xs.some((c) => c.act.k === 'do' && c.act.a.k === 'useup') ? ('useup' as const) : xs.some((c) => c.act.k === 'do' && c.act.a.k === 'clear') ? ('clear' as const) : undefined;
+  return { src: 'stock', kind: 'stock', hero, ...(cl ? { uid: cl.uid } : {}), q: qOf(s, hero, 'logistics'), dept: 'logistics', issue: { k: 'store', pct: Math.round(info.rate * 100), mats: info.mats, goods: info.goods, items: info.total, ...(fix ? { fix: fixKind(fix) } : {}), ...(next ? { next } : {}) }, choices, pri: 0 };
 }
 /** 段 UI5d：倉庫の手 → 提案の手（建てる・設備投資） */
 export const fixAct = (f: StoreFix): PropAct => (f.k === 'build' ? { k: 'build', id: f.id, i: f.lot[0], j: f.lot[1], dir: f.lot[2] } : { k: 'invest', id: f.k, uid: f.uid });
@@ -1313,7 +1316,8 @@ function core(s: P1State, c: Card): string {
       // 段 UI5d：倉庫そのものが大事（置き場所が尽きると、調達も製造も止まる）。推奨の手を言う
       const head = i.pct >= 100 ? t(`倉庫が[[いっぱい]]（素材 ${i.mats}・商品 ${i.goods}）`, `storage is [[full]] (${i.mats} materials, ${i.goods} goods)`) : t(`倉庫が[[ ${i.pct}%]]（素材 ${i.mats}・商品 ${i.goods}）`, `storage is [[${i.pct}%]] full (${i.mats} materials, ${i.goods} goods)`);
       const tail = i.fix === 'rack' ? t('倉庫を強化しよう', 'let’s upgrade the warehouse') : i.fix === 'dock' ? t('拠点の保管を強化しよう', 'let’s upgrade hub storage') : i.fix === 'build' ? t('倉庫を建てよう', 'let’s build a warehouse') : i.fix === 'more' ? t('倉庫をもう 1 棟建てよう', 'let’s build one more warehouse') : i.fix === 'hub' ? t('物流拠点を建てよう', 'let’s build a hub') : null;
-      if (!tail) return t(`${head}。在庫を優先して売りさばこう`, `${head}. Let’s clear stock first`);
+      // 段 UI7d：倉庫の手が無いとき。素材で埋まっているなら「いまの素材で作ろう」（売りさばいても倉庫は空かない）
+      if (!tail) return i.next === 'useup' ? t(`${head}。[[いまの素材で作って]]減らそう`, `${head}. Let’s [[craft from what we have]]`) : t(`${head}。在庫を優先して売りさばこう`, `${head}. Let’s clear stock first`);
       return t(`${head}。満杯だと[[調達も製造も止まる]]。${tail}`, `${head}. When it’s full, [[buying and crafting stop]]. ${tail[0].toUpperCase()}${tail.slice(1)}`);
     }
     case 'staff':
