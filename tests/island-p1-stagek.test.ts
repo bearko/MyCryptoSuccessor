@@ -19,6 +19,7 @@ import {
   polFx,
   polOf,
   polPower,
+  polStaffMorale,
   polSync,
   presDepts,
   presDue,
@@ -161,11 +162,12 @@ describe('効き目の式（基本 × 部門のレベル × 部長の能力）',
     setCorp(s, ['balance'], true);
     const d0 = fxSum(s, 'demand');
     const m0 = moraleParts(s, s.staff[0]);
-    expect(m0.pol).toBe(0);
+    // 段 K3：部門の士気の副次効果（バランスは経営企画・経理 +2）は別に数える
+    expect(m0.pol - polStaffMorale(s, s.staff[0])).toBeCloseTo(0);
     setCorp(s, ['growth', 'people'], true);
     if (slotsOf(s) >= 2) {
       expect(fxSum(s, 'demand')).toBeGreaterThan(d0);
-      expect(moraleParts(s, s.staff[0]).pol).toBeGreaterThan(0);
+      expect(moraleParts(s, s.staff[0]).pol - polStaffMorale(s, s.staff[0])).toBeGreaterThan(0);
     } else {
       expect(corpOf(s)).toEqual(['growth']);
       expect(fxSum(s, 'demand')).toBeGreaterThan(d0);

@@ -52,11 +52,11 @@ export function policyCardEl(p: PolicyDef, rec = false): HTMLButtonElement {
 /** 1 行の As-Is → To-Be（＋は緑・−は赤。▲▼ と符号も。色だけに頼らない） */
 function lineEl(x: CardLine): HTMLElement {
   const e = h('div', `pc-ln ${x.good === true ? 'is-good' : x.good === false ? 'is-bad' : 'is-same'}`);
-  const arrow = x.dir > 0 ? '▲' : x.dir < 0 ? '▼' : '＝';
+  const arrow = x.dir > 0 ? '▲' : x.dir < 0 ? '▼' : '=';
   const lab = h('span', 'pc-ln-lab', x.label);
   if (x.note) lab.append(h('small', 'pc-ln-note', x.note));
   const val = h('span', 'pc-ln-val');
-  val.append(h('span', 'pc-now', x.now), h('span', 'pc-to', '→'), h('b', 'pc-next', x.next), h('span', 'pc-mark', x.good === null ? '' : `${arrow}${x.good ? t('良い', 'good') : t('悪い', 'bad')}`));
+  val.append(h('span', 'pc-now', x.now), h('span', 'pc-to', '→'), h('b', 'pc-next', x.next), h('span', 'pc-mark', x.good === null ? '' : arrow + (x.good ? t('良い', 'good') : t('悪い', 'bad'))));
   e.append(lab, val);
   return e;
 }
@@ -115,6 +115,8 @@ interface TableOpts {
   changed: () => void;
   /** 机の上の札（全社方針 1〜5 の番号・部門の名前） */
   slotLabel: (k: number) => string;
+  /** 机の上の枠の横に置くもの（事業別の方針：部長・マインちゃんの発言） */
+  side?: HTMLElement;
 }
 function table(o: TableOpts) {
   const { s, desk, hooks } = o;
@@ -122,6 +124,10 @@ function table(o: TableOpts) {
   const slotsEl = h('div', 'pc-slots');
   slotsEl.style.setProperty('--n', String(desk.slots.length));
   deskEl.append(slotsEl);
+  if (o.side) {
+    deskEl.classList.add('has-side');
+    deskEl.append(o.side);
+  }
   const detail = h('div', 'pc-detail');
   const handEl = h('div', 'pc-hand');
   handEl.setAttribute('role', 'list');
@@ -435,7 +441,7 @@ function corpStep(ctx: Ctx, s: P1State, a: BoardAgenda, panel: HTMLElement, moda
   panel.append(box);
   function upd() {
     const k = desk.slots.filter(Boolean).length;
-    lead.textContent = t(`カードを机の点線の枠へ差し出して、今年の全社方針を役員に示します（机の上 ${k} / ${n}）。タップで効果を見る。`, `Slide cards into the dotted frames to show this year’s company policies (${k} / ${n} on the table). Tap to see effects.`);
+    lead.textContent = t(`カードを点線の枠へ差し出して、今年の全社方針を役員に示す（机の上 ${k}/${n}）。タップで効果。`, `Slide cards into the dotted frames to set this year’s company policies (${k}/${n}). Tap for effects.`);
     go.disabled = k === 0;
     auto.disabled = rec.every((id) => desk.slots.includes(id)) || desk.slots.every(Boolean);
   }
@@ -478,7 +484,7 @@ function corpStep(ctx: Ctx, s: P1State, a: BoardAgenda, panel: HTMLElement, moda
       if (r.mo) why.push(t(`${DEPT[it.dept].name}の士気 ${r.mo > 0 ? '+' : '−'}${Math.round(Math.abs(r.mo) * 10) / 10}`, `${DEPT[it.dept].name} morale ${r.mo > 0 ? '+' : '−'}${Math.round(Math.abs(r.mo) * 10) / 10}`));
       if (r.fit) why.push(t('自分の部門の方針', 'their own division’s policy'));
       const word = r.score > 0 ? t('喜んでいる', 'pleased') : r.score < 0 ? t('渋い顔', 'frowning') : t('うなずいた', 'nodding');
-      rows.push({ k, emo, cls, score: r.score, text: why.length ? `${word}：${why.join(t('・', ', '))}` : word });
+      rows.push({ k, emo, cls, score: r.score, text: why.length ? word + t('：', ': ') + why.join(t('・', ', ')) : word });
     });
     await wait(500);
     // 詳細と手札を、反応の一覧とマインちゃんの一言に替える
@@ -525,20 +531,19 @@ function deptSteps(ctx: Ctx, s: P1State, a: BoardAgenda, panel: HTMLElement, mod
     panel.scrollTop = 0;
     const box = h('div', 'pc-scene is-dept');
     const head = h('div', 'pc-head');
-    head.append(h('h2', 'pc-title', t(`📜 事業別の方針 ${i + 1}/${ds.length}・${DEPT[d].icon} ${DEPT[d].name}`, `📜 Division ${i + 1}/${ds.length} · ${DEPT[d].icon} ${DEPT[d].name}`)));
+    head.append(h('h2', 'pc-title', t(`${DEPT[d].icon} ${DEPT[d].name}の方針（${i + 1}/${ds.length}）`, `${DEPT[d].icon} ${DEPT[d].name} policy (${i + 1}/${ds.length})`)));
     box.append(head);
     const sayBox = h('div', 'pc-say');
     if (H) {
       const k = seatOf(d);
       if (k >= 0) faces.seats[k]?.classList.add('is-on');
-      sayBox.append(heroIcon(H.hero, 40));
+      sayBox.append(heroIcon(H.hero, 36));
       const tx = h('div', 'pc-say-tx');
       tx.append(h('b', '', t(`${heroNm(H.hero)}（${DEPT[d].name}部長）`, `${heroNm(H.hero)} (head of ${DEPT[d].name})`)), h('p', '', heroLine(H.hero, t(`今年の${DEPT[d].name}は「${rec ? POLICY_OF[rec].name : ''}」でいきます`, `this year ${DEPT[d].name} runs on “${rec ? POLICY_OF[rec].name : ''}”`))));
       sayBox.append(tx);
     } else {
       sayBox.append(mineSay(t(`${DEPT[d].name}は部長がいないから、社長がカードを置いてね。`, `${DEPT[d].name} has no head — you place the card.`)));
     }
-    head.append(sayBox);
     const body = h('div', 'pc-body');
     box.append(body);
     const desk: Desk = { slots: [H ? null : cur], sel: cur ?? rec };
@@ -553,6 +558,7 @@ function deptSteps(ctx: Ctx, s: P1State, a: BoardAgenda, panel: HTMLElement, mod
       hooks,
       changed: () => upd(),
       slotLabel: () => `${DEPT[d].icon} ${DEPT[d].name}`,
+      side: sayBox,
     });
     const foot = h('div', 'pc-foot');
     const restBtn = btn(t('⚡ 残りは部長の案', '⚡ Rest as proposed'), () => {
@@ -560,10 +566,8 @@ function deptSteps(ctx: Ctx, s: P1State, a: BoardAgenda, panel: HTMLElement, mod
       ctx.save();
       then();
     }, 'pc-auto');
-    const place = btn(t('✨ 推奨を置く', '✨ Place pick'), () => rec && tb.place(rec), 'pc-auto');
     const ok = btn('', () => decide(), 'is-on pc-go');
     if (i < ds.length - 1) foot.append(restBtn);
-    if (!H) foot.append(place);
     foot.append(ok);
     box.append(foot);
     panel.append(box);
@@ -571,7 +575,6 @@ function deptSteps(ctx: Ctx, s: P1State, a: BoardAgenda, panel: HTMLElement, mod
       const id = desk.slots[0];
       ok.disabled = !id;
       ok.textContent = !id ? t('カードを置く', 'Place a card') : H ? (id === rec ? t('✔ 承認する', '✔ Approve') : t('🖋 差し替える', '🖋 Swap')) : t('🖋 決める', '🖋 Decide');
-      place.disabled = !rec || id === rec;
     }
     upd();
     hooks.sfx('page');

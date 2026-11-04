@@ -149,7 +149,7 @@ export function sideText(p: PolicyDef): string {
     if (x.k === 'mo') xs.push(t(`${DEPT[x.d].name}の士気 ${pm(x.v)}`, `${DEPT[x.d].name} morale ${pm(x.v)}`));
     else if (x.k === 'fx') xs.push(`${fxName(x.fx)} ${(FX_DOWN as string[]).includes(x.fx) ? (x.v > 0 ? '−' : '+') : x.v > 0 ? '+' : '−'}${COUNT.includes(x.fx) ? r1(Math.abs(x.v)) : pct(Math.abs(x.v))}`);
     else if (x.k === 'less') xs.push(t(`「${THEME_NAME[x.th]()}」の提案 ▼`, `“${THEME_NAME[x.th]()}” proposals ▼`));
-    else xs.push(`${EV_NAME[x.ev]()} ×${Math.round((1 + x.v) * 100) / 100}`);
+    else xs.push(t(`できごと「${EV_NAME[x.ev]()}」×${Math.round((1 + x.v) * 100) / 100}`, `event “${EV_NAME[x.ev]()}” ×${Math.round((1 + x.v) * 100) / 100}`));
   }
   return xs.join(t('・', ', '));
 }
