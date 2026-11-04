@@ -922,6 +922,8 @@ export function recipeCards(keys: string[], make: (key: string) => void): HTMLEl
   }
   return box;
 }
+/** 撮影スクリプト用：発掘の画面に石板の読み物の窓を出す */
+export const debugTablet = (id: string) => readTablet(id, 0);
 /** 石板：読み物の小さな窓（画面の中。時間は止めない） */
 function readTablet(id: string, rp: number) {
   const p = P;

@@ -109,7 +109,7 @@ describe('経営方針（社長の価値観）', () => {
     expect(b.rec).toBe('skip');
     expect(b.why).toContain('利益重視');
   });
-  it('方針はゲームの数字に効かない：指標そのものは方針で変わらない（価値と推奨だけ）', () => {
+  it('同じ見積もり（このまま・承認後）なら、指標は方針で変わらない（変わるのは価値と推奨。方針の効き目は段 K の tests/island-p1-stagek.test.ts）', () => {
     const s = uTown();
     const p = planOf(s, [survey], { hero: null, q: 0.9, dept: 'support' });
     const base = baseOf(s);
@@ -168,7 +168,7 @@ describe('経営方針（社長の価値観）', () => {
 });
 
 describe('セーブ・マインちゃんの問い', () => {
-  it('方針はセーブに残る（無いセーブはバランス）。版は上げない', () => {
+  it('方針はセーブに残る（無いセーブはバランス）。段 K から s.pol（版 27）の全社方針の 1 つ目', () => {
     const s = town();
     expect(policyOf(s)).toBe('balance');
     const v = s.v;
@@ -179,6 +179,7 @@ describe('セーブ・マインちゃんの問い', () => {
     expect(back.v).toBe(v);
     const old = JSON.parse(serializeP1(s));
     delete old.policy;
+    delete old.pol;
     expect(policyOf(deserializeP1(JSON.stringify(old))!)).toBe('balance');
   });
   it('マインちゃんは 1 回だけ聞く（チュートリアルのあいだは聞かない）', () => {
