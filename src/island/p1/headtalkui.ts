@@ -181,7 +181,7 @@ function optsOf(ctx: Ctx, s: P1State, dept: DeptId, mode: 'head' | 'mine', item:
       if (card && k >= 0) {
         opt(t(`✔ 承認：${choiceText(s, card, card.choices[k]).label}`, `✔ Approve: ${choiceText(s, card, card.choices[k]).label}`), () => decideCard(ctx, card, k), 'is-rec');
         const plan = planOfChoice(s, card, k);
-        if (plan) opt(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, card, plan, true));
+        if (plan) opt(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, card, plan, true, k));
       }
       opt(t('人材登用を開く', 'Open recruiting'), () => hooks.detail('hire'));
       back();
@@ -324,12 +324,12 @@ export function decideCard(ctx: Ctx, card: Card, k: number) {
   after(ctx);
 }
 /** 提案書を開く（承認すると会話に戻る） */
-function showPlan(ctx: Ctx, card: Card, plan: Plan, rec = false) {
+function showPlan(ctx: Ctx, card: Card, plan: Plan, rec = false, pick?: number) {
   const s = ctx.s();
   openProposal(ctx, plan, {
     rec,
     src: 'talk',
-    say: sayOf(s, card),
+    say: sayOf(s, card, pick),
     role: roleOfCard(s, card).text,
     later: card.id >= 0,
     card: card.id,
@@ -405,7 +405,7 @@ function hireData(ctx: Ctx, s: P1State): HTMLElement[] {
     const x = choiceText(s, card, ch);
     box.append(h('b', '', `${x.icon} ${x.label}`), h('small', '', x.sub));
     const plan = planOfChoice(s, card, k);
-    if (plan) box.append(btn(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, card, plan, true), 'isl-ht-plan'));
+    if (plan) box.append(btn(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, card, plan, true, k), 'isl-ht-plan'));
     out.push(box);
   }
   const list = h('div', 'isl-card2 isl-ht-hire');
@@ -520,7 +520,7 @@ function itemData(ctx: Ctx, s: P1State, item: CheckItem): HTMLElement {
     const r = h('div', `isl-ht-choice ${k === rk ? 'is-rec' : ''}`);
     r.append(recLine(`${x.icon} ${x.label}`, k === rk), h('small', '', x.sub));
     const plan = ch.act.k === 'do' || ch.act.k === 'approve' ? planOfChoice(s, c, k) : null;
-    if (plan) r.append(btn(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, c, plan, k === rk), 'isl-ht-plan'));
+    if (plan) r.append(btn(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, c, plan, k === rk, k), 'isl-ht-plan'));
     list.append(r);
   });
   box.append(list);

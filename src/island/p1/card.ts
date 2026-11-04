@@ -10,7 +10,7 @@
  * 仕様は docs/ISLAND_PHASE1.md「提案・報告のカード」「ヒーローの個性」。数字は data.ts の CARD。
  */
 import { t } from '../../i18n';
-import { ADS, CARD, CLEAR, DELEG, DEPT, INVEST, skuParts, MATS, MORALE, P1B, PAY, PRODUCT, SELF_RUN, SKILL, TAX, type DeptId, type InqKind, type ReplyKind, type Sku, type Task } from './data';
+import { ADS, CARD, CLEAR, DELEG, DEPT, INVEST, skuParts, MATS, MORALE, P1B, PAY, POLICY, PRODUCT, SELF_RUN, SKILL, TAX, type DeptId, type InqKind, type ReplyKind, type Sku, type Task } from './data';
 import {
   actOk,
   actName,
@@ -38,7 +38,8 @@ import { apologize, bestReply, csOn, noticeCost, refundCost, reply, replyGain, r
 import { quitLeft, talk, talkGain } from './hr';
 import { afterOf, applyPlan, baseOf, planOf, type Plan, type PlanRes } from './plan';
 import { actTheme, valueOfPlan } from './brief';
-import { jammed } from './proj';
+import { jammed, prodOf, useUpOf } from './proj';
+import { holdMonth, poolNow, storeFc, whenFull } from './storefc';
 import { tiltOf } from './policy';
 import { clearFrees, clearInfo, clearUnits, fromStock, storeFix, storeFull, type StoreFix } from './stock';
 import { dedRate, quarterNow, taxOn, taxPlan } from './acct';
@@ -1156,7 +1157,7 @@ export function reportProposal(s: P1State, r: Report): { plan: Plan; say: string
     const ch = d.choices[k >= 0 ? k : d.choices.findIndex((x) => x.act.k === 'do')];
     if (!ch || ch.act.k !== 'do') return null;
     const card = { ...d, id: -1, mk: cardsOf(s).mk, sector: here(s), day: s.day, pop: false } as Card;
-    return { plan: planOfChoice(s, card, card.choices.indexOf(ch))!, say: sayOf(s, card), role: roleOfCard(s, card).text };
+    return { plan: planOfChoice(s, card, card.choices.indexOf(ch))!, say: sayOf(s, card, card.choices.indexOf(ch)), role: roleOfCard(s, card).text };
   };
   if (r.stall) {
     const d = stallDraft(s, r);
@@ -1262,7 +1263,7 @@ const STAGE_NM: Record<Stage, () => string> = { buy: () => t('① 調達', '① 
 const TASK_NM: Partial<Record<Task, () => string>> = { craft: () => t('工房', 'the workshop'), transport: () => t('運搬', 'hauling'), buy: () => t('調達', 'buying'), shop: () => t('お店', 'the shop') };
 
 /** 課題の文（言い切りの形。persona.ts の say が型の言い回しを付ける） */
-function core(s: P1State, c: Card): string {
+function core(s: P1State, c: Card, pick?: number): string {
   const i = c.issue;
   switch (i.k) {
     case 'sell': {
@@ -1330,12 +1331,48 @@ function core(s: P1State, c: Card): string {
       // 段 UI5d：倉庫そのものが大事（置き場所が尽きると、調達も製造も止まる）。推奨の手を言う
       const head = i.pct >= 100 ? t(`倉庫が[[いっぱい]]（素材 ${i.mats}・商品 ${i.goods}）`, `storage is [[full]] (${i.mats} materials, ${i.goods} goods)`) : t(`倉庫が[[ ${i.pct}%]]（素材 ${i.mats}・商品 ${i.goods}）`, `storage is [[${i.pct}%]] full (${i.mats} materials, ${i.goods} goods)`);
       const tail = i.fix === 'rack' ? t('倉庫を強化しよう', 'let’s upgrade the warehouse') : i.fix === 'dock' ? t('拠点の保管を強化しよう', 'let’s upgrade hub storage') : i.fix === 'build' ? t('倉庫を建てよう', 'let’s build a warehouse') : i.fix === 'more' ? t('倉庫をもう 1 棟建てよう', 'let’s build one more warehouse') : i.fix === 'hub' ? t('物流拠点を建てよう', 'let’s build a hub') : null;
-      // 段 UI7e：結びは画面の推奨（shownRec：経営方針の価値がいちばん大きい手）に合わせる（言うことと推奨を食い違わせない）
-      const rk = c.choices[shownRec(s, c)]?.act;
+      // 段 UI7e：結びは画面の推奨（shownRec：経営方針の価値がいちばん大きい手）に合わせる（言うことと推奨を食い違わせない）。
+      // 段 UI7f：提案書の「いま」の一言は、その提案書の手（pick：選んだ選択肢）に合わせる
+      const ch = c.choices[pick ?? shownRec(s, c)];
+      const rk = ch?.act;
       const ra = rk?.k === 'do' ? rk.a : null;
-      if (ra?.k === 'useup') return t(`${head}。[[いまの素材で作って]]減らそう`, `${head}. Let’s [[craft from what we have]]`);
+      // 段 UI7f：カードのグラフ（月末の倉庫の中身と、同じペースの予想）を指して、あふれる先を言う
+      const F = jammed(s) || i.pct >= 100 ? null : storeFc(s);
+      const pct = t(`倉庫が[[ ${i.pct}%]]`, `storage is [[${i.pct}%]] full`);
+      const when = F?.days != null ? whenFull(F.days) : '';
+      const stop = F && (F.ramp != null || F.cut >= prodOf(s) - 0.5) ? t('調達も製造も止まる', 'buying and crafting stop') : t('作る数が減る', 'output drops');
+      // その手のあと、あふれる月（承認後の置き場所・中身で同じペース）：「9 月まで持つ」「12 か月はあふれない」
+      const hold = (() => {
+        if (!F?.days || !ra) return '';
+        const n = poolNow(s);
+        const u = ra.k === 'useup' ? useUpOf(s, planOf(s, [ra])) : null;
+        const F1 = storeFc(s, { cap: n.cap + (storeAct(ra) ? ch.room ?? 0 : 0), mats: n.mats - Math.min(n.mats, u?.mats ?? 0), goods: n.goods });
+        return F1.days == null || F1.days >= POLICY.months * 30 ? t(`[[ ${POLICY.months} か月はあふれない]]`, `[[no overflow for ${POLICY.months} months]]`) : t(`[[${holdMonth(s, F1.days)}持つ]]`, `[[it lasts ${holdMonth(s, F1.days)}]]`);
+      })();
+      const fit = (...xs: string[]) => xs.find((x) => sayLen(x) <= CARD.sayMax - 10) ?? xs[xs.length - 1];
+      if (ra?.k === 'useup')
+        return F?.days
+          ? fit(
+              t(`${pct}。グラフのとおり、このペースだと[[${when}]]あふれる。[[いまの素材で作れば]]${hold}`, `${pct}. As the chart shows, it fills [[${when}]]. [[Crafting from stock]]: ${hold}`),
+              t(`${pct}。このペースだと[[${when}]]あふれる。[[いまの素材で作れば]]${hold}`, `${pct}. It fills [[${when}]]. [[Crafting from stock]]: ${hold}`),
+              t(`${pct}。[[${when}]]あふれる。[[いまの素材で作って]]減らそう`, `${pct}. Fills [[${when}]]. Let’s [[craft from what we have]]`),
+            )
+          : t(`${head}。[[いまの素材で作って]]減らそう`, `${head}. Let’s [[craft from what we have]]`);
       if (ra?.k === 'clear') return t(`${head}。在庫を優先して売りさばこう`, `${head}. Let’s clear stock first`);
-      if (!ra || !storeAct(ra) || !tail) return jammed(s) ? t(`${head}。どの手も見合わないので、[[いまはこのまま]]`, `${head}. No move pays off — [[keep as is for now]]`) : t(`${head}。まだ[[調達も製造も回る]]ので、いまはこのまま様子を見よう`, `${head}. [[Buying and crafting still run]], so let’s keep as is for now`);
+      if (!ra || !storeAct(ra) || !tail) {
+        if (jammed(s)) return t(`${head}。どの手も見合わないので、[[いまはこのまま]]`, `${head}. No move pays off — [[keep as is for now]]`);
+        if (F && F.days == null && F.src !== 'none') return t(`${pct}。グラフのとおり、このペースなら[[ ${POLICY.months} か月はあふれない]]。いまはこのまま様子を見よう`, `${pct}. As the chart shows, at this pace it [[won’t fill for ${POLICY.months} months]] — let’s keep as is`);
+        if (F?.days) return t(`${pct}。このペースだと[[${when}]]あふれるが、損は倉庫の費用より小さい。いまはこのまま`, `${pct}. It fills [[${when}]], but the loss is smaller than the cost — keep as is for now`);
+        return t(`${head}。まだ[[調達も製造も回る]]ので、いまはこのまま様子を見よう`, `${head}. [[Buying and crafting still run]], so let’s keep as is for now`);
+      }
+      // 倉庫の手：「倉庫を強化すれば 9 月まで持つ」
+      const by = i.fix === 'rack' ? t('倉庫を強化すれば', 'Upgrading the warehouse') : i.fix === 'dock' ? t('拠点の保管を強化すれば', 'Upgrading hub storage') : i.fix === 'hub' ? t('物流拠点を建てれば', 'Building a hub') : t('倉庫を建てれば', 'Building a warehouse');
+      if (F?.days)
+        return fit(
+          t(`${pct}。グラフのとおり、このペースだと[[${when}]]あふれて${stop}。${by}${hold}`, `${pct}. As the chart shows, it fills [[${when}]] and ${stop}. ${by}: ${hold}`),
+          t(`${pct}。このペースだと[[${when}]]あふれて${stop}。${by}${hold}`, `${pct}. It fills [[${when}]] and ${stop}. ${by}: ${hold}`),
+          t(`${pct}。このペースだと[[${when}]]あふれる。${by}${hold}`, `${pct}. It fills [[${when}]]. ${by}: ${hold}`),
+        );
       return t(`${head}。満杯だと[[調達も製造も止まる]]。${tail}`, `${head}. When it’s full, [[buying and crafting stop]]. ${tail[0].toUpperCase()}${tail.slice(1)}`);
     }
     case 'staff':
@@ -1389,8 +1426,9 @@ export function stallSay(stage: Stage, why: StallWhy): string {
   }
 }
 /** カードのセリフ（話し手の口調の型で。CARD.sayMax 字まで） */
-export function sayOf(s: P1State, c: Card): string {
-  const x = core(s, c);
+/** カードのセリフ。pick：提案書を開いた選択肢（倉庫の提案は、その手に合わせた一言。無ければ画面の推奨の手） */
+export function sayOf(s: P1State, c: Card, pick?: number): string {
+  const x = core(s, c, pick);
   // 段 UI4：使者は自分の言葉（言い出し・語尾は付けない）。できごとは、マインちゃんだけの話はそのまま、ヒーロー・町の長は口調の型、マインちゃんの報告は「〜よ！」
   if (c.src === 'diplo' || c.src === 'duo') return x;
   if (c.src === 'event' && c.ev) {
