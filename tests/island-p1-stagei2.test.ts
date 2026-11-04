@@ -16,6 +16,7 @@ import {
   boardFinish,
   boardOf,
   boardQuarter,
+  budgetOptText,
   budgetOpts,
   decide,
   goalMorale,
@@ -123,6 +124,26 @@ describe('決める（承認・増減・目標・一括）', () => {
     expect(boardOf(s).goals[b.key].up).toBeCloseTo(0.2, 1);
     expect(boardOf(s).goals[c.key].up).toBeCloseTo(-0.2, 1);
   });
+  it('予算の選択肢の名前と額は同じ比べで読める（いまの額 → 決めたあと）。増額の要求を見送るのは「据え置き」で、減額の % は出さない', () => {
+    const s = withAgenda();
+    const it = deptItem(s);
+    const pctOf = (k: number) => Math.round(((budgetOpts(it)[k] - it.ask.cur) / it.ask.cur) * 100);
+    // 増額の要求（いま 20,000 G → 要求 46,000 G）
+    it.ask = { up: true, cur: 20000, amt: 46000, lv: 'X' };
+    const up = [0, 1, 2].map((k) => budgetOptText(it, k));
+    expect(up[0].name).toBe(`承認：+${pctOf(0)}%（要求どおり）`);
+    expect(up[0].val).toBe('月 20,000 → 46,000 G');
+    expect(up[1].name).toBe(`増額 +${pctOf(1)}%`);
+    expect(up[1].val).toBe(`月 20,000 → ${budgetOpts(it)[1].toLocaleString('en-US')} G`);
+    expect(up[2].name).toBe('据え置き（要求を見送る）');
+    expect(up[2].val).toBe('月 20,000 G のまま');
+    for (const x of up) expect(x.name).not.toMatch(/減額/);
+    // 据え置きの要求（いま 20,000 G）：承認＝据え置き・増額 +20%・減額 −20%
+    it.ask = { up: false, cur: 20000, amt: 20000, lv: 'M' };
+    const keep = [0, 1, 2].map((k) => budgetOptText(it, k));
+    expect(keep.map((x) => x.name)).toEqual(['承認：据え置き', '増額 +20%', '減額 −20%']);
+    expect(keep.map((x) => x.val)).toEqual(['月 20,000 G のまま', '月 20,000 → 24,000 G', '月 20,000 → 16,000 G']);
+  });
   it('見込みが 0 の計画は上げられない（目標の上乗せは 0 のまま）', () => {
     const s = withAgenda();
     const it = deptItem(s);
@@ -186,21 +207,24 @@ describe('決める（承認・増減・目標・一括）', () => {
   it('一括承認：残り全員を推奨で決めて会議を閉じる（1 タップ）', () => {
     const s = withAgenda();
     const n = boardOf(s).agenda!.items.length;
+    // 写しの前に会議が開いていることがある（自動プレイの通しの進み方しだい）：数えは差で見る
+    const st0 = JSON.parse(JSON.stringify(boardOf(s).stat));
     decide(s, boardOf(s).agenda!.items[0], { plan: 1, budget: 0, other: 0 });
     const items = boardFinish(s, 'bulk');
     expect(items.every((x) => x.done)).toBe(true);
     expect(items.slice(1).every((x) => JSON.stringify(x.pick) === JSON.stringify(x.rec))).toBe(true);
     expect(boardOf(s).agenda).toBeNull();
-    expect(boardOf(s).stat.bulk).toBe(1);
-    expect(boardOf(s).stat.items).toBe(n);
-    expect(boardOf(s).stat.changed).toBe(1);
+    expect(boardOf(s).stat.bulk - st0.bulk).toBe(1);
+    expect(boardOf(s).stat.items - st0.items).toBe(n);
+    expect(boardOf(s).stat.changed - st0.changed).toBe(1);
     expect(Object.keys(boardOf(s).goals)).toHaveLength(n);
   });
   it('開かないまま次の四半期の締めが来たら、推奨で決めてから新しい会議（自動）', () => {
     const s = withAgenda();
     const m = Math.round(s.day / 30);
+    const auto0 = boardOf(s).stat.auto;
     boardQuarter(s, Math.floor(m / 3) + 1, m + 3);
-    expect(boardOf(s).stat.auto).toBe(1);
+    expect(boardOf(s).stat.auto - auto0).toBe(1);
     expect(boardOf(s).agenda).not.toBeNull();
   });
 });

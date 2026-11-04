@@ -382,9 +382,9 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
       nm.append(h('b', '', heroNm(it.hero)), h('small', '', itemTitle(it)));
       const tags = h('div', 'isl-bm-row-tags');
       tags.append(tag(it.pick.plan ? planOptText(it.pick.plan) : t('計画 承認', 'Plan OK'), it.pick.plan ? 'is-up' : 'is-ok'));
+      // 予算：選んだ手の名前と、いまの額 → 決めたあとの額（同じ比べで読める。budgetOptText）
       const bo = budgetOptText(it, it.pick.budget);
-      const bn = it.pick.budget === 0 ? t('予算 承認', 'Budget OK') : bo.name;
-      tags.append(tag(t(`${bn}・${bo.val}`, `${bn} · ${bo.val}`), it.pick.budget === 1 ? 'is-up' : it.pick.budget === 2 ? 'is-no' : 'is-ok'));
+      tags.append(tag(t(`予算 ${bo.name}・${bo.val}`, `Budget ${bo.name} · ${bo.val}`), it.pick.budget === 1 ? 'is-up' : it.pick.budget === 2 ? 'is-no' : 'is-ok'));
       if (it.other) tags.append(tag(it.pick.other ? t('要求 否認', 'Request denied') : t('要求 承認', 'Request OK'), it.pick.other ? 'is-no' : 'is-ok'));
       row.append(nm, tags);
       list.append(row);
