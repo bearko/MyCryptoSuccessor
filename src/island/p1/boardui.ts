@@ -17,6 +17,7 @@ import {
   boardOf,
   boardSummary,
   budgetOptText,
+  canRaise,
   decide,
   itemTitle,
   moraleHint,
@@ -170,7 +171,16 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
     const b2 = block('isl-bm-b2', t('② 来期の計画', '② Plan'), planLine(it));
     if (it.plan.moves.length) b2.append(h('small', 'isl-bm-dim', t(`次の施策：${it.plan.moves.join('・')}`, `Next: ${it.plan.moves.join(', ')}`)));
     const hint = h('small', 'isl-bm-hint');
-    b2.append(options([0, 1, 2].map((x) => ({ name: planOptText(x), val: x ? t(`目標 ${g(it.plan.rep * (1 + BOARD.plan[x]))}`, `Target ${g(it.plan.rep * (1 + BOARD.plan[x]))}`) : t(`目標 ${g(it.plan.rep)}`, `Target ${g(it.plan.rep)}`) })), it.rec.plan, () => pick.plan, (v) => ((pick.plan = v as BoardPick['plan']), upd())), hint);
+    const raiseOk = canRaise(it);
+    b2.append(
+      options(
+        [0, 1, 2].map((x) => ({ name: planOptText(x), val: !raiseOk ? (x ? t('見込みが無い', 'No forecast') : t('目標なし', 'No target')) : t(`目標 ${g(it.plan.rep * (1 + BOARD.plan[x]))}`, `Target ${g(it.plan.rep * (1 + BOARD.plan[x]))}`), off: x > 0 && !raiseOk })),
+        it.rec.plan,
+        () => pick.plan,
+        (v) => ((pick.plan = v as BoardPick['plan']), upd()),
+      ),
+      hint,
+    );
     card.append(b2);
     // ③ 必要予算
     const b3 = block('isl-bm-b3', t('③ 必要予算', '③ Budget'), askLine(it));
@@ -357,11 +367,12 @@ function block(cls: string, title: string, say: string): HTMLElement {
 const chip = (text: string, cls = '') => h('span', `isl-bm-chip ${cls}`, text);
 const tag = (text: string, cls = '') => h('span', `isl-bm-tag ${cls}`, text);
 /** 選択肢の並び（推奨の札つき。押すと選ぶ） */
-function options(xs: { name: string; val: string }[], rec: number, cur: () => number, set: (v: number) => void): HTMLElement {
+function options(xs: { name: string; val: string; off?: boolean }[], rec: number, cur: () => number, set: (v: number) => void): HTMLElement {
   const row = h('div', `isl-bm-opts is-${xs.length}`);
   const bs = xs.map((x, n) => {
     const b = h('button', 'isl-bm-opt');
     b.type = 'button';
+    b.disabled = !!x.off;
     b.append(h('b', '', x.name));
     if (x.val) b.append(h('small', '', x.val));
     if (n === rec) b.append(h('span', 'isl-bm-rec', t('推奨', 'Rec.')));

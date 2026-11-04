@@ -352,6 +352,11 @@
   font-size: 12px;
   color: var(--isl-dim);
 }
+.isl-bm-opt:disabled {
+  border-style: dashed;
+  color: var(--isl-dim);
+  cursor: not-allowed;
+}
 .isl-bm-opt.is-on {
   border-color: #f2c86a;
   background: #3b3420;

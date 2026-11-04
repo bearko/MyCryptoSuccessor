@@ -245,15 +245,18 @@ function deptItem(s: P1State, d: DeptId, auditor: BoardAgenda['auditor'], q: num
   // その他の要求：RP を使う施策（見込みの大きい 3 件の中）
   const rpMove = nextMoves(s, d, 3).find((m) => (m.rp ?? 0) > 0 && m.act.k === 'skill');
   const other: BoardOther | null = rpMove && rpMove.act.k === 'skill' ? { k: 'rp', id: rpMove.act.id, rp: rpMove.rp ?? 0, nm: rpMove.nm } : null;
-  const was = { amt: Math.round(B.qamt ?? 0), used: Math.round(B.qused ?? 0), acts: B.qn ?? 0, names: [...(B.qnm ?? [])] };
-  const audit = auditor && auditor.hero !== H.hero ? auditFor(auditor.star, prev, pads, ask.up) : null;
+  // 予実：この四半期の記録（はじめての四半期・版 25 のセーブで記録が無ければ、先月の記録）
+  const was = B.qamt
+    ? { amt: Math.round(B.qamt), used: Math.round(B.qused ?? 0), acts: B.qn ?? 0, names: [...(B.qnm ?? [])] }
+    : { amt: Math.round(B.last?.amt ?? amountOf(s, d)), used: Math.round(B.last?.used ?? 0), acts: B.last?.acts.length ?? 0, names: (B.last?.acts ?? []).map((x) => x.nm).slice(-4) };
+  const audit = auditor && auditor.hero !== H.hero ? auditFor(auditor.star, prev, pads, ask.up, f) : null;
   return { key, kind: 'dept', dept: d, hero: H.hero, star, was, prev, plan, ask, other, pads, audit, rec: { plan: 0, budget: 0, other: 0 }, pick: { plan: 0, budget: 0, other: 0 }, done: false };
 }
 /** 監査の指摘（前の四半期の報告の盛り・甘い計画・盛った予算の要求） */
-function auditFor(star: 1 | 2 | 3, prev: BoardResult | null, pads: BoardItem['pads'], up: boolean): NonNullable<BoardItem['audit']> {
+function auditFor(star: 1 | 2 | 3, prev: BoardResult | null, pads: BoardItem['pads'], up: boolean, f: number): NonNullable<BoardItem['audit']> {
   const see = auditSee(star);
   const repPad = prev && prev.got > 0 ? prev.claimed / prev.got - 1 : 0;
-  return { report: !!prev && repPad >= see, plan: pads.plan >= see, ask: up && pads.ask >= see };
+  return { report: !!prev && repPad >= see, plan: f > 0 && pads.plan >= see, ask: up && pads.ask >= see };
 }
 /** セクター長の議題 1 つ */
 function sectorItem(s: P1State, id: string, st: Staff, auditor: BoardAgenda['auditor'], q: number, m: number): BoardItem {
@@ -272,7 +275,7 @@ function sectorItem(s: P1State, id: string, st: Staff, auditor: BoardAgenda['aud
   const f = Math.max(0, Math.round(logs.length ? (was.profit * BOARD.months) / logs.length : guess));
   const plan = { moves: [] as string[], f, rep: Math.round(f * (1 + pads.plan)) };
   const ask = { up: false, cur: rec.invest, amt: rec.invest, lv: 'X' as BudgetLv };
-  const audit = auditor && auditor.hero !== st.hero ? auditFor(auditor.star, prev, pads, false) : null;
+  const audit = auditor && auditor.hero !== st.hero ? auditFor(auditor.star, prev, pads, false, f) : null;
   return { key, kind: 'sector', sector: id, hero: st.hero, star, was, prev, plan, ask, other: null, pads, audit, rec: { plan: 0, budget: 0, other: 0 }, pick: { plan: 0, budget: 0, other: 0 }, done: false };
 }
 /** 推奨（経営企画の見立て）：計画は承認・据え置きの予算は承認・増額の要求は「前の目標に届いた（監査があれば監査の数字で）・監査の指摘なし」なら承認、ほかは据え置き。
@@ -342,7 +345,8 @@ export function decide(s: P1State, it: BoardItem, pick: BoardPick = it.pick): vo
   st.budget[pick.budget]++;
   if (it.other) st.other[pick.other]++;
   if (it.audit && (it.audit.report || it.audit.plan || it.audit.ask)) st.flags++;
-  const raise = BOARD.plan[pick.plan];
+  // 見込みが 0 の計画は上げられない（押せない選択肢。自動・テストから来ても 0）
+  const raise = canRaise(it) ? BOARD.plan[pick.plan] : 0;
   const up = upOf(it, pick.budget);
   if (it.kind === 'dept' && it.dept) {
     const d = it.dept;
@@ -407,7 +411,8 @@ export function boardQuarter(s: P1State, q: number, m: number): BoardClose | nul
   }
   B.last = res;
   B.goals = {};
-  // 四半期の記録を 0 から
+  // 新しい会議の議題（この四半期の記録・結果から）を作ってから、四半期の記録を 0 から
+  B.agenda = boardAgenda(s, q + 1, m);
   for (const DB of Object.values(s.budget?.depts ?? {})) {
     if (!DB) continue;
     DB.qv = 0;
@@ -418,7 +423,6 @@ export function boardQuarter(s: P1State, q: number, m: number): BoardClose | nul
     DB.qnm = [];
     DB.noRp = undefined;
   }
-  B.agenda = boardAgenda(s, q + 1, m);
   const met = res.filter((x) => x.ok).length;
   if (!res.length && !B.agenda) return null;
   return { q, met, missed: res.length - met, open: B.agenda?.items.length ?? 0 };
@@ -467,6 +471,8 @@ export function otherLine(it: BoardItem): string | null {
   if (o.k === 'rp') return heroLine(it.hero, t(`研究「${o.nm}」に ${o.rp} RP を使いたい`, `I want to spend ${o.rp} RP on “${o.nm}”`));
   return heroLine(it.hero, t(`部長のいない${DEPT[o.dept].name}に、${heroNm(o.hero)}を置きたい`, `I’d like ${heroNm(o.hero)} to head ${DEPT[o.dept].name}, which has no head`));
 }
+/** 目標を上げられるか（来期の見込みが 0 なら、上乗せの選択肢は押せない） */
+export const canRaise = (it: BoardItem) => it.plan.f > 0;
 /** 計画の選択肢の名前 */
 export const planOptText = (k: number) => (k === 0 ? t('承認', 'Approve') : t(`目標 +${Math.round(BOARD.plan[k] * 100)}%`, `Target +${Math.round(BOARD.plan[k] * 100)}%`));
 /** 予算の選択肢の名前（額つき） */

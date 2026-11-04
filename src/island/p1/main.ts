@@ -4885,6 +4885,8 @@ window.setTimeout(() => warmFx(), 3000);
     },
     open: () => openBoard(ctx, boardHooks()),
     agenda: () => boardOf(s).agenda,
+    /** 会議が開かない理由（maybeCard の条件） */
+    why: () => ({ due: boardDue(s), placing: !!placing, menu, pop: !!pop, sheet: sheetOpen(), tour: !!tour, dig: !!s.digRun || digOpen(), meetPing, tut: tutOf(s) }),
     state: () => boardOf(s),
   },
   tick: () => renderAll(),
