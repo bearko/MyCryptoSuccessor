@@ -15,8 +15,9 @@
  * - セーブは s.pol（版 27・段 K2 の枠は版 28）。段 UI7c の s.policy は、全社方針の 1 つ目として読む。
  */
 import { t } from '../../i18n';
-import { DEPT, DEPTS, FX_DOWN, FX_LABEL, POL, POLICIES, POLICY, POLICY_OF, SKILL, TABLET, TABLET_KNOW, type DeptId, type PolFxKind, type PolicyDef, type PolicyId, type PolTheme, type Tier, type ValueKey } from './data';
-import { growthOn, lvOf, tierEntered, type P1State } from './model';
+import { DEPT, DEPTS, FX_DOWN, FX_LABEL, POL, POL_SIDES, POLICIES, POLICY, POLICY_OF, SKILL, TABLET, TABLET_KNOW, type DeptId, type PolFxKind, type PolicyDef, type PolicyId, type PolSide, type PolTheme, type Tier, type ValueKey } from './data';
+import { growthOn, lvOf, tierEntered, type P1State, type Staff } from './model';
+import { deptOfStaff } from './duo';
 import { deptLevel } from './dept';
 import { headOf, quality } from './deleg';
 import { BOARD_OFF, sectorHeads, sectorQ, yearOfBoard, type BoardAgenda } from './board';
@@ -263,27 +264,75 @@ export function polFxOf(s: P1State, p: PolicyDef): { k: PolFxKind; base: number;
   return p.fx.map((f) => ({ k: f.k, base: f.v, v: f.v * m }));
 }
 
+/** 段 K3：方針の副次効果（data.ts の POL_SIDES。無ければ空） */
+export const sidesOf = (p: PolicyDef): PolSide[] => POL_SIDES[p.id]?.side ?? [];
+/** 段 K3：この方針が向いている時期（1 行） */
+export const whenOf = (p: PolicyDef): string => POL_SIDES[p.id]?.when ?? '';
+/**
+ * 方針の組の効き目の合計（DOM なし。polFx のもとと、発表会の As-Is／To-Be の見積もり）。
+ * 主要な効き目は強さ（polPower）を掛け、副次効果はそのまま。mo:<部門> は部門の士気・ev:<種類> はできごとの重み（掛け合わせ）
+ */
+export type PolSums = Partial<Record<PolFxKind, number>> & { mo: Partial<Record<DeptId, number>>; ev: Record<string, number> };
+export function sumsOf(s: P1State, xs: PolicyDef[]): PolSums {
+  const sums: PolSums = { mo: {}, ev: {} };
+  const add = (k: PolFxKind, v: number) => (sums[k] = ((sums[k] as number | undefined) ?? 0) + v);
+  for (const p of xs) {
+    for (const f of polFxOf(s, p)) add(f.k, f.v);
+    for (const x of sidesOf(p)) {
+      if (x.k === 'fx') add(x.fx, x.v);
+      else if (x.k === 'mo') sums.mo[x.d] = (sums.mo[x.d] ?? 0) + x.v;
+      else if (x.k === 'ev') sums.ev[x.ev] = Math.max(POL.evMin, (sums.ev[x.ev] ?? 1) * (1 + x.v));
+    }
+  }
+  return sums;
+}
+
 /** 効き目のキャッシュ（日・方針の版・パネルの数とレベルで作り直す） */
 let epoch = 0;
 /** 方針・部長が変わった（効き目のキャッシュを作り直す） */
 export const polTouch = () => {
   epoch++;
 };
-type FxHit = { day: number; ep: number; ns: number; nst: number; corp: unknown; dept: unknown; nt: number; lv: unknown; sums: Partial<Record<PolFxKind, number>> };
+type FxHit = { day: number; ep: number; ns: number; nst: number; corp: unknown; dept: unknown; nt: number; lv: unknown; sums: PolSums };
 const fxCache = new WeakMap<object, FxHit>();
 const NO_POL: Pick<PolState, 'corp' | 'dept'> = { corp: ['balance'], dept: {} };
 /** 効いているか（チュートリアルのあいだ・止めたときは効かない。部分の写し＝スキルだけの見積もりは 0） */
 const live = (s: Partial<P1State>): s is P1State => !POL_OFF.on && !!s.staff && !!s.flags && Array.isArray(s.reports) && growthOn(s as P1State);
-/** 経営方針の効き目の合計（その種類）。model.ts の fxSum・hr.ts・cs.ts・budget.ts が使う */
-export function polFx(s: Partial<P1State>, k: PolFxKind): number {
-  if (!live(s)) return 0;
+/** いま効いている方針の合計（キャッシュ。効いていなければ null） */
+function liveSums(s: Partial<P1State>): PolSums | null {
+  if (!live(s)) return null;
   const P = s.pol ?? (s.policy ? polOf(s) : NO_POL);
   const hit = fxCache.get(s);
-  if (hit && hit.day === s.day && hit.ep === epoch && hit.ns === s.skills.length && hit.nst === s.staff.length && hit.corp === P.corp && hit.dept === P.dept && hit.nt === (s.tablets ?? []).length && hit.lv === s.skillLv) return hit.sums[k] ?? 0;
-  const sums: Partial<Record<PolFxKind, number>> = {};
-  for (const p of activePolicies(s)) for (const f of polFxOf(s, p)) sums[f.k] = (sums[f.k] ?? 0) + f.v;
+  if (hit && hit.day === s.day && hit.ep === epoch && hit.ns === s.skills.length && hit.nst === s.staff.length && hit.corp === P.corp && hit.dept === P.dept && hit.nt === (s.tablets ?? []).length && hit.lv === s.skillLv) return hit.sums;
+  const sums = sumsOf(s, activePolicies(s));
   fxCache.set(s, { day: s.day, ep: epoch, ns: s.skills.length, nst: s.staff.length, corp: P.corp, dept: P.dept, nt: (s.tablets ?? []).length, lv: s.skillLv, sums });
-  return sums[k] ?? 0;
+  return sums;
+}
+/** 経営方針の効き目の合計（その種類。副次効果の fx も入る）。model.ts の fxSum・hr.ts・cs.ts・budget.ts が使う */
+export function polFx(s: Partial<P1State>, k: PolFxKind): number {
+  return (liveSums(s)?.[k] as number | undefined) ?? 0;
+}
+/** 段 K3：その部門の人の士気の目指す値（副次効果。部門の無い人は 0。hr.ts の moraleParts） */
+export function polMorale(s: Partial<P1State>, d: DeptId | null | undefined): number {
+  if (!d) return 0;
+  return liveSums(s)?.mo[d] ?? 0;
+}
+/** 段 K3：その人の部門（部長として持つ部門 ＋ 持ち場・リーダーの部門。重ならない） */
+export function staffDepts(st: Pick<Staff, 'task' | 'target' | 'heads'>): DeptId[] {
+  const out = [...(st.heads ?? [])];
+  const d = deptOfStaff(st);
+  if (d && !out.includes(d)) out.push(d);
+  return out;
+}
+/** 段 K3：その人の士気の目指す値（副次効果。その人の部門ぶんを足す。hr.ts の moraleParts） */
+export function polStaffMorale(s: Partial<P1State>, st: Pick<Staff, 'task' | 'target' | 'heads'>): number {
+  const S = liveSums(s);
+  if (!S) return 0;
+  return staffDepts(st).reduce((a, d) => a + (S.mo[d] ?? 0), 0);
+}
+/** 段 K3：できごとの起きやすさ（副次効果の重み。1 がふつう。events.ts の eventDue） */
+export function polEvW(s: Partial<P1State>, kind: string): number {
+  return liveSums(s)?.ev[kind] ?? 1;
 }
 
 // ---------------------------------------------------------------- 推奨の重み・提案の傾向
@@ -307,8 +356,24 @@ export function themesOf(s: P1State, d?: DeptId | null): Set<PolTheme> {
   if (dp) for (const x of POLICY_OF[dp].themes) out.add(x);
   return out;
 }
-/** 提案の出やすさ・並びの重み：方針の推す種類なら × (1 + POL.tilt)、ほかは 1 */
-export const tiltOf = (s: P1State, theme: PolTheme | null | undefined, d?: DeptId | null) => (theme && themesOf(s, d).has(theme) ? 1 + POL.tilt : 1);
+/** 段 K3：方針の引き換えで減る提案の種類（副次効果の less。全社方針 ＋ その部門の事業別の方針） */
+export function lessOf(s: P1State, d?: DeptId | null): Set<PolTheme> {
+  const out = new Set<PolTheme>();
+  if (POL_OFF.on) return out;
+  const ids = [...corpOf(s)];
+  const dp = d ? deptPolicyOf(s, d) : null;
+  if (dp) ids.push(dp);
+  for (const id of ids) for (const x of sidesOf(POLICY_OF[id])) if (x.k === 'less') out.add(x.th);
+  return out;
+}
+/** 提案の出やすさ・並びの重み：方針の推す種類なら × (1 + POL.tilt)、引き換えで減る種類なら × (1 − POL.less)（両方なら掛け合わせ）、ほかは 1 */
+export const tiltOf = (s: P1State, theme: PolTheme | null | undefined, d?: DeptId | null) => (theme ? (themesOf(s, d).has(theme) ? 1 + POL.tilt : 1) * (lessOf(s, d).has(theme) ? 1 - POL.less : 1) : 1);
+/** 段 K3：方針の組の提案の重み（発表会の As-Is／To-Be の見積もり。ids の方針の themes と less から） */
+export function tiltOfSet(ids: string[], theme: PolTheme): number {
+  const up = ids.some((id) => POLICY_OF[id]?.themes.includes(theme));
+  const dn = ids.some((id) => POLICY_OF[id] && sidesOf(POLICY_OF[id]).some((x) => x.k === 'less' && x.th === theme));
+  return (up ? 1 + POL.tilt : 1) * (dn ? 1 - POL.less : 1);
+}
 
 // ---------------------------------------------------------------- 経営方針発表会（段 I2 の年初の経営会議）
 

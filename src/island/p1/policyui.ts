@@ -27,14 +27,7 @@ import {
   polFxOf,
   policyName,
   polPower,
-  presCorp,
   presDepts,
-  presDue,
-  presOf,
-  presPickCorp,
-  presPickDept,
-  presRec,
-  recCorp,
   recDept,
   setCorp,
   setDept,
@@ -45,9 +38,6 @@ import {
   slotsOf,
   START_IDS,
 } from './policy';
-import { BOARD_ITEM_LINES, BOARD_SCENES } from './boardui';
-import { yearOfBoard } from './board';
-import { heroLine } from './headtalk';
 import { heroNm, headOf } from './deleg';
 import { after, open, type Ctx } from './screens';
 import { btn, h, recLine } from './ui';
@@ -346,122 +336,4 @@ function modal(ctx: Ctx, title: string, fill: (panel: HTMLElement, close: () => 
   ctx.sfx?.('page');
 }
 
-// ---------------------------------------------------------------- 段 K：経営方針発表会（段 I2 の年初の経営会議に差し込む）
-
-/** 選択肢のボタン（会議の画面の .isl-bm-opt。推奨の札つき） */
-function optBtn(p: PolicyDef, val: string, rec: boolean, on: boolean, click: () => void): HTMLButtonElement {
-  const b = h('button', `isl-bm-opt isl-bm-polopt ${on ? 'is-on' : ''}`);
-  b.type = 'button';
-  b.dataset.policy = p.id;
-  b.append(recLine(label(p), rec), h('small', '', val));
-  b.addEventListener('click', (e) => {
-    e.stopPropagation();
-    click();
-  });
-  return b;
-}
-
-BOARD_SCENES.push({
-  id: 'policy',
-  when: (s, a) => presDue(s, a),
-  run: (ctx, a, panel, next, hooks) => {
-    const s = ctx.s();
-    const n = slotsOf(s);
-    const rec = recCorp(s);
-    let pick = [...presCorp(s, a)];
-    // ① 社長が全社方針を発表する
-    const corpStep = () => {
-      panel.replaceChildren();
-      const box = h('div', 'isl-bm-intro isl-bm-pol');
-      box.append(h('h2', 'isl-bm-title', t(`📜 ${yearOfBoard(a)} 年目の経営方針発表会`, `📜 Year ${yearOfBoard(a)} policy address`)));
-      box.append(h('p', 'isl-bm-lead', t(`まず社長が、今年の全社方針を発表します（${n} 枠まで）。方針は 1 年間効き、部長やヒーローの提案も方針に寄ります。`, `First, announce this year’s company policies (up to ${n}). They last a year and steer proposals.`)));
-      const cnt = h('b', 'isl-bm-polcnt');
-      const opts = h('div', 'isl-bm-opts isl-bm-polopts');
-      const draw = () => {
-        cnt.textContent = t(`選んだ ${pick.length} / ${n}`, `${pick.length} / ${n} chosen`);
-        opts.querySelectorAll<HTMLElement>('.isl-bm-opt').forEach((b) => b.classList.toggle('is-on', pick.includes(b.dataset.policy!)));
-        go.disabled = !pick.length;
-      };
-      for (const p of openPolicies(s, 'corp')) {
-        opts.append(
-          optBtn(p, nowText(s, p), rec.includes(p.id), pick.includes(p.id), () => {
-            if (pick.includes(p.id)) pick = pick.filter((x) => x !== p.id);
-            else if (pick.length < n) pick.push(p.id);
-            else pick = [...pick.slice(1), p.id];
-            hooks.sfx('tap');
-            draw();
-          }),
-        );
-      }
-      const foot = h('div', 'isl-bm-foot');
-      const go = btn(t('📣 発表する', '📣 Announce'), () => {
-        presPickCorp(s, a, pick);
-        ctx.save();
-        hooks.sfx('okay');
-        deptStep();
-      }, 'is-on isl-bm-ok isl-bm-polgo');
-      foot.append(go);
-      box.append(cnt, opts, foot);
-      panel.append(box);
-      draw();
-      hooks.sfx('page');
-    };
-    // ② 部長のいない部門の方針（社長が決める）
-    const deptStep = () => {
-      const ds = presDepts(s).filter((d) => !headOf(s, d));
-      if (!ds.length) return next();
-      panel.replaceChildren();
-      panel.scrollTop = 0;
-      const box = h('div', 'isl-bm-intro isl-bm-pol');
-      box.append(h('h2', 'isl-bm-title', t('📜 部長のいない部門の方針', '📜 Divisions without a head')));
-      box.append(h('p', 'isl-bm-lead', t('部長のいない部門は、社長が事業別の方針を決めます。部長のいる部門は、このあと部長が 1 人ずつ発表します。', 'You set the policy for divisions without a head. Heads will present theirs next.')));
-      for (const d of ds) {
-        const blk = h('div', 'isl-bm-block');
-        blk.append(h('b', 'isl-bm-bt', `${DEPT[d].icon} ${DEPT[d].name}`));
-        const xs = openPolicies(s, 'dept', d);
-        const r = presRec(s, a, d);
-        const opts = h('div', 'isl-bm-opts isl-bm-polopts');
-        const cur = () => presOf(s, a).dept[d] ?? r;
-        for (const p of xs)
-          opts.append(
-            optBtn(p, nowText(s, p), p.id === r, p.id === cur(), () => {
-              presPickDept(s, a, d, p.id);
-              opts.querySelectorAll<HTMLElement>('.isl-bm-opt').forEach((b) => b.classList.toggle('is-on', b.dataset.policy === cur()));
-              hooks.sfx('tap');
-            }),
-          );
-        blk.append(opts);
-        box.append(blk);
-      }
-      const foot = h('div', 'isl-bm-foot');
-      foot.append(btn(t('▶ 部長の発表へ', '▶ On to the heads'), () => {
-        ctx.save();
-        next();
-      }, 'is-on isl-bm-ok isl-bm-polgo'));
-      box.append(foot);
-      panel.append(box);
-    };
-    corpStep();
-  },
-});
-
-BOARD_ITEM_LINES.push((s, it, a) => {
-  if (!it.dept || !presDue(s, a)) return null;
-  const d = it.dept;
-  const xs = openPolicies(s, 'dept', d);
-  if (!xs.length) return null;
-  const r = presRec(s, a, d);
-  if (!r) return null;
-  const rp = POLICY_OF[r];
-  const say = heroLine(it.hero, t(`今年の${DEPT[d].name}は「${rp.name}」でいきます`, `this year ${DEPT[d].name} runs on “${rp.name}”`));
-  const el = h('div', 'isl-bm-opts isl-bm-polopts');
-  const cur = () => presOf(s, a).dept[d] ?? r;
-  for (const p of xs)
-    el.append(
-      optBtn(p, p.id === r ? t(`承認：${nowText(s, p)}`, `Approve: ${nowText(s, p)}`) : t(`別の方針を指示：${nowText(s, p)}`, `Direct instead: ${nowText(s, p)}`), p.id === r, p.id === cur(), () => {
-        presPickDept(s, a, d, p.id);
-        el.querySelectorAll<HTMLElement>('.isl-bm-opt').forEach((b) => b.classList.toggle('is-on', b.dataset.policy === cur()));
-      }),
-    );
-  return { title: t('📜 事業別の方針', '📜 Division policy'), say, note: rp.note, el };
-});
+// 段 K3：経営方針発表会（段 I2 の年初の経営会議）は、カードを机に差し出す場面に替えた（policycardsui.ts）

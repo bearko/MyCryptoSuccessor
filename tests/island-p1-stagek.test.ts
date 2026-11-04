@@ -326,12 +326,14 @@ describe('推奨の重みと提案の傾向', () => {
     expect(weightsOf(s, 'hr').morale).toBeCloseTo((POLICY_OF.profit.w.morale + POLICY_OF.people.w.morale + POLICY_OF.teal.w.morale) / 3);
     expect(weightsOf(s, 'logistics').morale).toBeCloseTo(w.morale);
   });
-  it('方針の推す種類の提案は × (1 + tilt)、ほかは 1。部門の方針は、その部門の提案だけ', () => {
+  it('方針の推す種類の提案は × (1 + tilt)、引き換えで減る種類は × (1 − less)（段 K3）、ほかは 1。部門の方針は、その部門の提案だけ', () => {
     const s = load();
     setCorp(s, ['research'], true);
     expect(themesOf(s).has('rp')).toBe(true);
     expect(tiltOf(s, 'rp')).toBeCloseTo(1 + POL.tilt);
-    expect(tiltOf(s, 'sell')).toBe(1);
+    // 段 K3：研究重視の引き換えで「売る手」は減る（× (1 − less)）。ほかの種類は 1
+    expect(tiltOf(s, 'sell')).toBeCloseTo(1 - POL.less);
+    expect(tiltOf(s, 'flow')).toBe(1);
     gainSkill(s, 'pol_ac');
     setDept(s, 'accounting', 'zeroBased', true);
     expect(tiltOf(s, 'cost', 'accounting')).toBeCloseTo(1 + POL.tilt);
