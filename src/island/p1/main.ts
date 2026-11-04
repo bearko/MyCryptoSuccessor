@@ -4924,6 +4924,8 @@ window.setTimeout(() => warmFx(), 3000);
   },
   /** 段 K（撮影・確かめ用）：方針の画面・研究ノート・発掘の画面の石板の窓 */
   policy: () => openPolicyView(ctx),
+  /** 段 UI7g（撮影スクリプト用）：受け箱（経営企画 → 部長の提案。上に会社の課題の一覧） */
+  props: () => openProps(ctx),
   notesOpen: () => openNotes(ctx),
   tablet: (id: string) => debugTablet(id),
   tick: () => renderAll(),

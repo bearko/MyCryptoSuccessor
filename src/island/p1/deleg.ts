@@ -81,6 +81,7 @@ import {
   unitCost,
   vacantErr,
   wageOf,
+  signFee,
   whatIf,
   wholesaler,
   bottleneck,
@@ -124,6 +125,7 @@ export const headOf = (s: Pick<P1State, 'staff'>, d: DeptId) => s.staff.find((x)
 
 // 役職の決まり（段 UI5b・組織図）：roleCount・canHoldRole・fixRoles・trimForSector は model.ts の 1 か所（ここから使う）
 export { canHoldRole, fixRoles, roleCount } from './model';
+import { flowGain } from './issues';
 import { canHoldRole } from './model';
 /** 事業部長のいる部門 */
 export const headDepts = (s: Pick<P1State, 'staff'>): DeptId[] => DEPTS.map((d) => d.id).filter((d) => headOf(s, d));
@@ -872,7 +874,11 @@ function fromIf(s: P1State, w: StageIf, margin: number, keep: (dept: DeptId | nu
     const lot = findLot(s, m.id);
     if (lot) return { act: { k: 'build', id: m.id, i: lot[0], j: lot[1], dir: lot[2] }, real, unit: 'G', cost: m.cost, units: w.units, stage: w.stage };
   }
-  if (m.kind === 'person' && m.hire && keep(null, 'hire')) return { act: { k: 'hire', hero: m.hero, task: m.task, target: m.target }, real: real - wageOf(m.hero), unit: 'G', cost: 0, units: w.units, stage: w.stage };
+  // 段 UI7g：雇う手は、会社の流れ（4 段のいちばん少ない数）の増えで見込む（ボトルネックでない段に人を足しても 0）・契約金を費用に
+  if (m.kind === 'person' && m.hire && keep(null, 'hire')) {
+    const u = flowGain(s, w.stage, w.units);
+    return { act: { k: 'hire', hero: m.hero, task: m.task, target: m.target }, real: u * margin - wageOf(m.hero), unit: 'G', cost: signFee(s, m.hero), units: u, stage: w.stage };
+  }
   return null;
 }
 /** 建てる場所（工房から近い順に、道路に面した空き地） */

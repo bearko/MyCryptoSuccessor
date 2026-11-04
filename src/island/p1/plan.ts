@@ -50,6 +50,9 @@ import {
   poolParts,
   myWarehouses,
   stockAll,
+  signFee,
+  wageMul,
+  wageOf,
   type P1State,
   type Stage,
 } from './model';
@@ -339,7 +342,9 @@ export function planCost(s: P1State, p: Plan): PlanCost {
         } else if (a.k === 'build') {
           add(t(`${nameOfB(a.id)}の建築`, `Build ${nameOfB(a.id)}`), { money: P1B[a.id]?.cost ?? 0, days: P1B[a.id]?.days ?? 0, ...(P1B[a.id]?.upkeep ? { monthly: P1B[a.id].upkeep } : {}) });
         } else if (a.k === 'hire') {
-          add(t(`${heroNm(a.hero)}を雇う`, `Hire ${heroNm(a.hero)}`), { monthly: 0 });
+          // 段 UI7g：契約金（1 回）と月給（毎月）。前は 0 だった（採用で導入費用 0・毎月の利益 ±0 に見えた）
+          add(t(`${heroNm(a.hero)}の契約金`, `${heroNm(a.hero)}: signing fee`), { money: signFee(s, a.hero) });
+          add(t(`${heroNm(a.hero)}の月給`, `${heroNm(a.hero)}: salary`), { monthly: Math.round(wageOf(a.hero) * wageMul(s)) });
         } else if (a.k === 'assign') {
           add(t(`持ち場の移動：${heroNm(a.hero)}`, `Move ${heroNm(a.hero)}`), {});
         } else if (a.k === 'ad') {

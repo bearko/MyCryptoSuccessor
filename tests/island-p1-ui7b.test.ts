@@ -193,7 +193,9 @@ describe('提案書の中身（briefOf）', () => {
     expect(recOf(base).rec).toBe('ok');
     expect(recOf({ ...base, block: ['資金不足'] }).rec).toBe('skip');
     expect(recOf({ ...base, co: { ...base.co, left: -1 } }).rec).toBe('skip');
-    expect(recOf({ ...base, vals: { ...vals, value: -1 } }).rec).toBe('skip');
+    // 段 UI7g：方針の価値がマイナスでも、長期が損でなければ見送りにしない（損が大きいときだけ）
+    expect(recOf({ ...base, vals: { ...vals, value: -1 } }).rec).toBe('ok');
+    expect(recOf({ ...base, vals: { ...vals, value: -1, list: [{ key: 'long' as const, now: 0, after: -500, d: -500, why: '' }] } }).rec).toBe('skip');
   });
 });
 

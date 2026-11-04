@@ -15540,7 +15540,8 @@ button.isl-dband-lead.is-on {
 }
 .isl-sl-segp.is-left,
 .isl-sl-segkey.is-left i {
-  background: #2a3a5e;
+  /* 段 UI7g：残りは緑（前は背景とほぼ同じ色で見えなかった） */
+  background: #3fbf6c;
 }
 .isl-sl-segp.is-left2,
 .isl-sl-segkey.is-left2 i {
@@ -15813,4 +15814,355 @@ button.isl-dband-lead.is-on {
 }
 .isl-sls-more .isl-prop-effd small {
   display: block;
+}
+
+/* ---------------------------------------------------------------- 段 UI7g：課題の札・判断の材料・影響の数字・予算の縦の積み上げ棒・ⓘ の吹き出し・課題の一覧 */
+.isl-sl-issue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  padding: 6px 8px;
+  border: 2px solid #f2b544;
+  border-radius: 8px;
+  background: #2d2a1c;
+}
+.isl-sl-issue.is-miss {
+  border-color: #8f9bb8;
+  background: #22325a;
+}
+.isl-sl-ilab {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f1626;
+  background: #f2b544;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.isl-sl-issue.is-miss .isl-sl-ilab {
+  background: #b8c0d4;
+}
+.isl-sl-ichip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+}
+.isl-sl-ichip small {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f2b544;
+}
+.isl-sl-imiss {
+  font-size: 12px;
+  color: #f0a0a0;
+}
+.isl-sl-stance {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.isl-sl-stance li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #dfe4f0;
+}
+.isl-sl-stag2 {
+  flex: none;
+  min-width: 3em;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  border-radius: 4px;
+  padding: 0 4px;
+  color: #0f1626;
+}
+.isl-sl-stance .is-bold .isl-sl-stag2 {
+  background: #f2b544;
+}
+.isl-sl-stance .is-safe .isl-sl-stag2 {
+  background: #9fc7f0;
+}
+.isl-sl-sval {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.isl-sl-sval.is-good {
+  color: #6fd08c;
+}
+.isl-sl-sval.is-bad {
+  color: #f07070;
+}
+.isl-sl-sval.is-even {
+  color: #b8c0d4;
+}
+/* 予算の縦の積み上げ棒（使った＝濃い灰・使う見込み＝薄い灰・この施策＝赤・残り＝緑）。背景に溶けないよう明るい枠と溝 */
+.isl-st-pair {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+@media (min-width: 600px) {
+  .isl-st-pair {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.isl-st {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 2px solid #0f1626;
+  border-radius: 8px;
+  background: #22325a;
+  min-width: 0;
+}
+.isl-st-title {
+  font-size: 12px;
+  color: #f4f1ea;
+}
+.isl-st-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+.isl-st-bar {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 120px;
+  border: 2px solid #dfe4f0;
+  border-radius: 4px;
+  background: #0b1222;
+  overflow: hidden;
+}
+.isl-st-seg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  box-shadow: inset 0 1px 0 #0b1222;
+}
+.isl-st-seg.is-used,
+.isl-st-key.is-used i {
+  background: #5b6475;
+}
+.isl-st-seg.is-exp,
+.isl-st-key.is-exp i {
+  background: #c3c9d4;
+}
+.isl-st-seg.is-delta,
+.isl-st-key.is-delta i {
+  background: #e5484d;
+}
+.isl-st-seg.is-left,
+.isl-st-key.is-left i {
+  background: #3fbf6c;
+}
+.isl-st-key.is-over i {
+  background: repeating-linear-gradient(45deg, #e5484d 0 3px, #5a1a20 3px 6px);
+}
+.isl-st-cap {
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  height: 0;
+  border-top: 2px solid #f4f1ea;
+}
+.isl-st-line {
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  height: 0;
+  border-top: 3px dashed #fff;
+  box-shadow: 0 0 0 1px #0b1222;
+}
+.isl-st-seg.is-delta,
+.isl-st-line {
+  animation: isl-st-blink 1.6s ease-in-out infinite;
+}
+@keyframes isl-st-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .isl-st-seg.is-delta,
+  .isl-st-line {
+    animation: none;
+  }
+}
+.isl-st-keys {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.isl-st-key {
+  display: grid;
+  grid-template-columns: 12px auto 1fr;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #dfe4f0;
+}
+.isl-st-key i {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid #0b1222;
+}
+.isl-st-key b {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #fff;
+}
+.isl-st-key.is-delta b {
+  color: #ff8a8e;
+}
+.isl-st-total {
+  font-size: 12px;
+  color: #b8c0d4;
+}
+/* ⓘ の吹き出し */
+.isl-tip {
+  position: relative;
+  display: inline-block;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.isl-tip-btn {
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 15px;
+  line-height: 1;
+  color: #9fc7f0;
+  cursor: pointer;
+}
+.isl-sls-more .isl-tip-btn,
+.isl-cardbox .isl-tip-btn {
+  color: #2a6fb0;
+}
+.isl-tip-pop {
+  display: none;
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: -8px;
+  width: min(280px, 78vw);
+  padding: 8px 10px;
+  border: 2px solid #0f1626;
+  border-radius: 8px;
+  background: #fffaf0;
+  color: #2a2016;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.55;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 4px 0 #0f1626;
+}
+.isl-tip.is-left .isl-tip-pop {
+  left: auto;
+  right: -8px;
+}
+.isl-tip-line {
+  display: block;
+}
+.isl-tip-line + .isl-tip-line {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed #c9b48c;
+}
+.isl-tip.is-open .isl-tip-pop,
+.isl-tip:focus-within .isl-tip-pop {
+  display: block;
+}
+@media (hover: hover) {
+  .isl-tip:hover .isl-tip-pop {
+    display: block;
+  }
+}
+/* カード・受け箱の課題の札・課題の一覧 */
+.isl-cardm-iss,
+.isl-cardbox-iss {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 13px;
+  font-weight: 800;
+  color: #6a4210;
+  background: #ffe7a8;
+  border: 2px solid #e2b04a;
+  border-radius: 6px;
+  padding: 1px 8px;
+}
+.isl-cardbox-iss {
+  font-size: 12px;
+  margin-top: 2px;
+}
+.isl-iss {
+  margin-bottom: 10px;
+}
+.isl-iss h3 {
+  margin: 0 0 6px;
+}
+.isl-iss-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.isl-iss-row {
+  padding: 4px 8px;
+  border: 2px solid #e2d2ad;
+  border-radius: 6px;
+  background: #fffaf0;
+}
+.isl-iss-row.is-top {
+  border-color: #e2b04a;
+  background: #fff1c9;
+}
+.isl-iss-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.isl-iss-pri {
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  background: #8a5a1c;
+  border-radius: 4px;
+  padding: 0 6px;
+}
+.isl-iss-note {
+  display: block;
+  font-size: 12px;
+  color: #6b5a40;
 }

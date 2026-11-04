@@ -112,6 +112,7 @@ import {
   setCraftPlan,
   setAutoCraft,
   wageOf,
+  signFee,
   heroStats,
   type P1State,
   type Report,
@@ -1532,8 +1533,14 @@ export function openHire(ctx: Ctx, opts: { charisma?: boolean } = {}) {
         }
         const r = h('div', 'isl-row');
         r.append(
-          btn(t(`雇う（月給 ${money(wageOf(id))}）`, `Hire (${money(wageOf(id))}/mo)`), () => {
-            hire(s, id);
+          // 段 UI7g：契約金（雇うときに 1 回）と月給
+          btn(signFee(s, id) > 0 ? t(`雇う（契約金 ${money(signFee(s, id))}・月給 ${money(wageOf(id))}）`, `Hire (${money(signFee(s, id))} + ${money(wageOf(id))}/mo)`) : t(`雇う（月給 ${money(wageOf(id))}）`, `Hire (${money(wageOf(id))}/mo)`), () => {
+            const e = hire(s, id);
+            if (e === 'money') {
+              ctx.sfx?.('error');
+              ctx.toast(t(`契約金 ${money(signFee(s, id))} が足りません`, `Not enough for the ${money(signFee(s, id))} signing fee`));
+              return;
+            }
             ctx.toast(t(`${heroName(id)}が仲間になりました`, `${heroName(id)} joined`));
             after(ctx);
           }, 'is-on'),
