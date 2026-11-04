@@ -648,6 +648,12 @@ const ok = (r: unknown) => r === null || r === true || (typeof r === 'object' &&
  */
 /** v25（段 UI1）：通常の方針がヒーローからの提案のカードを受ける（比べるときだけ止める） */
 export const SIM_CARDS = { on: true };
+/**
+ * v31（段 UI5d）：倉庫が 85% を超えたら、建てる前にいまある倉庫を強化するか（倉庫の提案の推奨と同じ手）。
+ * 既定はオフ（以前どおり 2 棟まで建て、2 棟とも満杯なら強化）：オンにすると通常の合計 −5.5%・Uncommon −10%、100% の Uncommon +8%
+ * （3 シード）と目安（合計 ±3%・ランクごと ±5%）を超えたため。比べるときは SIM_RACK_FIRST=1
+ */
+const SIM_RACK_FIRST = process.env.SIM_RACK_FIRST === '1';
 export const SIM_DELEG: Record<PolicyId, { on: boolean; lead: Partial<Record<DeptId, DutyId>> }> = {
   rta: { on: false, lead: {} },
   normal: { on: true, lead: { logistics: 'shelf', hr: 'rest', rnd: 'dig', marketing: 'ads', sales: 'vacant', support: 'reply' } },
@@ -987,8 +993,16 @@ export function policy(s: P1State, c: Ctx): Action[] {
   }
 
   // ---- 倉庫：置き場所が 85% を超えたら（2 棟まで）
+  // v31（段 UI5d）：SIM_RACK_FIRST なら、建てる前にいまある倉庫を強化する（倉庫の提案の推奨と同じ。1 か月に 1 段。強化しきってから 2 棟目）
   const whs = s.buildings.filter((b) => b.owner === 'me' && b.id === 'warehouse').length;
-  if (poolUsed(s) > poolCap(s) * 0.85 && whs < 2 && !s.buildings.some((b) => b.owner === 'me' && b.id === 'warehouse' && b.left > 0)) {
+  const rackAt = SIM_RACK_FIRST ? s.buildings.filter((b) => b.owner === 'me' && b.id === 'warehouse' && b.left <= 0 && investCost(b, 'rack') != null).sort((p, q) => invLv(p, 'rack') - invLv(q, 'rack'))[0] : undefined;
+  if (poolUsed(s) > poolCap(s) * 0.85 && rackAt) {
+    const cost = investCost(rackAt, 'rack')!;
+    if (budget > cost + reserve) {
+      spend(cost);
+      acts.push({ kind: 'invest', run: () => invest(s, rackAt.uid, 'rack') });
+    }
+  } else if (poolUsed(s) > poolCap(s) * 0.85 && whs < 2 && !s.buildings.some((b) => b.owner === 'me' && b.id === 'warehouse' && b.left > 0)) {
     const lot = pickLot(s, 'warehouse', false);
     if (lot && budget > P1B.warehouse.cost + reserve) {
       spend(P1B.warehouse.cost);

@@ -1655,8 +1655,21 @@ export const storageCap = (b: PBuilding, s?: P1State) => SHOP.storageCap + 20 * 
 // ---------------------------------------------------------------- 保管（工房の物置と倉庫）
 
 export const myWarehouses = (s: P1State) => s.buildings.filter((b) => b.owner === 'me' && b.id === 'warehouse' && b.left <= 0);
-/** 素材と、お店へ運ぶ前の商品を置ける数の合計 */
-export const poolCap = (s: P1State) => STORE.base + 40 * invLv(wsAny(s), 'stockroom') + Math.round(20 * lvMul(s, 'inventory')) + myWarehouses(s).reduce((a, w) => a + STORE.warehouse + 100 * invLv(w, 'rack'), 0);
+/** 段 UI5d：倉庫・物流拠点 1 つの置き場所（強化の段を含む。ほかの建物は 0） */
+export function roomOf(b: PBuilding): number {
+  const kind = P1B[b.id]?.kind;
+  if (kind === 'warehouse') return STORE.warehouse + STORE.rack * invLv(b, 'rack');
+  if (kind === 'depot') return STORE.depot + STORE.dock * invLv(b, 'dock');
+  return 0;
+}
+/** 素材と、お店へ運ぶ前の商品を置ける数の合計（工房の物置・倉庫・物流拠点） */
+export const poolCap = (s: P1State) => STORE.base + 40 * invLv(wsAny(s), 'stockroom') + Math.round(20 * lvMul(s, 'inventory')) + [...myWarehouses(s), ...myDepots(s)].reduce((a, w) => a + roomOf(w), 0);
+/** 段 UI5d：置き場所の内訳（工房の物置・倉庫・物流拠点）。表示用 */
+export function poolParts(s: P1State): { base: number; warehouse: number; depot: number } {
+  const wh = myWarehouses(s).reduce((a, w) => a + roomOf(w), 0);
+  const dp = myDepots(s).reduce((a, w) => a + roomOf(w), 0);
+  return { base: poolCap(s) - wh - dp, warehouse: wh, depot: dp };
+}
 const sum = (o: Partial<Record<string, number>>) => Object.values(o).reduce<number>((a, n) => a + (n ?? 0), 0);
 /** いま置いている数（買い付けて運んでいる素材も含む） */
 export const poolUsed = (s: P1State) => sum(s.mats) + sum(s.stock) + (s.buyTrip ? sum(s.buyTrip.cargo) : 0) + (s.orders ?? []).reduce((a, o) => a + o.qty, 0);
@@ -2687,9 +2700,12 @@ export function syncShelves(s: P1State, ready = false): number {
     const sh = s.shops[b.uid];
     if (!sh || !sh.shelves.length) continue;
     const cap = sh.shelves.length;
+    // 段 UI5d：棚が 2 段以上のお店は、売りさばきでも主力商品（作っているもの）を棚に残す（在庫品は残りの棚へ）。棚が 1 段なら在庫品が主力の代わりに並ぶ
+    const keepMain = sh.clear != null && cap >= 2 ? [sh.main, sh.shelves[0]].find((x): x is Sku => !!x && made.includes(x)) ?? null : null;
     const score = (x: Sku): number => {
       if (unsellableHere(s, skuParts(x)[0])) return 0;
       const have = stockFor(s, b.uid, x) > 0;
+      if (x === keepMain) return 5;
       if (sh.clear != null && steady && have && !steady.includes(x)) return 4;
       // 作っている商品は、いったん並んだら在庫が切れても棚に残す（運ぶ便が「並んでいる商品」を見て出るので、外すと 1 日遅れる）
       if (made.includes(x)) return have || ready || x === sh.main || sh.shelves.includes(x) ? 3 : 0;
@@ -5608,7 +5624,7 @@ export function whatIf(s: P1State, stage: Stage): StageIf[] {
   // 設備投資：その段に効く建物ごとに、段がいちばん低いものの次の段（作業台は、増えた台に人を置く）
   for (const x of Object.values(INVEST)) {
     if (x.id === 'shelves') continue;
-    const bs = (x.kind === 'workshop' ? [myWorkshop(s)] : x.kind === 'shop' ? myShops(s) : myWarehouses(s)).filter((b): b is PBuilding => !!b && investCost(b, x.id) != null);
+    const bs = (x.kind === 'workshop' ? [myWorkshop(s)] : x.kind === 'shop' ? myShops(s) : x.kind === 'warehouse' ? myWarehouses(s) : x.kind === 'depot' ? myDepots(s) : []).filter((b): b is PBuilding => !!b && investCost(b, x.id) != null);
     const b = bs.sort((p, q) => invLv(p, x.id) - invLv(q, x.id))[0];
     if (!b) continue;
     tryMove({ kind: 'invest', id: x.id, uid: b.uid, cost: investCost(b, x.id)! }, (c) => {

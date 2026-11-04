@@ -1105,7 +1105,7 @@ function kindNote(b: (typeof P1_BUILDINGS)[number]): string {
     case 'warehouse':
       return t(`置き場所 +${STORE.warehouse}`, `Storage +${STORE.warehouse}`);
     case 'depot':
-      return t('遠いお店への便が速くなる', 'Faster runs to far shops');
+      return t(`遠いお店への便が速くなる・置き場所 +${STORE.depot}`, `Faster runs to far shops · storage +${STORE.depot}`);
     case 'museum':
       return t('遺物を飾ると、毎月お客さんが来る（復興した土地にだけ・会社で 1 つ）', 'Display relics for monthly visitors (revived land only · one per company)');
     default:

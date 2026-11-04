@@ -10,11 +10,13 @@ import {
   actName,
   approve,
   bandText,
-  candidatesFor,
   dutyLine,
   headDepts,
   headLeft,
   headOf,
+  othersCount,
+  pickBest,
+  pickList,
   heroNm,
   hold,
   leaderLeft,
@@ -31,6 +33,7 @@ import {
   sectorHeadOk,
   setHead,
   setLeader,
+  type PickRole,
   type Proposal,
   type Role,
 } from './deleg';
@@ -61,30 +64,46 @@ function qBar(q: number): HTMLElement {
   wrap.append(bar(q, q >= 0.9 ? 'var(--isl-good)' : q >= 0.8 ? 'var(--isl-gold)' : 'var(--isl-warn, #f2b544)'), h('b', '', qText(q)));
   return wrap;
 }
+/** 段 UI7a：引き出しの説明の文（役ごと）。部長は持ち場の仕事と兼ねる・リーダーは選ぶと持ち場の仕事から外れる */
+export function pickNote(dept: DeptId, want: PickRole): string {
+  const base = t(`数字は「出来」（手でやると 100%）。${DEPT[dept].name}に向く能力値（${deptAptName(dept)}）・Lv・${DEPT[dept].name}のパッシブで上がります。`, `Numbers are quality (by hand = 100%). It rises with ${deptAptName(dept)}, level and ${DEPT[dept].name} passives. `);
+  return want.kind === 'head'
+    ? base + t('持ち場の仕事（製造・調達・バイトなど）はそのまま、部長と兼ねられます。ほかの部長・セクター長とは兼ねられません。', 'Their current job (crafting, buying, part-time…) stays — a head can do both. They can’t also head another division or sector.')
+    : base + t('持ち場の仕事の人を選ぶと、その仕事から外れて、リーダーに専念します。', 'Picking someone with a job moves them off it to lead full-time.');
+}
 /**
  * 任命の候補の引き出し：出来の高い順（向く能力値・Lv・パッシブで）。いまの担当・役目は札で。
  * 段 UI5b：組織図からも使う（読みの確かさ ★ を添える。onClear があれば「外す（自分に戻す）」）
+ * 段 UI7a：want（部長／リーダー）で見分ける。灰色は、ほかの部長・リーダー・セクター長だけ（初めは隠す。チェックボックスで出す）。
+ * 持ち場の仕事の人は灰色にしない。おすすめは出している中の選べる人から
  */
-export function pickFor(ctx: Ctx, dept: DeptId, title: string, current: number | null, onPick: (hero: number) => void, onClear?: () => void) {
+export function pickFor(ctx: Ctx, want: PickRole, title: string, current: number | null, onPick: (hero: number) => void, onClear?: () => void) {
   const s = ctx.s();
-  const list = candidatesFor(s, dept);
-  const best = list.find((x) => !x.st.resting)?.st.hero;
-  drawer(
-    ctx.root,
-    title,
-    t(`数字は「出来」（手でやると 100%）。${DEPT[dept].name}に向く能力値（${deptAptName(dept)}）・Lv・${DEPT[dept].name}のパッシブで上がります。ほかの仕事・役目の人を選ぶと、そこから外れます。`, `Numbers are quality (by hand = 100%). It rises with ${deptAptName(dept)}, level and ${DEPT[dept].name} passives. Picking someone with another job moves them here.`),
-    (body, close) => {
-      if (onClear && current != null)
-        body.append(
-          btn(t('外す（自分に戻す）', 'Remove (back to you)'), () => {
-            close();
-            onClear();
-          }, 'isl-pick-clear'),
-        );
-      const grid = h('div', 'isl-pick-grid');
-      for (const { st, q } of list) {
-        const card = h('button', `isl-hero-pick ${st.hero === current ? 'is-on' : ''} ${st.task != null && st.hero !== current ? 'is-grey' : ''}`);
+  const dept = want.kind === 'head' ? want.dept : DUTY[want.duty].dept;
+  let showOthers = false;
+  drawer(ctx.root, title, pickNote(dept, want), (body, close) => {
+    if (onClear && current != null)
+      body.append(
+        btn(t('外す（自分に戻す）', 'Remove (back to you)'), () => {
+          close();
+          onClear();
+        }, 'isl-pick-clear'),
+      );
+    const others = othersCount(s, want, current);
+    const fl = h('label', 'isl-make-filter isl-pick-others');
+    const cb = h('input');
+    cb.type = 'checkbox';
+    cb.checked = showOthers;
+    fl.append(cb, h('span', '', t(`ほかの部長・リーダー・セクター長も表示（${others} 人）`, `Show other heads, leaders and sector heads (${others})`)));
+    const grid = h('div', 'isl-pick-grid');
+    const render = () => {
+      grid.replaceChildren();
+      const list = pickList(s, want, current, showOthers);
+      const best = pickBest(list);
+      for (const { st, q, grey } of list) {
+        const card = h('button', `isl-hero-pick ${st.hero === current ? 'is-on' : ''} ${grey ? 'is-grey' : ''}`);
         card.type = 'button';
+        card.dataset.hero = String(st.hero);
         const lv = h('div', 'isl-row');
         lv.append(rarityBadge(st.rarity ?? 'C'), h('small', '', `Lv ${st.level ?? 1}`));
         const sn = starOf(q, st.level ?? 1);
@@ -94,7 +113,9 @@ export function pickFor(ctx: Ctx, dept: DeptId, title: string, current: number |
         if (ft) card.append(ft);
         const r = roleOf(st);
         if (r) card.append(roleBadge(r));
-        card.append(h('small', st.task == null ? 'isl-good isl-pick-job' : 'isl-dim isl-pick-job', st.hero === current ? t('いまの担当', 'Current') : jobLabel(s, st)));
+        card.append(h('small', st.task == null && !grey ? 'isl-good isl-pick-job' : 'isl-dim isl-pick-job', st.hero === current ? t('いまの担当', 'Current') : jobLabel(s, st)));
+        // 段 UI7a：リーダーは持ち場の仕事と兼ねない（選ぶと外れる）。部長は兼ねる
+        if (want.kind === 'leader' && !grey && st.hero !== current && st.task != null && st.task !== 'lead') card.append(h('small', 'isl-warn isl-pick-move', t('選ぶと、この仕事から外れます', 'Leaves this job if picked')));
         if (st.hero === best) card.append(h('span', 'isl-best', t('マインちゃんのおすすめ', 'Mine-chan’s pick')));
         card.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -105,9 +126,14 @@ export function pickFor(ctx: Ctx, dept: DeptId, title: string, current: number |
         });
         grid.append(card);
       }
-      body.append(grid);
-    },
-  );
+    };
+    cb.addEventListener('change', () => {
+      showOthers = cb.checked;
+      render();
+    });
+    render();
+    body.append(fl, grid);
+  });
 }
 
 /** 段 UI6：初めて部長を任命するとき（候補を選ぶ前）のマインちゃんの一言。main.ts が first を結ぶ（一言のあとに go で候補を出す） */
@@ -120,7 +146,7 @@ export function pickHead(ctx: Ctx, dept: DeptId, current: number | null, onPick?
   const s = ctx.s();
   const d = DEPT[dept];
   const pick = onPick ?? ((hero: number) => done(ctx, setHead(s, dept, hero), t(`${heroNm(hero)}を${d.name}部長にしました！`, `${heroNm(hero)} now heads ${d.name}!`)));
-  const go = () => pickFor(ctx, dept, t(`${d.name}部長`, `${d.name} head`), current, pick, onClear);
+  const go = () => pickFor(ctx, { kind: 'head', dept }, t(`${d.name}部長`, `${d.name} head`), current, pick, onClear);
   if (!s.flags.headPick && current == null && !headDepts(s).length && headHooks.first) {
     s.flags.headPick = true;
     ctx.save();
@@ -160,7 +186,7 @@ export function openDeleg(ctx: Ctx, dept: DeptId) {
       const row = h('div', 'isl-row');
       row.append(
         btn(t('提案を見る', 'See proposals'), () => openProps(ctx), 'is-on'),
-        btn(t('替える', 'Change'), () => pickFor(ctx, dept, t(`${d.name}部長`, `${d.name} head`), H.hero, (hero) => done(ctx, setHead(s, dept, hero), t(`${heroNm(hero)}を${d.name}部長にしました`, `${heroNm(hero)} now heads ${d.name}`)))),
+        btn(t('替える', 'Change'), () => pickHead(ctx, dept, H.hero, (hero) => done(ctx, setHead(s, dept, hero), t(`${heroNm(hero)}を${d.name}部長にしました`, `${heroNm(hero)} now heads ${d.name}`)))),
         btn(t('外す（手に戻す）', 'Dismiss (back to you)'), () => done(ctx, setHead(s, dept, null), t('部長を外しました。この部門は手で回します', 'Head dismissed. You run this department by hand'))),
       );
       hc.append(row);
@@ -215,7 +241,7 @@ function dutyCard(ctx: Ctx, s: P1State, dept: DeptId, id: DutyId, locked: boolea
   if (r && stat) c.append(h('small', 'isl-dl-stat', t(`今月：${dutyLine({ id, hero: r.st.hero, by: r.by, q: r.q, acts: stat.acts, miss: stat.miss, n: stat.n })}`, `This month: ${dutyLine({ id, hero: r.st.hero, by: r.by, q: r.q, acts: stat.acts, miss: stat.miss, n: stat.n })}`)));
   if (!locked) {
     const row = h('div', 'isl-row');
-    const pick = () => pickFor(ctx, dept, t(`リーダー：${def.name}`, `Leader: ${def.name}`), L?.hero ?? null, (hero) => done(ctx, setLeader(s, id, hero), t(`${heroNm(hero)}をリーダー（${def.name}）にしました！`, `${heroNm(hero)} now leads ${def.name}!`)));
+    const pick = () => pickFor(ctx, { kind: 'leader', duty: id }, t(`リーダー：${def.name}`, `Leader: ${def.name}`), L?.hero ?? null, (hero) => done(ctx, setLeader(s, id, hero), t(`${heroNm(hero)}をリーダー（${def.name}）にしました！`, `${heroNm(hero)} now leads ${def.name}!`)));
     if (L) row.append(btn(t('替える', 'Change'), pick), btn(t('外す（手に戻す）', 'Dismiss (back to you)'), () => done(ctx, setLeader(s, id, null), t(`${def.name}を手に戻しました`, `${def.name} is back in your hands`))));
     else row.append(btn(t('＋ チームリーダーを置く', '+ Place a team leader'), pick, 'is-on isl-dl-add'));
     c.append(row);

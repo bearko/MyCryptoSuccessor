@@ -449,7 +449,7 @@ export function askText(s: P1State, d: DeptId, a: BudgetAsk): string {
   const B = deptBudget(s, d);
   switch (a.why) {
     case 'over':
-      return t(`次の施策に ${g(a.cost ?? 0)} 要るが、今月の予算の残りは ${g(restOf(s, d))}。予算を増やしてほしい`, `The next move needs ${g(a.cost ?? 0)}, but only ${g(restOf(s, d))} is left. Please raise the budget`);
+      return t(`次の施策に予算から ${g(a.cost ?? 0)} 要るが、今月の予算の残りは ${g(restOf(s, d))}。予算を増やしてほしい`, `The next move needs ${g(a.cost ?? 0)} from the budget, but only ${g(restOf(s, d))} is left. Please raise the budget`);
     case 'spent':
       return t(`今月の予算 ${g(amountOf(s, d))} を使い切った。打てる手がまだある`, `This month’s ${g(amountOf(s, d))} is spent, and there is more to do`);
     case 'labor':

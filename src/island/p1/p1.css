@@ -13727,6 +13727,16 @@ button.isl-dband-lead.is-on {
   font-size: 12px;
   letter-spacing: 1px;
 }
+/* 段 UI7a：任命の引き出しの「ほかの部長・リーダー・セクター長も表示」と、リーダーを選ぶと持ち場から外れる人の 1 行 */
+.isl-make-filter.isl-pick-others {
+  display: flex;
+  margin: 0 0 8px;
+}
+.isl-pick-move {
+  font-size: 11px;
+  text-align: center;
+  color: var(--isl-warn, #f2b544);
+}
 
 /* ---------------------------------------------------------------- 段 UI5a：担当者からの提案書（proposalui.ts） */
 .isl-modal.isl-prop > .isl-prop-panel {
@@ -14186,4 +14196,43 @@ button.isl-dband-lead.is-on {
 }
 .isl-ext-spare {
   display: inline-block;
+}
+
+/* ---------------------------------------------------------------- 段 UI5d：推奨の札・棚が 1 段のお店の 3 択 */
+/* 推奨の札（提案のカード・提案書・3 択の窓・店長の指示の選択肢の 1 行目の頭。色だけでなく字で示す） */
+.isl-rec-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: #c4521b;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 18px;
+  letter-spacing: 0.04em;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
+.isl-ht-opt .isl-rec-tag {
+  vertical-align: 1px;
+}
+.isl-gate-top {
+  font-size: 14px;
+}
+.isl-gate .isl-chip.is-main {
+  box-shadow: inset 0 0 0 2px var(--isl-gold);
+}
+.isl-gate-opt:disabled {
+  cursor: default;
+  background: #26324d;
+}
+.isl-gate-opt:disabled b,
+.isl-gate-opt:disabled small {
+  color: var(--isl-dim);
+}
+.isl-gate-opt .isl-gate-why,
+.isl-gate-opt:disabled .isl-gate-why {
+  color: var(--isl-bad);
+  font-size: 13px;
 }
