@@ -1602,17 +1602,20 @@ function core(s: P1State, c: Card, pick?: number): string {
     case 'hire':
       // 段 UI7g：ボトルネックの段の人の手（販売なら店員・従業員）。課題の定義から言う（古い受け箱のカードで、もうボトルネックでない段なら前の言い方）
       if (i.stage !== bottleneck(stageCaps(s))) return t(`[[${STAGE_NM[i.stage]()}]]の担当がいなくて、手が足りない。雇える[[候補が ${i.n} 人]]来ている`, `nobody covers [[${STAGE_NM[i.stage]()}]]. [[${i.n} candidates]] are ready to hire`);
+      // 段 UI9：課題の定義（制約の種類・放置したときの影響）から言う。候補の人数は課題ではないので言わない
+      const L = c.issues?.find((x) => x.key === i.stage);
+      const lossTxt = L ? t(`[[${L.loss}]]。`, `[[${L.loss}]]. `) : '';
       return i.stage === 'sell'
-        ? t(`ボトルネックは[[${STAGE_NM[i.stage]()}]]。お店の人の手を厚くすれば売れる数が伸びる`, `[[${STAGE_NM[i.stage]()}]] is the bottleneck; more hands in the shops lift sales`)
-        : t(`ボトルネックは[[${STAGE_NM[i.stage]()}]]。ここに人を置けば流れが太くなる（雇える[[候補 ${i.n} 人]]）`, `[[${STAGE_NM[i.stage]()}]] is the bottleneck; staffing it widens the flow ([[${i.n} candidates]])`);
+        ? t(`ボトルネックは[[${STAGE_NM[i.stage]()}]]（制約：人員）。${lossTxt}お店の人員を増やせば処理量が伸びる`, `[[${STAGE_NM[i.stage]()}]] is the bottleneck (constraint: staffing). ${lossTxt}More shop staff lifts throughput`)
+        : t(`ボトルネックは[[${STAGE_NM[i.stage]()}]]（制約：人員）。${lossTxt}ここに人員を置けば処理量が伸びる`, `[[${STAGE_NM[i.stage]()}]] is the bottleneck (constraint: staffing). ${lossTxt}Staffing it lifts throughput`);
     case 'head': {
       const p = s.deleg?.inbox.find((x) => x.id === c.pid);
       if (!p) return t('打てる手がある', 'there is a move to make');
       switch (p.unit) {
         case 'G':
-          return p.stage ? t(`[[${STAGE_NM[p.stage]()}]]の流れが月[[ +${p.units ?? 0} 個]]ほど太くなる`, `[[${STAGE_NM[p.stage]()}]] would gain about [[+${p.units ?? 0}]] a month`) : t('流れが太くなる', 'the flow would widen');
+          return p.stage ? t(`[[${STAGE_NM[p.stage]()}]]の処理量が月[[ +${p.units ?? 0} 個]]増える見込み`, `[[${STAGE_NM[p.stage]()}]] throughput up about [[+${p.units ?? 0}]] a month`) : t('処理量が増える見込み', 'throughput would rise');
         case 'ad':
-          return t('いまの売り場なら、[[宣伝]]が元を取れる', 'with the shops as they are, an [[ad]] pays off');
+          return t(`いまの売り場なら、[[宣伝]]の期待効果（期間で +${Math.round(p.est).toLocaleString('en-US')} G）が費用を上回る`, `with the shops as they are, the [[ad]]’s expected effect (+${Math.round(p.est).toLocaleString('en-US')} G over the run) beats its cost`);
         case 'finds':
           return p.dig?.tablet ? t(`この荒れ地の[[ ${p.dig.tablet} 層目]]に石板が眠っている`, `a tablet lies in layer [[${p.dig.tablet}]] here`) : t(`この荒れ地に出土品が[[ ${p.dig?.finds ?? 0} 個]]ほど眠っている`, `about [[${p.dig?.finds ?? 0}]] finds sleep here`);
         case 'share':

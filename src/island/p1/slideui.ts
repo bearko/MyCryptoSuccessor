@@ -292,8 +292,8 @@ export function lineChart(now: number[], after: number[]): HTMLElement {
     for (const [vs, y, lab, cls] of (Math.abs(now[n - 1] - after[n - 1]) < 0.5
       ? []
       : [
-          [now, yn, t('このまま', 'As is'), 'is-now'],
-          [after, ya, t('承認後', 'After'), 'is-after'],
+          [now, yn, 'As-Is', 'is-now'],
+          [after, ya, 'To-Be', 'is-after'],
         ]) as [number[], number, string, string][]) {
       svg.append(sv('circle', { cx: px(n - 1), cy: py(vs[n - 1]), r: 4, class: `isl-sl-dot2 ${cls}` }));
       const a = sv('text', { x: W - R + 8, y: y - 2, class: `isl-sl-end ${cls}` });
@@ -315,7 +315,7 @@ export function lineChart(now: number[], after: number[]): HTMLElement {
       cross.setAttribute('x2', String(px(k)));
       cross.style.display = '';
       tip.hidden = false;
-      tip.replaceChildren(h('b', '', t(`${k + 1} か月目まで`, `Through month ${k + 1}`)), h('span', 'is-after', t(`承認後 ${fmt(after[k])} G`, `After ${fmt(after[k])} G`)), h('span', 'is-now', t(`このまま ${fmt(now[k])} G`, `As is ${fmt(now[k])} G`)));
+      tip.replaceChildren(h('b', '', t(`${k + 1} か月目まで`, `Through month ${k + 1}`)), h('span', 'is-after', `To-Be ${fmt(after[k])} G`), h('span', 'is-now', `As-Is ${fmt(now[k])} G`));
       const left = (px(k) / W) * 100;
       tip.style.left = `${Math.min(70, Math.max(0, left - 15))}%`;
     };

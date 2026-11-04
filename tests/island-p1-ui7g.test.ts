@@ -136,7 +136,7 @@ describe('推奨の決め方（方針と真っ向から反する・課題を解�
   it('課題に効き、払えるなら承認（方針に届かないだけでは見送らない）', () => {
     const r = recOf({ block: [], co, vals: vals([{ key: 'long', d: 500 }], -10), iss, issue: iss[0], solved: iss, contra: null });
     expect(r.rec).toBe('ok');
-    expect(r.why).toContain('課題（販売がボトルネック）に効く');
+    expect(r.why).toContain('課題（販売がボトルネック）を解消');
   });
   it('課題を解かない・方針と真っ向から反する・資金が足りないは見送り（理由はそのどれか）', () => {
     expect(recOf({ block: [], co, vals: vals([{ key: 'long', d: 500 }]), iss, issue: null, solved: [], contra: null }).why).toContain('解消につながらない');

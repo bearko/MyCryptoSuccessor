@@ -229,7 +229,7 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
   else if (c.src === 'event' && eh) foot.append(h('span', '', eh.tag));
   // 段 P2：組み合わせは、関係と条件
   else if (c.src === 'duo' && eh) foot.append(h('span', '', eh.tag));
-  else if (star) foot.append(h('span', '', t(`読みの確かさ ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（誤差 ±${Math.round((1 - c.q) * 100)}%）`, `Read ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${Math.round((1 - c.q) * 100)}%)`)));
+  else if (star) foot.append(h('span', '', t(`予測精度 ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（±${Math.round((1 - c.q) * 100)}%）`, `Forecast accuracy ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${Math.round((1 - c.q) * 100)}%)`)));
   else if (c.src === 'quit' && st) foot.append(h('span', '', t(`士気 ${Math.round(st.morale ?? 0)}`, `Morale ${Math.round(st.morale ?? 0)}`)));
   else foot.append(h('span', '', ''));
   const left = popLeft(s) - (c.seen ? 0 : 1);

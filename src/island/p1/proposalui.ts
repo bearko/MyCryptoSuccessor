@@ -185,7 +185,7 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   const st = plan.hero != null ? staffOf(s, plan.hero) : null;
   if (st) {
     const star = starOf(plan.q, st.level ?? 1);
-    who.append(h('small', 'isl-prop-star', t(`読みの確かさ ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（誤差 ±${pct(B.err)}）`, `Read ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${pct(B.err)})`)));
+    who.append(h('small', 'isl-prop-star', t(`予測精度 ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（±${pct(B.err)}）`, `Forecast accuracy ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${pct(B.err)})`)));
     // 段 S1：数字の教えで小さくなった誤差の札
     const ec = errChip(s);
     if (ec) who.append(ec);

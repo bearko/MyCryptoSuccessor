@@ -170,7 +170,7 @@ describe('経営方針（社長の価値観）', () => {
     const r = recOf(b);
     expect(r.rec).toBe('ok');
     // 段 UI7g：理由は課題（無ければ「効果あり」）と上がる指標・方針に合うこと
-    expect(r.why).toBe('効果あり：★ +12。方針（ブランド重視）にも合う');
+    expect(r.why).toBe('期待効果：★ +12。方針（ブランド重視）にも合う');
     // 段 UI7g：方針の価値がマイナスで長期も損なら見送る（損が大きい）。方針に届かないだけでは見送らない
     expect(recOf({ ...b, vals: { ...vals, value: -1 } }).rec).toBe('ok');
     expect(recOf({ ...b, vals: { ...vals, value: -1, list: [...vals.list, { key: 'long' as const, now: 0, after: -2247, d: -2247, why: '' }] } }).rec).toBe('skip');
