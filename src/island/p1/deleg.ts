@@ -11,7 +11,7 @@
 import { isEn, t } from '../../i18n';
 import { heroById } from '../../game/catalog';
 import { DEF } from '../defs';
-import { ADS, CLEAR, DELEG, DEPT, DEPTS, DEPT_DUTIES, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
+import { ADS, CLEAR, DELEG, DEPT, DEPTS, DEPT_DUTIES, DEPT_SKILLS, isResearch, rpCost, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
 import { deptLevel, menuDepts } from './dept';
 import { fitDept } from './voice';
 import {
@@ -44,6 +44,9 @@ import {
   learn,
   levelLock,
   levelUp,
+  gainSkill,
+  scratch,
+  setLevel,
   lvOf,
   myShops,
   myWorkshop,
@@ -96,6 +99,7 @@ import { applyPlan, planOf, stepsOf } from './plan';
 import { amountOf, budgetOpen, budgetReport, budgetTry, costNeed, deptBudget, restOf, valG, type TryRes } from './budget';
 import { perHeadOf } from './board';
 import { actTheme } from './brief';
+import { moneyGain, payOk } from './acctgain';
 import { polTouch, tiltOf } from './policy';
 import type { SectorRec } from './company';
 
@@ -921,6 +925,8 @@ export function candidates(s: P1State, d: DeptId, ifs: () => StageIf[]): Cand[] 
     case 'general':
     case 'accounting':
       for (const w of ifs()) add(fromIf(s, w, margin, (dept, kind) => (kind === 'skill' || kind === 'level') && dept === d));
+      // 段 I2c：経理の手（税・経費のパネル）は、流れの数でなく税と経費の減り（acctgain.ts。月の G）で見込む
+      if (d === 'accounting') moneyCands(s, d, out, add);
       break;
     case 'strategy': {
       const b = bestSkillMove(s);
@@ -978,6 +984,41 @@ export function candidates(s: P1State, d: DeptId, ifs: () => StageIf[]): Cand[] 
   return out;
 }
 const actKey = (a: PropAct) => JSON.stringify(a);
+/**
+ * 段 I2c：その部門のパネル（取る・強化する）のうち、税・経費が減るもの（acctgain.ts の moneyGain。月の G）。流れの手と同じ手なら見込みに足す
+ */
+function moneyCands(s: P1State, d: DeptId, out: Cand[], add: (c: Cand | null) => unknown) {
+  for (const k of DEPT_SKILLS[d] ?? []) {
+    if (k.train || k.big || k.donate || k.inf) continue;
+    const lv = has(s, k.id);
+    const c = scratch(s);
+    let act: PropAct;
+    let cost: number;
+    if (lv) {
+      const e = levelLock(s, k);
+      if (e != null && e !== 'money') continue;
+      act = { k: 'level', id: k.id };
+      cost = nextLevelCost(s, k);
+      setLevel(c, k.id, lvOf(s, k.id) + 1);
+    } else {
+      const e = skillLock(s, k);
+      if (!(e == null || e === 'money' || e === 'rp')) continue;
+      act = { k: 'skill', id: k.id };
+      cost = isResearch(k) ? 0 : k.cost;
+      gainSkill(c, k.id);
+    }
+    const g = moneyGain(s, c).total;
+    const rp = isResearch(k) && !lv ? rpCost(k) : 0;
+    // 元が取れるまで MONEY_LEVER.pay か月を超える手は打たない（流れの手と同じ手なら、見込みに足すだけ）
+    const same = out.find((x) => actKey(x.act) === actKey(act));
+    if (same) {
+      if (g > 0) same.real += g;
+      continue;
+    }
+    if (!(g > 0) || !payOk(cost, rp, g)) continue;
+    add({ act, real: g, unit: 'G', cost, ...(rp ? { rp } : {}) });
+  }
+}
 /** 部長の候補の元（詰まりの段の whatIf。はじめて要るときに 1 回だけ計算） */
 export function ifsOf(s: P1State): () => StageIf[] {
   let cache: StageIf[] | null = null;
@@ -1437,6 +1478,8 @@ export function propWhy(_s: P1State, p: Proposal): string {
   const by = DEPT[p.dept].name;
   switch (p.unit) {
     case 'G':
+      // 段 I2c：経理の手（税・経費のパネル）は流れでなく、月の税と経費の減り
+      if (!p.stage && p.dept === 'accounting') return t(`${by}部長：税と経費が月 ${Math.round(p.est).toLocaleString('en-US')} G ほど減ります`, `${by} head: tax and costs drop about ${Math.round(p.est).toLocaleString('en-US')} G a month`);
       return p.stage
         ? t(`${by}部長：${STAGE_JA[p.stage]}の流れが 1 か月に +${p.units ?? 0} 個ほど太くなります`, `${by} head: ${STAGE_JA[p.stage]} gets about +${p.units ?? 0} per month`)
         : t(`${by}部長：流れが太くなります`, `${by} head: the flow widens`);
@@ -1477,6 +1520,8 @@ export function resultText(s: P1State, x: DelegReport['results'][number]): strin
   const g = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(Math.round(v)).toLocaleString('en-US')}`;
   switch (x.unit) {
     case 'G':
+      // 段 I2c：税・経費の手（流れの見込みが無い）は、見込みの G を出す（流れでははかれない）
+      if (x.units == null && x.dept === 'accounting') return t(`${name}：税・経費の見込み 月 −${Math.round(x.est).toLocaleString('en-US')} G`, `${name}: expected tax & costs −${Math.round(x.est).toLocaleString('en-US')} G / mo`);
       return t(`${name}：流れ ${g(x.real)} 個／月（見込み +${x.units ?? 0}）`, `${name}: flow ${g(x.real)} / mo (expected +${x.units ?? 0})`);
     case 'ad':
       return t(`${name}：売上 ${g(x.real)} G（先月から）`, `${name}: sales ${g(x.real)} G vs last month`);
