@@ -130,17 +130,32 @@ describe('教えが残るとき', () => {
     expect(got).toEqual([2001]);
     expect(lessonMonth(s, rep(s))).toEqual([5001]);
   });
-  it('チュートリアルのあいだはかかわった回数を数えず、最初の 1 か月目の締め（報告が 2 つより少ない）は残らない', () => {
+  it('チュートリアル（最初の 1 か月目）のあいだはかかわった回数を数えず、1 か月目の締め（報告が 2 つより少ない）は残らない', () => {
     const s = town();
     add(s, 2001);
+    const reps = s.reports.splice(0);
     s.tut = 3;
     meetDays(s, 2001, LESSON.need + 2);
     expect(s.lessons?.met['2001'] ?? 0).toBe(0);
+    // 1 か月目の締めのあと：まだチュートリアルの途中なら数えない・チュートリアルが済んだら数える。締めでは残らない
+    s.reports.push(reps[0]);
+    meetDays(s, 2001, 2);
+    expect(s.lessons?.met['2001'] ?? 0).toBe(0);
     s.tut = 99;
-    s.reports.splice(1);
     meetDays(s, 2001, LESSON.need + 2);
+    expect(s.lessons!.met['2001']).toBe(LESSON.need + 2);
     expect(lessonMonth(s, rep(s, [{ hero: 2001, est: 1, real: 1 }]))).toEqual([]);
     expect(s.lessons!.n).toBe(0);
+    // 2 か月目の締めから残る
+    s.reports.push(reps[1]);
+    expect(lessonMonth(s, rep(s))).toEqual([2001]);
+  });
+  it('自動プレイ（チュートリアルを通さず tut が 0 のまま）でも、2 か月目からは数えて残る', () => {
+    const s = town();
+    s.tut = 0;
+    add(s, 5001);
+    meetDays(s, 5001, LESSON.need);
+    expect(lessonMonth(s, rep(s))).toEqual([5001]);
   });
   it('教えの無いヒーロー（コラボ・ノービス）は数えない・残らない', () => {
     const s = town();

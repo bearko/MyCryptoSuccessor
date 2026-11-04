@@ -113,6 +113,11 @@ const L = (s: P1State): LessonState => (s.lessons ??= newLessons());
 export const LESSON_OFF = { on: false };
 
 const inTut = (s: Pick<P1State, 'tut'>) => typeof s.tut === 'number' && s.tut < 99;
+/**
+ * 最初の町の 1 か月目（チュートリアル）か：まだ月の締めが無い・またはチュートリアルの途中で、締めが LESSON.first 回より少ない。
+ * 自動プレイ（scripts/island/sim.ts）はチュートリアルを通さず tut が 0 のままなので、締めの回数で分ける（2 か月目からは数える）
+ */
+const early = (s: Pick<P1State, 'tut' | 'reports'>) => s.reports.length < 1 || (inTut(s) && s.reports.length < LESSON.first);
 /** 受け継いだか（調査の id で。レプリカとオリジナルは同じ） */
 export const hasLesson = (s: Pick<P1State, 'lessons'>, hero: number) => {
   const b = baseId(hero);
@@ -126,7 +131,7 @@ export const lessonN = (s: Pick<P1State, 'lessons'>) => s.lessons?.n ?? 0;
  * 同じ日は 1 回だけ数える。チュートリアルのあいだ・教えの無いヒーロー・受け継いだあとは数えない
  */
 export function meetHero(s: P1State, hero: number | null | undefined) {
-  if (LESSON_OFF.on || hero == null || inTut(s)) return;
+  if (LESSON_OFF.on || hero == null || early(s)) return;
   const b = baseId(hero);
   if (b == null || FIT.ls?.[String(b)] == null) return;
   const S = L(s);
@@ -141,7 +146,7 @@ export function meetHero(s: P1State, hero: number | null | undefined) {
  * 候補：先月承認した提案の結果が見込みの向きに動いた人（先）・かかわった回数が LESSON.need に届いた人（多い順）。どちらも、いま会社にいる人だけ
  */
 export function lessonMonth(s: P1State, r: Report): number[] {
-  if (LESSON_OFF.on || inTut(s) || s.reports.length < LESSON.first) return [];
+  if (LESSON_OFF.on || early(s) || s.reports.length < LESSON.first) return [];
   const S = L(s);
   const here = new Set(s.staff.map((x) => x.hero));
   const seen = new Set<string>();

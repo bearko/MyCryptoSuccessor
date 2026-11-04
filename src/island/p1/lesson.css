@@ -74,13 +74,13 @@
 }
 .isl-ls-bar {
   display: grid;
-  grid-template-columns: 7.5em minmax(60px, 1fr) 2em minmax(0, 13em);
+  grid-template-columns: 7.6em minmax(60px, 1fr) 2em minmax(0, 13em);
   gap: 6px;
   align-items: center;
   font-size: 13px;
 }
 .isl-ls-bars.is-compact .isl-ls-bar {
-  grid-template-columns: 7.5em minmax(60px, 1fr) 2em;
+  grid-template-columns: 7.6em minmax(60px, 1fr) 2em;
 }
 .isl-ls-bar-name {
   white-space: nowrap;
@@ -208,12 +208,12 @@
 }
 @media (max-width: 599px) {
   .isl-ls-bar {
-    grid-template-columns: 6.5em minmax(50px, 1fr) 1.6em;
+    grid-template-columns: 7.6em minmax(50px, 1fr) 1.6em;
     font-size: 12px;
   }
   .isl-ls-bar-fx {
     grid-column: 1 / -1;
-    padding-left: 6.5em;
+    padding-left: 7.6em;
   }
 }
 #isl-ui .isl-toast.isl-ls-pop.is-tap {

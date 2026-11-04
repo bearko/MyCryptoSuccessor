@@ -50,10 +50,11 @@ export function typeBars(s: P1State, compact = false): HTMLElement {
   const top = Math.max(LESSON.cap + 1, ...LESSON_TYPES.map((k) => c[k]));
   const box = h('div', `isl-ls-bars ${compact ? 'is-compact' : ''}`);
   box.setAttribute('role', 'img');
-  box.setAttribute('aria-label', t(`教えの型ごとの数：${LESSON_TYPES.map((k) => `${lessonTypeName(k)} ${c[k]}`).join('・')}`, `Lessons by type: ${LESSON_TYPES.map((k) => `${lessonTypeName(k)} ${c[k]}`).join(', ')}`));
+  const list = LESSON_TYPES.map((k) => `${lessonTypeName(k)} ${c[k]}`).join(t('・', ', '));
+  box.setAttribute('aria-label', t(`教えの型ごとの数：${list}`, `Lessons by type: ${list}`));
   for (const k of LESSON_TYPES) {
     const row = h('div', 'isl-ls-bar');
-    row.title = `${lessonTypeName(k)}：${c[k]}（${fxLine(k, lessonLive(s, k))}）`;
+    row.title = t(`${lessonTypeName(k)}：${c[k]}（${fxLine(k, lessonLive(s, k))}）`, `${lessonTypeName(k)}: ${c[k]} (${fxLine(k, lessonLive(s, k))})`);
     const name = h('span', 'isl-ls-bar-name', `${LESSON_ICON[k]} ${lessonTypeName(k)}`);
     const track = h('span', 'isl-ls-bar-track');
     const fill = h('i', `isl-ls-bar-fill ${c[k] >= LESSON.cap ? 'is-cap' : ''}`);
