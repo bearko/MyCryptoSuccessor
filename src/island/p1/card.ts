@@ -785,11 +785,12 @@ export function capOf(s: P1State): number {
   const three = s.staff.some((st) => st.task != null && st.task !== 'train' && starOf(quality(st, 'logistics'), st.level ?? 1) === 3);
   return CARD.cap[tierOf(s)] + (three ? CARD.capStar : 0);
 }
-/** 提案書 1 枚で変える打ち手の数の上限（町のランク × 話し手の ★） */
-export function sizeOf(s: P1State, c: Pick<Card, 'hero' | 'q'>): number {
-  const st = c.hero != null ? staffOf(s, c.hero) : null;
-  const star = st ? starOf(c.q, st.level ?? 1) : 1;
-  return Math.max(1, Math.min(CARD.size[tierOf(s)], star));
+/**
+ * 提案書 1 枚で変える打ち手の数の上限（町のランク）。段 UI9（ユーザーの声 2026-11-05）：提案の構成は話し手の ★ で変えない
+ * （★ で差が出るのは読みの誤差の幅だけ）。前は ランク × ★ だった
+ */
+export function sizeOf(s: P1State, _c: Pick<Card, 'hero' | 'q'>): number {
+  return Math.max(1, CARD.size[tierOf(s)]);
 }
 function admit(s: P1State, d: Pick<Card, 'hero' | 'kind'>): boolean {
   const C = cardsOf(s);

@@ -119,7 +119,8 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
   if (quip) main.append(h('p', 'isl-cardm-quip', t(`— ${quip}`, `— ${quip}`)));
   // 課題のセリフ（数字の要所だけ色）
   // 段 UI7g：この提案が解く課題（会社の課題の一覧の優先つき）
-  if (c.iss) main.append(h('div', 'isl-cardm-iss', `🎯 ${issueTag(c.iss)}`));
+  // 段 UI9：課題の札に、放置したときの影響（月 −N G・N 日後）
+  if (c.iss) main.append(h('div', 'isl-cardm-iss', issueLossOf(c) ? t(`🎯 ${issueTag(c.iss)}・${issueLossOf(c)}`, `🎯 ${issueTag(c.iss)} · ${issueLossOf(c)}`) : `🎯 ${issueTag(c.iss)}`));
   const say = h('div', 'isl-cardm-say');
   say.append(t('「', '“'), rich(sayOf(s, c)), t('」', '”'));
   main.append(say);
@@ -306,7 +307,7 @@ export function cardInboxCard(ctx: Ctx): HTMLElement {
     const say = h('small', '');
     say.append(rich(sayOf(s, x)));
     txt.append(h('b', '', `${role.icon} ${role.text}${x.hero != null ? `・${heroName(x.hero)}` : ''}`), say);
-    if (x.iss) txt.append(h('small', 'isl-cardbox-iss', `🎯 ${issueTag(x.iss)}`));
+    if (x.iss) txt.append(h('small', 'isl-cardbox-iss', issueLossOf(x) ? t(`🎯 ${issueTag(x.iss)}・${issueLossOf(x)}`, `🎯 ${issueTag(x.iss)} · ${issueLossOf(x)}`) : `🎯 ${issueTag(x.iss)}`));
     row.append(txt, h('span', 'isl-tag', x.held ? t('資金不足', 'Short of funds') : t('開く', 'Open')));
     row.addEventListener('click', () => showCard(ctx, x, hooks));
     c.append(row);
@@ -345,6 +346,8 @@ export function goneBox(s: P1State): HTMLElement | null {
  * 段 UI7g：会社の課題の一覧（issues.ts）。優先の順に、アイコン・名前・優先・根拠の 1 行と、受け箱でその課題を解く提案の数。
  * 受け箱（経営企画 → 部長の提案）の上
  */
+/** 段 UI9：カードの課題の、放置したときの 1 行（作ったときの一覧から） */
+const issueLossOf = (c: Pick<Card, 'iss' | 'issues'>) => (c.iss && c.issues?.find((x) => x.key === c.iss!.key)?.loss) || '';
 export function issueList(s: P1State): HTMLElement {
   const e = h('div', 'isl-iss');
   const xs = issuesOf(s);
@@ -362,7 +365,7 @@ export function issueList(s: P1State): HTMLElement {
     const top = h('div', 'isl-iss-top');
     top.append(h('span', 'isl-iss-pri', t(`優先 ${x.pri}`, `P${x.pri}`)), h('b', '', `${ISSUE_ICON[x.key]} ${issueName(x.key)}`));
     if (n) top.append(h('span', 'isl-tag', t(`提案 ${n} 件`, `${n} proposal${n > 1 ? 's' : ''}`)));
-    li.append(top, h('small', 'isl-iss-note', x.note));
+    li.append(top, h('small', 'isl-iss-note', x.note), h('small', 'isl-iss-loss', x.loss));
     ol.append(li);
   }
   e.append(ol);

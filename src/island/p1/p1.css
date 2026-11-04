@@ -16172,6 +16172,13 @@ button.isl-dband-lead.is-on {
   font-size: 12px;
   color: #6b5a40;
 }
+/* 段 UI9：放置したときの影響（月 −N G・N 日後） */
+.isl-iss-loss {
+  display: block;
+  font-size: 12px;
+  color: #8a2f1c;
+  font-weight: 700;
+}
 /* 段 UI7h：取り下げた提案の一行（部長の提案の画面の上） */
 .isl-gone {
   display: flex;

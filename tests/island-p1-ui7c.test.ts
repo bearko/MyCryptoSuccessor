@@ -107,9 +107,10 @@ describe('経営方針（社長の価値観）', () => {
     setPolicy(s, 'profit');
     const b = briefOf(s, p);
     SKILL.ga_canteen.cost = cost0;
-    // 段 UI7g：利益重視では、士気が方針の大事なものではなく、長期も損なので「損が大きい」で見送る（方針に届かないだけでは見送らない）
+    // 段 UI7g：利益重視では、士気が方針の大事なものではなく、長期も損なので見送る（方針に届かないだけでは見送らない）。
+    // 段 UI9：収益性の改善が受け皿でなくなったので、理由は「課題の解消につながらない」か「損が大きい」
     expect(b.rec).toBe('skip');
-    expect(b.why).toContain('損が大きい');
+    expect(b.why).toMatch(/損が大きい|解消につながらない/);
   });
   it('同じ見積もり（このまま・承認後）なら、指標は方針で変わらない（変わるのは価値と推奨。方針の効き目は段 K の tests/island-p1-stagek.test.ts）', () => {
     const s = uTown();

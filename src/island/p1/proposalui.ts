@@ -399,7 +399,7 @@ export function issueStrip(B: Pick<Brief, 'solved' | 'iss'>): HTMLElement {
   } else if (B.iss[0]) {
     e.append(h('span', 'isl-sl-ilab', t('会社の課題', 'Top issue')), chipOf(B.iss[0]), h('small', 'isl-sl-imiss', t('この提案では解けない', 'Not addressed here')));
   }
-  if (B.iss.length) e.append(infoTip(B.iss.slice(0, 6).map((x) => t(`${x.pri}. ${issueName(x.key)}：${x.note}`, `${x.pri}. ${issueName(x.key)}: ${x.note}`)), t('会社の課題の一覧', 'Company issues')));
+  if (B.iss.length) e.append(infoTip(B.iss.slice(0, 6).map((x) => t(`${x.pri}. ${issueName(x.key)}：${x.note}。${x.loss}`, `${x.pri}. ${issueName(x.key)}: ${x.note}. ${x.loss}`)), t('会社の課題の一覧', 'Company issues')));
   return e;
 }
 

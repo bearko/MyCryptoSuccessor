@@ -10,11 +10,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CARD } from '../src/island/p1/data';
-import { deserializeP1, myShops, serializeP1, type P1State } from '../src/island/p1/model';
+import { bottleneck, deserializeP1, myShops, poolCap, serializeP1, stageCaps, stallOf, type P1State } from '../src/island/p1/model';
 import { planOf } from '../src/island/p1/plan';
 import { briefOf, judgeOf } from '../src/island/p1/brief';
 import { PROPOSAL_SRC, cardInbox, cardsMonth, cardsOf, gateDraft, goneNow, newCards, planOfChoice, shownRec, stockDraft, storeAct, withdrawCard, withdrawStale, type Card, type Draft } from '../src/island/p1/card';
-import { issuesOf } from '../src/island/p1/issues';
+import { fitsLimit, isFlowKey, issuesOf, solvedBy } from '../src/island/p1/issues';
 import { newDeleg, type PropAct, type Proposal } from '../src/island/p1/deleg';
 import { runOnce } from '../scripts/island/sim';
 
@@ -46,6 +46,16 @@ function mixed(): { s: P1State; fix: PropAct; use: PropAct } {
     const fix = d.choices.find((c) => c.act.k === 'do' && storeAct(c.act.a));
     const use = d.choices.find((c) => c.act.k === 'do' && c.act.a.k === 'useup');
     if (fix && use && judge(s, (fix.act as { a: PropAct }).a).rec === 'skip' && judge(s, (use.act as { a: PropAct }).a).rec === 'ok') return { s, fix: (fix.act as { a: PropAct }).a, use: (use.act as { a: PropAct }).a };
+  }
+  throw new Error('no scene');
+}
+/** 倉庫が埋まっていて（warn 以上）、調達係のいる町（使わない素材で埋める） */
+function crowdedBuy(): P1State {
+  for (const x of months('normal', 1, true)) {
+    const s = load(x);
+    if (!s.staff.some((y) => y.task === 'buy')) continue;
+    s.mats.wood = (s.mats.wood ?? 0) + Math.ceil(poolCap(s) * 0.95);
+    if (bottleneck(stageCaps(s, true)) === 'buy' && !stallOf(s)) return s;
   }
   throw new Error('no scene');
 }
@@ -171,5 +181,55 @@ describe('①性質：チュートリアルのあとは、推奨が見送りの�
       }
     }
     expect(n).toBeGreaterThan(10);
+  });
+});
+
+describe('②課題の定義と優先度（重要度 × 緊急度）', () => {
+  it('どの課題にも重要度（G／月）と放置したときの 1 行がある。期限のある課題は日数つき。優先は段 → score（重要度 × 緊急度）の順', () => {
+    let seen = 0;
+    for (const seed of [1, 2])
+      for (const x of months('normal', seed, seed === 1)) {
+        const s = load(x);
+        const xs = issuesOf(s);
+        for (const [k, y] of xs.entries()) {
+          expect(y.pri).toBe(k + 1);
+          expect(y.impact).toBeGreaterThan(0);
+          expect(y.loss.length).toBeGreaterThan(0);
+          if (y.days != null) expect(y.loss).toMatch(/日後|もう起きている/);
+          if (y.grow) expect(y.loss).toContain('伸ばせば');
+          else expect(y.loss).toContain('放置すると');
+          if (isFlowKey(y.key)) expect(y.limit).toBeTruthy();
+          seen++;
+        }
+        // 収益性の改善は、ボトルネック・期限のある課題が無いときだけ
+        const pressing = xs.some((y) => (isFlowKey(y.key) || y.key === 'store' || y.key === 'cash' || ((y.key === 'morale' || y.key === 'sat') && !y.grow)));
+        if (pressing) expect(xs.some((y) => y.key === 'profit')).toBe(false);
+      }
+    expect(seen).toBeGreaterThan(20);
+  });
+  it('倉庫が原因の調達の頭打ちは「倉庫の容量不足」に寄せる（調達の課題は出ない）。人を置く手は、その課題を解かない', () => {
+    const s = crowdedBuy();
+    const xs = issuesOf(s);
+    expect(xs.some((y) => y.key === 'buy')).toBe(false);
+    const st = xs.find((y) => y.key === 'store')!;
+    expect(st).toBeTruthy();
+    expect(st.limit).toBe('room');
+    expect(st.note).toContain('置き場所で頭打ち');
+    // 人の手（制約に合わない）は流れの課題を解かない
+    expect(fitsLimit('room', ['people'])).toBe(false);
+    expect(fitsLimit('room', ['room'])).toBe(true);
+    expect(fitsLimit('demand', ['equip'])).toBe(false);
+    expect(fitsLimit('demand', ['channel'])).toBe(true);
+    expect(fitsLimit('people', ['equip'])).toBe(true);
+  });
+  it('微小な増え（min 未満）では流れの課題を解かない。制約の種類に合わない手も解かない', () => {
+    const x = { key: 'sell' as const, pri: 1, score: 1, now: 100, impact: 1, days: null, limit: 'demand' as const, min: 2, note: '', loss: '' };
+    const probe = { units0: 100, units1: 100.5, cap0: 0, cap1: 0, used0: 0, used1: 0, d: {}, themes: [] };
+    expect(solvedBy([x], { ...probe, kinds: ['channel'] })).toHaveLength(0);
+    expect(solvedBy([x], { ...probe, units1: 103, kinds: ['channel'] })).toHaveLength(1);
+    expect(solvedBy([x], { ...probe, units1: 103, kinds: ['equip'] })).toHaveLength(0);
+    const pf = { key: 'profit' as const, pri: 1, score: 1, now: 0, impact: 1000, days: null, min: 3000, grow: true, note: '', loss: '' };
+    expect(solvedBy([pf], { ...probe, d: { long: 2000 } })).toHaveLength(0);
+    expect(solvedBy([pf], { ...probe, d: { long: 3500 } })).toHaveLength(1);
   });
 });

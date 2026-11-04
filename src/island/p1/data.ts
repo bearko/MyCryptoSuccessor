@@ -3976,5 +3976,7 @@ export const SIGN = { mul: { N: 0, C: 0, U: 1.25, R: 1.5, E: 2, L: 3, LL: 3 } as
  * - store：倉庫の埋まり（CLEAR.warn を超えたら課題）。あふれるまでの日数が短いほど重い（days 日で 1 か月の粗利ぶん）
  * - morale：士気の平均がこれ未満・辞めたい人がいる。sat：顧客満足度がこれ未満（Uncommon から）。cash：資金がひと月の固定費を下回る・先月が赤字
  * - grow：成長の余地（ブランド力・研究）は、ほかの課題が無いときの下の段（優先は小さく）
+ * - 段 UI9：優先は重要度（G／月）× 緊急度（storeDays 日以内で 1〜2 倍）。solve：流れの課題を「解いた」と言える売れる数の増え（いまの処理量に対する割合）・
+ *   raise：提起する最小の重要度（月の粗利に対する割合。期限の無い課題だけ）・profitMonths：収益性の課題を解くのに要る長期の利益（重要度 × 月数）
  */
-export const ISSUE = { boost: 2, storeDays: 60, morale: 55, sat: 50, grow: 0.05, min: 1 };
+export const ISSUE = { boost: 2, storeDays: 60, morale: 55, sat: 50, grow: 0.05, min: 1, solve: 0.02, raise: 0.03, profitMonths: 3 };

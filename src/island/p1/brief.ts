@@ -30,7 +30,7 @@ import { heroSay, say as toneSay, toneOf, type Tone } from './persona';
 import { voiceOf, voiceSay } from './voice';
 import { projNeeded, projOf, type PMonth, type Proj } from './proj';
 import { storeFc, whenFull } from './storefc';
-import { isFlowKey, issueName, issuesOf, solvedBy, type CoIssue } from './issues';
+import { actKind, isFlowKey, issueName, issuesOf, solvedBy, type CoIssue } from './issues';
 import { POLICY_OF } from './data';
 
 // ---------------------------------------------------------------- 型
@@ -622,7 +622,7 @@ export function issuesOfPlan(iss: CoIssue[], p: Plan, base: P1State, after: P1St
     return (['buy', 'craft', 'haul', 'sell'] as Stage[]).filter((k) => c[k].stopped);
   };
   const anyStop = iss.some((x) => x.stopped);
-  return solvedBy(iss, { ...(anyStop ? { stops0: stops(base), stops1: stops(after) } : {}), units0: now.units, units1: aft.units, cap0: poolCap(base), cap1: poolCap(after), used0: poolUsed(base), used1: poolUsed(after), full0: M?.full0 ?? null, full1: M?.full1 ?? null, jam0: M?.jam0, jam1: M?.jam1, room: M?.room, d, themes: themesOfPlan(p) });
+  return solvedBy(iss, { ...(anyStop ? { stops0: stops(base), stops1: stops(after) } : {}), units0: now.units, units1: aft.units, cap0: poolCap(base), cap1: poolCap(after), used0: poolUsed(base), used1: poolUsed(after), full0: M?.full0 ?? null, full1: M?.full1 ?? null, jam0: M?.jam0, jam1: M?.jam1, room: M?.room, d, themes: themesOfPlan(p), kinds: [...new Set(p.acts.map(actKind))] });
 }
 /**
  * 段 UI7g：方針と真っ向から反するか：選んでいる方針（全社方針 ＋ 提案の部門の事業別の方針）のうち、お金以外の指標を大事にする方針
