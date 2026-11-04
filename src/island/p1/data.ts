@@ -1097,6 +1097,10 @@ export interface Skill {
   inf?: InfKind;
   /** 研究への寄付（お金で RP を買う）：開放するパネルではなく、押すたびに G を払って RP を受け取る（回数の上限なし。donateCost） */
   donate?: boolean;
+  /** 段 K：取るのに要る、そのパネルの部門の理解度（経営方針のパネル。「部門の開拓が一定に達すると開く」） */
+  deptLv?: number;
+  /** 段 K：スキルツリーで置く外周（無ければ tier）。法務の経営方針のパネルは Epic のパネルだが、Epic の外周に入る幅が無いので Rare の外周の位置に置く */
+  ring?: Tier;
 }
 /** 無限の強化パネルの種類：発掘の速さ・掘る力・掘る範囲 */
 export type InfKind = 'speed' | 'power' | 'reach';
@@ -2182,6 +2186,34 @@ export const LEGAL_MONEY = ['lg_patent', 'lg_counsel'];
 /** 法務の研究パネルの RP（決め打ち。Epic の研究パネルの範囲 375〜1,125 の中） */
 export const LEGAL_RP: Record<string, number> = { lg_template: 500, lg_dd: 750 };
 SKILLS.push(...LEGAL_SKILLS);
+/**
+ * 段 K：部門ごとの「経営方針」パネル（docs/ISLAND_PHASE1.md「経営方針（段 K）」）。その部門の理解度が deptLv に達すると取れる（Rare の外周）。
+ * 営業は Rare の外周に入る幅が無い（枝の幅が足りず、ほかの枝が詰まる）ので Epic の外周。法務は逆に Epic の外周に入らないので、Epic のパネルのまま Rare の外周の位置に置く（Skill.ring。契約の雛形の先）。
+ * 研究パネル 10 枚（取ると、その部門の事業別の方針が 1 つ選べるようになる。RP は決め打ち POL_RP）と、経営企画のお金パネル 1 枚（全社方針の枠。Lv1〜4 で枠 2〜5）。
+ * どれも C・U の外ではないので、100% の「C・U の取れるパネル」の数は変わらない。開く方針は POLICIES の open.panel
+ */
+export const POL_SKILLS: Skill[] = [
+  { id: 'pol_mk', branch: 'shop', tier: 'R', deptLv: 8, name: t('経営方針：STP', 'Policy: STP'), note: t('マーケの事業別の方針「STP マーケティング」が選べるようになる', 'Unlocks the Marketing policy “STP marketing”'), cost: 0, requires: ['r_shop_2'] },
+  { id: 'pol_lg', branch: 'tech', tier: 'R', deptLv: 8, name: t('経営方針：TQM', 'Policy: TQM'), note: t('物流の事業別の方針「TQM（総合的品質管理）」が選べるようになる', 'Unlocks the Logistics policy “TQM”'), cost: 0, requires: ['r_tech_1'] },
+  { id: 'pol_sy', branch: 'sys', tier: 'R', deptLv: 8, name: t('経営方針：アジャイル', 'Policy: Agile'), note: t('システムの事業別の方針「アジャイル開発」が選べるようになる', 'Unlocks the Systems policy “Agile development”'), cost: 0, requires: ['ec'] },
+  { id: 'pol_rd', branch: 'ops', tier: 'R', deptLv: 8, name: t('経営方針：オープン・イノベーション', 'Policy: Open innovation'), note: t('R&D の事業別の方針「オープン・イノベーション」が選べるようになる', 'Unlocks the R&D policy “Open innovation”'), cost: 0, requires: ['u_dig_auto'] },
+  { id: 'pol_hr', branch: 'people', tier: 'R', deptLv: 8, name: t('経営方針：ティール組織', 'Policy: Teal organization'), note: t('人事の事業別の方針「ティール組織」が選べるようになる', 'Unlocks the HR policy “Teal organization”'), cost: 0, requires: ['r_people_1'] },
+  { id: 'pol_ga', branch: 'people', tier: 'R', deptLv: 6, name: t('経営方針：ウェルビーイング', 'Policy: Well-being'), note: t('総務の事業別の方針「ウェルビーイング経営」が選べるようになる', 'Unlocks the General Affairs policy “Well-being management”'), cost: 0, requires: ['r_people_5'] },
+  { id: 'pol_cs', branch: 'shop', tier: 'R', deptLv: 5, name: t('経営方針：カスタマーサクセス', 'Policy: Customer success'), note: t('カスタマーサポートの事業別の方針「カスタマーサクセス」が選べるようになる', 'Unlocks the Support policy “Customer success”'), cost: 0, requires: ['cs_center'] },
+  { id: 'pol_ac', branch: 'ops', tier: 'R', deptLv: 5, name: t('経営方針：ゼロベース予算', 'Policy: Zero-based budgeting'), note: t('経理の事業別の方針「ゼロベース予算」が選べるようになる', 'Unlocks the Accounting policy “Zero-based budgeting”'), cost: 0, requires: ['ac_cost'] },
+  { id: 'pol_sa', branch: 'sales', tier: 'E', deptLv: 6, name: t('経営方針：インサイド・セールス', 'Policy: Inside sales'), note: t('営業の事業別の方針「インサイド・セールス」が選べるようになる', 'Unlocks the Sales policy “Inside sales”'), cost: 0, requires: ['sa_edge'] },
+  { id: 'pol_le', branch: 'legal', tier: 'E', ring: 'R', deptLv: 4, name: t('経営方針：コンプライアンス', 'Policy: Compliance'), note: t('法務の事業別の方針「コンプライアンス経営」が選べるようになる', 'Unlocks the Legal policy “Compliance management”'), cost: 0, requires: ['lg_template'] },
+  { id: 'pol_slots', branch: 'ops', tier: 'R', deptLv: 5, max: 4, name: t('全社方針の枠', 'Company policy slots'), note: t('全社方針を同時に選べる数 +1（Lv ごとに +1。はじめは 1 つ・Lv4 で 5 つ）', 'Choose one more company policy at once (+1 per Lv; 1 at first, 5 at Lv4)'), cost: 25000, requires: ['pr'], show: [{ label: t('全社方針の枠', 'Company policy slots'), v: 1, unit: '', lin: true }] },
+];
+/** 段 K の経営方針のパネルの id（枝の幅の余り・RP の割り振り・自動プレイの研究の並びに入れない） */
+export const POL_PANELS = POL_SKILLS.map((k) => k.id);
+/** 経営方針のパネルの部門（DEPT_MOVE に入れる） */
+export const POL_PANEL_DEPT: Record<string, DeptId> = { pol_mk: 'marketing', pol_lg: 'logistics', pol_sy: 'systems', pol_rd: 'rnd', pol_hr: 'hr', pol_ga: 'general', pol_cs: 'support', pol_ac: 'accounting', pol_sa: 'sales', pol_le: 'legal', pol_slots: 'strategy' };
+/** 経営方針の研究パネルの RP（決め打ち：Rare 150・Epic 400。ほかの研究パネルの値段の割り振りを動かさない） */
+export const POL_RP: Record<string, number> = { pol_mk: 150, pol_lg: 150, pol_sy: 150, pol_rd: 150, pol_hr: 150, pol_ga: 150, pol_cs: 150, pol_ac: 150, pol_sa: 400, pol_le: 400 };
+/** 全社方針の枠のパネル（お金パネル。Lv1〜4） */
+export const POL_MONEY = ['pol_slots'];
+SKILLS.push(...POL_SKILLS);
 SKILLS.push(...INF_SKILLS, DONATE);
 /** 無限の強化パネルの id */
 export const INF_PANELS = INF_SKILLS.map((k) => k.id);
@@ -2218,7 +2250,7 @@ const UI5_RP: Record<string, number> = { relief: 40 };
 /** 段 UI5a で足したパネル（スキルツリーの枝の幅の余りの数に入れない：treelayout.ts） */
 export const UI5_SKILLS = ['relief'];
 {
-  const money = new Set([...Object.values(MONEY_PANELS).flatMap((x) => Object.values(x)), DONATE.id, ...SALES_MONEY, ...HR_MONEY, ...ACCT_MONEY, ...GA_MONEY, ...CS_MONEY, ...MKT_MONEY, ...LEGAL_MONEY]);
+  const money = new Set([...Object.values(MONEY_PANELS).flatMap((x) => Object.values(x)), DONATE.id, ...SALES_MONEY, ...HR_MONEY, ...ACCT_MONEY, ...GA_MONEY, ...CS_MONEY, ...MKT_MONEY, ...LEGAL_MONEY, ...POL_MONEY]);
   const byId = new Map(SKILLS.map((k) => [k.id, k]));
   const tierOf = (k: Skill) => k.tier ?? 'C';
   // 同じランクの中の深さ（先に要るパネルのうち、同じランクのものをたどった最長の数）
@@ -2240,14 +2272,14 @@ export const UI5_SKILLS = ['relief'];
     const P = RP_PRICE[tier];
     const round = (v: number) => Math.max(P.step, Math.round(v / P.step) * P.step);
     for (const b of new Set(SKILLS.map((k) => k.branch))) {
-      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null && ACCT_RP[k.id] == null && CSM_RP[k.id] == null && LEGAL_RP[k.id] == null && DT.rp[k.id] == null && UI5_RP[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
+      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null && ACCT_RP[k.id] == null && CSM_RP[k.id] == null && LEGAL_RP[k.id] == null && DT.rp[k.id] == null && UI5_RP[k.id] == null && POL_RP[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
       list.forEach((k, i) => (k.rp = round(P.lo + ((P.hi - P.lo) * (list.length > 1 ? i : 0)) / Math.max(1, list.length - 1))));
       // 1 枚だけの枝は真ん中の値段
       if (list.length === 1) list[0].rp = round((P.lo + P.hi) / 2);
     }
     for (const k of SKILLS) if (tierOf(k) === tier && k.big) k.rp = P.big;
   }
-  for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP, ...ACCT_RP, ...CSM_RP, ...LEGAL_RP, ...DT.rp, ...UI5_RP })) if (byId.get(id)) byId.get(id)!.rp = v;
+  for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP, ...ACCT_RP, ...CSM_RP, ...LEGAL_RP, ...DT.rp, ...UI5_RP, ...POL_RP })) if (byId.get(id)) byId.get(id)!.rp = v;
   // 発掘の枝の研究パネルはレベルが無い（開いたときの段は決まっている）ので、「先に要る Lv」（長期の発掘許可＝追加申請 Lv5 など）は外す。持っていればよい
   for (const k of SKILLS)
     if (k.reqLv) {
@@ -2374,6 +2406,8 @@ export const DEPT_MOVE: Record<string, DeptId> = Object.fromEntries([
   // 段 G：カスタマーサポートのパネル・マーケの段 G のパネル（販売の枝のうち）
   ...CS_SKILLS.map((k) => [k.id, 'support']),
   ...MKT_SKILLS.map((k) => [k.id, 'marketing']),
+  // 段 K：経営方針のパネル
+  ...Object.entries(POL_PANEL_DEPT),
 ]) as Record<string, DeptId>;
 for (const k of SKILLS) k.dept = DEPT_MOVE[k.id] ?? BRANCH_DEPT[k.branch];
 /** パネルの部門 */
@@ -2453,8 +2487,8 @@ export const DELEG = {
  */
 // ---------------------------------------------------------------- 段 UI7c：経営方針（社長の価値観。policy.ts・brief.ts）
 
-/** 経営方針（7 つ。初めは balance） */
-export type PolicyId = 'profit' | 'growth' | 'brand' | 'people' | 'customer' | 'research' | 'balance';
+/** 経営方針の id（段 UI7c の 7 つ＝はじめから選べる全社方針。段 K で POLICIES の全部） */
+export type PolicyId = string;
 /** 提案書の指標（短期利益・長期利益・士気・顧客満足度・ブランド力・研究ポイント） */
 export type ValueKey = 'short' | 'long' | 'morale' | 'sat' | 'brand' | 'rp';
 /**
@@ -2479,6 +2513,106 @@ export const POLICY = {
   floor: 5000,
   months: 12,
 };
+
+// ---------------------------------------------------------------- 段 K：経営方針（全社方針と事業別の方針。policy.ts・policyui.ts）
+
+/**
+ * 経営方針の効き目の種類：汎用の効き目（FxKind。model.ts の fxSum に足す）と、方針だけの 4 つ
+ * （morale：士気の目指す値 +点・rp：入る研究ポイント +%・sat：問い合わせへの返事で上がる顧客満足度 +%・labor：部長の施策に使える労力 +%）
+ */
+export type PolFxKind = FxKind | 'morale' | 'rp' | 'sat' | 'labor';
+/** 方針の推す提案の種類（brief.ts の actTheme と同じ言葉。提案の出やすさと並びに効く） */
+export type PolTheme = 'sell' | 'store' | 'morale' | 'workplace' | 'people' | 'sat' | 'brand' | 'rp' | 'legal' | 'cost' | 'flow';
+/** 開く条件：はじめから・石板（ids をすべて読む）・スキルツリーのパネル（id を取る） */
+export type PolOpen = { k: 'start' } | { k: 'tablet'; ids: string[] } | { k: 'panel'; id: string };
+export interface PolicyDef {
+  id: string;
+  /** 全社方針（社長が選ぶ。枠の数まで）か、事業別の方針（部門ごとに 1 つ。部長が発表する） */
+  kind: 'corp' | 'dept';
+  /** 部門：事業別の方針はその部門。全社方針は、強さを決める部門（その部門のレベルと部長の能力） */
+  dept: DeptId;
+  /** 仮のアイコン（絵文字。docs/ISLAND_ART_TODO.md） */
+  icon: string;
+  /** 名前（手法の名前）と、手法の要点（ゲームの言葉で 1〜2 行） */
+  name: string;
+  note: string;
+  /** 効き目（＋だけ。基本の値。強さ ＝ 基本 × 部門のレベル × 部長の能力：policy.ts の polPower） */
+  fx: { k: PolFxKind; v: number }[];
+  /** 推奨の重み（brief.ts の価値。選んだ方針の重みの平均で推奨を決める） */
+  w: Record<ValueKey, number>;
+  /** 推す提案の種類（その年の部長・ヒーローの提案の出やすさと並び） */
+  themes: PolTheme[];
+  open: PolOpen;
+  /** 強さを、部長でなくセクター長の能力で決める（ほかの町の売上に効く方針） */
+  sector?: boolean;
+}
+/** 推奨の重みの形（バランスの重みに、大事な指標を 1 つ上乗せ） */
+const wOf = (k: ValueKey, v = 1.5): Record<ValueKey, number> => ({ ...{ short: 0.4, long: 0.6, morale: 0.5, sat: 0.5, brand: 0.5, rp: 0.5 }, [k]: v });
+const W7 = POLICY.w;
+/**
+ * 経営方針の一覧（1 か所。docs/ISLAND_PHASE1.md「経営方針（段 K）」の表）。全社 14（はじめから 7・石板 Common 7）・事業別 23（部門ごとに 2〜3。
+ * スキルツリーの「経営方針」パネル 10・石板 13：Common 1 枚・Uncommon・Rare・Epic は同じ町の 2 枚で 1 つ）。32 枚の石板はどれも、どれかの方針を開く。
+ * 実在の企業・人の名前は書かない（手法の名前だけ）
+ */
+export const POLICIES: PolicyDef[] = [
+  // ---- 全社方針：はじめから（段 UI7c の 7 つの価値観）
+  { id: 'balance', kind: 'corp', dept: 'strategy', icon: '⚖', name: t('バランス', 'Balanced'), note: t('バランスト・スコアカード：お金・お客様・仕事の流れ・人の育ちの 4 つを、ほどよく見る', 'Balanced scorecard: weigh money, customers, workflow and growth evenly'), fx: [{ k: 'upkeep', v: 0.02 }], w: W7.balance, themes: [], open: { k: 'start' } },
+  { id: 'profit', kind: 'corp', dept: 'accounting', icon: '💰', name: t('利益重視', 'Profit first'), note: t('コスト・リーダーシップ：むだな費用を削り、お金になる提案だけを通す', 'Cost leadership: cut waste and approve what makes money'), fx: [{ k: 'matPrice', v: 0.03 }], w: W7.profit, themes: ['cost', 'store'], open: { k: 'start' } },
+  { id: 'growth', kind: 'corp', dept: 'strategy', icon: '📈', name: t('成長重視（長期）', 'Growth (long term)'), note: t('成長戦略：目先が赤字でも、1 年で取り戻せる投資を先に打つ', 'Growth strategy: invest now if it pays back within a year'), fx: [{ k: 'demand', v: 0.02 }], w: W7.growth, themes: ['sell', 'people'], open: { k: 'start' } },
+  { id: 'brand', kind: 'corp', dept: 'marketing', icon: '★', name: t('ブランド重視', 'Brand first'), note: t('ブランド・エクイティ：名前そのものを会社の財産として育てる', 'Brand equity: grow the name itself as a company asset'), fx: [{ k: 'brand', v: 1 }], w: W7.brand, themes: ['brand'], open: { k: 'start' } },
+  { id: 'people', kind: 'corp', dept: 'hr', icon: '😊', name: t('人を大事に（士気）', 'People first (morale)'), note: t('人的資本経営：働く人を費用でなく資本とみて、士気と育ちに投資する', 'Human-capital management: treat staff as capital, invest in morale and growth'), fx: [{ k: 'morale', v: 2 }], w: W7.people, themes: ['morale', 'workplace'], open: { k: 'start' } },
+  { id: 'customer', kind: 'corp', dept: 'support', icon: '🤝', name: t('お客様第一（満足度）', 'Customers first'), note: t('顧客満足経営：お客様の満足を、いちばんの物差しにする', 'Customer-satisfaction management: make satisfaction the main yardstick'), fx: [{ k: 'pull', v: 0.015 }], w: W7.customer, themes: ['sat', 'sell'], open: { k: 'start' } },
+  { id: 'research', kind: 'corp', dept: 'rnd', icon: '🔬', name: t('研究重視', 'Research first'), note: t('研究開発型経営：研究に投じて、他社にない技で勝つ', 'R&D-led management: invest in research to win with unique skills'), fx: [{ k: 'rp', v: 0.06 }], w: W7.research, themes: ['rp'], open: { k: 'start' } },
+  // ---- 全社方針：Common の石板
+  { id: 'empower', kind: 'corp', dept: 'hr', icon: '🙌', name: t('権限委譲', 'Empowerment'), note: t('現場に決める力を渡し、任された人が自分で考えて速く動く', 'Hand decisions to the front line so people think and act fast'), fx: [{ k: 'apt', v: 1 }], w: { short: 0.4, long: 0.6, morale: 1, sat: 0.4, brand: 0.3, rp: 0.3 }, themes: ['people', 'morale'], open: { k: 'tablet', ids: ['tab_c1'] } },
+  { id: 'focus', kind: 'corp', dept: 'logistics', icon: '🎯', name: t('選択と集中', 'Focus'), note: t('強い商品と得意な仕事に、人とお金を集める', 'Pour people and money into your strongest goods and skills'), fx: [{ k: 'price', v: 0.015 }], w: { short: 0.6, long: 0.5, morale: 0.2, sat: 0.2, brand: 0.4, rp: 0.2 }, themes: ['sell'], open: { k: 'tablet', ids: ['tab_c3'] } },
+  { id: 'purpose', kind: 'corp', dept: 'hr', icon: '🌱', name: t('パーパス経営', 'Purpose-driven'), note: t('会社が何のためにあるかを言葉にして、全員で分かち合う', 'Put the company’s reason to exist into words everyone shares'), fx: [{ k: 'morale', v: 1.5 }], w: { short: 0.3, long: 0.5, morale: 1.2, sat: 0.6, brand: 0.8, rp: 0.3 }, themes: ['morale', 'brand'], open: { k: 'tablet', ids: ['tab_c4'] } },
+  { id: 'okr', kind: 'corp', dept: 'strategy', icon: '🏁', name: 'OKR', note: t('大きな目標 1 つと、測れる主要な成果を決め、四半期ごとに見直す', 'Set one bold objective with measurable key results; review each quarter'), fx: [{ k: 'labor', v: 0.08 }], w: { short: 0.5, long: 0.6, morale: 0.3, sat: 0.3, brand: 0.3, rp: 0.3 }, themes: ['flow'], open: { k: 'tablet', ids: ['tab_c5'] } },
+  { id: 'esg', kind: 'corp', dept: 'general', icon: '🌳', name: t('サステナビリティ経営', 'Sustainability'), note: t('環境と社会に配慮し、むだを出さずに長く続ける', 'Care for people and the environment; waste less and last longer'), fx: [{ k: 'upkeep', v: 0.04 }], w: { short: 0.3, long: 0.7, morale: 0.5, sat: 0.5, brand: 1.2, rp: 0.3 }, themes: ['brand', 'workplace'], open: { k: 'tablet', ids: ['tab_c6'] } },
+  { id: 'leanStartup', kind: 'corp', dept: 'marketing', icon: '🧪', name: t('リーン・スタートアップ', 'Lean startup'), note: t('新しい品は小さく出して、売れ方を見て直し、また出す', 'Launch small, learn from sales, fix and launch again'), fx: [{ k: 'known', v: 0.08 }], w: { short: 0.4, long: 0.8, morale: 0.3, sat: 0.6, brand: 0.3, rp: 0.6 }, themes: ['sell', 'rp'], open: { k: 'tablet', ids: ['tab_c7'] } },
+  { id: 'ambidex', kind: 'corp', dept: 'rnd', icon: '🤹', name: t('両利きの経営', 'Ambidexterity'), note: t('いまの事業を深めつつ、まだ無い事業を探る。片方だけにしない', 'Deepen today’s business while exploring tomorrow’s — never just one'), fx: [{ k: 'demand', v: 0.01 }, { k: 'rp', v: 0.03 }], w: { short: 0.3, long: 0.7, morale: 0.3, sat: 0.3, brand: 0.4, rp: 1.2 }, themes: ['rp', 'sell'], open: { k: 'tablet', ids: ['tab_c8'] } },
+  // ---- 事業別：マーケティング
+  { id: 'stp', kind: 'dept', dept: 'marketing', icon: '🎯', name: t('STP マーケティング', 'STP marketing'), note: t('お客さんを分け、狙う相手を決め、他社とちがう立ち位置で届ける', 'Segment customers, pick a target, and position apart from rivals'), fx: [{ k: 'ads', v: 0.06 }], w: wOf('brand'), themes: ['sell', 'brand'], open: { k: 'panel', id: 'pol_mk' } },
+  { id: 'blueOcean', kind: 'dept', dept: 'marketing', icon: '🌊', name: t('ブルー・オーシャン戦略', 'Blue ocean strategy'), note: t('他社と奪い合う市場を避け、まだ競う相手のいない市場をつくる', 'Skip the crowded market and create one with no rivals yet'), fx: [{ k: 'rally', v: 0.08 }], w: wOf('brand'), themes: ['brand', 'sell'], open: { k: 'tablet', ids: ['tab_u1a', 'tab_u1b'] } },
+  // ---- 事業別：物流
+  { id: 'tqm', kind: 'dept', dept: 'logistics', icon: '🔧', name: t('TQM（総合的品質管理）', 'TQM'), note: t('全員で品質を見張り、小さな直しを毎日つみ重ねる', 'Everyone guards quality and stacks small fixes every day'), fx: [{ k: 'craftDays', v: 0.03 }], w: wOf('short', 0.8), themes: ['flow'], open: { k: 'panel', id: 'pol_lg' } },
+  { id: 'jit', kind: 'dept', dept: 'logistics', icon: '⏱', name: t('ジャスト・イン・タイム', 'Just in time'), note: t('要るものを、要る時に、要るだけ。待ち時間と置き場所のむだを消す', 'What’s needed, when needed, as much as needed — no waiting, no piles'), fx: [{ k: 'buyDays', v: 0.04 }], w: wOf('short', 0.8), themes: ['store', 'flow'], open: { k: 'tablet', ids: ['tab_c2'] } },
+  { id: 'lean', kind: 'dept', dept: 'logistics', icon: '📉', name: t('リーン生産', 'Lean production'), note: t('運ぶ・待つ・積み直すを「むだ」として数え、1 つずつ消す', 'Count hauling, waiting and re-stacking as waste and remove it one by one'), fx: [{ k: 'haulDays', v: 0.04 }], w: wOf('short', 0.8), themes: ['flow', 'store'], open: { k: 'tablet', ids: ['tab_u2a', 'tab_u2b'] } },
+  // ---- 事業別：システム
+  { id: 'agile', kind: 'dept', dept: 'systems', icon: '🔁', name: t('アジャイル開発', 'Agile development'), note: t('小さく作って、すぐ使ってもらい、短い周期で直していく', 'Build small, ship fast, improve in short cycles'), fx: [{ k: 'flow', v: 0.015 }], w: wOf('long', 1), themes: ['flow'], open: { k: 'panel', id: 'pol_sy' } },
+  { id: 'dx', kind: 'dept', dept: 'systems', icon: '💻', name: t('DX（デジタル・トランスフォーメーション）', 'Digital transformation'), note: t('帳簿と仕事の流れをデジタルでそろえ、仕組みごと変える', 'Unify records and workflows digitally and change how work is done'), fx: [{ k: 'procCap', v: 0.05 }], w: wOf('long', 1), themes: ['flow', 'store'], open: { k: 'tablet', ids: ['tab_u3a', 'tab_u3b'] } },
+  // ---- 事業別：R&D
+  { id: 'openInnov', kind: 'dept', dept: 'rnd', icon: '🔓', name: t('オープン・イノベーション', 'Open innovation'), note: t('社内だけで抱えず、外の知恵と組んで研究を速める', 'Team up with outside know-how instead of researching alone'), fx: [{ k: 'rp', v: 0.06 }], w: wOf('rp'), themes: ['rp'], open: { k: 'panel', id: 'pol_rd' } },
+  { id: 'stageGate', kind: 'dept', dept: 'rnd', icon: '🚪', name: t('ステージゲート法', 'Stage-gate'), note: t('研究を段に分け、門ごとに続けるか止めるかを決める', 'Split research into stages and decide go or stop at each gate'), fx: [{ k: 'dig.mat', v: 0.06 }], w: wOf('rp'), themes: ['rp'], open: { k: 'tablet', ids: ['tab_u5a', 'tab_u5b'] } },
+  { id: 'designThinking', kind: 'dept', dept: 'rnd', icon: '💡', name: t('デザイン思考', 'Design thinking'), note: t('使う人の暮らしを見て、困りごとから品を考える', 'Watch how people live and design from their problems'), fx: [{ k: 'known', v: 0.06 }], w: wOf('rp'), themes: ['rp', 'sat'], open: { k: 'tablet', ids: ['tab_e2a', 'tab_e2b'] } },
+  // ---- 事業別：人事
+  { id: 'teal', kind: 'dept', dept: 'hr', icon: '🍃', name: t('ティール組織', 'Teal organization'), note: t('上からの指示でなく、一人ひとりが目的に沿って自分で決める', 'People decide for themselves by the purpose, not by orders from above'), fx: [{ k: 'morale', v: 2 }], w: wOf('morale'), themes: ['morale'], open: { k: 'panel', id: 'pol_hr' } },
+  { id: 'oneOnOne', kind: 'dept', dept: 'hr', icon: '💬', name: t('1on1 ミーティング', 'One-on-ones'), note: t('上司と部下が 1 人ずつ短く話し、悩みを小さいうちに聞く', 'Short one-to-one talks catch worries while they’re small'), fx: [{ k: 'morale', v: 1.5 }], w: wOf('morale'), themes: ['morale'], open: { k: 'tablet', ids: ['tab_u4a', 'tab_u4b'] } },
+  { id: 'jobBased', kind: 'dept', dept: 'hr', icon: '📋', name: t('ジョブ型雇用', 'Job-based employment'), note: t('仕事ごとに要る技を書き出し、合う人をその役に置く', 'Write down the skills each job needs and put the right person in it'), fx: [{ k: 'apt', v: 1 }], w: wOf('morale'), themes: ['people'], open: { k: 'tablet', ids: ['tab_r4a', 'tab_r4b'] } },
+  // ---- 事業別：総務
+  { id: 'wellbeing', kind: 'dept', dept: 'general', icon: '🧘', name: t('ウェルビーイング経営', 'Well-being management'), note: t('働く人の心と体の調子を整えることを、会社の仕事にする', 'Make the health of body and mind part of the company’s job'), fx: [{ k: 'stamina', v: 0.04 }], w: wOf('morale'), themes: ['workplace'], open: { k: 'panel', id: 'pol_ga' } },
+  { id: 'workLife', kind: 'dept', dept: 'general', icon: '🌙', name: t('ワーク・ライフ・バランス', 'Work-life balance'), note: t('働く日と休む日を決めて守る。よく休んだ人ほど、よく働く', 'Set and keep work and rest days — the well-rested work best'), fx: [{ k: 'rest', v: 0.06 }], w: wOf('morale'), themes: ['workplace'], open: { k: 'tablet', ids: ['tab_r3a', 'tab_r3b'] } },
+  // ---- 事業別：カスタマーサポート
+  { id: 'custSuccess', kind: 'dept', dept: 'support', icon: '🏆', name: t('カスタマーサクセス', 'Customer success'), note: t('問い合わせを待つだけでなく、お客様がうまく使えるよう先に動く', 'Don’t just wait for questions — help customers succeed first'), fx: [{ k: 'sat', v: 0.15 }], w: wOf('sat'), themes: ['sat'], open: { k: 'panel', id: 'pol_cs' } },
+  { id: 'serviceProfit', kind: 'dept', dept: 'support', icon: '🔗', name: t('サービス・プロフィット・チェーン', 'Service-profit chain'), note: t('働く人が満ちれば、お客様が満ち、売上が続く。そのつながりを育てる', 'Happy staff make happy customers, and lasting sales — grow that chain'), fx: [{ k: 'pull', v: 0.01 }], w: wOf('sat'), themes: ['sat', 'morale'], open: { k: 'tablet', ids: ['tab_r2a', 'tab_r2b'] } },
+  // ---- 事業別：経理
+  { id: 'zeroBased', kind: 'dept', dept: 'accounting', icon: '0️⃣', name: t('ゼロベース予算', 'Zero-based budgeting'), note: t('去年の額を引き継がず、毎年ゼロから要る費用だけを積む', 'Don’t roll last year over — rebuild every cost from zero each year'), fx: [{ k: 'upkeep', v: 0.04 }], w: wOf('short', 0.8), themes: ['cost'], open: { k: 'panel', id: 'pol_ac' } },
+  { id: 'abc', kind: 'dept', dept: 'accounting', icon: '🧮', name: t('活動基準原価計算（ABC）', 'Activity-based costing'), note: t('仕事ごとの手間を数え、本当に高くついている所を見つける', 'Count the effort of each activity to find what truly costs the most'), fx: [{ k: 'matPrice', v: 0.02 }], w: wOf('short', 0.8), themes: ['cost'], open: { k: 'tablet', ids: ['tab_e3a', 'tab_e3b'] } },
+  // ---- 事業別：営業
+  { id: 'solution', kind: 'dept', dept: 'sales', icon: '🧩', name: t('ソリューション営業', 'Solution selling'), note: t('品を売る前に、お客さんの困りごとを聞き、解き方として売る', 'Hear the customer’s problem first, then sell the answer to it'), fx: [{ k: 'price', v: 0.01 }], w: wOf('long', 1), themes: ['sell'], open: { k: 'tablet', ids: ['tab_r1a', 'tab_r1b'] } },
+  { id: 'insideSales', kind: 'dept', dept: 'sales', icon: '📡', name: t('インサイド・セールス', 'Inside sales'), note: t('会いに行けない遠くのお客さんと、離れたまま話して注文を取る', 'Win orders from faraway customers without visiting them'), fx: [{ k: 'manager', v: 0.04 }], w: wOf('long', 1), themes: ['sell'], open: { k: 'panel', id: 'pol_sa' }, sector: true },
+  // ---- 事業別：法務
+  { id: 'compliance', kind: 'dept', dept: 'legal', icon: '🛡', name: t('コンプライアンス経営', 'Compliance management'), note: t('決まりを守ることを強みにし、信頼される会社になる', 'Make following the rules a strength and earn trust'), fx: [{ k: 'brand', v: 1 }], w: wOf('brand'), themes: ['legal'], open: { k: 'panel', id: 'pol_le' } },
+  { id: 'ipStrategy', kind: 'dept', dept: 'legal', icon: '📜', name: t('知財戦略', 'IP strategy'), note: t('考えた工夫を権利として守り、事業の武器にする', 'Protect ideas as rights and turn them into business weapons'), fx: [{ k: 'price', v: 0.01 }], w: wOf('brand'), themes: ['legal'], open: { k: 'tablet', ids: ['tab_e1a', 'tab_e1b'] } },
+];
+export const POLICY_OF: Record<string, PolicyDef> = Object.fromEntries(POLICIES.map((p) => [p.id, p]));
+/**
+ * 経営方針の数字（1 か所）。強さ ＝ 基本 ×（1 ＋ lv × 部門の理解度（lvCap まで））×（部長の能力：1 ＋ head × 出来の帯（0〜1）。部長がいなければ 1）。
+ * 出来の帯は、部長は (出来 − 0.7) ÷ 0.27、セクター長は (出来 − 0.5) ÷ 0.45（0〜1 に収める）。
+ * - slots：全社方針の枠（はじめ。経営企画の「全社方針の枠」パネルの Lv ごとに +1、max まで）。
+ * - tilt：方針の推す種類の提案の、出やすさ・並びの重み（× (1 + tilt)）。
+ */
+export const POL = { lv: 0.02, lvCap: 20, head: 0.35, slots: 1, max: 5, tilt: 0.25 };
 
 export const BUDGET = {
   from: 'R' as Tier,
@@ -3159,6 +3293,44 @@ export const TABLETS: Tablet[] = [
   { id: 'tab_e3b', sector: 'e3', title: t('返事の光', 'An answering light'), text: t('ある晩、霧の向こうで小さな光がまたたいた。返事だったのかもしれない。9 つのランドは、まだ同じ空の下にある。', 'One night, a small light flickered beyond the mist. Perhaps it was an answer. The nine lands still lie under the same sky.') },
 ];
 export const TABLET: Record<string, Tablet> = Object.fromEntries(TABLETS.map((x) => [x.id, x]));
+/**
+ * 段 K：石板に記された「ランドの運営のノウハウ」の一節（石板ごとに 1 つ。読むと、その方針が選べるようになる＝POLICIES の open.tablet）。
+ * Common は 1 枚で 1 つ。Uncommon・Rare・Epic は同じ町の 2 枚（a・b）で 1 つ（a が前半・b が後半）
+ */
+export const TABLET_KNOW: Record<string, string> = {
+  tab_c1: t('町の長は、道具の選び方を職人に任せた。任された者ほど、よく考えて速く動いた。', 'The town head let crafters choose their own tools. Those trusted thought harder and moved faster.'),
+  tab_c2: t('舟が着く日に合わせてガラスを吹けば、割れずに済み、倉も空いた。要るものを、要る時に、要るだけ。', 'Blow glass to match the day the boat arrives: nothing breaks and the store stays clear. What’s needed, when needed, as much as needed.'),
+  tab_c3: t('鍛冶場は、すべての道具を打つのをやめた。いちばん良い鍬に火を集めると、遠くの村からも買いに来た。', 'The forge stopped making every tool. When it put its fire into the finest hoe, far villages came to buy.'),
+  tab_c4: t('市場の入り口には「隣の暮らしを良くするために作る」と書いてあった。迷ったときは、皆でこの言葉に戻った。', 'Over the market gate it said, “We make things to better our neighbors’ lives.” When in doubt, everyone came back to those words.'),
+  tab_c5: t('祭りの前に、職人は大きな目標を 1 つと、確かめられる成果を 3 つ書いて壁に貼った。季節ごとに見直した。', 'Before the festival, each crafter pinned up one bold goal and three results anyone could check, and reviewed them every season.'),
+  tab_c6: t('木を 1 本切れば 2 本植えた。村は、森が続くかぎり町を支えられると知っていた。', 'For every tree felled, they planted two. The village knew it could keep the town only as long as the forest lasted.'),
+  tab_c7: t('新しい品は、まず 1 つだけ作って市に出した。売れ方を見て直し、また出した。', 'A new item was first made just once and taken to market. They watched how it sold, fixed it, and tried again.'),
+  tab_c8: t('町は、得意な品を磨く工房と、まだ誰も知らない品を試す工房を分けて持った。片方だけでは、町はやがて止まる。', 'The town kept one workshop to polish its best goods and another to try what no one knew yet. With only one, a town stalls.'),
+  tab_u1a: t('港の商人は言った。「皆が奪い合う海で網を投げるな」', 'The harbor merchants said, “Don’t cast your net where everyone fights for fish.”'),
+  tab_u1b: t('「まだ誰もいない海を探せ。そこでは値を下げなくても、魚が獲れる」', '“Find a sea where no one sails yet. There the fish come without cutting your price.”'),
+  tab_u2a: t('鍛冶の町の親方は、運ぶ・待つ・積み直すを「むだ」と呼び、1 つずつ数えた。', 'The smith masters called hauling, waiting and re-stacking “waste” and counted each one.'),
+  tab_u2b: t('むだを 1 つ消すたびに、道具は早く届いた。速さは、足すより引くことで生まれる。', 'Each waste removed got tools out sooner. Speed comes from taking away, not adding.'),
+  tab_u3a: t('9 つの土地の帳簿は、ばらばらの字と数え方で書かれていた。', 'The ledgers of the nine lands were kept in different scripts and different counts.'),
+  tab_u3b: t('商人たちは帳簿を 1 つの書き方にそろえた。どの店の品も、ひと目で分かるようになった。', 'The merchants made every ledger follow one form. Every shop’s goods could be seen at a glance.'),
+  tab_u4a: t('機を織る親方は、毎晩、弟子と 1 人ずつ短く話した。', 'Each night the master weaver had a short talk with each apprentice, one at a time.'),
+  tab_u4b: t('糸のもつれと同じで、悩みも小さいうちなら、すぐにほどけた。', 'Like a tangled thread, a worry caught early came loose with ease.'),
+  tab_u5a: t('新しい道具の工夫は、門を 1 つずつくぐらせて確かめた。', 'Every new tool idea had to pass through gates, one by one.'),
+  tab_u5b: t('見込みの無い工夫は早めに止め、見込みのある工夫に人と材を回した。', 'Ideas without promise were stopped early; people and materials went to the ones with promise.'),
+  tab_r1a: t('門番は、通る旅人に、何に困っているかを尋ねた。', 'The gatekeeper asked each traveler what troubled them.'),
+  tab_r1b: t('困りごとに合う品を勧めると、旅人は門を通るたびに買っていった。', 'Offered goods that fit their troubles, travelers bought each time they passed.'),
+  tab_r2a: t('値札の戦いのあと、ある店だけが客を取り戻した。', 'After the price-tag war, only one shop won its customers back.'),
+  tab_r2b: t('その店は、まず働く人を大事にした。満ち足りた店員の店に、客は何度も戻った。', 'That shop cared for its workers first. Customers kept returning to a shop of contented clerks.'),
+  tab_r3a: t('掘りすぎた大地が裂けたように、休まない人も、いつか折れる。', 'As the over-dug earth split, so people who never rest will one day break.'),
+  tab_r3b: t('残った人々は、働く日と休む日を決めた。よく休んだ者ほど、よく掘った。', 'Those who remained set days to work and days to rest. The well-rested dug best.'),
+  tab_r4a: t('最後の船を見送った職人たちは、仕事ごとに要る技を書き出した。', 'After the last ship left, the crafters wrote down the skills each job needed.'),
+  tab_r4b: t('何をする役かがはっきりすると、新しく来た者もすぐ持ち場に立てた。', 'Once each role was clear, newcomers could take their posts at once.'),
+  tab_e1a: t('分け合いの帳面には、誰がどの工夫を考えたかも書かれていた。', 'The sharing ledger also recorded who had thought of each idea.'),
+  tab_e1b: t('考えた者の名を守ると、皆が競って新しい工夫を持ち寄った。', 'When thinkers’ names were protected, everyone raced to bring new ideas.'),
+  tab_e2a: t('種をまく前に、人々は食べる者の暮らしを見に行った。', 'Before sowing, they went to see how those who would eat really lived.'),
+  tab_e2b: t('困りごとから考えた畑は、少ない種でも皆を満たした。', 'Fields planned from people’s troubles fed everyone, even from few seeds.'),
+  tab_e3a: t('塔の灯の油は貴重だった。人々は、どの灯にどれだけ油を使ったかを数えた。', 'Beacon oil was precious. They counted how much oil each light burned.'),
+  tab_e3b: t('灯ごとに油を数えると、むだに燃えている灯が分かった。', 'Counting oil light by light showed which ones burned for nothing.'),
+};
 
 /**
  * セクター長（町の長・シャドーヒーロー）の仮の絵：MCH のヒーローのデータに「シャドー」の区分が無いので、

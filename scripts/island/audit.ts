@@ -16,8 +16,9 @@ import { centerRate, inquiriesFor, newCs, putPower, refundCost, repeatMul } from
 import { gradeBrand, horizon, prGain } from '../../src/island/p1/mkt';
 import { clauseSlots, ddDays, keepRate, offerChance, patentDays, suitChance } from '../../src/island/p1/legal';
 import { emptyLedger } from '../../src/island/p1/company';
+import { POL_OFF, openPolicies, policyOfPanel, slotsOf } from '../../src/island/p1/policy';
 import { areaShares, deserializeP1 as fromSave, newP1 as freshTown, newStorePull, rivalStores, serializeP1 as toSave, vacantCost } from '../../src/island/p1/model';
-import { HERO_GROWTH, ADS, DIG_BALANCE, DIG_SITES, HIRE_POOL, INVEST, INVESTS, MONEY_PANELS, P1B, PRODUCT, RESEARCH_NEED, SKILL, aptitude, isResearch, relicKey, sku, skuParts, type DigFxKind, type FxKind, type Mat, type Skill, type Sku, type Task } from '../../src/island/p1/data';
+import { POL_PANELS, HERO_GROWTH, ADS, DIG_BALANCE, DIG_SITES, HIRE_POOL, INVEST, INVESTS, MONEY_PANELS, P1B, PRODUCT, RESEARCH_NEED, SKILL, aptitude, isResearch, relicKey, sku, skuParts, type DigFxKind, type FxKind, type Mat, type Skill, type Sku, type Task } from '../../src/island/p1/data';
 import {
   LEARNABLE,
   allowedDirs,
@@ -590,6 +591,9 @@ export const SKILL_SPEC: Record<string, SkillSpec> = {
   lg_counsel: { expect: [], check: 'probe', probe: { name: '訴えられた裁判の勝ちの見込み（%・証拠なし）', f: (s) => Math.round(suitChance(s, { side: 'def', evidence: false }) * 100), better: 'up' } },
   e_ops_1: { expect: [], check: 'probe', probe: { name: 'Epic の町の他社が「ふつう」の提示を受ける見込み（%）', f: (s) => epicOffer(s), better: 'up' }, note: 'ヒトシタウン（種 5）の 2 番目に大きい他社' },
   e_tech_2: { expect: [], check: 'probe', probe: { name: '買った店から引き継ぐ商売の割合（%・店員ごと）', f: (s) => Math.round(keepRate(s, true) * 100), better: 'up' } },
+  // 段 K：経営方針のパネル（開くと、その部門の事業別の方針が選べる＝選ぶと効く。効き目そのものは tests/island-p1-stagek.test.ts）・全社方針の枠
+  ...Object.fromEntries(POL_PANELS.filter((id) => id !== 'pol_slots').map((id) => [id, { expect: [], check: 'probe', probe: { name: '選べる経営方針の数', f: (s: P1State) => openPolicies(s).length, better: 'up' }, note: `事業別の方針「${policyOfPanel(id)?.name ?? id}」が開く` } as SkillSpec])),
+  pol_slots: { expect: [], check: 'probe', probe: { name: '全社方針の枠', f: (s) => slotsOf(s), better: 'up' }, note: 'Lv ごとに +1（5 まで）' },
 };
 /** 段 H2：Epic のパネルのうち、監査で測るもの（法務のパネルと、M&A に合わせて見直した 2 枚） */
 const LEGAL_AUDIT = ['lg_template', 'lg_patent', 'lg_dd', 'lg_counsel', 'e_ops_1', 'e_tech_2'];
@@ -975,7 +979,14 @@ function measure(item: Item, base: BaseId, stage: Stage): Cell {
 }
 
 export function audit(list = items()): Row[] {
-  return noGrowth(() => audit0(list));
+  // 段 K：経営方針の効き目は投資ではないので止めて測る（方針は町の土台を少し動かし、際どい投資の差が隠れる。方針のパネルは「選べる方針の数」で測る）
+  const was = POL_OFF.on;
+  POL_OFF.on = true;
+  try {
+    return noGrowth(() => audit0(list));
+  } finally {
+    POL_OFF.on = was;
+  }
 }
 function audit0(list: Item[]): Row[] {
   const rows: Row[] = [];

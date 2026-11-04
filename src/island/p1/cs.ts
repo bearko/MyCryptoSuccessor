@@ -13,6 +13,7 @@ import { CS, FLAME, PRODUCT, REPLY_FIT, skuParts, skuPrice, type InqKind, type R
 import { brandAdd } from './company';
 import { priceMul } from './acct';
 import { headFx } from './deleg';
+import { polFx } from './policy';
 import { moraleAdd } from './hr';
 import { has, myShops, priceAt, spend, staffOf, type P1State, type Report } from './model';
 
@@ -91,7 +92,8 @@ export const daysLeft = (s: P1State, q: Inquiry) => Math.max(0, q.day + expireDa
 /** サポートセンターが自動で受ける割合 */
 export const centerRate = (s: P1State) => (has(s, 'cs_center') ? Math.min(0.9, CS.center.base + CS.center.perLv * (Math.max(1, s.skillLv?.cs_center ?? 1) - 1)) : 0);
 /** 合う返事の満足度の倍率（満足度の調査・カスタマーサポートの部長） */
-export const careMul = (s: P1State) => (1 + (has(s, 'cs_survey') ? CS.care : 0)) * (1 + headFx(s, 'support'));
+/** 段 K：× 経営方針（カスタマーサクセス）の「返事で上がる顧客満足度 +%」 */
+export const careMul = (s: P1State) => (1 + (has(s, 'cs_survey') ? CS.care : 0)) * (1 + headFx(s, 'support')) * (1 + polFx(s, 'sat'));
 
 /**
  * 顧客満足度の来店（リピーター）の倍率。Uncommon 以上の町だけ（Common の町は 1）。はじめの CS.start で 1、

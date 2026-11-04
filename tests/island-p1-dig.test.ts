@@ -5,7 +5,7 @@
  * 正面の壁（v11。手前から奥へ・2 × 2 の大きいもの・覗き見）は tests/island-p1-dig2w.test.ts。
  */
 import { describe, expect, it } from 'vitest';
-import { ACCT_MONEY, GA_MONEY, BLAST, HR_MONEY, DIG, DIG_BALANCE, DIG_PANELS, DIG_SITES, MISSIONS, MONEY_PANELS, RESEARCH_NEED, RP_GAIN, RP_PER_DUST, SECTORS, SKILL, SKILLS, START_RP, TABLETS, TIERS, WASTE, aptitude, isResearch, levelCost, maxLv, rpCost, researchLv, CS_MONEY, MKT_MONEY } from '../src/island/p1/data';
+import { POL_PANELS, ACCT_MONEY, GA_MONEY, BLAST, HR_MONEY, DIG, DIG_BALANCE, DIG_PANELS, DIG_SITES, MISSIONS, MONEY_PANELS, RESEARCH_NEED, RP_GAIN, RP_PER_DUST, SECTORS, SKILL, SKILLS, START_RP, TABLETS, TIERS, WASTE, aptitude, isResearch, levelCost, maxLv, rpCost, researchLv, CS_MONEY, MKT_MONEY } from '../src/island/p1/data';
 import { moveTo } from '../src/island/p1/land';
 import {
   allowedDirs,
@@ -68,6 +68,8 @@ import {
   type P1State,
 } from '../src/island/p1/model';
 import { SECTOR_KEYS } from '../src/island/p1/land';
+/** 段 K の経営方針のパネル（POL_SKILLS）は別に数える（tests/island-p1-stagek.test.ts） */
+const noPol = <T extends { id: string }>(xs: T[]) => xs.filter((k) => !POL_PANELS.includes(k.id));
 
 const lot = (s: P1State, id: string): [number, number, 'rd' | 'ld' | 'lu' | 'ru'] => {
   for (let j = 0; j < s.n; j++) for (let i = 0; i < s.n; i++) { const d = allowedDirs(s, id, i, j); if (d.length) return [i, j, d[0]]; }
@@ -635,7 +637,8 @@ describe('発掘隊（仕事「発掘」）', () => {
 
 describe('スキルツリーの 2 区分', () => {
   it('お金パネルは技を除く 7 本 × 5 ランクの 35 枚と発掘の枝の 17 枚（Lv5 まで）＋研究への寄付、残りは研究パネル（レベルなし。無限の強化パネル 3 枚だけ上限なし）', () => {
-    const money = SKILLS.filter((k) => !isResearch(k));
+    // 段 K の経営方針のパネル（POL_SKILLS：研究 10・お金 1）は別に数える（tests/island-p1-stagek.test.ts）
+    const money = noPol(SKILLS).filter((k) => !isResearch(k));
     // ＋段 C：営業のお金パネル 4 枚（SALES_MONEY）・段 E2：人事のお金パネル 2 枚（HR_MONEY）・段 F：経理 3 枚（ACCT_MONEY）・総務 2 枚（GA_MONEY）・
     // 段 G：カスタマーサポート 1 枚（CS_MONEY）・マーケ 2 枚（MKT_MONEY）
     // 段 H2：法務 2 枚（LEGAL_MONEY）
@@ -665,14 +668,14 @@ describe('スキルツリーの 2 区分', () => {
       expect(rpCost(k), k.id).toBeGreaterThan(0);
     }
     expect(SKILLS.filter((k) => k.inf).length).toBe(3);
-    expect(SKILLS.filter(isResearch).length).toBe(SKILLS.length - 35 - 1 - 4 - 2 - 3 - 2 - 1 - 2 - 2);
+    expect(noPol(SKILLS).filter(isResearch).length).toBe(noPol(SKILLS).length - 35 - 1 - 4 - 2 - 3 - 2 - 1 - 2 - 2);
   });
 
   it('RP の値段：Common 平均 50 前後（20〜80）・Uncommon 平均 120 前後・Rare 以降 2.5 倍ずつ・大きめの研究パネルは約 2.5 倍・人材の募集は 30', () => {
     // 調整 v25c：Common の発掘の枝の 11 枚は決め打ちで安い（10〜40。DIG_BALANCE.tree.rp）ので、段の平均・範囲からは外す
     const digC = (k: { id: string; tier?: string }) => !k.tier && DIG_PANELS.includes(k.id);
     const avg = (tier: string) => {
-      const r = SKILLS.filter((k) => (k.tier ?? 'C') === tier && isResearch(k) && !k.big && !k.inf && !digC(k));
+      const r = noPol(SKILLS).filter((k) => (k.tier ?? 'C') === tier && isResearch(k) && !k.big && !k.inf && !digC(k));
       return r.reduce((a, k) => a + rpCost(k), 0) / r.length;
     };
     expect(avg('C')).toBeGreaterThan(45);
@@ -773,7 +776,7 @@ describe('調査依頼状', () => {
 describe('セーブ', () => {
   it('新しいゲームは版 6・30 RP。発掘の進み・許可・研究ノートはセーブに残る', () => {
     const s = run(site());
-    expect([s.v, s.rp]).toEqual([26, 30]);
+    expect([s.v, s.rp]).toEqual([27, 30]);
     breakCell(s, 0, 0);
     endRun(s);
     s.research[1011] = 3;
@@ -805,7 +808,7 @@ describe('セーブ', () => {
     const m0 = o.money;
     const old = deserializeP1(JSON.stringify(o))!;
     // 版 1 → 2 → 3 → 4 → 5 と順に移す
-    expect(old.v).toBe(26);
+    expect(old.v).toBe(27);
     expect(old.dig!.sites).toHaveLength(4);
     expect(old.skills).toEqual(expect.arrayContaining(['host', 'golden', 'jig', 'lounge', 'd_shop']));
     expect([lvOf(old, 'host'), lvOf(old, 'golden'), lvOf(old, 'lounge'), lvOf(old, 'd_shop')]).toEqual([3, 1, 1, 1]);
@@ -845,7 +848,7 @@ describe('セーブ', () => {
     o.tablets = ['tab_c1'];
     o.presented = [];
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(26);
+    expect(back.v).toBe(27);
     expect(back.rp).toBe(333);
     expect(back.research).toEqual({ [found]: 11, 1011: 4 });
     expect(back.tablets).toEqual(['tab_c1']);

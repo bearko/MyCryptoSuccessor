@@ -280,7 +280,7 @@ function stateOf(s: P1State, k: Skill): State {
   const e = skillLock(s, k);
   if (e === null) return 'open';
   if (e === 'money' || e === 'rp') return 'poor';
-  if (e === 'requires' || e === 'brand' || e === 'emblem') return 'locked';
+  if (e === 'requires' || e === 'dept' || e === 'brand' || e === 'emblem') return 'locked';
   return e as State;
 }
 /** 条件の札（★30・🏅3） */
@@ -356,6 +356,12 @@ function trainBox(s: P1State, k: Skill): HTMLElement | null {
 }
 /** ブランド力・エンブレムの条件（足りなければ 🔒、足りていれば ✓） */
 const brandNeed = (s: P1State, k: Skill) => ((s.brand ?? 0) < (k.brand ?? 0) ? t(`🔒 ブランド力 ${k.brand} が要る（いま ${s.brand ?? 0}）`, `🔒 Needs brand ${k.brand} (now ${s.brand ?? 0})`) : t(`✓ ブランド力 ${k.brand}（いま ${s.brand ?? 0}）`, `✓ Brand ${k.brand} (now ${s.brand ?? 0})`));
+/** 段 K：経営方針のパネルの「部門の理解度」の条件 */
+const deptNeed = (s: P1State, k: Skill) => {
+  const d = deptOf(k);
+  const now = deptLevel(s, d);
+  return now < (k.deptLv ?? 0) ? t(`🔒 ${DEPT[d].name}の理解度 ${k.deptLv} が要る（いま ${now}）`, `🔒 Needs ${DEPT[d].name} understanding ${k.deptLv} (now ${now})`) : t(`✓ ${DEPT[d].name}の理解度 ${k.deptLv}（いま ${now}）`, `✓ ${DEPT[d].name} understanding ${k.deptLv} (now ${now})`);
+};
 const emblemNeed = (s: P1State, k: Skill) => ((s.emblem ?? 0) < (k.emblem ?? 0) ? t(`🔒 エンブレム ${k.emblem} が要る（いま ${s.emblem ?? 0}）`, `🔒 Needs ${k.emblem} emblem(s) (now ${s.emblem ?? 0})`) : t(`✓ エンブレム ${k.emblem}（いま ${s.emblem ?? 0}）`, `✓ ${k.emblem} emblem(s) (now ${s.emblem ?? 0})`));
 const ringNeed = (k: Skill) => t(`${TIER_NAME[skillTier(k)]} のセクタに進出すると開く`, `Opens when you expand into a ${TIER_NAME[skillTier(k)]} sector`);
 /** 「技を 3 つ」のような条件（anyOf）の札 */
@@ -445,6 +451,7 @@ function infoLines(s: P1State, k: Skill, st: State): HTMLElement[] {
   }
   if (k.brand) out.push(h('small', (s.brand ?? 0) < k.brand ? 'isl-warn' : 'isl-good', brandNeed(s, k)));
   if (k.emblem) out.push(h('small', (s.emblem ?? 0) < k.emblem ? 'isl-warn' : 'isl-good', emblemNeed(s, k)));
+  if (k.deptLv) out.push(h('small', deptLevel(s, deptOf(k)) < k.deptLv ? 'isl-warn' : 'isl-good', deptNeed(s, k)));
   if (k.anyOf) out.push(h('small', anyOfMet(k, (r) => has(s, r)) ? 'isl-good' : 'isl-warn', anyNeed(s, k)));
   if (k.train && st !== 'done' && st !== 'training') out.push(h('small', 'isl-dim', trainNote(k)));
   const tb = trainBox(s, k);
@@ -711,6 +718,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       else if (e === 'ring' || e === 'sealed') fail(ringNeed(k));
       else if (e === 'soon') fail(t('準備中です', 'Coming soon'));
       else if (e === 'requires') fail(t('先に要るスキルがあります', 'Learn the required skills first'));
+      else if (e === 'dept') fail(plain(deptNeed(s, k)));
       else if (e === 'hidden') fail(t('まだ雲の向こう（発掘と出会うと開く）', 'Still beyond the clouds (opens once you meet digging)'));
       else if (!e) {
         ctx.sfx?.('levelup');

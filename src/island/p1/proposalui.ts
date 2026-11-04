@@ -437,7 +437,7 @@ function appendix(body: HTMLElement, ctx: Ctx, s: P1State, plan: Plan, B: Brief,
     whys.append(h('li', '', `※${x.why}`));
   }
   s3.append(vt, whys);
-  s3.append(h('p', 'isl-prop-note', t(`※社長の方針（${policyName(B.vals.policy)}）で、指標に重みをかけて推奨を決めます（経営企画の「受け箱」で変えられます）`, `※Recommendations weigh these by your policy (${policyName(B.vals.policy)}); change it under Strategy → Inbox`)));
+  s3.append(h('p', 'isl-prop-note', t(`※社長の方針（${(B.vals.names ?? [B.vals.policy]).map(policyName).join('・')}）で、指標に重みをかけて推奨を決めます（経営企画の「受け箱」の上の「経営方針」）`, `※Recommendations weigh these by your policies (${(B.vals.names ?? [B.vals.policy]).map(policyName).join(', ')}); see Strategy → Inbox → Management policy`)));
   s3.append(h('h4', '', t('月あたりの内訳', 'Per month')));
   const tbl = h('div', 'isl-prop-eff');
   tbl.append(h('span', 'isl-prop-effh', ''), h('span', 'isl-prop-effh', t('このまま', 'As is')), h('span', 'isl-prop-effh', ''), h('span', 'isl-prop-effh', t('承認後', 'After')), h('span', 'isl-prop-effh', t('差', 'Change')));

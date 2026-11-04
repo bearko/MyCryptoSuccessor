@@ -4,14 +4,16 @@
  * 助言の文が実際の数字から出る・疲れと職場の環境・古いセーブ。
  */
 import { describe, expect, it } from 'vitest';
-import { ACCT_MONEY, ACCT_SKILLS, DEPT_SKILLS, P1B, FATIGUE, GA_MONEY, GA_SKILLS, PRODUCT, SKILL, TAX, rpCost, sku } from '../src/island/p1/data';
+import { POL_PANELS, ACCT_MONEY, ACCT_SKILLS, DEPT_SKILLS, P1B, FATIGUE, GA_MONEY, GA_SKILLS, PRODUCT, SKILL, TAX, rpCost, sku } from '../src/island/p1/data';
 import { emptyLedger, pl, quarters } from '../src/island/p1/company';
 import { ACCT_OFF, acctAdvice, acctReset, closeQuarter, costRank, taxLine, dedCap, dedRate, monthBase, priceMul, quarterNow, taxHint, taxOn, taxPlan, taxRate, topTier } from '../src/island/p1/acct';
 import { envItems, fatigueLoad, fatigueMorale, fatigueMul, fatigueOf, gaOn } from '../src/island/p1/ga';
 import { moraleParts } from '../src/island/p1/hr';
 import { deptLevel, menuDepts } from '../src/island/p1/dept';
 import { build, closeCompanyMonth, deserializeP1, donate, gainSkill, invest, learn, setLevel, myWorkshop, newP1, priceOf, rivalBase, serializeP1, speed, type P1State } from '../src/island/p1/model';
-import { runOnce, totalSec, withoutAcct, withoutEvents } from '../scripts/island/sim';
+import { withoutPol, runOnce, totalSec, withoutAcct, withoutEvents } from '../scripts/island/sim';
+/** 段 K の経営方針のパネル（POL_SKILLS）は別に数える（tests/island-p1-stagek.test.ts） */
+const noPol = <T extends { id: string }>(xs: T[]) => xs.filter((k) => !POL_PANELS.includes(k.id));
 
 /** Uncommon の町（ウメコタウン）。資金たっぷり */
 function uTown(seed = 1): P1State {
@@ -219,8 +221,9 @@ describe('単価の整え（税のぶん売上の側も）', () => {
     '節税を気にしない最短の方針で、合計の時間が段 F の前と ±5% の中（3 シードの平均）。税は払っている',
     () => {
       // 段 UI4（突発のできごと）は止めて、段 F の効き目だけを比べる
-      const on = [1, 2, 3].map((seed) => withoutEvents(() => runOnce('rta', seed)));
-      const off = [1, 2, 3].map((seed) => withoutEvents(() => withoutAcct(() => runOnce('rta', seed))));
+      // 段 K（経営方針）も止める（段 F の効き目だけを比べる）
+      const on = [1, 2, 3].map((seed) => withoutPol(() => withoutEvents(() => runOnce('rta', seed))));
+      const off = [1, 2, 3].map((seed) => withoutPol(() => withoutEvents(() => withoutAcct(() => runOnce('rta', seed)))));
       const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
       const a = mean(on.map(totalSec));
       const b = mean(off.map(totalSec));
@@ -306,7 +309,7 @@ describe('疲れと職場の環境（総務）', () => {
   });
 
   it('職場の環境：総務のパネルは 12 枚（いまの 9 枚＋段 F の 3 枚）。取った枚数が士気の目標の「職場の環境」に入り、社員食堂・仮眠室はスタミナの戻りと減りに効く', () => {
-    expect(DEPT_SKILLS.general).toHaveLength(12);
+    expect(noPol(DEPT_SKILLS.general)).toHaveLength(12);
     expect(GA_SKILLS.map((k) => [k.id, k.cat, k.tier])).toEqual([
       ['ga_canteen', 'money', 'U'],
       ['ga_nap', 'money', 'U'],
@@ -341,12 +344,12 @@ describe('疲れと職場の環境（総務）', () => {
 describe('セーブ（版 16）', () => {
   it('新しいゲームは版 16。税の記録はセーブに残る', () => {
     const s = uTown();
-    expect(s.v).toBe(26);
+    expect(s.v).toBe(27);
     closeMonth(s, 300000);
     closeMonth(s, 300000);
     closeMonth(s, 300000);
     const back = deserializeP1(serializeP1(s))!;
-    expect(back.v).toBe(26);
+    expect(back.v).toBe(27);
     expect(back.acct!.paid).toBe(s.acct!.paid);
     expect(back.acct!.hist).toHaveLength(1);
   });
@@ -358,7 +361,7 @@ describe('セーブ（版 16）', () => {
     o.v = 15;
     delete o.acct;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(26);
+    expect(back.v).toBe(27);
     expect(back.acct).toBeUndefined();
     // 会社の月 5（day 150）：途中の月。6（day 180）：四半期の締め
     const a = closeMonth(back, 300000);

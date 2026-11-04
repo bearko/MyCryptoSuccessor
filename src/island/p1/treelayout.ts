@@ -7,12 +7,14 @@
  * docs/ISLAND_PHASE1.md「スキルツリー」「部門」。
  */
 import { t } from '../../i18n';
-import { CS_SKILLS, DEPTS, DEPT_SKILLS, GA_SKILLS, MKT_SKILLS, SKILL, UI5_SKILLS, SKILLS, deptOf, isResearch, type Branch, type DeptId, type Skill, type Tier } from './data';
+import { CS_SKILLS, DEPTS, DEPT_SKILLS, GA_SKILLS, MKT_SKILLS, POL_PANELS, SKILL, UI5_SKILLS, SKILLS, deptOf, isResearch, type Branch, type DeptId, type Skill, type Tier } from './data';
 import { ROW_CAP } from './skillsx';
 import { TREE_ORDER } from './treeorder';
 
 /** スキルのランク（外周）。無ければ C */
 const tierOf = (k: { tier?: Tier }): Tier => k.tier ?? 'C';
+/** 置く外周（段 K：法務の「経営方針」パネルは Epic のパネルだが、Epic の外周に入る幅が無いので Rare の外周の位置に置く＝Skill.ring） */
+const ringOf = (k: { tier?: Tier; ring?: Tier }): Tier => k.ring ?? tierOf(k);
 
 export const UNIT = 96;
 /**
@@ -134,7 +136,7 @@ export const RING_EDGE = { C: 0 } as Record<Tier, number>;
 // 段 G：マーケの Uncommon の外周にパネルが増えたので、ブランドの看板（物流の Rare の外周へ線が伸びる）を物流の側の端へ（線がマーケのパネルを横切らないように）
 const OUTER_AT: Record<string, number> = { u_dig_mat: 3, b_sign: 3 };
 function outerOf(list: Skill[], tier: Tier): Skill[] {
-  const out = [...list.filter((k) => tierOf(k) === tier && !k.big && !k.donate), ...list.filter((k) => tierOf(k) === tier && k.big)];
+  const out = [...list.filter((k) => ringOf(k) === tier && !k.big && !k.donate), ...list.filter((k) => ringOf(k) === tier && k.big)];
   for (const [id, at] of Object.entries(OUTER_AT)) {
     const i = out.findIndex((k) => k.id === id);
     if (i >= 0) out.splice(at, 0, ...out.splice(i, 1));
@@ -150,7 +152,7 @@ function outerOf(list: Skill[], tier: Tier): Skill[] {
     const cap = ROW_CAP[tier as Exclude<Tier, 'C'>];
     r = Math.max(r, (GAP * (cap - 1) + 1.15) / SPAN);
     // 段 G で販売の枝に足したカスタマーサポート・マーケのパネルは数えない（半径を前と変えない。部門の枝の幅で収める）
-    const rows = Math.max(1, ...OLD_BR.map((br) => Math.ceil(outerOf(SKILLS.filter((k) => k.branch === br && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k)), tier).length / (br === 'dig' ? 3 : cap))));
+    const rows = Math.max(1, ...OLD_BR.map((br) => Math.ceil(outerOf(SKILLS.filter((k) => k.branch === br && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !POL_PANELS.includes(k.id)), tier).length / (br === 'dig' ? 3 : cap))));
     RING_EDGE[tier] = r - 0.85;
     RING_R[tier] = r;
     RING_ROWS[tier] = Array.from({ length: rows }, (_, k) => r + STEP * k);
@@ -201,8 +203,8 @@ export let SLACK = 0;
       // 営業（段 C。Rare の外周だけ）・経理（段 F。Uncommon の外周だけ）は、収まる幅だけ（余りの角度を取らない＝ほかの枝の幅を前と変えない）。
       // 総務は段 F で足した 3 枚（GA_SKILLS）・マーケは段 G で足した 5 枚（MKT_SKILLS）を余りの数に入れない（ほかの枝の幅を前と変えない）。
       // カスタマーサポート（段 G。Uncommon の外周だけ）は営業・経理と同じく収まる幅だけ
-      // 段 UI5a の調達の交代要員・調達チーム（UI5_SKILLS）も余りの数に入れない（ほかの枝の幅を前と変えない）
-      items.push({ d: d.id, g, need: needOf(key, skills), n: NARROW.includes(d.id) ? 0 : skills.filter((k) => !GA_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id)).length });
+      // 段 UI5a の調達の交代要員・調達チーム（UI5_SKILLS）も余りの数に入れない（ほかの枝の幅を前と変えない）。段 K の経営方針のパネル（POL_PANELS）も
+      items.push({ d: d.id, g, need: needOf(key, skills), n: NARROW.includes(d.id) ? 0 : skills.filter((k) => !GA_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id) && !POL_PANELS.includes(k.id)).length });
     }
   }
   // 段 C：営業の枝（パネルの無い細い枝だったもの）が広がったぶんは、ほかのパネルの無い部門の枝から分けてもらう
@@ -302,6 +304,11 @@ export interface Pool {
   slots: { x: number; y: number }[];
 }
 export const POOLS: Pool[] = [];
+/**
+ * 段 K：外周の組を、枝の真ん中から横へ寄せる（弧の長さ。UNIT）。法務の Rare の外周は「経営方針」パネル 1 枚だけで、
+ * 真ん中に置くと、根もとから Epic の外周へ伸びる「契約の雛形」の線が、よけて曲がり、隣の R&D の線と交わる
+ */
+export const OUTER_NUDGE: Record<string, number> = { 'legal|R': 0.5 };
 for (const d of DEPTS) {
   const L = DEPT_LAYOUT[d.id];
   HUBPOS.set(d.id, polar(deptAngle(d.id), L.hubR));
@@ -314,9 +321,10 @@ for (const d of DEPTS) {
       if (!ids.length) continue;
       let at = 0;
       const slots: { x: number; y: number }[] = [];
+      const nudge = (OUTER_NUDGE[`${g.key}|${tier}`] ?? 0) / RING_ROWS[tier][0];
       for (const r of RING_ROWS[tier]) {
         const c = capAt(g.w, r);
-        slots.push(...row(ids.slice(at, at + c).length, r));
+        slots.push(...row(ids.slice(at, at + c).length, r).map((p) => polar(Math.atan2(p.y, p.x) + nudge, r)));
         at += c;
       }
       POOLS.push({ key: `${g.key}|${tier}`, ids, slots });
@@ -449,6 +457,10 @@ export function hubsAround(e: TreeEdge): HubBox[] {
   return [...HUBPOS].filter(([d]) => d !== own).map(([d, p]) => ({ d, ...p, ...hubClear(d) }));
 }
 let bends: Map<TreeEdge, Bend> | null = null;
+/** 並びを探すとき（scripts・テスト）：弧のキャッシュを捨てる */
+export const resetBends = () => {
+  bends = null;
+};
 /** どの線をどれだけ曲げるか（配置は変わらないので、はじめて使うときに 1 回だけ数える） */
 export function edgeBends(): Map<TreeEdge, Bend> {
   if (bends) return bends;

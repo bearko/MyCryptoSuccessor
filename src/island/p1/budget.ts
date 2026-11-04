@@ -22,6 +22,7 @@ import { actName, actOk, approve, candidates, headOf, ifsOf, newDeleg, quality, 
 import { DAYS, type P1State, type Report } from './model';
 import { gradeOf, P2_OFF } from './voice';
 import { laborPush } from './board';
+import { polFx } from './policy';
 
 // ---------------------------------------------------------------- 型
 
@@ -176,7 +177,8 @@ export function handOf(s: P1State, d: DeptId): number {
   return star == null ? 0 : BUDGET.hand.base + BUDGET.hand.star * (star - 1);
 }
 /** 部門の月の労力（人日）：部長の手 ＋ 従業員 */
-export const laborCap = (s: P1State, d: DeptId) => Math.round((handOf(s, d) + deptBudget(s, d).crew * BUDGET.crew.labor) * laborPush(s, d));
+/** 段 K：× 経営方針（OKR）の「部長の施策に使える労力 +%」 */
+export const laborCap = (s: P1State, d: DeptId) => Math.round((handOf(s, d) + deptBudget(s, d).crew * BUDGET.crew.labor) * laborPush(s, d) * (1 + polFx(s, 'labor')));
 /**
  * 施策の成果を G に直す（段 I2 の経営会議の計画と実績を同じ単位で）：G・宣伝・法務はそのまま、出土品は 1 個 BOARD.findG、
  * 商圏の取り分（%）は先月の売上 × 割合

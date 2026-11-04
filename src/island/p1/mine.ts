@@ -9,7 +9,8 @@
  */
 import { isEn, t } from '../../i18n';
 import { heroById } from '../../game/catalog';
-import { introFirstStep, P1B, type Tier } from './data';
+import { introFirstStep, P1B, TABLET_KNOW, type Tier } from './data';
+import { slotsOf } from './policy';
 import { sectorDef, tierLabel } from './company';
 import { digMet, meetTip, topicsPage } from './digmeet';
 import { has, jamOf, stallOf, myShops, myWorkshop, rivalMonthGuess, type P1State, type Stage } from './model';
@@ -210,7 +211,7 @@ export const freeUi = (): TalkUi => ({ talk: false, card: false, report: false, 
 export const talkWaits = (ui: TalkUi, over = false) => ui.talk || ui.card || ui.report || ui.disaster || ui.moving || (!over && (ui.sheet || ui.modal || ui.placing || ui.tour));
 
 /** 部門の紹介の会話 */
-export type DeptTalk = 'acct' | 'cs' | 'sales' | 'legal' | 'foot' | 'budget';
+export type DeptTalk = 'acct' | 'cs' | 'sales' | 'legal' | 'foot' | 'budget' | 'polKnow' | 'polSlot';
 
 /**
  * 次に出してよい部門の紹介（無ければ null）。
@@ -230,6 +231,9 @@ export function deptTalkNext(s: P1State, ui: TalkUi, o: { intro: boolean; reset:
   if (!s.flags.budgetTalk && s.flags.salesTalk && budgetOpen(s)) return 'budget';
   if (!s.flags.acctTalk && depts.includes('accounting') && tier !== 'C') return 'acct';
   if (!s.flags.csTalk && s.flags.acctTalk && depts.includes('support') && tier !== 'C') return 'cs';
+  // 段 K：初めて石板のノウハウを読んだ（経営方針が増える）・初めて全社方針の枠が増えた
+  if (!s.flags.polKnowTalk && (s.tablets ?? []).some((x) => !!TABLET_KNOW[x])) return 'polKnow';
+  if (!s.flags.polSlotTalk && slotsOf(s) > 1) return 'polSlot';
   return null;
 }
 

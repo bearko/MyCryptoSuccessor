@@ -4,11 +4,13 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DIG_PANELS, ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, UI5_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, REQUIRES_ORIG, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
+import { POL_PANELS, POL_PANEL_DEPT, DIG_PANELS, ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, UI5_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, REQUIRES_ORIG, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
 import { deptLevel, deptNews, deptOpen, deptReady, menuDepts, menuLayout, nextMark } from '../src/island/p1/dept';
 import { deserializeP1, newP1, serializeP1 } from '../src/island/p1/model';
 import { DEPT_LAYOUT, EDGES, HUBPOS, HUB_BOX, KNOTPOS, POS, RING_OUT, SLACK, UNPLACED, groupOf } from '../src/island/p1/treelayout';
 import { TUT } from '../src/island/p1/tut';
+/** 段 K の経営方針のパネル（POL_SKILLS）は別に数える（tests/island-p1-stagek.test.ts） */
+const noPol = <T extends { id: string }>(xs: T[]) => xs.filter((k) => !POL_PANELS.includes(k.id));
 
 const BEFORE = JSON.parse(readFileSync(new URL('./fixtures/skills-before-dept.json', import.meta.url), 'utf8')) as Record<string, unknown>[];
 
@@ -37,14 +39,14 @@ describe('部門の定義（DEPTS）', () => {
 describe('パネルの部門の割り振り', () => {
   it('すべてのパネルに部門がある。法務は段 H2 の 4 枚（営業は段 C の 6 枚・経理は段 F の 6 枚・カスタマーサポートは段 G の 4 枚）、総務は人材の枝の職場の環境のもの（段 F の 3 枚を足して 12 枚）', () => {
     for (const k of SKILLS) expect(DEPT[deptOf(k)], k.id).toBeTruthy();
-    expect(DEPT_SKILLS.legal.map((k) => k.id)).toEqual(LEGAL_SKILLS.map((k) => k.id));
-    expect(DEPT_SKILLS.support.map((k) => k.id)).toEqual(CS_SKILLS.map((k) => k.id));
+    expect(noPol(DEPT_SKILLS.legal).map((k) => k.id)).toEqual(LEGAL_SKILLS.map((k) => k.id));
+    expect(noPol(DEPT_SKILLS.support).map((k) => k.id)).toEqual(CS_SKILLS.map((k) => k.id));
     for (const k of [...CS_SKILLS, ...MKT_SKILLS]) expect([k.branch, k.tier], k.id).toEqual(['shop', 'U']);
     for (const k of MKT_SKILLS) expect(deptOf(k), k.id).toBe('marketing');
-    expect(DEPT_SKILLS.accounting.map((k) => k.id)).toEqual(ACCT_SKILLS.map((k) => k.id));
-    expect(DEPT_SKILLS.general).toHaveLength(12);
+    expect(noPol(DEPT_SKILLS.accounting).map((k) => k.id)).toEqual(ACCT_SKILLS.map((k) => k.id));
+    expect(noPol(DEPT_SKILLS.general)).toHaveLength(12);
     for (const k of GA_SKILLS) expect(deptOf(k), k.id).toBe('general');
-    expect(DEPT_SKILLS.sales.map((k) => k.id)).toEqual(['sa_survey', 'sa_local', 'sa_dominant', 'sa_road', 'sa_nego', 'sa_edge']);
+    expect(noPol(DEPT_SKILLS.sales).map((k) => k.id)).toEqual(['sa_survey', 'sa_local', 'sa_dominant', 'sa_road', 'sa_nego', 'sa_edge']);
     expect(DEPT_SKILLS.general.map((k) => k.id)).toEqual(expect.arrayContaining(['lounge', 'shift', 'welfare']));
     for (const k of DEPT_SKILLS.general) expect(k.branch).toBe('people');
     // 物流：調達・製造・物流・技の枝はすべて
@@ -54,7 +56,9 @@ describe('パネルの部門の割り振り', () => {
     for (const id of ['vmd', 'pop', 'golden', 'b_sign', 'fair', 'b_premium', 'd_ops', 'b_ads']) expect(deptOf(SKILL[id]), id).toBe('marketing');
     for (const k of SKILLS.filter((x) => x.branch === 'shop')) expect(['logistics', 'marketing', 'support'], k.id).toContain(deptOf(k));
     // 経営 → 経営企画（ブランドのものはマーケ）・発掘 → R&D（寄付・無限の強化パネルも）・システム → システム
-    for (const k of SKILLS.filter((x) => x.branch === 'ops' && !ACCT_SKILLS.includes(x))) expect(['strategy', 'marketing'], k.id).toContain(deptOf(k));
+    // 段 K の経営方針のパネル（POL_SKILLS）は、その部門（POL_PANEL_DEPT）
+    for (const k of SKILLS.filter((x) => x.branch === 'ops' && !ACCT_SKILLS.includes(x) && !POL_PANELS.includes(x.id))) expect(['strategy', 'marketing'], k.id).toContain(deptOf(k));
+    for (const id of POL_PANELS) expect(deptOf(SKILL[id]), id).toBe(POL_PANEL_DEPT[id]);
     for (const k of ACCT_SKILLS) expect([k.branch, deptOf(k)], k.id).toEqual(['ops', 'accounting']);
     for (const k of SKILLS.filter((x) => x.branch === 'dig')) expect(deptOf(k), k.id).toBe('rnd');
     for (const k of SKILLS.filter((x) => x.branch === 'sys')) expect(deptOf(k), k.id).toBe('systems');
@@ -67,7 +71,7 @@ describe('パネルの部門の割り振り', () => {
     // 段 G のカスタマーサポート・マーケのパネル（CS_SKILLS・MKT_SKILLS）も除く
     // 段 H2 の法務のパネル（法務の枝）も除く。M&A の遊びに合わせて見直した Epic の 2 枚（M&A 部門・工芸の工房の買収）は効き目だけを比べから外す
     // 段 UI5a で足した調達の交代要員（UI5_SKILLS）も除く
-    expect(SKILLS.filter((k) => k.branch !== 'sales' && k.branch !== 'legal' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id)).map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
+    expect(SKILLS.filter((k) => k.branch !== 'sales' && k.branch !== 'legal' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id) && !POL_PANELS.includes(k.id)).map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
     for (const b of BEFORE) {
       const k = SKILL[b.id as string];
       // 段 UI5b：先に要るものは、つながりの見直し（treelinks.ts）の前のもの（REQUIRES_ORIG）で比べる。見直しは tests/island-p1-ui5b.test.ts
@@ -185,7 +189,7 @@ describe('部門のお知らせ（トースト）', () => {
 
 describe('セーブ（版 11）', () => {
   it('新しいゲームは版 11。版 10 の古いセーブは、取ったパネル・レベルがそのまま版 11 になり、届いていた節目はまとめて出さない', () => {
-    expect(newP1(1).v).toBe(26);
+    expect(newP1(1).v).toBe(27);
     const s = newP1(2);
     s.skills = ['host', 'display', 'vmd', 'golden', 'jig', 'lounge', 'shift'];
     s.skillLv = { host: 5, jig: 3 };
@@ -194,7 +198,7 @@ describe('セーブ（版 11）', () => {
     delete o.flags.depts;
     delete o.flags.deptMarks;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(26);
+    expect(back.v).toBe(27);
     expect(back.skills).toEqual(s.skills);
     expect(back.skillLv).toEqual(s.skillLv);
     expect(deptLevel(back, 'logistics')).toBe(5 + 1 + 3);
