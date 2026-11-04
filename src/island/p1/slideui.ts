@@ -439,7 +439,7 @@ export function riskRow(r: Risk): HTMLElement {
   return e;
 }
 /** 区切りの棒（使った・この提案・超える・残り）。凡例は下に字で */
-function segBar(parts: { v: number; cls: string; lab: string }[], total: number, tick?: { at: number; lab: string }): HTMLElement {
+export function segBar(parts: { v: number; cls: string; lab: string }[], total: number, tick?: { at: number; lab: string }): HTMLElement {
   const e = h('div', 'isl-sl-seg');
   const bar = h('div', 'isl-sl-segbar');
   const sum = Math.max(total, parts.reduce((a, x) => a + x.v, 0)) || 1;

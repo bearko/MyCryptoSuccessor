@@ -5,7 +5,8 @@
  *   node scripts/heroes/build.mjs          … src/island/p1/heroes/fit.json・voice.json を書き直す
  *   node scripts/heroes/build.mjs --check  … 書き直さずに、いまのファイルと同じかだけ見る（違えば失敗）
  *
- * - fit.json（いつも読み込む・小さい）：部門・役職ごとの適性（S〜D を 16 字の文字列に）と、向いている順の役（best_roles）。
+ * - fit.json（いつも読み込む・小さい）：部門・役職ごとの適性（S〜D を 16 字の文字列に）と、向いている順の役（best_roles）・
+ *   施策の好み（st。段 I2b：性格・強み・弱み・口調の調査の言葉から、攻め／守り・速さ／堅実・奇策／正攻法・人を育てる を 4 字に。styleOf）。
  * - voice.json（日本語の表示のときだけ、あとから読み込む）：一人称・社長の呼び方・口ぐせ・場面のセリフ・適性の根拠の 1 行。
  * 出典・要約・史実の箇条書き・関係・注意書きは入れない（ゲームでは使わない）。
  * 決まり：セリフ・口ぐせ・根拠は 1 行 40 字まで（超えたら止める）。口ぐせ・呼び方の末尾の（注記）は外す。
@@ -41,11 +42,43 @@ export function safeWhy(x) {
   return head !== x && !WHY_NG.test(head) && [...head].length >= 6 ? `${head}。` : '';
 }
 
+/**
+ * 段 I2b：施策の好み（経営会議の部長の「来期の計画」の選び方と言い回し）。調査の性格（personality_ja）・強み・弱み・口調（tone_ja）に
+ * 出てくる言葉を数えて、4 つの軸を決める（多いほうの側。同じなら「どちらでもない」）。新しい人物の事実は作らない（調査の言葉の読み替えだけ）。
+ * 1 字目 A＝攻め・D＝守り／2 字目 F＝速さ・S＝堅実／3 字目 K＝奇策（新しい手）・O＝正攻法／4 字目 N＝人を育てる。「-」はどちらでもない
+ */
+export const STYLE_WORDS = {
+  atk: [
+    ['行動派', '行動力', '大胆', '思い切', '果敢', '攻め', '勢い', '突っ走', '野心', '挑戦', '豪快', '征服', '拡大', '開拓', '型破り', '積極', '恐れない', '進取', '冒険', '覇', '天下', '先手', '強気', '熱血', '情熱'],
+    ['慎重', '堅実', '用心', '警戒', '守り', '忍耐', '我慢', '現実家', '退く', '倹約', '節約', '控えめ', '穏やか', '温和', '保守', '着実', '手堅', '冷静', '身を引'],
+  ],
+  spd: [
+    ['すぐ', '素早', '速', '即断', '即決', '思い立ったら', '機敏', '電撃', 'せっかち', '短気', '行動派', '即座', '迅速', '果断'],
+    ['着実', '地道', '粘り強', '根気', '忍耐', 'こつこつ', 'コツコツ', '時間をかけ', '長期', '辛抱', '我慢強', '緻密', '丁寧', '綿密', '几帳面', '慎重'],
+  ],
+  odd: [
+    ['奇策', '型破り', '奇抜', '新しいもの', '発想', '独創', '意表', '常識にとらわれ', '身分にとらわれ', '革新', '新し', '自由', '破天荒', '風変わり', '型にはまら', '工夫', '発明', '好奇心'],
+    ['規律', '正攻法', '伝統', '秩序', '筋を通', '正義', '誠実', '規則', '生真面目', '実直', '礼節', '律儀', '忠実', '忠義', '真面目', '厳格', '義理'],
+  ],
+  grow: [['育て', '教え', '弟子', '門下', '人材', '登用', '人を集め', '人集め', '人望', '面倒見', '教育', '師', '慕われ', '後進', '門人', '部下思い'], []],
+};
+export function styleOf(d) {
+  const txt = [d.personality_ja ?? '', ...(d.strengths_ja ?? []), ...(d.weaknesses_ja ?? []), d.speech?.tone_ja ?? ''].join(' ');
+  const n = (ws) => ws.reduce((a, w) => a + txt.split(w).length - 1, 0);
+  const ax = (k, p, m) => {
+    const [pos, neg] = STYLE_WORDS[k];
+    const v = n(pos) - n(neg);
+    return v > 0 ? p : v < 0 ? m : '-';
+  };
+  return ax('atk', 'A', 'D') + ax('spd', 'F', 'S') + ax('odd', 'K', 'O') + ax('grow', 'N', '-');
+}
+
 /** 研究のフォルダから、fit と voice を作る（ファイルには書かない） */
 export function buildHeroData(dir = RESEARCH) {
   const files = readdirSync(dir).filter((f) => /^\d+\.json$/.test(f)).sort((a, b) => Number(a.slice(0, -5)) - Number(b.slice(0, -5)));
   const g = {};
   const best = {};
+  const st = {};
   const voice = {};
   const errs = [];
   for (const f of files) {
@@ -57,6 +90,7 @@ export function buildHeroData(dir = RESEARCH) {
       return x ?? 'C';
     }).join('');
     best[id] = (d.best_roles ?? []).map((k) => FIT_KEYS.indexOf(k)).filter((n) => n >= 0);
+    st[id] = styleOf(d);
     const sp = d.speech ?? {};
     const l = {};
     for (const sc of SCENES) l[sc] = (sp.lines?.[sc] ?? []).map((x) => x.trim()).filter(Boolean);
@@ -70,7 +104,7 @@ export function buildHeroData(dir = RESEARCH) {
     for (const x of [...v.tic, ...SCENES.flatMap((sc) => l[sc])]) if ([...x].length > LINE_MAX) errs.push(`${id}: セリフが ${LINE_MAX} 字を超える「${x}」`);
     voice[id] = v;
   }
-  return { fit: { k: FIT_KEYS, g, best }, voice, errs, n: files.length };
+  return { fit: { k: FIT_KEYS, g, best, st }, voice, errs, n: files.length };
 }
 
 const json = (o) => `${JSON.stringify(o)}\n`;

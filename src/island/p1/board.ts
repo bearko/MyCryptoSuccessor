@@ -22,8 +22,10 @@ import { deptLevel } from './dept';
 import { managerApt, managerRate, sectorDef } from './company';
 import { fitSector } from './voice';
 import { heroLine } from './headtalk';
+import { TALK_MAX, talkLen } from './mine';
 import { DAYS, growthOn, staffOf, type P1State, type Staff } from './model';
 import { presFinish } from './policy';
+import { applyLever, causeCore, coSlack, diagnose, leverCore, leverRec, noLeverCore, ofSlack, styleOfHero, type Cause, type CoSlack, type Lever } from './boardplan';
 
 // ---------------------------------------------------------------- 型
 
@@ -32,6 +34,8 @@ export interface BoardPick {
   plan: 0 | 1 | 2;
   budget: 0 | 1 | 2;
   other: 0 | 1;
+  /** 段 I2b：来期の打ち手（パネル・従業員の上限）の承認 0・見送る 1（打ち手が無ければ無し） */
+  lever?: 0 | 1;
 }
 /** その他の要求：rp＝研究パネルに RP を使いたい（否認すると、この四半期は RP の施策を打たない）・hero＝部長のいない部門にヒーローを部長として置きたい */
 export type BoardOther = { k: 'rp'; id: string; rp: number; nm: string } | { k: 'hero'; dept: DeptId; hero: number; lvl: number };
@@ -71,6 +75,12 @@ export interface BoardItem {
   rec: BoardPick;
   pick: BoardPick;
   done: boolean;
+  /** 段 I2b：施策が無かった・少なかった原因（boardplan.ts の diagnose。原因が無ければ null・前の版の議題は無し） */
+  why?: Cause | null;
+  /** 段 I2b：来期の打ち手（パネル・従業員の上限・予算。無ければ null） */
+  lever?: Lever | null;
+  /** 段 I2b：今期の予算の残り（月の予算の合計 − 使った額。繰り越さない：使わなかった分は会社の資金に残っている） */
+  left?: number;
 }
 export interface BoardAgenda {
   /** 次の四半期の番号（会社の月 ÷ 3 ＋ 1）・作った日・会社の月（締めた月） */
@@ -80,6 +90,8 @@ export interface BoardAgenda {
   items: BoardItem[];
   /** 社内監査：経理部長と ★（いなければ null） */
   auditor: { hero: number; star: 1 | 2 | 3 } | null;
+  /** 段 I2b：会社の余力（議題を作ったとき。boardplan.ts の coSlack） */
+  co?: CoSlack;
 }
 /** 四半期の目標（決めたときに作り、次の四半期の締めで結果にする） */
 export interface BoardGoal {
@@ -114,6 +126,8 @@ export interface BoardStat {
   missed: number;
   /** 監査の指摘の数 */
   flags: number;
+  /** 段 I2b：来期の打ち手の承認・見送り（前の版のセーブには無い） */
+  lever?: number[];
 }
 export interface BoardState {
   agenda: BoardAgenda | null;
@@ -135,7 +149,7 @@ export interface BoardClose {
 
 /** 段 I2 を止める（計測の比べ・テスト）。止めると会議を作らず、目標も効かない（段 I2 の前と同じ） */
 export const BOARD_OFF = { on: false };
-const newStat = (): BoardStat => ({ held: 0, one: 0, bulk: 0, skip: 0, auto: 0, items: 0, changed: 0, plan: [0, 0, 0], budget: [0, 0, 0], other: [0, 0], met: 0, missed: 0, flags: 0 });
+const newStat = (): BoardStat => ({ held: 0, one: 0, bulk: 0, skip: 0, auto: 0, items: 0, changed: 0, plan: [0, 0, 0], budget: [0, 0, 0], other: [0, 0], met: 0, missed: 0, flags: 0, lever: [0, 0] });
 export const boardOf = (s: P1State): BoardState => (s.board ??= { agenda: null, goals: {}, last: [], stat: newStat() });
 /** 会議が開くのを待っているか（画面が開く） */
 export const boardDue = (s: P1State) => !BOARD_OFF.on && !!s.board?.agenda && s.board.agenda.items.some((x) => !x.done);
@@ -250,11 +264,21 @@ function deptItem(s: P1State, d: DeptId, auditor: BoardAgenda['auditor'], q: num
   const ms = nextMoves(s, d, BUDGET.perHead);
   const f = Math.round(ms.reduce((a, m) => a + valG(s, m.unit, m.real), 0) * BOARD.months * BOARD.share);
   const plan = { moves: ms.map((m) => m.nm), f, rep: Math.round(f * (1 + pads.plan)) };
-  // 必要予算：この四半期に頼みが 2 か月以上なら 1 段上（盛りつき）、ほかは据え置き
+  // 予実：この四半期の記録（はじめての四半期・版 25 のセーブで記録が無ければ、先月の記録）
+  const was = B.qamt
+    ? { amt: Math.round(B.qamt), used: Math.round(B.qused ?? 0), acts: B.qn ?? 0, names: [...(B.qnm ?? [])] }
+    : { amt: Math.round(B.last?.amt ?? amountOf(s, d)), used: Math.round(B.last?.used ?? 0), acts: B.last?.acts.length ?? 0, names: (B.last?.acts ?? []).map((x) => x.nm).slice(-4) };
+  // 段 I2b：施策が無かった・少なかった原因と、来期の打ち手（部長の施策の好みで選ぶ）
+  const dg = diagnose(s, d, was.acts, styleOfHero(H.hero));
+  // 必要予算：この四半期に頼みが 2 か月以上なら 1 段上（盛りつき）、ほかは据え置き。
+  // 段 I2b：予算が足りずに止まった（原因が予算）なら、止まった手を打てる額（盛りつき）を要求する
   const cur = amountOf(s, d);
   const up = (B.qask ?? 0) >= 2;
   let ask: BoardItem['ask'] = { up: false, cur, amt: cur, lv: B.lv };
-  if (up) {
+  if (dg.lever?.k === 'budget') {
+    const amt = Math.min(BUDGET.max, rd1000(dg.lever.amt * (1 + pads.ask)));
+    if (amt > cur) ask = { up: true, cur, amt, lv: 'X' };
+  } else if (up) {
     const nu = nextUp(s, d);
     const amt = Math.min(BUDGET.max, rd1000(nu.to * (1 + pads.ask)));
     ask = amt > cur ? { up: true, cur, amt, lv: amt === nu.to ? nu.lv : 'X' } : ask;
@@ -262,12 +286,9 @@ function deptItem(s: P1State, d: DeptId, auditor: BoardAgenda['auditor'], q: num
   // その他の要求：RP を使う施策（見込みの大きい 3 件の中）
   const rpMove = nextMoves(s, d, 3).find((m) => (m.rp ?? 0) > 0 && m.act.k === 'skill');
   const other: BoardOther | null = rpMove && rpMove.act.k === 'skill' ? { k: 'rp', id: rpMove.act.id, rp: rpMove.rp ?? 0, nm: rpMove.nm } : null;
-  // 予実：この四半期の記録（はじめての四半期・版 25 のセーブで記録が無ければ、先月の記録）
-  const was = B.qamt
-    ? { amt: Math.round(B.qamt), used: Math.round(B.qused ?? 0), acts: B.qn ?? 0, names: [...(B.qnm ?? [])] }
-    : { amt: Math.round(B.last?.amt ?? amountOf(s, d)), used: Math.round(B.last?.used ?? 0), acts: B.last?.acts.length ?? 0, names: (B.last?.acts ?? []).map((x) => x.nm).slice(-4) };
   const audit = auditor && auditor.hero !== H.hero ? auditFor(auditor.star, prev, pads, ask.up, f) : null;
-  return { key, kind: 'dept', dept: d, hero: H.hero, star, was, prev, plan, ask, other, pads, audit, rec: { plan: 0, budget: 0, other: 0 }, pick: { plan: 0, budget: 0, other: 0 }, done: false };
+  const left = Math.max(0, was.amt - was.used);
+  return { key, kind: 'dept', dept: d, hero: H.hero, star, was, prev, plan, ask, other, pads, audit, rec: { plan: 0, budget: 0, other: 0 }, pick: { plan: 0, budget: 0, other: 0 }, done: false, why: dg.why, lever: dg.lever?.k === 'budget' ? (ask.up ? dg.lever : null) : dg.lever, left };
 }
 /** 監査の指摘（前の四半期の報告の盛り・甘い計画・盛った予算の要求） */
 function auditFor(star: 1 | 2 | 3, prev: BoardResult | null, pads: BoardItem['pads'], up: boolean, f: number): NonNullable<BoardItem['audit']> {
@@ -297,17 +318,22 @@ function sectorItem(s: P1State, id: string, st: Staff, auditor: BoardAgenda['aud
 }
 /** 推奨（経営企画の見立て）：計画は承認・据え置きの予算は承認・増額の要求は「前の目標に届いた（監査があれば監査の数字で）・監査の指摘なし」なら承認、ほかは据え置き。
  * その他：RP は承認・ヒーローは部門の理解度が BOARD.heroAt 以上なら承認 */
-function recOf(it: BoardItem, audited: boolean): BoardPick {
+function recOf(s: P1State, it: BoardItem, audited: boolean, co: CoSlack | undefined): BoardPick {
   const proven = !!it.prev && (audited ? it.prev.ok : it.prev.okRep);
-  const budget: BoardPick['budget'] = !it.ask.up ? 0 : proven && !it.audit?.ask ? 0 : 2;
+  // 段 I2b：予算が足りずに止まった手のための増額は、会社の余力（BOARD.lever.slackUp まで）に収まれば、前の目標の結果を待たずに承認を推奨
+  const fits = !!co && co.slack > 0 && it.ask.amt - it.ask.cur <= co.slack * BOARD.lever.slackUp;
+  const budget: BoardPick['budget'] = !it.ask.up ? 0 : !it.audit?.ask && (proven || (it.lever?.k === 'budget' && fits)) ? 0 : 2;
   const other: BoardPick['other'] = it.other?.k === 'hero' ? (it.other.lvl >= BOARD.heroAt ? 0 : 1) : 0;
-  return { plan: 0, budget, other };
+  const out: BoardPick = { plan: 0, budget, other };
+  if (it.dept && it.lever && it.lever.k !== 'budget') out.lever = leverRec(s, it.dept, it.lever);
+  return out;
 }
 
 /** 会議の議題を作る（四半期の締め。部長のいる部門・セクター長がいなければ null） */
 export function boardAgenda(s: P1State, q: number, m: number): BoardAgenda | null {
   if (BOARD_OFF.on || !budgetOpen(s)) return null;
   const auditor = auditorOf(s);
+  const co = coSlack(s);
   const items: BoardItem[] = [];
   for (const d of budgetDepts(s)) {
     const it = deptItem(s, d, auditor, q);
@@ -322,10 +348,10 @@ export function boardAgenda(s: P1State, q: number, m: number): BoardAgenda | nul
     if (host && !(host.dept === 'hr' && host.other)) host.other = ha;
   }
   for (const it of items) {
-    it.rec = recOf(it, !!it.audit);
+    it.rec = recOf(s, it, !!it.audit, co);
     it.pick = { ...it.rec };
   }
-  return { q, day: s.day, m, items, auditor };
+  return { q, day: s.day, m, items, auditor, co };
 }
 
 // ---------------------------------------------------------------- 選択肢（画面と決める処理が同じ数字を使う）
@@ -357,7 +383,7 @@ export function decide(s: P1State, it: BoardItem, pick: BoardPick = it.pick): vo
   it.done = true;
   const st = B.stat;
   st.items++;
-  if (pick.plan !== it.rec.plan || pick.budget !== it.rec.budget || (it.other && pick.other !== it.rec.other)) st.changed++;
+  if (pick.plan !== it.rec.plan || pick.budget !== it.rec.budget || (it.other && pick.other !== it.rec.other) || (it.lever && it.lever.k !== 'budget' && (pick.lever ?? 0) !== (it.rec.lever ?? 0))) st.changed++;
   st.plan[pick.plan]++;
   st.budget[pick.budget]++;
   if (it.other) st.other[pick.other]++;
@@ -378,6 +404,12 @@ export function decide(s: P1State, it: BoardItem, pick: BoardPick = it.pick): vo
     s.land.recs[it.sector].invest = budgetOpts(it)[pick.budget];
   }
   if (it.other?.k === 'hero' && pick.other === 0) setHead(s, it.other.dept, it.other.hero);
+  // 段 I2b：来期の打ち手（パネルを開く・従業員の上限）。承認なら、その場で
+  if (it.dept && it.lever && it.lever.k !== 'budget') {
+    const lv = pick.lever ?? it.rec.lever ?? 0;
+    (st.lever ??= [0, 0])[lv]++;
+    if (lv === 0) applyLever(s, it.dept, it.lever);
+  }
   B.goals[it.key] = { key: it.key, hero: it.hero, q: A?.q ?? 0, f: it.plan.f, rep: it.plan.rep, raise, up, pad: it.pads.report, m: A?.m ?? Math.round(s.day / DAYS) };
 }
 /** 会議を終える（残りは推奨で決める）。how：one＝1 人ずつ・bulk＝一括承認・skip＝飛ばした・auto＝開かずに（自動プレイ・次の四半期まで開かなかった） */
@@ -442,6 +474,7 @@ export function boardQuarter(s: P1State, q: number, m: number): BoardClose | nul
     DB.qask = 0;
     DB.qnm = [];
     DB.noRp = undefined;
+    DB.qwhy = undefined;
   }
   const met = res.filter((x) => x.ok).length;
   if (!res.length && !B.agenda) return null;
@@ -468,21 +501,50 @@ export function reportLine(it: BoardItem): string {
       : t(`結論から。前期は目標 ${g(p.targetRep)} に対し ${g(p.claimed)}、未達です`, `bottom line: ${g(p.claimed)} against a ${g(p.targetRep)} target. Short`);
     return heroLine(it.hero, core);
   }
+  // 段 I2b：施策が無かった・少なかった原因（データから）
+  if ('acts' in it.was && it.why) return heroLine(it.hero, causeCore(it.why, it.was.acts, it.was.used));
   if ('acts' in it.was) return heroLine(it.hero, it.was.acts ? t(`実績です。施策 ${it.was.acts} 件を予算 ${g(it.was.used)} で打ちました`, `results: ${it.was.acts} moves done for ${g(it.was.used)}`) : t('実績です。予算に合う手が無く、施策は見送りました', 'results: nothing fit the budget, so we held off'));
   return heroLine(it.hero, t(`実績です。利益 ${g(it.was.profit)}、本社へ ${g(it.was.toHQ)} 送りました`, `results: profit ${g(it.was.profit)}, ${g(it.was.toHQ)} sent to HQ`));
 }
 /** 来期の計画のひと言 */
 export function planLine(it: BoardItem): string {
   if (it.kind === 'sector') return heroLine(it.hero, t(`来期は利益 ${g(it.plan.rep)} を取りにいきます`, `next quarter I’ll go for ${g(it.plan.rep)} profit`));
-  if (!it.plan.moves.length) return heroLine(it.hero, t('来期は守りです。打てる手が出たら、すぐ動きます', 'next quarter we hold; I’ll move the moment a play opens'));
+  // 段 I2b：原因に対する具体的な打ち手（部長の施策の好みで言い回しを寄せる）。打ち手が無くても受け身にしない
+  if (it.lever) return heroLine(it.hero, leverCore(it.lever, styleOfHero(it.hero)));
+  if (!it.plan.moves.length) return heroLine(it.hero, it.why !== undefined ? noLeverCore(it.why ?? null) : t('来期は守りです。打てる手が出たら、すぐ動きます', 'next quarter we hold; I’ll move the moment a play opens'));
   const nm = it.plan.moves[0];
   return heroLine(it.hero, t(`来期は「${nm}」を軸に、成果 ${g(it.plan.rep)} を取りにいきます`, `next quarter: “${nm}” first, going for ${g(it.plan.rep)}`));
 }
 /** 必要予算のひと言 */
 export function askLine(it: BoardItem): string {
   if (it.kind === 'sector') return heroLine(it.hero, t(`投資の割合は ${pct(it.ask.cur)} のまま回せます`, `I can run it at ${pct(it.ask.cur)} reinvestment`));
+  if (it.ask.up && it.lever?.k === 'budget') {
+    const p = Math.round(((it.ask.amt - it.ask.cur) / Math.max(1, it.ask.cur)) * 100);
+    const core = t(`増額 +${p}%（月 ${g(it.ask.amt)}）の承認を。「${it.lever.nm}」を打ちます`, `please approve +${p}% (${g(it.ask.amt)}/mo) for “${it.lever.nm}”`);
+    return heroLine(it.hero, talkLen(core) <= TALK_MAX - 6 ? core : t(`増額 +${p}%（月 ${g(it.ask.amt)}）の承認を。止まった手を打ちます`, `please approve +${p}% (${g(it.ask.amt)}/mo) to run the stalled move`));
+  }
   if (it.ask.up) return heroLine(it.hero, t(`月 ${g(it.ask.amt)} あれば、止まっている施策を動かせます`, `with ${g(it.ask.amt)} / mo I can unblock the stalled moves`));
+  // 段 I2b：使わなかった予算は会社に残っている（繰り越さない）
+  if ('acts' in it.was && it.left != null && it.was.used < it.was.amt * 0.5) return heroLine(it.hero, t(`今期は ${g(it.left)} を使わず会社に残しました。月 ${g(it.ask.cur)} で足ります`, `I left ${g(it.left)} unspent with HQ; ${g(it.ask.cur)}/mo is enough`));
   return heroLine(it.hero, t(`予算は月 ${g(it.ask.cur)}（${lvName(it.ask.lv)}）のまま回せます`, `I can run it on ${g(it.ask.cur)} / mo (${lvName(it.ask.lv)})`));
+}
+/**
+ * 段 I2b：必要予算の推奨の理由（1 行。会社の余力の数字を使う）。co：いまの余力（画面は、先に決めた人の予算を入れた値）
+ */
+export function budgetWhy(it: BoardItem, co: CoSlack | undefined): string {
+  if (it.kind === 'sector' || !co) return '';
+  const opts = budgetOpts(it);
+  const up = Math.max(0, opts[1] - it.ask.cur);
+  const sl = t(`余力 月 ${g(co.slack)}`, `Slack ${g(co.slack)}/mo`);
+  if (co.slack <= 0) return t(`全部門が予算を使い切ると、月の利益を超える（${sl}）`, `If every division spends its budget, it tops monthly profit (${sl})`);
+  if (it.ask.up) {
+    const ask = it.ask.amt - it.ask.cur;
+    if (it.rec.budget === 0) return t(`${sl}。増額 ${g(ask)} は${ofSlack(ask, co.slack)}で、利益の内に収まる`, `${sl}; the ${g(ask)} raise is ${ofSlack(ask, co.slack)}, within profit`);
+    if (it.audit?.ask) return t('監査が要求の盛りを指摘した。まず据え置きで', 'The audit flagged the request; keep it for now');
+    return t(`前期の目標が未達か未確認。増額 ${g(ask)} は${ofSlack(ask, co.slack)}`, `Last target unmet or unknown; the ${g(ask)} raise is ${ofSlack(ask, co.slack)}`);
+  }
+  if ('acts' in it.was && it.was.used < it.was.amt * 0.5) return t(`予算は余っていて、増やしても使われない。${sl}、+${Math.round(BOARD.budget * 100)}% でも${ofSlack(up, co.slack)}`, `Budget isn’t the limit; more would go unused. ${sl}; +${Math.round(BOARD.budget * 100)}% is ${ofSlack(up, co.slack)}`);
+  return t(`いまの予算で回っている。${sl}、+${Math.round(BOARD.budget * 100)}%（${g(up)}）なら${ofSlack(up, co.slack)}`, `The budget is working. ${sl}; +${Math.round(BOARD.budget * 100)}% (${g(up)}) is ${ofSlack(up, co.slack)}`);
 }
 /** その他の要求のひと言 */
 export function otherLine(it: BoardItem): string | null {

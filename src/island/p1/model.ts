@@ -5607,7 +5607,7 @@ export interface StageIf {
 }
 
 /** 打ち手の見込み用の写し（元の状態は書き換えない。帳簿・ランドの写しなど重いものは共有するが、触らない） */
-function scratch(s: P1State): P1State {
+export function scratch(s: P1State): P1State {
   return {
     ...s,
     skills: [...s.skills],

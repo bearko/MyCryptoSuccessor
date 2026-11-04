@@ -544,6 +544,139 @@
   transform: rotate(-8deg);
 }
 
+/* 段 I2b：何もできなかった原因・来期の打ち手・会社の余力のメーター（見出し・大きな数字・小さなラベルの 3 段） */
+.isl-bm-cause {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border-left: 4px solid #f2c86a;
+  border-radius: 6px;
+  background: #1a253d;
+}
+.isl-bm-cause.is-budget,
+.isl-bm-cause.is-labor,
+.isl-bm-cause.is-cash {
+  border-left-color: #f0a060;
+}
+.isl-bm-cause.is-lock {
+  border-left-color: #6aa8ff;
+}
+.isl-bm-cause.is-busy,
+.isl-bm-cause.is-need,
+.isl-bm-cause.is-town {
+  border-left-color: #6fd08c;
+}
+.isl-bm-klab {
+  font-size: 12px;
+  color: var(--isl-dim);
+}
+.isl-bm-kbig {
+  font-size: 17px;
+  line-height: 1.3;
+  color: #f7e3a8;
+}
+.isl-bm-lever {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 2px solid #a07a2a;
+  border-radius: 10px;
+  background: #2d2a22;
+}
+.isl-bm-lhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+.isl-bm-style {
+  padding: 1px 7px;
+  border: 1px solid #a07a2a;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #f2c86a;
+}
+.isl-bm-lbig {
+  display: grid;
+  gap: 2px;
+}
+.isl-bm-lname {
+  font-size: 17px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.isl-bm-lnum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+.isl-bm-lnum b {
+  font-size: 22px;
+  line-height: 1.1;
+  color: #8fe3a8;
+  font-variant-numeric: tabular-nums;
+}
+.isl-bm-lnum small {
+  font-size: 13px;
+  color: var(--isl-dim);
+}
+.isl-bm-recwhy {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #f7e3a8;
+}
+.isl-bm-fhint {
+  color: #c9d2e6;
+}
+.isl-bm-slack {
+  display: grid;
+  gap: 5px;
+  padding: 6px 8px;
+  border: 2px solid #0f1626;
+  border-radius: 8px;
+  background: #22325a;
+}
+.isl-bm-mk {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+}
+.isl-bm-mkc.is-main {
+  grid-column: 1 / -1;
+}
+.isl-bm-mkc.is-main b {
+  font-size: 24px;
+}
+.isl-bm-mkc {
+  display: grid;
+  align-content: start;
+  gap: 1px;
+  min-width: 0;
+}
+.isl-bm-mkc small {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--isl-dim);
+  overflow-wrap: anywhere;
+}
+.isl-bm-mkc b {
+  font-size: 18px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.isl-bm-mkc.is-good b {
+  color: #6fd08c;
+}
+.isl-bm-mkc.is-bad b {
+  color: #f07070;
+}
+.isl-bm-slack .isl-sl-segp.is-up,
+.isl-bm-slack .isl-sl-segkey.is-up i {
+  background: repeating-linear-gradient(45deg, #f2b544 0 4px, #a5701c 4px 7px);
+}
+
 @media (max-width: 599px) {
   .isl-modal.isl-board {
     padding: 6px;
