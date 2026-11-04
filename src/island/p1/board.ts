@@ -23,6 +23,7 @@ import { managerApt, managerRate, sectorDef } from './company';
 import { fitSector } from './voice';
 import { heroLine } from './headtalk';
 import { DAYS, growthOn, staffOf, type P1State, type Staff } from './model';
+import { presFinish } from './policy';
 
 // ---------------------------------------------------------------- 型
 
@@ -384,6 +385,8 @@ export function boardFinish(s: P1State, how: 'one' | 'bulk' | 'skip' | 'auto'): 
   const B = boardOf(s);
   const A = B.agenda;
   if (!A) return [];
+  // 段 K：経営方針発表会の回なら、方針を決める（選んでいなければ推奨＝自動プレイの標準。policy.ts の presFinish）
+  presFinish(s, A);
   for (const f of BOARD_FINISH_HOOKS) f(s, A, how);
   for (const it of A.items) if (!it.done) decide(s, it, it.rec);
   B.stat.held++;

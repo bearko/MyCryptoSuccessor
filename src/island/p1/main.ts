@@ -156,6 +156,9 @@ import { quitLeft, type HrDay } from './hr';
 import { IslandSfx } from './sfx';
 import { boardDue, boardOf, boardQuarter, closeText } from './board';
 import { openBoard, type BoardHooks } from './boardui';
+import { KNOW_TALK, SLOT_TALK, slotsOf, takePolNews } from './policy';
+import { POLICY_OF } from './data';
+import { openPolicyView } from './policyui';
 import { tileContent } from './tile';
 import { closeDig, digOpen, digRect, extIcon, openDig, openNotes, refreshDig, refreshTimer, showEndCard } from './digui';
 import { MEET_FOUND, MEET_LINES, canPresent, chiefHome, digMet, chiefOf, digSummary, letterToGet, lettersLeft, meetReady, meetTip, presentAfter, presentPages } from './digmeet';
@@ -3950,6 +3953,12 @@ function deptTalk() {
       footGuideAt = performance.now();
       renderAll();
     });
+  } else if (k === 'polKnow' || k === 'polSlot') {
+    // 段 K：石板のノウハウ・全社方針の枠 → 方針の画面
+    if (k === 'polKnow') s.flags.polKnowTalk = true;
+    else s.flags.polSlotTalk = true;
+    save();
+    talk((k === 'polKnow' ? KNOW_TALK() : SLOT_TALK(slotsOf(s))).map((text) => ({ text })), t('方針を見る', 'See policies'), () => openPolicyView(ctx));
   } else if (k === 'budget') {
     // 段 I1：予算で任せるの紹介 → 予算と部門の画面
     s.flags.budgetTalk = true;
@@ -4452,6 +4461,15 @@ function advance(days: number) {
       sfx.play('levelup');
     }
     for (const id of r.missions) toast(t(`依頼「${MISSIONS.find((m) => m.id === id)?.title ?? ''}」を達成しました`, `Request done: ${MISSIONS.find((m) => m.id === id)?.title ?? ''}`));
+    // 段 K：新しく選べるようになった経営方針
+    for (const id of takePolNews(s)) {
+      const p = POLICY_OF[id];
+      if (!p || p.open.k === 'start') continue;
+      const kind = p.kind === 'corp' ? t('全社方針', 'company policy') : t(`${DEPT[p.dept].name}の方針`, `${DEPT[p.dept].name} policy`);
+      const msg = t(`📜 ${kind}「${p.name}」が選べるようになりました`, `📜 New ${kind}: “${p.name}”`);
+      if (holdReport(s)) heldNews.push(() => toast(msg));
+      else toast(msg);
+    }
     // 段 I2：四半期の目標の結果・経営会議のお知らせ
     if (r.board) {
       const bt = closeText(r.board);

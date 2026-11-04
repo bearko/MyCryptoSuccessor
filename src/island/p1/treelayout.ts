@@ -7,7 +7,7 @@
  * docs/ISLAND_PHASE1.md「スキルツリー」「部門」。
  */
 import { t } from '../../i18n';
-import { CS_SKILLS, DEPTS, DEPT_SKILLS, GA_SKILLS, MKT_SKILLS, SKILL, UI5_SKILLS, SKILLS, deptOf, isResearch, type Branch, type DeptId, type Skill, type Tier } from './data';
+import { CS_SKILLS, DEPTS, DEPT_SKILLS, GA_SKILLS, MKT_SKILLS, POL_PANELS, SKILL, UI5_SKILLS, SKILLS, deptOf, isResearch, type Branch, type DeptId, type Skill, type Tier } from './data';
 import { ROW_CAP } from './skillsx';
 import { TREE_ORDER } from './treeorder';
 
@@ -150,7 +150,7 @@ function outerOf(list: Skill[], tier: Tier): Skill[] {
     const cap = ROW_CAP[tier as Exclude<Tier, 'C'>];
     r = Math.max(r, (GAP * (cap - 1) + 1.15) / SPAN);
     // 段 G で販売の枝に足したカスタマーサポート・マーケのパネルは数えない（半径を前と変えない。部門の枝の幅で収める）
-    const rows = Math.max(1, ...OLD_BR.map((br) => Math.ceil(outerOf(SKILLS.filter((k) => k.branch === br && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k)), tier).length / (br === 'dig' ? 3 : cap))));
+    const rows = Math.max(1, ...OLD_BR.map((br) => Math.ceil(outerOf(SKILLS.filter((k) => k.branch === br && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !POL_PANELS.includes(k.id)), tier).length / (br === 'dig' ? 3 : cap))));
     RING_EDGE[tier] = r - 0.85;
     RING_R[tier] = r;
     RING_ROWS[tier] = Array.from({ length: rows }, (_, k) => r + STEP * k);
@@ -201,8 +201,8 @@ export let SLACK = 0;
       // 営業（段 C。Rare の外周だけ）・経理（段 F。Uncommon の外周だけ）は、収まる幅だけ（余りの角度を取らない＝ほかの枝の幅を前と変えない）。
       // 総務は段 F で足した 3 枚（GA_SKILLS）・マーケは段 G で足した 5 枚（MKT_SKILLS）を余りの数に入れない（ほかの枝の幅を前と変えない）。
       // カスタマーサポート（段 G。Uncommon の外周だけ）は営業・経理と同じく収まる幅だけ
-      // 段 UI5a の調達の交代要員・調達チーム（UI5_SKILLS）も余りの数に入れない（ほかの枝の幅を前と変えない）
-      items.push({ d: d.id, g, need: needOf(key, skills), n: NARROW.includes(d.id) ? 0 : skills.filter((k) => !GA_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id)).length });
+      // 段 UI5a の調達の交代要員・調達チーム（UI5_SKILLS）も余りの数に入れない（ほかの枝の幅を前と変えない）。段 K の経営方針のパネル（POL_PANELS）も
+      items.push({ d: d.id, g, need: needOf(key, skills), n: NARROW.includes(d.id) ? 0 : skills.filter((k) => !GA_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id) && !POL_PANELS.includes(k.id)).length });
     }
   }
   // 段 C：営業の枝（パネルの無い細い枝だったもの）が広がったぶんは、ほかのパネルの無い部門の枝から分けてもらう

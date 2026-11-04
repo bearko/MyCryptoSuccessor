@@ -330,7 +330,7 @@ describe('セーブ（版 12）', () => {
     s.area!.stores[2].weak = 1;
     s.area!.closed = 3;
     const back = deserializeP1(serializeP1(s))!;
-    expect(back.v).toBe(26);
+    expect(back.v).toBe(27);
     expect(back.area!.stores[2].weak).toBe(1);
     expect(back.area!.closed).toBe(3);
   });
@@ -344,7 +344,7 @@ describe('セーブ（版 12）', () => {
     const keep = new Set(o.rivals.map((r: { id: string }) => o.buildings.find((b: { owner: string }) => b.owner === r.id).uid));
     o.buildings = o.buildings.filter((b: { owner: string; uid: number }) => !o.rivals.some((r: { id: string }) => r.id === b.owner) || keep.has(b.uid));
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(26);
+    expect(back.v).toBe(27);
     expect(back.area).toBeTruthy();
     expect(back.area!.stores).toHaveLength(back.rivals.length);
     for (const r of back.rivals) expect(areaBaseMul(back, r.id)).toBeCloseTo(1, 6);

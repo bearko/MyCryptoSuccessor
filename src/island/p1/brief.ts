@@ -19,7 +19,7 @@ import { careMul, centerRate, csOn } from './cs';
 import { moraleAvg as moraleNow, moraleTarget, payGap, wantsToQuit } from './hr';
 import { fatigueAvg } from './ga';
 import { envPanels } from './hr';
-import { policyName, policyOf, weightsOf } from './policy';
+import { corpOf, deptPolicyOf, POL_OFF, policyName, policyOf, weightsOf } from './policy';
 import { afterOf, baseOf, flowOf, planBlock, planCost, planOf, planTitle, stockPlan, type Plan, type PlanCost } from './plan';
 import { heroNm, reserveOf, type PropAct, type Proposal } from './deleg';
 import { amountOf, budgetDepts, budgetOpen, deptBudget, restOf } from './budget';
@@ -493,7 +493,7 @@ export function recOf(b: Pick<Brief, 'block' | 'co' | 'vals'>): { rec: 'ok' | 's
   if (b.co.left < 0) return { rec: 'skip', why: t('見送る：資金が足りなくなります', 'Pass: it would overdraw funds') };
   const v = b.vals;
   // 方針の名前（かっこの添え書きは外す：「人を大事に（士気）」→「人を大事に」）
-  const pn = policyName(v.policy).replace(/（.*）$/, '').replace(/ \(.*\)$/, '');
+  const pn = (v.names ?? [v.policy]).map((x) => policyName(x).replace(/（.*）$/, '').replace(/ \(.*\)$/, '')).join(t('・', ', '));
   const goods = v.list.filter((m) => m.d > 0 && v.parts[m.key] > 0).sort((x, y) => v.parts[y.key] - v.parts[x.key]);
   const bads = v.list.filter((m) => m.d < 0 && v.parts[m.key] < 0).sort((x, y) => v.parts[x.key] - v.parts[y.key]);
   if (v.value > 0) {
@@ -517,6 +517,8 @@ export interface Metric {
 }
 export interface Values {
   policy: PolicyId;
+  /** 段 K：推奨に使った方針（全社方針 ＋ 提案の部門の事業別の方針）。無ければ policy だけ */
+  names?: PolicyId[];
   /** 動く指標（短期・長期はいつも。ほかは動くときだけ）。並びは 短期・長期・士気・満足度・ブランド・研究 */
   list: Metric[];
   /** 方針の価値（G。プラスなら承認）と、指標ごとの分 */
@@ -656,7 +658,10 @@ export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1Sta
   if (Math.abs(rpAft - rpNow) >= 1) list.push({ key: 'rp', now: rpNow, after: rpAft, d: rpAft - rpNow, why: cost.rp ? t(`研究：使う ${cost.rp} RP と、先月の発掘の RP × 発掘の倍率 × ${M} か月`, `${cost.rp} RP spent, plus last month’s dig RP × dig multipliers × ${M}`) : t(`研究：先月の発掘の RP × 発掘の倍率 × ${M} か月`, `Last month’s dig RP × dig multipliers × ${M}`) });
   // 方針の価値
   const policy = policyOf(s);
-  const W = weightsOf(s);
+  // 段 K：選んだ全社方針と、提案の部門の事業別の方針の重みの平均
+  const W = weightsOf(s, p.dept);
+  const dp = p.dept ? deptPolicyOf(s, p.dept) : null;
+  const names = POL_OFF.on ? [policy] : [...corpOf(s), ...(dp ? [dp] : [])];
   const scale = Math.max(POLICY.floor, now.sales);
   const rpG = DIG_BALANCE.buyRp.cost / DIG_BALANCE.buyRp.rp;
   const parts: Record<ValueKey, number> = { short: 0, long: 0, morale: 0, sat: 0, brand: 0, rp: 0 };
@@ -666,7 +671,7 @@ export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1Sta
     else parts[m.key] = W[m.key] * m.d * POLICY.unit[m.key] * scale;
   }
   const value = Object.values(parts).reduce((a, x) => a + x, 0);
-  return { policy, list, value, parts, scale, rpG };
+  return { policy, names, list, value, parts, scale, rpG };
 }
 
 /** 方針の価値（束ね方・並べ替えの比べ用。同じ base を渡すと、このまま側の計算を 1 回に） */

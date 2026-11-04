@@ -37,7 +37,8 @@ import { adGain, goodsName, partMonthly, sellMoves, shopMonthly, stockMsg, stock
 import { apologize, bestReply, csOn, noticeCost, refundCost, reply, replyGain, replyLock, swapItem } from './cs';
 import { quitLeft, talk, talkGain } from './hr';
 import { afterOf, applyPlan, baseOf, planOf, type Plan, type PlanRes } from './plan';
-import { valueOfPlan } from './brief';
+import { actTheme, valueOfPlan } from './brief';
+import { tiltOf } from './policy';
 import { clearInfo, clearUnits, fromStock, storeFix, storeFull, type StoreFix } from './stock';
 import { dedRate, quarterNow, taxOn, taxPlan } from './acct';
 import { heroSay, quipOf, say, sayLen, type QuipCat } from './persona';
@@ -817,7 +818,10 @@ export function cardsMonth(s: P1State, r: Report) {
   const dd = stall ? null : duoDue(s, C.popN, inTutorial(s));
   if (dd) enqueue(s, duoDraft(s, dd), rep);
   const staff = stall ? null : staffDraft(s);
-  const drafts = [...(stall ? [stall] : []), ...(staff ? [staff] : []), ...noticeDrafts(s, r), ...(stall ? heroDrafts(s).filter((d) => d.src !== 'clerk' || d.kind !== 'sell') : heroDrafts(s)), ...hrDrafts(s), ...headDrafts(s, r), ...budgetDrafts(s)].sort((a, b) => b.pri - a.pri);
+  const drafts = [...(stall ? [stall] : []), ...(staff ? [staff] : []), ...noticeDrafts(s, r), ...(stall ? heroDrafts(s).filter((d) => d.src !== 'clerk' || d.kind !== 'sell') : heroDrafts(s)), ...hrDrafts(s), ...headDrafts(s, r), ...budgetDrafts(s)];
+  // 段 K：その年の経営方針の推す種類の提案は出やすく（優先 × (1 + POL.tilt)。policy.ts の tiltOf）
+  const pri = new Map(drafts.map((d) => [d, d.pri * draftTilt(s, d)]));
+  drafts.sort((a, b) => pri.get(b)! - pri.get(a)!);
   for (const d of drafts) enqueue(s, d, rep);
   // 段 UI5c：倉庫が埋まりそうな月（ほかの提案のあと。受け箱の枚数に数えないので、ほかのカードを押し出さない）
   const st = stockDraft(s);
@@ -825,6 +829,15 @@ export function cardsMonth(s: P1State, r: Report) {
   if (rep.made || rep.auto.length) r.cards = rep;
 }
 
+/** 段 K：提案のカードの、経営方針の推す種類の重み（手のある 1 つ目の選択肢の種類。提案のカードだけ） */
+function draftTilt(s: P1State, d: Draft): number {
+  if (!PROPOSAL_SRC.includes(d.src)) return 1;
+  for (const c of d.choices) {
+    const a = c.act.k === 'do' ? c.act.a : c.act.k === 'approve' ? s.deleg?.inbox.find((p) => p.id === (c.act as { pid: number }).pid)?.act : undefined;
+    if (a) return tiltOf(s, actTheme(a), d.dept);
+  }
+  return 1;
+}
 /** 1 日（model.ts の step）：辞めたいの予告（本人が話し手） */
 export function cardsDay(s: P1State, want: number[]) {
   for (const hero of want) {

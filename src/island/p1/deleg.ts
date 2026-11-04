@@ -95,6 +95,8 @@ import { adGain, grossRate, sellMoves } from './moves';
 import { applyPlan, planOf, stepsOf } from './plan';
 import { budgetOpen, budgetReport, budgetTry } from './budget';
 import { perHeadOf } from './board';
+import { actTheme } from './brief';
+import { polTouch, tiltOf } from './policy';
 import type { SectorRec } from './company';
 
 // ---------------------------------------------------------------- 役目
@@ -232,6 +234,8 @@ function dropHead(s: P1State, st: Staff, d: DeptId) {
  * 同じ部門のリーダーからの昇進は、リーダーの役目を外す（部長がまとめて回す）。ほかの仕事・持ち場はそのまま
  */
 export function setHead(s: P1State, d: DeptId, hero: number | null): DelegErr | null {
+  // 段 K：経営方針の強さ（部長の能力）が変わる
+  polTouch();
   const cur = headOf(s, d);
   if (hero == null) {
     if (cur) dropHead(s, cur, d);
@@ -1015,7 +1019,9 @@ export function delegMonth(s: P1State, r: Report) {
       .filter((c) => !st.inbox.some((p) => actKey(p.act) === actKey(c.act)))
       .map((c) => ({ c, est: c.real * errMul(rnd, q, P.err) }))
       .filter((x) => x.est > 0)
-      .sort((a, b) => b.est - a.est);
+      // 段 K：その年の経営方針（全社方針とこの部門の事業別の方針）の推す種類の施策を先に（見込み × (1 + POL.tilt) で並べる。見込みの数字は変えない）
+      .map((x) => ({ ...x, k: x.est * tiltOf(s, actTheme(x.c.act), d) }))
+      .sort((a, b) => b.k - a.k);
     const mk = (top: (typeof cs)[number]): Proposal => ({
       id: ++st.seq,
       dept: d,
@@ -1060,7 +1066,7 @@ export function delegMonth(s: P1State, r: Report) {
     if (!top) continue;
     fresh.push(mk(top));
   }
-  const order = (p: Proposal) => (p.unit === 'G' ? p.est * 3 : p.unit === 'ad' ? p.est : p.unit === 'share' ? p.est * 2000 : p.est * 1500);
+  const order = (p: Proposal) => (p.unit === 'G' ? p.est * 3 : p.unit === 'ad' ? p.est : p.unit === 'share' ? p.est * 2000 : p.est * 1500) * tiltOf(s, actTheme(p.act), p.dept);
   fresh.sort((a, b) => order(b) - order(a));
   const add = fresh.slice(0, P.perMonth);
   st.inbox.push(...add);

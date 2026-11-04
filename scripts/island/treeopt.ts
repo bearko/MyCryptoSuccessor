@@ -94,7 +94,11 @@ export function optimize(opt: { seed?: number; iters?: number; t0?: number; t1?:
   const rnd = mulberry(opt.seed ?? 1);
   const pools: Pool[] = POOLS;
   const order: Record<string, string[]> = {};
-  for (const p of pools) order[p.key] = [...(opt.start?.[p.key] ?? p.ids)];
+  // 始めの並び：パネルが足された・減った組は、前の並びに残っているものをその順に、足したものを後ろに（段 K）
+  for (const p of pools) {
+    const st = (opt.start?.[p.key] ?? []).filter((id) => p.ids.includes(id));
+    order[p.key] = [...st, ...p.ids.filter((id) => !st.includes(id))];
+  }
   // 位置（id → 場所）：組の外のパネル（大きめの研究パネルなど）はいまの位置のまま
   // 根もと（札）から直に伸びる外周のパネルは動かさない（根もとから外周まで、内側の段のパネルのあいだを通る道が空いている場所に置いてある）
   const pinned = new Set(E_ROOT_OUTER());
