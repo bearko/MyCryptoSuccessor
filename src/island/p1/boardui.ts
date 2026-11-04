@@ -8,7 +8,7 @@
  * - 会議室の絵（壁・長い机・座る部長）は CSS の仮の絵（docs/ISLAND_ART_TODO.md に PixelLab への指示）。
  */
 import { t } from '../../i18n';
-import { BOARD } from './data';
+import { BOARD, DEPT } from './data';
 import {
   askLine,
   auditLines,
@@ -35,7 +35,8 @@ import { FX_PAL, fxAtEl, fxLevel } from '../fx/layer';
 import type { Sfx } from './sfx';
 import type { Bgm } from '../../audio';
 import type { Ctx } from './screens';
-import { btn, h, heroIcon } from './ui';
+import { btn, h, heroIcon, recLine } from './ui';
+import { pickHead } from './delegui';
 import './board.css';
 
 const g = (v: number) => `${Math.round(v).toLocaleString('en-US')} G`;
@@ -191,7 +192,25 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
     const ol = otherLine(it);
     if (ol) {
       const b4 = block('isl-bm-b4', t('④ その他の要求', '④ Other request'), ol);
-      b4.append(options([{ name: t('承認', 'Approve'), val: '' }, { name: t('否認', 'Deny'), val: '' }], it.rec.other, () => pick.other, (v) => (pick.other = v as BoardPick['other'])));
+      const o = it.other!;
+      const otherVal = o.k === 'hero' ? t(`${heroNm(o.hero)}を${DEPT[o.dept].name}部長に`, `${heroNm(o.hero)} heads ${DEPT[o.dept].name}`) : t(`${o.rp} RP を使う`, `Spend ${o.rp} RP`);
+      b4.append(options([{ name: t('承認', 'Approve'), val: otherVal }, { name: t('否認', 'Deny'), val: o.k === 'hero' ? t('空席のまま', 'Leave it empty') : t('RP を使わない', 'No RP') }], it.rec.other, () => pick.other, (v) => (pick.other = v as BoardPick['other'])));
+      // ヒーローの追加：候補を自分で選ぶ（段 UI7a の任命の引き出し pickHead → pickFor。選んだ人で承認）
+      if (o.k === 'hero') {
+        b4.append(
+          btn(
+            t('👤 ほかの候補から選ぶ', '👤 Choose another candidate'),
+            () =>
+              pickHead(ctx, o.dept, o.hero, (hero) => {
+                o.hero = hero;
+                it.pick = { ...pick, other: 0 };
+                ctx.save();
+                speaker();
+              }),
+            'isl-bm-pick',
+          ),
+        );
+      }
       card.append(b4);
     }
     // 目標の重さの見込み（士気）
@@ -334,6 +353,8 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
         jingled = true;
       }
     }
+    // 社長の手柄（ビジョン 0 章）：決めたのは社長
+    box.append(h('p', 'isl-bm-praise', t(`社長の決裁で、第 ${A!.q} 四半期の計画が動き出します。部長たちはもう走り出しています。`, `Your sign-off sets Q${A!.q} in motion. The heads are already on it.`)));
     box.append(h('p', 'isl-bm-dim', t('決めた予算・目標は、この四半期のあいだ効きます。目標を上げた部長は士気の目標が下がり、届けば上がります。', 'Budgets and targets apply this quarter. Raised targets weigh on morale until met.')));
     const row = h('div', 'isl-bm-foot');
     row.append(btn(t('閉じる', 'Close'), () => close(), 'is-on isl-bm-close'));
@@ -375,9 +396,9 @@ function options(xs: { name: string; val: string; off?: boolean }[], rec: number
     const b = h('button', 'isl-bm-opt');
     b.type = 'button';
     b.disabled = !!x.off;
-    b.append(h('b', '', x.name));
+    // 推奨の札（段 UI5d の共通部品。1 行目の頭に朱の札）
+    b.append(recLine(x.name, n === rec));
     if (x.val) b.append(h('small', '', x.val));
-    if (n === rec) b.append(h('span', 'isl-bm-rec', t('推奨', 'Rec.')));
     b.addEventListener('click', (e) => {
       e.stopPropagation();
       set(n);

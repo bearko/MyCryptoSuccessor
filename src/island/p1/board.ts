@@ -17,7 +17,7 @@
 import { t } from '../../i18n';
 import { BOARD, BUDGET, DEPT, MANAGER, type DeptId } from './data';
 import { amountOf, budgetDepts, budgetOpen, deptBudget, headStar, lvName, nextMoves, nextUp, setBudget, valG, type BudgetLv } from './budget';
-import { candidatesFor, headOf, heroNm, quality, rndOf, setHead } from './deleg';
+import { headOf, heroNm, pickBest, pickList, quality, rndOf, setHead } from './deleg';
 import { deptLevel } from './dept';
 import { managerApt, managerRate, sectorDef } from './company';
 import { fitSector } from './voice';
@@ -205,15 +205,20 @@ export function auditorOf(s: P1State): { hero: number; star: 1 | 2 | 3 } | null 
 /** 監査が見抜ける盛りの下限（経理部長の ★） */
 export const auditSee = (star: 1 | 2 | 3) => BOARD.audit.see[star];
 
-/** 部長のいない部門に置ける、待機中のヒーロー（いちばん出来の高い組み合わせ。部門の理解度も） */
+/**
+ * 部長のいない部門に置けるヒーロー（段 UI7a の任命の候補 pickList・おすすめ pickBest：ほかの役に就いていない・休憩中でない、いちばん出来の高い人。
+ * 持ち場の仕事とは兼ねる）。理解度のいちばん高い部門、同じなら出来の高い組み合わせ
+ */
 function heroAsk(s: P1State): BoardOther | null {
   let best: { dept: DeptId; hero: number; q: number; lvl: number } | null = null;
   for (const d of budgetDepts(s)) {
     if (headOf(s, d)) continue;
-    const c = candidatesFor(s, d).find((x) => x.st.task == null && !x.st.heads?.length && !x.st.resting);
-    if (!c) continue;
+    const list = pickList(s, { kind: 'head', dept: d }, null, false);
+    const hero = pickBest(list);
+    if (hero == null) continue;
+    const q = list.find((x) => x.st.hero === hero)!.q;
     const lvl = deptLevel(s, d);
-    if (!best || lvl > best.lvl || (lvl === best.lvl && c.q > best.q)) best = { dept: d, hero: c.st.hero, q: c.q, lvl };
+    if (!best || lvl > best.lvl || (lvl === best.lvl && q > best.q)) best = { dept: d, hero, q, lvl };
   }
   return best ? { k: 'hero', dept: best.dept, hero: best.hero, lvl: best.lvl } : null;
 }
@@ -444,32 +449,32 @@ export function reportLine(it: BoardItem): string {
   const p = it.prev;
   if (p) {
     const core = p.okRep
-      ? t(`前期は目標 ${g(p.targetRep)} に対して ${g(p.claimed)}。届いた`, `last quarter: ${g(p.claimed)} against ${g(p.targetRep)}. Target met`)
-      : t(`前期は目標 ${g(p.targetRep)} に対して ${g(p.claimed)}。届かなかった`, `last quarter: ${g(p.claimed)} against ${g(p.targetRep)}. Missed`);
+      ? t(`結論から。前期は目標 ${g(p.targetRep)} に対し ${g(p.claimed)}、達成です`, `bottom line: ${g(p.claimed)} against a ${g(p.targetRep)} target. Achieved`)
+      : t(`結論から。前期は目標 ${g(p.targetRep)} に対し ${g(p.claimed)}、未達です`, `bottom line: ${g(p.claimed)} against a ${g(p.targetRep)} target. Short`);
     return heroLine(it.hero, core);
   }
-  if ('acts' in it.was) return heroLine(it.hero, it.was.acts ? t(`この四半期は施策 ${it.was.acts} 件、予算 ${g(it.was.used)} を使った`, `this quarter: ${it.was.acts} moves, ${g(it.was.used)} spent`) : t('この四半期は、予算の中で打てる手が少なかった', 'few moves fit the budget this quarter'));
-  return heroLine(it.hero, t(`この四半期の利益は ${g(it.was.profit)}、本社へ ${g(it.was.toHQ)}`, `profit this quarter ${g(it.was.profit)}, ${g(it.was.toHQ)} to HQ`));
+  if ('acts' in it.was) return heroLine(it.hero, it.was.acts ? t(`実績です。施策 ${it.was.acts} 件を予算 ${g(it.was.used)} で打ちました`, `results: ${it.was.acts} moves done for ${g(it.was.used)}`) : t('実績です。予算に合う手が無く、施策は見送りました', 'results: nothing fit the budget, so we held off'));
+  return heroLine(it.hero, t(`実績です。利益 ${g(it.was.profit)}、本社へ ${g(it.was.toHQ)} 送りました`, `results: profit ${g(it.was.profit)}, ${g(it.was.toHQ)} sent to HQ`));
 }
 /** 来期の計画のひと言 */
 export function planLine(it: BoardItem): string {
-  if (it.kind === 'sector') return heroLine(it.hero, t(`来期も利益 ${g(it.plan.rep)} を目指す`, `next quarter I aim for ${g(it.plan.rep)} profit`));
-  if (!it.plan.moves.length) return heroLine(it.hero, t('来期は、打てる手を探しながら回す', 'next quarter I’ll keep looking for moves'));
+  if (it.kind === 'sector') return heroLine(it.hero, t(`来期は利益 ${g(it.plan.rep)} を取りにいきます`, `next quarter I’ll go for ${g(it.plan.rep)} profit`));
+  if (!it.plan.moves.length) return heroLine(it.hero, t('来期は守りです。打てる手が出たら、すぐ動きます', 'next quarter we hold; I’ll move the moment a play opens'));
   const nm = it.plan.moves[0];
-  return heroLine(it.hero, t(`来期は「${nm}」などで成果 ${g(it.plan.rep)} を目指す`, `next quarter: “${nm}” and more, aiming for ${g(it.plan.rep)}`));
+  return heroLine(it.hero, t(`来期は「${nm}」を軸に、成果 ${g(it.plan.rep)} を取りにいきます`, `next quarter: “${nm}” first, going for ${g(it.plan.rep)}`));
 }
 /** 必要予算のひと言 */
 export function askLine(it: BoardItem): string {
-  if (it.kind === 'sector') return heroLine(it.hero, t(`投資の割合は ${pct(it.ask.cur)} のままでいい`, `keep reinvesting ${pct(it.ask.cur)}`));
-  if (it.ask.up) return heroLine(it.hero, t(`予算が足りない月が続いた。月 ${g(it.ask.amt)} にしてほしい`, `budget ran short for months. Please make it ${g(it.ask.amt)} / mo`));
-  return heroLine(it.hero, t(`予算は月 ${g(it.ask.cur)}（${lvName(it.ask.lv)}）のままでいい`, `keep the budget at ${g(it.ask.cur)} / mo (${lvName(it.ask.lv)})`));
+  if (it.kind === 'sector') return heroLine(it.hero, t(`投資の割合は ${pct(it.ask.cur)} のまま回せます`, `I can run it at ${pct(it.ask.cur)} reinvestment`));
+  if (it.ask.up) return heroLine(it.hero, t(`月 ${g(it.ask.amt)} あれば、止まっている施策を動かせます`, `with ${g(it.ask.amt)} / mo I can unblock the stalled moves`));
+  return heroLine(it.hero, t(`予算は月 ${g(it.ask.cur)}（${lvName(it.ask.lv)}）のまま回せます`, `I can run it on ${g(it.ask.cur)} / mo (${lvName(it.ask.lv)})`));
 }
 /** その他の要求のひと言 */
 export function otherLine(it: BoardItem): string | null {
   const o = it.other;
   if (!o) return null;
-  if (o.k === 'rp') return heroLine(it.hero, t(`研究「${o.nm}」に ${o.rp} RP を使いたい`, `I want to spend ${o.rp} RP on “${o.nm}”`));
-  return heroLine(it.hero, t(`部長のいない${DEPT[o.dept].name}に、${heroNm(o.hero)}を置きたい`, `I’d like ${heroNm(o.hero)} to head ${DEPT[o.dept].name}, which has no head`));
+  if (o.k === 'rp') return heroLine(it.hero, t(`もう 1 件。研究「${o.nm}」に ${o.rp} RP の決裁を`, `one more: approve ${o.rp} RP for “${o.nm}”`));
+  return heroLine(it.hero, t(`もう 1 件。空席の${DEPT[o.dept].name}部長に${heroNm(o.hero)}を推します`, `one more: I nominate ${heroNm(o.hero)} to head ${DEPT[o.dept].name}`));
 }
 /** 目標を上げられるか（来期の見込みが 0 なら、上乗せの選択肢は押せない） */
 export const canRaise = (it: BoardItem) => it.plan.f > 0;

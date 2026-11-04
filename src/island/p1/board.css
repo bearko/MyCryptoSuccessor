@@ -365,18 +365,19 @@
 .isl-bm-opt.is-on small {
   color: #f7e3a8;
 }
-.isl-bm-rec {
-  position: absolute;
-  top: -9px;
-  right: 6px;
-  padding: 0 6px;
-  border: 1px solid #1d1410;
-  border-radius: 6px;
-  background: #f2c86a;
-  color: #1d1410;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 16px;
+.isl-bm-opt .isl-rec-tag {
+  vertical-align: 1px;
+}
+.isl-bm-pick {
+  justify-self: start;
+  min-height: 36px;
+  font-size: 13px;
+}
+.isl-bm-praise {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #f7e3a8;
 }
 .isl-bm-hint {
   font-size: 13px;
