@@ -457,7 +457,6 @@
   height: 26px;
   overflow: hidden;
   border: 2px solid #0f1626;
-  border-radius: 3px;
   background: #0f1a30;
 }
 .isl-cv-pseg {
@@ -472,7 +471,6 @@
 }
 .isl-cv-pseg b {
   padding: 0 3px;
-  border-radius: 2px;
   background: #0f1626;
   color: #f4f1ea;
   font-size: 12px;
@@ -509,14 +507,12 @@
 .isl-cv-ftrack {
   position: relative;
   height: 14px;
-  border-radius: 2px;
   background: #0f1a30;
 }
 .isl-cv-fbar {
   position: absolute;
   top: 0;
   bottom: 0;
-  border-radius: 2px;
 }
 .isl-cv-fbar.is-start {
   background: #f2b544;
@@ -608,7 +604,6 @@
 .isl-cv-rtrack {
   position: relative;
   height: 14px;
-  border-radius: 2px;
   background: #0f1a30;
 }
 .isl-cv-rbar {
@@ -616,7 +611,6 @@
   top: 0;
   bottom: 0;
   left: 0;
-  border-radius: 2px;
   background: #8f9bb8;
 }
 .isl-cv-rbar.is-me {
@@ -721,7 +715,6 @@
   display: grid;
   place-items: center;
   min-height: 26px;
-  border-radius: 2px;
   font-variant-numeric: tabular-nums;
 }
 .isl-cv-hcell.is-sx {
@@ -834,7 +827,6 @@
 .isl-cv-btrack {
   position: relative;
   height: 14px;
-  border-radius: 2px;
   background: #0f1a30;
 }
 .isl-cv-bfill {
@@ -842,7 +834,6 @@
   top: 2px;
   bottom: 2px;
   left: 0;
-  border-radius: 2px;
 }
 .isl-cv-bfill.is-good {
   background: #6fd08c;

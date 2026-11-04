@@ -97,7 +97,7 @@ describe('いまの素材で作る：見積もりが実際の動きに近い', (
       expect(line.after[line.after.length - 1]).toBeCloseTo(L.after, 3);
       const lines = projLines(B, (y) => y, (u) => `${u}`);
       expect(lines.some((x) => x.startsWith('🧪'))).toBe(true);
-      expect(lines.some((x) => x.includes('このまま'))).toBe(true);
+      expect(lines.some((x) => x.includes('As-Is'))).toBe(true);
     } finally {
       EVENT_OFF.on = false;
     }

@@ -242,7 +242,7 @@ export function trendEl(o: TrendOpts): HTMLElement {
         const neg = v < 0;
         const top = Math.min(y, base);
         const hh = Math.max(1, Math.abs(base - y));
-        svg.append(sv('rect', { x: x + 1, y: top, width: Math.max(2, one - 2), height: hh, rx: 1, class: `isl-cv-bar ${ser.cls} ${neg ? 'is-neg' : ''}` }));
+        svg.append(sv('rect', { x: x + 1, y: top, width: Math.max(2, one - 2), height: hh, class: `isl-cv-bar ${ser.cls} ${neg ? 'is-neg' : ''}` }));
         // 赤字の棒は斜線も（色だけに頼らない）
         if (neg) svg.append(sv('rect', { x: x + 1, y: top, width: Math.max(2, one - 2), height: hh, fill: `url(#${pid}-hatch)`, class: 'isl-cv-over' }));
       });

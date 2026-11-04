@@ -6,50 +6,98 @@
  */
 import { t } from '../../i18n';
 import { DEPT, POLICY, type DeptId, type ValueKey } from './data';
-import { METRIC_TEXT, type Ask, type Brief, type Risk } from './brief';
+import { METRIC_TEXT, actNoun, judgeOf, type Ask, type Brief, type Risk } from './brief';
 import { DAYS, type P1State, type Stage } from './model';
-import type { Plan } from './plan';
+import { planCost, planOf, type Plan } from './plan';
 import { amountOf, budgetDepts, budgetOpen, deptBudget } from './budget';
 import { quarterNow } from './acct';
+import { issueName, type CoIssue } from './issues';
+import { actOk, type PropAct } from './deleg';
+import type { Card } from './card';
 
 // ---------------------------------------------------------------- スライドの枚数
 
 /**
- * スライドの種類：sum 結論・change 何が変わる・effect 効果（今月）・long 効果（12 か月）・risk 影響とリスク・more 付録（詳しく）
+ * 段 UI9：コンサルの提案資料の型。sum エグゼクティブサマリー・issue 課題の定義（As-Is／To-Be／ギャップ）・move 打ち手（代替案との比較）・
+ * effect 効果と費用（縦のウォーターフォール・12 か月の累計・回収）・risk リスクと対策・plan 実行計画（いつ効くか）・more 付録
  */
-export type SlideId = 'sum' | 'change' | 'effect' | 'long' | 'risk' | 'more';
+export type SlideId = 'sum' | 'issue' | 'move' | 'effect' | 'risk' | 'plan' | 'more';
+/** 章の名前（下の点の名前。見出しは slideTitle のメッセージ型） */
 export const SLIDE_NAME: Record<SlideId, () => string> = {
-  sum: () => t('結論', 'Summary'),
-  change: () => t('変更点', 'Changes'),
-  effect: () => t('効果：来月', 'Effect: next month'),
-  long: () => t(`効果：${POLICY.months} か月`, `Effect: ${POLICY.months} months`),
-  risk: () => t('影響とリスク', 'Impact and risks'),
-  more: () => t('付録：詳しく', 'Appendix: details'),
+  sum: () => t('サマリー', 'Summary'),
+  issue: () => t('課題の定義', 'The issue'),
+  move: () => t('打ち手', 'The move'),
+  effect: () => t('効果と費用', 'Effect and cost'),
+  risk: () => t('リスクと対策', 'Risks and responses'),
+  plan: () => t('実行計画', 'Execution'),
+  more: () => t('付録', 'Appendix'),
 };
 /**
- * 費用の無い 1 つの手だけの小さな提案（結論と付録の 2 枚）。段 UI7e：月ごとの見込み（倉庫があふれた町・使い切りの手）は、
- * 来月と 12 か月の効き方が違うので小さくしない（効果のスライドで折れ線を見せる）
+ * 費用の無い 1 つの手だけの小さな提案（サマリーと付録の 2 枚）。段 UI7e：月ごとの見込み（倉庫があふれた町・使い切りの手）は、
+ * 来月と 12 か月の効き方が違うので小さくしない
  */
 export const smallBrief = (b: Pick<Brief, 'asks' | 'cost'> & { vals?: Pick<Brief['vals'], 'months'> }) => b.asks.length <= 1 && b.cost.money === 0 && b.cost.rp === 0 && b.cost.monthly === 0 && !b.vals?.months;
-/**
- * スライドの並び：
- * - 費用の無い 1 つの手だけ（smallBrief）：結論・付録
- * - ほか：結論 → 何が変わる（手が 2 つ以上か、Before → After の絵があるとき）→ 効果（来月）→ 効果（12 か月。手が 2 つ以上のとき。1 つなら来月の 1 枚にまとめる）→ 影響とリスク → 付録
- */
-export function slideKinds(b: Pick<Brief, 'asks' | 'cost'> & { vals?: Pick<Brief['vals'], 'months'> }, o: { visual: boolean }): SlideId[] {
+/** スライドの並び：小さな提案はサマリー・付録。ほかは型の 7 枚 */
+export function slideKinds(b: Pick<Brief, 'asks' | 'cost'> & { vals?: Pick<Brief['vals'], 'months'> }): SlideId[] {
   if (smallBrief(b)) return ['sum', 'more'];
-  const out: SlideId[] = ['sum'];
-  if (b.asks.length >= 2 || o.visual) out.push('change');
-  out.push('effect');
-  if (b.asks.length >= 2) out.push('long');
-  out.push('risk', 'more');
-  return out;
+  return ['sum', 'issue', 'move', 'effect', 'risk', 'plan', 'more'];
+}
+
+const g = (v: number) => `${Math.round(v).toLocaleString('en-US')} G`;
+const sg = (v: number) => `${v >= 0.5 ? '+' : v <= -0.5 ? '−' : '±'}${Math.abs(Math.round(v)).toLocaleString('en-US')} G`;
+/** 投資回収期間（か月。導入が無い・月の利益が増えないなら null） */
+export const paybackOf = (b: Pick<Brief, 'cost' | 'dProfit'>) => (b.cost.money > 0 && b.dProfit > 0.5 ? Math.max(1, Math.ceil(b.cost.money / b.dProfit)) : null);
+/** 効果が出るまでの日数（建物の完成・着任・宣伝の日数のいちばん長いもの。無ければ 0＝承認と同時） */
+export const leadOf = (b: Pick<Brief, 'cost'>) => Math.max(0, ...b.cost.items.map((it) => it.days ?? 0));
+/** 課題の札の文（「倉庫の容量不足：放置すると 月 −12,000 G・18 日後」） */
+export const issueLine = (x: Pick<CoIssue, 'key' | 'loss'>) => t(`${issueName(x.key)}：${x.loss}`, `${issueName(x.key)}: ${x.loss}`);
+
+/**
+ * 段 UI9：メッセージ型の一言（課題 → 打ち手 → 効果と回収期間を 1 文で）。
+ * 「倉庫の容量不足で月 12,000 G を失っている。倉庫の増築で 3 か月以内に回収、長期 +45,000 G」
+ */
+export function headlineOf(b: Pick<Brief, 'issue' | 'asks' | 'cost' | 'dProfit' | 'vals'>, what: string): string {
+  const L = b.vals.list.find((m) => m.key === 'long')?.d ?? 0;
+  const pay = paybackOf(b);
+  const head = b.issue
+    ? b.issue.grow
+      ? t(`${issueName(b.issue.key)}に月 ${g(b.issue.impact)} の余地。`, `${issueName(b.issue.key)}: about ${g(b.issue.impact)}/mo of upside. `)
+      : b.issue.days != null && b.issue.days >= 1
+        ? t(`${issueName(b.issue.key)}で ${Math.round(b.issue.days)} 日後から月 ${g(b.issue.impact)} を失う。`, `${issueName(b.issue.key)} costs ${g(b.issue.impact)}/mo from day ${Math.round(b.issue.days)}. `)
+        : t(`${issueName(b.issue.key)}で月 ${g(b.issue.impact)} を失っている。`, `${issueName(b.issue.key)} is costing ${g(b.issue.impact)}/mo. `)
+    : '';
+  const tail = pay != null ? t(`${what}で ${pay} か月以内に回収、${POLICY.months} か月で ${sg(L)}`, `${what} pays back within ${pay} mo; ${sg(L)} over ${POLICY.months} months`) : b.dProfit > 0.5 ? t(`${what}で月 ${sg(b.dProfit)}、${POLICY.months} か月で ${sg(L)}`, `${what}: ${sg(b.dProfit)}/mo, ${sg(L)} over ${POLICY.months} months`) : t(`${what}で ${POLICY.months} か月 ${sg(L)}`, `${what}: ${sg(L)} over ${POLICY.months} months`);
+  return head + tail;
+}
+/** 段 UI9：各ページのメッセージ型の見出し（何が言えるか） */
+export function slideTitle(id: SlideId, b: Pick<Brief, 'issue' | 'asks' | 'cost' | 'dProfit' | 'vals' | 'rk' | 'after' | 'now'>, what: string): string {
+  const L = b.vals.list.find((m) => m.key === 'long')?.d ?? 0;
+  const pay = paybackOf(b);
+  const lead = leadOf(b);
+  switch (id) {
+    case 'sum':
+      return t('結論：承認を推奨', 'Conclusion: approve');
+    case 'issue':
+      return b.issue ? (b.issue.grow ? t(`${issueName(b.issue.key)}に月 ${g(b.issue.impact)} の余地がある`, `${issueName(b.issue.key)} has ${g(b.issue.impact)}/mo of upside`) : t(`${issueName(b.issue.key)}で月 ${g(b.issue.impact)} を失っている`, `${issueName(b.issue.key)} is costing ${g(b.issue.impact)}/mo`)) : t('解くべき課題', 'The issue');
+    case 'move':
+      return b.asks.length > 1 ? t(`${what} など ${b.asks.length} 件が最善の打ち手`, `${what} and ${b.asks.length - 1} more are the best moves`) : t(`${what}が最善の打ち手`, `${what} is the best move`);
+    case 'effect':
+      return pay != null ? t(`${pay} か月で回収、${POLICY.months} か月で ${sg(L)}`, `Pays back in ${pay} mo; ${sg(L)} over ${POLICY.months} months`) : t(`月の利益 ${sg(b.dProfit)}、${POLICY.months} か月で ${sg(L)}`, `${sg(b.dProfit)}/mo; ${sg(L)} over ${POLICY.months} months`);
+    case 'risk': {
+      const hi = b.rk.filter((x) => x.lv >= 2).length;
+      return hi ? t(`下振れシナリオ ${hi} 件に対策あり`, `${hi} downside scenario${hi > 1 ? 's' : ''}, each with a response`) : t('大きな下振れシナリオは無い', 'No major downside scenario');
+    }
+    case 'plan':
+      return lead > 0 ? t(`承認から ${lead} 日で効果が出る`, `Effect within ${lead} days of approval`) : t('承認と同時に実行、効果は来月から', 'Runs on approval; effect from next month');
+    case 'more':
+      return t('付録：計算の根拠', 'Appendix: the workings');
+  }
 }
 
 // ---------------------------------------------------------------- 結論：KPI のタイル
 
 export interface Kpi {
-  key: ValueKey | 'setup' | 'month' | 'room';
+  key: ValueKey | 'setup' | 'month' | 'room' | 'payback' | 'lead';
   icon: string;
   label: string;
   /** 大きな数字（符号つきの差。導入費用は払う額）・単位 */
@@ -59,6 +107,8 @@ export interface Kpi {
   tone: 'delta' | 'cost';
   /** 小さなラベル（「このまま → 承認後」「1 回」） */
   sub: string;
+  /** 段 UI9：数字の代わりに出す字（回収できない「—」・効果が出るまで「即日」） */
+  text?: string;
 }
 const fmt = (v: number) => Math.abs(Math.round(v)).toLocaleString('en-US');
 /**
@@ -69,18 +119,23 @@ export function kpisOf(b: Pick<Brief, 'vals' | 'cost' | 'dProfit' | 'now' | 'aft
   const out: Kpi[] = [];
   const S = b.vals.list.find((m) => m.key === 'short');
   const L = b.vals.list.find((m) => m.key === 'long');
-  if (S) out.push({ key: 'short', icon: METRIC_TEXT.short.icon, label: t('短期利益', 'Short-term'), v: S.d, unit: 'G', tone: 'delta', sub: t('来月・導入込み', 'Next month, net of setup') });
-  if (L) out.push({ key: 'long', icon: METRIC_TEXT.long.icon, label: t('長期利益', 'Long-term'), v: L.d, unit: 'G', tone: 'delta', sub: t(`${POLICY.months} か月の合計`, `${POLICY.months}-month total`) });
+  if (S) out.push({ key: 'short', icon: METRIC_TEXT.short.icon, label: t('短期利益', 'Short-term'), v: S.d, unit: 'G', tone: 'delta', sub: t('来月・導入費用を引いた差', 'Next month, net of setup') });
+  if (L) out.push({ key: 'long', icon: METRIC_TEXT.long.icon, label: t('長期利益', 'Long-term'), v: L.d, unit: 'G', tone: 'delta', sub: t(`${POLICY.months} か月の合計の差`, `${POLICY.months}-month total`) });
   const setup = b.cost.money > 0 || b.cost.rp === 0;
   out.push({
     key: 'setup',
     icon: '💳',
-    label: t('導入費用', 'Setup'),
+    label: t('導入費用', 'Setup cost'),
     v: setup ? b.cost.money : b.cost.rp,
     unit: setup ? 'G' : 'RP',
     tone: 'cost',
     sub: [b.cost.money > 0 && b.cost.rp > 0 ? `+${b.cost.rp} RP` : '', b.cost.monthly ? t(`毎月 +${fmt(b.cost.monthly)} G`, `+${fmt(b.cost.monthly)} G/mo`) : t('1 回', 'once')].filter(Boolean).join(t('・', ' · ')),
   });
+  // 段 UI9：投資回収期間・効果が出るまでの日数
+  const pay = paybackOf(b);
+  out.push({ key: 'payback', icon: '⏳', label: t('投資回収期間', 'Payback'), v: pay ?? 0, unit: t('か月', 'mo'), tone: 'cost', ...(pay == null ? { text: '—' } : {}), sub: pay != null ? t(`導入 ${fmt(b.cost.money)} G ÷ 月 ${sg(b.dProfit)}`, `${fmt(b.cost.money)} G ÷ ${sg(b.dProfit)}/mo`) : b.cost.money > 0 ? t('月の利益が増えない', 'No monthly gain') : t('導入費用なし', 'No setup cost') });
+  const lead = leadOf(b);
+  out.push({ key: 'lead', icon: '📅', label: t('効果が出るまで', 'Time to effect'), v: lead, unit: t('日', 'd'), tone: 'cost', ...(lead > 0 ? {} : { text: t('即日', 'Same day') }), sub: lead > 0 ? t('完成・着任・宣伝の日数', 'Build, arrival or ad days') : t('承認と同時', 'On approval') });
   const other = b.vals.list.find((m) => m.key !== 'short' && m.key !== 'long');
   if (other)
     out.push({
@@ -92,11 +147,7 @@ export function kpisOf(b: Pick<Brief, 'vals' | 'cost' | 'dProfit' | 'now' | 'aft
       tone: 'delta',
       sub: other.key === 'brand' || other.key === 'rp' ? t(`${POLICY.months} か月`, `${POLICY.months} months`) : `${Math.round(other.now)} → ${Math.round(other.after)}`,
     });
-  else if (extra && (Math.abs(b.dProfit) < 0.5 || b.vals.months)) out.push(extra);
-  // 段 UI7e：月ごとの見込み（倉庫があふれた町・使い切りの手）は、来月の利益の差が続くわけではないので、空く置き場所を見せる
-  else if (b.vals.months && b.vals.months.room > 0)
-    out.push({ key: 'room', icon: '📦', label: t('倉庫の空き', 'Storage freed'), v: b.vals.months.room, unit: t('個', ''), tone: 'delta', sub: b.vals.months.jam0 && !b.vals.months.jam1 ? t('調達と製造が戻る', 'Buying and crafting resume') : t('素材を商品にする', 'Materials become goods') });
-  else out.push({ key: 'month', icon: '📅', label: t('毎月の利益', 'Monthly profit'), v: b.dProfit, unit: 'G', tone: 'delta', sub: `${fmt(b.now.profit)} → ${fmt(b.after.profit)} G` });
+  else if (extra) out.push(extra);
   return out;
 }
 
@@ -115,9 +166,9 @@ export function profitBars(b: Pick<Brief, 'vals'>): { now: number; after: number
   return { now: S?.now ?? 0, after: S?.after ?? 0 };
 }
 
-/** 寄与の 1 本（ウォーターフォール）。from → to（累計）。kind 'ask'：承認事項の行・'setup'：導入（1 回）・'total'：短期の合計 */
+/** ウォーターフォールの 1 本。kind 'start'：As-Is の月の利益（全体の棒）・'ask'：承認事項の行の増収／費用（増減の棒）・'setup'：導入（1 回）・'total'：To-Be の短期利益（全体の棒） */
 export interface Fall {
-  kind: 'ask' | 'setup' | 'total';
+  kind: 'start' | 'ask' | 'setup' | 'total';
   label: string;
   dept: DeptId | null;
   icon: string;
@@ -126,12 +177,13 @@ export interface Fall {
   to: number;
 }
 /**
- * 短期利益の寄与（どの手で、いくら）：承認事項の行ごとの月の利益の増え（Brief.parts。手が 1 つなら月の利益の差）→ 導入（1 回）→ 合計。
- * 合計は短期の差（vals の short.d）と一致する
+ * 段 UI9：効果と費用のウォーターフォール（As-Is の月の利益 → 承認事項の行ごとの月の利益の増え（Brief.parts。手が 1 つなら月の利益の差）→ 導入（1 回）
+ * → To-Be の短期利益）。両端は全体の棒、間は増減の棒。最後の棒 ＝ As-Is の利益 ＋ 短期の差（vals の short.after）
  */
-export function fallOf(b: Pick<Brief, 'parts' | 'asks' | 'dProfit' | 'cost'>): Fall[] {
+export function fallOf(b: Pick<Brief, 'parts' | 'asks' | 'dProfit' | 'cost' | 'now'>): Fall[] {
   const out: Fall[] = [];
-  let at = 0;
+  let at = b.now.profit;
+  out.push({ kind: 'start', label: t('As-Is の月の利益', 'As-Is monthly profit'), dept: null, icon: '💰', v: at, from: 0, to: at });
   const add = (kind: Fall['kind'], label: string, dept: DeptId | null, icon: string, v: number) => {
     out.push({ kind, label, dept, icon, v, from: at, to: at + v });
     at += v;
@@ -139,10 +191,10 @@ export function fallOf(b: Pick<Brief, 'parts' | 'asks' | 'dProfit' | 'cost'>): F
   if (b.parts.length > 1) for (const x of b.parts) add('ask', shortWhat(x.what), x.dept, askIcon(x.kind), x.dProfit);
   else {
     const a = b.asks[0];
-    add('ask', a ? shortWhat(a.what) : t('月の利益', 'Monthly profit'), a?.dept ?? null, a ? askIcon(a.kind) : '💰', b.dProfit);
+    add('ask', a ? shortWhat(a.what) : t('月の利益の差', 'Monthly profit change'), a?.dept ?? null, a ? askIcon(a.kind) : '💰', b.dProfit);
   }
-  if (b.cost.money > 0) add('setup', t('導入（1 回）', 'Setup (once)'), null, '💳', -b.cost.money);
-  out.push({ kind: 'total', label: t('短期利益', 'Short-term'), dept: null, icon: METRIC_TEXT.short.icon, v: at, from: 0, to: at });
+  if (b.cost.money > 0) add('setup', t('導入費用（1 回）', 'Setup (once)'), null, '💳', -b.cost.money);
+  out.push({ kind: 'total', label: t('To-Be の短期利益', 'To-Be short-term profit'), dept: null, icon: METRIC_TEXT.short.icon, v: at, from: 0, to: at });
   return out;
 }
 /** 承認事項の文の頭の種類（「商品：」）を外した短い名前（グラフのラベル） */
@@ -174,20 +226,6 @@ export function longLine(b: Pick<Brief, 'vals' | 'now' | 'after' | 'cost'>): { n
   return { now, after };
 }
 
-/** 段 UI7f：折れ線の縦の点線（倉庫があふれる日。このまま・承認後）。day はいまから何日目 */
-export interface LineMark {
-  day: number;
-  label: string;
-  cls: 'is-now' | 'is-after';
-}
-export function lineMarks(b: Pick<Brief, 'vals'>): LineMark[] {
-  const P = b.vals.months;
-  if (!P || P.full0 == null) return [];
-  const out: LineMark[] = [{ day: P.full0, label: P.full0 < 1 ? t('もうあふれている', 'Already full') : t(`${Math.round(P.full0)} 日目にあふれる`, `Fills on day ${Math.round(P.full0)}`), cls: 'is-now' }];
-  if (P.full1 != null && P.full1 < POLICY.months * 30 && Math.abs(P.full1 - P.full0) >= 1) out.push({ day: P.full1, label: t(`承認後 ${Math.round(P.full1)} 日目`, `After: day ${Math.round(P.full1)}`), cls: 'is-after' });
-  return out;
-}
-
 /**
  * 段 UI7e：月ごとの見込みの説明（効果のスライドの折れ線の下）：使い切りの手で作る品がどこで・いつ・いくつ売れるか、倉庫があふれて入荷が止まるか。
  * name：商品の名前・shop：お店の名前（DOM なしで試せるように渡す）。月ごとの見込みが無ければ空
@@ -205,15 +243,15 @@ export function projLines(b: Pick<Brief, 'vals'>, name: (x: string) => string, s
     out.push(t(`🧪 ${name(u.x)} ${u.units} 個（1 個 ${Math.round(u.price).toLocaleString('en-US')} G）：作業台 ${u.slot + 1} で ${Math.ceil(u.days)} 日 → 来月 ${n1(u.sold[0])} 個売れる・${later}${where}`, `🧪 ${u.units} ${name(u.x)} (${Math.round(u.price).toLocaleString('en-US')} G each): bench ${u.slot + 1} for ${Math.ceil(u.days)} days → ${n1(u.sold[0])} sell next month, ${later}${where}`));
   }
   if (P.jam0) {
-    out.push(P.out0 != null ? t(`📦 このまま：倉庫があふれて素材が入らず、作業台が止まる → お店は在庫だけ（${P.out0} か月目に売り切れ）`, `📦 As is: storage full, no materials, benches stop → shops sell only stock (runs out in month ${P.out0})`) : t('📦 このまま：倉庫があふれて素材が入らず、作業台が止まる → お店は在庫だけ', '📦 As is: storage full, no materials, benches stop → shops sell only stock'));
-    out.push(P.jam1 ? t('📦 承認後も倉庫はあふれたまま', '📦 Storage stays full after approval') : t(`📦 承認後：置き場所が ${Math.round(P.room)} 個空き、調達と製造が戻る`, `📦 After: ${Math.round(P.room)} spaces free, buying and crafting resume`));
+    out.push(P.out0 != null ? t(`📦 As-Is：倉庫があふれて素材が入らず、作業台が止まる → お店は在庫だけ（${P.out0} か月目に売り切れ）`, `📦 As-Is: storage full, no materials, benches stop → shops sell only stock (runs out in month ${P.out0})`) : t('📦 As-Is：倉庫があふれて素材が入らず、作業台が止まる → お店は在庫だけ', '📦 As-Is: storage full, no materials, benches stop → shops sell only stock'));
+    if (!P.jam1) out.push(t(`📦 To-Be：置き場所が ${Math.round(P.room)} 個空き、調達と製造が戻る`, `📦 To-Be: ${Math.round(P.room)} spaces free, buying and crafting resume`));
   }
-  // 段 UI7f：このペースで倉庫があふれる日（折れ線の縦の点線）と、承認後
-  if (P.full0 != null) {
+  // 段 UI7f：このペースで倉庫があふれる日と、承認後。段 UI9：手が倉庫に効かない（承認後も同じ日）なら、手と無関係な As-Is／To-Be は出さない
+  if (P.full0 != null && (P.full1 == null || Math.abs(P.full1 - P.full0) >= 1)) {
     const when = P.full0 < 1 ? t('もう倉庫があふれていて', 'storage is already full') : t(`${Math.round(P.full0)} 日目に倉庫があふれ`, `storage fills on day ${Math.round(P.full0)}`);
-    const then = P.ramp != null ? t(`${Math.round(P.ramp)} 日で調達も製造も止まる → お店は在庫だけ${P.out0 != null ? `（${P.out0} か月目に売り切れ）` : ''}`, `buying and crafting stop within ${Math.round(P.ramp)} days → shops sell only stock${P.out0 != null ? ` (runs out in month ${P.out0})` : ''}`) : t(`作る数が月 ${Math.round(P.cut)} 個減る（売れ残りのぶん）`, `output drops ${Math.round(P.cut)}/mo (unsold goods)`);
-    out.push(t(`📦 このまま：${when}、${then}`, `📦 As is: ${when}; ${then}`));
-    out.push(P.full1 == null ? t(`📦 承認後：${POLICY.months} か月のうちにあふれない`, `📦 After: doesn’t fill within ${POLICY.months} months`) : t(`📦 承認後：${Math.round(P.full1)} 日目にあふれる`, `📦 After: fills on day ${Math.round(P.full1)}`));
+    const then = P.ramp != null ? t(`${Math.round(P.ramp)} 日で調達も製造も止まる → お店は在庫だけ${P.out0 != null ? `（${P.out0} か月目に売り切れ）` : ''}`, `buying and crafting stop within ${Math.round(P.ramp)} days → shops sell only stock${P.out0 != null ? ` (runs out in month ${P.out0})` : ''}`) : t(`処理量が月 ${Math.round(P.cut)} 個減る（売れ残りのぶん）`, `throughput drops ${Math.round(P.cut)}/mo (unsold goods)`);
+    out.push(t(`📦 As-Is：${when}、${then}`, `📦 As-Is: ${when}; ${then}`));
+    out.push(P.full1 == null ? t(`📦 To-Be：${POLICY.months} か月のうちにあふれない`, `📦 To-Be: doesn’t fill within ${POLICY.months} months`) : t(`📦 To-Be：${Math.round(P.full1)} 日目にあふれる`, `📦 To-Be: fills on day ${Math.round(P.full1)}`));
   }
   return out;
 }
@@ -401,6 +439,112 @@ export function propStacks(s: P1State, b: Pick<Brief, 'budget' | 'asks' | 'cost'
     { title: t(`${DEPT[d].name}部（今期）`, `${DEPT[d].name} (this quarter)`), ...D, delta, mode: 'spend', ...L },
     { title: t('会社（全部門の合計・今期）', 'Company (all divisions, this quarter)'), total: sum('total'), used: sum('used'), expect: sum('expect'), delta, mode: 'spend', ...L },
   ];
+}
+
+// ---------------------------------------------------------------- 段 UI9：課題の定義（As-Is／To-Be／ギャップ）・代替案・対策・実行計画
+
+/** 課題の定義のページの 1 行：事業の数字（As-Is → To-Be → ギャップ）。unit：単位の文。good：増えるのが良いか */
+export interface GapRow {
+  key: 'units' | 'sales' | 'profit' | 'full' | 'cap' | 'cash';
+  label: string;
+  asIs: number;
+  toBe: number;
+  fmt: (v: number) => string;
+  good: 'up' | 'down';
+}
+/**
+ * 課題の定義：事業の数字（処理量 個／月・売上・月の利益・倉庫があふれる日・置き場所・資金）の As-Is／To-Be／ギャップ。
+ * 手と無関係な行（To-Be が As-Is と同じ倉庫の日・置き場所）は出さない。処理量・売上・利益はいつも
+ */
+export function gapRows(b: Pick<Brief, 'now' | 'after' | 'vals' | 'co' | 'cost'>, cap0: number, cap1: number): GapRow[] {
+  const G = (v: number) => g(v);
+  const N = (v: number) => t(`${Math.round(v).toLocaleString('en-US')} 個`, `${Math.round(v).toLocaleString('en-US')}`);
+  const out: GapRow[] = [
+    { key: 'units', label: t('処理量（売れる数）', 'Throughput (units sold)'), asIs: b.now.units, toBe: b.after.units, fmt: (v) => t(`${N(v)}／月`, `${N(v)}/mo`), good: 'up' },
+    { key: 'sales', label: t('月の売上', 'Monthly sales'), asIs: b.now.sales, toBe: b.after.sales, fmt: G, good: 'up' },
+    { key: 'profit', label: t('月の利益', 'Monthly profit'), asIs: b.now.profit, toBe: b.after.profit, fmt: G, good: 'up' },
+  ];
+  const M = b.vals.months;
+  if (M?.full0 != null && (M.full1 == null || Math.abs(M.full1 - M.full0) >= 1)) out.push({ key: 'full', label: t('倉庫があふれる日', 'Storage fills on day'), asIs: M.full0, toBe: M.full1 ?? POLICY.months * DAYS, fmt: (v) => (v >= POLICY.months * DAYS ? t('あふれない', 'Never') : v < 1 ? t('もう満杯', 'Already full') : t(`${Math.round(v)} 日目`, `day ${Math.round(v)}`)), good: 'up' });
+  if (cap1 !== cap0) out.push({ key: 'cap', label: t('置き場所', 'Storage space'), asIs: cap0, toBe: cap1, fmt: N, good: 'up' });
+  if (b.cost.money > 0) out.push({ key: 'cash', label: t('資金（承認の直後）', 'Funds (right after approval)'), asIs: b.co.cash, toBe: b.co.left, fmt: G, good: 'up' });
+  return out;
+}
+
+/** 代替案の 1 行（同じカードのほかの手。推奨の手と、効果・費用・回収で比べる） */
+export interface Alt {
+  name: string;
+  /** 月の利益の差・12 か月の差・導入費用・回収（か月）・推奨が承認になるか */
+  dProfit: number;
+  long: number;
+  money: number;
+  payback: number | null;
+  ok: boolean;
+  chosen: boolean;
+}
+/**
+ * 段 UI9：打ち手のページの「代替案との比較」。カードのほかの手（card.ts の shownRec が内部で比べている手）を 2 本まで、同じ判断（judgeOf）で並べる。
+ * 推奨の手（いまの提案）を先頭に。カードが無ければ、いまの提案だけ
+ */
+export function altsOf(s: P1State, plan: Plan, b: Pick<Brief, 'dProfit' | 'vals' | 'cost'>, card: Card | null, iss: CoIssue[], base: P1State, n = 2): Alt[] {
+  const L = b.vals.list.find((m) => m.key === 'long')?.d ?? 0;
+  const mine: Alt = { name: plan.acts.map((a) => actNoun(a)).join(t('＋', ' + ')), dProfit: b.dProfit, long: L, money: b.cost.money, payback: paybackOf(b), ok: true, chosen: true };
+  const out: Alt[] = [mine];
+  if (!card) return out;
+  const key = (a: PropAct) => JSON.stringify(a);
+  const have = new Set(plan.acts.map(key));
+  for (const c of card.choices) {
+    if (out.length > n) break;
+    const a = c.act.k === 'do' ? c.act.a : c.act.k === 'approve' ? s.deleg?.inbox.find((p) => p.id === (c.act as { pid: number }).pid)?.act : undefined;
+    if (!a || have.has(key(a)) || !actOk(s, a)) continue;
+    const p = planOf(s, [a], { hero: card.hero, q: card.q, dept: card.dept });
+    const j = judgeOf(s, p, iss, base);
+    const cost = planCost(s, p);
+    out.push({ name: actNoun(a), dProfit: j.dProfit, long: j.long, money: cost.money, payback: paybackOf({ cost, dProfit: j.dProfit }), ok: j.rec === 'ok', chosen: false });
+  }
+  return out;
+}
+
+/** 段 UI9：リスクの種類ごとの対策（下振れのとき、いまの仕組みでできること） */
+export function counterOf(k: Risk['kind']): string {
+  switch (k) {
+    case 'read':
+      return t('翌月の月次報告で見込みと実績を比べる。下振れなら、人は持ち場を戻し、棚は並べ替える', 'Compare forecast with actuals in next month’s report; on a shortfall, move people back and re-shelve');
+    case 'ad':
+      return t('宣伝は期間限定。効き目が費用を下回れば次の宣伝は出さない', 'The ad is time-limited; if lift falls short of cost, don’t renew');
+    case 'stock':
+      return t('売れ残りは売りさばき（セール）か、いまの素材で別の品を作って減らす', 'Clear unsold stock with a sale or craft another item from the materials');
+    case 'ops':
+      return t('製造と販売の連動（主力の切り替え）は、いつでも工房の画面から戻せる', 'The crafting/selling switch can be undone any time from the workshop');
+    case 'dept':
+      return t('依頼先の部門が動けないときは、その行だけ見送って残りを実行する', 'If the other division can’t act, drop that line and run the rest');
+    case 'flow':
+      return t('次のボトルネックは、翌月の課題の一覧に出る。次の提案で解く', 'The next bottleneck appears in next month’s issues; the next proposal addresses it');
+    case 'budget':
+      return t('予算の上限を超えるぶんは会社の資金から。経営会議で予算を見直す', 'The excess comes from company funds; revisit the budget at the board meeting');
+    case 'cash':
+      return t('承認後の資金がひと月の固定費を下回るなら、高い手から順に見送る', 'If funds fall below a month of fixed costs, drop the costliest lines first');
+  }
+}
+
+/** 実行計画の 1 行（いつ効くか） */
+export interface Milestone {
+  day: number;
+  label: string;
+  kind: 'now' | 'build' | 'arrive' | 'ad' | 'effect';
+}
+/** 段 UI9：実行計画（承認日 → 完成・着任・宣伝の終わり → 効果が出る月）。cost.items[].days から。日数の無い手は承認と同時 */
+export function timelineOf(b: Pick<Brief, 'cost' | 'asks'>): Milestone[] {
+  const out: Milestone[] = [{ day: 0, label: t('承認：すぐに実行', 'Approval: carried out at once'), kind: 'now' }];
+  const timed = b.cost.items.filter((it) => (it.days ?? 0) > 0).sort((a, c) => (a.days ?? 0) - (c.days ?? 0));
+  for (const it of timed) {
+    const ask = b.asks.find((a) => a.at.includes(it.at ?? -1));
+    const kind: Milestone['kind'] = ask?.kind === 'ad' ? 'ad' : ask?.kind === 'hire' || ask?.kind === 'assign' ? 'arrive' : 'build';
+    out.push({ day: it.days ?? 0, label: kind === 'ad' ? t(`${it.label}：${it.days} 日間の宣伝が終わる`, `${it.label}: ${it.days}-day ad ends`) : kind === 'arrive' ? t(`${it.label}：${it.days} 日目に着任`, `${it.label}: starts on day ${it.days}`) : t(`${it.label}：${it.days} 日目に完成`, `${it.label}: done on day ${it.days}`), kind });
+  }
+  const lead = leadOf(b);
+  out.push({ day: Math.max(lead, 1), label: lead > 0 ? t(`${lead} 日目から効果が出る（来月の報告で確かめる）`, `Effect from day ${lead} (check next month’s report)`) : t('来月の報告で効果を確かめる', 'Check the effect in next month’s report'), kind: 'effect' });
+  return out;
 }
 
 // ---------------------------------------------------------------- 承認事項の行

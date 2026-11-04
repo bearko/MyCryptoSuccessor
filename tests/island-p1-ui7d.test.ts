@@ -132,19 +132,18 @@ describe('倉庫の提案の選び方（素材で埋まっているとき）', (
 
 describe('スライドの枚数', () => {
   const b = (n: number, money = 0, rp = 0, monthly = 0) => ({ asks: Array.from({ length: n }, () => ({})) as never, cost: { money, rp, monthly, days: 0, items: [] } });
-  it('費用の無い 1 つの手は 結論・付録 の 2 枚', () => {
+  it('費用の無い 1 つの手は サマリー・付録 の 2 枚', () => {
     expect(smallBrief(b(1))).toBe(true);
-    expect(slideKinds(b(1), { visual: true })).toEqual(['sum', 'more']);
-    expect(slideKinds(b(0), { visual: false })).toEqual(['sum', 'more']);
+    expect(slideKinds(b(1))).toEqual(['sum', 'more']);
+    expect(slideKinds(b(0))).toEqual(['sum', 'more']);
   });
-  it('費用のある 1 つの手：絵があれば「何が変わる」。12 か月は「効果」の 1 枚にまとめる', () => {
-    expect(slideKinds(b(1, 2000), { visual: false })).toEqual(['sum', 'effect', 'risk', 'more']);
-    expect(slideKinds(b(1, 0, 30), { visual: true })).toEqual(['sum', 'change', 'effect', 'risk', 'more']);
-    expect(slideKinds(b(1, 0, 0, 500), { visual: false })).toEqual(['sum', 'effect', 'risk', 'more']);
-  });
-  it('2 つ以上の手は 6 枚（何が変わる・効果（来月）・効果（12 か月）つき）', () => {
-    expect(slideKinds(b(2), { visual: false })).toEqual(['sum', 'change', 'effect', 'long', 'risk', 'more']);
-    expect(slideKinds(b(3, 6000), { visual: true })).toEqual(['sum', 'change', 'effect', 'long', 'risk', 'more']);
+  it('段 UI9：費用のある手は型の 7 枚（サマリー・課題の定義・打ち手・効果と費用・リスクと対策・実行計画・付録）', () => {
+    const all = ['sum', 'issue', 'move', 'effect', 'risk', 'plan', 'more'];
+    expect(slideKinds(b(1, 2000))).toEqual(all);
+    expect(slideKinds(b(1, 0, 30))).toEqual(all);
+    expect(slideKinds(b(1, 0, 0, 500))).toEqual(all);
+    expect(slideKinds(b(2))).toEqual(all);
+    expect(slideKinds(b(3, 6000))).toEqual(all);
   });
 });
 
@@ -159,19 +158,23 @@ describe('グラフの数字は提案書の中身（Brief）と一致する', ()
     expect(k.find((x) => x.key === 'short')?.v).toBe(S.d);
     expect(k.find((x) => x.key === 'long')?.v).toBe(L.d);
     expect(k.find((x) => x.key === 'setup')?.v).toBe(B.cost.money);
-    expect(k.length).toBeGreaterThanOrEqual(3);
-    expect(k.length).toBeLessThanOrEqual(4);
+    // 段 UI9：短期・長期・導入・投資回収期間・効果が出るまで（＋お金以外の指標）
+    expect(k.map((x) => x.key).slice(0, 5)).toEqual(['short', 'long', 'setup', 'payback', 'lead']);
+    expect(k.length).toBeLessThanOrEqual(6);
     // 来月の利益の棒 ＝ 短期の指標（このまま・承認後）
     expect(profitBars(B)).toEqual({ now: S.now, after: S.after });
-    // 寄与：手ごとの行（Brief.parts）→ 導入 → 合計 ＝ 短期の差。各行の from は前の行の to
+    // 段 UI9：ウォーターフォール：As-Is の利益 → 手ごとの行（Brief.parts）→ 導入 → To-Be の短期利益（＝ As-Is ＋ 短期の差）。各行の from は前の行の to
     const f = fallOf(B);
+    expect(f[0].kind).toBe('start');
+    expect(f[0].v).toBeCloseTo(B.now.profit, 6);
     const asks = f.filter((x) => x.kind === 'ask');
     expect(asks.map((x) => x.v)).toEqual(B.parts.map((x) => x.dProfit));
     expect(f.find((x) => x.kind === 'setup')?.v).toBe(-B.cost.money);
     const total = f[f.length - 1];
     expect(total.kind).toBe('total');
-    expect(total.v).toBeCloseTo(S.d, 6);
-    for (let i = 1; i < f.length - 1; i++) expect(f[i].from).toBeCloseTo(f[i - 1].to, 6);
+    expect(total.v).toBeCloseTo(B.now.profit + S.d, 6);
+    expect(total.v).toBeCloseTo(S.after, 4);
+    for (let i = 2; i < f.length - 1; i++) expect(f[i].from).toBeCloseTo(f[i - 1].to, 6);
     // 折れ線：月数の点・1 か月目は来月の利益（承認後は導入を引く）・最後は長期の指標
     const ln = longLine(B);
     expect(ln.now).toHaveLength(POLICY.months);
@@ -185,8 +188,8 @@ describe('グラフの数字は提案書の中身（Brief）と一致する', ()
     const s = town();
     const B = briefOf(s, planOf(s, [{ k: 'ad', id: 'flyer' }], { hero: null, q: 0.9, dept: 'marketing' }));
     const f = fallOf(B);
-    expect(f[0].v).toBeCloseTo(B.dProfit, 6);
-    expect(f[f.length - 1].v).toBeCloseTo(B.vals.list.find((m) => m.key === 'short')!.d, 6);
+    expect(f[1].v).toBeCloseTo(B.dProfit, 6);
+    expect(f[f.length - 1].v).toBeCloseTo(B.now.profit + B.vals.list.find((m) => m.key === 'short')!.d, 6);
     const ms = metersOf(B);
     expect(ms.map((m) => m.key)).toEqual(B.vals.list.filter((m) => m.key !== 'short' && m.key !== 'long').map((m) => m.key));
     for (const m of ms) expect(m.d).toBeCloseTo(m.after - m.now, 6);
@@ -224,7 +227,7 @@ describe('グラフの数字は提案書の中身（Brief）と一致する', ()
     expect(roomKpi(250, 280, 380)).toMatchObject({ key: 'room', v: 100 });
     expect(roomKpi(250, 280, 280)).toBeNull();
     const k = kpisOf({ ...B, dProfit: 0, vals: { ...B.vals, list: B.vals.list.filter((x) => x.key === 'short' || x.key === 'long') } }, roomKpi(250, 280, 380));
-    expect(k[3].key).toBe('room');
+    expect(k[5].key).toBe('room');
   });
   it('出どころ：倉庫の手 → 倉庫・売りさばき／いまの素材で作る → 在庫・ほか → 担当者', () => {
     const s = town();
