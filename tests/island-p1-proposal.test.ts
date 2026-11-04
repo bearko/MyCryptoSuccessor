@@ -202,7 +202,7 @@ describe('製造と販売の連動（何を売るかは製造が決める）', (
   });
   it('セーブ：版 22。版 21 のセーブで製造と棚がずれていたら、読み込みで棚を製造に合わせる', () => {
     const s = sellJam();
-    expect(s.v).toBe(25);
+    expect(s.v).toBe(26);
     const b = myShops(s)[0];
     const o = JSON.parse(serializeP1(s));
     o.v = 21;
@@ -210,7 +210,7 @@ describe('製造と販売の連動（何を売るかは製造が決める）', (
     delete o.shops[b.uid].shelf['Goblet:C'];
     delete o.shops[b.uid].storage['Goblet:C'];
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(25);
+    expect(back.v).toBe(26);
     if (!back.slots.some((x) => x.sku === 'Goblet:C')) expect(back.shops[b.uid].shelves).not.toContain('Goblet:C');
   });
 });
