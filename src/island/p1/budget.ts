@@ -81,6 +81,28 @@ export interface DeptBudget {
   qask?: number;
   qnm?: string[];
   noRp?: boolean;
+  /** 段 I2b：四半期の「部長の施策の選び方」の記録（経営会議の「何もできなかった原因」。deleg.ts の delegMonth・boardQuarter で 0 から） */
+  qwhy?: QWhy;
+}
+/**
+ * 段 I2b：四半期の月ごとの、部長の施策の結果（月に 1 つ数える）：done＝1 件以上打った・over＝予算が足りずに止まった・labor＝人手が足りずに止まった・
+ * cash＝会社の資金（給料・維持費の取り置き）を残すために止めた・none＝打てる手が無かった（候補が無い・どれも打てない手）。
+ * 予算が足りなかった手（いちばん安いもの）：cost＝払う額（効きのあと）・room＝そのときの予算の残り・need＝その手を打つのに要る月の予算・nm・val＝見込み（G）。
+ * 人手：lab＝足りない人日・cap＝従業員の上限
+ */
+export interface QWhy {
+  done: number;
+  over: number;
+  labor: number;
+  cash: number;
+  none: number;
+  cost?: number;
+  room?: number;
+  need?: number;
+  nm?: string;
+  val?: number;
+  lab?: number;
+  cap?: number;
 }
 export interface BudgetStat {
   /** 予算の中で実行した施策の数・額・予算の効きで浮いた額・雇った人・減らした人・頼みの数 */
