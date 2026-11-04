@@ -495,6 +495,8 @@ export const itemTitle = (it: BoardItem) => (it.dept ? `${DEPT[it.dept].icon} ${
 /** 予実の報告のひと言（部長の口ぶり。60 字まで） */
 export function reportLine(it: BoardItem): string {
   const p = it.prev;
+  // 段 I2b：施策が 0 件の四半期は、目標の結果より先に原因を話す（目標の結果はチップで出る）
+  if ('acts' in it.was && it.why && !it.was.acts) return heroLine(it.hero, causeCore(it.why, 0, it.was.used));
   if (p) {
     const core = p.okRep
       ? t(`結論から。前期は目標 ${g(p.targetRep)} に対し ${g(p.claimed)}、達成です`, `bottom line: ${g(p.claimed)} against a ${g(p.targetRep)} target. Achieved`)

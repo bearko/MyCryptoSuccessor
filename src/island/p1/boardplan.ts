@@ -368,7 +368,7 @@ export function noLeverCore(c: Cause | null): string {
   if (c?.k === 'cash') return t('資金が取り置きを上回る月に、止めた手から順に打ちます', 'I’ll restart the held moves as soon as cash clears the reserve');
   if (c?.k === 'town' && c.why === 'dig') return t('次の荒れ地が出たら、その月に許可を申請します', 'I’ll file a permit the month a new site opens');
   if (c?.k === 'town' && c.why === 'legal') return t('Epic の町に入ったら、特許と買収の打診から始めます', 'In an Epic town I’ll start with patents and offers');
-  return t('この部門の手は詰まりに効かないので、予算は会社に残し、効く手が出たら動きます', 'Our moves don’t touch the bottleneck; I’ll leave the budget with HQ until one does');
+  return t('この部門の手は詰まりに効かないので、予算は会社に残し、詰まりが移ったらすぐ動きます', 'Our moves don’t touch the bottleneck; I’ll leave the budget with HQ until one does');
 }
 /** 目標の上乗せが押せないとき：何があれば見込みが出るか（1 行） */
 export function forecastHint(L: Lever | null | undefined, c?: Cause | null): string {
