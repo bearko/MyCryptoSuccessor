@@ -46,11 +46,13 @@ describe('課題の一覧（ボトルネックを先に・優先つき）', () =
       const s = load(x);
       const xs = issuesOf(s);
       const flow = xs.filter((y) => isFlowKey(y.key));
-      expect(flow.length).toBe(1);
-      expect(flow[0].key).toBe(stallOf(s)?.stage ?? bottleneck(stageCaps(s)));
+      // 段 UI9：倉庫が原因の調達の頭打ちは「倉庫の容量不足」に寄せる（流れの課題は出ない）
+      const bn = stallOf(s)?.stage ?? bottleneck(stageCaps(s));
+      if (flow.length) expect(flow[0].key).toBe(bn);
+      else expect(xs[0]?.key).toBe('store');
       expect(xs.map((y) => y.pri)).toEqual(xs.map((_, k) => k + 1));
-      const iProfit = xs.findIndex((y) => y.key === 'profit');
-      expect(xs.findIndex((y) => isFlowKey(y.key))).toBeLessThan(iProfit);
+      // 段 UI9：収益性の改善は、ボトルネック・期限のある課題が無いときだけ
+      expect(xs.some((y) => y.key === 'profit')).toBe(false);
     }
   });
   it('ボトルネックでない段を太くしても、会社の流れは増えない（flowGain 0）。詰まりの段は次に細い段まで', () => {
@@ -130,11 +132,11 @@ describe('提案は課題を持ち、見送りが推奨の提案書は出さな�
 describe('推奨の決め方（方針と真っ向から反する・課題を解かない・予算と資金が足りない、だけが見送り）', () => {
   const vals = (list: { key: 'short' | 'long' | 'sat' | 'morale'; d: number }[], value = 1000) => ({ policy: 'balance' as const, list: list.map((x) => ({ ...x, now: 0, after: x.d, why: '' })), value, parts: { short: 0, long: 0, morale: 0, sat: 0, brand: 0, rp: 0 }, scale: 1, rpG: 1 });
   const co = { n: 0, money: 0, cash: 10000, left: 9000, reserve: 100 };
-  const iss = [{ key: 'sell' as const, pri: 1, score: 1, now: 1, note: '' }];
+  const iss = [{ key: 'sell' as const, pri: 1, score: 1, now: 1, impact: 1, days: null, note: '', loss: '' }];
   it('課題に効き、払えるなら承認（方針に届かないだけでは見送らない）', () => {
     const r = recOf({ block: [], co, vals: vals([{ key: 'long', d: 500 }], -10), iss, issue: iss[0], solved: iss, contra: null });
     expect(r.rec).toBe('ok');
-    expect(r.why).toContain('課題（販売がボトルネック）に効く');
+    expect(r.why).toContain('課題（販売がボトルネック）を解消');
   });
   it('課題を解かない・方針と真っ向から反する・資金が足りないは見送り（理由はそのどれか）', () => {
     expect(recOf({ block: [], co, vals: vals([{ key: 'long', d: 500 }]), iss, issue: null, solved: [], contra: null }).why).toContain('解消につながらない');

@@ -317,7 +317,7 @@ describe('お店の自走（店長が休む日も従業員で開く）', () => {
 });
 
 describe('設計の考え方：ゲームが進むほど、担当者から受ける提案の割合が増える', () => {
-  it('時間を止めて出す上限は町のランク ＋ ★3 の担当がいれば +1。提案書 1 枚で変える打ち手の数は ランク × ★', () => {
+  it('時間を止めて出す上限は町のランク ＋ ★3 の担当がいれば +1。提案書 1 枚で変える打ち手の数はランクだけ（段 UI9：★ で構成を変えない）', () => {
     const s = sellJam();
     for (const st of s.staff) {
       st.level = 1;
@@ -332,7 +332,7 @@ describe('設計の考え方：ゲームが進むほど、担当者から受け�
     expect(sizeOf(s, { hero: st.hero, q: 0.95 })).toBe(CARD.size.C);
     s.tier = 'R';
     expect(sizeOf(s, { hero: st.hero, q: 0.95 })).toBe(3);
-    expect(sizeOf(s, { hero: st.hero, q: 0.7 })).toBe(2);
-    expect(sizeOf(s, { hero: null, q: 0.7 })).toBe(1);
+    expect(sizeOf(s, { hero: st.hero, q: 0.7 })).toBe(3);
+    expect(sizeOf(s, { hero: null, q: 0.7 })).toBe(3);
   });
 });

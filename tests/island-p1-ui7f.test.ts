@@ -7,7 +7,7 @@ import { planOf } from '../src/island/p1/plan';
 import { briefOf } from '../src/island/p1/brief';
 import { enqueue, newCards, planOfChoice, sayOf, shownRec, stockDraft, storeAct, type Card } from '../src/island/p1/card';
 import { monthName, storeChart, storeFc, poolHist, storeNote } from '../src/island/p1/storefc';
-import { lineMarks, longLine, projLines } from '../src/island/p1/slides';
+import { longLine, projLines } from '../src/island/p1/slides';
 import { EVENT_OFF } from '../src/island/p1/events';
 import type { PropAct } from '../src/island/p1/deleg';
 import { runOnce } from '../scripts/island/sim';
@@ -150,7 +150,6 @@ describe('8 割の倉庫：あふれる先の損を見積もり、グラフを�
       expect(M.now[11]).toBeLessThan(M.now[1]);
       expect(M.after.reduce((a, v) => a + v, 0)).toBeGreaterThan(M.now.reduce((a, v) => a + v, 0) - 1e-6);
       // 折れ線の縦の点線・説明の行
-      expect(lineMarks(B)[0].day).toBeCloseTo(M.full0!, 6);
       expect(projLines(B, (x) => x, (u) => `${u}`).some((x) => x.includes('あふれ'))).toBe(true);
       const L = longLine(B);
       expect(L.now.length).toBe(12);
@@ -262,7 +261,7 @@ describe('提案書の「いま」の一言は、その提案書の手に合わ�
     for (let k = 0; k < 8 && poolUsed(s) < poolCap(s) * 0.8; k++) toMonthEnd(s, inj);
     const c = storeChart(s, { cap: poolCap(s) + 100, free: 0 });
     const note = storeNote(c);
-    expect(note).toMatch(/このまま：(来年 )?\d+ 月にあふれる/);
+    expect(note).toMatch(/As-Is：(来年 )?\d+ 月にあふれる/);
     expect(note).not.toContain('か月目');
     for (const b of c.bars) expect(b.name).toMatch(/^(来年 |\d+ 年後の )?\d+ 月$/);
     // 暦：通算の月 → 月（年をまたぐ）

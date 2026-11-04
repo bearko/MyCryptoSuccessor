@@ -6,10 +6,12 @@
  */
 import { t } from '../../i18n';
 import { DEPT, POLICY, type DeptId } from './data';
-import { RISK_ICON, RISK_LV, perDayText, stackSegs, type BudgetBar, type Fall, type Kpi, type LineMark, type Meter, type Stack, type StageMap } from './slides';
+import { RISK_ICON, RISK_LV, perDayText, stackSegs, type Alt, type Fall, type GapRow, type Kpi, type Meter, type Milestone, type Stack, type StageMap } from './slides';
 import type { StoreChart } from './storefc';
 export { storeNote } from './storefc';
 import type { Brief, Risk } from './brief';
+import { fallEl, fallLegend } from './chartkit';
+import type { Step } from './dash';
 
 type CoFunds = Brief['co'];
 import { h, money } from './ui';
@@ -199,67 +201,19 @@ export function kpiTile(k: Kpi): HTMLElement {
   e.dataset.kpi = k.key;
   e.append(h('span', 'isl-sl-lab', `${k.icon} ${k.label}`));
   const num = h('b', 'isl-sl-num');
-  if (k.tone === 'delta') {
-    num.append(h('span', 'isl-sl-arw', arrow(k.v)), document.createTextNode(sgn(k.v)));
-  } else num.append(document.createTextNode(fmt(k.v)));
-  if (k.unit) num.append(h('small', '', ` ${k.unit}`));
+  // 段 UI9：桁の多い数字（7 桁以上）は少し小さく（2 列のタイルからはみ出さない）
+  if (!k.text && fmt(k.v).length >= 7) num.classList.add('is-long');
+  if (k.text) num.append(document.createTextNode(k.text));
+  else {
+    if (k.tone === 'delta') num.append(h('span', 'isl-sl-arw', arrow(k.v)), document.createTextNode(sgn(k.v)));
+    else num.append(document.createTextNode(fmt(k.v)));
+    if (k.unit) num.append(h('small', '', ` ${k.unit}`));
+  }
   e.append(num, h('span', 'isl-sl-lab', k.sub));
   return e;
 }
 
-// ---------------------------------------------------------------- 効果：棒（このまま vs 承認後）・寄与
-
-/** 0 を含む横の目盛り（左端〜右端の割合） */
-function scaleOf(vs: number[]) {
-  const lo = Math.min(0, ...vs);
-  const hi = Math.max(0, ...vs);
-  const span = hi - lo || 1;
-  return (v: number) => ((v - lo) / span) * 100;
-}
-/** 横の棒 1 本（from〜to。0 の線つき） */
-function hbar(x: (v: number) => number, from: number, to: number, cls: string): HTMLElement {
-  const track = h('div', 'isl-sl-track2');
-  const zero = h('span', 'isl-sl-zero');
-  zero.style.left = `${x(0)}%`;
-  const bar = h('span', `isl-sl-bar ${cls}`);
-  const a = Math.min(x(from), x(to));
-  const b = Math.max(x(from), x(to));
-  bar.style.left = `${a}%`;
-  bar.style.width = `${Math.max(0.6, b - a)}%`;
-  track.append(bar, zero);
-  return track;
-}
-/** 来月の利益：このまま（灰）・承認後（金）の 2 本。数は棒の右に（直接ラベル） */
-export function pairBars(now: number, after: number): HTMLElement {
-  const e = h('div', 'isl-sl-bars');
-  const x = scaleOf([now, after]);
-  for (const [lab, v, cls] of [
-    [t('このまま', 'As is'), now, 'is-now'],
-    [t('承認後', 'After'), after, 'is-after'],
-  ] as const) {
-    const row = h('div', 'isl-sl-brow');
-    row.append(h('span', 'isl-sl-blab', lab), hbar(x, 0, v, cls), h('b', 'isl-sl-bval', `${v < -0.5 ? '−' : ''}${fmt(v)} G`));
-    e.append(row);
-  }
-  return e;
-}
-/** 寄与（ウォーターフォール）：手ごとの月の利益の増え → 導入 → 短期利益の合計 */
-export function fallChart(rows: Fall[]): HTMLElement {
-  const e = h('div', 'isl-sl-fall');
-  const x = scaleOf(rows.flatMap((r) => [r.from, r.to]));
-  for (const r of rows) {
-    const row = h('div', `isl-sl-frow is-${r.kind}`);
-    row.dataset.v = String(Math.round(r.v));
-    const lab = h('span', 'isl-sl-flab');
-    if (r.dept) lab.append(deptChip(r.dept));
-    lab.append(h('span', 'isl-sl-fname', `${r.icon} ${r.label}`));
-    row.append(lab, hbar(x, r.from, r.to, r.kind === 'total' ? 'is-after' : r.v >= 0 ? 'is-up' : 'is-down'), h('b', `isl-sl-fval ${tone(r.v)}`, `${arrow(r.v)} ${sgn(r.v, 'G')}`));
-    e.append(row);
-  }
-  return e;
-}
-
-// ---------------------------------------------------------------- 効果：12 か月の累計の折れ線
+// ---------------------------------------------------------------- 段 UI9：縦のウォーターフォール（chartkit の部品：月次報告・決算書・税と同じ）
 
 const NS = 'http://www.w3.org/2000/svg';
 const sv = <K extends keyof SVGElementTagNameMap>(tag: K, at: Record<string, string | number>) => {
@@ -267,11 +221,18 @@ const sv = <K extends keyof SVGElementTagNameMap>(tag: K, at: Record<string, str
   for (const [k, v] of Object.entries(at)) e.setAttribute(k, String(v));
   return e;
 };
+/** 効果と費用のウォーターフォール（As-Is の利益 → 増収・費用 → To-Be）。chartkit の fallEl（縦の棒）に渡す */
+export function vfallEl(rows: Fall[], aria: string): HTMLElement {
+  const steps: Step[] = rows.map((r, k) => ({ key: `${r.kind}${k}`, name: r.kind === 'ask' || r.kind === 'setup' ? `${r.icon} ${r.label}` : r.kind === 'start' ? 'As-Is' : 'To-Be', kind: r.kind === 'start' ? 'start' : r.kind === 'total' ? 'total' : r.v >= 0 ? 'up' : 'down', v: r.v, from: r.from, to: r.to }));
+  return fallEl(steps, aria);
+}
+export const vfallLegend = fallLegend;
+
 /**
  * 累計の折れ線（このまま：灰の点線・承認後：金の実線）。線の右端に名前と値（直接ラベル）。指を置くと月の値（十字の線と吹き出し）。
  * 幅は置かれた場所に合わせて描き直す（字はいつも 12px）
  */
-export function lineChart(now: number[], after: number[], marks: LineMark[] = []): HTMLElement {
+export function lineChart(now: number[], after: number[]): HTMLElement {
   const wrap = h('div', 'isl-sl-line');
   const svg = sv('svg', { role: 'img', 'aria-label': t(`${POLICY.months} か月の利益の累計：このまま ${fmt(now[now.length - 1])} G、承認後 ${fmt(after[after.length - 1])} G`, `Cumulative profit over ${POLICY.months} months: as is ${fmt(now[now.length - 1])} G, after ${fmt(after[after.length - 1])} G`) });
   const tip = h('div', 'isl-sl-tip');
@@ -310,14 +271,6 @@ export function lineChart(now: number[], after: number[], marks: LineMark[] = []
       svg.append(tx);
     }
     const path = (vs: number[]) => vs.map((v, k) => `${k ? 'L' : 'M'}${px(k).toFixed(1)},${py(v).toFixed(1)}`).join('');
-    // 段 UI7f：倉庫があふれる日（縦の点線と札。k か月目の累計は k か月目の終わり＝(k+1)×30 日目）
-    marks.forEach((mk, i) => {
-      const x = px(Math.max(0, Math.min(n - 1, mk.day / 30 - 1)));
-      svg.append(sv('line', { x1: x, x2: x, y1: T, y2: H - B, class: `isl-sl-mark ${mk.cls}` }));
-      const tx = sv('text', { x: x > W / 2 ? x - 4 : x + 4, y: T + 12 + i * 15, 'text-anchor': x > W / 2 ? 'end' : 'start', class: `isl-sl-mtxt ${mk.cls}` });
-      tx.textContent = `${mk.cls === 'is-now' ? '⚠ ' : ''}${mk.label}`;
-      svg.append(tx);
-    });
     svg.append(sv('path', { d: path(now), class: 'isl-sl-lnow' }), sv('path', { d: path(after), class: 'isl-sl-lafter' }));
     // 右端の名前と値（近すぎたら離す。同じなら 1 つに）
     if (Math.abs(now[n - 1] - after[n - 1]) < 0.5) {
@@ -341,8 +294,8 @@ export function lineChart(now: number[], after: number[], marks: LineMark[] = []
     for (const [vs, y, lab, cls] of (Math.abs(now[n - 1] - after[n - 1]) < 0.5
       ? []
       : [
-          [now, yn, t('このまま', 'As is'), 'is-now'],
-          [after, ya, t('承認後', 'After'), 'is-after'],
+          [now, yn, 'As-Is', 'is-now'],
+          [after, ya, 'To-Be', 'is-after'],
         ]) as [number[], number, string, string][]) {
       svg.append(sv('circle', { cx: px(n - 1), cy: py(vs[n - 1]), r: 4, class: `isl-sl-dot2 ${cls}` }));
       const a = sv('text', { x: W - R + 8, y: y - 2, class: `isl-sl-end ${cls}` });
@@ -364,7 +317,7 @@ export function lineChart(now: number[], after: number[], marks: LineMark[] = []
       cross.setAttribute('x2', String(px(k)));
       cross.style.display = '';
       tip.hidden = false;
-      tip.replaceChildren(h('b', '', t(`${k + 1} か月目まで`, `Through month ${k + 1}`)), h('span', 'is-after', t(`承認後 ${fmt(after[k])} G`, `After ${fmt(after[k])} G`)), h('span', 'is-now', t(`このまま ${fmt(now[k])} G`, `As is ${fmt(now[k])} G`)));
+      tip.replaceChildren(h('b', '', t(`${k + 1} か月目まで`, `Through month ${k + 1}`)), h('span', 'is-after', `To-Be ${fmt(after[k])} G`), h('span', 'is-now', `As-Is ${fmt(now[k])} G`));
       const left = (px(k) / W) * 100;
       tip.style.left = `${Math.min(70, Math.max(0, left - 15))}%`;
     };
@@ -453,14 +406,14 @@ export function storeChartEl(c: StoreChart, compact = false): HTMLElement {
       const ym = py(b.mats);
       const yg = py(b.mats + b.goods);
       const fc = b.fc ? ' is-fc' : '';
-      if (b.mats > 0) svg.append(sv('rect', { x, y: ym, width: barW, height: Math.max(1, y0 - ym), rx: 2, class: `isl-sl-smat${fc}` }));
+      if (b.mats > 0) svg.append(sv('rect', { x, y: ym, width: barW, height: Math.max(1, y0 - ym), class: `isl-sl-smat${fc}` }));
       if (b.goods > 0) {
         const top = Math.min(yg, ym - 2);
         const hgt = Math.max(1, ym - 2 - top);
-        svg.append(sv('rect', { x, y: top, width: barW, height: hgt, rx: 2, class: `isl-sl-sgood${fc}` }));
-        svg.append(sv('rect', { x, y: top, width: barW, height: hgt, rx: 2, fill: `url(#${id}d)`, class: 'isl-sl-sover' }));
+        svg.append(sv('rect', { x, y: top, width: barW, height: hgt, class: `isl-sl-sgood${fc}` }));
+        svg.append(sv('rect', { x, y: top, width: barW, height: hgt, fill: `url(#${id}d)`, class: 'isl-sl-sover' }));
       }
-      if (b.fc) svg.append(sv('rect', { x, y: yg, width: barW, height: Math.max(1, y0 - yg), rx: 2, fill: `url(#${id}h)`, class: 'isl-sl-sover' }));
+      if (b.fc) svg.append(sv('rect', { x, y: yg, width: barW, height: Math.max(1, y0 - yg), fill: `url(#${id}h)`, class: 'isl-sl-sover' }));
       const lab = sv('text', { x: cx(k), y: H - 5, 'text-anchor': 'middle', class: 'isl-sl-axis' });
       lab.textContent = b.label;
       svg.append(lab);
@@ -542,8 +495,8 @@ export function storeLegend(c: StoreChart): HTMLElement {
 export function lineLegend(): HTMLElement {
   const e = h('div', 'isl-sl-legend');
   for (const [cls, lab] of [
-    ['is-after', t('承認後', 'After')],
-    ['is-now', t('このまま', 'As is')],
+    ['is-after', t('To-Be（承認後）', 'To-Be (after)')],
+    ['is-now', t('As-Is（このまま）', 'As-Is (as is)')],
   ] as const) {
     const x = h('span', `isl-sl-key ${cls}`);
     x.append(h('i', ''), document.createTextNode(lab));
@@ -607,126 +560,150 @@ export function riskRow(r: Risk): HTMLElement {
   e.append(h('span', `isl-sl-lv is-lv${r.lv}`, RISK_LV[r.lv]()), h('span', 'isl-sl-ricon', RISK_ICON[r.kind]), h('span', 'isl-sl-rtxt', r.text));
   return e;
 }
-/** 区切りの棒（使った・この提案・超える・残り）。凡例は下に字で */
-export function segBar(parts: { v: number; cls: string; lab: string }[], total: number, tick?: { at: number; lab: string }): HTMLElement {
-  const e = h('div', 'isl-sl-seg');
-  const bar = h('div', 'isl-sl-segbar');
-  const sum = Math.max(total, parts.reduce((a, x) => a + x.v, 0)) || 1;
-  for (const x of parts) {
-    if (x.v <= 0) continue;
-    const s = h('span', `isl-sl-segp ${x.cls}`);
-    s.style.flexGrow = String(x.v / sum);
-    bar.append(s);
-  }
-  if (tick) {
-    const k = h('span', 'isl-sl-segtick');
-    k.style.left = `${Math.max(0, Math.min(100, (tick.at / sum) * 100))}%`;
-    k.title = tick.lab;
-    bar.append(k);
-  }
-  const keys = h('div', 'isl-sl-segkeys');
-  for (const x of [...parts, ...(tick ? [{ cls: 'is-tick', lab: tick.lab }] : [])]) {
-    const k = h('span', `isl-sl-segkey ${x.cls}`);
-    k.append(h('i', ''), document.createTextNode(x.lab));
-    keys.append(k);
-  }
-  e.append(bar, keys);
-  return e;
-}
-/** 部門の月の予算のメーター */
-export function budgetEl(bb: BudgetBar): HTMLElement {
-  const e = h('div', 'isl-sl-budget');
-  const head = h('div', 'isl-sl-mtop');
-  head.append(h('span', 'isl-sl-lab', t(`${DEPT[bb.dept].name}部の予算（月 ${money(bb.amt)}）`, `${DEPT[bb.dept].name} budget (${money(bb.amt)}/mo)`)), h('b', bb.over > 0 ? 'is-bad' : 'is-good', bb.over > 0 ? t(`⚠ 予算外 ${money(bb.over)}`, `⚠ Over by ${money(bb.over)}`) : t('✔ 予算内', '✔ Within budget')));
-  e.append(
-    head,
-    segBar(
-      [
-        { v: bb.used, cls: 'is-used', lab: t(`使った ${money(bb.used)}`, `Used ${money(bb.used)}`) },
-        { v: bb.mine, cls: 'is-mine', lab: t(`この提案 ${money(bb.mine)}`, `This ${money(bb.mine)}`) },
-        ...(bb.over > 0 ? [{ v: bb.over, cls: 'is-over', lab: t(`超える ${money(bb.over)}`, `Over ${money(bb.over)}`) }] : []),
-        { v: bb.left, cls: 'is-left', lab: t(`残り ${money(bb.left)}`, `Left ${money(bb.left)}`) },
-      ],
-      bb.amt,
-    ),
-  );
-  return e;
-}
-/** 会社の資金のメーター（承認後に残る・この提案・ひと月の給料と維持費の目安の線） */
-export function fundsEl(co: CoFunds): HTMLElement {
-  const e = h('div', 'isl-sl-budget');
-  const head = h('div', 'isl-sl-mtop');
-  const low = co.left < co.reserve;
-  head.append(h('span', 'isl-sl-lab', t(`会社の資金 ${money(co.cash)}`, `Company funds ${money(co.cash)}`)), h('b', low ? 'is-bad' : 'is-good', low ? t('⚠ 固定費を下回る', '⚠ Below a month of costs') : t(`✔ 承認後 ${money(co.left)}`, `✔ After ${money(co.left)}`)));
-  const spend = Math.max(0, co.cash - Math.max(0, co.left));
-  e.append(
-    head,
-    segBar(
-      [
-        { v: Math.max(0, co.left), cls: 'is-left2', lab: t(`残る ${money(Math.max(0, co.left))}`, `Left ${money(Math.max(0, co.left))}`) },
-        { v: spend, cls: 'is-mine', lab: t(`この提案 ${money(spend)}`, `This ${money(spend)}`) },
-      ],
-      Math.max(1, co.cash),
-      { at: co.reserve, lab: t(`ひと月の固定費 ${money(co.reserve)}`, `A month of fixed costs ${money(co.reserve)}`) },
-    ),
-  );
-  if (co.n > 0) e.append(h('span', 'isl-sl-lab', t(`受け箱のほかの提案 ${co.n} 件（合計 ${money(co.money)}）`, `${co.n} other proposals in the inbox (${money(co.money)})`)));
-  return e;
-}
+// ---------------------------------------------------------------- 段 UI9：100% の積み上げ縦棒（予算・資金）
 
-// ---------------------------------------------------------------- 段 UI7g：予算の縦の積み上げ棒・ⓘ の吹き出し
-
-/**
- * 予算の縦の積み上げ棒 1 本（下から 使った＝濃い灰・使う見込み＝薄い灰・この施策＝赤・残り＝緑）と凡例（形・名前・数字）。
- * 増額は赤帯の上辺、減額は赤帯の下辺に点線（新しい水準）。赤帯と点線はゆっくり点滅（prefers-reduced-motion では止める：CSS）。
- * 背景に溶けないよう、棒は明るい枠と目盛りの溝の上に描く
- */
-export function stackEl(x: Stack): HTMLElement {
+/** 100% の積み上げ縦棒 1 本の材料：段は上から delta（本施策による変動）→ exp（今後の使用見込額）→ left（残り予算）→ used（使用済） */
+export interface Stack100 {
+  title: string;
+  /** 棒の全体（100%）の額と、その下の 1 行（「予算 120,000 G」） */
+  total: number;
+  note: string;
+  used: number;
+  left: number;
+  exp: number;
+  delta: number;
+  /** 予算を超える分（あれば、棒の上の ⚠ の字） */
+  over?: number;
+}
+/** 凡例の名前（上から） */
+export interface Stack100Labels {
+  delta: string;
+  exp: string;
+  left: string;
+  used: string;
+}
+/** 予算の縦の積み上げ棒の材料（slides.ts の Stack）→ 100% の棒。段の額は stackSegs と同じ数字（増額は delta、減額は見込みから削る分を delta に） */
+export function stack100Of(x: Stack): Stack100 {
   const S = stackSegs(x);
-  const e = h('div', 'isl-st');
-  e.append(h('b', 'isl-st-title', x.title));
-  const row = h('div', 'isl-st-row');
-  const bar = h('div', 'isl-st-bar');
-  bar.setAttribute('role', 'img');
-  let at = 0;
-  for (const g of S.segs) {
-    const p = h('span', `isl-st-seg ${g.cls}`);
-    p.style.bottom = `${(at / S.max) * 100}%`;
-    p.style.height = `${(g.v / S.max) * 100}%`;
-    bar.append(p);
-    at += g.v;
+  const v = (cls: string) => S.segs.filter((g) => g.cls === cls).reduce((a, g) => a + g.v, 0);
+  const used = v('is-used');
+  const exp = v('is-exp');
+  const delta = v('is-delta');
+  const left = v('is-left');
+  const total = used + exp + delta + left;
+  return { title: x.title, total, note: t(`予算 ${money(Math.round(x.total))}${x.mode === 'cap' && x.delta ? ` → ${money(Math.round(x.total + x.delta))}` : ''}`, `Budget ${money(Math.round(x.total))}${x.mode === 'cap' && x.delta ? ` → ${money(Math.round(x.total + x.delta))}` : ''}`), used, exp, delta, left, over: S.over > 0.5 ? S.over : undefined };
+}
+/**
+ * 同じグラフ内で横に並べる 100% の積み上げ縦棒（事業部・会社）。凡例はグラフの右に 1 つ。数値はバーの中に書き込む（細い段は右に小さく）。
+ * 色の順は上から 本施策による変動（赤）→ 今後の使用見込額（薄い灰）→ 残り予算（緑）→ 使用済（濃い灰）。角の丸みは無し
+ */
+export function stack100El(bars: Stack100[], labels: Stack100Labels, aria: string): HTMLElement {
+  const e = h('div', 'isl-s100');
+  const row = h('div', 'isl-s100-bars');
+  row.setAttribute('role', 'img');
+  row.setAttribute('aria-label', aria);
+  const order: (keyof Stack100Labels)[] = ['delta', 'exp', 'left', 'used'];
+  for (const b of bars) {
+    const col = h('div', 'isl-s100-col');
+    col.append(h('b', 'isl-s100-title', b.title));
+    if (b.over) col.append(h('small', 'isl-s100-over', t(`⚠ 予算を超える ${money(Math.round(b.over))}`, `⚠ Over budget by ${money(Math.round(b.over))}`)));
+    const bar = h('div', 'isl-s100-bar');
+    const tot = Math.max(1, b.total);
+    // 下から積む（column-reverse）ので、上に来る段（本施策）を最後に。細い段（11% 未満）の数字は右に出し、重ならないよう上から順にずらす
+    let thin = 0;
+    const segs: HTMLElement[] = [];
+    for (const k of order) {
+      const v = b[k];
+      if (v <= 0.5) continue;
+      const pc = (v / tot) * 100;
+      const seg = h('span', `isl-s100-seg is-${k}`);
+      seg.style.height = `${pc}%`;
+      const isThin = pc < 11;
+      const txt = h('span', isThin ? 'isl-s100-v is-thin' : 'isl-s100-v', `${Math.round(pc)}%`);
+      if (isThin) {
+        txt.style.top = `${thin * 14}px`;
+        thin++;
+      } else thin = 0;
+      txt.title = `${labels[k]} ${money(Math.round(v))}`;
+      seg.append(txt);
+      segs.push(seg);
+    }
+    for (const seg of segs.reverse()) bar.append(seg);
+    col.append(bar, h('small', 'isl-s100-note', b.note));
+    row.append(col);
   }
-  // 予算の枠の線（施策の前）
-  const top = h('span', 'isl-st-cap');
-  top.style.bottom = `${(Math.min(x.total, S.max) / S.max) * 100}%`;
-  bar.append(top);
-  if (S.line != null) {
-    const ln = h('span', `isl-st-line ${x.delta >= 0 ? 'is-inc' : 'is-dec'}`);
-    ln.style.bottom = `${(S.line / S.max) * 100}%`;
-    bar.append(ln);
-  }
-  const keys = h('ul', 'isl-st-keys');
-  const key = (cls: string, lab: string, v: string) => {
-    const li = h('li', `isl-st-key ${cls}`);
-    li.append(h('i', ''), h('span', '', lab), h('b', '', v));
+  const keys = h('ul', 'isl-s100-keys');
+  for (const k of order) {
+    if (!labels[k]) continue;
+    const li = h('li', `isl-s100-key is-${k}`);
+    li.append(h('i', ''), h('span', '', labels[k]));
+    // 数字は凡例にも（棒の中は %。色だけに頼らない）
+    li.append(h('b', '', bars.map((b) => money(Math.round(b[k]))).join(t('／', ' / '))));
     keys.append(li);
-  };
-  if (x.used > 0.5 || x.mode === 'spend') key('is-used', x.labUsed, money(Math.round(x.used)));
-  key('is-exp', x.labExp, money(Math.round(x.expect)));
-  // 点線がどちらの辺か（増額：上辺・減額：下辺）を字でも
-  if (Math.abs(x.delta) >= 0.5) key(`is-delta ${x.delta >= 0 ? 'is-inc' : 'is-dec'}`, x.delta >= 0 ? t(`${x.labDelta}（┄上辺）`, `${x.labDelta} (┄top)`) : t(`${x.labDelta}（┄下辺）`, `${x.labDelta} (┄bottom)`), `${x.delta >= 0 ? '+' : '−'}${money(Math.round(Math.abs(x.delta)))}`);
-  key('is-left', t('残り', 'Left'), money(Math.round(S.left)));
-  if (S.over > 0.5) key('is-over', t('予算を超える', 'Over budget'), money(Math.round(S.over)));
-  const leftLab = t('残り', 'Left');
-  bar.setAttribute('aria-label', [x.title, `${x.labUsed} ${Math.round(x.used)}`, `${x.labExp} ${Math.round(x.expect)}`, `${x.labDelta} ${Math.round(x.delta)}`, `${leftLab} ${Math.round(S.left)}`].join(', '));
-  row.append(bar, keys);
-  e.append(row, h('small', 'isl-st-total', t(`予算 ${money(Math.round(x.total))}${x.mode === 'cap' && x.delta ? ` → ${money(Math.round(x.total + x.delta))}` : ''}`, `Budget ${money(Math.round(x.total))}${x.mode === 'cap' && x.delta ? ` → ${money(Math.round(x.total + x.delta))}` : ''}`)));
+  }
+  e.append(row, keys);
   return e;
 }
-/** 事業部と会社の 2 本を並べる（PC は横、スマホは縦） */
-export function stackPair(xs: Stack[]): HTMLElement {
-  const e = h('div', 'isl-st-pair');
-  for (const x of xs) e.append(stackEl(x));
+/** 予算の凡例の名前（上から） */
+export const budgetLabels = (inc: boolean): Stack100Labels => ({ delta: inc ? t('本施策による変動', 'Change from this plan') : t('本施策で減る見込み', 'Saved by this plan'), exp: t('今後の使用見込額', 'Planned spend'), left: t('残り予算', 'Remaining budget'), used: t('使用済', 'Used') });
+/** 会社の資金を同じ 100% の棒に：本施策（承認で払う）→ ひと月の固定費の目安 → それ以上の余裕 */
+export function fundsStack(co: CoFunds): { bar: Stack100; labels: Stack100Labels } {
+  const spend = Math.max(0, co.cash - Math.max(0, co.left));
+  const left = Math.max(0, co.left);
+  const fixed = Math.min(co.reserve, left);
+  return {
+    bar: { title: t('会社の資金', 'Company funds'), total: Math.max(1, co.cash), note: t(`資金 ${money(co.cash)} → 承認後 ${money(co.left)}`, `Funds ${money(co.cash)} → after ${money(co.left)}`), delta: spend, exp: fixed, left: Math.max(0, left - fixed), used: 0, over: co.left < co.reserve ? co.reserve - co.left : undefined },
+    labels: { delta: t('本施策で払う', 'Paid for this plan'), exp: t('ひと月の固定費の目安', 'A month of fixed costs'), left: t('それ以上の余裕', 'Headroom beyond that'), used: '' },
+  };
+}
+
+// ---------------------------------------------------------------- 段 UI9：課題の定義の表・代替案の表・実行計画
+
+const gfmt = (v: number) => money(Math.round(v));
+/** 課題の定義：As-Is／To-Be／ギャップの表（事業の数字） */
+export function gapTable(rows: GapRow[]): HTMLElement {
+  const e = h('div', 'isl-gap');
+  e.append(h('span', 'isl-gap-h', ''), h('span', 'isl-gap-h', 'As-Is'), h('span', 'isl-gap-h', 'To-Be'), h('span', 'isl-gap-h', t('ギャップ', 'Gap')));
+  for (const r of rows) {
+    const d = r.toBe - r.asIs;
+    const good = r.good === 'up' ? d > 0.5 : d < -0.5;
+    const bad = r.good === 'up' ? d < -0.5 : d > 0.5;
+    const cls = good ? 'is-good' : bad ? 'is-bad' : 'is-even';
+    const gap = r.key === 'units' ? sgn(d) + t(' 個', '') : r.key === 'full' ? (Math.abs(d) < 0.5 ? '±0' : r.toBe >= 360 ? t('あふれない', 'never') : sgn(d) + t(' 日', ' d')) : r.key === 'cap' ? sgn(d) : sgn(d, 'G');
+    e.append(h('span', 'isl-gap-l', r.label), h('span', 'isl-gap-v', r.fmt(r.asIs)), h('b', `isl-gap-v ${cls}`, r.fmt(r.toBe)), h('b', `isl-gap-d ${cls}`, `${arrow(r.good === 'up' ? d : -d)} ${gap}`));
+  }
+  return e;
+}
+/** 代替案との比較の表（推奨の手を先頭に。効果・費用・回収） */
+export function altTable(xs: Alt[]): HTMLElement {
+  const e = h('div', 'isl-alt');
+  e.append(h('span', 'isl-alt-h', t('手', 'Move')), h('span', 'isl-alt-h', t('月の利益', 'Monthly')), h('span', 'isl-alt-h', t('12 か月', '12 months')), h('span', 'isl-alt-h', t('導入', 'Setup')), h('span', 'isl-alt-h', t('回収', 'Payback')));
+  for (const x of xs) {
+    const nm = h('span', `isl-alt-n ${x.chosen ? 'is-chosen' : ''}`);
+    if (x.chosen) nm.append(h('span', 'isl-alt-rec', t('推奨', 'Pick')));
+    nm.append(document.createTextNode(x.name));
+    if (!x.ok && !x.chosen) nm.append(h('small', 'isl-alt-no', t('見送り', 'not advised')));
+    e.append(nm, h('b', `isl-alt-v ${tone(x.dProfit)}`, sgn(x.dProfit, 'G')), h('b', `isl-alt-v ${tone(x.long)}`, sgn(x.long, 'G')), h('span', 'isl-alt-v', x.money > 0 ? gfmt(x.money) : t('なし', 'none')), h('span', 'isl-alt-v', x.payback != null ? t(`${x.payback} か月`, `${x.payback} mo`) : x.money > 0 ? '—' : t('即', 'at once')));
+  }
+  return e;
+}
+/** 実行計画（時系列の一覧：承認日 → 完成・着任・宣伝 → 効果） */
+export function timelineEl(ms: Milestone[]): HTMLElement {
+  const ol = h('ol', 'isl-tl');
+  for (const m of ms) {
+    const li = h('li', `isl-tl-row is-${m.kind}`);
+    li.append(h('b', 'isl-tl-day', m.day === 0 ? t('承認日', 'Day 0') : t(`${m.day} 日目`, `Day ${m.day}`)), h('span', 'isl-tl-txt', m.label));
+    ol.append(li);
+  }
+  return ol;
+}
+/** リスクと対策の 1 行（強さの札・リスク・→ 対策） */
+export function riskPair(r: Risk, counter: string): HTMLElement {
+  const e = h('li', `isl-sl-risk isl-rk2 is-lv${r.lv}`);
+  e.append(h('span', `isl-sl-lv is-lv${r.lv}`, RISK_LV[r.lv]()), h('span', 'isl-sl-ricon', RISK_ICON[r.kind]));
+  const txt = h('span', 'isl-sl-rtxt');
+  txt.append(h('span', 'isl-rk2-risk', r.text), h('span', 'isl-rk2-ctr', t(`対策：${counter}`, `Response: ${counter}`)));
+  e.append(txt);
   return e;
 }
 

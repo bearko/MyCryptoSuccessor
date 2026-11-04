@@ -20,7 +20,7 @@ import { adjacent } from './world';
 import { after, open, type Ctx } from './screens';
 import { btn, h, heroIcon, heroName, money, rich, signed } from './ui';
 import { DONATE_LINE } from './mine';
-import { arw, cvBox, donutEl, fallEl, fallLegend, histBox, rankBarsEl, shortN, trendEl, trendLegend, type TSer } from './chartkit';
+import { arw, cvBox, donutEl, fallEl, fallLegend, histBox, shortN, trendEl, trendLegend, vbarsEl, type TSer } from './chartkit';
 import { brandHist, bsParts, plFall, quarterTrend, sectorBars, sectorHist } from './dash';
 
 // ---------------------------------------------------------------- ランドマップ
@@ -436,12 +436,10 @@ export function openLand(ctx: Ctx) {
     if (s.land && s.land.mine.length >= 2) {
       const bars = sectorBars({ id: s.land.cur, rev: s.reports[s.reports.length - 1]?.revenue ?? null }, s.land.recs, s.land.mine, (id) => sectorDef(id).name);
       const box = cvBox(t('セクタごとの先月の売上', 'Last month’s sales by sector'), t(`いちばんは${bars[0].name}`, `Top: ${bars[0].name}`));
-      box.body.append(
-        rankBarsEl(
-          bars.map((b) => ({ name: b.name, v: b.v, me: b.me, tag: b.none ? h('span', 'isl-tag', t('締めの記録なし', 'No close yet')) : !b.head ? h('span', 'isl-tag is-bad', t('⚠ セクター長なし', '⚠ No head')) : undefined })),
-          { aria: t('セクタごとの先月の売上', 'Last month’s sales by sector'), meLabel: t('📍 いま', '📍 Here') },
-        ),
-      );
+      // 段 UI9：比較は縦棒（いまの町は金・ほかは灰）。札（締めの記録なし・セクター長なし）は下に字で
+      box.body.append(vbarsEl(bars.map((b) => ({ name: b.me ? t(`📍 ${b.name}`, `📍 ${b.name}`) : b.name, v: b.v, cls: b.me ? 'is-gold' : 'is-grey' })), { aria: t('セクタごとの先月の売上', 'Last month’s sales by sector') }));
+      const tags = bars.filter((b) => b.none || !b.head).map((b) => t(`${b.name}：${b.none ? '締めの記録なし' : '⚠ セクター長なし'}`, `${b.name}: ${b.none ? 'no close yet' : '⚠ no head'}`));
+      if (tags.length) box.body.append(h('small', 'isl-dim', tags.join(t('・', ' · '))));
       body.append(box.el);
     }
   });

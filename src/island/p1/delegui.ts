@@ -26,6 +26,7 @@ import {
   propEst,
   propWhy,
   qText,
+  quality,
   qualityParts,
   reject,
   resultText,
@@ -41,12 +42,14 @@ import {
 } from './deleg';
 import { rarityBadge } from './growthui';
 import { drawer, jobLabel } from './heroui';
-import type { P1State, Staff } from './model';
+import { staffOf, type P1State, type Staff } from './model';
 import { after, open, type Ctx } from './screens';
 import { sectorDef } from './company';
 import { bar, btn, h, heroIcon, money, rich } from './ui';
-import { cardInboxCard } from './cardui';
-import { cardInbox, starOf } from './card';
+import { cardInboxCard, goneBox, showCard } from './cardui';
+import { openProposal } from './proposalui';
+import { planOf } from './plan';
+import { cardInbox, starOf, withdrawStale } from './card';
 import { fitTag, sayToast } from './p2ui';
 import { lineOf } from './voice';
 import { budgetLine } from './budget';
@@ -288,25 +291,28 @@ function propCard(ctx: Ctx, s: P1State, p: Proposal): HTMLElement {
   const cost = p.act.k === 'hire' ? t(`費用：雇うのは無料・月給 ${money(p.cost || 0)}`, `Cost: free to hire, monthly wage applies`) : p.rp ? t(`費用：研究ポイント ${p.rp}（いま ${s.rp ?? 0}）`, `Cost: ${p.rp} RP (you have ${s.rp ?? 0})`) : p.cost > 0 ? t(`費用：${money(p.cost)}（払ったあとの資金 ${money(s.money - p.cost)}）`, `Cost: ${money(p.cost)} (funds after: ${money(s.money - p.cost)})`) : t('費用：無料', 'Cost: free');
   c.append(h('small', p.cost > s.money ? 'isl-bad' : 'isl-dim', cost));
   const row = h('div', 'isl-row isl-prop-btns');
+  // 段 UI9：受け箱から直接は承認させない。承認は提案書（課題・推奨・効果）を開いてから（カードがあればカード、無ければ提案書）
+  const seeProposal = () => {
+    const c = cardInbox(s).find((x) => x.src === 'head' && x.pid === p.id);
+    if (c) return showCard(ctx, c, { done: () => after(ctx) });
+    const st = staffOf(s, p.hero);
+    openProposal(ctx, planOf(s, [p.act], { hero: p.hero, q: st ? quality(st, p.dept) : DELEG.q.lo, dept: p.dept }), {
+      src: 'head',
+      role: t(`${d.name}部長`, `${d.name} head`),
+      approve: () => {
+        const name = actName(s, p.act);
+        const act = p.act;
+        const plan = act.k === 'stock' ? stockPlan(s, act) : null;
+        const e = approve(s, p.id);
+        if (e === 'money' || e === 'rp') return { ok: false, err: e, did: [] };
+        if (e) return { ok: false, err: 'gone', did: [] };
+        return { ok: true, did: [name, ...(plan && act.k === 'stock' ? [stockMsg(plan, act.key)] : [])] };
+      },
+      done: () => after(ctx),
+    });
+  };
   row.append(
-    btn(t('承認', 'Approve'), () => {
-      const name = actName(s, p.act);
-      const act = p.act;
-      const plan = act.k === 'stock' ? stockPlan(s, act) : null;
-      const e = approve(s, p.id);
-      if (e === 'money' || e === 'rp') {
-        ctx.sfx?.('error');
-        ctx.toast(e === 'money' ? t(`資金不足：あと ${money(Math.max(0, p.cost - s.money))}（保留にしました）`, `Not enough funds: ${money(Math.max(0, p.cost - s.money))} short (held)`) : t('研究ポイント不足（保留にしました）', 'Not enough RP (held)'));
-      } else if (e) {
-        ctx.sfx?.('error');
-        ctx.toast(t('もう打てない手でした（受け箱から消しました）', 'That move is no longer possible (removed)'));
-      } else {
-        ctx.sfx?.('levelup');
-        ctx.toast(t(`✔ 承認：${name}`, `✔ Approved: ${name}`));
-        if (plan && act.k === 'stock') ctx.toast(stockMsg(plan, act.key));
-      }
-      after(ctx);
-    }, 'is-on'),
+    btn(t('📄 提案書を見る', '📄 See the proposal'), seeProposal, 'is-on'),
     btn(t('却下', 'Reject'), () => {
       reject(s, p.id);
       ctx.sfx?.('tap');
@@ -330,6 +336,10 @@ export function openProps(ctx: Ctx) {
     // 段 UI3：受け箱は「押せるもの」を上に（承認まで 2 タップ）。カードが無ければ、説明は部長の提案の下へ
     // 段 UI7c：経営方針（推奨・並び・言い方を決める）。いつでも変えられる
     body.append(policyCard(ctx));
+    // 段 UI7h：一覧に出すのは推奨が承認になるものだけ。ならなくなったものは取り下げて、理由の一行を上に
+    withdrawStale(s);
+    const gone = goneBox(s);
+    if (gone) body.append(gone);
     const hasCards = cardInbox(s).some((x) => x.src !== 'head') || !!s.cards?.trust?.length;
     if (hasCards) body.append(cardInboxCard(ctx));
     const how = h('p', 'isl-dim', t('事業部長は、月に 1 回、いま打てる手の中から効き目の見込みが大きいものを持ってきます。部長の出来が高いほど、見込みの誤差が小さくなります。承認すると、すぐに実行します。', 'Each month your heads bring the move they expect to pay off most. Better heads misjudge less. Approving carries it out right away.'));

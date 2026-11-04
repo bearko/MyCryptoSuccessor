@@ -457,7 +457,6 @@
   height: 26px;
   overflow: hidden;
   border: 2px solid #0f1626;
-  border-radius: 3px;
   background: #0f1a30;
 }
 .isl-cv-pseg {
@@ -472,75 +471,80 @@
 }
 .isl-cv-pseg b {
   padding: 0 3px;
-  border-radius: 2px;
   background: #0f1626;
   color: #f4f1ea;
   font-size: 12px;
   line-height: 1.3;
 }
-/* ウォーターフォール */
+/* ウォーターフォール（段 UI9：縦の棒。両端が全体、間が増減。番号と名前の一覧は下） */
 .isl-cv-fall {
   position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.isl-cv-frow {
-  display: grid;
-  grid-template-columns: 92px minmax(0, 1fr) 98px;
-  align-items: center;
-  gap: 6px;
+.isl-cv-fbar.is-start {
+  fill: #8f9bb8;
+}
+.isl-cv-fbar.is-total {
+  fill: #f2b544;
+}
+.isl-cv-fbar.is-neg {
+  fill: #b34a52;
+}
+.isl-cv-fbar.is-up {
+  fill: #6fd08c;
+}
+.isl-cv-fbar.is-down {
+  fill: #f07070;
+}
+.isl-cv-flink {
+  stroke: #b8c0d4;
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+.isl-cv-fv {
+  font-size: 12px;
+  font-weight: 700;
+  fill: #f4f1ea;
+}
+.isl-cv-fv.is-good {
+  fill: #6fd08c;
+}
+.isl-cv-fv.is-bad {
+  fill: #ff8a7a;
+}
+.isl-cv-fkeys {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   font-size: 12px;
 }
-.isl-cv-frow.is-total {
-  padding-top: 3px;
-  border-top: 1px solid #2a3a5e;
+.isl-cv-fkey {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
 }
 .isl-cv-fname {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.isl-cv-frow.is-total .isl-cv-fname,
-.isl-cv-frow.is-total .isl-cv-fval,
-.isl-cv-frow.is-start .isl-cv-fval {
-  font-weight: 800;
-}
-.isl-cv-ftrack {
-  position: relative;
-  height: 14px;
-  border-radius: 2px;
+.isl-cv-fn {
+  display: inline-block;
+  min-width: 16px;
+  padding: 0 3px;
+  text-align: center;
   background: #0f1a30;
-}
-.isl-cv-fbar {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  border-radius: 2px;
-}
-.isl-cv-fbar.is-start {
-  background: #f2b544;
-}
-.isl-cv-fbar.is-total {
-  background: #16213a;
-  box-shadow: inset 0 0 0 2px #f2b544;
-}
-.isl-cv-fbar.is-neg {
-  box-shadow: inset 0 0 0 2px #f07070;
-}
-.isl-cv-fbar.is-up {
-  background: #6fd08c;
-}
-.isl-cv-fbar.is-down {
-  background: repeating-linear-gradient(45deg, #f07070 0 4px, #b34a52 4px 6px);
-}
-.isl-cv-fzero {
-  position: absolute;
-  top: -2px;
-  bottom: -2px;
-  width: 2px;
-  margin-left: -1px;
-  background: #b8c0d4;
+  border: 1px solid #b8c0d4;
 }
 .isl-cv-fval {
   font-variant-numeric: tabular-nums;
@@ -554,6 +558,12 @@
   color: #ff8a7a;
 }
 .isl-cv-key.is-fstart > i {
+  width: 12px !important;
+  height: 12px !important;
+  border: 0 !important;
+  background: #8f9bb8 !important;
+}
+.isl-cv-key.is-ftotal > i {
   width: 12px !important;
   height: 12px !important;
   border: 0 !important;
@@ -608,7 +618,6 @@
 .isl-cv-rtrack {
   position: relative;
   height: 14px;
-  border-radius: 2px;
   background: #0f1a30;
 }
 .isl-cv-rbar {
@@ -616,7 +625,6 @@
   top: 0;
   bottom: 0;
   left: 0;
-  border-radius: 2px;
   background: #8f9bb8;
 }
 .isl-cv-rbar.is-me {
@@ -721,7 +729,6 @@
   display: grid;
   place-items: center;
   min-height: 26px;
-  border-radius: 2px;
   font-variant-numeric: tabular-nums;
 }
 .isl-cv-hcell.is-sx {
@@ -834,7 +841,6 @@
 .isl-cv-btrack {
   position: relative;
   height: 14px;
-  border-radius: 2px;
   background: #0f1a30;
 }
 .isl-cv-bfill {
@@ -842,7 +848,6 @@
   top: 2px;
   bottom: 2px;
   left: 0;
-  border-radius: 2px;
 }
 .isl-cv-bfill.is-good {
   background: #6fd08c;
@@ -891,11 +896,6 @@
   }
   .isl-cv-dfig {
     align-self: center;
-  }
-}
-@media (max-width: 359px) {
-  .isl-cv-frow {
-    grid-template-columns: 76px minmax(0, 1fr) 90px;
   }
 }
 /* 月次報告 KPI ②：切り替え（売上と利益・資金）と期間 */

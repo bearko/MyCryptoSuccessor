@@ -200,10 +200,10 @@ describe('提案書の中身（briefOf）', () => {
 });
 
 describe('提案書の画面（proposalui.ts）', () => {
-  it('段 UI7d：スライド型（結論 → 何が変わる → 効果 → 影響とリスク → 付録）。付録は 課題の背景 → 期待効果 → リスク → As-Is／To-Be。ボタンはスライドの外（下に固定）。フレーバーの一言は外した', () => {
+  it('段 UI9：スライド型（サマリー → 課題の定義 → 打ち手 → 効果と費用 → リスクと対策 → 実行計画 → 付録）。付録は 課題の背景 → 期待効果 → リスク → As-Is／To-Be。ボタンはスライドの外（下に固定）。フレーバーの一言は外した', () => {
     const src = readFileSync('src/island/p1/proposalui.ts', 'utf8');
     const at = (x: string) => src.indexOf(x);
-    const slides = ["case 'sum':", "case 'change':", "case 'effect':", "case 'risk':", "case 'more':"];
+    const slides = ["case 'sum':", "case 'issue':", "case 'move':", "case 'effect':", "case 'risk':", "case 'plan':", "case 'more':"];
     const sp = slides.map(at);
     expect(sp.every((x) => x > 0)).toBe(true);
     expect([...sp].sort((a, b) => a - b)).toEqual(sp);

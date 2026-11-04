@@ -30,7 +30,7 @@ import { heroSay, say as toneSay, toneOf, type Tone } from './persona';
 import { voiceOf, voiceSay } from './voice';
 import { projNeeded, projOf, type PMonth, type Proj } from './proj';
 import { storeFc, whenFull } from './storefc';
-import { isFlowKey, issueName, issuesOf, solvedBy, type CoIssue } from './issues';
+import { actKind, isFlowKey, issueName, issuesOf, solvedBy, type CoIssue } from './issues';
 import { POLICY_OF } from './data';
 
 // ---------------------------------------------------------------- 型
@@ -127,6 +127,8 @@ export interface Brief {
   /** 推奨（承認・見送る）と、その理由の 1 行（課題・方針つき） */
   rec: 'ok' | 'skip';
   why: string;
+  /** 段 UI9：見送りの理由の種類（取り下げの一行に使う。承認なら無し） */
+  no?: NoKind;
   /**
    * 段 UI7g：会社の課題の一覧（issues.ts。優先の高い順）・この提案が解く課題（いちばん優先の高いもの。無ければ null）・
    * 方針と真っ向から反するか（その方針の名前と、下がる指標の札）・判断の材料（攻めるなら／慎重なら）
@@ -592,7 +594,11 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
   const r = recOf(b);
   b.rec = r.rec;
   b.why = r.why;
+  b.no = r.no;
   b.stance = b.rec === 'ok' ? stanceOf(b) : null;
+  // 段 UI9：短期が損（導入費用・契約金）でも承認を推すときは、根拠として投資回収期間を添える（一貫した扱い）
+  const S = vals.list.find((m) => m.key === 'short');
+  if (b.stance && S && S.d < -0.5) b.why += b.stance.payback != null ? t(`。短期は導入費用で ${chip(S)} だが、投資回収期間 ${b.stance.payback} か月`, `. Short-term ${chip(S)} from setup, payback ${b.stance.payback} mo`) : t(`。短期は ${chip(S)}（毎月の費用）だが、${POLICY.months} か月では上回る`, `. Short-term ${chip(S)} (monthly cost), positive over ${POLICY.months} months`);
   // 段 UI7e：要約の一言の向きを推奨にそろえる（見送るなら「最善」と勧めない。同じカードにほかの推奨の手があれば、それを推す）
   if (b.rec === 'skip') b.pitch = pitchNo(p.hero, p.acts, dept, altOf(s, p, o.card));
   return b;
@@ -616,7 +622,7 @@ export function issuesOfPlan(iss: CoIssue[], p: Plan, base: P1State, after: P1St
     return (['buy', 'craft', 'haul', 'sell'] as Stage[]).filter((k) => c[k].stopped);
   };
   const anyStop = iss.some((x) => x.stopped);
-  return solvedBy(iss, { ...(anyStop ? { stops0: stops(base), stops1: stops(after) } : {}), units0: now.units, units1: aft.units, cap0: poolCap(base), cap1: poolCap(after), used0: poolUsed(base), used1: poolUsed(after), full0: M?.full0 ?? null, full1: M?.full1 ?? null, jam0: M?.jam0, jam1: M?.jam1, room: M?.room, d, themes: themesOfPlan(p) });
+  return solvedBy(iss, { ...(anyStop ? { stops0: stops(base), stops1: stops(after) } : {}), units0: now.units, units1: aft.units, cap0: poolCap(base), cap1: poolCap(after), used0: poolUsed(base), used1: poolUsed(after), full0: M?.full0 ?? null, full1: M?.full1 ?? null, jam0: M?.jam0, jam1: M?.jam1, room: M?.room, d, themes: themesOfPlan(p), kinds: [...new Set(p.acts.map(actKind))] });
 }
 /**
  * 段 UI7g：方針と真っ向から反するか：選んでいる方針（全社方針 ＋ 提案の部門の事業別の方針）のうち、お金以外の指標を大事にする方針
@@ -642,26 +648,28 @@ export function contraOf(s: P1State, dept: DeptId | null, v: Pick<Values, 'list'
  * 3. 課題の解消につながらない（解く課題が無い）か、損が大きい（方針の価値もマイナスで、長期も損）
  * ほかは承認。方針の重みは、並びと、同じ課題に効く手どうしの選び分け（card.ts の shownRec）に使う。理由の 1 行は課題か 3 つのどれかで言う
  */
-export function recOf(b: Pick<Brief, 'block' | 'co' | 'vals'> & Partial<Pick<Brief, 'iss' | 'issue' | 'solved' | 'contra'>>): { rec: 'ok' | 'skip'; why: string } {
-  if (b.block.length) return { rec: 'skip', why: t('見送る：予算・資金が足りません（いまは払えない）', 'Pass: not enough budget or funds right now') };
-  if (b.co.left < 0) return { rec: 'skip', why: t('見送る：資金が足りません（承認すると資金がマイナス）', 'Pass: funds would go negative') };
-  if (b.contra) return { rec: 'skip', why: t(`見送る：方針（${b.contra.pn}）と真っ向から反する（${b.contra.chip}）`, `Pass: runs straight against your policy (${b.contra.pn}): ${b.contra.chip}`) };
+/** 段 UI7h：見送りの理由の種類（受け箱の取り下げの理由の一行：card.ts の staleWhy） */
+export type NoKind = 'money' | 'policy' | 'issue' | 'loss';
+export function recOf(b: Pick<Brief, 'block' | 'co' | 'vals'> & Partial<Pick<Brief, 'iss' | 'issue' | 'solved' | 'contra'>>): { rec: 'ok' | 'skip'; why: string; no?: NoKind } {
+  if (b.block.length) return { rec: 'skip', no: 'money', why: t('見送る：予算・資金が足りません（いまは払えない）', 'Pass: not enough budget or funds right now') };
+  if (b.co.left < 0) return { rec: 'skip', no: 'money', why: t('見送る：資金が足りません（承認すると資金がマイナス）', 'Pass: funds would go negative') };
+  if (b.contra) return { rec: 'skip', no: 'policy', why: t(`見送る：方針（${b.contra.pn}）と真っ向から反する（${b.contra.chip}）`, `Pass: runs straight against your policy (${b.contra.pn}): ${b.contra.chip}`) };
   const v = b.vals;
   const top = b.iss?.[0] ?? null;
   if (b.iss && !b.issue) {
     // いちばんの課題と、SCM のボトルネック（違えば両方）
     const fl = b.iss.find((x) => isFlowKey(x.key));
     const nm = [top, fl && fl !== top ? fl : null].filter((x): x is CoIssue => !!x).map((x) => issueName(x.key)).join(t('・', ', '));
-    return { rec: 'skip', why: nm ? t(`見送る：課題（${nm}）の解消につながらない`, `Pass: doesn’t address the issue (${nm})`) : t('見送る：解くべき課題が見当たらない', 'Pass: no issue to address') };
+    return { rec: 'skip', no: 'issue', why: nm ? t(`見送る：課題（${nm}）の解消につながらない（制約の種類に合わないか、処理量の増えが小さい）`, `Pass: doesn’t resolve the issue (${nm}); wrong kind of move or too small a gain`) : t('見送る：解くべき課題が無い（提案の前提が成り立たない）', 'Pass: no issue to resolve (the premise doesn’t hold)') };
   }
   const L = v.list.find((m) => m.key === 'long');
   // 止まっている流れを戻す手は、その月の損では見送りにしない（流れを戻すのが先）
-  if (v.value <= 0 && (L?.d ?? 0) < 0 && !b.issue?.stopped) return { rec: 'skip', why: t(`見送る：損が大きい（${chip(L!)}）`, `Pass: too costly (${chip(L!)})`) };
+  if (v.value <= 0 && (L?.d ?? 0) < 0 && !b.issue?.stopped) return { rec: 'skip', no: 'loss', why: t(`見送る：損が大きい（${chip(L!)}）`, `Pass: too costly (${chip(L!)})`) };
   const goods = v.list.filter((m) => m.d > 0.5).sort((x, y) => v.parts[y.key] - v.parts[x.key]);
   const plus = goods.slice(0, 2).map(chip).join(t('・', ', '));
   // 複数の課題に効くなら 2 つまで並べる（「課題（資金繰り・販売がボトルネック）に効く」）
   const sv = (b.solved?.length ? b.solved : b.issue ? [b.issue] : []).slice(0, 2);
-  const head = sv.length ? t(`課題（${sv.map((x) => issueName(x.key)).join('・')}）に効く`, `Addresses ${sv.map((x) => issueName(x.key)).join(' and ')}`) : t('効果あり', 'It helps');
+  const head = sv.length ? t(`課題（${sv.map((x) => issueName(x.key)).join('・')}）を解消。期待効果`, `Resolves ${sv.map((x) => issueName(x.key)).join(' and ')}; expected effect`) : t('期待効果', 'Expected effect');
   // 方針の大事な指標（重みがいちばん大きく 1 以上）が上がるなら、方針に合うことも添える
   const fits = (v.names ?? [v.policy]).filter((id) => {
     const w = POLICY_OF[id]?.w;
@@ -684,11 +692,11 @@ export function stanceOf(b: Pick<Brief, 'cost' | 'dProfit' | 'err' | 'vals' | 'b
   const worst = Math.round(gross * (gross > 0 ? 1 - b.err : 1 + b.err) - b.cost.money);
   const amt = b.budget ? b.budget.amt : 0;
   const share = b.budget && amt > 0 ? Math.round(((b.budget.need + b.cost.monthly) / amt) * 100) : null;
-  const bold = pay != null ? t(`攻めるなら：すぐ承認。${pay} か月で元が取れ、長期 ${sg(ld)}`, `Bold: approve now; pays back in ${pay} mo, long-term ${sg(ld)}`) : t(`攻めるなら：すぐ承認。長期 ${sg(ld)}`, `Bold: approve now; long-term ${sg(ld)}`);
-  const bits = [worst < 0 ? t(`最悪 ${sg(worst)}`, `worst case ${sg(worst)}`) : t(`最悪でも ${sg(worst)}`, `even the worst case ${sg(worst)}`), t(`読みの誤差 ±${Math.round(b.err * 100)}%`, `±${Math.round(b.err * 100)}% read`)];
+  const bold = pay != null ? t(`上振れシナリオ：投資回収期間 ${pay} か月、長期 ${sg(ld)}`, `Upside: payback ${pay} mo, long-term ${sg(ld)}`) : t(`上振れシナリオ：長期 ${sg(ld)}`, `Upside: long-term ${sg(ld)}`);
+  const bits = [worst < 0 ? t(`長期 ${sg(worst)}`, `long-term ${sg(worst)}`) : t(`長期でも ${sg(worst)}`, `long-term still ${sg(worst)}`), t(`予測精度 ±${Math.round(b.err * 100)}%`, `accuracy ±${Math.round(b.err * 100)}%`)];
   if (share != null && b.budget) bits.push(t(`${DEPT[b.budget.dept].name}部の月の予算の ${share}%`, `${share}% of ${DEPT[b.budget.dept].name}’s monthly budget`));
   bits.push(t(`承認後の資金 ${g(b.co.left)}`, `funds after ${g(b.co.left)}`));
-  const safe = t(`慎重なら：${bits.join('・')}`, `Careful: ${bits.join(', ')}`);
+  const safe = t(`下振れシナリオ：${bits.join('・')}`, `Downside: ${bits.join(', ')}`);
   return { bold, safe, payback: pay, worst, share };
 }
 
@@ -696,7 +704,7 @@ export function stanceOf(b: Pick<Brief, 'cost' | 'dProfit' | 'err' | 'vals' | 'b
  * 段 UI7g：提案の手 1 つ分の判断（カードの選択肢を提案書にする前のふるい分け：card.ts）。提案書の推奨と同じ決め方（recOf）。
  * 提案書を作らない軽い形（背景・リスクの文は作らない）
  */
-export function judgeOf(s: P1State, p: Plan, iss: CoIssue[], base = baseOf(s)): { rec: 'ok' | 'skip'; why: string; issue: CoIssue | null; value: number; dProfit: number; long: number } {
+export function judgeOf(s: P1State, p: Plan, iss: CoIssue[], base = baseOf(s)): { rec: 'ok' | 'skip'; why: string; no?: NoKind; issue: CoIssue | null; value: number; dProfit: number; long: number } {
   const after = afterOf(s, p);
   const cost = planCost(s, p);
   const block = planBlock(s, p, cost);
@@ -947,11 +955,11 @@ function projWhy(P: Proj, M: number): string {
     const c = Math.round(P.cut);
     const w = P.full0 < 1 ? t('倉庫はもうあふれていて', 'Storage is already full') : t(`このペースだと ${Math.round(P.full0)} 日目に倉庫があふれ`, `At this pace storage fills on day ${Math.round(P.full0)}`);
     const after = [
-      P.ramp != null ? t(`たまる素材で調達する素材の置き場所が ${Math.round(P.ramp)} 日でなくなり、調達も製造も止まる（お店は在庫だけ）`, `piling materials squeeze out buying space within ${Math.round(P.ramp)} days and buying and crafting stop (shops sell only stock)`) : '',
-      c > 0 ? t(`作る数が売れ残りの増えぶん（月 ${c} 個）減る（売上は減らない）`, `output drops by the unsold growth (${c}/mo; sales don’t drop)`) : '',
+      P.ramp != null ? t(`その ${Math.round(P.ramp)} 日後には置き場所が無くなり調達と製造が止まる（事業への影響：月の粗利まるごと）`, `${Math.round(P.ramp)} days later storage runs out and buying and crafting stop (impact: the whole month’s gross profit)`) : '',
+      c > 0 ? t(`処理量が売れ残りの増えぶん（月 ${c} 個）減る（売上は減らない）`, `throughput drops by the unsold growth (${c}/mo; sales don’t drop)`) : '',
     ].filter(Boolean).join(t('・', '; '));
     bits.push(t(`${w}、そこから調達係は空いたぶんしか買えない。${after}`, `${w}; then buyers only refill freed space. ${after}`));
-    bits.push(P.full1 == null ? t(`承認後は ${M} か月のうちにあふれない`, `After approval it doesn’t fill within ${M} months`) : P.full1 > P.full0 + 0.5 ? t(`承認後は ${Math.round(P.full1)} 日目にあふれる（${Math.round(P.full1 - P.full0)} 日遅れる）`, `After approval it fills on day ${Math.round(P.full1)} (${Math.round(P.full1 - P.full0)} days later)`) : t(`承認後も ${Math.round(P.full1)} 日目にあふれる`, `After approval it still fills on day ${Math.round(P.full1)}`));
+    bits.push(P.full1 == null ? t(`To-Be：${M} か月のうちにあふれない`, `To-Be: doesn’t fill within ${M} months`) : P.full1 > P.full0 + 0.5 ? t(`To-Be：${Math.round(P.full1)} 日目にあふれる（${Math.round(P.full1 - P.full0)} 日遅れる）`, `To-Be: fills on day ${Math.round(P.full1)} (${Math.round(P.full1 - P.full0)} days later)`) : t('この手は倉庫には効かない（あふれる日は同じ）', 'This move doesn’t affect storage (same fill day)'));
   }
   const u = P.use;
   if (u) {
@@ -1133,7 +1141,7 @@ export function bgOf(s: P1State, p: Plan, b: Pick<Brief, 'now' | 'vals' | 'theme
       if (th === 'flow' || th === 'legal') {
         const c = stageCaps(s, true);
         const bn = bottleneck(c);
-        out.push(t(`4 段のうち細いのは${STAGE[bn]()}：月 ${Math.round(c[bn].perMonth)} 個 — 流れの数字`, `The narrowest of the 4 stages is ${STAGE[bn]()}: ${Math.round(c[bn].perMonth)}/mo — flow`));
+        out.push(t(`4 段のうち処理量が最小なのは${STAGE[bn]()}：月 ${Math.round(c[bn].perMonth)} 個 — SCM の数字`, `The lowest throughput of the 4 stages is ${STAGE[bn]()}: ${Math.round(c[bn].perMonth)}/mo — flow`));
       }
     }
   }
@@ -1259,7 +1267,7 @@ export function riskList(s: P1State, p: Plan, b: Brief, base: P1State, after: P1
   const c1 = stageCaps(after, true);
   const bn0 = bottleneck(c0);
   const bn1 = bottleneck(c1);
-  if (bn1 !== bn0) push(t(`承認後は${STAGE[bn1]()}が細くなる見込み（月 ${Math.round(c1[bn1].perMonth)} 個）`, `${STAGE[bn1]()} becomes the narrow point (${Math.round(c1[bn1].perMonth)}/mo)`), 2, 'flow');
+  if (bn1 !== bn0) push(t(`承認後はボトルネックが${STAGE[bn1]()}に移る見込み（処理量 月 ${Math.round(c1[bn1].perMonth)} 個）`, `The bottleneck moves to ${STAGE[bn1]()} (throughput ${Math.round(c1[bn1].perMonth)}/mo)`), 2, 'flow');
   // 予算の超過
   if (b.budget && !b.budget.inside) push(t(`${DEPT[b.budget.dept].name}部の予算を ${g(b.budget.need - b.budget.rest)} 超える（社長の承認なので会社の資金から払う）`, `Over the ${DEPT[b.budget.dept].name} budget by ${g(b.budget.need - b.budget.rest)} (paid from company funds)`), 2, 'budget');
   // 承認したあとの資金

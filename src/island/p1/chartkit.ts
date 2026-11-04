@@ -242,7 +242,7 @@ export function trendEl(o: TrendOpts): HTMLElement {
         const neg = v < 0;
         const top = Math.min(y, base);
         const hh = Math.max(1, Math.abs(base - y));
-        svg.append(sv('rect', { x: x + 1, y: top, width: Math.max(2, one - 2), height: hh, rx: 1, class: `isl-cv-bar ${ser.cls} ${neg ? 'is-neg' : ''}` }));
+        svg.append(sv('rect', { x: x + 1, y: top, width: Math.max(2, one - 2), height: hh, class: `isl-cv-bar ${ser.cls} ${neg ? 'is-neg' : ''}` }));
         // 赤字の棒は斜線も（色だけに頼らない）
         if (neg) svg.append(sv('rect', { x: x + 1, y: top, width: Math.max(2, one - 2), height: hh, fill: `url(#${pid}-hatch)`, class: 'isl-cv-over' }));
       });
@@ -497,47 +497,146 @@ export function pctBarEl(parts: Part[], aria: string, fmt: (v: number) => string
 
 // ---------------------------------------------------------------- 増減の内訳：ウォーターフォール
 
+/** 0 を含む目盛りの下端・上端（1・2・2.5・5 × 10 の何乗か） */
+function spanOf(vals: number[]): { lo: number; hi: number } {
+  const lo0 = Math.min(0, ...vals);
+  const hi0 = Math.max(0, ...vals);
+  const span = hi0 - lo0 || 1;
+  const p10 = 10 ** Math.floor(Math.log10(span / 2));
+  const step = [1, 2, 2.5, 5, 10].map((x) => x * p10).find((x) => x >= span / 3) ?? span / 3;
+  return { lo: Math.floor(lo0 / step) * step, hi: Math.max(Math.ceil(hi0 / step) * step, lo0 + step) };
+}
+/** 縦の目盛り（横線 3 本・字）と 0 の線 */
+function vgrid(svg: SVGSVGElement, L: number, R: number, W: number, py: (v: number) => number, lo: number, hi: number, ax: (v: number) => string) {
+  for (const f of [0, 0.5, 1]) {
+    const v = lo + (hi - lo) * f;
+    svg.append(sv('line', { x1: L, x2: W - R, y1: py(v), y2: py(v), class: 'isl-cv-grid' }));
+    svg.append(sv('text', { x: L - 4, y: py(v) + 4, 'text-anchor': 'end', class: 'isl-cv-axis' }, ax(v)));
+  }
+  if (lo < 0 && hi > 0) svg.append(sv('line', { x1: L, x2: W - R, y1: py(0), y2: py(0), class: 'isl-cv-zero' }));
+}
+/** 字の短縮（棒の下の名前） */
+const clip = (x: string, n: number) => ([...x].length > n ? `${[...x].slice(0, n - 1).join('')}…` : x);
 /**
- * ウォーターフォール（横の棒）：はじめの合計（金）→ 足す（緑・▲＋）／引く（赤・斜線・▼−）→ 途中・最後の合計（金の枠）。
- * 名前・棒・値の 1 行。0 の線を引く。行を押すと吹き出し（ここまでの合計）
+ * 段 UI9：ウォーターフォール（縦の棒）：両端が全体の棒（はじめ＝灰・終わり＝金）、間が増減の棒（足す＝緑・▲＋／引く＝赤の斜線・▼−）。
+ * 棒の上に値、下に名前（両端）と番号（間）。番号と名前・値の一覧は下に。段を結ぶ点線で「ここまでの合計」を追える。決まり：両端が全体、間が増減。角の丸みは無し
  */
 export function fallEl(rows: Step[], aria: string, fmt: (v: number) => string = money): HTMLElement {
-  const e = h('div', 'isl-cv-fall');
-  e.setAttribute('role', 'img');
-  e.setAttribute('aria-label', aria);
-  const vs = rows.flatMap((r) => [r.from, r.to]);
-  const lo = Math.min(0, ...vs);
-  const hi = Math.max(0, ...vs);
-  const span = hi - lo || 1;
-  const x = (v: number) => ((v - lo) / span) * 100;
-  const tip = tipOf(e);
-  for (const r of rows) {
-    const row = h('div', `isl-cv-frow is-${r.kind}`);
-    row.dataset.key = r.key;
-    const track = h('div', 'isl-cv-ftrack');
-    const zero = h('span', 'isl-cv-fzero');
-    zero.style.left = `${x(0)}%`;
-    const bar = h('span', `isl-cv-fbar is-${r.kind} ${r.to < 0 && (r.kind === 'total' || r.kind === 'start') ? 'is-neg' : ''}`);
-    const a = Math.min(x(r.from), x(r.to));
-    const b = Math.max(x(r.from), x(r.to));
-    bar.style.left = `${a}%`;
-    bar.style.width = `${Math.max(0.8, b - a)}%`;
-    track.append(bar, zero);
-    const val = r.kind === 'up' || r.kind === 'down' ? `${arw(r.v)} ${sgnG(r.v)}` : `${r.v < -0.5 ? '−' : ''}${fmt(Math.abs(r.v))}`;
-    row.append(h('span', 'isl-cv-fname', r.name), track, h('b', `isl-cv-fval ${r.kind === 'up' ? 'is-good' : r.kind === 'down' ? 'is-bad' : r.to < 0 ? 'is-bad' : ''}`, val));
-    const say = () => tip.show([h('b', '', r.name), r.kind === 'up' || r.kind === 'down' ? t(`${sgnG(r.v)} → ここまで ${r.to < 0 ? '−' : ''}${fmt(Math.abs(r.to))}`, `${sgnG(r.v)} → running ${r.to < 0 ? '−' : ''}${fmt(Math.abs(r.to))}`) : `${r.to < 0 ? '−' : ''}${fmt(Math.abs(r.to))}`], row.offsetWidth / 2, row.offsetTop + row.offsetHeight);
-    row.addEventListener('pointerenter', say);
-    row.addEventListener('pointerdown', say);
-    row.addEventListener('pointerleave', (ev) => (ev as PointerEvent).pointerType === 'mouse' && tip.hide());
-    e.append(row);
-  }
-  return e;
+  const wrap = h('div', 'isl-cv-fall');
+  const chart = h('div', 'isl-cv-chart');
+  const svg = sv('svg', { role: 'img', 'aria-label': aria }) as SVGSVGElement;
+  chart.append(svg);
+  const tip = tipOf(chart);
+  const mids = rows.filter((r) => r.kind === 'up' || r.kind === 'down');
+  const draw = () => {
+    const W = Math.max(240, Math.round(chart.clientWidth || 300));
+    const H = W < 420 ? 180 : 200;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('width', String(W));
+    svg.setAttribute('height', String(H));
+    svg.replaceChildren();
+    const pid = patDefs(svg);
+    const L = 46;
+    const R = 8;
+    const T = 20;
+    const B = 20;
+    const { lo, hi } = spanOf(rows.flatMap((r) => [r.from, r.to]));
+    const py = (v: number) => T + (H - T - B) * (1 - (v - lo) / (hi - lo || 1));
+    vgrid(svg, L, R, W, py, lo, hi, shortN);
+    const n = rows.length;
+    const bw = (W - L - R) / n;
+    const barW = Math.max(12, Math.min(44, bw * 0.6));
+    rows.forEach((r, k) => {
+      const cx = L + bw * (k + 0.5);
+      const full = r.kind === 'start' || r.kind === 'total';
+      const y0 = py(full ? 0 : r.from);
+      const y1 = py(r.to);
+      const top = Math.min(y0, y1);
+      const hh = Math.max(1, Math.abs(y0 - y1));
+      const rect = sv('rect', { x: cx - barW / 2, y: top, width: barW, height: hh, class: `isl-cv-fbar is-${r.kind} ${full && r.to < 0 ? 'is-neg' : ''}` });
+      svg.append(rect);
+      if (r.kind === 'down') svg.append(sv('rect', { x: cx - barW / 2, y: top, width: barW, height: hh, fill: `url(#${pid}-hatch)`, class: 'isl-cv-fover' }));
+      if (k < n - 1) svg.append(sv('line', { x1: cx + barW / 2, x2: cx + bw - barW / 2, y1: py(r.to), y2: py(r.to), class: 'isl-cv-flink' }));
+      // 棒が細いとき（1 本 80px 未満）は短い書き方（2.7万）で、隣どうしの字が重ならないよう高さを互い違いに。正確な値は下の一覧
+      const compact = bw < 80;
+      const val = full ? `${r.to < 0 ? '−' : ''}${compact ? shortN(Math.abs(r.to)) : fmt(Math.abs(r.to))}` : compact ? `${arw(r.v)}${shortN(Math.abs(r.v))}` : `${arw(r.v)} ${sgnG(r.v)}`;
+      const dy = compact && !full && k % 2 === 0 ? 16 : 4;
+      svg.append(sv('text', { x: cx, y: top - dy, 'text-anchor': 'middle', class: `isl-cv-fv ${r.kind === 'up' ? 'is-good' : r.kind === 'down' ? 'is-bad' : ''}` }, val));
+      svg.append(sv('text', { x: cx, y: H - 5, 'text-anchor': 'middle', class: 'isl-cv-axis' }, full ? clip(r.name, Math.max(3, Math.floor(bw / 12))) : String(mids.indexOf(r) + 1)));
+      const say = () => tip.show([h('b', '', r.name), full ? `${r.to < 0 ? '−' : ''}${fmt(Math.abs(r.to))}` : t(`${sgnG(r.v)} → ここまで ${r.to < 0 ? '−' : ''}${fmt(Math.abs(r.to))}`, `${sgnG(r.v)} → running ${r.to < 0 ? '−' : ''}${fmt(Math.abs(r.to))}`)], (cx / W) * (chart.clientWidth || W), top);
+      rect.addEventListener('pointerenter', say);
+      rect.addEventListener('pointerdown', say);
+      rect.addEventListener('pointerleave', (ev) => (ev as PointerEvent).pointerType === 'mouse' && tip.hide());
+    });
+  };
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => draw()) : null;
+  ro?.observe(chart);
+  requestAnimationFrame(draw);
+  wrap.append(chart);
+  const ol = h('ol', 'isl-cv-fkeys');
+  mids.forEach((r, k) => {
+    const li = h('li', `isl-cv-fkey is-${r.kind}`);
+    li.dataset.key = r.key;
+    const nm = h('span', 'isl-cv-fname');
+    nm.append(h('b', 'isl-cv-fn', String(k + 1)), document.createTextNode(r.name));
+    li.append(nm, h('b', `isl-cv-fval ${r.kind === 'up' ? 'is-good' : 'is-bad'}`, `${arw(r.v)} ${sgnG(r.v)}`));
+    ol.append(li);
+  });
+  wrap.append(ol);
+  return wrap;
+}
+/**
+ * 段 UI9：縦棒の比較（横に並べる。名前は棒の下、値は棒の上）。比較は縦棒、横棒はランキングだけ（決まり）。cls：is-gold・is-grey・is-teal・is-blue
+ */
+export function vbarsEl(items: { name: string; v: number; cls?: string }[], o: { aria: string; fmt?: (v: number) => string; axis?: (v: number) => string; height?: number }): HTMLElement {
+  const wrap = h('div', 'isl-cv-chart isl-cv-vbars');
+  const svg = sv('svg', { role: 'img', 'aria-label': o.aria }) as SVGSVGElement;
+  wrap.append(svg);
+  const tip = tipOf(wrap);
+  const f = o.fmt ?? money;
+  const draw = () => {
+    const W = Math.max(240, Math.round(wrap.clientWidth || 300));
+    const H = o.height ?? (W < 420 ? 172 : 188);
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('width', String(W));
+    svg.setAttribute('height', String(H));
+    svg.replaceChildren();
+    const L = 46;
+    const R = 8;
+    const T = 20;
+    const B = 22;
+    const { lo, hi } = spanOf(items.map((x) => x.v));
+    const py = (v: number) => T + (H - T - B) * (1 - (v - lo) / (hi - lo || 1));
+    vgrid(svg, L, R, W, py, lo, hi, o.axis ?? shortN);
+    const n = Math.max(1, items.length);
+    const bw = (W - L - R) / n;
+    const barW = Math.max(10, Math.min(48, bw * 0.55));
+    items.forEach((x, k) => {
+      const cx = L + bw * (k + 0.5);
+      const y0 = py(0);
+      const y1 = py(x.v);
+      const top = Math.min(y0, y1);
+      const rect = sv('rect', { x: cx - barW / 2, y: top, width: barW, height: Math.max(1, Math.abs(y0 - y1)), class: `isl-cv-bar ${x.cls ?? 'is-gold'} ${x.v < 0 ? 'is-neg' : ''}` });
+      svg.append(rect);
+      if (n <= 6) svg.append(sv('text', { x: cx, y: top - 4, 'text-anchor': 'middle', class: 'isl-cv-fv' }, f(x.v)));
+      svg.append(sv('text', { x: cx, y: H - 6, 'text-anchor': 'middle', class: 'isl-cv-axis' }, clip(x.name, Math.max(3, Math.floor(bw / 12)))));
+      const say = () => tip.show([h('b', '', x.name), f(x.v)], (cx / W) * (wrap.clientWidth || W), top);
+      rect.addEventListener('pointerenter', say);
+      rect.addEventListener('pointerdown', say);
+      rect.addEventListener('pointerleave', (ev) => (ev as PointerEvent).pointerType === 'mouse' && tip.hide());
+    });
+  };
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => draw()) : null;
+  ro?.observe(wrap);
+  requestAnimationFrame(draw);
+  return wrap;
 }
 export const fallLegend = () =>
   legendEl([
-    { cls: 'is-fstart', name: t('合計', 'Total') },
-    { cls: 'is-fup', name: t('▲ 増やした', '▲ Adds') },
-    { cls: 'is-fdown', name: t('▼ 減らした（斜線）', '▼ Takes (hatched)') },
+    { cls: 'is-fstart', name: t('はじめ（灰）', 'Start (grey)') },
+    { cls: 'is-fup', name: t('▲ 増やした（緑）', '▲ Adds (green)') },
+    { cls: 'is-fdown', name: t('▼ 減らした（赤の斜線）', '▼ Takes (red, hatched)') },
+    { cls: 'is-ftotal', name: t('終わり（金）', 'End (gold)') },
   ]);
 
 // ---------------------------------------------------------------- 順位：横棒とゴールライン

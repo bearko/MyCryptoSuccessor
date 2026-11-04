@@ -1491,10 +1491,10 @@ export function propWhy(_s: P1State, p: Proposal): string {
       // 段 I2c：経理の手（税・経費のパネル）は流れでなく、月の税と経費の減り
       if (!p.stage && p.dept === 'accounting') return t(`${by}部長：税と経費が月 ${Math.round(p.est).toLocaleString('en-US')} G ほど減ります`, `${by} head: tax and costs drop about ${Math.round(p.est).toLocaleString('en-US')} G a month`);
       return p.stage
-        ? t(`${by}部長：${STAGE_JA[p.stage]}の流れが 1 か月に +${p.units ?? 0} 個ほど太くなります`, `${by} head: ${STAGE_JA[p.stage]} gets about +${p.units ?? 0} per month`)
-        : t(`${by}部長：流れが太くなります`, `${by} head: the flow widens`);
+        ? t(`${by}部長：${STAGE_JA[p.stage]}の処理量が月 +${p.units ?? 0} 個ほど増える見込みです`, `${by} head: ${STAGE_JA[p.stage]} throughput up about +${p.units ?? 0} per month`)
+        : t(`${by}部長：処理量が増える見込みです`, `${by} head: throughput would rise`);
     case 'ad':
-      return t(`${by}部長：いまの売り場なら、宣伝の期間で費用より多く売れます`, `${by} head: with the shops as they are, the ad pays for itself`);
+      return t(`${by}部長：いまの売り場なら、宣伝の期待効果（期間で +${Math.round(p.est).toLocaleString('en-US')} G）が費用を上回ります`, `${by} head: with the shops as they are, the ad’s expected effect (+${Math.round(p.est).toLocaleString('en-US')} G over the run) beats its cost`);
     case 'finds':
       return p.dig?.tablet
         ? t(`${by}部長：この荒れ地は ${p.dig.tablet} 層目に石板があります（出土品 ${p.dig.finds} 個${p.dig.topic ? '・お題も' : ''}）`, `${by} head: there is a tablet in layer ${p.dig.tablet} here (${p.dig.finds} finds${p.dig.topic ? ', and a target' : ''})`)
@@ -1510,18 +1510,21 @@ export function propWhy(_s: P1State, p: Proposal): string {
 /** 見込みの文（「見込み：月 +3,200 G（誤差 ±12%）」） */
 export function propEst(p: Proposal): string {
   const g = (v: number) => Math.round(v).toLocaleString('en-US');
-  const err = t(`誤差 ±${Math.round(p.err * 100)}%`, `±${Math.round(p.err * 100)}%`);
+  const err = t(`予測精度 ±${Math.round(p.err * 100)}%`, `accuracy ±${Math.round(p.err * 100)}%`);
   switch (p.unit) {
-    case 'G':
-      return t(`見込み：月 +${g(p.est)} G（${err}）`, `Expected: +${g(p.est)} G / mo (${err})`);
+    case 'G': {
+      // 段 UI9：導入費用があれば投資回収期間も
+      const pay = p.cost > 0 && p.est > 0.5 ? Math.max(1, Math.ceil(p.cost / p.est)) : null;
+      return pay != null ? t(`期待効果：月 +${g(p.est)} G・投資回収期間 ${pay} か月（${err}）`, `Expected: +${g(p.est)} G / mo, payback ${pay} mo (${err})`) : t(`期待効果：月 +${g(p.est)} G（${err}）`, `Expected: +${g(p.est)} G / mo (${err})`);
+    }
     case 'ad':
-      return t(`見込み：期間で +${g(p.est)} G（費用を引いて。${err}）`, `Expected: +${g(p.est)} G over the run, net (${err})`);
+      return t(`期待効果：期間で +${g(p.est)} G（費用を引いて。${err}）`, `Expected: +${g(p.est)} G over the run, net (${err})`);
     case 'finds':
-      return t(`見込み：出土品 ${g(p.est)} 個ぶん（${err}）`, `Expected: ${g(p.est)} finds (${err})`);
+      return t(`期待効果：出土品 ${g(p.est)} 個ぶん（${err}）`, `Expected: ${g(p.est)} finds (${err})`);
     case 'share':
-      return t(`見込み：取り分 +${p.est.toFixed(1)}%（${err}）`, `Expected: share +${p.est.toFixed(1)}% (${err})`);
+      return t(`期待効果：取り分 +${p.est.toFixed(1)}%（${err}）`, `Expected: share +${p.est.toFixed(1)}% (${err})`);
     case 'legal':
-      return t(`見込み：月の売上 +${g(p.est)} G を守る・増やす（${err}）`, `Expected: +${g(p.est)} G / mo kept or gained (${err})`);
+      return t(`期待効果：月の売上 +${g(p.est)} G を守る・増やす（${err}）`, `Expected: +${g(p.est)} G / mo kept or gained (${err})`);
   }
 }
 /** 提案の結果の文（翌月の報告） */

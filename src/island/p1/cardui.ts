@@ -15,6 +15,10 @@ import {
   cardInbox,
   cardStar,
   choiceText,
+  goneLine,
+  goneNow,
+  staleCard,
+  withdrawStale,
   eventHead,
   chooseCard,
   markSeen,
@@ -115,7 +119,8 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
   if (quip) main.append(h('p', 'isl-cardm-quip', t(`— ${quip}`, `— ${quip}`)));
   // 課題のセリフ（数字の要所だけ色）
   // 段 UI7g：この提案が解く課題（会社の課題の一覧の優先つき）
-  if (c.iss) main.append(h('div', 'isl-cardm-iss', `🎯 ${issueTag(c.iss)}`));
+  // 段 UI9：課題の札に、放置したときの影響（月 −N G・N 日後）
+  if (c.iss) main.append(h('div', 'isl-cardm-iss', issueLossOf(c) ? t(`🎯 ${issueTag(c.iss)}・${issueLossOf(c)}`, `🎯 ${issueTag(c.iss)} · ${issueLossOf(c)}`) : `🎯 ${issueTag(c.iss)}`));
   const say = h('div', 'isl-cardm-say');
   say.append(t('「', '“'), rich(sayOf(s, c)), t('」', '”'));
   main.append(say);
@@ -171,13 +176,14 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
             later: true,
             rec: isRec,
             card: c.id,
+            iss: c.issues,
             // 段 UI7d：出どころ（部長の提案・部長からの頼み。倉庫・在庫・担当者は手から決める）
             ...(c.src === 'head' ? { src: 'head' as const } : c.src === 'budget' ? { src: 'budget' as const } : {}),
             approve: (pp) => approveCard(s, c.id, pp),
             done: (w) => {
               // 段 P2：提案書を承認したら、承認の反応（史実の調査のあるヒーロー）
               if (w === 'ok' && PROPOSAL_SRC.includes(c.src)) sayToast(ctx.toast, c.hero, 'approved', c.id);
-              if (w === 'ok' || w === 'later') quiet();
+              if (w === 'ok' || w === 'later' || w === 'gone') quiet();
             },
           });
         // 段 UI5d：売りさばきで棚が 1 段のお店の主力が外れるときは、先に 3 択（主力を外す・残す・棚を拡張する（推奨））
@@ -223,7 +229,7 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
   else if (c.src === 'event' && eh) foot.append(h('span', '', eh.tag));
   // 段 P2：組み合わせは、関係と条件
   else if (c.src === 'duo' && eh) foot.append(h('span', '', eh.tag));
-  else if (star) foot.append(h('span', '', t(`読みの確かさ ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（誤差 ±${Math.round((1 - c.q) * 100)}%）`, `Read ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${Math.round((1 - c.q) * 100)}%)`)));
+  else if (star) foot.append(h('span', '', t(`予測精度 ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（±${Math.round((1 - c.q) * 100)}%）`, `Forecast accuracy ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${Math.round((1 - c.q) * 100)}%)`)));
   else if (c.src === 'quit' && st) foot.append(h('span', '', t(`士気 ${Math.round(st.morale ?? 0)}`, `Morale ${Math.round(st.morale ?? 0)}`)));
   else foot.append(h('span', '', ''));
   const left = popLeft(s) - (c.seen ? 0 : 1);
@@ -237,6 +243,14 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
 /** カードを出す（時間が止まる）。選ぶと手を打って閉じる。足りないときはトーストで知らせてカードを残す */
 export function showCard(ctx: Ctx, c: Card, hooks: CardHooks) {
   const s = ctx.s();
+  // 段 UI7h：開く前に同じ判断でもう一度見る。推奨が承認にならなくなっていたら、見せずに取り下げ（理由の一行）
+  const g = staleCard(s, c);
+  if (g) {
+    ctx.toast(`🗂 ${goneLine(g)}`);
+    ctx.save();
+    hooks.done();
+    return;
+  }
   markSeen(s, c.id);
   ctx.root.querySelector('.isl-cardm')?.remove();
   const m = h('div', 'isl-modal isl-cardm');
@@ -276,6 +290,8 @@ export function cardInboxCard(ctx: Ctx): HTMLElement {
   const s = ctx.s();
   const hooks: CardHooks = { done: () => (cardNav.done ? cardNav.done() : after(ctx)), open: (to) => cardNav.open?.(to) };
   const c = h('div', 'isl-card2 isl-cardbox');
+  // 段 UI7h：推奨が承認にならなくなった提案は取り下げる（理由の一行は部長の提案の画面の上：goneBox）
+  withdrawStale(s);
   // 段 UI7g：会社の課題の一覧（いちばん上。ボトルネックを先に、優先の順）
   c.append(issueList(s));
   const list = cardInbox(s).filter((x) => x.src !== 'head');
@@ -291,7 +307,7 @@ export function cardInboxCard(ctx: Ctx): HTMLElement {
     const say = h('small', '');
     say.append(rich(sayOf(s, x)));
     txt.append(h('b', '', `${role.icon} ${role.text}${x.hero != null ? `・${heroName(x.hero)}` : ''}`), say);
-    if (x.iss) txt.append(h('small', 'isl-cardbox-iss', `🎯 ${issueTag(x.iss)}`));
+    if (x.iss) txt.append(h('small', 'isl-cardbox-iss', issueLossOf(x) ? t(`🎯 ${issueTag(x.iss)}・${issueLossOf(x)}`, `🎯 ${issueTag(x.iss)} · ${issueLossOf(x)}`) : `🎯 ${issueTag(x.iss)}`));
     row.append(txt, h('span', 'isl-tag', x.held ? t('資金不足', 'Short of funds') : t('開く', 'Open')));
     row.addEventListener('click', () => showCard(ctx, x, hooks));
     c.append(row);
@@ -312,10 +328,26 @@ export function cardInboxCard(ctx: Ctx): HTMLElement {
   return c;
 }
 
+/** 段 UI7h：今月取り下げた提案の一行ずつ（「状況が変わったので、○○は取り下げました（理由：…）」）。無ければ null */
+export function goneBox(s: P1State): HTMLElement | null {
+  const xs = goneNow(s);
+  if (!xs.length) return null;
+  const e = h('div', 'isl-gone');
+  for (const g of xs.slice(0, 3)) {
+    const row = h('small', 'isl-gone-row');
+    if (g.hero != null) row.append(heroIcon(g.hero, 24));
+    row.append(h('span', '', `🗂 ${goneLine(g)}`));
+    e.append(row);
+  }
+  return e;
+}
+
 /**
  * 段 UI7g：会社の課題の一覧（issues.ts）。優先の順に、アイコン・名前・優先・根拠の 1 行と、受け箱でその課題を解く提案の数。
  * 受け箱（経営企画 → 部長の提案）の上
  */
+/** 段 UI9：カードの課題の、放置したときの 1 行（作ったときの一覧から） */
+const issueLossOf = (c: Pick<Card, 'iss' | 'issues'>) => (c.iss && c.issues?.find((x) => x.key === c.iss!.key)?.loss) || '';
 export function issueList(s: P1State): HTMLElement {
   const e = h('div', 'isl-iss');
   const xs = issuesOf(s);
@@ -333,7 +365,7 @@ export function issueList(s: P1State): HTMLElement {
     const top = h('div', 'isl-iss-top');
     top.append(h('span', 'isl-iss-pri', t(`優先 ${x.pri}`, `P${x.pri}`)), h('b', '', `${ISSUE_ICON[x.key]} ${issueName(x.key)}`));
     if (n) top.append(h('span', 'isl-tag', t(`提案 ${n} 件`, `${n} proposal${n > 1 ? 's' : ''}`)));
-    li.append(top, h('small', 'isl-iss-note', x.note));
+    li.append(top, h('small', 'isl-iss-note', x.note), h('small', 'isl-iss-loss', x.loss));
     ol.append(li);
   }
   e.append(ol);

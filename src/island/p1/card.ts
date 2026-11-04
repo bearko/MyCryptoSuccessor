@@ -38,11 +38,11 @@ import { flowGain, isFlowKey, issuesOf, type CoIssue, type IssueKey } from './is
 import { adGain, goodsName, partMonthly, sellMoves, shopMonthly, stockMsg, stockPlan, type SellMove } from './moves';
 import { apologize, bestReply, csOn, noticeCost, refundCost, reply, replyGain, replyLock, swapItem } from './cs';
 import { quitLeft, talk, talkGain } from './hr';
-import { afterOf, applyPlan, baseOf, planOf, type Plan, type PlanRes } from './plan';
-import { actTheme, judgeOf, valueOfPlan } from './brief';
+import { afterOf, applyPlan, baseOf, planBlock, planOf, type Plan, type PlanRes } from './plan';
+import { actTheme, judgeOf, valueOfPlan, type NoKind } from './brief';
 import { jammed, prodOf, useUpOf } from './proj';
 import { holdMonth, poolNow, storeFc, whenFull } from './storefc';
-import { tiltOf } from './policy';
+import { corpOf, tiltOf } from './policy';
 import { clearFrees, clearInfo, clearUnits, fromStock, storeFix, storeFull, type StoreFix } from './stock';
 import { dedRate, quarterNow, taxOn, taxPlan } from './acct';
 import { heroSay, quipOf, say, sayLen, type QuipCat } from './persona';
@@ -58,8 +58,8 @@ import { BUDGET } from './data';
 
 /** 出どころ（統計・受けた割合の数え） */
 export type CardSrc = 'clerk' | 'crafter' | 'buyer' | 'idle' | 'head' | 'cs' | 'flame' | 'quit' | 'tax' | 'rally' | 'hr' | 'event' | 'diplo' | 'stall' | 'duo' | 'stock' | 'budget';
-/** ヒーローからの提案（★3 で「任せる」を選べる出どころ） */
-export const PROPOSAL_SRC: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'stall', 'stock'];
+/** ヒーローからの提案（★3 で「任せる」を選べる出どころ。段 UI9：人事の担当（hr）もふるい分け・推奨の付け直し・失効の対象） */
+export const PROPOSAL_SRC: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'stall', 'stock', 'hr'];
 export const CARD_SRCS: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'cs', 'flame', 'quit', 'tax', 'rally', 'hr', 'event', 'diplo', 'stall', 'duo', 'stock', 'budget'];
 
 /** 選ぶと打つ手 */
@@ -164,6 +164,22 @@ export interface Card {
   duo?: DuoData;
   /** 段 UI7g：この提案が解く課題（issues.ts。推奨の手の課題）と、その優先（1 から） */
   iss?: { key: IssueKey; pri: number };
+  /** 段 UI9：作ったときの会社の課題の一覧（提案書は同じ課題で判断する。無くてよい項目：古いセーブは開いたときの一覧） */
+  issues?: CoIssue[];
+  /** 段 UI7h：知らせ（推奨の札なし・「わかった」で閉じる）。流れが止まったのに、推奨が承認になる直す手が無い月 */
+  note?: true;
+}
+/** 段 UI7h：取り下げの理由（資金が減った・方針を替えた・課題がほかの手で解けた・見込みが下がった） */
+export type GoneWhy = 'money' | 'policy' | 'solved' | 'loss';
+/** 段 UI7h：受け箱で古くなって取り下げた提案（理由の一行。いまの月・いまの町のものを受け箱の上に出す） */
+export interface Gone {
+  mk: number;
+  sector: string;
+  day: number;
+  hero: number | null;
+  /** 取り下げた手の名前（actName） */
+  name: string;
+  why: GoneWhy;
 }
 /** 任せた提案を実行した記録（トースト・月次報告） */
 export interface AutoRec {
@@ -201,6 +217,8 @@ export interface CardState {
   /** 経理の助言を出した四半期 */
   taxQ?: number;
   stat: CardStat;
+  /** 段 UI7h：取り下げた提案（新しい順に GONE_KEEP 件まで。無くてよい項目） */
+  gone?: Gone[];
 }
 /** 月次報告の「提案と報告」 */
 export interface CardReport {
@@ -643,7 +661,7 @@ function hrDrafts(s: P1State, iss?: CoIssue[]): Draft[] {
   }
   if (!ok.length) return [];
   const pick2 = [...ok].sort((a, b) => (b.est ?? 0) - (a.est ?? 0)).slice(0, CARD.choices - 1);
-  return [{ src: 'hr', kind: 'hire', hero: hand, q, dept: 'hr', issue: { k: 'hire', stage: bn, n: s.hirePool.length }, choices: markRec(s, [...pick2, SKIP]), pri: 42, iss: { key: bn, pri: top.pri } }];
+  return [{ src: 'hr', kind: 'hire', hero: hand, q, dept: 'hr', issue: { k: 'hire', stage: bn, n: s.hirePool.length }, choices: markRec(s, [...pick2, SKIP]), pri: 42, iss: { key: bn, pri: top.pri }, issues: I }];
 }
 /** 雇える候補のうち、その仕事にいちばん向いている人（雇えなければ null） */
 const poolBest = (s: P1State, task: Task): number | null => (has(s, 'hire') && s.hirePool.length ? [...s.hirePool].sort((a, b) => aptitude(heroStats(b), task) - aptitude(heroStats(a), task))[0] : null);
@@ -767,11 +785,12 @@ export function capOf(s: P1State): number {
   const three = s.staff.some((st) => st.task != null && st.task !== 'train' && starOf(quality(st, 'logistics'), st.level ?? 1) === 3);
   return CARD.cap[tierOf(s)] + (three ? CARD.capStar : 0);
 }
-/** 提案書 1 枚で変える打ち手の数の上限（町のランク × 話し手の ★） */
-export function sizeOf(s: P1State, c: Pick<Card, 'hero' | 'q'>): number {
-  const st = c.hero != null ? staffOf(s, c.hero) : null;
-  const star = st ? starOf(c.q, st.level ?? 1) : 1;
-  return Math.max(1, Math.min(CARD.size[tierOf(s)], star));
+/**
+ * 提案書 1 枚で変える打ち手の数の上限（町のランク）。段 UI9（ユーザーの声 2026-11-05）：提案の構成は話し手の ★ で変えない
+ * （★ で差が出るのは読みの誤差の幅だけ）。前は ランク × ★ だった
+ */
+export function sizeOf(s: P1State, _c: Pick<Card, 'hero' | 'q'>): number {
+  return Math.max(1, CARD.size[tierOf(s)]);
 }
 function admit(s: P1State, d: Pick<Card, 'hero' | 'kind'>): boolean {
   const C = cardsOf(s);
@@ -887,7 +906,9 @@ export function cardsMonth(s: P1State, r: Report) {
   drafts.sort((a, b) => pri.get(b)! - pri.get(a)!);
   for (const d of drafts) enqueue(s, d, rep);
   // 段 UI5c：倉庫が埋まりそうな月（ほかの提案のあと。受け箱の枚数に数えないので、ほかのカードを押し出さない）
-  const st = stockDraft(s);
+  // 段 UI7h：推奨が承認になる手だけ（gateDraft。置き換えられなければ出さない）
+  const st0 = stockDraft(s);
+  const st = st0 ? gateDraft(s, st0, iss, gb) : null;
   if (st) enqueue(s, st, rep);
   if (rep.made || rep.auto.length) r.cards = rep;
 }
@@ -895,12 +916,31 @@ export function cardsMonth(s: P1State, r: Report) {
 /**
  * 段 UI7g：提案のふるい分け（ヒーロー・部長の提案のカード）。手のある選択肢を、提案書と同じ判断（brief.ts の judgeOf）で見て、
  * 課題を解き推奨が承認になる手だけを残す。残らなければカードにしない（見送りが推奨の提案書は出さない）。
- * 対象外：チュートリアルのあいだ・流れが止まったお知らせ（stall）・倉庫の提案（stock：倉庫の課題の決まり UI5d〜UI7f のまま）・人事（hrDrafts で判断済み）・
- * 自分で実行して報告する任せた提案（trusted）
+ * 段 UI7h：倉庫の提案（stock）と流れが止まったお知らせ（stall）も同じふるい分けに。
+ * - 倉庫：残らなければ、いまの素材で作るほかの品（stockAlt）を探す。それも無ければカードを出さない（倉庫の状況は課題の一覧と画面に残る）。
+ *   推奨は、残った倉庫の手（払えて承認になる）を先に、無ければ見込みの大きい手
+ * - 流れの止まり：残らなければ、提案ではなく知らせ（stallNote：推奨の札なし・「わかった」で閉じる）
+ * 対象外：チュートリアルのあいだ・人事（hrDrafts で判断済み）・自分で実行して報告する任せた提案（trusted）
  */
-function gateDraft(s: P1State, d: Draft, iss: CoIssue[], gb: { base: P1State | null }): Draft | null {
-  if (inTutorial(s) || !PROPOSAL_SRC.includes(d.src) || d.src === 'stall' || d.src === 'stock' || trusted(s, d)) return d;
-  const keep: Choice[] = [];
+export function gateDraft(s: P1State, d: Draft, iss: CoIssue[], gb: { base: P1State | null } = { base: null }): Draft | null {
+  if (inTutorial(s) || d.note || trusted(s, d)) return d;
+  const judge = (a: PropAct) => {
+    gb.base ??= baseOf(s);
+    return judgeOf(s, planOf(s, [a], { hero: d.hero, q: d.q, dept: d.dept }), iss, gb.base);
+  };
+  // 段 UI9：部長からの頼み（予算）の「今回の施策だけ承認」も同じふるい分け（承認になる手でなければ、その選択肢を外す）
+  if (d.src === 'budget') {
+    const choices = d.choices.filter((c) => {
+      if (c.act.k !== 'approve') return true;
+      const a = s.deleg?.inbox.find((p) => p.id === (c.act as { pid: number }).pid)?.act;
+      if (!a || !actOk(s, a)) return false;
+      const j = judge(a);
+      return j.rec === 'ok' && !!j.issue;
+    });
+    return { ...d, choices, issues: iss };
+  }
+  if (!PROPOSAL_SRC.includes(d.src)) return d;
+  let keep: Choice[] = [];
   let best: { pri: number; key: IssueKey } | null = null;
   for (const c of d.choices) {
     const a = c.act.k === 'do' ? c.act.a : c.act.k === 'approve' ? s.deleg?.inbox.find((p) => p.id === (c.act as { pid: number }).pid)?.act : undefined;
@@ -909,16 +949,71 @@ function gateDraft(s: P1State, d: Draft, iss: CoIssue[], gb: { base: P1State | n
       continue;
     }
     if (!actOk(s, a)) continue;
-    gb.base ??= baseOf(s);
-    const j = judgeOf(s, planOf(s, [a], { hero: d.hero, q: d.q, dept: d.dept }), iss, gb.base);
+    const j = judge(a);
     if (j.rec !== 'ok' || !j.issue) continue;
     keep.push(c);
     if (!best || j.issue.pri < best.pri) best = { pri: j.issue.pri, key: j.issue.key };
   }
-  if (!keep.some((c) => c.act.k === 'do' || c.act.k === 'approve')) return null;
+  const acts = (xs: Choice[]) => xs.some((c) => c.act.k === 'do' || c.act.k === 'approve');
+  // 段 UI7h：倉庫の手がどれも見合わない月は、いまの素材で作るほかの品に置き換える
+  if (d.src === 'stock' && !acts(keep)) {
+    const alt = stockAlt(s, d, judge);
+    if (alt) {
+      keep = [alt.c, ...keep];
+      best = { pri: alt.issue.pri, key: alt.issue.key };
+    }
+  }
+  if (!acts(keep)) return d.src === 'stall' ? stallNote(d) : null;
   // 部長の提案（承認・却下・保留）は、推奨の札はそのまま。ヒーローの提案は残った手で推奨を付け直す
-  const choices = d.src === 'head' ? keep : markRec(s, keep.map((c) => ({ ...c, rec: false })));
-  return { ...d, choices, ...(best ? { iss: best } : {}) };
+  let choices: Choice[];
+  if (d.src === 'head') choices = keep;
+  else if (d.src === 'stock') {
+    // 倉庫の提案：残った倉庫の手（払えて、推奨が承認）を先に推す（段 UI5d の決まり）。無ければ見込みの大きい手
+    const fx = keep.find((c) => c.act.k === 'do' && storeAct(c.act.a));
+    choices = fx ? keep.map((c) => ({ ...c, rec: c === fx })) : markRec(s, keep.map((c) => ({ ...c, rec: false })));
+  } else choices = markRec(s, keep.map((c) => ({ ...c, rec: false })));
+  let issue = d.issue;
+  // 倉庫の手が外れたら、セリフの結び（倉庫の手の種類）も外す
+  if (issue.k === 'store' && !choices.some((c) => c.act.k === 'do' && storeAct(c.act.a))) {
+    const { fix: _f, next: _n, ...rest } = issue;
+    const next = choices.some((c) => c.act.k === 'do' && c.act.a.k === 'useup') ? ('useup' as const) : choices.some((c) => c.act.k === 'do' && c.act.a.k === 'clear') ? ('clear' as const) : undefined;
+    issue = { ...rest, ...(next ? { next } : {}) };
+  }
+  return { ...d, issue, choices, ...(best ? { iss: best } : {}), issues: iss };
+}
+/** 段 UI7h：流れが止まったお知らせ（直す手が無い・どれも推奨が承認にならない月）：推奨の札なし・「わかった」で閉じる */
+function stallNote(d: Draft): Draft {
+  return { ...d, choices: [{ ...SKIP, rec: false }], note: true };
+}
+/**
+ * 段 UI7h：倉庫の提案の置き換え（倉庫の強化・売りさばき・いちばん上の使い切りが、どれも推奨が承認にならない月）。
+ * いまの素材で作れるほかの品（作業台ごと・おすすめ順に STOCK_ALT 件まで。いま作り続けている品は除く）のうち、推奨が承認になる最初の手。新しい手は作らない
+ */
+const STOCK_ALT = 4;
+function stockAlt(s: P1State, d: Draft, judge: (a: PropAct) => ReturnType<typeof judgeOf>): { c: Choice; issue: CoIssue } | null {
+  const steady = madeSkus(s);
+  const had = new Set(d.choices.map((c) => (c.act.k === 'do' ? JSON.stringify(c.act.a) : '')));
+  let n = 0;
+  for (let slot = 0; slot < s.slots.length; slot++) {
+    const sl = s.slots[slot];
+    if (sl.worker == null || sl.back !== undefined) continue;
+    for (const p of fromStock(s, sl.worker)) {
+      if (n >= STOCK_ALT) return null;
+      if (!(p.spare > 0 && p.yen > 0) || steady.includes(p.x)) continue;
+      const [key, rar] = skuParts(p.x);
+      const a: PropAct = { k: 'useup', slot, key, rar };
+      if (had.has(JSON.stringify(a)) || !actOk(s, a)) continue;
+      n++;
+      const j = judge(a);
+      if (j.rec === 'ok' && j.issue) return { c: { act: { k: 'do', a }, cost: 0, kind: 'whatif', stage: 'craft', est: p.units, units: p.units }, issue: j.issue };
+    }
+  }
+  return null;
+}
+/** 段 UI7h：倉庫の提案のカード（月の締めと同じふるい分けのあと）。出さない月は null */
+export function stockCard(s: P1State): Draft | null {
+  const d = stockDraft(s);
+  return d ? gateDraft(s, d, issuesOf(s), { base: null }) : null;
 }
 
 /** 段 K：提案のカードの、経営方針の推す種類の重み（手のある 1 つ目の選択肢の種類。提案のカードだけ） */
@@ -1027,6 +1122,9 @@ export function cardLive(s: P1State, c: Card): boolean {
       return c.issue.k === 'tax' && quarterNow(s).q === c.issue.q && taxPlan(s).room > 0;
     case 'rally':
       return cardsOf(s).mk - c.mk < 1;
+    // 段 UI7h：流れが止まった知らせ（手の無いもの）は、その月のあいだだけ
+    case 'stall':
+      return c.note ? cardsOf(s).mk - c.mk < 1 : c.choices.some((x) => x.act.k === 'do' && actOk(s, x.act.a));
     // 段 I1：部長からの頼みは、その月のあいだだけ（部長がいる・予算で任せている）
     case 'budget':
       return cardsOf(s).mk - c.mk < 1 && budgetOpen(s) && !!c.dept && !!headOf(s, c.dept);
@@ -1036,6 +1134,123 @@ export function cardLive(s: P1State, c: Card): boolean {
 }
 /** 受け箱（いまのセクタ・まだ選べるもの） */
 export const cardInbox = (s: P1State) => (s.cards?.inbox ?? []).filter((c) => cardLive(s, c));
+
+// ---------------------------------------------------------------- 段 UI7h：古くなった提案の取り下げ
+
+/** 取り下げの記録を残す数 */
+const GONE_KEEP = 6;
+/** 見送りの理由の種類（brief.ts の recOf）→ 取り下げの理由 */
+const goneOf = (no: NoKind | undefined): GoneWhy => (no === 'money' ? 'money' : no === 'policy' ? 'policy' : no === 'loss' ? 'loss' : 'solved');
+/** 取り下げを判断するカード（ヒーロー・部長・人事の提案。知らせ・任せた提案の資金待ちは除かない） */
+const staleSrc = (c: Card) => PROPOSAL_SRC.includes(c.src) && !c.note;
+/** 段 UI9：カードを作ったときの課題の一覧（提案書と取り下げの判断は、同じ課題で。古いセーブは開いたときの一覧） */
+export const issuesOfCard = (s: P1State, c: Pick<Card, 'issues'>, cur?: CoIssue[]): CoIssue[] => c.issues ?? cur ?? issuesOf(s);
+/** カードの手（選択肢の番号と手。部長の提案はその手）。推奨の手を先に */
+function cardActs(s: P1State, c: Card): PropAct[] {
+  const xs = c.choices.map((x, k) => ({ x, k })).sort((a, b) => Number(!!b.x.rec) - Number(!!a.x.rec) || a.k - b.k);
+  const out: PropAct[] = [];
+  for (const { x } of xs) {
+    const a = x.act.k === 'do' ? x.act.a : x.act.k === 'approve' ? s.deleg?.inbox.find((p) => p.id === (x.act as { pid: number }).pid)?.act : undefined;
+    if (a && actOk(s, a)) out.push(a);
+  }
+  return out;
+}
+/**
+ * 段 UI7h：受け箱のカードを、開いたときに同じ判断（brief.ts の judgeOf）でもう一度見る。どの手も推奨が承認にならなければ、取り下げの理由
+ * （推奨の手の見送りの理由）。承認になる手があれば null。チュートリアルのあいだ・提案でないカード・知らせは null
+ */
+export function staleWhy(s: P1State, c: Card, iss: CoIssue[] = issuesOf(s), base: P1State | null = null): { why: GoneWhy; act: PropAct } | null {
+  if (inTutorial(s) || !staleSrc(c)) return null;
+  const acts = cardActs(s, c);
+  if (!acts.length) return null;
+  // 段 UI9：作ったときの課題が、いまの一覧から消えていれば「課題がほかの手で解けた」
+  if (c.iss && c.issues && !iss.some((x) => x.key === c.iss!.key)) return { why: 'solved', act: acts[0] };
+  const I = issuesOfCard(s, c, iss);
+  let first: { why: GoneWhy; act: PropAct } | null = null;
+  for (const a of acts) {
+    base ??= baseOf(s);
+    const j = judgeOf(s, planOf(s, [a], { hero: c.hero, q: c.q, dept: c.dept }), I, base);
+    if (j.rec === 'ok') return null;
+    first ??= { why: goneOf(j.no), act: a };
+  }
+  return first;
+}
+/** 取り下げの記録（新しい順） */
+function logGone(s: P1State, g: Omit<Gone, 'mk' | 'sector' | 'day'>): Gone {
+  const C = cardsOf(s);
+  const rec: Gone = { ...g, mk: C.mk, sector: here(s), day: s.day };
+  C.gone = [rec, ...(C.gone ?? [])].slice(0, GONE_KEEP);
+  return rec;
+}
+/** カードを取り下げる（受け箱から外す。部長の提案のカードなら、部長の受け箱からも外す） */
+function dropCard(s: P1State, c: Card, w: { why: GoneWhy; act: PropAct }): Gone {
+  const C = cardsOf(s);
+  C.inbox = C.inbox.filter((x) => x.id !== c.id);
+  for (const ch of c.choices) if (ch.act.k === 'approve' && s.deleg) s.deleg.inbox = s.deleg.inbox.filter((p) => p.id !== (ch.act as { pid: number }).pid);
+  return logGone(s, { hero: c.hero, name: actName(s, w.act), why: w.why });
+}
+/** 段 UI7h：開く前の 1 枚の見直し（時間を止めて出すカード・受け箱から開くカード）。取り下げたら、その記録 */
+export function staleCard(s: P1State, c: Card): Gone | null {
+  const w = staleWhy(s, c);
+  return w ? dropCard(s, c, w) : null;
+}
+/**
+ * 段 UI9：提案書を開いたとき（proposalui.ts）、推奨が承認でなくなっていたカードを見せずに取り下げる（受け箱から外し、理由の一行）。
+ * 受け箱に無いカード（部長との会話の仮のカード・月次報告の提案）は記録だけ。チュートリアルのあいだは null
+ */
+export function withdrawCard(s: P1State, id: number, act: PropAct, no: NoKind | undefined): Gone | null {
+  if (inTutorial(s)) return null;
+  const c = (s.cards?.inbox ?? []).find((x) => x.id === id);
+  if (c) return dropCard(s, c, { why: goneOf(no), act });
+  return logGone(s, { hero: null, name: actName(s, act), why: goneOf(no) });
+}
+/** いま見直した状態（同じ日・同じ資金・同じ方針・同じ受け箱なら、もう一度は見ない） */
+const staleSeen = new WeakMap<P1State, string>();
+const staleKeyOf = (s: P1State, sec: string) =>
+  [s.day, Math.round(s.money), s.rp ?? 0, sec, corpOf(s).join(','), (s.cards?.inbox ?? []).map((c) => c.id).join(','), (s.deleg?.inbox ?? []).filter((p) => !p.src && (p.sector ?? sec) === sec).map((p) => `${p.id}${p.status}`).join(',')].join('|');
+/**
+ * 段 UI7h：受け箱（経営企画 → 部長の提案・部長との会話の確認事項）を開いたときの見直し：ヒーロー・部長の提案のカードと、
+ * 部長の提案の一覧（いまの町の、カードになっていないもの）のうち、推奨が承認にならなくなったものを取り下げる（理由の一行を残す）。
+ * 自動プレイは画面を開かないので変わらない。チュートリアルのあいだは何もしない。取り下げたものの記録
+ */
+export function withdrawStale(s: P1State): Gone[] {
+  if (inTutorial(s)) return [];
+  const sec = here(s);
+  const props = (s.deleg?.inbox ?? []).filter((p) => !p.src && (p.sector ?? sec) === sec);
+  if (staleSeen.get(s) === staleKeyOf(s, sec)) return [];
+  const out: Gone[] = [];
+  const iss = issuesOf(s);
+  let base: P1State | null = null;
+  for (const c of cardInbox(s)) {
+    if (!staleSrc(c)) continue;
+    base ??= baseOf(s);
+    const w = staleWhy(s, c, iss, base);
+    if (w) out.push(dropCard(s, c, w));
+  }
+  // 部長の提案の一覧：カードになっているものは上で見た
+  const carded = new Set(cardInbox(s).flatMap((c) => c.choices.map((x) => (x.act.k === 'approve' ? x.act.pid : -1))));
+  for (const p of props) {
+    if (carded.has(p.id) || !s.deleg?.inbox.includes(p) || !actOk(s, p.act)) continue;
+    base ??= baseOf(s);
+    const j = judgeOf(s, planOf(s, [p.act], { hero: p.hero, q: qOf(s, p.hero, p.dept), dept: p.dept }), iss, base);
+    if (j.rec === 'ok') continue;
+    s.deleg.inbox = s.deleg.inbox.filter((x) => x.id !== p.id);
+    out.push(logGone(s, { hero: p.hero, name: actName(s, p.act), why: goneOf(j.no) }));
+  }
+  staleSeen.set(s, staleKeyOf(s, sec));
+  return out;
+}
+/** 取り下げの理由の文 */
+export const goneWhyText = (w: GoneWhy): string =>
+  w === 'money' ? t('資金が減った', 'funds went down') : w === 'policy' ? t('方針を替えた', 'the policy changed') : w === 'loss' ? t('見込みが下がった', 'the outlook got worse') : t('課題がほかの手で解けた', 'the issue was solved another way');
+/** 取り下げの一行（「状況が変わったので、○○は取り下げました（理由：資金が減った）」） */
+export const goneLine = (g: Pick<Gone, 'name' | 'why'>): string => {
+  // 手の名前に「」が入っていれば（「チラシ配り」を出す）二重にしない
+  const nm = g.name.includes('「') ? g.name : t(`「${g.name}」`, `“${g.name}”`);
+  return t(`状況が変わったので、${nm}は取り下げました（理由：${goneWhyText(g.why)}）`, `Things changed, so ${nm} was withdrawn (${goneWhyText(g.why)})`);
+};
+/** いまの月・いまの町で取り下げたもの（受け箱の上に出す） */
+export const goneNow = (s: P1State): Gone[] => (s.cards?.gone ?? []).filter((g) => g.mk === cardsOf(s).mk && g.sector === here(s));
 
 /** 次に時間を止めて出すカード（チュートリアルの途中・1 か月目の月末ポーズのあいだは出さない） */
 export function nextPop(s: P1State): Card | null {
@@ -1218,6 +1433,8 @@ export function planOfChoice(s: P1State, c: Card, k: number): Plan | null {
   // 段 UI7c：束ねるのは、社長の経営方針の価値が増えるときだけ（brief.ts の valueOfPlan。このまま側は 1 回だけ計算する）
   let base: P1State | null = null;
   let cur: number | null = null;
+  // 段 UI9：束ねた提案も、提案書と同じ判断（judgeOf：資金・方針・課題・損）で推奨が承認のままのときだけ（束ねたせいで見送りにしない）
+  const iss = inTutorial(s) ? null : c.issues ?? issuesOf(s);
   for (const x of [...c.choices].sort((a, b) => (b.est ?? 0) - (a.est ?? 0))) {
     if (acts.length >= n) break;
     if (x === ch || x.act.k !== 'do' || (x.est ?? 0) <= 0) continue;
@@ -1225,12 +1442,16 @@ export function planOfChoice(s: P1State, c: Card, k: number): Plan | null {
     if (!actOk(s, a) || acts.some((y) => clash(y, a))) continue;
     // 段 UI5d：倉庫の提案の「倉庫を強化する」は、ほかの手（売りさばき・使い切り）と束ねない（費用のかかる手を黙って足さない）
     if (c.src === 'stock' && (storeAct(a) || storeAct(acts[0]))) continue;
+    // 段 UI7h：束ねて払えなくなる手は足さない（推奨が承認の手を、束ねたせいで「資金が足りない」の提案書にしない）
+    const wide = planOf(s, [...acts, a], who);
+    if (planBlock(s, wide).length) continue;
     base ??= baseOf(s);
     cur ??= valueOfPlan(s, planOf(s, acts, who), base);
-    const next = valueOfPlan(s, planOf(s, [...acts, a], who), base);
-    if (next <= cur) continue;
+    const next = iss ? judgeOf(s, wide, iss, base) : null;
+    const nv = next ? next.value : valueOfPlan(s, wide, base);
+    if (nv <= cur || (next && next.rec !== 'ok')) continue;
     acts.push(a);
-    cur = next;
+    cur = nv;
   }
   return planOf(s, acts, who);
 }
@@ -1385,17 +1606,20 @@ function core(s: P1State, c: Card, pick?: number): string {
     case 'hire':
       // 段 UI7g：ボトルネックの段の人の手（販売なら店員・従業員）。課題の定義から言う（古い受け箱のカードで、もうボトルネックでない段なら前の言い方）
       if (i.stage !== bottleneck(stageCaps(s))) return t(`[[${STAGE_NM[i.stage]()}]]の担当がいなくて、手が足りない。雇える[[候補が ${i.n} 人]]来ている`, `nobody covers [[${STAGE_NM[i.stage]()}]]. [[${i.n} candidates]] are ready to hire`);
+      // 段 UI9：課題の定義（制約の種類・放置したときの影響）から言う。候補の人数は課題ではないので言わない
+      const L = c.issues?.find((x) => x.key === i.stage);
+      const lossTxt = L ? t(`[[${L.loss}]]。`, `[[${L.loss}]]. `) : '';
       return i.stage === 'sell'
-        ? t(`ボトルネックは[[${STAGE_NM[i.stage]()}]]。お店の人の手を厚くすれば売れる数が伸びる`, `[[${STAGE_NM[i.stage]()}]] is the bottleneck; more hands in the shops lift sales`)
-        : t(`ボトルネックは[[${STAGE_NM[i.stage]()}]]。ここに人を置けば流れが太くなる（雇える[[候補 ${i.n} 人]]）`, `[[${STAGE_NM[i.stage]()}]] is the bottleneck; staffing it widens the flow ([[${i.n} candidates]])`);
+        ? t(`ボトルネックは[[${STAGE_NM[i.stage]()}]]（制約：人員）。${lossTxt}お店の人員を増やせば処理量が伸びる`, `[[${STAGE_NM[i.stage]()}]] is the bottleneck (constraint: staffing). ${lossTxt}More shop staff lifts throughput`)
+        : t(`ボトルネックは[[${STAGE_NM[i.stage]()}]]（制約：人員）。${lossTxt}ここに人員を置けば処理量が伸びる`, `[[${STAGE_NM[i.stage]()}]] is the bottleneck (constraint: staffing). ${lossTxt}Staffing it lifts throughput`);
     case 'head': {
       const p = s.deleg?.inbox.find((x) => x.id === c.pid);
       if (!p) return t('打てる手がある', 'there is a move to make');
       switch (p.unit) {
         case 'G':
-          return p.stage ? t(`[[${STAGE_NM[p.stage]()}]]の流れが月[[ +${p.units ?? 0} 個]]ほど太くなる`, `[[${STAGE_NM[p.stage]()}]] would gain about [[+${p.units ?? 0}]] a month`) : t('流れが太くなる', 'the flow would widen');
+          return p.stage ? t(`[[${STAGE_NM[p.stage]()}]]の処理量が月[[ +${p.units ?? 0} 個]]増える見込み`, `[[${STAGE_NM[p.stage]()}]] throughput up about [[+${p.units ?? 0}]] a month`) : t('処理量が増える見込み', 'throughput would rise');
         case 'ad':
-          return t('いまの売り場なら、[[宣伝]]が元を取れる', 'with the shops as they are, an [[ad]] pays off');
+          return t(`いまの売り場なら、[[宣伝]]の期待効果（期間で +${Math.round(p.est).toLocaleString('en-US')} G）が費用を上回る`, `with the shops as they are, the [[ad]]’s expected effect (+${Math.round(p.est).toLocaleString('en-US')} G over the run) beats its cost`);
         case 'finds':
           return p.dig?.tablet ? t(`この荒れ地の[[ ${p.dig.tablet} 層目]]に石板が眠っている`, `a tablet lies in layer [[${p.dig.tablet}]] here`) : t(`この荒れ地に出土品が[[ ${p.dig?.finds ?? 0} 個]]ほど眠っている`, `about [[${p.dig?.finds ?? 0}]] finds sleep here`);
         case 'share':
@@ -1690,6 +1914,8 @@ export function choiceText(s: P1State, c: Card, ch: Choice): { icon: string; lab
       }
     }
     case 'skip':
+      // 段 UI7h：知らせ（推奨の札なし）は「わかった」で閉じる
+      if (c.note) return { icon: '👌', label: t('わかった', 'Got it'), sub: t('知らせを閉じる', 'Close this notice') };
       return c.src === 'quit'
         ? { icon: '…', label: t('何もしない', 'Do nothing'), sub: t('このままだと辞めてしまう', 'They will leave') }
         : c.src === 'flame'

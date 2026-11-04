@@ -45,7 +45,7 @@ import { btn, h, heroIcon, recLine } from './ui';
 import { pickHead } from './delegui';
 import { STAGE_JA, causeChips, causeName, coLive, forecastHint, leverOpts, leverWhy, ofSlack, styleOfHero, type Lever } from './boardplan';
 import { styleTags } from './voice';
-import { stackPair } from './slideui';
+import { budgetLabels, stack100El, stack100Of } from './slideui';
 import type { Stack } from './slides';
 import './board.css';
 import { bulletEl } from './chartkit';
@@ -536,12 +536,12 @@ function drawSlack(el: HTMLElement, s: P1State, it: BoardItem, pick: BoardPick) 
   const n = Math.max(1, Math.min(M, Math.round((was.amt ?? 0) / Math.max(1, it.ask.cur)) || 1));
   const pace = ((was.used ?? 0) / n) * M;
   const L = (sign: number): Pick<Stack, 'labUsed' | 'labExp' | 'labDelta' | 'mode'> => ({ mode: 'cap', labUsed: t('使った', 'Used'), labExp: t('使う見込み（前期のペース）', 'Planned (last quarter’s pace)'), labDelta: sign >= 0 ? t('この増額', 'This raise') : t('この減額', 'This cut') });
-  el.append(
-    stackPair([
-      { title: t(`${DEPT[it.dept!].name}部（来期 ${M} か月）`, `${DEPT[it.dept!].name} (next ${M} months)`), total: it.ask.cur * M, used: 0, expect: Math.min(pace, Math.max(it.ask.cur, v) * M), delta: d * M, ...L(d) },
-      { title: t(`会社（全部門の予算の合計・来期 ${M} か月）`, `Company (all budgets, next ${M} months)`), total: co.caps * M, used: 0, expect: Math.min(co.spent * M, Math.max(co.caps, caps) * M), delta: d * M, ...L(d) },
-    ]),
-  );
+  // 段 UI9：同じグラフ内で横並びの 100% の積み上げ縦棒（提案書の「効果と費用」の予算と同じ部品）
+  const bars = [
+    { title: t(`${DEPT[it.dept!].name}部（来期 ${M} か月）`, `${DEPT[it.dept!].name} (next ${M} months)`), total: it.ask.cur * M, used: 0, expect: Math.min(pace, Math.max(it.ask.cur, v) * M), delta: d * M, ...L(d) },
+    { title: t(`会社（全部門の合計・来期 ${M} か月）`, `Company (all budgets, next ${M} months)`), total: co.caps * M, used: 0, expect: Math.min(co.spent * M, Math.max(co.caps, caps) * M), delta: d * M, ...L(d) },
+  ].map(stack100Of);
+  el.append(stack100El(bars, { ...budgetLabels(d >= 0), delta: d >= 0 ? t('この増額', 'This raise') : t('この減額', 'This cut') }, t('来期の予算：事業部と会社', 'Next quarter’s budget: division and company')));
   if (d > 0 && left > 0) el.append(h('small', 'isl-bm-dim', t(`この増額は${ofSlack(d, co.slack)}`, `This raise is ${ofSlack(d, co.slack)}`)));
 }
 

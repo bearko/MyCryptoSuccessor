@@ -14764,6 +14764,9 @@ button.isl-dband-lead.is-on {
   white-space: nowrap;
   color: #f4f1ea;
 }
+.isl-sl-num.is-long {
+  font-size: 20px;
+}
 .isl-sl-num small {
   font-size: 13px;
   font-weight: 700;
@@ -15009,14 +15012,12 @@ button.isl-dband-lead.is-on {
 .isl-sl-track2 {
   position: relative;
   height: 16px;
-  border-radius: 3px;
   background: #0f1a30;
 }
 .isl-sl-bar {
   position: absolute;
   top: 0;
   bottom: 0;
-  border-radius: 3px;
 }
 .isl-sl-bar.is-now {
   background: #8f9bb8;
@@ -15307,7 +15308,6 @@ button.isl-dband-lead.is-on {
   width: 12px;
   height: 12px;
   border: 0;
-  border-radius: 2px;
 }
 .isl-sl-key.is-mat i {
   background: #3a8fd8;
@@ -15376,7 +15376,6 @@ button.isl-dband-lead.is-on {
 .isl-sl-mtrack {
   position: relative;
   height: 12px;
-  border-radius: 3px;
   background: #0f1a30;
 }
 .isl-sl-mfill {
@@ -15384,7 +15383,6 @@ button.isl-dband-lead.is-on {
   left: 0;
   top: 0;
   bottom: 0;
-  border-radius: 3px;
   background: #f2b544;
 }
 .isl-sl-mmark {
@@ -15518,13 +15516,11 @@ button.isl-dband-lead.is-on {
   display: flex;
   gap: 2px;
   height: 14px;
-  border-radius: 3px;
   background: #0f1a30;
 }
 .isl-sl-segp {
   flex-basis: 0;
   min-width: 3px;
-  border-radius: 3px;
 }
 .isl-sl-segp.is-used,
 .isl-sl-segkey.is-used i {
@@ -15704,6 +15700,9 @@ button.isl-dband-lead.is-on {
   }
   .isl-sl-num {
     font-size: 28px;
+  }
+  .isl-sl-num.is-long {
+    font-size: 22px;
   }
 }
 @media (max-width: 599px) {
@@ -15938,7 +15937,6 @@ button.isl-dband-lead.is-on {
   width: 34px;
   height: 120px;
   border: 2px solid #dfe4f0;
-  border-radius: 4px;
   background: #0b1222;
   overflow: hidden;
 }
@@ -16171,4 +16169,317 @@ button.isl-dband-lead.is-on {
   display: block;
   font-size: 12px;
   color: #6b5a40;
+}
+/* 段 UI9：放置したときの影響（月 −N G・N 日後） */
+.isl-iss-loss {
+  display: block;
+  font-size: 12px;
+  color: #8a2f1c;
+  font-weight: 700;
+}
+/* 段 UI7h：取り下げた提案の一行（部長の提案の画面の上） */
+.isl-gone {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 10px;
+}
+.isl-gone-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #5d4a2c;
+  background: #f3ecdc;
+  border: 1px dashed #c9b48a;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.isl-gone-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.isl-gone-row img,
+.isl-gone-row canvas {
+  flex: none;
+}
+
+/* ---------------------------------------------------------------- 段 UI9：提案書の型（課題の定義・打ち手・効果と費用・リスクと対策・実行計画）と縦のグラフ */
+.isl-sl-kpis {
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+}
+.isl-sl-issue .isl-sl-ichip {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+.isl-sl-ichip .isl-sl-iimp,
+.isl-sl-ichip .isl-sl-iday {
+  font-size: 12px;
+  color: #ffd9a8;
+  white-space: nowrap;
+}
+.isl-sl-ichip .isl-sl-iday {
+  color: #ff8a7a;
+  font-weight: 700;
+}
+.isl-sl-iloss {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ff8a7a;
+}
+.isl-sl-pay {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #f4f1ea;
+}
+/* 100% の積み上げ縦棒（予算・資金）：棒は横並び、凡例は右に 1 つ */
+.isl-s100 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+.isl-s100-bars {
+  display: flex;
+  gap: 14px;
+  justify-content: space-around;
+}
+.isl-s100-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.isl-s100-title {
+  font-size: 12px;
+  color: #f4f1ea;
+  text-align: center;
+}
+.isl-s100-over {
+  font-size: 12px;
+  color: #ff8a7a;
+  font-weight: 700;
+}
+.isl-s100-bar {
+  position: relative;
+  display: flex;
+  flex-direction: column-reverse;
+  width: 48px;
+  height: 150px;
+  border: 2px solid #dfe4f0;
+  background: #0b1222;
+}
+.isl-s100-seg {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  box-shadow: inset 0 1px 0 #0b1222;
+}
+.isl-s100-v {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0b1222;
+  font-variant-numeric: tabular-nums;
+}
+.isl-s100-v.is-thin {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  margin-left: 4px;
+  line-height: 1;
+  color: #f4f1ea;
+  white-space: nowrap;
+}
+.isl-s100-seg.is-delta,
+.isl-s100-key.is-delta i {
+  background: #f07070;
+}
+.isl-s100-seg.is-exp,
+.isl-s100-key.is-exp i {
+  background: #c3c9d4;
+}
+.isl-s100-seg.is-left,
+.isl-s100-key.is-left i {
+  background: #6fd08c;
+}
+.isl-s100-seg.is-used,
+.isl-s100-key.is-used i {
+  background: #5b6475;
+}
+.isl-s100-seg.is-used .isl-s100-v {
+  color: #f4f1ea;
+}
+.isl-s100-note {
+  font-size: 12px;
+  color: #b8c0d4;
+  text-align: center;
+}
+.isl-s100-keys {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #f4f1ea;
+}
+.isl-s100-key {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 6px;
+  align-items: center;
+}
+.isl-s100-key i {
+  grid-row: 1 / 3;
+  width: 12px;
+  height: 12px;
+}
+.isl-s100-key b {
+  font-variant-numeric: tabular-nums;
+  color: #b8c0d4;
+  font-weight: 600;
+}
+/* 課題の定義の表・代替案の表 */
+.isl-gap,
+.isl-alt {
+  display: grid;
+  gap: 3px 8px;
+  font-size: 12px;
+  color: #f4f1ea;
+  align-items: center;
+}
+.isl-gap {
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+.isl-alt {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.7fr);
+}
+.isl-gap-h,
+.isl-alt-h {
+  padding-bottom: 2px;
+  border-bottom: 1px solid #2a3a5e;
+  color: #b8c0d4;
+  text-align: right;
+}
+.isl-gap-h:first-child,
+.isl-alt-h:first-child {
+  text-align: left;
+}
+.isl-gap-l,
+.isl-alt-n {
+  min-width: 0;
+  line-height: 1.3;
+}
+.isl-gap-v,
+.isl-gap-d,
+.isl-alt-v {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.isl-gap-v.is-good,
+.isl-gap-d.is-good,
+.isl-alt-v.is-good {
+  color: #6fd08c;
+}
+.isl-gap-v.is-bad,
+.isl-gap-d.is-bad,
+.isl-alt-v.is-bad {
+  color: #ff8a7a;
+}
+.isl-alt-n.is-chosen {
+  font-weight: 800;
+}
+.isl-alt-rec {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 4px;
+  font-size: 12px;
+  color: #2a2016;
+  background: #f2b544;
+}
+.isl-alt-no {
+  display: block;
+  font-size: 12px;
+  color: #b8c0d4;
+}
+/* 実行計画 */
+.isl-tl {
+  margin: 0;
+  padding: 0 0 0 6px;
+  list-style: none;
+  border-left: 3px solid #2a3a5e;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.isl-tl-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 6px;
+  padding-left: 10px;
+  font-size: 12px;
+  color: #f4f1ea;
+  line-height: 1.4;
+}
+.isl-tl-row::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  background: #b8c0d4;
+}
+.isl-tl-row.is-now::before {
+  background: #f2b544;
+}
+.isl-tl-row.is-effect::before {
+  background: #6fd08c;
+}
+.isl-tl-day {
+  color: #ffd9a8;
+  white-space: nowrap;
+}
+/* リスクと対策 */
+.isl-rk2 .isl-sl-rtxt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.isl-rk2-ctr {
+  color: #b8c0d4;
+}
+@media (max-width: 599px) {
+  .isl-s100 {
+    grid-template-columns: 1fr;
+  }
+  .isl-s100-keys {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+  .isl-sl-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* 段 UI9：縦棒の比較の下の札（特許・真似・自社） */
+.isl-cs-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
 }

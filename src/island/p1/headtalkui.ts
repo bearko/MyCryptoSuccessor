@@ -12,7 +12,7 @@ import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { DEPT, DEPT_DUTIES, DUTY, TASKS, aptitude, type DeptId } from './data';
 import { actName, approve, headFx, pickList, headOf, heroNm, hold, propEst, propWhy, qText, quality, reject, setHead } from './deleg';
-import { approveCard, choiceText, chooseCard, planOfChoice, quipOfCard, roleOfCard, sayOf, shownRec, starOf, type Card, type Choice } from './card';
+import { approveCard, choiceText, chooseCard, goneLine, planOfChoice, quipOfCard, roleOfCard, sayOf, shownRec, starOf, withdrawStale, type Card, type Choice } from './card';
 import { charismaLine, moraleAvg, payroll, wantsToQuit } from './hr';
 import { hrReportText, moraleChip } from './hrui';
 import { orgChart } from './org';
@@ -83,6 +83,8 @@ function render(ctx: Ctx, body: HTMLElement, hooks: TalkHooks) {
   }
   body.classList.add('isl-ht');
   body.closest('.isl-sheet')?.classList.add('has-ht');
+  // 段 UI7h：推奨が承認にならなくなった提案は、確認事項に出さずに取り下げ（理由の一行をトーストで）
+  for (const g of withdrawStale(s)) ctx.toast(`🗂 ${goneLine(g)}`);
   const H = headOf(s, dept);
   const items = checkItems(s, dept);
   if (c.topic === 'check' && c.k >= items.length && !c.say) {
@@ -336,6 +338,7 @@ function showPlan(ctx: Ctx, card: Card, plan: Plan, rec = false, pick?: number) 
     role: roleOfCard(s, card).text,
     later: card.id >= 0,
     card: card.id,
+    iss: card.issues,
     ...(card.id >= 0 ? { approve: (p: Plan) => approveCard(s, card.id, p) } : {}),
     done: (w) => {
       if (w === 'ok') sayToast(ctx.toast, card.hero, 'approved', card.id + s.day);

@@ -26,7 +26,7 @@ import {
   type P1State,
 } from '../src/island/p1/model';
 import { afterOf, applyPlan, manualPlan, planCost, planOf, planRows, planTitle } from '../src/island/p1/plan';
-import { cardsMonth, cardsOf, chooseCard, enqueue, planOfChoice, stockDraft } from '../src/island/p1/card';
+import { cardsMonth, cardsOf, chooseCard, enqueue, planOfChoice, stockCard, stockDraft } from '../src/island/p1/card';
 /** 倉庫の提案を受け箱へ（月の締めと同じ enqueue） */
 const stockDraftEnqueue = (s: P1State) => {
   const d = stockDraft(s);
@@ -303,8 +303,10 @@ describe('倉庫が埋まりそうな月の提案（店長から）', () => {
     s.mats.wood = (s.mats.wood ?? 0) + Math.ceil(poolCap(s) * 0.9);
     const C = cardsOf(s);
     C.inbox = [];
+    // 段 UI7h：月の締めのカードは、推奨が承認になる手があるときだけ（この写しは、どの手も損が大きいので出さない：stockCard が null）
     cardsMonth(s, s.reports[s.reports.length - 1]);
-    const c = C.inbox.find((y) => y.src === 'stock')!;
+    expect(C.inbox.some((y) => y.src === 'stock')).toBe(!!stockCard(s));
+    const c = C.inbox.find((y) => y.src === 'stock') ?? enqueue(s, stockDraft(s)!)!;
     expect(c).toBeTruthy();
     const k = c.choices.findIndex((y) => y.act.k === 'do' && y.act.a.k === 'clear');
     const plan = planOfChoice(s, c, k)!;
