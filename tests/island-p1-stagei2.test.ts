@@ -36,7 +36,8 @@ import { deserializeP1, newP1, serializeP1, type P1State } from '../src/island/p
 import { runOnce } from '../scripts/island/sim';
 import { TALK_MAX, talkLen } from '../src/island/p1/mine';
 import { budgetWhy } from '../src/island/p1/board';
-import { coLive, causeChips, causeCore, leverCore, noLeverCore, ofSlack, pickLever, styleOfHero, type Cause, type Lever } from '../src/island/p1/boardplan';
+import { AREA_MEMO, sellWhatIf } from '../src/island/p1/model';
+import { LEVER_FAST, coLive, causeChips, causeCore, leverCore, noLeverCore, ofSlack, pickLever, styleOfHero, type Cause, type Lever } from '../src/island/p1/boardplan';
 import { heroLine } from '../src/island/p1/headtalk';
 import { has, lvOf } from '../src/island/p1/model';
 import { parseStyle, styleTags } from '../src/island/p1/voice';
@@ -576,5 +577,37 @@ describe('段 I2b：判断できる報告（何もできなかった原因・来
       for (const d of heads(x)) Object.assign(deptBudget(x, d), { qamt: 60000, qused: 0, qn: 0, qwhy: { ...q0, none: 3 } });
     });
     for (const it of boardOf(s).agenda!.items) for (const x of [reportLine(it), planLine(it), askLine(it)]) expect(talkLen(x), x).toBeLessThanOrEqual(TALK_MAX);
+  });
+});
+
+describe('段 I2b：議題を作る速さ（答えは変えない）', () => {
+  it('店ごとの取り分の覚え（AREA_MEMO）と打ち手の近道（LEVER_FAST）を止めても、議題・販売の見込みはまったく同じ', () => {
+    const s = load();
+    const free = s.staff.filter((x) => x.task == null && !x.heads?.length);
+    for (const d of budgetDepts(s)) {
+      if (headOf(s, d)) continue;
+      const st = free.shift();
+      if (st) setHead(s, d, st.hero);
+    }
+    // 打てる手が無かった四半期（パネルの打ち手をはかる）
+    for (const d of budgetDepts(s)) if (headOf(s, d)) deptBudget(s, d).qwhy = { done: 0, over: 0, labor: 0, cash: 0, none: 3 };
+    const m = Math.round(s.day / 30);
+    const q = Math.floor(m / 3);
+    const fast = JSON.stringify({ a: boardAgenda(s, q, m), w: sellWhatIf(s) });
+    AREA_MEMO.on = false;
+    LEVER_FAST.on = false;
+    try {
+      const t0 = performance.now();
+      const slow = JSON.stringify({ a: boardAgenda(s, q, m), w: sellWhatIf(s) });
+      const t1 = performance.now();
+      expect(slow).toBe(fast);
+      AREA_MEMO.on = true;
+      LEVER_FAST.on = true;
+      boardAgenda(s, q, m);
+      console.log(`議題を作る時間：覚え・近道なし ${Math.round(t1 - t0)} ms → あり ${Math.round(performance.now() - t1)} ms`);
+    } finally {
+      AREA_MEMO.on = true;
+      LEVER_FAST.on = true;
+    }
   });
 });

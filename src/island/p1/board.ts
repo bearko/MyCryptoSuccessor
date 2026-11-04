@@ -17,7 +17,7 @@
 import { t } from '../../i18n';
 import { BOARD, BUDGET, DEPT, MANAGER, type DeptId } from './data';
 import { amountOf, budgetDepts, budgetOpen, deptBudget, headStar, lvName, nextMoves, nextUp, setBudget, valG, type BudgetLv } from './budget';
-import { headOf, heroNm, pickBest, pickList, quality, rndOf, setHead } from './deleg';
+import { headOf, heroNm, ifsOf, pickBest, pickList, quality, rndOf, setHead } from './deleg';
 import { deptLevel } from './dept';
 import { managerApt, managerRate, sectorDef } from './company';
 import { fitSector } from './voice';
@@ -250,7 +250,7 @@ function heroAsk(s: P1State): BoardOther | null {
 }
 
 /** 部門の議題 1 つ */
-function deptItem(s: P1State, d: DeptId, auditor: BoardAgenda['auditor'], q: number): BoardItem | null {
+function deptItem(s: P1State, d: DeptId, auditor: BoardAgenda['auditor'], q: number, ifs: ReturnType<typeof ifsOf>): BoardItem | null {
   const H = headOf(s, d);
   if (!H) return null;
   const B = deptBudget(s, d);
@@ -261,7 +261,9 @@ function deptItem(s: P1State, d: DeptId, auditor: BoardAgenda['auditor'], q: num
   const key = deptKey(d);
   const prev = boardOf(s).last.find((x) => x.key === key) ?? null;
   // 来期の計画：いまの見込みの大きい施策（月 perHead 件）× 3 か月 × share
-  const ms = nextMoves(s, d, BUDGET.perHead);
+  // 次の施策は 1 回だけ数える（計画の perHead 件と、その他の要求の 3 件は、同じ並びの先頭。部長の候補の元 ifs は議題ぜんぶで共有）
+  const top = nextMoves(s, d, Math.max(BUDGET.perHead, 3), ifs);
+  const ms = top.slice(0, BUDGET.perHead);
   const f = Math.round(ms.reduce((a, m) => a + valG(s, m.unit, m.real), 0) * BOARD.months * BOARD.share);
   const plan = { moves: ms.map((m) => m.nm), f, rep: Math.round(f * (1 + pads.plan)) };
   // 予実：この四半期の記録（はじめての四半期・版 25 のセーブで記録が無ければ、先月の記録）
@@ -284,7 +286,7 @@ function deptItem(s: P1State, d: DeptId, auditor: BoardAgenda['auditor'], q: num
     ask = amt > cur ? { up: true, cur, amt, lv: amt === nu.to ? nu.lv : 'X' } : ask;
   }
   // その他の要求：RP を使う施策（見込みの大きい 3 件の中）
-  const rpMove = nextMoves(s, d, 3).find((m) => (m.rp ?? 0) > 0 && m.act.k === 'skill');
+  const rpMove = top.slice(0, 3).find((m) => (m.rp ?? 0) > 0 && m.act.k === 'skill');
   const other: BoardOther | null = rpMove && rpMove.act.k === 'skill' ? { k: 'rp', id: rpMove.act.id, rp: rpMove.rp ?? 0, nm: rpMove.nm } : null;
   const audit = auditor && auditor.hero !== H.hero ? auditFor(auditor.star, prev, pads, ask.up, f) : null;
   const left = Math.max(0, was.amt - was.used);
@@ -335,8 +337,9 @@ export function boardAgenda(s: P1State, q: number, m: number): BoardAgenda | nul
   const auditor = auditorOf(s);
   const co = coSlack(s);
   const items: BoardItem[] = [];
+  const ifs = ifsOf(s);
   for (const d of budgetDepts(s)) {
-    const it = deptItem(s, d, auditor, q);
+    const it = deptItem(s, d, auditor, q, ifs);
     if (it) items.push(it);
   }
   for (const x of sectorHeads(s)) items.push(sectorItem(s, x.id, x.st, auditor, q, m));

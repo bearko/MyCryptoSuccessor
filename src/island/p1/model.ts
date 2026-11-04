@@ -3139,6 +3139,15 @@ function areaFrac(s: P1State, offers: AreaOffer[]): number[] {
   const ecFloor = Math.min(1, MARKET_EC.floor * lvMul(s, 'ec'));
   const road = roadMul(s);
   const d0 = AR(s).d0;
+  // 同じ入力（お客さんの住む場所・店の位置と強さ・ドミナント・EC・ロードサイド）なら同じ答え：覚えておく（経営会議の打ち手の見込みで、
+  // パネルを 1 枚ずつ写しに当てるとき、売り場に効かないパネルは同じ計算になる）。答えはまったく同じ
+  const key = !AREA_MEMO.on ? '' : `${+dom}${+ec}|${ecFloor}|${road}|${d0}|${offers.map((o) => `${o.i},${o.j},${o.w},${o.g}`).join(';')}`;
+  let memo = AREA_MEMO.on ? fracMemo.get(list) : undefined;
+  if (AREA_MEMO.on && !memo) fracMemo.set(list, (memo = new Map()));
+  const hit = memo?.get(key);
+  if (hit) return hit.slice();
+  if (memo && memo.size >= 512) memo.clear();
+  memo?.set(key, out);
   const w = offers.map(() => 0);
   const groups = [...new Set(offers.map((o) => o.g))];
   const gmax: Record<string, number> = {};
@@ -3161,8 +3170,11 @@ function areaFrac(s: P1State, offers: AreaOffer[]): number[] {
       if (gsum[o.g] > 0) out[n] += (k.pop / total) * (str(o.g) / sum) * (w[n] / gsum[o.g]);
     });
   }
-  return out;
+  return out.slice();
 }
+const fracMemo = new WeakMap<Source[], Map<string, number[]>>();
+/** 店ごとの取り分の覚え（止めると毎回計算する。テストで「覚えても答えが同じ」を確かめる） */
+export const AREA_MEMO = { on: true };
 /** capture の Rare の町：その商品を売らない他社の店も、お客さんを引き寄せる（その店に無い商品は買わずに帰る） */
 function captureR(s: P1State, key: string, offers: Offer[]): number[] {
   if (!offers.length) return [];
@@ -3404,7 +3416,8 @@ function myOffers(s: P1State, key: string, stocked: boolean, away = false) {
   for (const b of myShops(s)) {
     const sh = s.shops[b.uid];
     for (const x of sh.shelves) {
-      if (!x || skuParts(x)[0] !== key) continue;
+      // skuParts(x)[0] !== key と同じ（文字列を分けずに比べる：経営会議・提案の見込みで何千回も呼ばれる）
+      if (!x || !(x.length > key.length ? x.charCodeAt(key.length) === 58 && x.startsWith(key) : x === key)) continue;
       if (stocked && (sh.shelf[x] ?? 0) <= 0) continue;
       const w = pull(s, b, sh, x, stocked ? 'now' : away ? 'out' : 'in') * (sh.aw ?? 1);
       if (w > 0) out.push({ i: b.i, j: b.j, w, g: 'me', b, sh, x });
