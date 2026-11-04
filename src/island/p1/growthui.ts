@@ -3,6 +3,7 @@
  * 強化アイテムの持ち物、昇格の演出。仕様は docs/ISLAND_PHASE1.md「ヒーローの育成」。
  */
 import { isEn, t } from '../../i18n';
+import { lessonCard } from './lessonui';
 import { assetUrl } from '../../render/images';
 import { HERO_GROWTH, HERO_RARITIES, HERO_RARITY, PASSIVES, PROMO_ITEM, PROMO_ITEMS, TASKS, aptitude, type HeroRarity, type PassiveKind, type PromoItem } from './data';
 import { atCap, capOf, nextPassive, passiveName, passiveValue, promoItemOf, promoLock, xpNeed } from './hero';
@@ -166,6 +167,8 @@ export function openGrowth(ctx: Ctx, focus?: number) {
     const s = ctx.s();
     body.append(h('p', 'isl-dim', t('働くと経験値が入り、Lv が上がるほど能力が少しずつ上がります。Lv の節目でパッシブが開きます。上限 Lv に届いたら、強化アイテムで昇格（レアリティが 1 段上がる）できます。', 'Heroes gain XP by working; each level raises their stats a little. Passives open at milestone levels. At the level cap, use a promotion item to raise their rarity one step.')));
     body.append(itemsCard(s));
+    // 段 S1：受け継いだ教え（図鑑を開く）
+    body.append(lessonCard(ctx, s));
     // 段 P2：ヒーローの組み合わせの図鑑
     body.append(dexCard(s));
     const grid = h('div', 'isl-hgrid');

@@ -1,0 +1,227 @@
+/* ---------------------------------------------------------------- 段 S1：教え（lessonui.ts）。絵は仮（docs/ISLAND_ART_TODO.md） */
+.isl-ls-chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--lc, #8f9bb8);
+  background: #1d2a44;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+/* お知らせ（トーストの列に入る） */
+#isl-ui .isl-toast.isl-ls-pop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, calc(100vw - 24px));
+  padding: 8px 14px 8px 8px;
+  border: 2px solid #c9a24a;
+  border-radius: 14px;
+  background: #1a2238;
+  color: #fff;
+  box-shadow: 0 0 18px rgba(201, 162, 74, 0.45);
+  animation: isl-ls-in 6.5s ease forwards;
+  white-space: normal;
+}
+#isl-ui .isl-toast.isl-ls-pop.is-tap {
+  cursor: pointer;
+}
+.isl-ls-pop .isl-hero {
+  flex: none;
+  border-radius: 10px;
+  background: #2b3b5e;
+}
+.isl-ls-pop-txt {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.isl-ls-pop-who {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #ffe7a8;
+}
+.isl-ls-pop-txt b {
+  font-size: 15px;
+  line-height: 1.35;
+  color: #f2c14e;
+}
+.isl-ls-pop-fx {
+  font-size: 12px;
+  color: #cfe6ff;
+}
+@keyframes isl-ls-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  6%,
+  90% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+/* 型ごとの横棒 */
+.isl-ls-bars {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 4px;
+}
+.isl-ls-bar {
+  display: grid;
+  grid-template-columns: 7.5em minmax(60px, 1fr) 2em minmax(0, 13em);
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+}
+.isl-ls-bars.is-compact .isl-ls-bar {
+  grid-template-columns: 7.5em minmax(60px, 1fr) 2em;
+}
+.isl-ls-bar-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.isl-ls-bar-track {
+  position: relative;
+  height: 14px;
+  border-radius: 4px;
+  background: #16213a;
+  border: 1px solid #3a4a6c;
+}
+.isl-ls-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 3px;
+  background: var(--lc);
+}
+/* 上限に届いた型は斜線（色だけに頼らない） */
+.isl-ls-bar-fill.is-cap {
+  background: repeating-linear-gradient(135deg, var(--lc) 0 6px, #f2c14e 6px 9px);
+}
+.isl-ls-bar-cap {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 0;
+  border-left: 2px dashed #f2c14e;
+}
+.isl-ls-bar-n {
+  text-align: right;
+}
+.isl-ls-bar-fx {
+  font-size: 12px;
+  line-height: 1.35;
+}
+.isl-ls-open {
+  margin-top: 6px;
+}
+/* 図鑑 */
+.isl-ls-head,
+.isl-ls-chart,
+.isl-ls-got,
+.isl-ls-near {
+  margin-bottom: 10px;
+}
+.isl-ls-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #3a4a6c;
+  border-left: 4px solid var(--lc, #8f9bb8);
+  background: #22314f;
+}
+.isl-ls-row .isl-hero {
+  flex: none;
+  border-radius: 8px;
+  background: #2b3b5e;
+}
+.isl-ls-row-txt {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.isl-ls-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.isl-ls-name {
+  font-size: 15px;
+  color: #f2c14e;
+}
+.isl-ls-say {
+  margin: 0;
+  font-size: 13px;
+  font-style: italic;
+  color: #ffe7a8;
+}
+.isl-ls-row small {
+  font-size: 12px;
+  line-height: 1.45;
+}
+.isl-ls-root {
+  color: #cdd6e6;
+}
+.isl-ls-sils {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 6px;
+  margin: 6px 0;
+}
+.isl-ls-sil {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border-radius: 8px;
+  border: 1px dashed #4a5a7c;
+  background: #1d2a44;
+  text-align: center;
+}
+.isl-ls-sil small {
+  font-size: 12px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.isl-ls-shadow {
+  filter: brightness(0);
+}
+.isl-ls-errchip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid #3a8fd8;
+  font-size: 12px;
+  color: #cfe6ff;
+  background: #1d2a44;
+}
+@media (max-width: 599px) {
+  .isl-ls-bar {
+    grid-template-columns: 6.5em minmax(50px, 1fr) 1.6em;
+    font-size: 12px;
+  }
+  .isl-ls-bar-fx {
+    grid-column: 1 / -1;
+    padding-left: 6.5em;
+  }
+}
+#isl-ui .isl-toast.isl-ls-pop.is-tap {
+  pointer-events: auto;
+}
+/* スマホ：教えのお知らせのあいだは、トーストの列を横いっぱいに（右上のミッションの上に 6 秒だけ重なる） */
+@media (max-width: 899px) {
+  #isl-ui .isl-toasts:has(.isl-ls-pop) {
+    max-width: calc(100% - 16px);
+  }
+}

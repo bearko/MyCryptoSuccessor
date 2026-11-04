@@ -10,6 +10,7 @@
  * 仕様は docs/ISLAND_PHASE1.md「提案・報告のカード」「ヒーローの個性」。数字は data.ts の CARD。
  */
 import { t } from '../../i18n';
+import { meetHero, propErrK, readErr } from './lesson';
 import { ADS, CARD, CLEAR, DELEG, DEPT, INVEST, skuParts, MATS, MORALE, P1B, PAY, POLICY, PRODUCT, SELF_RUN, SKILL, TAX, aptitude, type DeptId, type InqKind, type ReplyKind, type Sku, type Task } from './data';
 import {
   actOk,
@@ -296,7 +297,7 @@ function pick(s: P1State, xs: Choice[], q: number, salt: number, n = CARD.choice
   const rnd = rndOf(s, salt);
   return xs
     .map((c) => {
-      const k = errMul(rnd, q, DELEG.prop.err);
+      const k = errMul(rnd, q, propErrK(s));
       return { ...c, est: c.est != null ? Math.round(c.est * k) : undefined, units: c.units != null ? Math.round(c.units * k * 10) / 10 : undefined };
     })
     .filter((c) => (c.est ?? 0) > 0)
@@ -1070,6 +1071,8 @@ export function chooseCard(s: P1State, id: number, k: number): ChooseRes {
     drop();
     return { ok: false, err: 'gone' };
   }
+  // 段 S1：話し手のヒーローとかかわった（教えの回数。同じ日は 1 回）
+  meetHero(s, c.hero);
   const a = ch.act;
   const done = (e: string | null | undefined, taken = true): ChooseRes => {
     if (e === 'money' || e === 'rp' || e === 'stock' || e === 'cool') return { ok: false, err: e };
@@ -1092,7 +1095,7 @@ export function chooseCard(s: P1State, id: number, k: number): ChooseRes {
         sector: here(s),
         act: a.a,
         est: ch.est ?? 0,
-        err: Math.round((1 - c.q) * DELEG.prop.err * 100) / 100,
+        err: readErr(s, c.q),
         unit: proposalUnit(a.a),
         units: ch.units != null ? Math.max(1, Math.round(ch.units)) : undefined,
         stage: ch.stage,

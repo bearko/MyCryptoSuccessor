@@ -8,12 +8,15 @@
  * - fit.json（いつも読み込む・小さい）：部門・役職ごとの適性（S〜D を 16 字の文字列に）と、向いている順の役（best_roles）・
  *   施策の好み（st。段 I2b：性格・強み・弱み・口調の調査の言葉から、攻め／守り・速さ／堅実・奇策／正攻法・人を育てる を 4 字に。styleOf）。
  * - voice.json（日本語の表示のときだけ、あとから読み込む）：一人称・社長の呼び方・口ぐせ・場面のセリフ・適性の根拠の 1 行。
+ * - lesson.json（日本語の表示のときだけ、あとから読み込む。段 S1）：教えの名前・中身（その人の言葉）・もと（適性の根拠か逸話の 1 文）。
+ *   型の番号は fit.json の ls（いつも読み込む。効き目の計算に使う）。作り方は lessons.mjs。
  * 出典・要約・史実の箇条書き・関係・注意書きは入れない（ゲームでは使わない）。
  * 決まり：セリフ・口ぐせ・根拠は 1 行 40 字まで（超えたら止める）。口ぐせ・呼び方の末尾の（注記）は外す。
  */
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { lessonOf } from './lessons.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const ROOT = join(here, '..', '..');
@@ -79,6 +82,8 @@ export function buildHeroData(dir = RESEARCH) {
   const g = {};
   const best = {};
   const st = {};
+  const ls = {};
+  const lesson = {};
   const voice = {};
   const errs = [];
   for (const f of files) {
@@ -91,6 +96,12 @@ export function buildHeroData(dir = RESEARCH) {
     }).join('');
     best[id] = (d.best_roles ?? []).map((k) => FIT_KEYS.indexOf(k)).filter((n) => n >= 0);
     st[id] = styleOf(d);
+    const L = lessonOf(d, st[id], WHY_NG);
+    if (L) {
+      ls[id] = L.y;
+      lesson[id] = { n: L.n, b: L.b, r: L.r };
+      if ([...L.b].length > LINE_MAX) errs.push(`${id}: 教えの中身が ${LINE_MAX} 字を超える「${L.b}」`);
+    }
     const sp = d.speech ?? {};
     const l = {};
     for (const sc of SCENES) l[sc] = (sp.lines?.[sc] ?? []).map((x) => x.trim()).filter(Boolean);
@@ -104,13 +115,13 @@ export function buildHeroData(dir = RESEARCH) {
     for (const x of [...v.tic, ...SCENES.flatMap((sc) => l[sc])]) if ([...x].length > LINE_MAX) errs.push(`${id}: セリフが ${LINE_MAX} 字を超える「${x}」`);
     voice[id] = v;
   }
-  return { fit: { k: FIT_KEYS, g, best, st }, voice, errs, n: files.length };
+  return { fit: { k: FIT_KEYS, g, best, st, ls }, voice, lesson, errs, n: files.length };
 }
 
 const json = (o) => `${JSON.stringify(o)}\n`;
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const { fit, voice, errs, n } = buildHeroData();
+  const { fit, voice, lesson, errs, n } = buildHeroData();
   if (errs.length) {
     console.error(errs.join('\n'));
     process.exit(1);
@@ -118,6 +129,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const outs = [
     [join(OUT, 'fit.json'), json(fit)],
     [join(OUT, 'voice.json'), json(voice)],
+    [join(OUT, 'lesson.json'), json(lesson)],
   ];
   if (process.argv.includes('--check')) {
     const bad = outs.filter(([p, s]) => {

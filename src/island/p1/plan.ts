@@ -8,6 +8,7 @@
  * 仕様は docs/ISLAND_PHASE1.md「担当者からの提案書（段 UI5a）」。
  */
 import { t } from '../../i18n';
+import { readErr } from './lesson';
 import { DEF } from '../defs';
 import { ADS, CLEAR, DELEG, INVEST, MATS, P1B, PRODUCT, SKILL, isResearch, rpCost, sku, type DeptId, type Mat, type Sku } from './data';
 import {
@@ -630,7 +631,7 @@ export interface Effect {
 export function planEffect(s: P1State, p: Plan, after = afterOf(s, p)): Effect {
   const c = planCost(s, p);
   const so = stockPlan(p);
-  return { now: flowOf(s, 0, so), after: flowOf(after, c.monthly, so), err: Math.round((1 - p.q) * DELEG.prop.err * 100) / 100 };
+  return { now: flowOf(s, 0, so), after: flowOf(after, c.monthly, so), err: readErr(s, p.q) };
 }
 
 // ---------------------------------------------------------------- As-Is ／ To-Be の行

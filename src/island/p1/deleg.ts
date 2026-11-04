@@ -9,6 +9,7 @@
  * セクター長は、いまのマネージャー（task 'manager'）の呼び名。数字（runSector・reviveMonth）は変えない。
  */
 import { isEn, t } from '../../i18n';
+import { meetHero, propErrK, readErr } from './lesson';
 import { heroById } from '../../game/catalog';
 import { DEF } from '../defs';
 import { ADS, CLEAR, DELEG, DEPT, DEPTS, DEPT_DUTIES, DEPT_SKILLS, isResearch, rpCost, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
@@ -1064,7 +1065,7 @@ export function delegMonth(s: P1State, r: Report) {
     const rnd = rndOf(s, d.length * 13 + d.charCodeAt(0) * 7 + r.month);
     const cs = candidates(s, d, ifs)
       .filter((c) => !st.inbox.some((p) => actKey(p.act) === actKey(c.act)))
-      .map((c) => ({ c, est: c.real * errMul(rnd, q, P.err) }))
+      .map((c) => ({ c, est: c.real * errMul(rnd, q, propErrK(s)) }))
       .filter((x) => x.est > 0)
       // 段 K：その年の経営方針（全社方針とこの部門の事業別の方針）の推す種類の施策を先に（見込み × (1 + POL.tilt) で並べる。見込みの数字は変えない）
       .map((x) => ({ ...x, k: x.est * tiltOf(s, actTheme(x.c.act), d) }))
@@ -1077,7 +1078,7 @@ export function delegMonth(s: P1State, r: Report) {
       sector: here,
       act: top.c.act,
       est: top.c.unit === 'finds' ? Math.max(1, Math.round(top.est)) : top.c.unit === 'share' ? Math.round(top.est * 10) / 10 : Math.round(top.est),
-      err: Math.round((1 - q) * P.err * 100) / 100,
+      err: readErr(s, q),
       real: top.c.real,
       unit: top.c.unit,
       units: top.c.units != null ? Math.max(1, Math.round(top.c.units * (top.est / Math.max(1e-9, top.c.real)))) : undefined,
@@ -1246,6 +1247,8 @@ export function approve(s: P1State, id: number): ApproveErr | null {
   const st = D(s);
   const p = st.inbox.find((x) => x.id === id);
   if (!p) return 'none';
+  // 段 S1：提案した人とかかわった（教えの回数。同じ日は 1 回）
+  meetHero(s, p.hero);
   if ((p.sector ?? s.sector ?? 'c1') !== (s.sector ?? 'c1') || !stillOk(s, p)) {
     st.inbox = st.inbox.filter((x) => x !== p);
     return 'gone';
@@ -1267,6 +1270,7 @@ export function approve(s: P1State, id: number): ApproveErr | null {
 }
 export function reject(s: P1State, id: number): boolean {
   const st = D(s);
+  meetHero(s, st.inbox.find((x) => x.id === id)?.hero);
   const n = st.inbox.length;
   st.inbox = st.inbox.filter((x) => x.id !== id);
   return st.inbox.length < n;

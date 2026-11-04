@@ -15,6 +15,7 @@
  *   「監査の指摘」として会議の画面に出し、推奨も監査の数字で決める（盛った予算の要求は推奨しない）。
  */
 import { t } from '../../i18n';
+import { meetHero } from './lesson';
 import { BOARD, BUDGET, DEPT, MANAGER, type DeptId } from './data';
 import { amountOf, budgetDepts, budgetOpen, deptBudget, headStar, lvName, nextMoves, nextUp, setBudget, valG, type BudgetLv } from './budget';
 import { headOf, heroNm, ifsOf, pickBest, pickList, quality, rndOf, setHead } from './deleg';
@@ -384,6 +385,8 @@ export function decide(s: P1State, it: BoardItem, pick: BoardPick = it.pick): vo
   const A = B.agenda;
   it.pick = { ...pick };
   it.done = true;
+  // 段 S1：報告した部長・セクター長とかかわった（教えの回数）
+  meetHero(s, it.hero);
   const st = B.stat;
   st.items++;
   if (pick.plan !== it.rec.plan || pick.budget !== it.rec.budget || (it.other && pick.other !== it.rec.other) || (it.lever && it.lever.k !== 'budget' && (pick.lever ?? 0) !== (it.rec.lever ?? 0))) st.changed++;

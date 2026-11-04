@@ -7,6 +7,7 @@
  * plan.ts の applyPlan で一気に変更し、まとめをトーストで出す。計算は plan.ts（DOM なし）。
  */
 import { t } from '../../i18n';
+import { errChip } from './lessonui';
 import { assetUrl, drawRef } from '../../render/images';
 import raw from '../../generated/catalog.json';
 import { FX_PAL, fxAtEl } from '../fx/layer';
@@ -173,6 +174,9 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   if (st) {
     const star = starOf(plan.q, st.level ?? 1);
     who.append(h('small', 'isl-prop-star', t(`読みの確かさ ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（誤差 ±${pct(B.err)}）`, `Read ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${pct(B.err)})`)));
+    // 段 S1：数字の教えで小さくなった誤差の札
+    const ec = errChip(s);
+    if (ec) who.append(ec);
   }
   head.append(who);
   panel.append(head);
