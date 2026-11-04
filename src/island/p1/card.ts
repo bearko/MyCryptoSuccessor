@@ -651,10 +651,12 @@ function hrSell(s: P1State): Choice[] {
   const out: Choice[] = [];
   const idle = freeFor(s, 'shop');
   const pb = poolBest(s, 'shop');
+  // 待機中の人を回す（配置換え）。雇える候補のほうが向いていれば、雇う手も並べる
   const put = (task: Task, target: number, aptMin = -1) => {
     const i = idle.find((x) => aptitude(x.stats, task) > aptMin);
-    if (i) return out.push({ act: { k: 'do', a: { k: 'assign', hero: i.hero, task, target } }, cost: 0, kind: 'assign', stage: 'sell', est: 1 });
-    if (pb != null && aptitude(heroStats(pb), task) > aptMin) out.push({ act: { k: 'do', a: { k: 'hire', hero: pb, task, target } }, cost: signFee(s, pb), monthly: wageOf(pb), kind: 'assign', stage: 'sell', est: 1 });
+    if (i) out.push({ act: { k: 'do', a: { k: 'assign', hero: i.hero, task, target } }, cost: 0, kind: 'assign', stage: 'sell', est: 1 });
+    const best = Math.max(aptMin, i ? aptitude(i.stats, task) : -1);
+    if (pb != null && aptitude(heroStats(pb), task) > best) out.push({ act: { k: 'do', a: { k: 'hire', hero: pb, task, target } }, cost: signFee(s, pb), monthly: wageOf(pb), kind: 'assign', stage: 'sell', est: 1 });
   };
   const shops = myShops(s).filter((b) => s.shops[b.uid]?.shelves.some((x) => x));
   // 店員のいないお店
@@ -1378,7 +1380,8 @@ function core(s: P1State, c: Card, pick?: number): string {
           ? t('手が空いている。[[宣伝]]なら売上を伸ばせる', 'my hands are free. An [[ad]] would lift sales')
           : t('手が空いている。[[荒れ地]]を掘りに行ける', 'my hands are free. I could dig the [[wasteland]]');
     case 'hire':
-      // 段 UI7g：ボトルネックの段の人の手（販売なら店員・従業員）。課題の定義から言う
+      // 段 UI7g：ボトルネックの段の人の手（販売なら店員・従業員）。課題の定義から言う（古い受け箱のカードで、もうボトルネックでない段なら前の言い方）
+      if (i.stage !== bottleneck(stageCaps(s))) return t(`[[${STAGE_NM[i.stage]()}]]の担当がいなくて、手が足りない。雇える[[候補が ${i.n} 人]]来ている`, `nobody covers [[${STAGE_NM[i.stage]()}]]. [[${i.n} candidates]] are ready to hire`);
       return i.stage === 'sell'
         ? t(`ボトルネックは[[${STAGE_NM[i.stage]()}]]。お店の人の手を厚くすれば売れる数が伸びる`, `[[${STAGE_NM[i.stage]()}]] is the bottleneck; more hands in the shops lift sales`)
         : t(`ボトルネックは[[${STAGE_NM[i.stage]()}]]。ここに人を置けば流れが太くなる（雇える[[候補 ${i.n} 人]]）`, `[[${STAGE_NM[i.stage]()}]] is the bottleneck; staffing it widens the flow ([[${i.n} candidates]])`);

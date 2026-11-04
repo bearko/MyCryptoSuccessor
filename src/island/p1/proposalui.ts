@@ -293,7 +293,7 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
         // 段 UI7g：段ごとの、ひと月に流せる数の差（1 日あたり）
         const v = (c: typeof k0, x: Stage) => (c[x].stopped ? 0 : c[x].perMonth);
         const per = Object.fromEntries((['buy', 'craft', 'haul', 'sell'] as Stage[]).map((x) => [x, (v(k1, x) - v(k0, x)) / DAYS])) as Record<Stage, number>;
-        c1.append(chartHead(t('影響を受ける箇所', 'Affected areas'), t('ひと月に流せる数の差（1 日あたり）', 'Change in monthly capacity, per day')), stageMapEl(stageMap(B, touched, bn0, bn1, per)));
+        c1.append(chartHead(t('影響を受ける箇所', 'Affected areas'), t('流せる数の差・1 日あたり', 'Capacity change per day')), stageMapEl(stageMap(B, touched, bn0, bn1, per)));
         const top = topRisks(B.rk);
         if (top.length) {
           c1.append(chartHead(t('リスク', 'Risks')));

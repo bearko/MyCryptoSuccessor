@@ -749,10 +749,17 @@ export function infoTip(text: string | string[], label = t('説明', 'About')): 
     b.setAttribute('aria-expanded', on ? 'true' : 'false');
     if (on) place();
   };
-  // 画面の端からはみ出さないよう、左右の寄せを決める
+  // スライド（無ければ画面）の端からはみ出さないよう、吹き出しの左の位置を決める
   const place = () => {
+    const box = (w.closest('.isl-sl, .isl-sheet, .isl-modal') ?? document.body).getBoundingClientRect();
+    const lo = Math.max(4, box.left + 4);
+    const hi = Math.min(innerWidth - 4, box.right - 4);
+    const pw = Math.min(280, hi - lo);
+    pop.style.width = `${pw}px`;
     const r = b.getBoundingClientRect();
-    w.classList.toggle('is-left', r.left > innerWidth / 2);
+    const want = Math.max(lo, Math.min(hi - pw, r.left - 8));
+    pop.style.left = `${want - w.getBoundingClientRect().left}px`;
+    pop.style.right = 'auto';
   };
   b.addEventListener('click', (ev) => {
     ev.stopPropagation();

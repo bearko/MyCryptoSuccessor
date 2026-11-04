@@ -365,7 +365,8 @@ export function stackSegs(x: Stack): { segs: StackSeg[]; max: number; line: numb
       line = Math.max(base, x.total) - cut;
     } else add('is-left', room0, '');
   }
-  const max = Math.max(1, x.total, x.total + inc, segs.reduce((a, y) => a + y.v, 0));
+  // 上に少し余白（点線が枠に隠れないように）
+  const max = Math.max(1, x.total, x.total + inc, segs.reduce((a, y) => a + y.v, 0)) * 1.08;
   return { segs, max, line, over, left };
 }
 
@@ -463,5 +464,5 @@ export function srcOfPlan(p: Pick<Plan, 'acts'>): PropSrc {
 export function perDayText(d: number): string {
   if (Math.abs(d) < 0.05) return '±0';
   const v = Math.abs(d) < 10 ? (Math.round(Math.abs(d) * 10) / 10).toString() : Math.round(Math.abs(d)).toLocaleString('en-US');
-  return t(`${d > 0 ? '+' : '−'}${v} 個／日`, `${d > 0 ? '+' : '−'}${v}/day`);
+  return t(`${d > 0 ? '+' : '−'}${v}個/日`, `${d > 0 ? '+' : '−'}${v}/day`);
 }

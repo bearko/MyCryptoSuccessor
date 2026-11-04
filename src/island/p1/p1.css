@@ -15896,7 +15896,7 @@ button.isl-dband-lead.is-on {
   font-weight: 800;
   line-height: 1.25;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .isl-sl-sval.is-good {
   color: #6fd08c;
@@ -15910,13 +15910,8 @@ button.isl-dband-lead.is-on {
 /* 予算の縦の積み上げ棒（使った＝濃い灰・使う見込み＝薄い灰・この施策＝赤・残り＝緑）。背景に溶けないよう明るい枠と溝 */
 .isl-st-pair {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: 8px;
-}
-@media (min-width: 600px) {
-  .isl-st-pair {
-    grid-template-columns: 1fr 1fr;
-  }
 }
 .isl-st {
   display: flex;
@@ -15987,9 +15982,21 @@ button.isl-dband-lead.is-on {
   border-top: 3px dashed #fff;
   box-shadow: 0 0 0 1px #0b1222;
 }
-.isl-st-seg.is-delta,
+/* ゆっくり点滅：赤帯は明るい赤と赤のあいだ（いつも赤に見える）、点線は薄くなる */
+.isl-st-seg.is-delta {
+  animation: isl-st-blinkbg 1.6s ease-in-out infinite;
+}
 .isl-st-line {
   animation: isl-st-blink 1.6s ease-in-out infinite;
+}
+@keyframes isl-st-blinkbg {
+  0%,
+  100% {
+    background-color: #e5484d;
+  }
+  50% {
+    background-color: #ff9a9d;
+  }
 }
 @keyframes isl-st-blink {
   0%,
@@ -15997,7 +16004,7 @@ button.isl-dband-lead.is-on {
     opacity: 1;
   }
   50% {
-    opacity: 0.35;
+    opacity: 0.4;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -16085,10 +16092,6 @@ button.isl-dband-lead.is-on {
   white-space: normal;
   box-shadow: 0 4px 0 #0f1626;
 }
-.isl-tip.is-left .isl-tip-pop {
-  left: auto;
-  right: -8px;
-}
 .isl-tip-line {
   display: block;
 }
@@ -16160,6 +16163,9 @@ button.isl-dband-lead.is-on {
   background: #8a5a1c;
   border-radius: 4px;
   padding: 0 6px;
+}
+.isl-iss-row b {
+  color: #2a2016;
 }
 .isl-iss-note {
   display: block;
