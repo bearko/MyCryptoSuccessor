@@ -17,6 +17,8 @@ import {
   boardOf,
   boardSummary,
   budgetOptText,
+  budgetOpts,
+  budgetWhy,
   canRaise,
   decide,
   isYearOpening,
@@ -41,6 +43,9 @@ import type { Bgm } from '../../audio';
 import type { Ctx } from './screens';
 import { btn, h, heroIcon, recLine } from './ui';
 import { pickHead } from './delegui';
+import { STAGE_JA, causeChips, causeName, coLive, forecastHint, leverOpts, leverWhy, ofSlack, styleOfHero, type Lever } from './boardplan';
+import { styleTags } from './voice';
+import { segBar } from './slideui';
 import './board.css';
 
 const g = (v: number) => `${Math.round(v).toLocaleString('en-US')} G`;
@@ -197,6 +202,15 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
     } else nums.append(chip(t(`利益 ${g(it.was.profit)}`, `Profit ${g(it.was.profit)}`)), chip(t(`投資 ${g(it.was.invest)}`, `Reinvested ${g(it.was.invest)}`)), chip(t(`本社へ ${g(it.was.toHQ)}`, `To HQ ${g(it.was.toHQ)}`)));
     if (it.prev) nums.append(chip(it.prev.okRep ? t(`✔ 目標に届いた（報告）`, '✔ Target met (reported)') : t('✖ 目標に届かなかった', '✖ Target missed'), it.prev.okRep ? 'is-good' : 'is-bad'));
     b1.append(nums);
+    // 段 I2b：施策が無かった・少なかった原因（見出し・大きな札・数字のチップ）
+    if (it.why) {
+      const cz = h('div', `isl-bm-cause is-${it.why.k}`);
+      cz.append(h('small', 'isl-bm-klab', t('原因', 'Cause')), h('b', 'isl-bm-kbig', causeName(it.why)));
+      const cc = h('div', 'isl-bm-nums');
+      for (const x of causeChips(it.why)) cc.append(chip(x));
+      cz.append(cc);
+      b1.append(cz);
+    }
     card.append(b1);
     // 監査の指摘
     const al = auditLines(it);
@@ -219,6 +233,8 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
     // ② 来期の計画
     const b2 = block('isl-bm-b2', t('② 来期の計画', '② Plan'), planLine(it));
     if (it.plan.moves.length) b2.append(h('small', 'isl-bm-dim', t(`次の施策：${it.plan.moves.join('・')}`, `Next: ${it.plan.moves.join(', ')}`)));
+    // 段 I2b：来期の打ち手（パネルを開く・従業員の上限）。承認でその場で開く
+    if (it.lever) b2.append(leverEl(it, it.lever, pick));
     const hint = h('small', 'isl-bm-hint');
     const raiseOk = canRaise(it);
     b2.append(
@@ -230,10 +246,15 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
       ),
       hint,
     );
+    if (!raiseOk) b2.append(h('small', 'isl-bm-dim isl-bm-fhint', forecastHint(it.lever, it.why)));
     card.append(b2);
     // ③ 必要予算
     const b3 = block('isl-bm-b3', t('③ 必要予算', '③ Budget'), askLine(it));
     b3.append(options([0, 1, 2].map((x) => budgetOptText(it, x)), it.rec.budget, () => pick.budget, (v) => ((pick.budget = v as BoardPick['budget']), upd())));
+    // 段 I2b：会社の余力のメーター（選んだ額で動く）・推奨の理由
+    const slack = h('div', 'isl-bm-slack');
+    const why3 = h('small', 'isl-bm-recwhy');
+    if (it.kind === 'dept') b3.append(slack, why3);
     card.append(b3);
     // ④ その他の要求
     const ol = otherLine(it);
@@ -262,6 +283,10 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
     }
     // 目標の重さの見込み（士気）
     function upd() {
+      if (it.kind === 'dept') {
+        drawSlack(slack, s, it, pick);
+        why3.textContent = t('推奨の理由：', 'Why: ') + budgetWhy(it, coLive(s, A!.co));
+      }
       const v = moraleHint(it, pick);
       hint.textContent = v ? t(`${heroNm(it.hero)}の士気の目標 ${v > 0 ? '+' : '−'}${Math.abs(Math.round(v))}（目標の重さ）`, `${heroNm(it.hero)}’s morale target ${v > 0 ? '+' : '−'}${Math.abs(Math.round(v))}`) : '';
       hint.hidden = !v;
@@ -423,10 +448,88 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
     hooks.done();
   }
 
+  /** 段 I2b：来期の打ち手のカード（何を・効き目・費用・部長の好み）と、承認・見送るの選択 */
+  function leverEl(it: BoardItem, L: Lever, pick: BoardPick): HTMLElement {
+    const box = h('div', `isl-bm-lever is-${L.k}`);
+    const top = h('div', 'isl-bm-lhead');
+    top.append(h('small', 'isl-bm-klab', L.k === 'budget' ? t('来期の打ち手（③ の増額）', 'Next move (raise in ③)') : t('来期の打ち手', 'Next move')));
+    for (const x of styleTags(styleOfHero(it.hero))) top.append(h('span', 'isl-bm-style', x));
+    box.append(top);
+    const big = h('div', 'isl-bm-lbig');
+    if (L.k === 'panel') {
+      big.append(h('b', 'isl-bm-lname', t(`『${L.nm}』${L.lv ? 'の強化' : ''}`, `“${L.nm}”${L.lv ? ' upgrade' : ''}`)));
+      const num = h('div', 'isl-bm-lnum');
+      num.append(h('b', '', t(`+${fmt1(L.units)} 個/月`, `+${fmt1(L.units)}/mo`)), h('small', '', t(`${STAGE_JA[L.stage]()}（${L.now ? 'いまの詰まり' : '次の詰まり'}）・月 +${g(L.val)}`, `${STAGE_JA[L.stage]()} (${L.now ? 'bottleneck now' : 'next bottleneck'}) · +${g(L.val)}/mo`)));
+      big.append(num);
+      const preJa = L.pre.map((x) => t(`『${x}』`, `“${x}”`)).join(t('・', ', '));
+      if (L.pre.length) box.append(big, h('small', 'isl-bm-dim', t(`前提のパネル：${preJa} から順に開く`, `Opens ${preJa} first`)));
+      else box.append(big);
+    } else if (L.k === 'crew') {
+      big.append(h('b', 'isl-bm-lname', t(`従業員の上限 ${L.cap} 人`, `Staff cap ${L.cap}`)));
+      const num = h('div', 'isl-bm-lnum');
+      num.append(h('b', '', t(`+${L.add} 人`, `+${L.add}`)), h('small', '', t(`足りない人手 ${L.lab} 人日を埋める`, `Covers ${L.lab} person-days`)));
+      big.append(num);
+      box.append(big);
+    } else {
+      big.append(h('b', 'isl-bm-lname', `「${L.nm}」`));
+      const num = h('div', 'isl-bm-lnum');
+      num.append(h('b', '', t(`月 ${g(L.amt)}`, `${g(L.amt)}/mo`)), h('small', '', L.val > 0 ? t(`見込み +${g(L.val)}`, `Worth +${g(L.val)}`) : t('打つのに要る予算', 'Budget to run it')));
+      big.append(num);
+      box.append(big);
+      return box;
+    }
+    const rec = it.rec.lever ?? 0;
+    box.append(options(leverOpts(L), rec, () => pick.lever ?? rec, (v) => (pick.lever = v as 0 | 1)), h('small', 'isl-bm-recwhy', t('推奨の理由：', 'Why: ') + leverWhy(s, L, rec)));
+    return box;
+  }
+
   if (k > 0) speaker();
   else intro();
   return true;
 }
+
+const fmt1 = (v: number) => (v >= 10 ? String(Math.round(v)) : String(Math.round(v * 10) / 10));
+/**
+ * 段 I2b：会社の余力のメーター（UI7d のスライドの予算のメーターと同じ流儀）：上に 3 つの数（見出し・大きな数字・小さなラベル）、
+ * 下に区切りの棒（ほかの部門の予算・この部門・増額・余力。月の利益を超えた分は斜線）。選んだ額で描き直す
+ */
+function drawSlack(el: HTMLElement, s: P1State, it: BoardItem, pick: BoardPick) {
+  el.replaceChildren();
+  // 余力は、先に決めた人の予算を入れた「いま」の値（この人の分は、まだ決める前の額）
+  const co = coLive(s, boardOf(s).agenda?.co);
+  const v = budgetOpts(it)[pick.budget];
+  const d = v - it.ask.cur;
+  const caps = co.caps + d;
+  const left = co.earn - caps;
+  const kp = h('div', 'isl-bm-mk');
+  const cell = (lab: string, big: string, sub: string, cls = '') => {
+    const c = h('div', `isl-bm-mkc ${cls}`);
+    c.append(h('small', '', lab), h('b', '', big), h('small', '', sub));
+    kp.append(c);
+  };
+  cell(t('会社の余力（月）', 'Company slack (per month)'), g(left), d ? t(`いま ${g(co.slack)} から ${d > 0 ? '増額' : '減額'} ${g(Math.abs(d))}`, `now ${g(co.slack)}, ${d > 0 ? 'raise' : 'cut'} ${g(Math.abs(d))}`) : t('あと月これだけ増やしても、月の利益の内', 'How much more fits within monthly profit'), `is-main ${left < 0 ? 'is-bad' : 'is-good'}`);
+  const r0 = co.earn > 0 ? Math.round((co.caps / co.earn) * 100) : null;
+  const r1 = co.earn > 0 ? Math.round((caps / co.earn) * 100) : null;
+  cell(t('全部門の予算', 'All budgets'), r1 == null ? t('利益なし', 'No profit') : t(`利益の ${r1}%`, `${r1}% of profit`), r0 != null && r0 !== r1 ? t(`いま ${r0}% ・月 ${g(caps)}`, `now ${r0}% · ${g(caps)}/mo`) : t(`月 ${g(caps)}`, `${g(caps)}/mo`), r1 != null && r1 > 100 ? 'is-bad' : '');
+  if (it.left != null) cell(t('今期の予算の残り', 'Unspent this quarter'), g(it.left), t('繰り越さない（会社の資金に残る）', 'Not carried over (stays in cash)'));
+  el.append(kp);
+  const total = Math.max(co.earn, caps, 1);
+  const mine = Math.min(v, it.ask.cur);
+  el.append(
+    segBar(
+      [
+        { v: Math.max(0, co.caps - it.ask.cur), cls: 'is-used', lab: t(`ほかの部門 ${g(Math.max(0, co.caps - it.ask.cur))}`, `Others ${g(Math.max(0, co.caps - it.ask.cur))}`) },
+        { v: mine, cls: 'is-mine', lab: t(`この部門 ${g(mine)}`, `This ${g(mine)}`) },
+        ...(d > 0 ? [{ v: d, cls: 'is-up', lab: t(`増額 ${g(d)}`, `Raise ${g(d)}`) }] : []),
+        ...(left > 0 ? [{ v: left, cls: 'is-left2', lab: t(`余力 ${g(left)}`, `Slack ${g(left)}`) }] : [{ v: -left, cls: 'is-over', lab: t(`利益を超える ${g(-left)}`, `Over profit ${g(-left)}`) }]),
+      ],
+      total,
+      { at: Math.max(0, co.earn), lab: t(`月の利益 ${g(co.earn)}（部門の予算を使う前）`, `Monthly profit ${g(co.earn)} (before budgets)`) },
+    ),
+  );
+  if (d > 0 && left > 0) el.append(h('small', 'isl-bm-dim', t(`この増額は${ofSlack(d, co.slack)}`, `This raise is ${ofSlack(d, co.slack)}`)));
+}
+
 
 /** 発表の 1 つの段（見出し・ひと言） */
 function block(cls: string, title: string, say: string): HTMLElement {

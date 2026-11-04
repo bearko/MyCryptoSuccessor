@@ -22,7 +22,7 @@ export const P2_OFF = { fit: false, duo: false };
 export const FIT_KEYS = ['strategy', 'logistics', 'sales', 'marketing', 'support', 'systems', 'rnd', 'legal', 'hr', 'general', 'accounting', 'sector_head', 'shop', 'craft', 'buyer', 'digger'] as const;
 export type FitKey = (typeof FIT_KEYS)[number];
 export type Grade = 'S' | 'A' | 'B' | 'C' | 'D';
-const FIT = fitRaw as { k: string[]; g: Record<string, string>; best: Record<string, number[]> };
+const FIT = fitRaw as { k: string[]; g: Record<string, string>; best: Record<string, number[]>; st?: Record<string, string> };
 
 /** 調査のある id（レプリカはオリジナルへ。名前が同じものだけ）。無ければ null */
 const baseCache = new Map<number, number | null>();
@@ -66,6 +66,38 @@ export const fitDept = (hero: number | undefined, d: DeptId) => fitMul(hero, d);
 export const fitTask = (hero: number | undefined, task: Task) => fitMul(hero, TASK_FIT[task]);
 /** 入り口 3：セクター長の売上の倍率（model.ts の runSector の rate）に足す（倍率 − 1） */
 export const fitSector = (hero: number | undefined) => fitMul(hero, 'sector_head') - 1;
+
+// ---------------------------------------------------------------- 施策の好み（段 I2b）
+
+/**
+ * 施策の好み（経営会議の部長の「来期の計画」の選び方と言い回し）：atk 攻め +1／守り −1・spd 速さ +1／堅実 −1・odd 奇策（新しい手）+1／正攻法 −1・grow 人を育てる 1。
+ * 調査のあるヒーローは fit.json の st（scripts/heroes/build.mjs の styleOf：調査の性格・強み・弱み・口調の言葉から）。調査の無いヒーローは口調の型（persona.ts）から
+ */
+export interface HeroStyle {
+  atk: -1 | 0 | 1;
+  spd: -1 | 0 | 1;
+  odd: -1 | 0 | 1;
+  grow: 0 | 1;
+}
+/** 調査の無いヒーロー：口調の型ごとの好み（4 字。st と同じ書き方） */
+const TONE_STYLE: Record<string, string> = { scholar: '-SO-', warrior: 'AF--', leader: 'A--N', polite: 'D-O-', cheer: 'AFK-', merchant: '--K-', easy: 'DS--', quiet: '-S--' };
+export function styleCode(hero: number, tone: string): string {
+  const b = baseId(hero);
+  return (b != null ? FIT.st?.[String(b)] : null) ?? TONE_STYLE[tone] ?? '----';
+}
+export function parseStyle(code: string): HeroStyle {
+  const c = (k: number) => code[k] ?? '-';
+  return { atk: c(0) === 'A' ? 1 : c(0) === 'D' ? -1 : 0, spd: c(1) === 'F' ? 1 : c(1) === 'S' ? -1 : 0, odd: c(2) === 'K' ? 1 : c(2) === 'O' ? -1 : 0, grow: c(3) === 'N' ? 1 : 0 };
+}
+/** 好みの札（画面：「攻め・速さ・新しい手・人を育てる」。どちらでもない軸は出さない） */
+export function styleTags(st: HeroStyle): string[] {
+  const out: string[] = [];
+  if (st.atk) out.push(st.atk > 0 ? t('攻め', 'Bold') : t('守り', 'Careful'));
+  if (st.spd) out.push(st.spd > 0 ? t('速さ', 'Fast') : t('堅実', 'Steady'));
+  if (st.odd) out.push(st.odd > 0 ? t('新しい手', 'Novel') : t('正攻法', 'Orthodox'));
+  if (st.grow) out.push(t('人を育てる', 'Grows people'));
+  return out;
+}
 
 /** 欄の名前 */
 export function fitName(k: FitKey): string {
