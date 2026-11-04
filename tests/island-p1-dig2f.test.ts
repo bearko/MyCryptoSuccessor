@@ -303,7 +303,7 @@ describe('3. 研究への寄付（お金で RP・回数の上限なし）', () =
     donate(s);
     donate(s);
     const back = deserializeP1(serializeP1(s))!;
-    expect([back.v, donations(back), nextDonateCost(back)]).toEqual([27, 2, 26400]);
+    expect([back.v, donations(back), nextDonateCost(back)]).toEqual([28, 2, 26400]);
   });
 });
 

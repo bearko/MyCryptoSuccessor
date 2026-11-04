@@ -776,7 +776,7 @@ describe('調査依頼状', () => {
 describe('セーブ', () => {
   it('新しいゲームは版 6・30 RP。発掘の進み・許可・研究ノートはセーブに残る', () => {
     const s = run(site());
-    expect([s.v, s.rp]).toEqual([27, 30]);
+    expect([s.v, s.rp]).toEqual([28, 30]);
     breakCell(s, 0, 0);
     endRun(s);
     s.research[1011] = 3;
