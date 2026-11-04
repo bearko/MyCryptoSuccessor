@@ -6,7 +6,8 @@
  */
 import { t } from '../../i18n';
 import { DEPT, POLICY, type DeptId } from './data';
-import { RISK_ICON, RISK_LV, type BudgetBar, type Fall, type Kpi, type Meter, type StageMap } from './slides';
+import { RISK_ICON, RISK_LV, type BudgetBar, type Fall, type Kpi, type LineMark, type Meter, type StageMap } from './slides';
+import type { StoreChart } from './storefc';
 import type { Brief, Risk } from './brief';
 
 type CoFunds = Brief['co'];
@@ -269,7 +270,7 @@ const sv = <K extends keyof SVGElementTagNameMap>(tag: K, at: Record<string, str
  * 累計の折れ線（このまま：灰の点線・承認後：金の実線）。線の右端に名前と値（直接ラベル）。指を置くと月の値（十字の線と吹き出し）。
  * 幅は置かれた場所に合わせて描き直す（字はいつも 12px）
  */
-export function lineChart(now: number[], after: number[]): HTMLElement {
+export function lineChart(now: number[], after: number[], marks: LineMark[] = []): HTMLElement {
   const wrap = h('div', 'isl-sl-line');
   const svg = sv('svg', { role: 'img', 'aria-label': t(`${POLICY.months} か月の利益の累計：このまま ${fmt(now[now.length - 1])} G、承認後 ${fmt(after[after.length - 1])} G`, `Cumulative profit over ${POLICY.months} months: as is ${fmt(now[now.length - 1])} G, after ${fmt(after[after.length - 1])} G`) });
   const tip = h('div', 'isl-sl-tip');
@@ -308,6 +309,14 @@ export function lineChart(now: number[], after: number[]): HTMLElement {
       svg.append(tx);
     }
     const path = (vs: number[]) => vs.map((v, k) => `${k ? 'L' : 'M'}${px(k).toFixed(1)},${py(v).toFixed(1)}`).join('');
+    // 段 UI7f：倉庫があふれる日（縦の点線と札。k か月目の累計は k か月目の終わり＝(k+1)×30 日目）
+    marks.forEach((mk, i) => {
+      const x = px(Math.max(0, Math.min(n - 1, mk.day / 30 - 1)));
+      svg.append(sv('line', { x1: x, x2: x, y1: T, y2: H - B, class: `isl-sl-mark ${mk.cls}` }));
+      const tx = sv('text', { x: x > W / 2 ? x - 4 : x + 4, y: T + 12 + i * 15, 'text-anchor': x > W / 2 ? 'end' : 'start', class: `isl-sl-mtxt ${mk.cls}` });
+      tx.textContent = `${mk.cls === 'is-now' ? '⚠ ' : ''}${mk.label}`;
+      svg.append(tx);
+    });
     svg.append(sv('path', { d: path(now), class: 'isl-sl-lnow' }), sv('path', { d: path(after), class: 'isl-sl-lafter' }));
     // 右端の名前と値（近すぎたら離す。同じなら 1 つに）
     if (Math.abs(now[n - 1] - after[n - 1]) < 0.5) {
@@ -370,6 +379,169 @@ export function lineChart(now: number[], after: number[]): HTMLElement {
   requestAnimationFrame(draw);
   return wrap;
 }
+// ---------------------------------------------------------------- 段 UI7f：倉庫のグラフ（月末の中身の棒・容量の基準線・同じペースの予想）
+
+let patSeq = 0;
+/**
+ * 倉庫の中身の棒グラフ：実績（月末の記録）は塗り、予想は薄い塗り＋斜線。素材（青・塗り）と商品（赤紫・点の模様）を積み上げ。
+ * 容量（いま）の基準線（白の実線）と承認後の容量（金の点線）、承認後の中身の予想（金の線と点）、あふれる月の札（⚠）。指を置くと月の数
+ */
+export function storeChartEl(c: StoreChart): HTMLElement {
+  const wrap = h('div', 'isl-sl-store');
+  const cur = [...c.bars].reverse().find((b) => !b.fc);
+  const svg = sv('svg', {
+    role: 'img',
+    'aria-label': t(
+      `倉庫の中身：いま ${fmt(cur ? cur.mats + cur.goods : 0)} 個・容量 ${fmt(c.cap0)} 個。${c.over0 != null ? `${c.bars[c.over0].label} か月目にあふれる予想` : 'あふれない予想'}`,
+      `Storage: ${fmt(cur ? cur.mats + cur.goods : 0)} of ${fmt(c.cap0)}. ${c.over0 != null ? `Forecast to fill in month ${c.bars[c.over0].label}` : 'Not forecast to fill'}`,
+    ),
+  });
+  const tip = h('div', 'isl-sl-tip');
+  tip.hidden = true;
+  wrap.append(svg, tip);
+  const id = `isl-st${++patSeq}`;
+  const draw = () => {
+    const W = Math.max(240, Math.round(wrap.clientWidth || 300));
+    const H = W < 420 ? 176 : 196;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('width', String(W));
+    svg.setAttribute('height', String(H));
+    svg.replaceChildren();
+    // 模様：商品の点・予想の斜線
+    const defs = sv('defs', {});
+    const dots = sv('pattern', { id: `${id}d`, width: 5, height: 5, patternUnits: 'userSpaceOnUse' });
+    dots.append(sv('circle', { cx: 2.5, cy: 2.5, r: 1, class: 'isl-sl-pdot' }));
+    const hatch = sv('pattern', { id: `${id}h`, width: 6, height: 6, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' });
+    hatch.append(sv('line', { x1: 0, y1: 0, x2: 0, y2: 6, class: 'isl-sl-phatch' }));
+    defs.append(dots, hatch);
+    svg.append(defs);
+    const L = 40;
+    const R = 6;
+    const T = 22;
+    const B = 20;
+    const tot = (b: (typeof c.bars)[number]) => b.mats + b.goods;
+    const hi = Math.max(c.cap0, c.cap1 ?? 0, ...c.bars.map((b) => Math.max(tot(b), b.after ?? 0))) * 1.08 || 1;
+    const py = (v: number) => T + (H - T - B) * (1 - v / hi);
+    const n = c.bars.length;
+    const bw = (W - L - R) / n;
+    const cx = (k: number) => L + bw * (k + 0.5);
+    const barW = Math.max(8, Math.min(34, bw * 0.62));
+    for (const f of [0, 0.5, 1]) {
+      const v = hi * f;
+      svg.append(sv('line', { x1: L, x2: W - R, y1: py(v), y2: py(v), class: 'isl-sl-grid' }));
+      const tx = sv('text', { x: L - 4, y: py(v) + 4, 'text-anchor': 'end', class: 'isl-sl-axis' });
+      tx.textContent = short(v);
+      svg.append(tx);
+    }
+    // 実績と予想の境目
+    const first = c.bars.findIndex((b) => b.fc);
+    if (first > 0) {
+      const x = L + bw * first;
+      svg.append(sv('line', { x1: x, x2: x, y1: T - 14, y2: H - B, class: 'isl-sl-fcline' }));
+      const a = sv('text', { x: x + 4, y: T - 8, class: 'isl-sl-axis' });
+      a.textContent = t('予想 →', 'Forecast →');
+      const b = sv('text', { x: x - 4, y: T - 8, 'text-anchor': 'end', class: 'isl-sl-axis' });
+      b.textContent = t('← 実績', '← Actual');
+      svg.append(a, b);
+    }
+    // 棒（素材の上に 2px 空けて商品）
+    c.bars.forEach((b, k) => {
+      const x = cx(k) - barW / 2;
+      const y0 = py(0);
+      const ym = py(b.mats);
+      const yg = py(b.mats + b.goods);
+      const fc = b.fc ? ' is-fc' : '';
+      if (b.mats > 0) svg.append(sv('rect', { x, y: ym, width: barW, height: Math.max(1, y0 - ym), rx: 2, class: `isl-sl-smat${fc}` }));
+      if (b.goods > 0) {
+        const top = Math.min(yg, ym - 2);
+        const hgt = Math.max(1, ym - 2 - top);
+        svg.append(sv('rect', { x, y: top, width: barW, height: hgt, rx: 2, class: `isl-sl-sgood${fc}` }));
+        svg.append(sv('rect', { x, y: top, width: barW, height: hgt, rx: 2, fill: `url(#${id}d)`, class: 'isl-sl-sover' }));
+      }
+      if (b.fc) svg.append(sv('rect', { x, y: yg, width: barW, height: Math.max(1, y0 - yg), rx: 2, fill: `url(#${id}h)`, class: 'isl-sl-sover' }));
+      const lab = sv('text', { x: cx(k), y: H - 5, 'text-anchor': 'middle', class: 'isl-sl-axis' });
+      lab.textContent = b.label;
+      svg.append(lab);
+    });
+    // 容量の基準線（いま：白の実線・名前は線の下）・承認後（金の点線・名前は線の上）
+    svg.append(sv('line', { x1: L, x2: W - R, y1: py(c.cap0), y2: py(c.cap0), class: 'isl-sl-cap' }));
+    const c0 = sv('text', { x: W - R, y: py(c.cap0) + 14, 'text-anchor': 'end', class: 'isl-sl-captxt' });
+    c0.textContent = t(`容量 ${fmt(c.cap0)}`, `Capacity ${fmt(c.cap0)}`);
+    svg.append(c0);
+    if (c.cap1 != null) {
+      svg.append(sv('line', { x1: L, x2: W - R, y1: py(c.cap1), y2: py(c.cap1), class: 'isl-sl-cap1' }));
+      const c1 = sv('text', { x: W - R, y: py(c.cap1) - 5, 'text-anchor': 'end', class: 'isl-sl-captxt is-after' });
+      c1.textContent = t(`承認後の容量 ${fmt(c.cap1)}`, `After: ${fmt(c.cap1)}`);
+      svg.append(c1);
+    }
+    // 承認後の中身の予想（中身が変わる手だけ）
+    const pts = c.bars.map((b, k) => ({ b, k })).filter(({ b }) => b.after != null);
+    if (pts.length && first > 0) {
+      const p0 = { x: cx(first - 1), y: py(tot(c.bars[first - 1])) };
+      const d = [`M${p0.x.toFixed(1)},${p0.y.toFixed(1)}`, ...pts.map(({ b, k }) => `L${cx(k).toFixed(1)},${py(b.after!).toFixed(1)}`)].join('');
+      svg.append(sv('path', { d, class: 'isl-sl-lafter' }));
+      for (const { b, k } of pts) svg.append(sv('circle', { cx: cx(k), cy: py(b.after!), r: 4, class: 'isl-sl-dot2 is-after' }));
+    }
+    // あふれる月の札（⚠ と字。棒の上）
+    if (c.over0 != null) {
+      const k = c.over0;
+      const x = cx(k);
+      const yb = py(tot(c.bars[k]));
+      svg.append(sv('path', { d: `M${x - 5},${yb - 8}L${x + 5},${yb - 8}L${x},${yb - 2}Z`, class: 'isl-sl-overarw' }));
+      const tx = sv('text', { x: x > W * 0.6 ? x + barW / 2 : x - barW / 2, y: Math.max(T + 10, yb - 12), 'text-anchor': x > W * 0.6 ? 'end' : 'start', class: 'isl-sl-overtxt' });
+      tx.textContent = t(`⚠ ${c.bars[k].label} か月目にあふれる`, `⚠ Fills in month ${c.bars[k].label}`);
+      svg.append(tx);
+    }
+    // 指・マウスで月の数
+    const hit = sv('rect', { x: L, y: 0, width: W - L - R, height: H, fill: 'transparent' });
+    svg.append(hit);
+    const show = (clientX: number) => {
+      const r = svg.getBoundingClientRect();
+      const x = ((clientX - r.left) / Math.max(1, r.width)) * W;
+      const k = Math.max(0, Math.min(n - 1, Math.floor((x - L) / bw)));
+      const b = c.bars[k];
+      const head = b.fc ? t(`${b.label} か月目（予想）`, `Month ${b.label} (forecast)`) : b.label === t('いま', 'Now') ? t('いま', 'Now') : t(`${b.label} か月目の月末`, `End of month ${b.label}`);
+      const rows = [h('b', '', head), h('span', '', t(`素材 ${fmt(b.mats)}・商品 ${fmt(b.goods)}・計 ${fmt(tot(b))} / ${fmt(c.cap0)}`, `Materials ${fmt(b.mats)}, goods ${fmt(b.goods)}, total ${fmt(tot(b))} / ${fmt(c.cap0)}`))];
+      if (b.after != null || (b.fc && c.cap1 != null)) rows.push(h('span', 'is-after', t(`承認後 ${fmt(b.after ?? tot(b))} / ${fmt(c.cap1 ?? c.cap0)}`, `After ${fmt(b.after ?? tot(b))} / ${fmt(c.cap1 ?? c.cap0)}`)));
+      tip.replaceChildren(...rows);
+      tip.hidden = false;
+      tip.style.left = `${Math.min(55, Math.max(0, (cx(k) / W) * 100 - 20))}%`;
+    };
+    hit.addEventListener('pointermove', (e) => show((e as PointerEvent).clientX));
+    hit.addEventListener('pointerdown', (e) => show((e as PointerEvent).clientX));
+    hit.addEventListener('pointerleave', () => (tip.hidden = true));
+  };
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => draw()) : null;
+  ro?.observe(wrap);
+  requestAnimationFrame(draw);
+  return wrap;
+}
+/** 倉庫のグラフの凡例（塗り・模様・線の形と名前：色だけに頼らない）と、あふれる先の 1 行 */
+export function storeLegend(c: StoreChart): HTMLElement {
+  const e = h('div', 'isl-sl-legend isl-sl-slegend');
+  const key = (cls: string, lab: string) => {
+    const x = h('span', `isl-sl-key ${cls}`);
+    x.append(h('i', ''), document.createTextNode(lab));
+    e.append(x);
+  };
+  key('is-mat', t('素材', 'Materials'));
+  key('is-good', t('商品', 'Goods'));
+  if (c.bars.some((b) => b.fc)) key('is-fc', t('予想', 'Forecast'));
+  key('is-cap', t('容量', 'Capacity'));
+  if (c.cap1 != null) key('is-cap1', t('承認後の容量', 'Capacity after'));
+  if (c.bars.some((b) => b.after != null)) key('is-after', t('承認後の中身', 'After'));
+  return e;
+}
+/** あふれる先の 1 行（このまま・承認後。グラフの下） */
+export function storeNote(c: StoreChart): string {
+  const pm = Math.round(c.perMonth);
+  const pace = c.src === 'none' ? t('記録がまだ無い', 'no records yet') : t(`同じペース（月 ${pm >= 0 ? '+' : '−'}${fmt(pm)} 個${c.src === 'hist' ? '・月末の記録から' : '・先月の流れから'}）`, `same pace (${pm >= 0 ? '+' : '−'}${fmt(pm)}/mo${c.src === 'hist' ? ', from month-end records' : ', from last month’s flow'})`);
+  const now = c.days0 === 0 ? t('もうあふれている', 'already full') : c.over0 != null ? t(`このまま：${c.bars[c.over0].label} か月目にあふれる`, `As is: fills in month ${c.bars[c.over0].label}`) : t('このまま：グラフの間はあふれない', 'As is: doesn’t fill in this window');
+  const hasAfter = c.cap1 != null || c.bars.some((b) => b.after != null);
+  const aft = !hasAfter ? '' : c.over1 != null ? t(`／承認後：${c.bars[c.over1].label} か月目`, ` / After: month ${c.bars[c.over1].label}`) : t('／承認後：あふれない', ' / After: doesn’t fill');
+  return t(`${now}${aft}（${pace}）`, `${now}${aft} (${pace})`);
+}
+
 /** 折れ線の凡例（線の形と名前：色だけに頼らない） */
 export function lineLegend(): HTMLElement {
   const e = h('div', 'isl-sl-legend');

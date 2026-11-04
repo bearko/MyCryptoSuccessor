@@ -459,7 +459,14 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
     if (L.k === 'panel') {
       big.append(h('b', 'isl-bm-lname', t(`『${L.nm}』${L.lv ? 'の強化' : ''}`, `“${L.nm}”${L.lv ? ' upgrade' : ''}`)));
       const num = h('div', 'isl-bm-lnum');
-      num.append(h('b', '', t(`+${fmt1(L.units)} 個/月`, `+${fmt1(L.units)}/mo`)), h('small', '', t(`${STAGE_JA[L.stage]()}（${L.now ? 'いまの詰まり' : '次の詰まり'}）・月 +${g(L.val)}`, `${STAGE_JA[L.stage]()} (${L.now ? 'bottleneck now' : 'next bottleneck'}) · +${g(L.val)}/mo`)));
+      // 段 I2c：税・経費の手は、月の減り（税・経費の内訳）を大きく
+      if (L.save && L.units < 0.5)
+        num.append(h('b', '', t(`−${g(L.save.total)}/月`, `−${g(L.save.total)}/mo`)), h('small', '', t(`税 −${g(L.save.tax)}・経費 −${g(L.save.cost)}（税引き後で合計）`, `Tax −${g(L.save.tax)} · costs −${g(L.save.cost)} (total after tax)`)));
+      else
+        num.append(
+          h('b', '', t(`+${fmt1(L.units)} 個/月`, `+${fmt1(L.units)}/mo`)),
+          h('small', '', t(`${STAGE_JA[L.stage]()}（${L.now ? 'いまの詰まり' : '次の詰まり'}）・月 +${g(L.val)}${L.save ? `（税・経費 −${g(L.save.total)} を含む）` : ''}`, `${STAGE_JA[L.stage]()} (${L.now ? 'bottleneck now' : 'next bottleneck'}) · +${g(L.val)}/mo${L.save ? ` (incl. tax & costs −${g(L.save.total)})` : ''}`)),
+        );
       big.append(num);
       const preJa = L.pre.map((x) => t(`『${x}』`, `“${x}”`)).join(t('・', ', '));
       if (L.pre.length) box.append(big, h('small', 'isl-bm-dim', t(`前提のパネル：${preJa} から順に開く`, `Opens ${preJa} first`)));

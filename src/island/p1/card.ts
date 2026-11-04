@@ -10,7 +10,7 @@
  * 仕様は docs/ISLAND_PHASE1.md「提案・報告のカード」「ヒーローの個性」。数字は data.ts の CARD。
  */
 import { t } from '../../i18n';
-import { ADS, CARD, CLEAR, DELEG, DEPT, INVEST, skuParts, MATS, MORALE, P1B, PAY, PRODUCT, SELF_RUN, SKILL, TAX, type DeptId, type InqKind, type ReplyKind, type Sku, type Task } from './data';
+import { ADS, CARD, CLEAR, DELEG, DEPT, INVEST, skuParts, MATS, MORALE, P1B, PAY, POLICY, PRODUCT, SELF_RUN, SKILL, TAX, type DeptId, type InqKind, type ReplyKind, type Sku, type Task } from './data';
 import {
   actOk,
   actName,
@@ -38,7 +38,8 @@ import { apologize, bestReply, csOn, noticeCost, refundCost, reply, replyGain, r
 import { quitLeft, talk, talkGain } from './hr';
 import { afterOf, applyPlan, baseOf, planOf, type Plan, type PlanRes } from './plan';
 import { actTheme, valueOfPlan } from './brief';
-import { jammed } from './proj';
+import { jammed, prodOf } from './proj';
+import { storeFc, whenFull } from './storefc';
 import { tiltOf } from './policy';
 import { clearFrees, clearInfo, clearUnits, fromStock, storeFix, storeFull, type StoreFix } from './stock';
 import { dedRate, quarterNow, taxOn, taxPlan } from './acct';
@@ -1333,9 +1334,20 @@ function core(s: P1State, c: Card): string {
       // 段 UI7e：結びは画面の推奨（shownRec：経営方針の価値がいちばん大きい手）に合わせる（言うことと推奨を食い違わせない）
       const rk = c.choices[shownRec(s, c)]?.act;
       const ra = rk?.k === 'do' ? rk.a : null;
+      // 段 UI7f：カードのグラフ（月末の倉庫の中身と、同じペースの予想）を指して、あふれる先を言う
+      const F = jammed(s) || i.pct >= 100 ? null : storeFc(s);
+      const pct = t(`倉庫が[[ ${i.pct}%]]`, `storage is [[${i.pct}%]] full`);
+      const when = F?.days != null ? whenFull(F.days) : '';
+      const stop = F && F.cut >= prodOf(s) - 0.5 ? t('調達も製造も止まる', 'buying and crafting stop') : t('作る数が減る', 'output drops');
       if (ra?.k === 'useup') return t(`${head}。[[いまの素材で作って]]減らそう`, `${head}. Let’s [[craft from what we have]]`);
       if (ra?.k === 'clear') return t(`${head}。在庫を優先して売りさばこう`, `${head}. Let’s clear stock first`);
-      if (!ra || !storeAct(ra) || !tail) return jammed(s) ? t(`${head}。どの手も見合わないので、[[いまはこのまま]]`, `${head}. No move pays off — [[keep as is for now]]`) : t(`${head}。まだ[[調達も製造も回る]]ので、いまはこのまま様子を見よう`, `${head}. [[Buying and crafting still run]], so let’s keep as is for now`);
+      if (!ra || !storeAct(ra) || !tail) {
+        if (jammed(s)) return t(`${head}。どの手も見合わないので、[[いまはこのまま]]`, `${head}. No move pays off — [[keep as is for now]]`);
+        if (F && F.days == null && F.src !== 'none') return t(`${pct}。グラフのとおり、このペースなら[[ ${POLICY.months} か月はあふれない]]。いまはこのまま様子を見よう`, `${pct}. As the chart shows, at this pace it [[won’t fill for ${POLICY.months} months]] — let’s keep as is`);
+        if (F && F.days != null) return t(`${pct}。このペースだと[[${when}]]あふれるが、損は倉庫の費用より小さい。いまはこのまま`, `${pct}. It fills [[${when}]], but the loss is smaller than the cost — keep as is for now`);
+        return t(`${head}。まだ[[調達も製造も回る]]ので、いまはこのまま様子を見よう`, `${head}. [[Buying and crafting still run]], so let’s keep as is for now`);
+      }
+      if (F && F.days != null) return t(`${pct}。グラフのとおり、このペースだと[[${when}]]あふれて${stop}。${tail}`, `${pct}. As the chart shows, at this pace it fills [[${when}]] and ${stop}. ${tail[0].toUpperCase()}${tail.slice(1)}`);
       return t(`${head}。満杯だと[[調達も製造も止まる]]。${tail}`, `${head}. When it’s full, [[buying and crafting stop]]. ${tail[0].toUpperCase()}${tail.slice(1)}`);
     }
     case 'staff':

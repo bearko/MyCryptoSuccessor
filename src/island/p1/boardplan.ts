@@ -11,7 +11,7 @@
  *   いくつかの良い手から、部長のヒーローの施策の好み（voice.ts の HeroStyle：攻め／守り・速さ／堅実・新しい手／正攻法・人を育てる）で 1 つ選び、言い回しも寄せる。
  */
 import { t } from '../../i18n';
-import { ADS, BOARD, BUDGET, DEPT_SKILLS, SKILL, isResearch, levelCost, rpCost, type DeptId, type Skill } from './data';
+import { ADS, BOARD, BUDGET, DEPT_SKILLS, MONEY_LEVER, SKILL, isResearch, levelCost, rpCost, type DeptId, type Skill } from './data';
 import { amountOf, budgetDepts, crewWageMonth, deptBudget, headReserve } from './budget';
 import { headOf, unitMargin } from './deleg';
 import { pl } from './company';
@@ -20,6 +20,7 @@ import { bottleneck, gainSkill, has, levelLock, levelUp, learn, lvOf, myShops, s
 import { parseStyle, styleCode, type HeroStyle } from './voice';
 import { toneOf } from './persona';
 import { TALK_MAX, talkLen } from './mine';
+import { moneyGain, payMonths, payOk, type MoneyGain } from './acctgain';
 
 /** セリフの芯は、社長の呼び方を付けても 60 字に収まる長さから選ぶ（長い名前の手は、言い回しを短くしていく） */
 const CORE_MAX = TALK_MAX - 6;
@@ -32,16 +33,16 @@ export type Cause =
   | { k: 'budget'; cost: number; room: number; need: number; nm: string; val: number }
   | { k: 'labor'; lab: number; cap: number }
   | { k: 'cash'; reserve: number }
-  | { k: 'lock'; nm: string; pre: string[]; stage: Stage; units: number }
+  | { k: 'lock'; nm: string; pre: string[]; stage: Stage; units: number; save?: number }
   | { k: 'busy'; n: number; of: number }
-  | { k: 'need'; stage: Stage }
+  | { k: 'need'; stage: Stage; best?: { nm: string; save: number; pay: number } }
   | { k: 'town'; why: 'dig' | 'legal' | 'site' | 'shop' };
 /**
  * 来期の打ち手：panel＝パネルを開く・強化する（ids の順に。最後が効き目の元。now＝いまの詰まりに効く・false は次の詰まりへの備え）・
  * crew＝従業員の上限を上げる・budget＝予算を増やす（③ 必要予算の増額の要求になる）
  */
 export type Lever =
-  | { k: 'panel'; ids: string[]; lv: boolean; nm: string; pre: string[]; stage: Stage; now: boolean; units: number; val: number; cost: number; rp: number }
+  | { k: 'panel'; ids: string[]; lv: boolean; nm: string; pre: string[]; stage: Stage; now: boolean; units: number; val: number; cost: number; rp: number; save?: MoneyGain }
   | { k: 'crew'; cap: number; add: number; lab: number; wage: number }
   | { k: 'budget'; amt: number; nm: string; val: number };
 /** 会社の余力（月）：earn＝部門の予算を使う前の月の稼ぎ・caps＝全部門の月の予算の合計・slack＝earn − caps・net＝月の資金の出入り・spent＝部門が使った額（月）・n＝はかった月の数 */
@@ -130,7 +131,10 @@ function baseOf(s: P1State) {
   baseMemo.set(s, x);
   return x;
 }
+/** 段 I2c：はかった税・経費の手のうち、いちばん早く元が取れるもの（打てなかった原因の数字。元が取れなくても残す） */
+const moneyBest = new WeakMap<P1State, { nm: string; save: number; pay: number }>();
 export function panelLevers(s: P1State, d: DeptId): Extract<Lever, { k: 'panel' }>[] {
+  if (d === 'accounting') moneyBest.delete(s);
   if (!myShops(s).length) return [];
   const { f0, out0, bn, next, margin } = baseOf(s);
   const out: Extract<Lever, { k: 'panel' }>[] = [];
@@ -169,13 +173,38 @@ export function panelLevers(s: P1State, d: DeptId): Extract<Lever, { k: 'panel' 
     const f1 = flowOf(c, sell1, c1);
     const nowU = outOf(f1) - out0;
     const nextU = next ? f1[next] - f0[next] : 0;
-    const now = nowU >= BOARD.lever.minUnits;
-    if (!now && !(nextU >= BOARD.lever.minUnits)) continue;
-    const units = now ? nowU : nextU;
-    const steps = [...pre.map((r) => SKILL[r]), k];
-    const cost = pre.reduce((a, r) => a + (isResearch(SKILL[r]) ? 0 : SKILL[r].cost), 0) + (lv ? levelCost(k, lvOf(s, k.id) + 1) : isResearch(k) ? 0 : k.cost);
-    const rp = steps.reduce((a, x, i) => a + (i === steps.length - 1 && lv ? 0 : rpCost(x)), 0);
-    out.push({ k: 'panel', ids: [...pre, k.id], lv, nm: k.name, pre: pre.map(nm), stage: now ? bn : next!, now, units: Math.round(units * 10) / 10, val: Math.round(units * margin), cost, rp });
+    // 段 I2c：経理の手は、税・経費の減り（acctgain.ts。月の G）も数える。元が取れる（MONEY_LEVER.pay か月まで）なら、いま効く手
+    const steps0 = [...pre.map((r) => SKILL[r]), k];
+    const cost0 = pre.reduce((a, r) => a + (isResearch(SKILL[r]) ? 0 : SKILL[r].cost), 0) + (lv ? levelCost(k, lvOf(s, k.id) + 1) : isResearch(k) ? 0 : k.cost);
+    const rp0 = steps0.reduce((a, x, i) => a + (i === steps0.length - 1 && lv ? 0 : rpCost(x)), 0);
+    const mg = d === 'accounting' ? moneyGain(s, c) : null;
+    if (mg && mg.total > 0) {
+      const pay = payMonths(cost0, rp0, mg.total);
+      const cur = moneyBest.get(s);
+      if (!cur || pay < cur.pay) moneyBest.set(s, { nm: k.name, save: Math.round(mg.total), pay: Math.round(pay) });
+    }
+    const money = !!mg && mg.total > 0 && payOk(cost0, rp0, mg.total);
+    const flowNow = nowU >= BOARD.lever.minUnits;
+    const flowNext = nextU >= BOARD.lever.minUnits;
+    if (!flowNow && !flowNext && !money) continue;
+    const now = flowNow || money;
+    const units = flowNow ? nowU : flowNext ? nextU : 0;
+    const cost = cost0;
+    const rp = rp0;
+    out.push({
+      k: 'panel',
+      ids: [...pre, k.id],
+      lv,
+      nm: k.name,
+      pre: pre.map(nm),
+      stage: flowNow || !flowNext ? bn : next!,
+      now,
+      units: Math.round(units * 10) / 10,
+      val: Math.round(units * margin + (money ? mg!.total : 0)),
+      cost,
+      rp,
+      ...(money ? { save: { tax: Math.round(mg!.tax), cost: Math.round(mg!.cost), total: Math.round(mg!.total) } } : {}),
+    });
   }
   return out;
 }
@@ -242,12 +271,16 @@ export function diagnose(s: P1State, d: DeptId, acts: number, st: HeroStyle): { 
   const L = nowL ?? pickLever(levers, st, d);
   let why: Cause;
   if (d === 'marketing' && ADS.every((a) => (s.ads[a.id] ?? 0) > 0)) why = { k: 'busy', n: ADS.length, of: ADS.length };
-  else if (nowL) why = { k: 'lock', nm: nowL.nm, pre: nowL.pre, stage: nowL.stage, units: nowL.units };
+  else if (nowL) why = { k: 'lock', nm: nowL.nm, pre: nowL.pre, stage: nowL.stage, units: nowL.units, ...(nowL.save ? { save: nowL.save.total } : {}) };
   else if (!myShops(s).length) why = { k: 'town', why: 'shop' };
   else if (d === 'rnd') why = { k: 'town', why: 'dig' };
   else if (d === 'legal' && !legalHere(s)) why = { k: 'town', why: 'legal' };
   else if (d === 'sales') why = { k: 'town', why: 'site' };
-  else why = { k: 'need', stage: bottleneck(stageCaps(s)) };
+  else {
+    // 段 I2c：経理は、税・経費の手のいちばん良いもの（元が取れるまでの月数）を添える
+    const best = d === 'accounting' ? moneyBest.get(s) : undefined;
+    why = { k: 'need', stage: bottleneck(stageCaps(s)), ...(best ? { best } : {}) };
+  }
   return { why, lever: L };
 }
 
@@ -294,7 +327,7 @@ export function causeName(c: Cause): string {
     case 'busy':
       return t('手はもう打ってある', 'Already running');
     case 'need':
-      return t('手を打つ必要が無かった', 'No need to act');
+      return c.best ? t('元が取れる手が無い', 'No move pays back') : t('手を打つ必要が無かった', 'No need to act');
     case 'town':
       return t('この町では打てる手が無い', 'Nothing to do in this town');
   }
@@ -309,10 +342,15 @@ export function causeChips(c: Cause): string[] {
     case 'cash':
       return [t(`資金の取り置き ${g(c.reserve)}`, `Cash reserve ${g(c.reserve)}`)];
     case 'lock':
-      return [t(`足りないパネル：${c.pre.length ? c.pre.join('・') : c.nm}`, `Missing panel: ${c.pre.length ? c.pre.join(', ') : c.nm}`), t(`効き目 ${STAGE_JA[c.stage]()} 月 +${n1(c.units)} 個`, `+${n1(c.units)}/mo ${STAGE_JA[c.stage]()}`)];
+      return [
+        t(`足りないパネル：${c.pre.length ? c.pre.join('・') : c.nm}`, `Missing panel: ${c.pre.length ? c.pre.join(', ') : c.nm}`),
+        ...(c.units >= BOARD.lever.minUnits ? [t(`効き目 ${STAGE_JA[c.stage]()} 月 +${n1(c.units)} 個`, `+${n1(c.units)}/mo ${STAGE_JA[c.stage]()}`)] : []),
+        ...(c.save ? [t(`効き目 税・経費 月 −${g(c.save)}`, `Tax & costs −${g(c.save)}/mo`)] : []),
+      ];
     case 'busy':
       return [t(`流している宣伝 ${c.n} / ${c.of}`, `Ads running ${c.n}/${c.of}`)];
     case 'need':
+      if (c.best) return [t(`いちばん良い手『${c.best.nm}』月 −${g(c.best.save)}`, `Best move “${c.best.nm}” −${g(c.best.save)}/mo`), t(`元が取れるまで ${c.best.pay} か月`, `Pays back in ${c.best.pay} months`)];
       return [t(`いまの詰まり：${STAGE_JA[c.stage]()}`, `Bottleneck: ${STAGE_JA[c.stage]()}`), t('この部門の手の効き目 0', 'No effect from this division')];
     case 'town':
       return [c.why === 'dig' ? t('申請できる荒れ地 0', 'No site to permit') : c.why === 'legal' ? t('法務は Epic の町から', 'Legal opens in Epic towns') : c.why === 'site' ? t('伸びる出店の区画 0', 'No good site') : t('お店 0 軒', 'No shops')];
@@ -334,16 +372,24 @@ function causeBody(c: Cause): string {
     case 'cash':
       return head + t(`会社の資金の取り置き ${g(c.reserve)} を守り、止めました`, `I held back to keep the ${g(c.reserve)} reserve`);
     case 'lock':
+      if (c.save && c.units < BOARD.lever.minUnits) return head + t(`税と経費を月 ${g(c.save)} 減らす『${c.pre[0] ?? c.nm}』が未開放です`, `“${c.pre[0] ?? c.nm}”, worth ${g(c.save)}/mo in tax and costs, isn’t open`);
       return head + t(`詰まりの${STAGE_JA[c.stage]()}に効く『${c.pre[0] ?? c.nm}』が未開放です`, `“${c.pre[0] ?? c.nm}”, the fix for ${STAGE_JA[c.stage]()}, isn’t open`);
     case 'busy':
       return head + t(`宣伝は ${c.n} つとも流し続けています`, `all ${c.n} ads are already running`);
     case 'need':
+      if (c.best) return head + t(`税・経費の手は『${c.best.nm}』でも元を取るのに ${c.best.pay} か月。予算は温存しました`, `even “${c.best.nm}” takes ${c.best.pay} months to pay back, so I saved the budget`);
       return head + t(`詰まりは${STAGE_JA[c.stage]()}で、うちの手は効かず予算は温存しました`, `the bottleneck is ${STAGE_JA[c.stage]()}; our moves don’t touch it, so I saved the budget`);
     case 'town':
       return head + (c.why === 'dig' ? t('申請できる荒れ地がありませんでした', 'there was no site to permit') : c.why === 'legal' ? t('法務の手続きは Epic の町からです', 'legal work opens in Epic towns') : c.why === 'site' ? t('出店で伸びる区画がありませんでした', 'no site would grow sales') : t('お店がまだありません', 'there are no shops yet'));
   }
 }
 
+/** 打ち手の効き目の言い方：流れ（「製造が月 +3 個」）か、段 I2c の税・経費（「税と経費が月 4,200 G 減る」）。両方なら流れ・税と経費 */
+export function effOf(L: Extract<Lever, { k: 'panel' }>): string {
+  const flow = L.units >= BOARD.lever.minUnits ? t(`${STAGE_JA[L.stage]()}が月 +${n1(L.units)} 個`, `+${n1(L.units)}/mo ${STAGE_JA[L.stage]()}`) : '';
+  const money = L.save ? t(`税と経費が月 ${g(L.save.total)} 減る`, `tax and costs −${g(L.save.total)}/mo`) : '';
+  return [flow, money].filter(Boolean).join(t('・', ', ')) || flow;
+}
 /**
  * 来期の計画のひと言（打ち手から。部長の施策の好みで言い回しを寄せる）。芯だけ（heroLine に渡す）
  */
@@ -351,7 +397,7 @@ export function leverCore(L: Lever, st: HeroStyle): string {
   if (L.k !== 'panel') return fitCore(leverText(L, st), leverText(L, { atk: 0, spd: 0, odd: 0, grow: 0 }));
   // 長い名前：前提のパネルを外す → 好みの言い回しを外す → いちばん短い形
   const bare = { ...L, pre: [] };
-  return fitCore(leverText(L, st), leverText(bare, st), leverText(bare, { atk: 0, spd: 0, odd: 0, grow: 0 }), t(`『${L.nm}』を開き、${STAGE_JA[L.stage]()} 月 +${n1(L.units)} 個`, `Open “${L.nm}”: +${n1(L.units)}/mo`));
+  return fitCore(leverText(L, st), leverText(bare, st), leverText(bare, { atk: 0, spd: 0, odd: 0, grow: 0 }), t(`『${L.nm}』を開き、${effOf(L)}`, `Open “${L.nm}”: ${effOf(L)}`));
 }
 function leverText(L: Lever, st: HeroStyle): string {
   if (L.k === 'budget') {
@@ -361,7 +407,7 @@ function leverText(L: Lever, st: HeroStyle): string {
   }
   if (L.k === 'crew') return st.grow ? t(`従業員の上限を ${L.cap} 人に。人を入れて育て、手を止めません`, `raise the staff cap to ${L.cap}; I’ll hire and train them`) : t(`従業員の上限を ${L.cap} 人にしてください。足りない ${L.lab} 人日を埋めます`, `raise the staff cap to ${L.cap} to cover ${L.lab} person-days`);
   const pn = L.pre.length ? t(`『${L.pre[0]}』から『${L.nm}』`, `“${L.pre[0]}” then “${L.nm}”`) : `『${L.nm}』`;
-  const eff = t(`${STAGE_JA[L.stage]()}が月 +${n1(L.units)} 個`, `+${n1(L.units)}/mo ${STAGE_JA[L.stage]()}`);
+  const eff = effOf(L);
   const up = L.lv ? t('を強化し、', ' upgraded,') : t('を開き、', ' opened,');
   if (!L.now) return t(`次の詰まりの${STAGE_JA[L.stage]()}に備え、${pn}${up}${eff}`, `ahead of the next bottleneck: ${pn}${up} ${eff}`);
   if (st.atk > 0 && st.spd > 0) return t(`すぐ${pn}${up}${eff}。迷う暇はありません`, `${pn}${up} right now: ${eff}`);
@@ -377,6 +423,7 @@ export function noLeverCore(c: Cause | null): string {
   if (c?.k === 'cash') return t('資金が取り置きを上回る月に、止めた手から順に打ちます', 'I’ll restart the held moves as soon as cash clears the reserve');
   if (c?.k === 'town' && c.why === 'dig') return t('次の荒れ地が出たら、その月に許可を申請します', 'I’ll file a permit the month a new site opens');
   if (c?.k === 'town' && c.why === 'legal') return t('Epic の町に入ったら、特許と買収の打診から始めます', 'In an Epic town I’ll start with patents and offers');
+  if (c?.k === 'need' && c.best) return t(`売上と材料費が伸び、『${c.best.nm}』が ${MONEY_LEVER.pay} か月で元を取れるようになったら打ちます`, `I’ll run “${c.best.nm}” once costs grow enough to pay it back in ${MONEY_LEVER.pay} months`);
   return t('この部門の手は詰まりに効かないので、予算は会社に残し、詰まりが移ったらすぐ動きます', 'Our moves don’t touch the bottleneck; I’ll leave the budget with HQ until one does');
 }
 /** 目標の上乗せが押せないとき：何があれば見込みが出るか（1 行） */
@@ -384,11 +431,12 @@ export function forecastHint(L: Lever | null | undefined, c?: Cause | null): str
   if (!L) {
     if (c?.k === 'cash') return t('見込みを出すには：会社の資金が取り置きを上回ること', 'A forecast needs cash above the reserve');
     if (c?.k === 'town') return c.why === 'dig' ? t('見込みを出すには：申請できる荒れ地', 'A forecast needs a site to permit') : c.why === 'legal' ? t('見込みを出すには：Epic の町', 'A forecast needs an Epic town') : t('見込みを出すには：伸びる出店の区画', 'A forecast needs a good site');
+    if (c?.k === 'need' && c.best) return t(`見込みを出すには：元が取れる税・経費の手（『${c.best.nm}』はいま ${c.best.pay} か月）`, `A forecast needs a move that pays back (“${c.best.nm}” takes ${c.best.pay} months now)`);
     return t('見込みを出すには：この部門の手が効く詰まりになること', 'A forecast needs a bottleneck this division can move');
   }
   if (L.k === 'budget') return t(`見込みを出すには：予算 月 ${g(L.amt)}`, `For a forecast: ${g(L.amt)}/mo budget`);
   if (L.k === 'crew') return t(`見込みを出すには：従業員の上限 ${L.cap} 人`, `For a forecast: staff cap ${L.cap}`);
-  return t(`見込みを出すには：パネル『${L.pre[0] ?? L.nm}』（${STAGE_JA[L.stage]()} 月 +${n1(L.units)} 個）`, `For a forecast: open “${L.pre[0] ?? L.nm}” (+${n1(L.units)}/mo ${STAGE_JA[L.stage]()})`);
+  return t(`見込みを出すには：パネル『${L.pre[0] ?? L.nm}』（${effOf(L)}）`, `For a forecast: open “${L.pre[0] ?? L.nm}” (${effOf(L)})`);
 }
 /** 打ち手の承認の選択肢の文（名前・小さな値） */
 export function leverOpts(L: Lever): { name: string; val: string }[] {

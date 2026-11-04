@@ -14,8 +14,9 @@ import { DEPT, POLICY, PRODUCT, skuParts, type Sku } from './data';
 import { bottleneck, poolCap, poolUsed, stageCaps, staffOf, type P1State } from './model';
 import { afterOf, applyPlan, baseOf, planRows, planTitle, shopNm, type Cell, type Plan, type PlanRes, type Row } from './plan';
 import { METRIC_TEXT, askTo, briefOf, chip, type Brief, type Metric } from './brief';
-import { RISK_LV, SLIDE_NAME, SRC_NAME, askIcon, budgetBar, fallOf, kpisOf, longLine, metersOf, profitBars, projLines, roomKpi, shortWhat, slideKinds, srcOfPlan, stageMap, topRisks, type PropSrc, type SlideId } from './slides';
-import { budgetEl, chartHead, deck, deptChip, fallChart, fundsEl, kpiTile, lineChart, lineLegend, meterEl, pairBars, riskRow, slideBox, stageMapEl } from './slideui';
+import { RISK_LV, SLIDE_NAME, SRC_NAME, askIcon, budgetBar, fallOf, kpisOf, lineMarks, longLine, metersOf, profitBars, projLines, roomKpi, shortWhat, slideKinds, srcOfPlan, stageMap, topRisks, type PropSrc, type SlideId } from './slides';
+import { budgetEl, chartHead, deck, deptChip, fallChart, fundsEl, kpiTile, lineChart, lineLegend, meterEl, pairBars, riskRow, slideBox, stageMapEl, storeChartEl, storeLegend, storeNote } from './slideui';
+import { storeChart } from './storefc';
 import { askDue, policyName } from './policy';
 import { openPolicyPick } from './policyui';
 import { after, chooseMake, type Ctx } from './screens';
@@ -193,6 +194,8 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
         const pitch = h('p', 'isl-prop-pitch');
         pitch.append(t('「', '“'), document.createTextNode(B.pitch), t('」', '”'));
         body.append(pitch);
+        // 段 UI7f：倉庫の提案は、月末の倉庫の中身の棒・容量の基準線・同じペースの予想のグラフ（要約の一言はこのグラフを指す）
+        if (B.theme === 'store') body.append(storeBlock(s, aft));
         const grid = h('div', 'isl-sl-kpis');
         for (const k of kpisOf(B, roomKpi(poolUsed(base), poolCap(base), poolCap(aft)))) grid.append(kpiTile(k));
         body.append(grid);
@@ -329,6 +332,14 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
 }
 
 /** 承認事項（手ごとに 1 行：部門の札・アイコン・何をするか・費用・「○○部に依頼」） */
+/** 段 UI7f：倉庫のグラフの塊（見出し・凡例・グラフ・あふれる先の 1 行）。カードと提案書の結論で使う */
+export function storeBlock(s: P1State, after: P1State | null): HTMLElement {
+  const c = storeChart(s, after);
+  const e = h('div', 'isl-sl-sblock');
+  e.append(chartHead(t('倉庫の中身（月末）と、同じペースの予想', 'Storage at month end, and the same-pace forecast')), storeLegend(c), storeChartEl(c), h('p', 'isl-sl-snote', storeNote(c)));
+  return e;
+}
+
 function asksList(B: Brief, s: P1State, plan: Plan): HTMLElement {
   const ol = h('ol', 'isl-sl-asks');
   for (const a of B.asks) {
@@ -396,7 +407,7 @@ function twoCols(body: HTMLElement, split: boolean): [HTMLElement, HTMLElement] 
 /** 効果の 12 か月：累計の折れ線（このまま vs 承認後）と、お金以外の指標のメーター */
 function longParts(body: HTMLElement, body2: HTMLElement, B: Brief, s: P1State) {
   const L = longLine(B);
-  body.append(chartHead(t(`${POLICY.months} か月の利益の累計`, `Profit over ${POLICY.months} months (cumulative)`)), lineLegend(), lineChart(L.now, L.after));
+  body.append(chartHead(t(`${POLICY.months} か月の利益の累計`, `Profit over ${POLICY.months} months (cumulative)`)), lineLegend(), lineChart(L.now, L.after, lineMarks(B)));
   // 段 UI7e：月ごとの見込み（使い切りの手で作る品がどこで・いつ・いくつ売れるか・倉庫があふれて入荷が止まるか）
   for (const x of projLines(B, (y) => goodsName(y as Sku), (u) => shopNm(s, u))) body.append(h('p', 'isl-sl-shot', x));
   const ms = metersOf(B);

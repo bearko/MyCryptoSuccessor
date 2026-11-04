@@ -172,6 +172,20 @@ export function longLine(b: Pick<Brief, 'vals' | 'now' | 'after' | 'cost'>): { n
   return { now, after };
 }
 
+/** 段 UI7f：折れ線の縦の点線（倉庫があふれる日。このまま・承認後）。day はいまから何日目 */
+export interface LineMark {
+  day: number;
+  label: string;
+  cls: 'is-now' | 'is-after';
+}
+export function lineMarks(b: Pick<Brief, 'vals'>): LineMark[] {
+  const P = b.vals.months;
+  if (!P || P.full0 == null) return [];
+  const out: LineMark[] = [{ day: P.full0, label: t(`${Math.max(1, Math.round(P.full0))} 日目にあふれる`, `Fills on day ${Math.max(1, Math.round(P.full0))}`), cls: 'is-now' }];
+  if (P.full1 != null && P.full1 < POLICY.months * 30 && Math.abs(P.full1 - P.full0) >= 1) out.push({ day: P.full1, label: t(`承認後 ${Math.round(P.full1)} 日目`, `After: day ${Math.round(P.full1)}`), cls: 'is-after' });
+  return out;
+}
+
 /**
  * 段 UI7e：月ごとの見込みの説明（効果のスライドの折れ線の下）：使い切りの手で作る品がどこで・いつ・いくつ売れるか、倉庫があふれて入荷が止まるか。
  * name：商品の名前・shop：お店の名前（DOM なしで試せるように渡す）。月ごとの見込みが無ければ空
@@ -191,6 +205,11 @@ export function projLines(b: Pick<Brief, 'vals'>, name: (x: string) => string, s
   if (P.jam0) {
     out.push(P.out0 != null ? t(`📦 このまま：倉庫があふれて素材が入らず、作業台が止まる → お店は在庫だけ（${P.out0} か月目に売り切れ）`, `📦 As is: storage full, no materials, benches stop → shops sell only stock (runs out in month ${P.out0})`) : t('📦 このまま：倉庫があふれて素材が入らず、作業台が止まる → お店は在庫だけ', '📦 As is: storage full, no materials, benches stop → shops sell only stock'));
     out.push(P.jam1 ? t('📦 承認後も倉庫はあふれたまま', '📦 Storage stays full after approval') : t(`📦 承認後：置き場所が ${Math.round(P.room)} 個空き、調達と製造が戻る`, `📦 After: ${Math.round(P.room)} spaces free, buying and crafting resume`));
+  }
+  // 段 UI7f：このペースで倉庫があふれる日（折れ線の縦の点線）と、承認後
+  if (P.full0 != null) {
+    out.push(t(`📦 このまま：${Math.round(P.full0)} 日目に倉庫があふれ、作る数が月 ${Math.round(P.cut)} 個減る`, `📦 As is: storage fills on day ${Math.round(P.full0)}; output drops ${Math.round(P.cut)}/mo`));
+    out.push(P.full1 == null ? t(`📦 承認後：${POLICY.months} か月のうちにあふれない`, `📦 After: doesn’t fill within ${POLICY.months} months`) : t(`📦 承認後：${Math.round(P.full1)} 日目にあふれる`, `📦 After: fills on day ${Math.round(P.full1)}`));
   }
   return out;
 }

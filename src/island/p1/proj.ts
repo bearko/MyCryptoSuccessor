@@ -12,6 +12,7 @@
 import { POLICY, type Mat, type Sku } from './data';
 import { DAYS, batchOf, craftDays, lotsHave, poolCap, poolUsed, recipeOf, speed, stageCaps, staffOf, steadySkus, stockAll, syncShelves, unitCost, uptime, myShops, type P1State } from './model';
 import { flowOf, type FlowNow, type Plan, type Step } from './plan';
+import { poolNow, storeFc } from './storefc';
 
 // ---------------------------------------------------------------- 倉庫があふれて入荷が止まる
 
@@ -96,6 +97,24 @@ const phaseOf = (st: P1State, flow: FlowNow, monthly: number): Phase => {
   const jam = jammed(st);
   return { flow, steady: new Set(steadySkus(st)), jam, prod: jam ? 0 : prodOf(st), monthly };
 };
+/**
+ * 段 UI7f：倉庫があふれる日（full：いまから何日目。null ならあふれない）を過ぎた月は、作る数が月の増え（cut）だけ減る（倉庫がもう増えられない所まで）。
+ * m か月目のうち、あふれる前の日の割合で混ぜる
+ */
+function fullPhase(ph: Phase, m: number, full: number | null, cut: number): Phase {
+  if (full == null || ph.jam) return ph;
+  const f = Math.max(0, Math.min(1, (full - m * DAYS) / DAYS));
+  if (f >= 1) return ph;
+  return { ...ph, prod: ph.prod * f + Math.max(0, ph.prod - cut) * (1 - f) };
+}
+/**
+ * 段 UI7f：倉庫があふれる日と、あふれたあとに減る作る数（月）。増え方はいまの町（s）の記録と流れのまま、置ける数と中身は st（承認後）から
+ */
+function fullOf(s: P1State, st: P1State = s): { days: number | null; cut: number } {
+  const n = poolNow(st);
+  const f = storeFc(s, { cap: n.cap, mats: n.mats, goods: n.goods });
+  return { days: f.days, cut: f.cut };
+}
 
 /**
  * 1 か月：作り続ける商品は、作れる数（prod）まで作って売り、足りない分は在庫から。ほかの品（在庫品・使い切りに作った品）は在庫から。
@@ -166,8 +185,15 @@ export interface Proj {
   /** 倉庫があふれて入荷が止まるか（このまま・承認後の 2 か月目から） */
   jam0: boolean;
   jam1: boolean;
-  /** このままで、作り続ける商品の在庫が売り切れる月（入荷が止まっているとき。12 か月もてば null） */
+  /** このままで、作り続ける商品の在庫が売り切れる月（入荷が止まっているとき・あふれたあと。12 か月もてば null） */
   out0: number | null;
+  /**
+   * 段 UI7f：このペースで倉庫があふれる日（いまから何日目。このまま・承認後。あふれない・もう止まっていれば null）と、
+   * あふれたあとに作る数が月にいくつ減るか（cut）
+   */
+  full0: number | null;
+  full1: number | null;
+  cut: number;
   /** 承認後に空く置き場所（個。素材を使う・置き場所が増える） */
   room: number;
   /** 使い切りの手：作る品・数・日数と、作った品が売れていく月ごとの数・売上・並ぶお店 */
@@ -178,24 +204,27 @@ export interface Proj {
 export type Settle = (st: P1State) => P1State;
 
 /** このまま側（同じ base で何度も使う） */
-const baseMemo = new WeakMap<P1State, { months: PMonth[]; jam: boolean; out: number | null }>();
-function baseRun(base: P1State, settle: Settle): { months: PMonth[]; jam: boolean; out: number | null } {
+type BaseRun = { months: PMonth[]; jam: boolean; out: number | null; full: number | null; cut: number };
+const baseMemo = new WeakMap<P1State, BaseRun>();
+function baseRun(base: P1State, settle: Settle): BaseRun {
   const hit = baseMemo.get(base);
   if (hit) return hit;
   const M = POLICY.months;
   const p1 = phaseOf(base, flowMonth(base), 0);
   const sb = settle(base);
   const p2 = phaseOf(base, flowOf(sb, 0, true), 0);
+  // 段 UI7f：このペースで倉庫があふれる日（もう入荷が止まっていれば数えない）
+  const F = p1.jam ? { days: null, cut: 0 } : fullOf(base);
   const inv = new Map<Sku, number>();
   const months: PMonth[] = [];
   let out: number | null = null;
   for (let m = 0; m < M; m++) {
-    const mo = runMonth(base, m ? p2 : p1, inv);
+    const mo = runMonth(base, fullPhase(m ? p2 : p1, m, F.days, F.cut), inv);
     months.push(mo);
     // 作り続ける商品の半分より多くが、在庫切れで売れなくなった月
-    if (p1.jam && out == null && mo.want > 0 && mo.miss > mo.want / 2) out = m + 1;
+    if ((p1.jam || F.days != null) && out == null && mo.want > 0 && mo.miss > mo.want / 2) out = m + 1;
   }
-  const r = { months, jam: p1.jam, out };
+  const r = { months, jam: p1.jam, out, full: F.days, cut: F.cut };
   baseMemo.set(base, r);
   return r;
 }
@@ -212,11 +241,13 @@ export function projOf(s: P1State, p: Pick<Plan, 'steps'>, base: P1State, after:
   let use: Proj['use'];
   let jam1: boolean;
   let room = poolCap(after) - poolCap(base);
+  let F1: { days: number | null; cut: number };
   if (!u) {
     const p1 = phaseOf(after, flowMonth(after), monthly);
     const p2 = phaseOf(after, flowOf(settle(after), 0, true), monthly);
     jam1 = p1.jam;
-    for (let m = 0; m < M; m++) months.push(runMonth(after, m ? p2 : p1, inv));
+    F1 = jam1 ? { days: null, cut: 0 } : fullOf(s, after);
+    for (let m = 0; m < M; m++) months.push(runMonth(after, fullPhase(m ? p2 : p1, m, F1.days, F1.cut), inv));
   } else {
     room += u.mats;
     // 作り終えたあと：素材を使った分だけ倉庫が空き、作った品は在庫品としてお店へ（空いた棚か、売りさばきの棚に並ぶ）
@@ -230,6 +261,7 @@ export function projOf(s: P1State, p: Pick<Plan, 'steps'>, base: P1State, after:
     if (busy.slots[u.slot]) busy.slots[u.slot].worker = null;
     const jamL = jammed(last);
     jam1 = jamL;
+    F1 = jamL ? { days: null, cut: 0 } : fullOf(s, last);
     const prodL = jamL ? 0 : prodOf(last);
     const prodB = jamL ? 0 : prodOf(busy);
     const steady = new Set(steadySkus(last));
@@ -245,7 +277,7 @@ export function projOf(s: P1State, p: Pick<Plan, 'steps'>, base: P1State, after:
       const f = Math.max(0, Math.min(1, (u.days - m * DAYS) / DAYS));
       const made = u.days > 0 ? (u.units * f * DAYS) / u.days : 0;
       const flow = mixFlow(m ? fA2 : fA1, m ? fL2 : fL1, f);
-      const ph: Phase = { flow, steady, jam: jamL, prod: prodB * f + prodL * (1 - f), monthly };
+      const ph = fullPhase({ flow, steady, jam: jamL, prod: prodB * f + prodL * (1 - f), monthly }, m, F1.days, F1.cut);
       const x0 = inv.get(u.x) ?? 0;
       const mo = runMonth(last, ph, inv, { [u.x]: made });
       sold.push(Math.max(0, x0 + made - (inv.get(u.x) ?? 0)));
@@ -270,10 +302,18 @@ export function projOf(s: P1State, p: Pick<Plan, 'steps'>, base: P1State, after:
     jam0: B.jam,
     jam1,
     out0: B.out,
+    full0: B.full,
+    full1: F1.days,
+    cut: B.cut,
     room,
     ...(use ? { use } : {}),
   };
 }
 
-/** 月ごとの見込みで数えるか：倉庫があふれて入荷が止まっている町か、使い切りの手を含む提案 */
-export const projNeeded = (base: P1State, p: Pick<Plan, 'steps'>) => p.steps.some((y) => y.k === 'useup') || jammed(base);
+/** 段 UI7f：このペースで、見込みの月（POLICY.months か月）のうちに倉庫があふれる */
+export function fullSoon(st: P1State): boolean {
+  const d = storeFc(st).days;
+  return d != null && d < POLICY.months * DAYS;
+}
+/** 月ごとの見込みで数えるか：倉庫があふれて入荷が止まっている町・このペースで倉庫があふれる町か、使い切りの手を含む提案 */
+export const projNeeded = (base: P1State, p: Pick<Plan, 'steps'>) => p.steps.some((y) => y.k === 'useup') || jammed(base) || fullSoon(base);

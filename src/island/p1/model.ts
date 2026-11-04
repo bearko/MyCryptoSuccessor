@@ -392,6 +392,11 @@ export interface Report {
   cs?: CsReport;
   /** 法務（段 H2）：成立した買収・引き継いだ商売の売上・特許（審査が終わった・切れた・止めた追随・使用料）・裁判・仕入れの契約で安くなったぶん */
   legal?: LegalReport;
+  /**
+   * 段 UI7f：月末の倉庫（工房の物置・倉庫・物流拠点）の中身：素材（運んでいる・注文中を含む）・運ぶ前の商品・置ける数・その日・その町。
+   * 倉庫があふれる先の見込みと、倉庫の提案のグラフ（storefc.ts）が使う。以前の報告には無い（記録なしから始める）
+   */
+  pool?: { mats: number; goods: number; cap: number; day: number; at: string };
 }
 
 export interface Flags {
@@ -4191,6 +4196,11 @@ export function endMonth(s: P1State): Report {
     ...(mus ? { museum: mus } : {}),
     ...(s.dig ? { revive: { done: s.dig.sites.filter((x) => x.done).length, all: s.dig.sites.length, dungeon: !!s.dig.dungeon } } : {}),
   };
+  // 段 UI7f：月末の倉庫の中身（倉庫があふれる先の見込み・倉庫の提案のグラフ）
+  {
+    const goods = sum(s.stock);
+    report.pool = { mats: Math.round(poolUsed(s) - goods), goods: Math.round(goods), cap: poolCap(s), day: s.day, at: s.sector ?? 'c1' };
+  }
   // 被災した町の復興（ほかのセクタ。まだ廃墟が残っている町と、先月に直し終えた町）
   // 突発のできごと・外交（段 UI4）：前の報告から選んだできごと・いま効いている倍率・交易と依頼
   const evs = takeEventLog(s);
