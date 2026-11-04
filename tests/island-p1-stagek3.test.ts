@@ -78,13 +78,13 @@ describe('副次効果はゲームの数字に効く', () => {
     expect(polStaffMorale(s, a)).toBeCloseTo(-2);
     expect(deptStaff(s, 'hr').map((x) => x.hero)).toEqual([a.hero]);
   });
-  it('指標：成長重視は建物の維持費 +2%（fxSum の upkeep が −0.02）。バランスは宣伝の効き目 −3%', () => {
+  it('指標：成長重視は建物の維持費 +2%（fxSum の upkeep が −0.02）。ブランド重視は素材の値段 +2%', () => {
     const s = fresh();
     setCorp(s, ['growth'], true);
     expect(polFx(s, 'upkeep')).toBeCloseTo(-0.02);
-    setCorp(s, ['balance'], true);
-    expect(polFx(s, 'ads')).toBeCloseTo(-0.03);
-    expect(fxSum(s, 'ads')).toBeLessThan(0);
+    expect(fxSum(s, 'upkeep')).toBeLessThan(0);
+    setCorp(s, ['brand'], true);
+    expect(polFx(s, 'matPrice')).toBeCloseTo(-0.02);
   });
   it('提案の傾向：研究重視は「売る手」の提案が × (1 − less)。推すものと減るものが重なれば掛け合わせ', () => {
     const s = fresh();
@@ -94,10 +94,10 @@ describe('副次効果はゲームの数字に効く', () => {
     expect(tiltOf(s, 'rp')).toBeCloseTo(1 + POL.tilt);
     expect(tiltOfSet(['research', 'growth'], 'sell')).toBeCloseTo((1 + POL.tilt) * (1 - POL.less));
   });
-  it('できごとの起きやすさ：利益重視で「人の引き抜き」×1.5、人を大事にで ×0.5。止めたとき・チュートリアルは 1', () => {
+  it('できごとの起きやすさ：利益重視で「人の引き抜き」×1.3、人を大事にで ×0.5。止めたとき・チュートリアルは 1', () => {
     const s = fresh();
     setCorp(s, ['profit'], true);
-    expect(polEvW(s, 'scout')).toBeCloseTo(1.5);
+    expect(polEvW(s, 'scout')).toBeCloseTo(1.3);
     expect(polEvW(s, 'heat')).toBe(1);
     setCorp(s, ['people'], true);
     expect(polEvW(s, 'scout')).toBeCloseTo(0.5);
@@ -128,7 +128,7 @@ describe('カードの詳細（As-Is → To-Be）と役員の反応', () => {
     expect(xs.find((x) => x.kind === 'less')!.good).toBe(false);
     const ev = xs.find((x) => x.kind === 'ev')!;
     expect(ev.now).toBe('×1');
-    expect(ev.next).toBe('×1.5');
+    expect(ev.next).toBe('×1.3');
     expect(ev.good).toBe(false);
     // 同じ方針がほかにあっても、このカードを除いた組 → 足した組
     expect(cardLines(s, POLICY_OF.profit, ['profit']).find((x) => x.kind === 'ev')!.now).toBe('×1');
