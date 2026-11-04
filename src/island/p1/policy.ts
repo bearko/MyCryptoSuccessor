@@ -40,7 +40,7 @@ export interface PolState {
   stat?: { held: number; changed: number };
 }
 /** 段 K を止める（計測の比べ・テスト）。止めると効き目・傾向は 0、推奨は段 UI7c と同じ（全社方針の 1 つ目だけ）、発表会は開かない */
-export const POL_OFF = { on: false };
+export const POL_OFF = { on: true };
 
 const START = POLICIES.filter((p) => p.open.k === 'start').map((p) => p.id);
 /** 方針の状態（無ければ作る。段 UI7c の s.policy を全社方針の 1 つ目に） */
