@@ -241,6 +241,11 @@ const FILES = [
   // src/island/p1/sfx.ts
   'Audio/SE/Actions/open_treasure.mp3',
   'Audio/SE/Actions/cp-mining-complete.mp3',
+  // src/island/p1/sfx.ts: the board meeting (approve, raise, reject or cut, bulk approval and targets met)
+  'Audio/SE/Actions/insp.mp3',
+  'Audio/SE/Battle/4_buff.mp3',
+  'Audio/SE/Battle/1_single_damage.mp3',
+  'Audio/SE/Jingles/win.mp3',
 ];
 for (const f of FILES) use(f);
 
@@ -250,6 +255,8 @@ const audio = {
   bgmCraft: use('Audio/SE/Actions/craft.mp3'),
   // While digging
   bgmDig: use('Audio/BGM/land.mp3'),
+  // The board meeting, from the entrance to the summary (stage I2)
+  bgmBoard: use('Audio/BGM/9on9.mp3'),
 };
 
 const atlases = writeAtlases();

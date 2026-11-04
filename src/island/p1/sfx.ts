@@ -4,18 +4,26 @@
  */
 import { assetUrl } from '../../render/images';
 
-export type Sfx = 'tap' | 'page' | 'move' | 'place' | 'spend' | 'error' | 'done' | 'craft' | 'sale' | 'levelup' | 'mission' | 'report' | 'win' | 'check' | 'clear' | 'drum' | 'dig' | 'treasure' | 'mining' | 'katsun';
-const ALL: Sfx[] = ['tap', 'page', 'move', 'place', 'spend', 'error', 'done', 'craft', 'sale', 'levelup', 'mission', 'report', 'win', 'check', 'clear', 'drum', 'dig', 'treasure', 'mining', 'katsun'];
+export type Sfx = 'tap' | 'page' | 'move' | 'place' | 'spend' | 'error' | 'done' | 'craft' | 'sale' | 'levelup' | 'mission' | 'report' | 'win' | 'check' | 'clear' | 'drum' | 'dig' | 'treasure' | 'mining' | 'katsun' | 'okay' | 'buff' | 'deny' | 'jingle';
+const ALL: Sfx[] = ['tap', 'page', 'move', 'place', 'spend', 'error', 'done', 'craft', 'sale', 'levelup', 'mission', 'report', 'win', 'check', 'clear', 'drum', 'dig', 'treasure', 'mining', 'katsun', 'okay', 'buff', 'deny', 'jingle'];
 /** MCH の効果音を使うもの（sync-assets で public/mch/ に入っているもの）。ほかは island/sfx/<名前>.mp3 */
 const MCH: Partial<Record<Sfx, string>> = {
   // エクステの出土（新発見・研究 Lv が上がった・石板）
   treasure: 'mch/Audio/SE/Actions/open_treasure.mp3',
   // お題の出土（大きい演出）
   mining: 'mch/Audio/SE/Actions/cp-mining-complete.mp3',
+  // 段 I2：経営会議。承認＝立ち上がりの速い明るいきらめき（押した瞬間に鳴る。1.7 秒で自然に消えるので続けて押しても濁らない）
+  okay: 'mch/Audio/SE/Actions/insp.mp3',
+  // 目標・予算を上げた＝音の高さが 1.2 秒かけて上がる（「上へ」の手応え）
+  buff: 'mch/Audio/SE/Battle/4_buff.mp3',
+  // 却下・減額＝0.3 秒の短い打撃音（テンポを止めない。crash は小さくこもって聞こえにくい）
+  deny: 'mch/Audio/SE/Battle/1_single_damage.mp3',
+  // 一括承認・目標の達成＝3.5 秒のジングル（会議の締めに 1 回だけ）
+  jingle: 'mch/Audio/SE/Jingles/win.mp3',
 };
 
 /** 音ごとの大きさ（設定 100% のとき） */
-const GAIN: Partial<Record<Sfx, number>> = { tap: 0.35, page: 0.4, move: 0.5, sale: 0.45, craft: 0.5, drum: 0.5, dig: 0.45, treasure: 0.55, mining: 0.6, katsun: 0.5 };
+const GAIN: Partial<Record<Sfx, number>> = { tap: 0.35, page: 0.4, move: 0.5, sale: 0.45, craft: 0.5, drum: 0.5, dig: 0.45, treasure: 0.55, mining: 0.6, katsun: 0.5, okay: 0.6, buff: 0.45, deny: 0.4, jingle: 0.35 };
 
 export class IslandSfx {
   private ctx: AudioContext | null = null;

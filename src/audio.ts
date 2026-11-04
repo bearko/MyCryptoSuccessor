@@ -2,7 +2,7 @@ import { audioFiles } from './game/catalog';
 import { assetUrl } from './render/images';
 
 /** BGM のキー（scripts/sync-assets.mjs の audio）。効果音は src/island/p1/sfx.ts */
-export type Bgm = 'bgmCraft' | 'bgmDig';
+export type Bgm = 'bgmCraft' | 'bgmDig' | 'bgmBoard';
 
 /** Loudness of the BGM at the 100% setting (the final volume is this × the setting). */
 const BGM_VOLUME = 0.35;
