@@ -1,6 +1,6 @@
 /** フェーズ 1 の画面の小さな道具（DOM・数の書式・アイコン） */
 import { allSeries, extensionById, heroById } from '../../game/catalog';
-import { isEn } from '../../i18n';
+import { isEn, t } from '../../i18n';
 import { icon } from '../../ui/dom';
 import { PRODUCT, skuParts, type Mat, type Sku } from './data';
 
@@ -9,6 +9,23 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text 
   if (cls) e.className = cls;
   if (text) e.textContent = text;
   return e;
+}
+
+/**
+ * 段 UI5d：「推奨」の札（決まり：提案のカード・提案書・3 択の窓では、選択肢と推奨案を明示する。docs/ISLAND_UX_CHARTER.md）。
+ * 選択肢の 1 行目の頭に付ける。色だけに頼らず字で示す
+ */
+export function recTag(): HTMLElement {
+  const e = h('span', 'isl-rec-tag', t('推奨', 'Recommended'));
+  e.setAttribute('aria-label', t('推奨', 'Recommended'));
+  return e;
+}
+/** 1 行目（太字）に推奨の札を付ける：rec なら札 ＋ 文、そうでなければ文だけ */
+export function recLine(text: string, rec: boolean | undefined, cls = ''): HTMLElement {
+  const b = h('b', cls);
+  if (rec) b.append(recTag());
+  b.append(document.createTextNode(text));
+  return b;
 }
 
 export function btn(text: string, on: () => void, cls = ''): HTMLButtonElement {

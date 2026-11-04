@@ -1023,8 +1023,12 @@ export const AWARE = { start: 0.35, perDay: 0.025 };
  * 売れる数（売り場の強さ）に掛ける。noSaturation のセクタ（最初の町タオックス）は全部 1（チュートリアルを変えない）
  */
 export const AWARE_GOODS = { start: 0.3, perDay: 0.02, ad: 0.03, low: 0.6 };
-/** 保管：工房の物置（素材と、運ぶ前の商品の合計）と、倉庫 1 つで増える数。いっぱいだと調達もクラフトもできない */
-export const STORE = { base: 80, warehouse: 200 };
+/**
+ * 保管：工房の物置（素材と、運ぶ前の商品の合計）と、倉庫 1 つで増える数。いっぱいだと調達もクラフトもできない。
+ * 段 UI5d：物流拠点（建物 logistics）も 1 つで depot 置ける（倉庫より少し小さい：仕分けと積み替えの場所をとる）。
+ * 倉庫の強化（設備投資 rack）は 1 段 rack 個、物流拠点の強化（設備投資 dock）は 1 段 dock 個
+ */
+export const STORE = { base: 80, warehouse: 200, depot: 150, rack: 100, dock: 75 };
 
 // ---------------------------------------------------------------- スキルツリー
 
@@ -2625,7 +2629,7 @@ export const WORLD_COMPANIES: [string, number][] = [
 export interface Invest {
   id: string;
   /** どの建物に付けるか（建物ごと＝セクタごと。工房はセクタに 1 つ、倉庫は棟ごと） */
-  kind: 'shop' | 'workshop' | 'warehouse' | 'museum';
+  kind: 'shop' | 'workshop' | 'warehouse' | 'depot' | 'museum';
   name: string;
   note: string;
   /** 段ごとの値段 */
@@ -2648,7 +2652,10 @@ export const INVESTS: Invest[] = [
   { id: 'stockroom', kind: 'workshop', name: t('物置の整理', 'Tidy stockroom'), note: t('工房の物置 +40 個', 'Workshop stockroom +40'), cost: [2500] },
   { id: 'tools', kind: 'workshop', name: t('道具の新調', 'New tools'), note: t('クラフトの日数 −10%（1 段ごと）', 'Crafting −10% days per level'), cost: [3000, 6000, 12000] },
   { id: 'breakroom', kind: 'workshop', name: t('職人の休憩所', 'Crafters’ break room'), note: t('工房で働く人のスタミナの減り −30%', 'Crafters lose 30% less stamina'), cost: [2500] },
-  { id: 'rack', kind: 'warehouse', name: t('倉庫の高い棚', 'Tall racks'), note: t('この倉庫の置き場所 +100 個', 'This warehouse holds 100 more'), cost: [6000] },
+  // 段 UI5d：倉庫の強化（1 棟を段で。倉庫が乱立しないように）。1 個あたりの値段は建てる（4,000 G で +200 ＝ 20 G・毎月 600 G）と同じくらいで、維持費のぶん少し得
+  { id: 'rack', kind: 'warehouse', name: t('倉庫の強化（高い棚）', 'Warehouse upgrade (tall racks)'), note: t('この倉庫の置き場所 +100 個（1 段ごと・維持費は増えない）', 'This warehouse holds 100 more per level (no extra upkeep)'), cost: [2000, 2500, 3000] },
+  // 段 UI5d：物流拠点の保管の強化（拠点の置き場所 +75 個／段）
+  { id: 'dock', kind: 'depot', name: t('拠点の保管棚', 'Hub storage racks'), note: t('この物流拠点の置き場所 +75 個（1 段ごと・維持費は増えない）', 'This hub holds 75 more per level (no extra upkeep)'), cost: [1500, 2000] },
   // 遺物の展示館（発掘 v2 の 4 段目）：展示の枠 4 → 8・12・16
   { id: 'hall', kind: 'museum', name: t('展示室の増築', 'Gallery extension'), note: t('展示の枠 +4（4 → 8・12・16）', 'Display slots +4 (4 → 8, 12, 16)'), cost: DIG_BALANCE.museum.expand },
   // 発掘の道具（ツルハシの新調・ランタン・発破の道具）は、発掘 v2 の 2 段目でスキルツリーの「発掘」の枝へ移した（DIG_PANELS。古いセーブは版 4 で移す）

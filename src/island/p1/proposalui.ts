@@ -17,7 +17,7 @@ import { quipOf } from './persona';
 import { after, chooseMake, type Ctx } from './screens';
 import { pickMake } from './stockui';
 import { craftable } from './orders';
-import { btn, extImage, h, heroIcon, heroName, money, rich, skuIcon } from './ui';
+import { btn, extImage, h, heroIcon, heroName, money, recTag, rich, skuIcon } from './ui';
 import { starOf } from './card';
 
 export interface ProposalOpts {
@@ -31,6 +31,8 @@ export interface ProposalOpts {
   done?: (what: 'ok' | 'skip' | 'later') => void;
   /** 「あとで」を出す（受け箱に残る提案だけ） */
   later?: boolean;
+  /** 段 UI5d：カードで推奨の手から開いた提案書（「推奨」の札を提案の 1 行に） */
+  rec?: boolean;
 }
 
 /** お店の中の絵（窓・壁・棚の段と並ぶ商品）。いまのお店の内装の絵（窓の景色）を使い、段の数を描き分ける（仮の絵：docs/ISLAND_ART_TODO.md） */
@@ -153,7 +155,10 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
     body.append(sec);
   }
   const sec2 = h('section', 'isl-prop-sec');
-  sec2.append(h('h3', '', t('提案', 'Proposal')), h('p', 'isl-prop-title', planTitle(s, plan)));
+  const title = h('p', 'isl-prop-title');
+  if (o.rec) title.append(recTag());
+  title.append(document.createTextNode(planTitle(s, plan)));
+  sec2.append(h('h3', '', t('提案', 'Proposal')), title);
   // 段 UI5c：「いまある素材で○○が作れます」の提案は、ほかの品も選べる（工房の作る物の選び方の「いまの素材で作れる」の並びへ）
   const use = plan.steps.find((x) => x.k === 'useup') as { k: 'useup'; slot: number; x: Sku } | undefined;
   if (use)

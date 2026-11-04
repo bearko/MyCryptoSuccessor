@@ -47,6 +47,8 @@ import {
   poolRate,
   poolUsed,
   poolCap,
+  poolParts,
+  myWarehouses,
   stockAll,
   type P1State,
   type Stage,
@@ -520,8 +522,15 @@ function actDid(_s: P1State, a: PropAct): string {
       return t(`パネル「${SKILL[a.id]?.name ?? a.id}」を解放`, `Unlocked ${SKILL[a.id]?.name ?? a.id}`);
     case 'level':
       return t(`「${SKILL[a.id]?.name ?? a.id}」のレベルを上げた`, `Leveled up ${SKILL[a.id]?.name ?? a.id}`);
-    case 'invest':
+    case 'invest': {
+      // 段 UI5d：倉庫・物流拠点の強化は段で（「倉庫を強化した（1/3 段）」）
+      if (a.id === 'rack' || a.id === 'dock') {
+        const lv = invLv(_s.buildings.find((x) => x.uid === a.uid), a.id);
+        const max = INVEST[a.id].cost.length;
+        return a.id === 'rack' ? t(`倉庫を強化した（${lv}/${max} 段・置き場所 ${poolCap(_s)} 個）`, `Warehouse upgraded (${lv}/${max}, storage ${poolCap(_s)})`) : t(`物流拠点の保管を強化した（${lv}/${max} 段・置き場所 ${poolCap(_s)} 個）`, `Hub storage upgraded (${lv}/${max}, storage ${poolCap(_s)})`);
+      }
       return t(`${INVEST[a.id]?.name ?? a.id}を導入`, `Installed ${INVEST[a.id]?.name ?? a.id}`);
+    }
     case 'build':
       return t(`${nameOfB(a.id)}の建築を開始`, `Started building ${nameOfB(a.id)}`);
     case 'hire':
@@ -699,6 +708,25 @@ export function planRows(s: P1State, p: Plan, after = afterOf(s, p)): { rows: Ro
       changed: true,
     });
   }
+  // 段 UI5d：置き場所（倉庫・物流拠点を建てる・強化する手）。埋まり方の今 → 後
+  const cap0 = poolCap(s);
+  const cap1 = poolCap(after);
+  if (cap1 !== cap0) {
+    touched.add('buy');
+    const used = poolUsed(s);
+    const pc = (v: number) => Math.round((used / Math.max(1, v)) * 100);
+    const parts = (x: P1State) => {
+      const q = poolParts(x);
+      return [t(`工房 ${q.base}`, `workshop ${q.base}`), q.warehouse ? t(`倉庫 ${q.warehouse}`, `warehouses ${q.warehouse}`) : '', q.depot ? t(`拠点 ${q.depot}`, `hub ${q.depot}`) : ''].filter(Boolean).join(t('・', ' · '));
+    };
+    rows.push({
+      kind: 'buy',
+      label: t('置き場所', 'Storage space'),
+      asIs: { text: t(`${cap0} 個（${parts(s)}）・${pc(cap0)}% 埋まり`, `${cap0} (${parts(s)}) · ${pc(cap0)}% full`) },
+      toBe: { text: t(`${cap1} 個（${cap1 > cap0 ? '+' : ''}${cap1 - cap0}）・${pc(cap1)}% 埋まり`, `${cap1} (${cap1 > cap0 ? '+' : ''}${cap1 - cap0}) · ${pc(cap1)}% full`), plus: cap1 > cap0 },
+      changed: true,
+    });
+  }
   // 製造（作業台ごと）
   for (let k = 0; k < Math.max(s.slots.length, after.slots.length); k++) {
     const t0 = k < s.slots.length ? benchText(s, k) : null;
@@ -758,7 +786,9 @@ export function planRows(s: P1State, p: Plan, after = afterOf(s, p)): { rows: Ro
       rows.push({ kind: 'panel', label: t('パネル', 'Panel'), asIs: { text: a.k === 'level' ? `${SKILL[id]?.name} Lv ${(s.skillLv?.[id] ?? 1)}` : t('未解放', 'Locked') }, toBe: { text: a.k === 'level' ? `${SKILL[id]?.name} Lv ${(s.skillLv?.[id] ?? 1) + 1}` : `${PLUS()}${SKILL[id]?.name ?? id}`, plus: true }, changed: true });
     } else if (a.k === 'build') {
       rows.push({ kind: 'build', label: t('建物', 'Building'), asIs: { text: t('—', '—') }, toBe: { text: t(`＋${nameOfB(a.id)}（${P1B[a.id]?.days ?? 0} 日で完成）`, `+${nameOfB(a.id)} (${P1B[a.id]?.days ?? 0} days)`), plus: true }, changed: true });
-      touched.add(P1B[a.id]?.kind === 'shop' ? 'sell' : 'craft');
+      // 段 UI5d：倉庫は調達（置き場所）、物流拠点は物流の段
+      const bk = P1B[a.id]?.kind;
+      touched.add(bk === 'shop' ? 'sell' : bk === 'warehouse' ? 'buy' : bk === 'depot' ? 'haul' : 'craft');
     } else if (a.k === 'ad') {
       const ad = ADS.find((x) => x.id === a.id);
       rows.push({ kind: 'ad', label: t('宣伝', 'Ads'), asIs: { text: t('なし', 'None') }, toBe: { text: t(`＋${ad?.name ?? a.id}（${ad?.days ?? 0} 日）`, `+${ad?.name ?? a.id} (${ad?.days ?? 0} d)`), plus: true }, changed: true });
@@ -773,8 +803,10 @@ export function planRows(s: P1State, p: Plan, after = afterOf(s, p)): { rows: Ro
     } else if (a.k === 'invest') {
       const b = s.buildings.find((x) => x.uid === a.uid);
       const lv0 = b ? invLv(b, a.id) : 0;
-      rows.push({ kind: 'other', label: t('設備', 'Equipment'), asIs: { text: `${INVEST[a.id]?.name ?? a.id} ${lv0}` }, toBe: { text: `${INVEST[a.id]?.name ?? a.id} ${lv0 + 1}`, plus: true }, changed: true });
-      touched.add(INVEST[a.id]?.kind === 'shop' ? 'sell' : INVEST[a.id]?.kind === 'warehouse' ? 'buy' : 'craft');
+      const mx = INVEST[a.id]?.cost.length ?? 0;
+      const lvTxt = (n: number) => (mx > 1 ? t(`${n}/${mx} 段`, `${n}/${mx}`) : `${n}`);
+      rows.push({ kind: 'other', label: t('設備', 'Equipment'), asIs: { text: `${INVEST[a.id]?.name ?? a.id} ${lvTxt(lv0)}` }, toBe: { text: `${INVEST[a.id]?.name ?? a.id} ${lvTxt(lv0 + 1)}`, plus: true }, changed: true });
+      touched.add(INVEST[a.id]?.kind === 'shop' ? 'sell' : INVEST[a.id]?.kind === 'warehouse' || INVEST[a.id]?.kind === 'depot' ? 'buy' : 'craft');
     } else if (a.k !== 'stock' && a.k !== 'part') {
       rows.push({ kind: 'other', label: t('ほか', 'Other'), asIs: { text: '—' }, toBe: { text: `${PLUS()}${actLabel(a)}`, plus: true }, changed: true });
     }
@@ -821,21 +853,29 @@ export function planTitle(s: P1State, p: Plan): string {
     else if (st.k === 'staff') bits.push(t(`従業員を ${st.n} 人に`, `${st.n} staff`));
     else if (st.k === 'clear') bits.push(st.cut == null ? t('在庫の売りさばきをやめる', 'stop clearing stock') : t(`在庫を優先して売りさばく（${clearName(st.cut)}）`, `clear stock first (${clearName(st.cut)})`));
     else if (st.k === 'useup') bits.push(t(`いまある素材で${goodsName(st.x)}を作る`, `make ${goodsName(st.x)} from what we have`));
-    else if (st.k === 'act' && st.a.k !== 'assign') bits.push(actShort(st.a));
+    else if (st.k === 'act' && st.a.k !== 'assign') bits.push(actShort(st.a, s));
   }
   const uniq = [...new Set(bits)];
   return uniq.length ? uniq.join(t('、', ', ')) : t('いまのまま', 'Keep as is');
 }
-const actShort = (a: PropAct): string => {
+const actShort = (a: PropAct, s?: P1State): string => {
   switch (a.k) {
     case 'skill':
       return t(`パネル「${SKILL[a.id]?.name ?? a.id}」を解放`, `unlock ${SKILL[a.id]?.name ?? a.id}`);
     case 'level':
       return t(`「${SKILL[a.id]?.name ?? a.id}」を Lv アップ`, `level up ${SKILL[a.id]?.name ?? a.id}`);
-    case 'invest':
+    case 'invest': {
+      // 段 UI5d：倉庫・物流拠点の強化は段で（「倉庫を強化する（2/3 段目）」）
+      if ((a.id === 'rack' || a.id === 'dock') && s) {
+        const b = s.buildings.find((x) => x.uid === a.uid);
+        const lv = invLv(b, a.id) + 1;
+        const max = INVEST[a.id].cost.length;
+        return a.id === 'rack' ? t(`倉庫を強化する（${lv}/${max} 段目）`, `upgrade the warehouse (level ${lv}/${max})`) : t(`物流拠点の保管を強化する（${lv}/${max} 段目）`, `upgrade hub storage (level ${lv}/${max})`);
+      }
       return t(`${INVEST[a.id]?.name ?? a.id}を導入`, `install ${INVEST[a.id]?.name ?? a.id}`);
+    }
     case 'build':
-      return a.id === 'warehouse' ? t('倉庫を建てる', 'build a warehouse') : t(`${nameOfB(a.id)}を出店`, `open a ${nameOfB(a.id)}`);
+      return a.id === 'warehouse' ? (s && myWarehouses(s).length ? t('倉庫をもう 1 棟建てる', 'build one more warehouse') : t('倉庫を建てる', 'build a warehouse')) : a.id === 'logistics' ? t('物流拠点を建てる', 'build a hub') : t(`${nameOfB(a.id)}を出店`, `open a ${nameOfB(a.id)}`);
     case 'hire':
       return t(`${heroNm(a.hero)}を雇う`, `hire ${heroNm(a.hero)}`);
     case 'ad':
