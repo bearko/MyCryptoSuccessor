@@ -138,7 +138,7 @@ import { fitSector, fitTask } from './voice';
 import { duoDrain, duoSpeed, type DuoState } from './duo';
 import { budgetClose, budgetDay, type BudgetReport, type BudgetState } from './budget';
 import { boardQuarter, sectorPush, type BoardClose, type BoardState } from './board';
-import { migratePol, polFx, polSync, type PolState } from './policy';
+import { migratePol, migrateSlots, polFx, polSync, type PolState } from './policy';
 import { deptLevel } from './dept';
 
 export type Ground = 'grass' | 'road';
@@ -497,7 +497,7 @@ export interface P1State {
    * セーブの版（2：地層の発掘と研究ポイント／3：荒れ地と発掘許可・15 秒の発掘／4：発掘のスキルツリー／5：発掘の正面の壁／6：復興・ダンジョン・展示館／
    * 7：研究への寄付・無限の強化パネル／8：ランクアップの災害と復興。1〜7 のセーブは deserializeP1 で順に移す）
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27;
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28;
   kind: 'p1';
   seed: number;
   n: number;
@@ -859,7 +859,7 @@ export function newP1(seed = Math.floor(Math.random() * 1e9), tier: Tier = 'C', 
   const n = tier === 'C' ? N : T.n;
   const g = groundOf(n);
   const s: P1State = {
-    v: 27,
+    v: 28,
     kind: 'p1',
     seed,
     n,
@@ -4772,7 +4772,7 @@ export function serializeP1(s: P1State): string {
 export function deserializeP1(json: string): P1State | null {
   try {
     const o = JSON.parse(json) as Omit<P1State, 'ground'>;
-    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19 && o.v !== 20 && o.v !== 21 && o.v !== 22 && o.v !== 23 && o.v !== 24 && o.v !== 25 && o.v !== 26 && o.v !== 27) || o.kind !== 'p1') return null;
+    if ((o.v !== 1 && o.v !== 2 && o.v !== 3 && o.v !== 4 && o.v !== 5 && o.v !== 6 && o.v !== 7 && o.v !== 8 && o.v !== 9 && o.v !== 10 && o.v !== 11 && o.v !== 12 && o.v !== 13 && o.v !== 14 && o.v !== 15 && o.v !== 16 && o.v !== 17 && o.v !== 18 && o.v !== 19 && o.v !== 20 && o.v !== 21 && o.v !== 22 && o.v !== 23 && o.v !== 24 && o.v !== 25 && o.v !== 26 && o.v !== 27 && o.v !== 28) || o.kind !== 'p1') return null;
     const g = groundOf(o.n);
     const open = o.open ?? (o.buildings.some((b) => b.owner === 'me' && b.left <= 0 && P1B[b.id]?.kind === 'shop') ? o.day - (o.day % DAYS) : null);
     const s: P1State = { ...extras(), ...o, open, ground: g };
@@ -4866,6 +4866,12 @@ export function deserializeP1(json: string): P1State | null {
     if (s.v === 26) {
       migratePol(s);
       s.v = 27;
+    }
+    // 版 27 → 28（段 K2：全社方針の枠はランクアップの特別なパネルで）：段 K の旧パネル「全社方針の枠」を取っていたら、そのぶんの枠を残してパネルを外す
+    // （減らさない。policy.ts の migrateSlots）。取れるようになっている「枠 +1」は、旧パネルの枠を超えたぶんから受け取れる
+    if (s.v === 27) {
+      migrateSlots(s);
+      s.v = 28;
     }
     if (s.gateOpen && !s.land) s.land = newLand(s.sector);
     // 以前のセーブ：卸問屋が無ければ建てておく

@@ -156,7 +156,7 @@ import { quitLeft, type HrDay } from './hr';
 import { IslandSfx } from './sfx';
 import { boardDue, boardOf, boardQuarter, closeText } from './board';
 import { openBoard, type BoardHooks } from './boardui';
-import { KNOW_TALK, SLOT_TALK, slotsOf, takePolNews } from './policy';
+import { KNOW_TALK, SLOT_TALK, slotNews, slotsOf, takePolNews } from './policy';
 import { POLICY_OF } from './data';
 import { openPolicyView } from './policyui';
 import { tileContent } from './tile';
@@ -3942,6 +3942,11 @@ function deptTalk() {
     return;
   }
   const k = deptTalkNext(s, uiNow(), { intro: needsIntro(s), reset: !!pendingReset(s) });
+  // 段 K2：2 つ目からの「全社方針の枠 +1」は、マインちゃんでなくトーストで知らせる（到着の案内・災害の演出・移動が終わってから。1 回ずつ）
+  if (!k && s.flags.polSlotTalk && !talkWaits(uiNow()) && !needsIntro(s) && !pendingReset(s) && tutOf(s) >= TUT_DONE && slotNews(s)) {
+    save();
+    toast(t('🎁 全社方針の枠 +1 が受け取れます（経営企画 → 経営方針）', '🎁 A free +1 company-policy slot is ready (Strategy → Policies)'));
+  }
   if (!k) return;
   s.flags.talkDay = s.day;
   if (k === 'foot') {
@@ -3956,9 +3961,12 @@ function deptTalk() {
   } else if (k === 'polKnow' || k === 'polSlot') {
     // 段 K：石板のノウハウ・全社方針の枠 → 方針の画面
     if (k === 'polKnow') s.flags.polKnowTalk = true;
-    else s.flags.polSlotTalk = true;
+    else {
+      s.flags.polSlotTalk = true;
+      slotNews(s);
+    }
     save();
-    talk((k === 'polKnow' ? KNOW_TALK() : SLOT_TALK(slotsOf(s))).map((text) => ({ text })), t('方針を見る', 'See policies'), () => openPolicyView(ctx));
+    talk((k === 'polKnow' ? KNOW_TALK() : SLOT_TALK(slotsOf(s) + 1)).map((text) => ({ text })), t('方針を見る', 'See policies'), () => openPolicyView(ctx));
   } else if (k === 'budget') {
     // 段 I1：予算で任せるの紹介 → 予算と部門の画面
     s.flags.budgetTalk = true;

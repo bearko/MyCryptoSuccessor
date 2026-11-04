@@ -4,15 +4,17 @@
  * - 段 K：openPolicyView（方針の画面：いまの全社方針と事業別の方針・効き目の数字（基本 × 部門のレベル × 部長の能力）・開放の一覧）・
  *   openCorpPick（全社方針を枠の数まで選ぶ）・openDeptPick（事業別の方針）・
  *   経営方針発表会（段 I2 の年初の会議）：BOARD_SCENES に「社長が全社方針を発表 → 部長のいない部門の方針」、BOARD_ITEM_LINES に「部長の事業別の方針の発表」を足す。
+ * - 段 K2：全社方針の枠 +1（ランクアップの特別なパネル・無償）は、方針の画面の全社方針の「枠」の所で受け取る（slotClaim）。受け箱の上の札も光る。
  * - 方針のアイコンは絵文字の仮の絵（docs/ISLAND_ART_TODO.md）。
  */
 import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
-import { DEPT, POLICIES, POLICY_OF, type DeptId, type PolicyDef } from './data';
+import { DEPT, POLICIES, POLICY_OF, type DeptId, type PolicyDef, type Tier } from './data';
 import {
   askLine,
   baseFxText,
   canSetCorp,
+  claimSlot,
   canSetDept,
   corpOf,
   deptPolicyOf,
@@ -37,6 +39,9 @@ import {
   setCorp,
   setDept,
   setPolicy,
+  slotLocked,
+  slotNextTier,
+  slotPending,
   slotsOf,
   START_IDS,
 } from './policy';
@@ -136,8 +141,10 @@ export function policyCard(ctx: Ctx): HTMLElement {
   const txt = h('div', '');
   txt.append(h('b', '', corp.map(label).join(dot())), h('small', 'isl-dim', t(`全社方針 ${corp.length} / ${n} 枠・事業別 ${presDepts(s).filter((d) => deptPolicyOf(s, d)).length} 部門・選べる方針 ${openPolicies(s).length} / ${POLICIES.length}`, `Company ${corp.length} / ${n} · ${presDepts(s).filter((d) => deptPolicyOf(s, d)).length} division policies · ${openPolicies(s).length} / ${POLICIES.length} unlocked`)));
   const free = corp.length < n && openPolicies(s, 'corp').length > corp.length;
-  if (free) txt.append(h('small', 'isl-pol-free', t('空いた枠があります', 'A slot is free')));
-  row.append(txt, btn(t('方針を見る', 'Policies'), () => openPolicyView(ctx), 'isl-pol-change'));
+  const gift = slotPending(s) > 0;
+  if (gift) txt.append(h('small', 'isl-pol-gift', t('🎁 全社方針の枠 +1 が受け取れます', '🎁 A free +1 policy slot is ready')));
+  else if (free) txt.append(h('small', 'isl-pol-free', t('空いた枠があります', 'A slot is free')));
+  row.append(txt, btn(t('方針を見る', 'Policies'), () => openPolicyView(ctx), `isl-pol-change ${gift ? 'is-glow' : ''}`));
   c.append(row);
   return c;
 }
@@ -160,7 +167,16 @@ export function openPolicyView(ctx: Ctx) {
     c1.append(hd);
     for (const id of corp) c1.append(polRow(s, POLICY_OF[id]));
     if (corp.length < n) c1.append(h('p', 'isl-pol-free', t(`空いた枠 ${n - corp.length}（選ぶと効き目が重なります）`, `${n - corp.length} free slot(s) — effects stack`)));
-    if (n < 5) c1.append(h('small', 'isl-dim', t('枠は経営企画の「全社方針の枠」パネル（Rare の外周）で 5 つまで増えます。', 'The Strategy panel “Company policy slots” (Rare ring) raises this to 5.')));
+    // 段 K2：ランクアップの特別なパネル（受け取る）と、まだ取れない枠の条件
+    const gift = slotClaim(ctx);
+    if (gift) c1.append(gift);
+    const locked = slotLocked(s).filter((x) => x.n > n + slotPending(s));
+    if (locked.length) {
+      const ul = h('div', 'isl-pv-slots');
+      for (const x of locked) ul.append(h('small', 'isl-pv-slot', t(`🔒 ${x.n} 枠目：${TIER_EN[x.tier]} の町に進出すると取れる`, `🔒 Slot ${x.n}: expand to a ${TIER_EN[x.tier]} town`)));
+      c1.append(ul);
+    }
+    if (n < 5 && !gift) c1.append(h('small', 'isl-dim', t('枠は、上のランクの町に初めて進出するたびに 1 つ増えます（無償の特別なパネル。Legendary の進出で 5 つ）。', 'You gain a slot each time you first expand to a higher-rank town (a free special panel; 5 at Legendary).')));
     body.append(c1);
     // 事業別の方針
     const c2 = h('div', 'isl-card2 isl-pv-sec');
@@ -202,6 +218,34 @@ export function openPolicyView(ctx: Ctx) {
     }
     body.append(c3);
   });
+}
+const TIER_EN: Record<Tier, string> = { C: 'Common', U: 'Uncommon', R: 'Rare', E: 'Epic', L: 'Legendary' };
+/**
+ * 段 K2：特別なパネル「全社方針の枠 +1」（ランクアップの特典・費用 0）。受け取れるときだけ、光るパネルの形で出す。押すと枠が増え、方針の画面を描き直す
+ */
+function slotClaim(ctx: Ctx): HTMLElement | null {
+  const s = ctx.s();
+  const tier = slotNextTier(s);
+  if (!tier) return null;
+  const n = slotsOf(s);
+  const b = h('button', 'isl-pv-gift');
+  b.type = 'button';
+  b.append(
+    h('i', 'isl-pv-gift-ic', '🎁'),
+    h('b', '', t('全社方針の枠 +1', 'Company policy slot +1')),
+    h('small', '', t(`${TIER_EN[tier]} の町に進出した特典。無償（お金・RP 0）で、全社方針が ${n} → ${n + 1} 枠に`, `Reward for reaching a ${TIER_EN[tier]} town. Free (no money or RP): ${n} → ${n + 1} slots`)),
+    h('span', 'isl-pv-gift-go', t('受け取る', 'Claim')),
+  );
+  b.addEventListener('click', () => {
+    const m = claimSlot(s);
+    if (m == null) return;
+    ctx.sfx?.('okay');
+    ctx.toast(t(`🎁 全社方針の枠が ${m} つになりました。空いた枠に方針を選べます`, `🎁 You now have ${m} company policy slots — fill the new one`));
+    ctx.save();
+    after(ctx);
+    openPolicyView(ctx);
+  });
+  return b;
 }
 /** いまの方針の 1 行（名前・手法の要点・効き目の数字） */
 function polRow(s: P1State, p: PolicyDef): HTMLElement {

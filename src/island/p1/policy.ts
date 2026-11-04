@@ -2,7 +2,8 @@
  * 経営方針（DOM なし）。段 UI7c：社長の価値観（推奨・並び・言い方）。段 K：全社方針と事業別の方針・効き目・開放・経営方針発表会。
  * 表は data.ts の POLICIES（1 か所）、数字は POL。仕様は docs/ISLAND_PHASE1.md「経営方針（段 K）」。
  *
- * - 全社方針：社長が選ぶ（枠の数まで。はじめ 1 つ・経営企画の「全社方針の枠」パネルで 5 つまで）。段 UI7c の 7 つの価値観は、はじめから選べる全社方針。
+ * - 全社方針：社長が選ぶ（枠の数まで。はじめ 1 つ）。段 UI7c の 7 つの価値観は、はじめから選べる全社方針。
+ *   段 K2：枠は、会社として初めて上のランクの町に進出するたびに（U・R・E・L）、無償の特別なパネル「全社方針の枠 +1」を受け取って 1 つずつ増える（5 つまで。claimSlot）。
  * - 事業別の方針：部門ごとに 1 つ（開いた方針の中から）。経営会議（段 I2）の年初の回＝経営方針発表会で、部長が発表して社長が承認する（部長がいなければ社長が選ぶ）。
  * - 効き目（＋だけ）：強さ ＝ 基本 × 部門のレベル（理解度）× 部長の能力（polPower）。汎用の効き目は model.ts の fxSum に足す（polFx）。
  *   士気（hr.ts）・研究ポイント（model.ts の gainRp）・顧客満足度（cs.ts の careMul）・部長の労力（budget.ts の laborCap）は方針だけの種類。
@@ -11,11 +12,11 @@
  * - 開放：はじめから・石板（読む）・スキルツリーの「経営方針」パネル。開いた順は s.pol.got（polSync）。
  * - 変え方：経営会議が始まる前（予算で任せるが開く前＝Rare の前）は、いつでも変えられる。始まったあとは、空いた枠・方針の無い部門はいつでも埋められ、
  *   選んである方針を替えるのは年初の経営方針発表会で（canReplace）。
- * - セーブは s.pol（版 27）。段 UI7c の s.policy は、全社方針の 1 つ目として読む。
+ * - セーブは s.pol（版 27・段 K2 の枠は版 28）。段 UI7c の s.policy は、全社方針の 1 つ目として読む。
  */
 import { t } from '../../i18n';
-import { DEPT, DEPTS, FX_DOWN, FX_LABEL, POL, POLICIES, POLICY, POLICY_OF, SKILL, TABLET, TABLET_KNOW, type DeptId, type PolFxKind, type PolicyDef, type PolicyId, type PolTheme, type ValueKey } from './data';
-import { growthOn, lvOf, type P1State } from './model';
+import { DEPT, DEPTS, FX_DOWN, FX_LABEL, POL, POLICIES, POLICY, POLICY_OF, SKILL, TABLET, TABLET_KNOW, type DeptId, type PolFxKind, type PolicyDef, type PolicyId, type PolTheme, type Tier, type ValueKey } from './data';
+import { growthOn, lvOf, tierEntered, type P1State } from './model';
 import { deptLevel } from './dept';
 import { headOf, quality } from './deleg';
 import { BOARD_OFF, sectorHeads, sectorQ, yearOfBoard, type BoardAgenda } from './board';
@@ -38,6 +39,12 @@ export interface PolState {
   pres?: { q: number; corp?: string[]; dept: Partial<Record<DeptId, string>> };
   /** 記録：発表会の数（1 人ずつ・一括・飛ばす・自動）・部長の発表を替えた数 */
   stat?: { held: number; changed: number };
+  /** 段 K2：受け取った「全社方針の枠 +1」の数（ランクアップの特別なパネル） */
+  slots?: number;
+  /** 段 K2：段 K の旧パネル「全社方針の枠」で増えていた枠の数（版 28 の読み込みで残す。減らさない） */
+  keep?: number;
+  /** 段 K2：知らせた（トースト・マインちゃん）受け取れる枠の数 */
+  told?: number;
 }
 /** 段 K を止める（計測の比べ・テスト）。止めると効き目・傾向は 0、推奨は段 UI7c と同じ（全社方針の 1 つ目だけ）、発表会は開かない */
 export const POL_OFF = { on: false };
@@ -94,10 +101,56 @@ export function takePolNews(s: P1State): string[] {
   return xs;
 }
 
-// ---------------------------------------------------------------- 枠・いまの方針
+/**
+ * 版 27 → 28（段 K2）：段 K の旧パネル「全社方針の枠」（経営企画のお金パネル・Lv1〜4）を取っていたセーブは、そのぶんの枠を残す（keep。減らさない）。
+ * パネルはスキルから外す（もう無い）。新しい道（ランクアップの特別なパネル）は keep を超えたぶんから増える
+ */
+export function migrateSlots(s: P1State): void {
+  if (!s.skills.includes('pol_slots')) return;
+  const lv = lvOf(s, 'pol_slots');
+  s.skills = s.skills.filter((x) => x !== 'pol_slots');
+  if (s.skillLv) delete s.skillLv.pol_slots;
+  const P = polOf(s);
+  P.keep = Math.max(P.keep ?? 0, Math.min(POL.max - POL.slots, lv));
+}
 
-/** 全社方針の枠（はじめ POL.slots・パネルの Lv ごとに +1。POL.max まで） */
-export const slotsOf = (s: Pick<P1State, 'skills' | 'skillLv'>) => Math.min(POL.max, POL.slots + lvOf(s, 'pol_slots'));
+// ---------------------------------------------------------------- 枠（段 K2：ランクアップの特別なパネル）
+
+type SlotSrc = Pick<P1State, 'pol' | 'land' | 'tier'>;
+/** 全社方針の枠 +1 が取れるようになったランク（会社として進出した U・R・E・L。並びは POL.grant の順） */
+export const slotGrants = (s: Pick<P1State, 'land' | 'tier'>): Tier[] => POL.grant.filter((x) => tierEntered(s, x));
+/** 増えている枠（受け取った数と、段 K の旧パネルで増えていた数の大きいほう） */
+const extraOf = (s: SlotSrc) => Math.min(POL.max - POL.slots, Math.max(s.pol?.slots ?? 0, s.pol?.keep ?? 0));
+/** 全社方針の枠（はじめ POL.slots・ランクアップの特別なパネルを受け取るごとに +1。POL.max まで） */
+export const slotsOf = (s: SlotSrc) => POL.slots + extraOf(s);
+/** 受け取れる「全社方針の枠 +1」の数（取れるようになったランクの数 − 増えている枠） */
+export const slotPending = (s: SlotSrc) => Math.max(0, Math.min(POL.max - POL.slots, slotGrants(s).length) - extraOf(s));
+/** 次に受け取る枠が、どのランクの進出のものか（受け取れなければ null） */
+export const slotNextTier = (s: SlotSrc): Tier | null => (slotPending(s) > 0 ? POL.grant[extraOf(s)] ?? null : null);
+/** まだ取れない枠と、その条件のランク（方針の画面の未開放の枠：「Rare の町に進出すると取れる」） */
+export const slotLocked = (s: SlotSrc): { n: number; tier: Tier }[] => {
+  const g = slotGrants(s).length;
+  return POL.grant.map((tier, k) => ({ n: POL.slots + k + 1, tier })).filter((x, k) => k >= g && x.n <= POL.max);
+};
+/** 特別なパネル「全社方針の枠 +1」を受け取る（費用 0）。受け取れたら新しい枠の数・できなければ null */
+export function claimSlot(s: P1State): number | null {
+  if (slotPending(s) <= 0) return null;
+  const P = polOf(s);
+  P.slots = extraOf(s) + 1;
+  polTouch();
+  return slotsOf(s);
+}
+/** 知らせていない、受け取れる枠が増えたか（増えていれば知らせたことにして true） */
+export function slotNews(s: P1State): boolean {
+  const g = slotGrants(s).length;
+  const P = polOf(s);
+  if (slotPending(s) <= 0 || (P.told ?? 0) >= g) return false;
+  P.told = g;
+  return true;
+}
+
+// ---------------------------------------------------------------- いまの方針
+
 /** いまの全社方針（開いているもの・枠の数まで） */
 export function corpOf(s: P1State): string[] {
   const xs = [...new Set(peek(s).corp)].filter((id) => POLICY_OF[id]?.kind === 'corp' && isOpen(s, id));
@@ -397,7 +450,8 @@ export function tabletKnow(s: Pick<P1State, 'tablets'>, tab: string): { know: st
 }
 /** マインちゃんの一言（初めて石板のノウハウを読んだとき・初めて全社方針の枠が増えたとき。60 字まで） */
 export const KNOW_TALK = () => [t('石板には、昔の Lime の[[運営のノウハウ]]も刻まれていたんだ！ 読むと[[経営方針]]が増えるよ。', 'The tablets also hold old Lime’s [[know-how]]! Reading them adds [[management policies]].'), t('選べる方針は、経営企画の[[受け箱]]の上の「経営方針」で見られるよ。', 'See your policies under Strategy → [[Inbox]] → “Management policy”.')];
-export const SLOT_TALK = (n: number) => [t(`全社方針の枠が[[ ${n} つ]]になったよ！ 方針を組み合わせると、効き目が重なるの。`, `You can now hold [[${n}]] company policies! Their effects stack.`), t('空いた枠は、いつでも経営企画の[[受け箱]]の上から埋められるよ。', 'Fill empty slots anytime from Strategy → [[Inbox]].')];
+/** 段 K2：初めて「全社方針の枠 +1」が受け取れるようになったとき（段 K の「初めて枠が増えたとき」の一言をまとめた） */
+export const SLOT_TALK = (n: number) => [t(`社長、全社方針をもう 1 つ掲げられます！ 進出の特典で[[枠 +1]]が無償で受け取れるよ。`, `Chief, you can raise one more company policy! Expanding earned a free [[+1 slot]].`), t(`方針の画面で受け取ると[[ ${n} 枠]]に。方針を組み合わせると効き目が重なるの。`, `Claim it on the policy screen for [[${n} slots]]. Policies stack their effects.`)];
 
 /** マインちゃんが方針を聞く時期：チュートリアルのあと・まだ聞いていない（最初の提案書を開くとき） */
 export const askDue = (s: P1State) => !s.flags.policyAsked && !(typeof s.tut === 'number' && s.tut < 99);

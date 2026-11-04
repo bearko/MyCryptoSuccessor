@@ -1,6 +1,6 @@
 // 段 K（docs/SUCCESSOR_ROADMAP.md「段 K の実装」・docs/ISLAND_PHASE1.md「経営方針（段 K）」）：全社方針と事業別の方針・効き目・開放・経営方針発表会。
 // 表（数・石板とパネルの割り当て・＋だけ）・効き目の式（部門のレベル・部長の能力で増える）・枠の数・開放（石板・パネル・理解度の条件）・発表会の決定・
-// 変えられる時期・提案の傾向・推奨の重み・自動プレイの選び方・セーブ（版 26 → 27）・止めたとき・セリフ 60 字
+// 変えられる時期・提案の傾向・推奨の重み・自動プレイの選び方・セーブ（版 26 → 27 → 28）・止めたとき・セリフ 60 字
 import { beforeAll, describe, expect, it } from 'vitest';
 import { DEPTS, POL, POLICIES, POLICY_OF, POL_PANELS, POL_SKILLS, SKILL, TABLETS, TABLET_KNOW, type DeptId } from '../src/island/p1/data';
 import {
@@ -40,7 +40,7 @@ import { budgetDepts, laborCap } from '../src/island/p1/budget';
 import { headOf, quality, setHead } from '../src/island/p1/deleg';
 import { deptLevel } from '../src/island/p1/dept';
 import { moraleParts } from '../src/island/p1/hr';
-import { deserializeP1, fxSum, gainSkill, newP1, serializeP1, setLevel, skillLock, type P1State } from '../src/island/p1/model';
+import { deserializeP1, fxSum, gainSkill, newP1, serializeP1, skillLock, type P1State } from '../src/island/p1/model';
 import { runOnce, withoutPol } from '../scripts/island/sim';
 import { TALK_MAX, talkLen } from '../src/island/p1/mine';
 import { loadVoice } from '../src/island/p1/voice';
@@ -58,6 +58,11 @@ beforeAll(async () => {
   v33 = r.v33 ?? null;
 }, 900_000);
 const load = () => deserializeP1(rare)!;
+/** 全社方針の枠を n にする（段 K2：ランクアップの特別なパネルを受け取ったことにする。減らさない） */
+const slotsTo = (s: P1State, n: number) => {
+  const P = polOf(s);
+  P.slots = Math.max(P.slots ?? 0, n - POL.slots);
+};
 /** チュートリアルのあとの Common の町（1 か月目の締めのあと） */
 function town(): P1State {
   const s = newP1(1);
@@ -105,14 +110,15 @@ describe('方針の表（data.ts の POLICIES）', () => {
       const o = xs[0].open as { ids: string[] };
       expect(new Set(o.ids.map((x) => TABLETS.find((y) => y.id === x)!.sector)).size).toBe(1);
     }
-    for (const id of POL_PANELS.filter((x) => x !== 'pol_slots')) {
+    for (const id of POL_PANELS) {
       const xs = POLICIES.filter((p) => p.open.k === 'panel' && p.open.id === id);
       expect(xs.length, id).toBe(1);
       expect(SKILL[id].dept, id).toBe(xs[0].dept);
       expect(SKILL[id].deptLv).toBeGreaterThan(0);
     }
     // 経営企画以外の 10 部門に 1 枚ずつ
-    expect(new Set(POL_SKILLS.filter((k) => k.id !== 'pol_slots').map((k) => k.dept)).size).toBe(10);
+    expect(new Set(POL_SKILLS.map((k) => k.dept)).size).toBe(10);
+    expect(SKILL.pol_slots).toBeUndefined();
   });
   it('効き目は＋だけ（基本の値はどれも正）。推奨の重みは 6 つとも 0 以上', () => {
     for (const p of POLICIES) {
@@ -165,8 +171,7 @@ describe('効き目の式（基本 × 部門のレベル × 部長の能力）',
       expect(fxSum(s, 'demand')).toBeGreaterThan(d0);
     }
     // OKR：部長の労力
-    gainSkill(s, 'pol_slots');
-    setLevel(s, 'pol_slots', 4);
+    slotsTo(s, 5);
     s.tablets = [...new Set([...(s.tablets ?? []), 'tab_c5'])];
     const dd = budgetDepts(s).find((x) => headOf(s, x))!;
     const l0 = laborCap(s, dd);
@@ -190,19 +195,18 @@ describe('効き目の式（基本 × 部門のレベル × 部長の能力）',
 });
 
 describe('全社方針の枠', () => {
-  it('はじめ 1 つ。経営企画の「全社方針の枠」パネルの Lv ごとに +1、5 まで。枠より多くは選べない', () => {
+  it('はじめ 1 つ。段 K2：ランクアップの特別なパネルを受け取るごとに +1、5 まで。枠より多くは選べない（tests/island-p1-stagek2.test.ts も）', () => {
     const s = town();
     expect(slotsOf(s)).toBe(1);
     expect(corpOf(s)).toEqual(['balance']);
     setCorp(s, ['profit', 'growth']);
     expect(corpOf(s)).toEqual(['profit']);
-    gainSkill(s, 'pol_slots');
+    slotsTo(s, 2);
     expect(slotsOf(s)).toBe(2);
-    for (const lv of [2, 3, 4]) {
-      setLevel(s, 'pol_slots', lv);
-      expect(slotsOf(s)).toBe(1 + lv);
+    for (const n of [3, 4, 5]) {
+      slotsTo(s, n);
+      expect(slotsOf(s)).toBe(n);
     }
-    expect(SKILL.pol_slots.max).toBe(4);
     setCorp(s, ['profit', 'growth', 'brand', 'people', 'customer', 'research']);
     expect(corpOf(s).length).toBe(5);
   });
@@ -255,7 +259,7 @@ describe('変える時期と経営方針発表会', () => {
     setCorp(s, ['balance'], true);
     expect(canSetCorp(s, ['profit'])).toBe(false);
     expect(setCorp(s, ['profit'])).toBe(false);
-    gainSkill(s, 'pol_slots');
+    slotsTo(s, 2);
     expect(setCorp(s, ['balance', 'profit'])).toBe(true);
     expect(corpOf(s)).toEqual(['balance', 'profit']);
     gainSkill(s, 'pol_lg');
@@ -267,7 +271,7 @@ describe('変える時期と経営方針発表会', () => {
   });
   it('発表会：その年の初めての会議（年初の回・年の途中で初めて開いたときはその回）。選んだもの（無ければ推奨）で決まり、同じ年の次の会議では開かない', () => {
     const s = withAgenda();
-    gainSkill(s, 'pol_slots');
+    slotsTo(s, 2);
     gainSkill(s, 'pol_lg');
     s.tablets.push('tab_c2', 'tab_c5');
     const A = boardOf(s).agenda!;
@@ -312,7 +316,7 @@ describe('変える時期と経営方針発表会', () => {
 describe('推奨の重みと提案の傾向', () => {
   it('推奨の重みは、選んだ全社方針（と、その部門の事業別の方針）の重みの平均', () => {
     const s = load();
-    gainSkill(s, 'pol_slots');
+    slotsTo(s, 2);
     setCorp(s, ['profit', 'people'], true);
     setDept(s, 'logistics', null, true);
     const w = weightsOf(s);
@@ -342,8 +346,7 @@ describe('自動プレイの選び方', () => {
     polOf(s);
     s.tablets.push('tab_c6', 'tab_c5');
     polSync(s);
-    gainSkill(s, 'pol_slots');
-    setLevel(s, 'pol_slots', 2);
+    slotsTo(s, 3);
     polAutoFill(s);
     // はじめから開いている 7 つ（表の順）→ 石板で開いた順
     expect(corpOf(s)).toEqual(['balance', 'profit', 'growth']);
@@ -357,6 +360,9 @@ describe('自動プレイの選び方', () => {
     expect(v33!.held).toBeGreaterThan(0);
     expect(v33!.corp).toBeGreaterThanOrEqual(1);
     expect(v33!.open).toBeGreaterThan(7);
+    // 段 K2：ランクアップの特別なパネル「枠 +1」はすぐ受け取る（Rare まで行くので 3 枠以上）
+    expect(v33!.slotLv).toBeGreaterThanOrEqual(2);
+    expect(v33!.slots).toBe(1 + v33!.slotLv);
   });
 });
 
@@ -369,7 +375,7 @@ describe('セーブ（版 27）とマインちゃん', () => {
     o.policy = 'people';
     o.tablets = ['tab_c5', 'tab_c1'];
     const x = deserializeP1(JSON.stringify(o))!;
-    expect(x.v).toBe(27);
+    expect(x.v).toBe(28);
     expect(corpOf(x)).toEqual(['people']);
     expect(x.pol!.got).toContain('okr');
     expect(x.pol!.got).toContain('empower');
@@ -379,12 +385,12 @@ describe('セーブ（版 27）とマインちゃん', () => {
     delete o2.pol;
     delete o2.policy;
     expect(corpOf(deserializeP1(JSON.stringify(o2))!)).toEqual(['balance']);
-    gainSkill(s, 'pol_slots');
+    slotsTo(s, 2);
     setCorp(s, ['balance', 'growth'], true);
     const back = deserializeP1(serializeP1(s))!;
-    expect(back.v).toBe(27);
+    expect(back.v).toBe(28);
     expect(corpOf(back)).toEqual(['balance', 'growth']);
-    expect(newP1(1).v).toBe(27);
+    expect(newP1(1).v).toBe(28);
   });
   it('マインちゃんの一言は 60 字まで', () => {
     for (const x of [...KNOW_TALK(), ...SLOT_TALK(5)]) expect(talkLen(x)).toBeLessThanOrEqual(TALK_MAX);

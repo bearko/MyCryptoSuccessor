@@ -396,6 +396,8 @@ function twoCols(body: HTMLElement, split: boolean): [HTMLElement, HTMLElement] 
 function longParts(body: HTMLElement, body2: HTMLElement, B: Brief) {
   const L = longLine(B);
   body.append(chartHead(t(`${POLICY.months} か月の利益の累計`, `Profit over ${POLICY.months} months (cumulative)`)), lineLegend(), lineChart(L.now, L.after));
+  // 段 K2：使い切りの手は 1 回きり。2 か月目から承認後の線は「このまま」と平行
+  if (B.vals.shot) body.append(h('p', 'isl-sl-shot', t('※ いまの素材で作るのは 1 回きり。作り終えたら元の商品に戻るので、2 か月目からは「このまま」と同じ月として計算しています。', '※ Crafting from stock is one-off: the bench returns to its product, so months 2+ match “as is”.')));
   const ms = metersOf(B);
   if (ms.length) {
     body = body2;

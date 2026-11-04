@@ -15089,6 +15089,13 @@ button.isl-dband-lead.is-on {
   min-height: 156px;
   max-width: 640px;
 }
+/* 段 K2：使い切りの手の長期の注記（折れ線の下） */
+.isl-sl-shot {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: 0.85;
+}
 .isl-sl-line svg {
   display: block;
   touch-action: pan-y;
