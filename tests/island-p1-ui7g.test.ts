@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { SIGN } from '../src/island/p1/data';
-import { bottleneck, stallOf, deserializeP1, hire, myShops, serializeP1, signFee, stageCaps, wageMul, wageOf, whatIf, type P1State } from '../src/island/p1/model';
+import { bottleneck, stallOf, deserializeP1, hire, myShops, serializeP1, signFee, stageCaps, uncommonHeroes, wageMul, wageOf, whatIf, type P1State } from '../src/island/p1/model';
 import { planOf } from '../src/island/p1/plan';
 import { briefOf, contraOf, judgeOf, recOf } from '../src/island/p1/brief';
 import { PROPOSAL_SRC, cardInbox, cardsMonth, hireOffer, planOfChoice, shownRec } from '../src/island/p1/card';
@@ -95,7 +95,6 @@ describe('写真の場面：販売がボトルネックのとき、人事の担�
     const h = p.acts.find((x) => x.k === 'hire') as Extract<PropAct, { k: 'hire' }> | undefined;
     if (h) {
       expect(B.cost.money).toBe(signFee(s, h.hero));
-      expect(B.cost.money).toBeGreaterThan(0);
       expect(B.cost.monthly).toBe(Math.round(wageOf(h.hero) * wageMul(s)));
     }
   });
@@ -153,9 +152,13 @@ describe('推奨の決め方（方針と真っ向から反する・課題を解�
 });
 
 describe('採用の費用：契約金（1 回・レアリティで上がる）と月給（毎月）', () => {
-  it('契約金は月給 × レアリティの倍率（最初の町の 1 か月目は 0）。払えなければ雇えない', () => {
+  it('契約金は月給 × レアリティの倍率（Common は 0・最初の町の 1 か月目は 0）。払えなければ雇えない', () => {
     const s = photo();
-    const id = s.hirePool[0];
+    const common = s.hirePool.find((x) => heroRarityOf(x) === 'C');
+    if (common != null) expect(signFee(s, common)).toBe(0);
+    // Uncommon のヒーローを候補に入れて確かめる
+    const id = uncommonHeroes().find((x) => !s.staff.some((y) => y.hero === x))!;
+    s.hirePool = [id, ...s.hirePool];
     const fee = signFee(s, id);
     expect(fee).toBe(Math.round((wageOf(id) * wageMul(s) * SIGN.mul[heroRarityOf(id)]) / SIGN.round) * SIGN.round);
     expect(fee).toBeGreaterThan(0);
@@ -164,9 +167,11 @@ describe('採用の費用：契約金（1 回・レアリティで上がる）�
     const first = { ...s, reports: [], sector: 'c1' } as P1State;
     expect(signFee(first, id)).toBe(0);
     const poor = load(serializeP1(s));
+    poor.hirePool = s.hirePool;
     poor.money = fee - 1;
     expect(hire(poor, id)).toBe('money');
     const rich = load(serializeP1(s));
+    rich.hirePool = s.hirePool;
     const m0 = rich.money;
     expect(hire(rich, id)).toBeNull();
     expect(m0 - rich.money).toBe(fee);
