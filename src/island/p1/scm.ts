@@ -14,6 +14,8 @@ import { openSkills } from './tree';
 import { bestSell, goodsName, shopMonthly, type SellMove } from './moves';
 import { execute } from './deleg';
 import { bar, btn, h, heroIcon, heroName, matIcon, money, rich, skuIcon, skuName } from './ui';
+import { histBox } from './chartkit';
+import { flowHist } from './dash';
 
 type Lamp = 'ok' | 'warn' | 'stop';
 const LAMP_NAME: Record<Lamp, string> = { ok: t('順調', 'Running'), warn: t('注意', 'Watch'), stop: t('停止', 'Stopped') };
@@ -717,6 +719,31 @@ export function openSupply(ctx: Ctx, opt: { breakdown?: boolean } = {}) {
       ),
     );
     body.append(nextEl);
+    // 段 UI8b：月ごとの流れ（① 調達 → ④ 販売 の実績の数。Report.flow）。線の形と線の端の名前で見分ける
+    const fh = flowHist(s.reports);
+    if (fh.length >= 2) {
+      const last = fh[fh.length - 1];
+      const low = (['bought', 'made', 'hauled', 'sold'] as const).reduce((a, k) => (last[k] < last[a] ? k : a), 'bought' as 'bought' | 'made' | 'hauled' | 'sold');
+      const nm = { bought: STAGE.buy.name, made: STAGE.craft.name, hauled: STAGE.haul.name, sold: STAGE.sell.name };
+      const fx = histBox({
+        title: t('月ごとの流れ（実績の数）', 'Monthly flow (actual units)'),
+        note: t(`先月いちばん少なかったのは${nm[low]}（${last[low]} 個）`, `Lowest last month: ${nm[low]} (${last[low]})`),
+        months: fh.map((x) => x.month),
+        series: [
+          { name: STAGE.buy.name, kind: 'dash', cls: 'is-blue', vals: fh.map((x) => x.bought) },
+          { name: STAGE.craft.name, kind: 'line', cls: 'is-teal', vals: fh.map((x) => x.made) },
+          { name: STAGE.haul.name, kind: 'dash', cls: 'is-grey', vals: fh.map((x) => x.hauled) },
+          { name: STAGE.sell.name, kind: 'line', cls: 'is-gold', vals: fh.map((x) => x.sold) },
+        ],
+        lo: 0,
+        ends: true,
+        height: 176,
+        fmt: (v) => t(`${Math.round(v)} 個`, `${Math.round(v)}`),
+        aria: t('月ごとの流れ（調達・製造・物流・販売）', 'Monthly flow: buy, craft, haul, sell'),
+        cls: 'isl-scm-hist',
+      });
+      if (fx) body.append(fx);
+    }
     if (sInfo) {
       sellBox = sellBreakdown(ctx, s, sInfo, ifs, bn === 'sell' || toBreakdown);
       body.append(sellBox);

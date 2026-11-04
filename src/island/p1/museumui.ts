@@ -11,6 +11,8 @@ import { extIcon } from './digui';
 import { stars } from './digview';
 import { open, refreshSheet, type Ctx } from './screens';
 import { btn, h, money } from './ui';
+import { histBox } from './chartkit';
+import { museumHist } from './dash';
 import { FX_PAL, fxAtEl } from '../fx/layer';
 
 const MB = DIG_BALANCE.museum;
@@ -51,6 +53,17 @@ export function openMuseum(ctx: Ctx) {
       chip(t('入館料／月', 'Admissions / mo'), money(visitors * MB.fee));
       chip(t('次の節目', 'Next milestone'), mk.next != null ? t(`${mk.next}（あと ${mk.left}）`, `${mk.next} (${mk.left} to go)`) : t('すべて達成', 'All reached'), mk.next != null ? 'is-next' : 'is-done');
       body.append(sum);
+      // 段 UI8b：来館者と入館料の推移（月の締め。Report.museum）
+      const mh = museumHist(s.reports);
+      const mx = histBox({
+        title: t('入館料の推移（月の締め）', 'Admissions at each close'),
+        note: mh.length ? t(`先月の来館 ${mh[mh.length - 1].visitors} 人`, `Last month: ${mh[mh.length - 1].visitors} visitors`) : '',
+        months: mh.map((x) => x.month),
+        series: [{ name: t('入館料', 'Admissions'), kind: 'bar', cls: 'is-gold', vals: mh.map((x) => x.income) }],
+        lo: 0,
+        aria: t('展示館の入館料の推移', 'Museum admissions by month'),
+      });
+      if (mx) body.append(mx);
       // 節目のボーナス（恒久）
       const marks = s.museum?.marks ?? 0;
       const bonus = h('p', 'isl-mus-bonus');

@@ -13,7 +13,7 @@ import { masteryCard } from './acctui';
 import { runAd, type P1State } from './model';
 import { after, open, type Ctx } from './screens';
 import { bar, btn, fmt, h, money, skuName } from './ui';
-import { arw, cvBox, trendEl, trendLegend, type TSer } from './chartkit';
+import { arw, cvBox, rankBarsEl, trendEl, trendLegend, type TSer } from './chartkit';
 import { SAT_REFS, monHead, monLab, satHist } from './dash';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -265,7 +265,28 @@ export function openForecast(ctx: Ctx, hooks: { skills?: () => void; ads?: () =>
       x.append(rv);
       tbl.append(x);
     }
-    box.append(tbl);
+    // 段 UI8b：いまのニーズの横棒（大きい順・自社の札・真似されそうな時期の札）。先の月ごとの数は「表で見る」に
+    const bars = [...f.rows].slice(0, 10).sort((a, b) => b.demand[0] - a.demand[0]);
+    if (bars.length) {
+      const top = bars[0];
+      const up = f.h ? Math.round(((top.demand[f.h] - top.demand[0]) / Math.max(1, top.demand[0])) * 100) : 0;
+      const cb = cvBox(t('商品ごとの国民のニーズ（いま・月）', 'Demand by product (now, per month)'), f.h ? t(`${f.h} か月先には、どの商品も ▲ +${up}% ほど`, `In ${f.h} mo every item is ▲ +${up}% or so`) : '');
+      cb.body.append(
+        rankBarsEl(
+          bars.map((r) => {
+            let tag: HTMLElement | undefined;
+            if (r.patent > 0) tag = h('span', 'isl-tag is-good', t(`🛡 特許 ${r.patent} か月`, `🛡 patent ${r.patent} mo`));
+            else if (r.copyIn != null) tag = h('span', `isl-tag ${r.copyIn <= 1 ? 'is-bad' : 'is-warn'}`, t(`⚠ ${r.copyIn} か月で真似`, `⚠ copied in ${r.copyIn} mo`));
+            return { name: r.name, v: r.demand[0], me: r.mine, tag };
+          }),
+          { aria: t('商品ごとの国民のニーズ', 'Demand by product'), fmt: (v) => t(`${fmt(v)} 個`, `${fmt(v)}`), meLabel: t('◀ 自社', '◀ Ours') },
+        ),
+      );
+      box.append(cb.el);
+      const more = h('details', 'isl-rp-detail');
+      more.append(h('summary', '', t('表で見る（先の月・他社）', 'As a table (months ahead, rivals)')), tbl);
+      box.append(more);
+    } else box.append(tbl);
     body.append(box);
     // 他社の売れ筋
     const rv = h('div', 'isl-card2');
