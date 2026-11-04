@@ -20,8 +20,8 @@ import { adjacent } from './world';
 import { after, open, type Ctx } from './screens';
 import { btn, h, heroIcon, heroName, money, rich, signed } from './ui';
 import { DONATE_LINE } from './mine';
-import { cvBox, donutEl, fallEl, fallLegend, shortN, trendEl, trendLegend, type TSer } from './chartkit';
-import { bsParts, plFall, quarterTrend } from './dash';
+import { arw, cvBox, donutEl, fallEl, fallLegend, histBox, shortN, trendEl, trendLegend, type TSer } from './chartkit';
+import { brandHist, bsParts, plFall, quarterTrend, sectorHist } from './dash';
 
 // ---------------------------------------------------------------- ランドマップ
 
@@ -560,6 +560,19 @@ function managerBox(ctx: Ctx, s: P1State, id: string): HTMLElement {
     stat(t('このセクタへ投資', 'Reinvested'), money(last.invest));
     stat(t('本社へ', 'To HQ'), money(last.toHQ), last.toHQ < 0 ? 'is-bad' : '');
     box.append(r);
+    // 段 UI8b：セクター長の月ごとの結果（売上の線・利益の棒）
+    const lg = sectorHist(rec);
+    const sx = histBox({
+      title: t('セクター長の月ごとの結果', 'Sector head, month by month'),
+      note: t(`先月の売上 ${money(last.rev)}`, `Last sales ${money(last.rev)}`),
+      months: lg.map((x) => x.m),
+      series: [
+        { name: t('利益', 'Profit'), kind: 'bar', cls: 'is-teal', vals: lg.map((x) => x.profit) },
+        { name: t('売上', 'Sales'), kind: 'line', cls: 'is-gold', vals: lg.map((x) => x.rev) },
+      ],
+      aria: t(`${sectorDef(id).name}の月ごとの売上と利益`, `${sectorDef(id).name}: sales and profit by month`),
+    });
+    if (sx) box.append(sx);
   }
   // 投資の割合
   const inv = h('div', 'isl-row isl-land-invest');
@@ -714,6 +727,24 @@ export function openBrand(ctx: Ctx) {
     const nx = gradeNext(s);
     top.append(h('small', 'isl-dim', nx ? t(`企業の格：${gradeName(gradeOf(s))}（次の「${nx.name}」まで あと ${nx.need}）`, `Standing: ${gradeName(gradeOf(s))} (${nx.need} more to “${nx.name}”)`) : t(`企業の格：${gradeName(gradeOf(s))}`, `Standing: ${gradeName(gradeOf(s))}`)));
     body.append(top);
+    // 段 UI8b：ブランド力の推移（月の締め）と上限の線。記録の無い以前の月は、月の増えからさかのぼった値（点線）
+    const bh = brandHist(s.reports, s.brandStart ?? v);
+    const rec = bh.map((x) => (x.est ? null : x.v));
+    const est = bh.map((x, k) => (x.est || (k > 0 && bh[k - 1].est && !x.est) ? x.v : null));
+    const series: TSer[] = [{ name: t('ブランド力', 'Brand'), kind: 'line', cls: 'is-gold', vals: rec }];
+    if (bh.some((x) => x.est)) series.push({ name: t('さかのぼった値', 'Back-calculated'), kind: 'dash', cls: 'is-grey', vals: est });
+    const d1 = bh.length >= 2 ? bh[bh.length - 1].v - bh[bh.length - 2].v : 0;
+    const bx = histBox({
+      title: t('ブランド力の推移（月の締め）', 'Brand at each close'),
+      note: t(`先月の締めから ${arw(d1)} ${signed(d1)}・上限 ★ ${cap}`, `${arw(d1)} ${signed(d1)} since last close · cap ★ ${cap}`),
+      months: bh.map((x) => x.month),
+      series,
+      refs: [{ v: cap, label: t(`上限 ★ ${cap}`, `Cap ★ ${cap}`), cls: 'is-goal' }],
+      lo: 0,
+      fmt: (x) => `★ ${Math.round(x)}`,
+      aria: t(`ブランド力の推移：いま ★ ${v}・上限 ★ ${cap}`, `Brand: now ★ ${v}, cap ★ ${cap}`),
+    });
+    if (bx) body.append(bx);
     // ブランド力が要るスキル
     const sk = h('div', 'isl-card2');
     sk.append(h('h3', '', t('ブランド力で開くスキル', 'Skills unlocked by brand')));

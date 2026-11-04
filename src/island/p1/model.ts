@@ -333,6 +333,8 @@ export interface Report {
   money?: { start: number; end: number; hi?: number; lo?: number };
   /** その月に上がったブランド力 */
   brand?: number;
+  /** 段 UI8b：月の締めの時点のブランド力（ブランド力の推移の線。以前の報告には無い＝さかのぼって数える） */
+  brandEnd?: number;
   /** その月のボトルネック（締めの時点） */
   bottleneck?: Stage;
   /** 段 UI5a：流れが止まっている（全段が 0 の月・作業台が全部止まっている）ときの、いちばん上流の止まっている段と理由。月次報告はこちらを「課題あり」に */
@@ -4431,6 +4433,7 @@ export function endMonth(s: P1State): Report {
   s.monthCost = { materials: 0, wages: 0, part: 0, upkeep: 0, build: 0, ads: 0 };
   s.hirePool = pickHires(s);
   report.brand = (s.brand ?? 0) - brandStart;
+  report.brandEnd = s.brand ?? 0;
   s.moneyStart = Math.round(s.money);
   s.moneyHi = s.moneyLo = s.moneyStart;
   s.brandStart = s.brand ?? 0;

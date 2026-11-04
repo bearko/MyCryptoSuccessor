@@ -8,6 +8,8 @@ import { isVacant, myShops, takeVacant, vacantCost, vacantErr, type P1State } fr
 import { after, open, type Ctx } from './screens';
 import { areaPaint, companyColor, companyShares, quitRule, refillText, siteCandidates, storeName, storeRows, surveyed, vacantLabel, type Candidate } from './trade';
 import { btn, h, money } from './ui';
+import { arw, histBox } from './chartkit';
+import { shareHist } from './dash';
 
 const pct = (v: number) => `${Math.round(v * 1000) / 10}%`;
 
@@ -131,6 +133,20 @@ export function openTrade(ctx: Ctx, hooks: { areaView: () => void; panels: () =>
     const head = h('div', 'isl-trade-head');
     head.append(h('h3', '', t('町のお客さんの取り分', 'Share of the town’s customers')), btn(t('地図で商圏を見る', 'Show trade areas on the map'), () => hooks.areaView(), 'is-on isl-trade-view'));
     top.append(head, barEl, legend);
+    // 段 UI8b：自社の取り分の推移（月の締め。Report.trade）
+    const sh = shareHist(s.reports);
+    const d = sh.length >= 2 ? sh[sh.length - 1].v - sh[sh.length - 2].v : 0;
+    const tx = histBox({
+      title: t('自社の取り分の推移（月の締め）', 'Your share at each close'),
+      note: sh.length >= 2 ? t(`先月から ${arw(d)} ${d >= 0 ? '+' : '−'}${Math.abs(Math.round(d * 10) / 10)} ポイント`, `${arw(d)} ${d >= 0 ? '+' : '−'}${Math.abs(Math.round(d * 10) / 10)} pts since last month`) : '',
+      months: sh.map((x) => x.month),
+      series: [{ name: t('自社の取り分', 'Your share'), kind: 'line', cls: 'is-gold', vals: sh.map((x) => x.v) }],
+      lo: 0,
+      fmt: (v) => `${Math.round(v * 10) / 10}%`,
+      axis: (v) => `${v}%`,
+      aria: t(`自社の取り分の推移：いま ${sh[sh.length - 1]?.v ?? 0}%`, `Your share: now ${sh[sh.length - 1]?.v ?? 0}%`),
+    });
+    if (tx) top.append(tx);
     body.append(top);
 
     // 真ん中：商圏の地図と候補地

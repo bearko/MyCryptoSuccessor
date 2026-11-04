@@ -13,7 +13,8 @@ import { moraleOf } from './hr';
 import { setRest, type P1State, type Staff } from './model';
 import { after, open, type Ctx } from './screens';
 import { bar, btn, fmt, h, heroIcon, heroName, money } from './ui';
-import { cvBox, trendEl, trendLegend, type TSer } from './chartkit';
+import { cvBox, fallEl, fallLegend, trendEl, trendLegend, type TSer } from './chartkit';
+import { taxFall } from './dash';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const TIER_NAME: Record<string, string> = { C: 'Common', U: 'Uncommon', R: 'Rare', E: 'Epic', L: 'Legendary' };
@@ -92,7 +93,15 @@ export function openTax(ctx: Ctx, hooks: { books?: () => void; skills?: () => vo
       row(t('差し引ける額', 'Deductible'), money(p.ded), 'is-sum');
       row(t(`　上限（利益の ${pct(dedCap(s))}）`, `  Cap (${pct(dedCap(s))} of profit)`), money(p.cap), 'is-sub');
       row(t('節税で減る税', 'Tax saved'), money(p.saved), 'is-sum');
-      head.append(rows);
+      // 段 UI8b：見込みはウォーターフォール（利益 → 差し引き → 課税される額 → 税 → 残る）。区分ごとの表は「表で見る」に
+      if (p.base > 0) {
+        const f = cvBox(t('この四半期の税の見込み', 'This quarter’s tax, projected'), p.saved > 0 ? t(`節税で税が ${money(p.saved)} 減る見込み`, `Tax savings cut ${money(p.saved)}`) : t('節税の差し引きはまだ無い', 'No deductions yet'));
+        f.body.append(fallEl(taxFall(p), t(`課税の対象の利益 ${money(p.base)}・税の見込み ${money(p.tax)}`, `Taxable ${money(p.base)}, tax ${money(p.tax)}`)), fallLegend());
+        head.append(f.el);
+      }
+      const more = h('details', 'isl-rp-detail');
+      more.append(h('summary', '', t('表で見る（区分ごとの節税・上限）', 'As a table (by kind, cap)')), rows);
+      head.append(more);
       // あと ○○ G 投資すると、税が △△ G 減る
       const tip = h('div', `isl-acct-tip ${p.room > 0 ? 'is-hot2' : ''}`);
       tip.dataset.focus = 'tax-tip';

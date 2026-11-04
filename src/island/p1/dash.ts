@@ -8,7 +8,7 @@
  */
 import { t } from '../../i18n';
 import { CS, DEPT, MORALE, PRODUCT, type DeptId } from './data';
-import { pl, quarters, type Balance, type Books, type Ledger } from './company';
+import { pl, quarters, type Balance, type Books, type Ledger, type SectorRec } from './company';
 import type { P1State, Rank, Report } from './model';
 
 // ---------------------------------------------------------------- 月の名前
@@ -239,3 +239,63 @@ export const heatStep = (pct: number) => (pct <= 0 ? 0 : pct < 50 ? 1 : pct < 90
 
 /** 前の月との差（▲▼）：前が無ければ null */
 export const delta = (cur: number, prev: number | null | undefined) => (prev == null ? null : cur - prev);
+
+// ---------------------------------------------------------------- 段 UI8b：推移の線（記録がもうある所から）
+
+/**
+ * ブランド力の月末の推移。記録（Report.brandEnd）のある月はそのまま、無い以前の月は、すぐ後の月の値からその月の増え（Report.brand）を
+ * 引いてさかのぼる（est。ほかの町にいた間の動きは入らないので「さかのぼった値」として点線で）。now0：今月のはじめのブランド力（会社の最後の締めの値）
+ */
+export function brandHist(rs: Report[], now0: number, n = 12): { month: number; v: number; est: boolean }[] {
+  const xs = rs.slice(-n);
+  const out: { month: number; v: number; est: boolean }[] = [];
+  let next = now0;
+  for (let k = xs.length - 1; k >= 0; k--) {
+    const r = xs[k];
+    const v = r.brandEnd ?? next;
+    // 記録の無い月は、さかのぼった値（町を移った間の動きは入らない）
+    out.push({ month: r.month, v: Math.max(0, Math.round(v)), est: r.brandEnd == null });
+    next = v - (r.brand ?? 0);
+  }
+  return out.reverse();
+}
+
+/** 商圏の自社の取り分（%）の推移（Rare の町の報告だけ） */
+export function shareHist(rs: Report[], n = 12): { month: number; v: number }[] {
+  return rs
+    .filter((r) => !!r.trade)
+    .slice(-n)
+    .map((r) => ({ month: r.month, v: Math.round(r.trade!.share * 1000) / 10 }));
+}
+
+/** SCM の月ごとの流れ（買った素材・作った・運んだ・売れた。個） */
+export function flowHist(rs: Report[], n = 12): { month: number; bought: number; made: number; hauled: number; sold: number }[] {
+  return rs
+    .filter((r) => !!r.flow)
+    .slice(-n)
+    .map((r) => ({ month: r.month, ...r.flow! }));
+}
+
+/** 展示館の来館者と入館料の推移 */
+export function museumHist(rs: Report[], n = 12): { month: number; visitors: number; income: number }[] {
+  return rs
+    .filter((r) => !!r.museum)
+    .slice(-n)
+    .map((r) => ({ month: r.month, visitors: r.museum!.visitors, income: Math.round(r.museum!.income) }));
+}
+
+/** セクター長の月ごとの結果（売上・利益・本社へ） */
+export function sectorHist(rec: Pick<SectorRec, 'log'>, n = 12): SectorRec['log'] {
+  return rec.log.slice(-n);
+}
+
+/** 税の見込み（いまの四半期）：課税の対象の利益 → 節税の差し引き → 課税される額 → 税（税率） */
+export function taxFall(p: { base: number; ded: number; tax: number }): Step[] {
+  return steps([
+    { key: 'base', name: t('対象の利益', 'Taxable profit'), v: p.base },
+    { key: 'ded', name: t('節税の差し引き', 'Deductions'), v: -p.ded },
+    { key: 'taxable', name: t('課税される額', 'Taxed amount'), v: 0, total: true },
+    { key: 'tax', name: t('法人税', 'Tax'), v: -p.tax },
+    { key: 'after', name: t('税のあと', 'After tax'), v: 0, total: true },
+  ]);
+}

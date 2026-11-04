@@ -8,7 +8,7 @@
  * 数は dash.ts（DOM なし）。決まりは docs/ISLAND_UX_CHARTER.md「2-7」「2-8」。
  */
 import { t } from '../../i18n';
-import { heatStep, type Bubble, type Candle, type Heat, type Part, type Step } from './dash';
+import { heatStep, monHead, monLab, type Bubble, type Candle, type Heat, type Part, type Step } from './dash';
 import { h, money } from './ui';
 import './ui8.css';
 
@@ -278,9 +278,13 @@ export function trendEl(o: TrendOpts): HTMLElement {
         })
         .filter((x): x is NonNullable<typeof x> => !!x)
         .sort((a, b) => a.y - b.y);
-      for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 28) ends[i].y = ends[i - 1].y + 28;
+      // 上から 28px ずつ離し、下の端からはみ出すなら下から詰め直す（名前が重ならないように）
+      const yMin = T + 10;
+      const yMax = H - B - 14;
+      for (let i = 0; i < ends.length; i++) ends[i].y = Math.max(yMin, i ? Math.max(ends[i].y, ends[i - 1].y + 28) : ends[i].y);
+      for (let i = ends.length - 1; i >= 0; i--) ends[i].y = Math.min(ends[i].y, yMax - (ends.length - 1 - i) * 28);
       for (const e of ends) {
-        const y = Math.max(T + 10, Math.min(H - B - 14, e.y));
+        const y = Math.max(yMin, e.y);
         svg.append(sv('text', { x: W - R + 8, y: y - 2, class: `isl-cv-end ${e.ser.cls}` }, e.ser.name));
         svg.append(sv('text', { x: W - R + 8, y: y + 12, class: 'isl-cv-endv' }, ax(e.v)));
       }
@@ -541,7 +545,7 @@ export const fallLegend = () =>
 /**
  * 順位の横棒（並びはそのまま＝順位の順）：順位・名前・棒・値。自社は金の棒と「◀ 自社」の字。goal 位と次の間にゴールライン（点線と字）
  */
-export function rankBarsEl(rows: { name: string; v: number; me: boolean; tag?: HTMLElement }[], o: { goal?: number; aria: string; fmt?: (v: number) => string } = { aria: '' }): HTMLElement {
+export function rankBarsEl(rows: { name: string; v: number; me: boolean; tag?: HTMLElement }[], o: { goal?: number; aria: string; fmt?: (v: number) => string; meLabel?: string } = { aria: '' }): HTMLElement {
   const e = h('ol', 'isl-cv-rank');
   e.setAttribute('aria-label', o.aria);
   const f = o.fmt ?? money;
@@ -549,7 +553,7 @@ export function rankBarsEl(rows: { name: string; v: number; me: boolean; tag?: H
   rows.forEach((r, k) => {
     const li = h('li', `isl-cv-rrow ${r.me ? 'is-me' : ''}`);
     const nm = h('span', 'isl-cv-rname', r.name);
-    if (r.me) nm.append(h('small', 'isl-cv-rme', t('◀ 自社', '◀ You')));
+    if (r.me) nm.append(h('small', 'isl-cv-rme', o.meLabel ?? t('◀ 自社', '◀ You')));
     if (r.tag) nm.append(r.tag);
     const track = h('span', 'isl-cv-rtrack');
     const bar = h('i', `isl-cv-rbar ${r.me ? 'is-me' : ''}`);
@@ -631,26 +635,34 @@ export function bubbleEl(pts: Bubble[], o: { xName: string; yName: string; rName
 // ---------------------------------------------------------------- 2 つの区分の濃淡：ヒートマップ
 
 const HEAT_NAME = () => [t('0%', '0%'), t('〜50%', '<50%'), t('〜90%', '<90%'), t('〜110%', '≤110%'), t('超え ⚠', 'Over ⚠')];
+/** ヒートマップのます目：字（ます目の中）・濃さの段（0〜4）・吹き出しの行。null＝記録なし（—） */
+export interface HCell {
+  text: string;
+  step: number;
+  tip: string[];
+}
 /**
- * ヒートマップ（部門 × 月）：ます目の濃さ（5 段・不透明）と、ます目の中の字（%・超えは ⚠）。押すと吹き出し（使った／予算・施策の数）
+ * ヒートマップ（行 × 列）の共通の形：ます目の濃さ（5 段・不透明）と、ます目の中の字（色だけに頼らない）。押すと吹き出し。
+ * legend：5 段の名前（左から段 0〜4）
  */
-export function heatEl(x: Heat, aria: string): HTMLElement {
+export function heatGridEl(o: { rows: { name: string; color?: string; sub?: string }[]; cols: string[]; cells: (HCell | null)[][]; legend: string[]; aria: string }): HTMLElement {
   const wrap = h('div', 'isl-cv-heat');
   const grid = h('div', 'isl-cv-hgrid');
   grid.setAttribute('role', 'img');
-  grid.setAttribute('aria-label', aria);
-  grid.style.setProperty('--n', String(x.cols.length));
+  grid.setAttribute('aria-label', o.aria);
+  grid.style.setProperty('--n', String(o.cols.length));
   const tip = tipOf(wrap);
   grid.append(h('span', 'isl-cv-hcorner', ''));
-  for (const c of x.cols) grid.append(h('span', 'isl-cv-hcol', c.label));
-  x.rows.forEach((r, i) => {
+  for (const c of o.cols) grid.append(h('span', 'isl-cv-hcol', c));
+  o.rows.forEach((r, i) => {
     const nm = h('span', 'isl-cv-hrow', r.name);
-    nm.style.setProperty('--d', r.color);
+    if (r.color) nm.style.setProperty('--d', r.color);
+    if (r.sub) nm.append(h('small', 'isl-cv-hsub', r.sub));
     grid.append(nm);
-    x.cells[i].forEach((c, j) => {
-      const cell = h('span', `isl-cv-hcell is-s${c ? heatStep(c.pct) : 'x'}`, c ? `${c.pct}%${heatStep(c.pct) === 4 ? '⚠' : ''}` : '—');
+    o.cells[i].forEach((c, j) => {
+      const cell = h('span', `isl-cv-hcell is-s${c ? c.step : 'x'}`, c ? c.text : '—');
       if (c) {
-        const say = () => tip.show([h('b', '', t(`${r.name}・${x.cols[j].label}`, `${r.name} · ${x.cols[j].label}`)), t(`使った ${money(c.used)} / 予算 ${money(c.amt)}`, `Used ${money(c.used)} / ${money(c.amt)}`), t(`施策 ${c.acts} 件`, `${c.acts} moves`)], cell.offsetLeft + cell.offsetWidth / 2, cell.offsetTop + cell.offsetHeight + 2);
+        const say = () => tip.show([h('b', '', t(`${r.name}・${o.cols[j]}`, `${r.name} · ${o.cols[j]}`)), ...c.tip], cell.offsetLeft + cell.offsetWidth / 2, cell.offsetTop + cell.offsetHeight + 2);
         cell.addEventListener('pointerenter', say);
         cell.addEventListener('pointerdown', say);
         cell.addEventListener('pointerleave', (e) => (e as PointerEvent).pointerType === 'mouse' && tip.hide());
@@ -659,13 +671,25 @@ export function heatEl(x: Heat, aria: string): HTMLElement {
     });
   });
   const keys = h('div', 'isl-cv-legend');
-  HEAT_NAME().forEach((nm, k) => {
+  o.legend.forEach((nm, k) => {
     const key = h('span', 'isl-cv-key');
     key.append(h('i', `isl-cv-hsw is-s${k}`), document.createTextNode(nm));
     keys.append(key);
   });
   wrap.append(grid, keys);
   return wrap;
+}
+/** 部門 × 月の予算の使い方（使った ÷ 予算。ます目に % と ⚠） */
+export function heatEl(x: Heat, aria: string): HTMLElement {
+  return heatGridEl({
+    rows: x.rows.map((r) => ({ name: r.name, color: r.color })),
+    cols: x.cols.map((c) => c.label),
+    cells: x.cells.map((row) =>
+      row.map((c) => (c ? { text: `${c.pct}%${heatStep(c.pct) === 4 ? '⚠' : ''}`, step: heatStep(c.pct), tip: [t(`使った ${money(c.used)} / 予算 ${money(c.amt)}`, `Used ${money(c.used)} / ${money(c.amt)}`), t(`施策 ${c.acts} 件`, `${c.acts} moves`)] } : null)),
+    ),
+    legend: HEAT_NAME(),
+    aria,
+  });
 }
 
 // ---------------------------------------------------------------- 単発の数字：KPI のカード・目標との比べ
@@ -713,4 +737,20 @@ export function bulletEl(o: { label: string; v: number; target: number; fmt?: (v
   tr.append(fill, tick);
   e.append(head, tr, h('small', 'isl-cv-bnote', `┃ ${o.tName} ${f(o.target)}`));
   return e;
+}
+
+// ---------------------------------------------------------------- 段 UI8b：月ごとの記録の推移（枠・線・凡例をまとめて）
+
+/**
+ * 月の締めの記録の推移を、枠つきの線グラフ 1 つに（見出し・出どころの 1 行・凡例）。series の vals は months と同じ長さ。
+ * 記録が 2 か月より少なければ null（線にならないので出さない）
+ */
+export function histBox(o: { title: string; note?: string; months: number[]; series: TSer[]; refs?: TRef[]; fmt?: (v: number) => string; axis?: (v: number) => string; lo?: number; hi?: number; aria: string; ends?: boolean; height?: number; cls?: string }): HTMLElement | null {
+  if (o.months.length < 2) return null;
+  const box = cvBox(o.title, o.note ?? '', o.cls ?? '');
+  box.body.append(
+    trendEl({ labels: o.months.map((m, k) => monLab(m, k === 0)), heads: o.months.map(monHead), series: o.series, refs: o.refs, fmt: o.fmt, axis: o.axis, lo: o.lo, hi: o.hi, aria: o.aria, ends: o.ends, height: o.height ?? 150 }),
+    trendLegend(o.series, o.refs ?? []),
+  );
+  return box.el;
 }

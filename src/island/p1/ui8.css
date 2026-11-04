@@ -926,3 +926,17 @@
 .isl-cv-bfill.is-cap {
   background: #f2b544;
 }
+/* 段 UI8b：月次報告の KPI ③ の下の 1 行（担当の報告など）：スマホで短い文が 1 行に入らないときは、見出しの横で 2 行に折る（はみ出して切れない） */
+@media (max-width: 599px) {
+  .is-report .isl-rp-dig-text > .is-short:not(.isl-rp-revive) {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+/* 段 UI8b：ヒートマップの行の小さな注記 */
+.isl-cv-hsub {
+  margin-left: 4px;
+  font-size: 12px;
+  color: #b8c0d4;
+}
