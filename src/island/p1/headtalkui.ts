@@ -328,6 +328,7 @@ function showPlan(ctx: Ctx, card: Card, plan: Plan, rec = false) {
     say: sayOf(s, card),
     role: roleOfCard(s, card).text,
     later: card.id >= 0,
+    card: card.id,
     ...(card.id >= 0 ? { approve: (p: Plan) => approveCard(s, card.id, p) } : {}),
     done: (w) => {
       if (w === 'ok') sayToast(ctx.toast, card.hero, 'approved', card.id + s.day);
@@ -514,7 +515,7 @@ function itemData(ctx: Ctx, s: P1State, item: CheckItem): HTMLElement {
     const r = h('div', `isl-ht-choice ${ch.rec ? 'is-rec' : ''}`);
     r.append(recLine(`${x.icon} ${x.label}`, ch.rec), h('small', '', x.sub));
     const plan = ch.act.k === 'do' || ch.act.k === 'approve' ? planOfChoice(s, c, k) : null;
-    if (plan) r.append(btn(t('📄 提案書', '📄 Proposal'), () => showPlan(ctx, c, plan, !!ch.rec), 'isl-ht-plan'));
+    if (plan) r.append(btn(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, c, plan, !!ch.rec), 'isl-ht-plan'));
     list.append(r);
   });
   box.append(list);

@@ -93,6 +93,8 @@ export interface Plan {
   goods?: Sku[];
   /** 入れ替えで作らなくなる商品 */
   drop?: Sku | null;
+  /** 段 UI7b：steps のそれぞれが、acts の何番目の手から来たか（承認事項の箇条・部門ごとの費用の内訳） */
+  of?: number[];
 }
 
 // ---------------------------------------------------------------- 広げる（PropAct → Plan）
@@ -226,11 +228,12 @@ export function stepsOf(s: P1State, a: PropAct, used = new Set<number>()): { ste
 export function planOf(s: P1State, acts: PropAct[], who: { hero: number | null; q?: number; dept?: DeptId | null } = { hero: null }): Plan {
   const used = new Set<number>();
   const steps: Step[] = [];
+  const of: number[] = [];
   const goods: Sku[] = [];
   let drop: Sku | null = null;
-  for (const a of acts) {
+  acts.forEach((a, k) => {
     const r = stepsOf(s, a, used);
-    // 同じ注文は 1 つに
+    // 同じ注文は 1 つに（先に出した手の分として数える）
     for (const st of r.steps) {
       if (st.k === 'order') {
         const same = steps.find((y) => y.k === 'order' && y.m === st.m) as Extract<Step, { k: 'order' }> | undefined;
@@ -240,11 +243,12 @@ export function planOf(s: P1State, acts: PropAct[], who: { hero: number | null; 
         }
       }
       steps.push(st);
+      of.push(k);
     }
     goods.push(...(r.goods ?? []));
     drop ??= r.drop ?? null;
-  }
-  return { hero: who.hero, q: who.q ?? DELEG.q.lo, dept: who.dept ?? null, acts, steps, ...(goods.length ? { goods } : {}), drop };
+  });
+  return { hero: who.hero, q: who.q ?? DELEG.q.lo, dept: who.dept ?? null, acts, steps, ...(goods.length ? { goods } : {}), drop, of };
 }
 
 /** 手で選んだ変更（工房の作る物・主力・従業員）を Plan に（同じ applyPlan で実行する） */
@@ -258,11 +262,11 @@ export interface PlanCost {
   rp: number;
   monthly: number;
   days: number;
-  /** 払うものの内訳（「棚の増設 1,500 G」） */
-  items: { label: string; money?: number; rp?: number; monthly?: number; days?: number }[];
+  /** 払うものの内訳（「棚の増設 1,500 G」）。at：どの step から（段 UI7b：承認事項の箇条ごとの費用） */
+  items: { label: string; money?: number; rp?: number; monthly?: number; days?: number; at?: number }[];
 }
 const nameOfB = (id: string) => DEF[id]?.name ?? id;
-const shopNm = (s: P1State, uid: number) => {
+export const shopNm = (s: P1State, uid: number) => {
   const b = s.buildings.find((x) => x.uid === uid);
   const all = myShops(s).filter((x) => x.id === b?.id);
   return b ? (all.length > 1 ? `${nameOfB(b.id)} ${all.indexOf(b) + 1}` : nameOfB(b.id)) : t('お店', 'Shop');
@@ -274,12 +278,13 @@ const COLON = () => t('：', ': ');
 
 export function planCost(s: P1State, p: Plan): PlanCost {
   const c: PlanCost = { money: 0, rp: 0, monthly: 0, days: 0, items: [] };
+  let at = 0;
   const add = (label: string, x: { money?: number; rp?: number; monthly?: number; days?: number }) => {
     c.money += x.money ?? 0;
     c.rp += x.rp ?? 0;
     c.monthly += x.monthly ?? 0;
     c.days = Math.max(c.days, x.days ?? 0);
-    c.items.push({ label, ...x });
+    c.items.push({ label, ...x, at });
   };
   // 同じ建物の設備を 2 段上げるときの 2 段目の値段
   const lv: Record<string, number> = {};
@@ -291,7 +296,8 @@ export function planCost(s: P1State, p: Plan): PlanCost {
     lv[k] = n + 1;
     return investCost({ ...b, inv: { ...b.inv, [id]: invLv(b, id) + n } }, id);
   };
-  for (const st of p.steps) {
+  for (const [i, st] of p.steps.entries()) {
+    at = i;
     switch (st.k) {
       case 'shelf': {
         const v = investAt(st.uid, 'shelves');
@@ -556,6 +562,11 @@ function actDid(_s: P1State, a: PropAct): string {
 
 /** 状態の写し（提案書の見込み用。元の状態は書き換えない） */
 export const clone = (s: P1State): P1State => structuredClone(s);
+/**
+ * 段 UI7b：「このまま（承認しない）」の見込み。afterOf と同じ見方（替わる途中の作業台は替わったあと・作っている商品は在庫があるものとして棚に並べる）で、
+ * 何も変えない状態。提案書の As-Is と期待効果の「前」はこれと比べる（提案と関係のない棚の並べ替えを、提案の効き目に数えない）
+ */
+export const baseOf = (s: P1State): P1State => afterOf(s, manualPlan([]));
 
 /** その Plan を写しに当てた状態（お金・研究ポイントは足りるものとして。作り始めた商品は在庫があるものとして並べる） */
 export function afterOf(s: P1State, p: Plan): P1State {
@@ -889,8 +900,8 @@ const actShort = (a: PropAct, s?: P1State): string => {
   }
 };
 /** 段 UI5c：在庫と素材を売る手（売りさばき・使い切りの製造）だけの提案書 */
-const stockPlan = (p: Plan) => p.steps.length > 0 && p.steps.every((x) => x.k === 'clear' || x.k === 'useup' || x.k === 'worker');
+export const stockPlan = (p: Plan) => p.steps.length > 0 && p.steps.every((x) => x.k === 'clear' || x.k === 'useup' || x.k === 'worker');
 /** 値引きの段の名前 */
-const clearName = (k: number) => ((CLEAR.cuts[k] ?? 0) > 0 ? t(`${Math.round(CLEAR.cuts[k] * 10)} 割引`, `${Math.round(CLEAR.cuts[k] * 100)}% off`) : t('値引きなし', 'no discount'));
+export const clearName = (k: number) => ((CLEAR.cuts[k] ?? 0) > 0 ? t(`${Math.round(CLEAR.cuts[k] * 10)} 割引`, `${Math.round(CLEAR.cuts[k] * 100)}% off`) : t('値引きなし', 'no discount'));
 /** 作る物を替えたときに止まる商品（ほかの台で作っていない） */
 export const planDrop = (p: Plan) => p.drop ?? null;

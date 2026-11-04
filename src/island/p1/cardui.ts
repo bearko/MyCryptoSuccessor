@@ -137,8 +137,9 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
       if (n) sub.append(t('・', ' · '));
       sub.append(h('span', 'isl-nw', part));
     });
-    // 段 UI5d：推奨の手には「推奨」の札
+    // 段 UI5d：推奨の手には「推奨」の札。段 UI7b：提案書へ進む選択肢は「📄 提案書を見る」（部長との会話と同じ文言）
     lab.append(recLine(`${x.icon} ${x.label}`, ch.rec), sub);
+    if ((ch.act.k === 'do' || ch.act.k === 'approve') && planOfChoice(s, c, k)) lab.append(h('small', 'isl-cardm-go', t('📄 提案書を見る ›', '📄 See the proposal ›')));
     if (why) lab.append(h('small', 'isl-bad', why));
     b.append(lab);
     b.addEventListener('click', () => {
@@ -151,6 +152,7 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
             role: roleOfCard(s, c).text,
             later: true,
             rec: !!ch.rec,
+            card: c.id,
             approve: (pp) => approveCard(s, c.id, pp),
             done: (w) => {
               // 段 P2：提案書を承認したら、承認の反応（史実の調査のあるヒーロー）
