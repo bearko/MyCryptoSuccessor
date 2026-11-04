@@ -285,7 +285,7 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
     function upd() {
       if (it.kind === 'dept') {
         drawSlack(slack, s, it, pick);
-        why3.textContent = `${t('推奨の理由：', 'Why: ')}${budgetWhy(it, coLive(s, A!.co))}`;
+        why3.textContent = t('推奨の理由：', 'Why: ') + budgetWhy(it, coLive(s, A!.co));
       }
       const v = moraleHint(it, pick);
       hint.textContent = v ? t(`${heroNm(it.hero)}の士気の目標 ${v > 0 ? '+' : '−'}${Math.abs(Math.round(v))}（目標の重さ）`, `${heroNm(it.hero)}’s morale target ${v > 0 ? '+' : '−'}${Math.abs(Math.round(v))}`) : '';
@@ -461,7 +461,8 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
       const num = h('div', 'isl-bm-lnum');
       num.append(h('b', '', t(`+${fmt1(L.units)} 個/月`, `+${fmt1(L.units)}/mo`)), h('small', '', t(`${STAGE_JA[L.stage]()}（${L.now ? 'いまの詰まり' : '次の詰まり'}）・月 +${g(L.val)}`, `${STAGE_JA[L.stage]()} (${L.now ? 'bottleneck now' : 'next bottleneck'}) · +${g(L.val)}/mo`)));
       big.append(num);
-      if (L.pre.length) box.append(big, h('small', 'isl-bm-dim', t(`前提のパネル：${L.pre.map((x) => `『${x}』`).join('・')} から順に開く`, `Opens ${L.pre.map((x) => `“${x}”`).join(', ')} first`)));
+      const preJa = L.pre.map((x) => t(`『${x}』`, `“${x}”`)).join(t('・', ', '));
+      if (L.pre.length) box.append(big, h('small', 'isl-bm-dim', t(`前提のパネル：${preJa} から順に開く`, `Opens ${preJa} first`)));
       else box.append(big);
     } else if (L.k === 'crew') {
       big.append(h('b', 'isl-bm-lname', t(`従業員の上限 ${L.cap} 人`, `Staff cap ${L.cap}`)));
@@ -478,7 +479,7 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
       return box;
     }
     const rec = it.rec.lever ?? 0;
-    box.append(options(leverOpts(L), rec, () => pick.lever ?? rec, (v) => (pick.lever = v as 0 | 1)), h('small', 'isl-bm-recwhy', `${t('推奨の理由：', 'Why: ')}${leverWhy(s, L, rec)}`));
+    box.append(options(leverOpts(L), rec, () => pick.lever ?? rec, (v) => (pick.lever = v as 0 | 1)), h('small', 'isl-bm-recwhy', t('推奨の理由：', 'Why: ') + leverWhy(s, L, rec)));
     return box;
   }
 
