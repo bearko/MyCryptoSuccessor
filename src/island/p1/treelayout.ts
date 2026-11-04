@@ -13,6 +13,8 @@ import { TREE_ORDER } from './treeorder';
 
 /** スキルのランク（外周）。無ければ C */
 const tierOf = (k: { tier?: Tier }): Tier => k.tier ?? 'C';
+/** 置く外周（段 K：法務の「経営方針」パネルは Epic のパネルだが、Epic の外周に入る幅が無いので Rare の外周の位置に置く＝Skill.ring） */
+const ringOf = (k: { tier?: Tier; ring?: Tier }): Tier => k.ring ?? tierOf(k);
 
 export const UNIT = 96;
 /**
@@ -134,7 +136,7 @@ export const RING_EDGE = { C: 0 } as Record<Tier, number>;
 // 段 G：マーケの Uncommon の外周にパネルが増えたので、ブランドの看板（物流の Rare の外周へ線が伸びる）を物流の側の端へ（線がマーケのパネルを横切らないように）
 const OUTER_AT: Record<string, number> = { u_dig_mat: 3, b_sign: 3 };
 function outerOf(list: Skill[], tier: Tier): Skill[] {
-  const out = [...list.filter((k) => tierOf(k) === tier && !k.big && !k.donate), ...list.filter((k) => tierOf(k) === tier && k.big)];
+  const out = [...list.filter((k) => ringOf(k) === tier && !k.big && !k.donate), ...list.filter((k) => ringOf(k) === tier && k.big)];
   for (const [id, at] of Object.entries(OUTER_AT)) {
     const i = out.findIndex((k) => k.id === id);
     if (i >= 0) out.splice(at, 0, ...out.splice(i, 1));

@@ -1099,6 +1099,8 @@ export interface Skill {
   donate?: boolean;
   /** 段 K：取るのに要る、そのパネルの部門の理解度（経営方針のパネル。「部門の開拓が一定に達すると開く」） */
   deptLv?: number;
+  /** 段 K：スキルツリーで置く外周（無ければ tier）。法務の経営方針のパネルは Epic のパネルだが、Epic の外周に入る幅が無いので Rare の外周の位置に置く */
+  ring?: Tier;
 }
 /** 無限の強化パネルの種類：発掘の速さ・掘る力・掘る範囲 */
 export type InfKind = 'speed' | 'power' | 'reach';
@@ -2186,7 +2188,7 @@ export const LEGAL_RP: Record<string, number> = { lg_template: 500, lg_dd: 750 }
 SKILLS.push(...LEGAL_SKILLS);
 /**
  * 段 K：部門ごとの「経営方針」パネル（docs/ISLAND_PHASE1.md「経営方針（段 K）」）。その部門の理解度が deptLv に達すると取れる（Rare の外周）。
- * 営業は Rare の外周に入る幅が無い（枝の幅が足りず、ほかの枝が詰まる）ので Epic の外周。法務は逆に Epic の外周に入らないので Rare の外周に置く（法務の理解度は Epic から＝実際に取れるのは Epic）。
+ * 営業は Rare の外周に入る幅が無い（枝の幅が足りず、ほかの枝が詰まる）ので Epic の外周。法務は逆に Epic の外周に入らないので、Epic のパネルのまま Rare の外周の位置に置く（Skill.ring。契約の雛形の先）。
  * 研究パネル 10 枚（取ると、その部門の事業別の方針が 1 つ選べるようになる。RP は決め打ち POL_RP）と、経営企画のお金パネル 1 枚（全社方針の枠。Lv1〜4 で枠 2〜5）。
  * どれも C・U の外ではないので、100% の「C・U の取れるパネル」の数は変わらない。開く方針は POLICIES の open.panel
  */
@@ -2200,7 +2202,7 @@ export const POL_SKILLS: Skill[] = [
   { id: 'pol_cs', branch: 'shop', tier: 'R', deptLv: 5, name: t('経営方針：カスタマーサクセス', 'Policy: Customer success'), note: t('カスタマーサポートの事業別の方針「カスタマーサクセス」が選べるようになる', 'Unlocks the Support policy “Customer success”'), cost: 0, requires: ['cs_center'] },
   { id: 'pol_ac', branch: 'ops', tier: 'R', deptLv: 5, name: t('経営方針：ゼロベース予算', 'Policy: Zero-based budgeting'), note: t('経理の事業別の方針「ゼロベース予算」が選べるようになる', 'Unlocks the Accounting policy “Zero-based budgeting”'), cost: 0, requires: ['ac_cost'] },
   { id: 'pol_sa', branch: 'sales', tier: 'E', deptLv: 6, name: t('経営方針：インサイド・セールス', 'Policy: Inside sales'), note: t('営業の事業別の方針「インサイド・セールス」が選べるようになる', 'Unlocks the Sales policy “Inside sales”'), cost: 0, requires: ['sa_edge'] },
-  { id: 'pol_le', branch: 'legal', tier: 'R', deptLv: 4, name: t('経営方針：コンプライアンス', 'Policy: Compliance'), note: t('法務の事業別の方針「コンプライアンス経営」が選べるようになる', 'Unlocks the Legal policy “Compliance management”'), cost: 0, requires: ['lg_template'] },
+  { id: 'pol_le', branch: 'legal', tier: 'E', ring: 'R', deptLv: 4, name: t('経営方針：コンプライアンス', 'Policy: Compliance'), note: t('法務の事業別の方針「コンプライアンス経営」が選べるようになる', 'Unlocks the Legal policy “Compliance management”'), cost: 0, requires: ['lg_template'] },
   { id: 'pol_slots', branch: 'ops', tier: 'R', deptLv: 5, max: 4, name: t('全社方針の枠', 'Company policy slots'), note: t('全社方針を同時に選べる数 +1（Lv ごとに +1。はじめは 1 つ・Lv4 で 5 つ）', 'Choose one more company policy at once (+1 per Lv; 1 at first, 5 at Lv4)'), cost: 25000, requires: ['pr'], show: [{ label: t('全社方針の枠', 'Company policy slots'), v: 1, unit: '', lin: true }] },
 ];
 /** 段 K の経営方針のパネルの id（枝の幅の余り・RP の割り振り・自動プレイの研究の並びに入れない） */

@@ -16,7 +16,7 @@ import { centerRate, inquiriesFor, newCs, putPower, refundCost, repeatMul } from
 import { gradeBrand, horizon, prGain } from '../../src/island/p1/mkt';
 import { clauseSlots, ddDays, keepRate, offerChance, patentDays, suitChance } from '../../src/island/p1/legal';
 import { emptyLedger } from '../../src/island/p1/company';
-import { openPolicies, policyOfPanel, slotsOf } from '../../src/island/p1/policy';
+import { POL_OFF, openPolicies, policyOfPanel, slotsOf } from '../../src/island/p1/policy';
 import { areaShares, deserializeP1 as fromSave, newP1 as freshTown, newStorePull, rivalStores, serializeP1 as toSave, vacantCost } from '../../src/island/p1/model';
 import { POL_PANELS, HERO_GROWTH, ADS, DIG_BALANCE, DIG_SITES, HIRE_POOL, INVEST, INVESTS, MONEY_PANELS, P1B, PRODUCT, RESEARCH_NEED, SKILL, aptitude, isResearch, relicKey, sku, skuParts, type DigFxKind, type FxKind, type Mat, type Skill, type Sku, type Task } from '../../src/island/p1/data';
 import {
@@ -979,7 +979,14 @@ function measure(item: Item, base: BaseId, stage: Stage): Cell {
 }
 
 export function audit(list = items()): Row[] {
-  return noGrowth(() => audit0(list));
+  // 段 K：経営方針の効き目は投資ではないので止めて測る（方針は町の土台を少し動かし、際どい投資の差が隠れる。方針のパネルは「選べる方針の数」で測る）
+  const was = POL_OFF.on;
+  POL_OFF.on = true;
+  try {
+    return noGrowth(() => audit0(list));
+  } finally {
+    POL_OFF.on = was;
+  }
 }
 function audit0(list: Item[]): Row[] {
   const rows: Row[] = [];
