@@ -2556,7 +2556,7 @@ const W7 = POLICY.w;
  */
 export const POLICIES: PolicyDef[] = [
   // ---- 全社方針：はじめから（段 UI7c の 7 つの価値観）
-  { id: 'balance', kind: 'corp', dept: 'strategy', icon: '⚖', name: t('バランス', 'Balanced'), note: t('バランスト・スコアカード：お金・お客様・仕事の流れ・人の育ちの 4 つを、ほどよく見る', 'Balanced scorecard: weigh money, customers, workflow and growth evenly'), fx: [{ k: 'flow', v: 0.015 }], w: W7.balance, themes: [], open: { k: 'start' } },
+  { id: 'balance', kind: 'corp', dept: 'strategy', icon: '⚖', name: t('バランス', 'Balanced'), note: t('バランスト・スコアカード：お金・お客様・仕事の流れ・人の育ちの 4 つを、ほどよく見る', 'Balanced scorecard: weigh money, customers, workflow and growth evenly'), fx: [{ k: 'upkeep', v: 0.02 }], w: W7.balance, themes: [], open: { k: 'start' } },
   { id: 'profit', kind: 'corp', dept: 'accounting', icon: '💰', name: t('利益重視', 'Profit first'), note: t('コスト・リーダーシップ：むだな費用を削り、お金になる提案だけを通す', 'Cost leadership: cut waste and approve what makes money'), fx: [{ k: 'matPrice', v: 0.03 }], w: W7.profit, themes: ['cost', 'store'], open: { k: 'start' } },
   { id: 'growth', kind: 'corp', dept: 'strategy', icon: '📈', name: t('成長重視（長期）', 'Growth (long term)'), note: t('成長戦略：目先が赤字でも、1 年で取り戻せる投資を先に打つ', 'Growth strategy: invest now if it pays back within a year'), fx: [{ k: 'demand', v: 0.02 }], w: W7.growth, themes: ['sell', 'people'], open: { k: 'start' } },
   { id: 'brand', kind: 'corp', dept: 'marketing', icon: '★', name: t('ブランド重視', 'Brand first'), note: t('ブランド・エクイティ：名前そのものを会社の財産として育てる', 'Brand equity: grow the name itself as a company asset'), fx: [{ k: 'brand', v: 1 }], w: W7.brand, themes: ['brand'], open: { k: 'start' } },

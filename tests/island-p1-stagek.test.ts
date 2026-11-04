@@ -288,7 +288,7 @@ describe('変える時期と経営方針発表会', () => {
     // ほかの部門（開いた方針がある）は推奨で決まる
     for (const d of presDepts(s)) expect(deptPolicyOf(s, d)).toBeTruthy();
     // 同じ年の次の会議では開かない・次の年は開く
-    expect(presDue(s, { q: A.q + 1 > (yearOfBoard(A) * 4) ? A.q : A.q + 1 })).toBe(yearOfBoard({ q: A.q + 1 }) > yearOfBoard(A));
+    expect(presDue(s, { q: yearOfBoard(A) * 4 })).toBe(false);
     expect(presDue(s, { q: yearOfBoard(A) * 4 + 1 })).toBe(true);
   });
   it('飛ばす・一括承認・自動でも、発表会の回なら推奨で決まる（自動プレイの標準）', () => {
