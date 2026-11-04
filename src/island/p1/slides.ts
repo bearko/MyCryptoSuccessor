@@ -391,7 +391,9 @@ export function propStacks(s: P1State, b: Pick<Brief, 'budget' | 'asks' | 'cost'
   const d = b.budget.dept;
   const mine = b.asks.filter((x) => x.dept === d);
   const delta = mine.reduce((a, x) => a + x.money + x.monthly * rest, 0);
-  const all = budgetDepts(s).map(one);
+  // 会社の棒は経営会議の ③ と同じ「部長のいる部門の予算の合計」（予算を使うのは部長のいる部門だけ）。提案の部門は必ず入れる
+  const headed = (x: DeptId) => s.staff.some((y) => y.heads?.includes(x) || (y.task === 'lead' && y.target === `H:${x}`));
+  const all = budgetDepts(s).filter((x) => x === d || headed(x)).map(one);
   const sum = (k: 'total' | 'used' | 'expect') => all.reduce((a, x) => a + x[k], 0);
   const L = { labUsed: t('使った', 'Used'), labExp: t('使う見込み', 'Planned'), labDelta: delta >= 0 ? t('この施策', 'This plan') : t('この施策で減る', 'Saved by this') };
   const D = one(d);
