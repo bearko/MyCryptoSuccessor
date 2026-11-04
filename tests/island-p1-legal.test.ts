@@ -5,7 +5,7 @@
  * 争い（訴えは実際に起きたことからだけ・負けても止まらない）・Rare 以下の町には出ない・法務の理解度と条項・古いセーブ（版 18）。
  */
 import { describe, expect, it } from 'vitest';
-import { DEPT_SKILLS, LEGAL, LEGAL_SKILLS, PRODUCT, rivalDef, rivalsOf } from '../src/island/p1/data';
+import { POL_PANELS, DEPT_SKILLS, LEGAL, LEGAL_SKILLS, PRODUCT, rivalDef, rivalsOf } from '../src/island/p1/data';
 import { deptLevel } from '../src/island/p1/dept';
 import {
   cancelSupply,
@@ -38,6 +38,8 @@ import {
 } from '../src/island/p1/legal';
 import { copyIn } from '../src/island/p1/mkt';
 import { allowedDirs, antiqueHere, build, deserializeP1, endMonth, matPrice, newP1, serializeP1, step, type P1State, type PBuilding } from '../src/island/p1/model';
+/** 段 K の経営方針のパネル（POL_SKILLS）は別に数える（tests/island-p1-stagek.test.ts） */
+const noPol = <T extends { id: string }>(xs: T[]) => xs.filter((k) => !POL_PANELS.includes(k.id));
 
 function lot(s: P1State, id: string, skip = 0): [number, number, 'rd' | 'ld' | 'lu' | 'ru'] {
   let n = 0;
@@ -349,7 +351,7 @@ describe('5. 争い', () => {
 
 describe('6. 法務の部門・パネル・セーブ', () => {
   it('法務のパネルは Epic の外周 4 枚（研究 2・お金 2）。理解度はパネルと経験（契約・特許・M&A・裁判）。条項は理解度 3・契約の雛形で増える', () => {
-    expect(DEPT_SKILLS.legal.map((k) => k.id)).toEqual(LEGAL_SKILLS.map((k) => k.id));
+    expect(noPol(DEPT_SKILLS.legal).map((k) => k.id)).toEqual(LEGAL_SKILLS.map((k) => k.id));
     for (const k of LEGAL_SKILLS) expect([k.tier, k.branch], k.id).toEqual(['E', 'legal']);
     const s = epicTown();
     expect(deptLevel(s, 'legal')).toBe(0);

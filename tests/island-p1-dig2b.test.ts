@@ -811,6 +811,6 @@ describe('セーブ：版 3 → 4', () => {
     expect([researchCap(n), deepLayers(n, 'C')]).toEqual([3, 2]);
     // 版 4 を読み直しても変わらない
     const back = deserializeP1(serializeP1(s))!;
-    expect([back.v, researchCap(back), deepLayers(back, 'C'), lvOf(back, 'dig_power')]).toEqual([26, 5, 3, 0]);
+    expect([back.v, researchCap(back), deepLayers(back, 'C'), lvOf(back, 'dig_power')]).toEqual([27, 5, 3, 0]);
   });
 });

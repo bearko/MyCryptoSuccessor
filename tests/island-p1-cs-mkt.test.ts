@@ -4,12 +4,14 @@
  * 炎上の予告（手を打つと起きない・放っておくと起きて戻る）・Common に問い合わせと炎上が無い・広報・市場の見通し・リーダーの返事・古いセーブ。
  */
 import { describe, expect, it } from 'vitest';
-import { CS, CS_SKILLS, DEPT_SKILLS, FLAME, GRADE, MARKET_GROWTH, MKT_SKILLS, PR, rpCost } from '../src/island/p1/data';
+import { POL_PANELS, CS, CS_SKILLS, DEPT_SKILLS, FLAME, GRADE, MARKET_GROWTH, MKT_SKILLS, PR, rpCost } from '../src/island/p1/data';
 import { CS_OFF, apologize, centerRate, csDay, csMonth, csOf, csOn, daysLeft, inquiriesFor, putOut, repeatMul, reply, satOf, visitMul } from '../src/island/p1/cs';
 import { forecast, gradeHire, gradeOf, horizon, newsOf, prGain, prLock, publish } from '../src/island/p1/mkt';
 import { deptLevel, menuDepts } from '../src/island/p1/dept';
 import { runnerOf, setLeader } from '../src/island/p1/deleg';
 import { allowedDirs, assign, build, capture, deserializeP1, gainSkill, hireSlots, newP1, rivalOffers, serializeP1, setLevel, setShelf, step, type P1State, type Report } from '../src/island/p1/model';
+/** 段 K の経営方針のパネル（POL_SKILLS）は別に数える（tests/island-p1-stagek.test.ts） */
+const noPol = <T extends { id: string }>(xs: T[]) => xs.filter((k) => !POL_PANELS.includes(k.id));
 
 function lot(s: P1State, id: string): [number, number, 'rd' | 'ld' | 'ru' | 'lu'] {
   for (let j = 0; j < s.n; j++)
@@ -260,7 +262,7 @@ describe('Common の町（問い合わせ・炎上が無い）', () => {
   it('カスタマーサポートの部門は Uncommon で開く（Common のメニューには出ない）。パネル 4 枚は Uncommon の外周・研究とお金の両方', () => {
     expect(menuDepts(newP1(1))).not.toContain('support');
     expect(menuDepts(newP1(1, 'U', 'u1'))).toContain('support');
-    expect(DEPT_SKILLS.support.map((k) => k.id)).toEqual(CS_SKILLS.map((k) => k.id));
+    expect(noPol(DEPT_SKILLS.support).map((k) => k.id)).toEqual(CS_SKILLS.map((k) => k.id));
     expect(CS_SKILLS.some((k) => k.cat === 'money') && CS_SKILLS.some((k) => k.cat === 'research')).toBe(true);
     for (const k of [...CS_SKILLS, ...MKT_SKILLS]) {
       expect(k.tier, k.id).toBe('U');

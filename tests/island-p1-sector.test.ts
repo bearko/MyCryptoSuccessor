@@ -1,3 +1,4 @@
+import { withoutPol } from '../scripts/island/sim';
 import { describe, expect, it } from 'vitest';
 import { MATS, MISSIONS, PRODUCT, RIVALS, SECTORS, TIERS, UNCOMMON_RIVAL, rivalDef } from '../src/island/p1/data';
 import { sectorProfile } from '../src/island/p1/company';
@@ -56,8 +57,11 @@ describe('セクタの個性', () => {
     const c1 = newP1(14);
     const c3 = newP1(14, 'C', 'c3');
     const u3 = newP1(14, 'U', 'u3');
-    expect(legDays(c3, 10)).toBeCloseTo(legDays(c1, 10) * 1.2);
-    expect(legDays(u3, 10)).toBeCloseTo(legDays(c1, 10) * 1.3);
+    // 段 K：経営方針（バランスの流れ）の効き目は止めて、セクタの個性だけを比べる
+    withoutPol(() => {
+      expect(legDays(c3, 10)).toBeCloseTo(legDays(c1, 10) * 1.2);
+      expect(legDays(u3, 10)).toBeCloseTo(legDays(c1, 10) * 1.3);
+    });
   });
 
   it('宣伝の効き目：エムケーシティは ×1.5・オマツリタウンは ×1.4', () => {

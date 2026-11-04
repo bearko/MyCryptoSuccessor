@@ -25,7 +25,7 @@ import {
   type P1State,
 } from '../src/island/p1/model';
 import { siteCandidates, storeName, storeRows } from '../src/island/p1/trade';
-import { runOnce, withoutAcct, withoutCs, withoutHr, withoutEvents, withoutP2 } from '../scripts/island/sim';
+import { withoutPol, runOnce, withoutAcct, withoutCs, withoutHr, withoutEvents, withoutP2 } from '../scripts/island/sim';
 import { priceMul } from '../src/island/p1/acct';
 
 const rare = (seed = 1, sector = 'r1') => newP1(seed, 'R', sector);
@@ -56,14 +56,15 @@ describe('Common・Uncommon の売れ方は前と同じ', () => {
       const out: Record<string, number[]> = {};
       // 段 E2（カリスマ度・士気・給与）・段 F（税・単価・疲れ）・段 G（問い合わせ・満足度・炎上・企業の格）は止めて比べる（withoutHr・withoutAcct・withoutCs）
       // 段 UI4（突発のできごと・外交）も止めて比べる（withoutEvents）。段 P2（史実の適性・ヒーローの組み合わせ）も止める（withoutP2）
-      withoutP2(() => withoutEvents(() => withoutCs(() => withoutHr(() => withoutAcct(() =>
+      // 段 K（経営方針）も止める（withoutPol）
+      withoutPol(() => withoutP2(() => withoutEvents(() => withoutCs(() => withoutHr(() => withoutAcct(() =>
         runOnce('rta', 1, {
           onMonth: (s, sector) => {
             const rep = s.reports[s.reports.length - 1];
             (out[sector] ??= []).push(Math.round(rep.revenue), Math.round(rep.area.filter((x) => !x.me).reduce((a, x) => a + x.sales, 0)));
           },
         }),
-      )))));
+      ))))));
       const sum = Object.fromEntries(Object.entries(out).map(([k, v]) => [k, [v.length / 2, v.filter((_, i) => i % 2 === 0).reduce((a, x) => a + x, 0), v.filter((_, i) => i % 2 === 1).reduce((a, x) => a + x, 0)]]));
       // 段 C の前の main（段 E1 のヒーローの育成を含む）で同じ通しを回した値
       // 2026-11-03（v25b）：発掘のパネルが研究パネル（RP）になった・Uncommon の候補がカリスマ 10 で来る、で数字が変わった
