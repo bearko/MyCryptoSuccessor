@@ -13,7 +13,9 @@ import { FX_PAL, fxAtEl } from '../fx/layer';
 import { DEPT, PRODUCT, skuParts, type DeptId, type Sku } from './data';
 import { staffOf, type P1State } from './model';
 import { afterOf, applyPlan, baseOf, planRows, planTitle, type Cell, type Plan, type PlanRes, type Row } from './plan';
-import { askTo, briefOf } from './brief';
+import { METRIC_TEXT, askTo, briefOf, chip, type Metric } from './brief';
+import { askDue, policyName } from './policy';
+import { openPolicyPick } from './policyui';
 import { after, chooseMake, type Ctx } from './screens';
 import { pickMake } from './stockui';
 import { craftable } from './orders';
@@ -129,6 +131,8 @@ const NUM = ['①', '②', '③', '④', '⑤'];
  */
 export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   const s: P1State = ctx.s();
+  // 段 UI7c：最初の提案書の前に 1 回だけ、マインちゃんが経営方針を聞く（選ぶと、その方針で提案書を出す）
+  if (askDue(s)) return openPolicyPick(ctx, { mine: true, then: () => openProposal(ctx, plan, o) });
   ctx.root.querySelector('.isl-prop')?.remove();
   const m = h('div', 'isl-modal isl-prop');
   const panel = h('div', 'isl-prop-panel');
@@ -196,16 +200,14 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   const setup = [cost.money ? money(cost.money) : '', cost.rp ? `${cost.rp} RP` : ''].filter(Boolean).join(t('・', ' · ')) || t('0 G', '0 G');
   key.append(h('span', '', t(`導入 ${setup}（1 回）`, `Setup ${setup} (once)`)));
   if (cost.monthly) key.append(h('span', '', t(`毎月 +${money(cost.monthly)}`, `+${money(cost.monthly)}/mo`)));
-  const gain = Math.abs(B.dProfit) >= 0.5 || !rows.some((r) => r.kind !== 'goods' && r.changed && r.kind !== 'panel');
-  if (gain) {
-    const pf = h('span', `isl-prop-keyg ${signCls(B.dProfit)}`);
-    pf.append(t(`月の利益 ${sg(B.dProfit)}`, `Profit ${sg(B.dProfit)}/mo`), B.pProfit != null && Math.abs(B.dProfit) >= 0.5 ? t(`（${pctTxt(B.pProfit)}）`, ` (${pctTxt(B.pProfit)})`) : '');
-    key.append(pf);
-  } else {
-    const r = rows.find((x) => x.kind !== 'goods' && x.changed)!;
-    key.append(h('span', 'isl-prop-keyg is-good', t(`${r.label}：${r.asIs.text} → ${r.toBe.text}`, `${r.label}: ${r.asIs.text} → ${r.toBe.text}`)));
-  }
   s1.append(key);
+  // 段 UI7c：動く指標を札で（短期・長期はいつも・士気・満足度・ブランド・研究は動くときだけ）。お金の動かない手（倉庫の強化など）は、変わる行の「前 → 後」も
+  const chips = h('p', 'isl-prop-chips');
+  for (const x of B.vals.list) chips.append(h('span', `isl-prop-chip ${signCls(x.d)}`, chip(x)));
+  const moved = Math.abs(B.dProfit) >= 0.5 || B.vals.list.some((x) => x.key !== 'short' && x.key !== 'long');
+  const r0 = rows.find((x) => x.kind !== 'goods' && x.kind !== 'panel' && x.changed);
+  if (!moved && r0) chips.append(h('span', 'isl-prop-chip is-good', t(`${r0.label}：${r0.asIs.text} → ${r0.toBe.text}`, `${r0.label}: ${r0.asIs.text} → ${r0.toBe.text}`)));
+  s1.append(chips);
   // この部門の予算（Rare から）
   const bud = h('p', 'isl-prop-budget');
   if (B.budget) {
@@ -237,7 +239,7 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   );
   for (const b of block) s1.append(h('p', 'isl-bad isl-prop-block', b));
   const why = h('p', 'isl-prop-why');
-  why.append(recTag(), document.createTextNode(B.rec === 'ok' ? t(`承認 — ${B.why}`, `Approve — ${B.why}`) : t(`見送る — ${B.why}`, `Pass — ${B.why}`)));
+  why.append(recTag(), document.createTextNode(B.why));
   s1.append(why);
 
   // ② 課題の背景
@@ -251,8 +253,20 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   for (const x of B.bg) bg.append(h('li', '', x));
   s2.append(bg);
 
-  // ③ 期待効果（月あたり）：このまま → 承認後と差。売上は % も。費用は月の費用（続く）の内訳と、導入（1 回）
-  const s3 = sec(t(`期待効果（月あたり・誤差 ±${pct(B.err)}）`, `Expected (per month, ±${pct(B.err)})`), 'isl-prop-effect');
+  // ③ 期待効果：段 UI7c の指標（短期・長期・士気・満足度・ブランド・研究。このまま → 承認後 → 差と、どう見積もったか）→ 月あたりの内訳
+  const s3 = sec(t(`期待効果（誤差 ±${pct(B.err)}）`, `Expected (±${pct(B.err)})`), 'isl-prop-effect');
+  const vt = h('div', 'isl-prop-eff isl-prop-vals');
+  vt.append(h('span', 'isl-prop-effh', ''), h('span', 'isl-prop-effh', t('このまま', 'As is')), h('span', 'isl-prop-effh', ''), h('span', 'isl-prop-effh', t('承認後', 'After')), h('span', 'isl-prop-effh', t('差', 'Change')));
+  const fmtM = (x: Metric, v: number) => (x.key === 'short' || x.key === 'long' ? fmtG(v) : x.key === 'rp' ? `${Math.round(v).toLocaleString('en-US')} RP` : `${Math.round(v)}`);
+  const whys = h('ul', 'isl-prop-whys');
+  for (const x of B.vals.list) {
+    const cls = signCls(x.d);
+    vt.append(h('span', 'isl-prop-efflabel', `${METRIC_TEXT[x.key].icon} ${METRIC_TEXT[x.key].name()}`), h('span', 'isl-prop-effnow', fmtM(x, x.now)), h('span', 'isl-prop-arrow', '→'), h('b', `isl-prop-effafter ${cls}`, fmtM(x, x.after)), h('span', `isl-prop-effd ${cls}`, chip(x).replace(/^\S+ /, '')));
+    whys.append(h('li', '', `※${x.why}`));
+  }
+  s3.append(vt, whys);
+  s3.append(h('p', 'isl-prop-note', t(`※社長の方針（${policyName(B.vals.policy)}）で、指標に重みをかけて推奨を決めます（経営企画の「受け箱」で変えられます）`, `※Recommendations weigh these by your policy (${policyName(B.vals.policy)}); change it under Strategy → Inbox`)));
+  s3.append(h('h4', '', t('月あたりの内訳', 'Per month')));
   const tbl = h('div', 'isl-prop-eff');
   tbl.append(h('span', 'isl-prop-effh', ''), h('span', 'isl-prop-effh', t('このまま', 'As is')), h('span', 'isl-prop-effh', ''), h('span', 'isl-prop-effh', t('承認後', 'After')), h('span', 'isl-prop-effh', t('差', 'Change')));
   const line = (label: string, a: number, b: number, good: 'up' | 'down', pctOn = false, sub = false) => {

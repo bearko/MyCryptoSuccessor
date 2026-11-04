@@ -139,7 +139,7 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
     });
     // 段 UI5d：推奨の手には「推奨」の札。段 UI7b：提案書へ進む選択肢は「📄 提案書を見る」（部長との会話と同じ文言）
     lab.append(recLine(`${x.icon} ${x.label}`, ch.rec), sub);
-    if ((ch.act.k === 'do' || ch.act.k === 'approve') && planOfChoice(s, c, k)) lab.append(h('small', 'isl-cardm-go', t('📄 提案書を見る ›', '📄 See the proposal ›')));
+    if (ch.act.k === 'do' || (ch.act.k === 'approve' && s.deleg?.inbox.some((p) => p.id === (ch.act as { pid: number }).pid))) lab.append(h('small', 'isl-cardm-go', t('📄 提案書を見る ›', '📄 See the proposal ›')));
     if (why) lab.append(h('small', 'isl-bad', why));
     b.append(lab);
     b.addEventListener('click', () => {
