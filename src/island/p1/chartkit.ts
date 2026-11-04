@@ -718,24 +718,29 @@ export function kpiRow(xs: HTMLElement[]): HTMLElement {
  * 目標・上限との比べ（横のメーター）：実績の棒と、目標（上限）の縦の線と字。
  * 目標（既定）：届いた ✔（緑）／届かない ✖（赤と斜線）。上限（over: 'cap'）：超えた ⚠（赤と斜線）／内なら「残り ○」（金）
  */
-export function bulletEl(o: { label: string; v: number; target: number; fmt?: (v: number) => string; tName: string; over?: 'cap' }): HTMLElement {
+export function bulletEl(o: { label: string; v: number; target: number; fmt?: (v: number) => string; tName: string; over?: 'cap' | 'progress' }): HTMLElement {
   const f = o.fmt ?? money;
   const e = h('div', 'isl-cv-bullet');
-  const max = Math.max(1, o.v, o.target) * 1.1;
   const cap = o.over === 'cap';
+  const max = o.over === 'progress' ? Math.max(1, o.target, o.v) : Math.max(1, o.v, o.target) * 1.1;
   const reach = Math.round(o.v) >= Math.round(o.target);
   const over = Math.round(o.v) > Math.round(o.target);
-  const cls = cap ? (over ? 'is-bad' : 'is-cap') : reach ? 'is-good' : 'is-bad';
-  const mark = cap ? (over ? t('⚠ 超え', '⚠ over') : t(`残り ${f(o.target - o.v)}`, `${f(o.target - o.v)} left`)) : reach ? t('✔ 届いた', '✔ met') : t('✖ 届かない', '✖ short');
+  const prog = o.over === 'progress';
+  const pc = Math.round((o.v / Math.max(1, o.target)) * 100);
+  const cls = prog ? (reach ? 'is-good' : 'is-cap') : cap ? (over ? 'is-bad' : 'is-cap') : reach ? 'is-good' : 'is-bad';
+  // 進み（progress）：「12 / 40（30%）」。全部そろえば ✔
+  const mark = prog ? t(`/ ${f(o.target)}（${pc}%）${reach ? ' ✔' : ''}`, `/ ${f(o.target)} (${pc}%)${reach ? ' ✔' : ''}`) : cap ? (over ? t('⚠ 超え', '⚠ over') : t(`残り ${f(o.target - o.v)}`, `${f(o.target - o.v)} left`)) : reach ? t('✔ 届いた', '✔ met') : t('✖ 届かない', '✖ short');
   const head = h('div', 'isl-cv-btop');
-  head.append(h('span', '', o.label), h('b', cls, t(`${f(o.v)}・${mark}`, `${f(o.v)} · ${mark}`)));
+  head.append(h('span', '', o.label), h('b', cls, prog ? `${f(o.v)} ${mark}` : t(`${f(o.v)}・${mark}`, `${f(o.v)} · ${mark}`)));
   const tr = h('div', 'isl-cv-btrack');
   const fill = h('i', `isl-cv-bfill ${cls}`);
   fill.style.width = `${(Math.max(0, o.v) / max) * 100}%`;
   const tick = h('span', 'isl-cv-bmark');
   tick.style.left = `${(o.target / max) * 100}%`;
-  tr.append(fill, tick);
-  e.append(head, tr, h('small', 'isl-cv-bnote', `┃ ${o.tName} ${f(o.target)}`));
+  tr.append(fill);
+  if (!prog) tr.append(tick);
+  e.append(head, tr);
+  if (!prog) e.append(h('small', 'isl-cv-bnote', `┃ ${o.tName} ${f(o.target)}`));
   return e;
 }
 

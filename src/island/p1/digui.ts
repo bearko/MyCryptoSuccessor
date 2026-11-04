@@ -18,6 +18,7 @@ import { icon } from '../../ui/dom';
 import { PRODUCT, TABLET, type Mat, type Tier } from './data';
 import { RARITY_JA } from '../../game/catalog';
 import { assign, blast, blastCost, blastSize, dig, digRepeatMs, digSite, drill, drillLen, DRILL_FUEL, extName, extRank, extRarity, hasBlast, hasDrill, layersOf, epicRelicsOpen, rareRelicsOpen, sessionSec, type DigErr, type DigHit, type DigItem, type DigLayout, type RunEnd } from './model';
+import { bulletEl } from './chartkit';
 import { DEEP_LOCK, DUNGEON_TAB, EPIC_VALUE_TEXT, RARE_RELIC_NOTE, seriesTag, anyPeek, autoDiggers, biggestFx, cellView, crewCount, digBlock, digErrText, digRec, digSpec, digSpecText, digStatus, dungeonNotes, findLabel, fxOf, gotLines, lockedLayer, nextLvText, noteEntries, noteTablets, noteTabs, noteTotals, relicLine, runBar, stars, type CellView } from './digview';
 import { AGAIN_TIP, DEEP_TIP, MEET_WALL, PEEK_TIP } from './digmeet';
 import { pickHero } from './heroui';
@@ -1046,8 +1047,12 @@ export function openNotes(ctx: Ctx, o: { fromDig?: DigHooks; sector?: string } =
       const tabs = noteTabs(s);
       if (!tabs.some((x) => x.id === noteTab)) noteTab = tabs[0]?.id ?? null;
       const tot = noteTotals(s);
-      const sum = h('div', 'isl-note-sum');
-      sum.append(h('span', '', t(`見つけた出土品 ${tot.found} / ${tot.all} 種`, `Finds ${tot.found} / ${tot.all}`)), h('span', '', t(`石板 ${tot.tablets} / ${tot.allTablets} 枚`, `Tablets ${tot.tablets} / ${tot.allTablets}`)), h('b', 'isl-note-rp', t(`研究ポイント ${s.rp ?? 0}`, `RP ${s.rp ?? 0}`)));
+      // 段 UI8c：見つけた割合はメーター（数と % と、そろえば ✔）
+      const sum = h('div', 'isl-note-sum isl-note-meters');
+      sum.append(
+        bulletEl({ label: t('見つけた出土品', 'Finds'), v: tot.found, target: tot.all, tName: '', fmt: (x) => t(`${x} 種`, `${x}`), over: 'progress' }),
+        bulletEl({ label: t('石板', 'Tablets'), v: tot.tablets, target: tot.allTablets, tName: '', fmt: (x) => t(`${x} 枚`, `${x}`), over: 'progress' }),
+      );
       body.append(sum);
       const row = h('div', 'isl-note-tabs');
       for (const x of tabs) {

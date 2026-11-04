@@ -36,6 +36,9 @@ import { bar, btn, h, heroIcon, heroName, money } from './ui';
 import { cvBox, kpiCardEl, kpiRow, trendEl, trendLegend, type TSer } from './chartkit';
 import { MORALE_REFS, delta, monHead, monLab, moraleHist } from './dash';
 import { infoTip } from './slideui';
+import { PALETTE, histBox, legendEl, swatch } from './chartkit';
+import { charismaHist, charismaSegs } from './dash';
+import { charismaOf } from './hr';
 
 // ---------------------------------------------------------------- カリスマ度
 
@@ -49,9 +52,19 @@ export function charismaCard(s: P1State, opts: { detail?: boolean } = {}): HTMLE
   card.append(h('b', 'isl-charisma-line', `👑 ${charismaLine(s, v)}`));
   // 目盛り：しきい値ごとに印（届いた印は色つき）
   const track = h('div', 'isl-charisma-track');
-  const fill = h('i', 'isl-charisma-fill');
-  fill.style.width = `${Math.min(100, (v / CHARISMA.max) * 100)}%`;
-  track.append(fill);
+  // 段 UI8c：棒は出どころごとの切れを積み上げ（色と模様。下に見本・名前・数）。しきい値の印はそのまま
+  const segs = charismaSegs(p);
+  let at0 = 0;
+  for (const g of segs) {
+    const seg = h('i', `isl-charisma-seg isl-cv-pseg is-${g.pat}`);
+    seg.style.setProperty('--c', PALETTE[g.col]);
+    seg.style.left = `${Math.min(100, (at0 / CHARISMA.max) * 100)}%`;
+    seg.style.width = `${Math.max(0, Math.min(100 - (at0 / CHARISMA.max) * 100, (g.v / CHARISMA.max) * 100))}%`;
+    track.append(seg);
+    at0 += g.v;
+  }
+  track.setAttribute('role', 'img');
+  track.setAttribute('aria-label', t(`カリスマ度 ${v} / ${CHARISMA.max}`, `Charisma ${v} / ${CHARISMA.max}`));
   for (const r of HIRE_RARITIES) {
     const at = capAt(r);
     if (!at) continue;
@@ -62,14 +75,11 @@ export function charismaCard(s: P1State, opts: { detail?: boolean } = {}): HTMLE
     track.append(mk);
   }
   card.append(track);
-  const parts = [
-    p.clear ? t(`町の制覇 +${p.clear}`, `Conquests +${p.clear}`) : '',
-    p.present ? t(`研究成果の発表 +${p.present}`, `Findings +${p.present}`) : '',
-    p.brand ? t(`ブランド力 +${p.brand}`, `Brand +${p.brand}`) : '',
-    p.panel ? t(`採用ブランド +${p.panel}`, `Employer brand +${p.panel}`) : '',
-    p.extra ? t(`テスト +${p.extra}`, `Test +${p.extra}`) : '',
-  ].filter(Boolean);
-  card.append(h('small', 'isl-dim', parts.length ? t(`内訳：${parts.join('・')}`, `From: ${parts.join(', ')}`) : t('まだ 0。町を制覇すると上がる', 'Still 0. Conquer a town to raise it')));
+  // 内訳の見本（色だけに頼らない：模様と名前と数）と、次のしきい値まで
+  if (segs.length) card.append(legendEl(segs.map((g) => ({ cls: '', name: `${g.name} +${g.v}`, sw: swatch(g) }))));
+  else card.append(h('small', 'isl-dim', t('まだ 0。町を制覇すると上がる', 'Still 0. Conquer a town to raise it')));
+  const nx = HIRE_RARITIES.find((r) => capAt(r) > v);
+  if (nx) card.append(h('small', 'isl-dim isl-charisma-next', t(`次の「${HERO_RARITY[nx].name}」まで あと ${capAt(nx) - v}`, `${capAt(nx) - v} more to ${HERO_RARITY[nx].name}`)));
   if (opts.detail) {
     card.append(
       h(
@@ -114,6 +124,22 @@ export function openCharisma(ctx: Ctx) {
   open(ctx, t('経営者（カリスマ度）', 'Executive (charisma)'), (body) => {
     const s = ctx.s();
     body.append(charismaCard(s, { detail: true }));
+    // 段 UI8c：カリスマ度の推移（月の締め）としきい値の線
+    const ch = charismaHist(s.reports);
+    const v = charismaOf(s);
+    const refs = HIRE_RARITIES.filter((r) => capAt(r) > 0 && capAt(r) <= Math.max(v, ...ch.map((x) => x.v)) + 20).map((r) => ({ v: capAt(r), label: t(`${HERO_RARITY[r].name} ${capAt(r)}`, `${HERO_RARITY[r].name} ${capAt(r)}`), cls: 'is-goal' }));
+    const hx = histBox({
+      title: t('カリスマ度の推移（月の締め）', 'Charisma at each close'),
+      note: t('金の点線＝雇えるレアリティが増えるところ', 'Gold dotted lines = where a new rarity opens'),
+      months: ch.map((x) => x.month),
+      series: [{ name: t('カリスマ度', 'Charisma'), kind: 'line', cls: 'is-gold', vals: ch.map((x) => x.v) }],
+      refs,
+      lo: 0,
+      fmt: (x) => String(Math.round(x)),
+      axis: (x) => String(x),
+      aria: t(`カリスマ度の推移：いま ${v}`, `Charisma: now ${v}`),
+    });
+    if (hx) body.append(hx);
     // いまの会社のヒーローのレアリティ（雇ったもとのレアリティ）
     const by = new Map<HeroRarity, number>();
     for (const st of s.staff) {

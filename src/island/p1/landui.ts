@@ -20,8 +20,8 @@ import { adjacent } from './world';
 import { after, open, type Ctx } from './screens';
 import { btn, h, heroIcon, heroName, money, rich, signed } from './ui';
 import { DONATE_LINE } from './mine';
-import { arw, cvBox, donutEl, fallEl, fallLegend, histBox, shortN, trendEl, trendLegend, type TSer } from './chartkit';
-import { brandHist, bsParts, plFall, quarterTrend, sectorHist } from './dash';
+import { arw, cvBox, donutEl, fallEl, fallLegend, histBox, rankBarsEl, shortN, trendEl, trendLegend, type TSer } from './chartkit';
+import { brandHist, bsParts, plFall, quarterTrend, sectorBars, sectorHist } from './dash';
 
 // ---------------------------------------------------------------- ランドマップ
 
@@ -432,6 +432,18 @@ export function openLand(ctx: Ctx) {
       map.append(n);
     }
     body.append(intro, map, detail(ctx, s, sel));
+    // 段 UI8c：出店したセクタの先月の売上の比べ（横棒。いまの町は金と「📍 いま」・セクター長のいない町は ⚠ の札）
+    if (s.land && s.land.mine.length >= 2) {
+      const bars = sectorBars({ id: s.land.cur, rev: s.reports[s.reports.length - 1]?.revenue ?? null }, s.land.recs, s.land.mine, (id) => sectorDef(id).name);
+      const box = cvBox(t('セクタごとの先月の売上', 'Last month’s sales by sector'), t(`いちばんは${bars[0].name}`, `Top: ${bars[0].name}`));
+      box.body.append(
+        rankBarsEl(
+          bars.map((b) => ({ name: b.name, v: b.v, me: b.me, tag: b.none ? h('span', 'isl-tag', t('締めの記録なし', 'No close yet')) : !b.head ? h('span', 'isl-tag is-bad', t('⚠ セクター長なし', '⚠ No head')) : undefined })),
+          { aria: t('セクタごとの先月の売上', 'Last month’s sales by sector'), meLabel: t('📍 いま', '📍 Here') },
+        ),
+      );
+      body.append(box.el);
+    }
   });
 }
 
