@@ -103,7 +103,7 @@ export function openOrg(ctx: Ctx) {
           seatEl(ctx, s, L, title, () =>
             pickFor(
               ctx,
-              d.dept,
+              { kind: 'leader', duty: L.duty! },
               title,
               L.hero,
               (hero) => done(ctx, setLeader(s, L.duty!, hero), t(`${heroNm(hero)}を${DUTY[L.duty!].name}のリーダーにしました`, `${heroNm(hero)} now leads ${DUTY[L.duty!].name}`)),
