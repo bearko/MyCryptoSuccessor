@@ -557,8 +557,11 @@ export function fallEl(rows: Step[], aria: string, fmt: (v: number) => string = 
       svg.append(rect);
       if (r.kind === 'down') svg.append(sv('rect', { x: cx - barW / 2, y: top, width: barW, height: hh, fill: `url(#${pid}-hatch)`, class: 'isl-cv-fover' }));
       if (k < n - 1) svg.append(sv('line', { x1: cx + barW / 2, x2: cx + bw - barW / 2, y1: py(r.to), y2: py(r.to), class: 'isl-cv-flink' }));
-      const val = full ? `${r.to < 0 ? '−' : ''}${fmt(Math.abs(r.to))}` : `${arw(r.v)} ${sgnG(r.v)}`;
-      svg.append(sv('text', { x: cx, y: top - 4, 'text-anchor': 'middle', class: `isl-cv-fv ${r.kind === 'up' ? 'is-good' : r.kind === 'down' ? 'is-bad' : ''}` }, val));
+      // 棒が細いとき（1 本 80px 未満）は短い書き方（2.7万）で、隣どうしの字が重ならないよう高さを互い違いに。正確な値は下の一覧
+      const compact = bw < 80;
+      const val = full ? `${r.to < 0 ? '−' : ''}${compact ? shortN(Math.abs(r.to)) : fmt(Math.abs(r.to))}` : compact ? `${arw(r.v)}${shortN(Math.abs(r.v))}` : `${arw(r.v)} ${sgnG(r.v)}`;
+      const dy = compact && !full && k % 2 === 0 ? 16 : 4;
+      svg.append(sv('text', { x: cx, y: top - dy, 'text-anchor': 'middle', class: `isl-cv-fv ${r.kind === 'up' ? 'is-good' : r.kind === 'down' ? 'is-bad' : ''}` }, val));
       svg.append(sv('text', { x: cx, y: H - 5, 'text-anchor': 'middle', class: 'isl-cv-axis' }, full ? clip(r.name, Math.max(3, Math.floor(bw / 12))) : String(mids.indexOf(r) + 1)));
       const say = () => tip.show([h('b', '', r.name), full ? `${r.to < 0 ? '−' : ''}${fmt(Math.abs(r.to))}` : t(`${sgnG(r.v)} → ここまで ${r.to < 0 ? '−' : ''}${fmt(Math.abs(r.to))}`, `${sgnG(r.v)} → running ${r.to < 0 ? '−' : ''}${fmt(Math.abs(r.to))}`)], (cx / W) * (chart.clientWidth || W), top);
       rect.addEventListener('pointerenter', say);

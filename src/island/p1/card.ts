@@ -1244,7 +1244,11 @@ export function withdrawStale(s: P1State): Gone[] {
 export const goneWhyText = (w: GoneWhy): string =>
   w === 'money' ? t('資金が減った', 'funds went down') : w === 'policy' ? t('方針を替えた', 'the policy changed') : w === 'loss' ? t('見込みが下がった', 'the outlook got worse') : t('課題がほかの手で解けた', 'the issue was solved another way');
 /** 取り下げの一行（「状況が変わったので、○○は取り下げました（理由：資金が減った）」） */
-export const goneLine = (g: Pick<Gone, 'name' | 'why'>): string => t(`状況が変わったので、「${g.name}」は取り下げました（理由：${goneWhyText(g.why)}）`, `Things changed, so “${g.name}” was withdrawn (${goneWhyText(g.why)})`);
+export const goneLine = (g: Pick<Gone, 'name' | 'why'>): string => {
+  // 手の名前に「」が入っていれば（「チラシ配り」を出す）二重にしない
+  const nm = g.name.includes('「') ? g.name : t(`「${g.name}」`, `“${g.name}”`);
+  return t(`状況が変わったので、${nm}は取り下げました（理由：${goneWhyText(g.why)}）`, `Things changed, so ${nm} was withdrawn (${goneWhyText(g.why)})`);
+};
 /** いまの月・いまの町で取り下げたもの（受け箱の上に出す） */
 export const goneNow = (s: P1State): Gone[] => (s.cards?.gone ?? []).filter((g) => g.mk === cardsOf(s).mk && g.sector === here(s));
 

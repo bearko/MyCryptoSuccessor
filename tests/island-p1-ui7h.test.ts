@@ -210,7 +210,7 @@ describe('受け箱で古くなったカードの取り下げ', () => {
     const g = staleCard(s, c)!;
     expect(g).toBeTruthy();
     expect(cardsOf(s).inbox.some((x) => x.id === c.id)).toBe(false);
-    expect(goneLine(g)).toMatch(/^状況が変わったので、「.+」は取り下げました（理由：資金が減った）$/);
+    expect(goneLine(g)).toMatch(/^状況が変わったので、.+は取り下げました（理由：資金が減った）$/);
     expect(goneNow(s).map((x) => x.name)).toContain(g.name);
   });
   it('推奨が承認のままなら取り下げない', () => {

@@ -202,7 +202,7 @@ export function kpiTile(k: Kpi): HTMLElement {
   e.append(h('span', 'isl-sl-lab', `${k.icon} ${k.label}`));
   const num = h('b', 'isl-sl-num');
   // 段 UI9：桁の多い数字（7 桁以上）は少し小さく（2 列のタイルからはみ出さない）
-  if (!k.text && fmt(k.v).length >= 9) num.classList.add('is-long');
+  if (!k.text && fmt(k.v).length >= 7) num.classList.add('is-long');
   if (k.text) num.append(document.createTextNode(k.text));
   else {
     if (k.tone === 'delta') num.append(h('span', 'isl-sl-arw', arrow(k.v)), document.createTextNode(sgn(k.v)));
