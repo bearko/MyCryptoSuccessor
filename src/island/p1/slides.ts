@@ -24,14 +24,17 @@ export const SLIDE_NAME: Record<SlideId, () => string> = {
   risk: () => t('影響とリスク', 'Impact and risks'),
   more: () => t('付録：詳しく', 'Appendix: details'),
 };
-/** 費用の無い 1 つの手だけの小さな提案（結論と付録の 2 枚） */
-export const smallBrief = (b: Pick<Brief, 'asks' | 'cost'>) => b.asks.length <= 1 && b.cost.money === 0 && b.cost.rp === 0 && b.cost.monthly === 0;
+/**
+ * 費用の無い 1 つの手だけの小さな提案（結論と付録の 2 枚）。段 UI7e：月ごとの見込み（倉庫があふれた町・使い切りの手）は、
+ * 来月と 12 か月の効き方が違うので小さくしない（効果のスライドで折れ線を見せる）
+ */
+export const smallBrief = (b: Pick<Brief, 'asks' | 'cost'> & { vals?: Pick<Brief['vals'], 'months'> }) => b.asks.length <= 1 && b.cost.money === 0 && b.cost.rp === 0 && b.cost.monthly === 0 && !b.vals?.months;
 /**
  * スライドの並び：
  * - 費用の無い 1 つの手だけ（smallBrief）：結論・付録
  * - ほか：結論 → 何が変わる（手が 2 つ以上か、Before → After の絵があるとき）→ 効果（来月）→ 効果（12 か月。手が 2 つ以上のとき。1 つなら来月の 1 枚にまとめる）→ 影響とリスク → 付録
  */
-export function slideKinds(b: Pick<Brief, 'asks' | 'cost'>, o: { visual: boolean }): SlideId[] {
+export function slideKinds(b: Pick<Brief, 'asks' | 'cost'> & { vals?: Pick<Brief['vals'], 'months'> }, o: { visual: boolean }): SlideId[] {
   if (smallBrief(b)) return ['sum', 'more'];
   const out: SlideId[] = ['sum'];
   if (b.asks.length >= 2 || o.visual) out.push('change');
@@ -87,7 +90,10 @@ export function kpisOf(b: Pick<Brief, 'vals' | 'cost' | 'dProfit' | 'now' | 'aft
       tone: 'delta',
       sub: other.key === 'brand' || other.key === 'rp' ? t(`${POLICY.months} か月`, `${POLICY.months} months`) : `${Math.round(other.now)} → ${Math.round(other.after)}`,
     });
-  else if (extra && Math.abs(b.dProfit) < 0.5) out.push(extra);
+  else if (extra && (Math.abs(b.dProfit) < 0.5 || b.vals.months)) out.push(extra);
+  // 段 UI7e：月ごとの見込み（倉庫があふれた町・使い切りの手）は、来月の利益の差が続くわけではないので、空く置き場所を見せる
+  else if (b.vals.months && b.vals.months.room > 0)
+    out.push({ key: 'room', icon: '📦', label: t('倉庫の空き', 'Storage freed'), v: b.vals.months.room, unit: t('個', ''), tone: 'delta', sub: b.vals.months.jam0 && !b.vals.months.jam1 ? t('調達と製造が戻る', 'Buying and crafting resume') : t('素材を商品にする', 'Materials become goods') });
   else out.push({ key: 'month', icon: '📅', label: t('毎月の利益', 'Monthly profit'), v: b.dProfit, unit: 'G', tone: 'delta', sub: `${fmt(b.now.profit)} → ${fmt(b.after.profit)} G` });
   return out;
 }
@@ -142,10 +148,16 @@ export const shortWhat = (x: string) => x.replace(/^[^：:]{1,6}[：:]\s*/, '');
 
 /**
  * 長期の累計の折れ線（月ごと、POLICY.months 点）：1 か月目は来月の利益（承認後は導入を引く）、2 か月目からは落ち着いたときの月の利益
- * （長期の式を月に分けたもの：落ち着いた月 ＝（長期 − 1 か月目）÷（月数 − 1））。最後の点は長期の指標（now・after）と一致する
+ * （長期の式を月に分けたもの：落ち着いた月 ＝（長期 − 1 か月目）÷（月数 − 1））。最後の点は長期の指標（now・after）と一致する。
+ * 段 UI7e：月ごとの見込み（vals.months）があれば、その累計（在庫が切れる月・作業台が戻る月で曲がる）
  */
 export function longLine(b: Pick<Brief, 'vals' | 'now' | 'after' | 'cost'>): { now: number[]; after: number[] } {
   const M = POLICY.months;
+  const P = b.vals.months;
+  if (P) {
+    const acc = (xs: number[]) => xs.reduce<number[]>((a, x) => [...a, (a[a.length - 1] ?? 0) + x], []);
+    return { now: acc(P.now), after: acc(P.after) };
+  }
   const L = b.vals.list.find((m) => m.key === 'long');
   const n1 = b.now.profit;
   const a1 = b.after.profit - b.cost.money;
@@ -158,6 +170,29 @@ export function longLine(b: Pick<Brief, 'vals' | 'now' | 'after' | 'cost'>): { n
     after.push(after[k - 1] + aS);
   }
   return { now, after };
+}
+
+/**
+ * 段 UI7e：月ごとの見込みの説明（効果のスライドの折れ線の下）：使い切りの手で作る品がどこで・いつ・いくつ売れるか、倉庫があふれて入荷が止まるか。
+ * name：商品の名前・shop：お店の名前（DOM なしで試せるように渡す）。月ごとの見込みが無ければ空
+ */
+export function projLines(b: Pick<Brief, 'vals'>, name: (x: string) => string, shop: (uid: number) => string): string[] {
+  const P = b.vals.months;
+  if (!P) return [];
+  const out: string[] = [];
+  const n1 = (v: number) => (v > 0 && v < 9.95 ? (Math.round(v * 10) / 10).toString() : Math.round(v).toLocaleString('en-US'));
+  const u = P.use;
+  if (u) {
+    const per = u.sold.slice(1).find((v) => v > 0.05) ?? 0;
+    const where = u.shops.length ? t(`（${u.shops.map(shop).join('・')}）`, ` (${u.shops.map(shop).join(', ')})`) : '';
+    const later = per > 0.05 ? t(`そのあと月 ${n1(per)} 個`, `then ${n1(per)}/mo`) : t('そのあとは空いた棚が無く売れ残る', 'then unsold (no free shelf)');
+    out.push(t(`🧪 ${name(u.x)} ${u.units} 個（1 個 ${Math.round(u.price).toLocaleString('en-US')} G）：作業台 ${u.slot + 1} で ${Math.ceil(u.days)} 日 → 来月 ${n1(u.sold[0])} 個売れる・${later}${where}`, `🧪 ${u.units} ${name(u.x)} (${Math.round(u.price).toLocaleString('en-US')} G each): bench ${u.slot + 1} for ${Math.ceil(u.days)} days → ${n1(u.sold[0])} sell next month, ${later}${where}`));
+  }
+  if (P.jam0) {
+    out.push(P.out0 != null ? t(`📦 このまま：倉庫があふれて素材が入らず、作業台が止まる → お店は在庫だけ（${P.out0} か月目に売り切れ）`, `📦 As is: storage full, no materials, benches stop → shops sell only stock (runs out in month ${P.out0})`) : t('📦 このまま：倉庫があふれて素材が入らず、作業台が止まる → お店は在庫だけ', '📦 As is: storage full, no materials, benches stop → shops sell only stock'));
+    out.push(P.jam1 ? t('📦 承認後も倉庫はあふれたまま', '📦 Storage stays full after approval') : t(`📦 承認後：置き場所が ${Math.round(P.room)} 個空き、調達と製造が戻る`, `📦 After: ${Math.round(P.room)} spaces free, buying and crafting resume`));
+  }
+  return out;
 }
 
 /** お金以外の指標のメーター：士気・満足度は 0〜100 の目盛り、ブランド・研究は 12 か月の増え（差の札） */

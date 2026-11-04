@@ -12,9 +12,9 @@ import raw from '../../generated/catalog.json';
 import { FX_PAL, fxAtEl } from '../fx/layer';
 import { DEPT, POLICY, PRODUCT, skuParts, type Sku } from './data';
 import { bottleneck, poolCap, poolUsed, stageCaps, staffOf, type P1State } from './model';
-import { afterOf, applyPlan, baseOf, planRows, planTitle, type Cell, type Plan, type PlanRes, type Row } from './plan';
+import { afterOf, applyPlan, baseOf, planRows, planTitle, shopNm, type Cell, type Plan, type PlanRes, type Row } from './plan';
 import { METRIC_TEXT, askTo, briefOf, chip, type Brief, type Metric } from './brief';
-import { RISK_LV, SLIDE_NAME, SRC_NAME, askIcon, budgetBar, fallOf, kpisOf, longLine, metersOf, profitBars, roomKpi, shortWhat, slideKinds, srcOfPlan, stageMap, topRisks, type PropSrc, type SlideId } from './slides';
+import { RISK_LV, SLIDE_NAME, SRC_NAME, askIcon, budgetBar, fallOf, kpisOf, longLine, metersOf, profitBars, projLines, roomKpi, shortWhat, slideKinds, srcOfPlan, stageMap, topRisks, type PropSrc, type SlideId } from './slides';
 import { budgetEl, chartHead, deck, deptChip, fallChart, fundsEl, kpiTile, lineChart, lineLegend, meterEl, pairBars, riskRow, slideBox, stageMapEl } from './slideui';
 import { askDue, policyName } from './policy';
 import { openPolicyPick } from './policyui';
@@ -23,6 +23,7 @@ import { pickMake } from './stockui';
 import { craftable } from './orders';
 import { btn, extImage, h, heroIcon, heroName, money, recTag, rich, signCls, signed, skuIcon } from './ui';
 import { starOf } from './card';
+import { goodsName } from './moves';
 
 export interface ProposalOpts {
   /** 現状の課題（担当者のセリフ。[[ ]] で色） */
@@ -245,13 +246,13 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
         const pb = profitBars(B);
         c1.append(chartHead(t('来月の利益（導入込み）', 'Next month’s profit (net of setup)'), t(`誤差 ±${pct(B.err)}`, `±${pct(B.err)}`)), pairBars(pb.now, pb.after));
         if (B.asks.length > 1 || cost.money > 0) c1.append(chartHead(t('どの手で、いくら（来月）', 'Which move adds how much (next month)')), fallChart(fallOf(B)));
-        if (one) longParts(c2, c2, B);
+        if (one) longParts(c2, c2, B, s);
         body.append(info());
         break;
       }
       case 'long': {
         const [c1, c2] = twoCols(body, metersOf(B).length > 0);
-        longParts(c1, c2, B);
+        longParts(c1, c2, B, s);
         body.append(info());
         break;
       }
@@ -393,11 +394,11 @@ function twoCols(body: HTMLElement, split: boolean): [HTMLElement, HTMLElement] 
 }
 
 /** 効果の 12 か月：累計の折れ線（このまま vs 承認後）と、お金以外の指標のメーター */
-function longParts(body: HTMLElement, body2: HTMLElement, B: Brief) {
+function longParts(body: HTMLElement, body2: HTMLElement, B: Brief, s: P1State) {
   const L = longLine(B);
   body.append(chartHead(t(`${POLICY.months} か月の利益の累計`, `Profit over ${POLICY.months} months (cumulative)`)), lineLegend(), lineChart(L.now, L.after));
-  // 段 K2：使い切りの手は 1 回きり。2 か月目から承認後の線は「このまま」と平行
-  if (B.vals.shot) body.append(h('p', 'isl-sl-shot', t('※ いまの素材で作るのは 1 回きり。作り終えたら元の商品に戻るので、2 か月目からは「このまま」と同じ月として計算しています。', '※ Crafting from stock is one-off: the bench returns to its product, so months 2+ match “as is”.')));
+  // 段 UI7e：月ごとの見込み（使い切りの手で作る品がどこで・いつ・いくつ売れるか・倉庫があふれて入荷が止まるか）
+  for (const x of projLines(B, (y) => goodsName(y as Sku), (u) => shopNm(s, u))) body.append(h('p', 'isl-sl-shot', x));
   const ms = metersOf(B);
   if (ms.length) {
     body = body2;

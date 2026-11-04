@@ -38,6 +38,7 @@ import { apologize, bestReply, csOn, noticeCost, refundCost, reply, replyGain, r
 import { quitLeft, talk, talkGain } from './hr';
 import { afterOf, applyPlan, baseOf, planOf, type Plan, type PlanRes } from './plan';
 import { actTheme, valueOfPlan } from './brief';
+import { jammed } from './proj';
 import { tiltOf } from './policy';
 import { clearFrees, clearInfo, clearUnits, fromStock, storeFix, storeFull, type StoreFix } from './stock';
 import { dedRate, quarterNow, taxOn, taxPlan } from './acct';
@@ -1329,8 +1330,12 @@ function core(s: P1State, c: Card): string {
       // 段 UI5d：倉庫そのものが大事（置き場所が尽きると、調達も製造も止まる）。推奨の手を言う
       const head = i.pct >= 100 ? t(`倉庫が[[いっぱい]]（素材 ${i.mats}・商品 ${i.goods}）`, `storage is [[full]] (${i.mats} materials, ${i.goods} goods)`) : t(`倉庫が[[ ${i.pct}%]]（素材 ${i.mats}・商品 ${i.goods}）`, `storage is [[${i.pct}%]] full (${i.mats} materials, ${i.goods} goods)`);
       const tail = i.fix === 'rack' ? t('倉庫を強化しよう', 'let’s upgrade the warehouse') : i.fix === 'dock' ? t('拠点の保管を強化しよう', 'let’s upgrade hub storage') : i.fix === 'build' ? t('倉庫を建てよう', 'let’s build a warehouse') : i.fix === 'more' ? t('倉庫をもう 1 棟建てよう', 'let’s build one more warehouse') : i.fix === 'hub' ? t('物流拠点を建てよう', 'let’s build a hub') : null;
-      // 段 UI7d：倉庫の手が無いとき。素材で埋まっているなら「いまの素材で作ろう」（売りさばいても倉庫は空かない）
-      if (!tail) return i.next === 'useup' ? t(`${head}。[[いまの素材で作って]]減らそう`, `${head}. Let’s [[craft from what we have]]`) : t(`${head}。在庫を優先して売りさばこう`, `${head}. Let’s clear stock first`);
+      // 段 UI7e：結びは画面の推奨（shownRec：経営方針の価値がいちばん大きい手）に合わせる（言うことと推奨を食い違わせない）
+      const rk = c.choices[shownRec(s, c)]?.act;
+      const ra = rk?.k === 'do' ? rk.a : null;
+      if (ra?.k === 'useup') return t(`${head}。[[いまの素材で作って]]減らそう`, `${head}. Let’s [[craft from what we have]]`);
+      if (ra?.k === 'clear') return t(`${head}。在庫を優先して売りさばこう`, `${head}. Let’s clear stock first`);
+      if (!ra || !storeAct(ra) || !tail) return jammed(s) ? t(`${head}。どの手も見合わないので、[[いまはこのまま]]`, `${head}. No move pays off — [[keep as is for now]]`) : t(`${head}。まだ[[調達も製造も回る]]ので、いまはこのまま様子を見よう`, `${head}. [[Buying and crafting still run]], so let’s keep as is for now`);
       return t(`${head}。満杯だと[[調達も製造も止まる]]。${tail}`, `${head}. When it’s full, [[buying and crafting stop]]. ${tail[0].toUpperCase()}${tail.slice(1)}`);
     }
     case 'staff':
