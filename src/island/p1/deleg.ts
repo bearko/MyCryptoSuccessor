@@ -93,7 +93,7 @@ import { filePatent, guidePrice, keepRate, legalHere, maLock, patentLock, patent
 import { copyIn } from './mkt';
 import { adGain, grossRate, sellMoves } from './moves';
 import { applyPlan, planOf, stepsOf } from './plan';
-import { budgetOpen, budgetReport, budgetTry } from './budget';
+import { amountOf, budgetOpen, budgetReport, budgetTry, costNeed, deptBudget, restOf, valG, type TryRes } from './budget';
 import { perHeadOf } from './board';
 import { actTheme } from './brief';
 import { polTouch, tiltOf } from './policy';
@@ -1045,11 +1045,15 @@ export function delegMonth(s: P1State, r: Report) {
     if (budgeted && d !== 'strategy') {
       let n = 0;
       let left: Proposal | null = null;
+      let why: TryRes | null = null;
+      // 段 I2b：止まった手の数字（経営会議の「何もできなかった原因」。選び方は変えない）
+      let stop: { cost: number; room: number; need: number; nm: string; val: number } | null = null;
       for (const x of cs) {
         // 段 I2：経営会議で目標を上げた部門は月の施策 +1（perHeadOf）
         if (n >= perHeadOf(s, d)) break;
         if (!actOk(s, x.c.act) || st.inbox.some((p) => actKey(p.act) === actKey(x.c.act))) continue;
         const p = mk(x);
+        const room = restOf(s, d);
         const res = budgetTry(s, p);
         if (res === 'done') {
           n++;
@@ -1057,9 +1061,15 @@ export function delegMonth(s: P1State, r: Report) {
         }
         if (res === 'skip') continue;
         left = p;
+        why = res;
+        if (res === 'over') {
+          const cost = deptBudget(s, d).ask?.cost ?? costNeed(s, d, p.cost);
+          stop = { cost, room, need: amountOf(s, d) - room + cost, nm: actName(s, p.act), val: valG(s, p.unit, p.real ?? p.est) };
+        }
         break;
       }
       if (left) fresh.push(left);
+      qwhyNote(s, d, n, why, stop);
       continue;
     }
     const top = cs[0];
@@ -1084,6 +1094,19 @@ export function delegMonth(s: P1State, r: Report) {
   st.stat = {};
   // 段 I1：予算で任せた部門の 1 行（月次報告）
   budgetReport(s, r);
+}
+/**
+ * 段 I2b：四半期の記録（DeptBudget.qwhy）に、今月の部長の施策の結果を 1 つ足す。打った月は done、打てなかった月は止まった理由。
+ * 予算が足りなかった手は、いちばん安いもの（要る予算の小さいもの）を残す。人手は足りない人日と従業員の上限
+ */
+function qwhyNote(s: P1State, d: DeptId, n: number, why: TryRes | null, stop: { cost: number; room: number; need: number; nm: string; val: number } | null) {
+  const B = deptBudget(s, d);
+  const q = (B.qwhy ??= { done: 0, over: 0, labor: 0, cash: 0, none: 0 });
+  if (n > 0) q.done++;
+  else if (why === 'over' || why === 'labor' || why === 'cash') q[why]++;
+  else q.none++;
+  if (stop && (q.need == null || stop.need < q.need)) Object.assign(q, { cost: Math.round(stop.cost), room: Math.round(stop.room), need: Math.round(stop.need), nm: stop.nm, val: Math.round(stop.val) });
+  if (why === 'labor' && B.ask?.why === 'labor') Object.assign(q, { lab: B.ask.need ?? 0, cap: B.cap });
 }
 /** その提案がまだ打てる手か */
 function stillOk(s: P1State, p: Proposal): boolean {

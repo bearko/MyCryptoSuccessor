@@ -35,6 +35,12 @@ import { moraleParts } from '../src/island/p1/hr';
 import { deserializeP1, newP1, serializeP1, type P1State } from '../src/island/p1/model';
 import { runOnce } from '../scripts/island/sim';
 import { TALK_MAX, talkLen } from '../src/island/p1/mine';
+import { budgetWhy } from '../src/island/p1/board';
+import { coLive, causeChips, causeCore, leverCore, noLeverCore, ofSlack, pickLever, styleOfHero, type Cause, type Lever } from '../src/island/p1/boardplan';
+import { heroLine } from '../src/island/p1/headtalk';
+import { has, lvOf } from '../src/island/p1/model';
+import { parseStyle, styleTags } from '../src/island/p1/voice';
+import fitJson from '../src/island/p1/heroes/fit.json';
 import { loadVoice } from '../src/island/p1/voice';
 
 /** 通常の自動プレイで、Rare の町に着いて 2 回目の締めのあとの写し（部長が予算で動いている） */
@@ -93,6 +99,8 @@ describe('議題と推奨', () => {
     const A = boardOf(s);
     A.last = [{ key: `d:${d}`, hero: headOf(s, d)!.hero, q: 1, raise: 0, target: 100, targetRep: 100, got: 200, claimed: 200, ok: true, okRep: true }];
     A.agenda = boardAgenda(s, 9, m);
+    // 段 I2b：予算が足りずに止まった記録（qwhy の over）があると、余力しだいで承認を推奨するので、ここでは記録を外す
+    deptBudget(s, d).qwhy = undefined;
     const it = deptItem(s, d);
     expect(it.ask.up).toBe(true);
     expect(it.ask.amt).toBeGreaterThan(it.ask.cur);
@@ -404,5 +412,169 @@ describe('セーブ（版 26）', () => {
     expect(back.v).toBe(27);
     expect(back.board).toEqual(s.board);
     expect(newP1(1).v).toBe(27);
+  });
+});
+
+describe('段 I2b：判断できる報告（何もできなかった原因・来期の打ち手・会社の余力・人物の好み）', () => {
+  /** 部長をそろえ、prep で四半期の記録を書いてから議題を作る */
+  const make = (prep: (s: P1State) => void) => {
+    const s = load();
+    const free = s.staff.filter((x) => x.task == null && !x.heads?.length);
+    for (const d of budgetDepts(s)) {
+      if (headOf(s, d)) continue;
+      const st = free.shift();
+      if (st) setHead(s, d, st.hero);
+    }
+    prep(s);
+    const m = Math.round(s.day / 30);
+    boardOf(s).agenda = null;
+    boardQuarter(s, Math.floor(m / 3), m);
+    return s;
+  };
+  const q0 = { done: 0, over: 0, labor: 0, cash: 0, none: 0 };
+  const heads = (s: P1State) => budgetDepts(s).filter((d) => headOf(s, d));
+
+  it('四半期の記録：部長の施策の結果を月ごとに数え（qwhy）、四半期の締めで 0 から', () => {
+    const s = load();
+    const xs = Object.values(s.budget?.depts ?? {}).filter((B) => B?.qwhy);
+    expect(xs.length).toBeGreaterThan(0);
+    for (const B of xs) {
+      const q = B!.qwhy!;
+      expect(q.done + q.over + q.labor + q.cash + q.none).toBeGreaterThan(0);
+    }
+    const t2 = withAgenda();
+    for (const B of Object.values(t2.budget?.depts ?? {})) expect(B?.qwhy).toBeUndefined();
+  });
+
+  it('予算が足りない：原因と数字（止まった手・予算の残り・要る予算）。止まった手を打てる額を要求し、余力の内なら前の目標を待たずに承認を推奨', () => {
+    let d: DeptId = 'logistics';
+    const s = make((x) => {
+      d = heads(x)[0];
+      Object.assign(deptBudget(x, d), { qamt: 60000, qused: 9000, qn: 0, qwhy: { ...q0, over: 3, cost: 26000, room: 17000, need: amountOf(x, d) + 9000, nm: 'テストの手', val: 42000 } });
+    });
+    const it = deptItem(s, d);
+    expect(it.why?.k).toBe('budget');
+    expect(it.lever?.k).toBe('budget');
+    expect(it.ask.up).toBe(true);
+    expect(it.ask.amt).toBeGreaterThanOrEqual(amountOf(s, d) + 9000);
+    const A = boardOf(s).agenda!;
+    expect(A.co).toBeTruthy();
+    if (!it.audit?.ask && A.co!.slack > 0 && it.ask.amt - it.ask.cur <= A.co!.slack * BOARD.lever.slackUp) expect(it.rec.budget).toBe(0);
+    if (it.audit?.ask) expect(it.rec.budget).toBe(2);
+    expect(causeChips(it.why!).join(' ')).toMatch(/26,000 G/);
+    expect(reportLine(it)).toMatch(/テストの手/);
+    expect(budgetWhy(it, A.co)).toMatch(/余力/);
+  });
+
+  it('人手が足りない：従業員の上限の打ち手。承認で上限が上がる', () => {
+    let d: DeptId = 'logistics';
+    const s = make((x) => {
+      d = heads(x)[0];
+      Object.assign(deptBudget(x, d), { qamt: 60000, qused: 0, qn: 0, qwhy: { ...q0, labor: 3, lab: 25, cap: deptBudget(x, d).cap } });
+    });
+    const it = deptItem(s, d);
+    expect(it.why?.k).toBe('labor');
+    expect(it.lever?.k).toBe('crew');
+    const cap0 = deptBudget(s, d).cap;
+    decide(s, it, { ...it.rec, lever: 0 });
+    expect(deptBudget(s, d).cap).toBe(Math.min(BUDGET.crew.capMax, cap0 + Math.ceil(25 / BUDGET.crew.labor)));
+  });
+
+  it('会社の資金を守った：原因は資金、計画は受け身でない（いつ・何を打つか）', () => {
+    let d: DeptId = 'logistics';
+    const s = make((x) => {
+      d = heads(x)[0];
+      Object.assign(deptBudget(x, d), { qamt: 60000, qused: 0, qn: 0, qwhy: { ...q0, cash: 3 } });
+    });
+    const it = deptItem(s, d);
+    expect(it.why?.k).toBe('cash');
+    expect(planLine(it)).not.toMatch(/来期は守りです/);
+    expect(planLine(it)).toMatch(/取り置き/);
+  });
+
+  it('打てる手が無い：宣伝を全部流しているマーケは「手はもう打ってある」。ほかは、いまの詰まりに効くパネル（開放不足）か「必要が無い」。打ち手のパネルは承認で開く', () => {
+    const s = make((x) => {
+      for (const a of ['flyer', 'poster', 'event']) x.ads[a] = 10;
+      for (const d of heads(x)) Object.assign(deptBudget(x, d), { qamt: 60000, qused: 0, qn: 0, qwhy: { ...q0, none: 3 } });
+    });
+    const A = boardOf(s).agenda!;
+    const mk = A.items.find((x) => x.dept === 'marketing');
+    if (mk) expect(mk.why?.k).toBe('busy');
+    for (const it of A.items.filter((x) => x.kind === 'dept')) {
+      expect(it.why).toBeTruthy();
+      expect(['busy', 'lock', 'need', 'town']).toContain(it.why!.k);
+      expect(planLine(it)).not.toMatch(/来期は守りです/);
+      if (it.why!.k === 'lock') expect(it.lever?.k).toBe('panel');
+    }
+    const it = A.items.find((x) => x.lever?.k === 'panel');
+    expect(it).toBeTruthy();
+    const L = it!.lever as Extract<Lever, { k: 'panel' }>;
+    expect(L.units).toBeGreaterThanOrEqual(BOARD.lever.minUnits);
+    expect(L.val).toBeGreaterThan(0);
+    s.money = 1e9;
+    s.rp = 1e6;
+    const last = L.ids[L.ids.length - 1];
+    const lv0 = lvOf(s, last);
+    decide(s, it!, { ...it!.rec, lever: 0 });
+    expect(lvOf(s, last)).toBe(L.lv ? lv0 + 1 : 1);
+    for (const id of L.ids) expect(has(s, id)).toBe(true);
+  });
+
+  it('会社の余力：月の利益（帳簿の直近 3 か月）＋ 部門が使った額 − 全部門の予算。決めた増額で余力が減る（coLive）', () => {
+    const s = withAgenda();
+    const A = boardOf(s).agenda!;
+    const co = A.co!;
+    expect(co.slack).toBe(co.earn - co.caps);
+    const it = A.items.find((x) => x.kind === 'dept')!;
+    const before = coLive(s, co);
+    decide(s, it, { ...it.rec, budget: 1 });
+    const after = coLive(s, co);
+    expect(after.caps - before.caps).toBe(amountOf(s, it.dept!) - it.ask.cur);
+    expect(after.slack).toBe(co.earn - after.caps);
+    expect(ofSlack(1, 100)).toBe('余力の 1 割未満');
+    expect(ofSlack(20, 100)).toBe('余力の 2 割');
+  });
+
+  it('人物の好み：高杉晋作は攻め・速さ・新しい手。好みで選ぶ打ち手が変わる（どれも効き目のある手）', () => {
+    const tk = styleOfHero(2021);
+    expect(tk).toMatchObject({ atk: 1, spd: 1, odd: 1 });
+    expect(styleTags(tk).slice(0, 3)).toEqual(['攻め', '速さ', '新しい手']);
+    // 調査の 193 体すべてに好みがある（4 字）
+    expect(Object.keys((fitJson as { st: Record<string, string> }).st)).toHaveLength(193);
+    const big = { k: 'panel' as const, ids: ['zz_pre', 'zz_big'], lv: false, nm: '大きな手', pre: ['前提'], stage: 'sell' as const, now: true, units: 10, val: 10000, cost: 50000, rp: 0 };
+    const quick = { k: 'panel' as const, ids: ['zz_quick'], lv: false, nm: '素早い手', pre: [], stage: 'sell' as const, now: true, units: 7, val: 7000, cost: 1000, rp: 0 };
+    expect(pickLever([big, quick], tk, 'marketing')?.nm).toBe('素早い手');
+    expect(pickLever([big, quick], parseStyle('A---'), 'marketing')?.nm).toBe('大きな手');
+    // 言い回しも好みで変わる
+    expect(leverCore(quick, tk)).not.toBe(leverCore(quick, parseStyle('DS--')));
+  });
+
+  it('セリフは 60 字まで（原因・打ち手・必要予算。長い名前でも、好みのどの組み合わせでも）', () => {
+    const long = 'とても長い名前のパネル（長い名前）';
+    const causes: Cause[] = [
+      { k: 'budget', cost: 1_234_000, room: 987_000, need: 2_345_000, nm: long, val: 1 },
+      { k: 'labor', lab: 120, cap: 20 },
+      { k: 'cash', reserve: 1_234_567 },
+      { k: 'lock', nm: long, pre: [long], stage: 'craft', units: 123.4 },
+      { k: 'busy', n: 3, of: 3 },
+      { k: 'need', stage: 'sell' },
+      { k: 'town', why: 'dig' },
+    ];
+    const levers: Lever[] = [
+      { k: 'panel', ids: ['a', 'b'], lv: false, nm: long, pre: [long], stage: 'haul', now: false, units: 123.4, val: 1, cost: 1, rp: 1 },
+      { k: 'panel', ids: ['b'], lv: true, nm: long, pre: [], stage: 'sell', now: true, units: 1.5, val: 1, cost: 1, rp: 1 },
+      { k: 'crew', cap: 20, add: 5, lab: 120, wage: 1 },
+      { k: 'budget', amt: 9_999_000, nm: long, val: 1_234_567 },
+    ];
+    const styles = ['AFKN', 'DSO-', 'A---', '-F--', '--K-', '---N', '----'].map(parseStyle);
+    for (const hero of [2021, 5001, 1001, 10001]) {
+      for (const c of causes) for (const a of [0, 5]) expect(talkLen(heroLine(hero, causeCore(c, a, 1_234_567))), causeCore(c, a, 1)).toBeLessThanOrEqual(TALK_MAX);
+      for (const L of levers) for (const st of styles) expect(talkLen(heroLine(hero, leverCore(L, st))), leverCore(L, st)).toBeLessThanOrEqual(TALK_MAX);
+      for (const c of [...causes, null]) expect(talkLen(heroLine(hero, noLeverCore(c)))).toBeLessThanOrEqual(TALK_MAX);
+    }
+    const s = make((x) => {
+      for (const d of heads(x)) Object.assign(deptBudget(x, d), { qamt: 60000, qused: 0, qn: 0, qwhy: { ...q0, none: 3 } });
+    });
+    for (const it of boardOf(s).agenda!.items) for (const x of [reportLine(it), planLine(it), askLine(it)]) expect(talkLen(x), x).toBeLessThanOrEqual(TALK_MAX);
   });
 });
