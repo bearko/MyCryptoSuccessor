@@ -665,7 +665,7 @@ const benchText = (s: P1State, k: number) => {
 const matsText = (s: P1State, mats: Mat[]) => mats.map((m) => `${MATS[m].name}×${Math.round((s.mats[m] ?? 0) + (s.orders ?? []).filter((o) => o.m === m).reduce((a, o) => a + o.qty, 0))}`).join(t(' ／ ', ' / '));
 
 /** As-Is（左）・To-Be（右）の行。変わらない段は「※ ○○は変更なし」の 1 行（unchanged）にまとめる */
-export function planRows(s: P1State, p: Plan, after = afterOf(s, p)): { rows: Row[]; unchanged: string[] } {
+export function planRows(s: P1State, p: Plan, after = afterOf(s, p)): { rows: Row[]; unchanged: string[]; touched: Stage[] } {
   const rows: Row[] = [];
   const touched = new Set<Stage>();
   // 棚（お店ごと）
@@ -832,7 +832,8 @@ export function planRows(s: P1State, p: Plan, after = afterOf(s, p)): { rows: Ro
     const ok = f1.caps[st] >= need * 0.98;
     unchanged.push(ok ? t(`※${STAGE_JA[st]()}は変更なし（変更後も充分回る見込み）`, `* ${STAGE_JA[st]()} unchanged (still enough after)`) : t(`※${STAGE_JA[st]()}は変更なし（変更後はここが細くなる見込み：月 ${fmtUnits(f1.caps[st])} 個）`, `* ${STAGE_JA[st]()} unchanged (becomes the narrow point: ${fmtUnits(f1.caps[st])}/mo)`));
   }
-  return { rows, unchanged };
+  // 段 UI7d：変わる段（スライドの「影響の地図」）
+  return { rows, unchanged, touched: (['buy', 'craft', 'haul', 'sell'] as Stage[]).filter((x) => touched.has(x)) };
 }
 const STAGE_JA: Record<Stage, () => string> = { buy: () => t('調達', 'Buying'), craft: () => t('製造', 'Crafting'), haul: () => t('輸送', 'Hauling'), sell: () => t('販売', 'Selling') };
 const TASK_JA = (k: string) => ({ craft: t('製造', 'crafting'), transport: t('輸送', 'hauling'), buy: t('調達', 'buying'), shop: t('販売', 'selling'), dig: t('発掘', 'digging'), intel: t('調査', 'research') } as Record<string, string>)[k] ?? k;

@@ -14638,3 +14638,1022 @@ button.isl-dband-lead.is-on {
   flex-direction: column;
   min-width: 0;
 }
+
+/* ---------------------------------------------------------------- 段 UI7d：スライド型の提案書（proposalui.ts・slideui.ts）
+   紙の提案書（クリーム色の枠）の真ん中に、紺のスライド（金の 1 本線の内枠）。字は 3 段：見出し（16px・金）・大きな数字（24〜28px）・小さなラベル（12px・灰）。
+   このまま＝灰 #8f9bb8（点線）・承認後＝金 #f2b544（実線）。増える＝緑・減る＝赤はいつも符号と ▲▼ を添える。 */
+.isl-modal.isl-prop > .isl-prop-panel {
+  width: min(960px, calc(100% - 24px));
+}
+.isl-sl-deck {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.isl-sl-track {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  border: 3px solid #0f1626;
+  border-radius: 10px;
+  background: #16213a;
+  box-shadow:
+    inset 0 0 0 2px #f2b544,
+    inset 0 0 0 4px #0f1626;
+  outline: none;
+}
+.isl-sl-track::-webkit-scrollbar {
+  display: none;
+}
+.isl-sl-track:focus-visible {
+  box-shadow:
+    inset 0 0 0 3px #fff,
+    inset 0 0 0 5px #0f1626;
+}
+.isl-sl {
+  flex: 0 0 100%;
+  min-width: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding: 12px 16px 16px;
+  color: #f4f1ea;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.isl-sl-h {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #f2b544;
+  letter-spacing: 0.02em;
+}
+.isl-sl-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.isl-sl-lab {
+  font-size: 12px;
+  color: #b8c0d4;
+  line-height: 1.4;
+}
+.isl-sl-ch {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  padding-bottom: 2px;
+  border-bottom: 2px solid #2a3a5e;
+}
+.isl-sl-ch b {
+  font-size: 13px;
+  color: #f4f1ea;
+}
+.isl-sl-ch small {
+  font-size: 12px;
+  color: #b8c0d4;
+  white-space: nowrap;
+}
+/* 結論 */
+.isl-sl .isl-prop-pitch {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.45;
+  color: #fff;
+}
+.isl-sl-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.isl-sl-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 2px solid #0f1626;
+  border-radius: 8px;
+  background: #22325a;
+  box-shadow: inset 0 2px 0 #2d4170;
+}
+.isl-sl-num {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #f4f1ea;
+}
+.isl-sl-num small {
+  font-size: 13px;
+  font-weight: 700;
+  color: #b8c0d4;
+}
+.isl-sl-arw {
+  font-size: 0.6em;
+  margin-right: 3px;
+  vertical-align: 0.25em;
+}
+.isl-sl-kpi.is-good .isl-sl-num {
+  color: #6fd08c;
+}
+.isl-sl-kpi.is-bad .isl-sl-num {
+  color: #f07070;
+}
+.isl-sl-rec {
+  padding: 8px 10px;
+  border: 2px solid #0f1626;
+  border-left: 6px solid #f2b544;
+  border-radius: 8px;
+  background: #22325a;
+}
+.isl-sl-rec.is-skip {
+  border-left-color: #8f9bb8;
+}
+.isl-sl-rectop {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+}
+.isl-sl-rec .isl-prop-why {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #f4f1ea;
+}
+.isl-sl-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.isl-sl-flag {
+  padding: 2px 8px;
+  border: 2px solid #2d4170;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #b8c0d4;
+}
+.isl-sl-flag.is-good {
+  color: #6fd08c;
+  border-color: #2f6a48;
+}
+.isl-sl-flag.is-bad {
+  color: #f07070;
+  border-color: #7a3440;
+}
+.isl-sl .isl-prop-block {
+  color: #f07070;
+}
+.isl-sl-same,
+.isl-sl-hint {
+  margin: 0;
+  font-size: 13px;
+  color: #f4f1ea;
+}
+.isl-sl-hint {
+  margin-top: auto;
+  font-size: 12px;
+  color: #b8c0d4;
+  text-align: right;
+}
+/* 部門の札（紺の上） */
+.isl-sl-dtag {
+  display: inline-block;
+  flex: none;
+  padding: 0 5px;
+  border: 2px solid var(--d, #8a5a1c);
+  border-radius: 6px;
+  background: #0f1626;
+  color: #f4f1ea;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 16px;
+}
+.isl-prop-kicker .isl-sl-dtag {
+  background: #fff;
+  color: #2a2016;
+}
+/* 何が変わる */
+.isl-sl-now {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.isl-sl-now .isl-sl-lab {
+  margin-right: 6px;
+  padding: 0 5px;
+  border: 1px solid #b8c0d4;
+  border-radius: 4px;
+}
+.isl-sl-asks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.isl-sl-asks li {
+  padding: 6px 8px;
+  border: 2px solid #0f1626;
+  border-radius: 8px;
+  background: #22325a;
+}
+.isl-sl-askt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.isl-sl-anum {
+  font-size: 15px;
+  font-weight: 800;
+  color: #f2b544;
+}
+.isl-sl-aicon {
+  font-size: 15px;
+}
+.isl-sl-awhat {
+  font-size: 14px;
+  line-height: 1.4;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.isl-sl-asub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+  padding-left: 22px;
+}
+.isl-sl-acost {
+  font-size: 12px;
+  color: #b8c0d4;
+  font-variant-numeric: tabular-nums;
+}
+.isl-sl-req {
+  font-size: 12px;
+  font-weight: 800;
+  color: #f2b544;
+}
+.isl-sl-ba {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.isl-sl-bapair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+.isl-sl-bacell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px;
+  border: 2px solid #0f1626;
+  border-radius: 8px;
+  background: #22325a;
+  text-align: center;
+}
+.isl-sl-bacell.is-to {
+  border-color: #f2b544;
+}
+.isl-sl-batag {
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 800;
+  color: #b8c0d4;
+}
+.isl-sl-bacell.is-to .isl-sl-batag {
+  color: #f2b544;
+}
+.isl-sl-batxt {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.isl-sl-baarw {
+  font-size: 18px;
+  color: #f2b544;
+}
+.isl-sl-bagoods {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+.isl-sl-bagood {
+  position: relative;
+  display: inline-flex;
+}
+.isl-sl-bagood.is-plus {
+  outline: 2px solid #f2b544;
+  border-radius: 4px;
+}
+.isl-sl-bagood b {
+  position: absolute;
+  right: -4px;
+  top: -6px;
+  font-size: 12px;
+  color: #f2b544;
+}
+/* 効果：棒・寄与 */
+.isl-sl-bars,
+.isl-sl-fall {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.isl-sl-brow {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 112px;
+  align-items: center;
+  gap: 8px;
+}
+.isl-sl-blab {
+  font-size: 12px;
+  color: #b8c0d4;
+}
+.isl-sl-bval,
+.isl-sl-fval {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.isl-sl-track2 {
+  position: relative;
+  height: 16px;
+  border-radius: 3px;
+  background: #0f1a30;
+}
+.isl-sl-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+}
+.isl-sl-bar.is-now {
+  background: #8f9bb8;
+}
+.isl-sl-bar.is-after {
+  background: #f2b544;
+}
+.isl-sl-bar.is-up {
+  background: #6fd08c;
+}
+.isl-sl-bar.is-down {
+  background: #f07070;
+}
+.isl-sl-zero {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  background: #b8c0d4;
+}
+.isl-sl-frow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px;
+  grid-template-areas:
+    'lab lab'
+    'bar val';
+  align-items: center;
+  gap: 2px 8px;
+}
+.isl-sl-frow > .isl-sl-flab {
+  grid-area: lab;
+}
+.isl-sl-frow > .isl-sl-track2 {
+  grid-area: bar;
+}
+.isl-sl-frow > .isl-sl-fval {
+  grid-area: val;
+}
+
+.isl-sl-flab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.isl-sl-fname {
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.isl-sl-frow.is-total {
+  padding-top: 4px;
+  border-top: 2px solid #2a3a5e;
+}
+.isl-sl-frow.is-total .isl-sl-fname,
+.isl-sl-frow.is-total .isl-sl-fval {
+  font-size: 14px;
+  font-weight: 800;
+}
+.isl-sl-fval.is-good,
+.isl-sl-mval.is-good {
+  color: #6fd08c;
+}
+.isl-sl-fval.is-bad,
+.isl-sl-mval.is-bad {
+  color: #f07070;
+}
+.isl-sl-fval.is-even,
+.isl-sl-mval.is-even {
+  color: #b8c0d4;
+}
+/* 折れ線 */
+.isl-sl-line {
+  position: relative;
+  width: 100%;
+  min-height: 156px;
+  max-width: 640px;
+}
+.isl-sl-line svg {
+  display: block;
+  touch-action: pan-y;
+}
+.isl-sl-grid {
+  stroke: #2a3a5e;
+  stroke-width: 1;
+}
+.isl-sl-zero0 {
+  stroke: #b8c0d4;
+  stroke-width: 1.5;
+}
+.isl-sl-axis {
+  fill: #b8c0d4;
+  font-size: 12px;
+}
+.isl-sl-lnow {
+  fill: none;
+  stroke: #8f9bb8;
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+}
+.isl-sl-lafter {
+  fill: none;
+  stroke: #f2b544;
+  stroke-width: 2.5;
+}
+.isl-sl-dot2 {
+  stroke: #16213a;
+  stroke-width: 2;
+}
+.isl-sl-dot2.is-now {
+  fill: #8f9bb8;
+}
+.isl-sl-dot2.is-after {
+  fill: #f2b544;
+}
+.isl-sl-end {
+  font-size: 12px;
+  font-weight: 800;
+}
+.isl-sl-end.is-now {
+  fill: #b8c0d4;
+}
+.isl-sl-end.is-after {
+  fill: #f2b544;
+}
+.isl-sl-endv {
+  font-size: 12px;
+  fill: #f4f1ea;
+}
+.isl-sl-cross {
+  stroke: #f4f1ea;
+  stroke-width: 1;
+}
+.isl-sl-tip {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 8px;
+  border: 2px solid #f2b544;
+  border-radius: 6px;
+  background: #0f1626;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.isl-sl-tip .is-after {
+  color: #f2b544;
+}
+.isl-sl-tip .is-now {
+  color: #b8c0d4;
+}
+.isl-sl-legend {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: #f4f1ea;
+}
+.isl-sl-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.isl-sl-key i {
+  display: inline-block;
+  width: 22px;
+  height: 0;
+  border-top: 3px solid #f2b544;
+}
+.isl-sl-key.is-now i {
+  border-top: 3px dashed #8f9bb8;
+}
+/* メーター */
+.isl-sl-meters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+.isl-sl-meter,
+.isl-sl-budget {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 2px solid #0f1626;
+  border-radius: 8px;
+  background: #22325a;
+}
+.isl-sl-mtop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.isl-sl-mtop b {
+  font-size: 13px;
+  white-space: nowrap;
+}
+.isl-sl-mtop b.is-good {
+  color: #6fd08c;
+}
+.isl-sl-mtop b.is-bad {
+  color: #f07070;
+}
+.isl-sl-mtrack {
+  position: relative;
+  height: 12px;
+  border-radius: 3px;
+  background: #0f1a30;
+}
+.isl-sl-mfill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  background: #f2b544;
+}
+.isl-sl-mmark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 3px;
+  margin-left: -1px;
+  background: #f4f1ea;
+  box-shadow: 0 0 0 1px #0f1626;
+}
+/* 影響の地図 */
+.isl-sl-stages {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+.isl-sl-sarw {
+  align-self: center;
+  color: #b8c0d4;
+  font-size: 14px;
+}
+.isl-sl-stage {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border: 2px solid #2a3a5e;
+  border-radius: 8px;
+  background: #1a2744;
+  color: #b8c0d4;
+  text-align: center;
+}
+.isl-sl-stage.is-on {
+  border-color: #f2b544;
+  background: #2d3a5c;
+  color: #f4f1ea;
+  box-shadow: inset 0 0 0 1px #f2b544;
+}
+.isl-sl-sicon {
+  font-size: 20px;
+  line-height: 1.1;
+}
+.isl-sl-stage:not(.is-on) .isl-sl-sicon {
+  filter: grayscale(1) brightness(0.8);
+}
+.isl-sl-sname {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.isl-sl-stag {
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+.isl-sl-stag.is-on {
+  color: #f2b544;
+}
+.isl-sl-stag.is-narrow {
+  color: #f07070;
+}
+.isl-sl-depts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.isl-sl-dept {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 2px solid var(--d, #8f9bb8);
+  border-radius: 6px;
+  background: #0f1626;
+  font-size: 12px;
+}
+.isl-sl-dept small {
+  font-size: 12px;
+  color: #b8c0d4;
+}
+.isl-sl-dept.is-own {
+  box-shadow: 0 0 0 2px #f2b544;
+}
+/* リスク */
+.isl-sl-risks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.isl-sl-risk {
+  display: grid;
+  grid-template-columns: max-content max-content minmax(0, 1fr);
+  align-items: start;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.isl-sl-lv {
+  min-width: 26px;
+  padding: 0 5px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 19px;
+  text-align: center;
+  color: #0f1626;
+}
+.isl-sl-lv.is-lv1 {
+  background: #8f9bb8;
+}
+.isl-sl-lv.is-lv2 {
+  background: #f2b544;
+}
+.isl-sl-lv.is-lv3 {
+  background: #f07070;
+}
+.isl-sl-rtxt {
+  overflow-wrap: anywhere;
+}
+/* 予算・資金のメーター */
+.isl-sl-segbar {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  height: 14px;
+  border-radius: 3px;
+  background: #0f1a30;
+}
+.isl-sl-segp {
+  flex-basis: 0;
+  min-width: 3px;
+  border-radius: 3px;
+}
+.isl-sl-segp.is-used,
+.isl-sl-segkey.is-used i {
+  background: #8f9bb8;
+}
+.isl-sl-segp.is-mine,
+.isl-sl-segkey.is-mine i {
+  background: #f2b544;
+}
+.isl-sl-segp.is-over,
+.isl-sl-segkey.is-over i {
+  background: repeating-linear-gradient(45deg, #f07070 0 4px, #7a3440 4px 7px);
+}
+.isl-sl-segp.is-left,
+.isl-sl-segkey.is-left i {
+  background: #2a3a5e;
+}
+.isl-sl-segp.is-left2,
+.isl-sl-segkey.is-left2 i {
+  background: #6fd08c;
+}
+.isl-sl-segtick {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 3px;
+  margin-left: -1px;
+  background: #f4f1ea;
+  box-shadow: 0 0 0 1px #0f1626;
+}
+.isl-sl-segkeys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+}
+.isl-sl-segkey {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #f4f1ea;
+  font-variant-numeric: tabular-nums;
+}
+.isl-sl-segkey i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.isl-sl-info {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 2px 10px;
+  font-size: 12px;
+}
+/* 付録：紙の配布資料（いままでの提案書の表の書き方のまま） */
+.isl-sls-more .isl-sl-body {
+  padding: 10px 12px;
+  border: 2px solid #0f1626;
+  border-radius: 8px;
+  background: #fbf3df;
+  color: #2a2016;
+  gap: 10px;
+}
+.isl-sls-more .isl-prop-sec h4 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: #8a5a1c;
+}
+.isl-sls-more .isl-prop-sec + .isl-prop-sec {
+  padding-top: 8px;
+  border-top: 2px dashed #c9b48c;
+}
+/* 送り：点と矢印 */
+.isl-sl-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.isl-sl-arrow,
+.isl-sl-side {
+  flex: none;
+  border: 2px solid #2a2016;
+  border-radius: 8px;
+  background: #fff9ea;
+  color: #2a2016;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+.isl-sl-arrow {
+  width: 44px;
+  height: 36px;
+}
+.isl-sl-arrow:disabled,
+.isl-sl-side:disabled {
+  border-color: #d8c8a4;
+  background: #f5ecd6;
+  color: #c9b48c;
+  cursor: default;
+}
+.isl-sl-dots {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+.isl-sl-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: none;
+  color: #6b5a44;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.isl-sl-dotpip {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #6b5a44;
+}
+.isl-sl-dot.is-on {
+  border-color: #2a2016;
+  background: #f4d48a;
+  color: #2a2016;
+}
+.isl-sl-dot.is-on .isl-sl-dotpip {
+  border-color: #2a2016;
+  background: #c4521b;
+}
+.isl-sl-page {
+  flex: none;
+  font-size: 12px;
+  color: #6b5a44;
+  font-variant-numeric: tabular-nums;
+}
+.isl-sl-side {
+  display: none;
+}
+@media (min-width: 600px) {
+  .isl-sl-deck {
+    padding: 0 48px;
+  }
+  .isl-sl-side {
+    display: block;
+    position: absolute;
+    top: 50%;
+    width: 40px;
+    height: 72px;
+    margin-top: -36px;
+    font-size: 30px;
+  }
+  .isl-sl-side.is-prev {
+    left: 0;
+  }
+  .isl-sl-side.is-next {
+    right: 0;
+  }
+  .isl-sl {
+    padding: 16px 22px 20px;
+  }
+  .isl-sl .isl-prop-pitch {
+    font-size: 20px;
+  }
+  .isl-sl-bars,
+  .isl-sl-fall {
+    max-width: 720px;
+  }
+  .isl-sl-num {
+    font-size: 28px;
+  }
+}
+@media (max-width: 599px) {
+  .isl-sl {
+    padding: 10px 12px 14px;
+  }
+  .isl-sl-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .isl-sl-kpi {
+    padding: 6px 8px;
+  }
+  .isl-sl-num {
+    font-size: clamp(18px, 5.6vw, 22px);
+  }
+  .isl-sl .isl-prop-pitch {
+    font-size: 17px;
+  }
+  /* スマホ：点は名前を出さない（いまのスライドだけ名前） */
+  .isl-sl-dot {
+    padding: 0 6px;
+  }
+  .isl-sl-dot:not(.is-on) .isl-sl-dotname {
+    display: none;
+  }
+  .isl-sl-dot:not(.is-on) {
+    min-width: 24px;
+    justify-content: center;
+  }
+  .isl-sl-page {
+    display: none;
+  }
+}
+
+/* 推奨の札（提案書の中は 12px） */
+.isl-prop .isl-rec-tag {
+  font-size: 12px;
+}
+.isl-sl-dot {
+  white-space: nowrap;
+}
+/* 結論の「承認すると」（手ごとに 1 行） */
+.isl-sl-will {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.isl-sl-will li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+}
+.isl-sl-will li > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* 付録の表（紙の上・せまい幅）：名前は 1 行に、数字はその下に 4 列 */
+.isl-sls-more .isl-prop-eff {
+  grid-template-columns: max-content 14px max-content minmax(0, 1fr);
+  gap: 0 8px;
+  font-size: 13px;
+}
+.isl-sls-more .isl-prop-eff > .isl-prop-effh:first-child {
+  display: none;
+}
+.isl-sls-more .isl-prop-efflabel {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+}
+.isl-sls-more .isl-prop-effh,
+.isl-sls-more .isl-prop-effd small,
+.isl-sls-more .isl-prop-efflabel.is-sub {
+  font-size: 12px;
+}
+.isl-sls-more .isl-prop-effd {
+  text-align: right;
+}
+.isl-sls-more .isl-prop-say {
+  font-size: 14px;
+}
+.isl-sl-segkey.is-tick i {
+  width: 3px;
+  height: 12px;
+  background: #f4f1ea;
+  box-shadow: 0 0 0 1px #0f1626;
+}
+/* PC：2 列（スライドの縦に収める） */
+.isl-sl-cols,
+.isl-sl-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .isl-sl-cols.is-two {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px 24px;
+    align-items: start;
+  }
+}
+.isl-sls-more .isl-prop-effd small {
+  display: block;
+}

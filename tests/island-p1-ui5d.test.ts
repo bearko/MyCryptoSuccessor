@@ -254,8 +254,9 @@ describe('倉庫の提案のカード（UI5c の 8 割を作り直す）', () =>
     const s = base();
     const x = notMade(s);
     const w = buildNow(s, 'warehouse');
-    fill(s, 0.9);
-    s.stock[x] = 10;
+    fill(s, 0.8);
+    // 段 UI7d：売りさばきは、倉庫の在庫品が埋まりの 1 割以上のときだけ出る（素材で埋まっているなら出さない）
+    s.stock[x] = Math.ceil(poolCap(s) * 0.15);
     const d = stockDraft(s)!;
     const c = enqueue(s, d)!;
     const plan = planOfChoice(s, c, 0)!;

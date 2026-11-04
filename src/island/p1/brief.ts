@@ -30,10 +30,16 @@ import { voiceOf, voiceSay } from './voice';
 
 // ---------------------------------------------------------------- 型
 
-/** 承認事項の 1 行（acts の 1 つ） */
+/**
+ * 承認事項の 1 行（acts の 1 つ。段 UI7d：売りさばきの手に束ねた棚の拡張は、お店ごとに別の行）
+ */
 export interface Ask {
-  /** acts の何番目か（① ② …）・その手を受け持つ部門・提案した部門の手か（違えば「○○部に依頼」） */
+  /** 何行目か（① ② …）・acts の何番目の手か・その行の steps の番号・手の種類（棚の拡張だけの行は 'shelf'）・
+   *  その手を受け持つ部門・提案した部門の手か（違えば「○○部に依頼」） */
   n: number;
+  act: number;
+  at: number[];
+  kind: PropAct['k'] | 'shelf';
   dept: DeptId;
   own: boolean;
   /** 「宣伝：店頭イベント 5 日」 */
@@ -63,14 +69,16 @@ export interface CostRow {
   now: number;
   after: number;
 }
-/** 期待効果の部門ごとの分（acts を順に足したときの増え方） */
+/** 期待効果の手ごとの分（承認事項の行を順に足したときの増え方）。money：その行の導入（1 回）。短期の寄与 ＝ dProfit − money */
 export interface Part {
   n: number;
   dept: DeptId;
   own: boolean;
   what: string;
+  kind: Ask['kind'];
   dSales: number;
   dProfit: number;
+  money: number;
 }
 /** この部門の予算の内外 */
 export interface BudgetFit {
@@ -105,6 +113,8 @@ export interface Brief {
   theme: Theme;
   say: string | null;
   risks: string[];
+  /** 段 UI7d：リスクの強さ（1 低・2 中・3 高）と種類つき。risks と同じ並び */
+  rk: Risk[];
   /** 会社全体：受け箱のほかの提案の件数と合計の費用・いまの資金・承認したあとの資金・ひと月の固定費の目安 */
   co: { n: number; money: number; cash: number; left: number; reserve: number };
   /** 段 UI7c：期待効果の指標（短期・長期・士気・満足度・ブランド・研究）と、経営方針の価値 */
@@ -144,7 +154,7 @@ const nameOfB = (id: string) => DEF[id]?.name ?? id;
 const adOf = (id: string) => ADS.find((x) => x.id === id);
 
 /** 要約の一言に入れる、手の短い名前（名詞。日本語は「〜をしましょう」に入る形） */
-export function actNoun(a: PropAct): string {
+export function actNoun(a: PropAct, shelves = false): string {
   switch (a.k) {
     case 'ad':
       return adOf(a.id)?.name ?? a.id;
@@ -169,7 +179,8 @@ export function actNoun(a: PropAct): string {
     case 'assign':
       return t('人の配置', 'a staffing move');
     case 'clear':
-      return t('在庫の売りさばき', 'clearing stock');
+      // 段 UI7d：棚 1 段のお店の 3 択で「棚を拡張する」を選んだ（棚の増設を束ねた）売りさばき
+      return shelves ? t('棚の拡張と在庫の売りさばき', 'extra shelves and clearing stock') : t('在庫の売りさばき', 'clearing stock');
     case 'useup':
       return t('手持ちの素材での製造', 'crafting from stock');
     case 'permit':
@@ -221,21 +232,35 @@ function askCat(a: PropAct): string {
       return t('お店', 'Shop');
   }
 }
-/** 承認事項の 1 行：「宣伝：店頭イベント 5 日」「商品：よろず屋 2の棚にランタンを作って並べる」 */
-function askWhat(s: P1State, p: Plan, k: number): string {
-  const a = p.acts[k];
+/**
+ * 段 UI7d：承認事項の行の分け方（acts の手ごと。売りさばきの手に束ねた「棚を 1 段増やす」（棚 1 段のお店の 3 択の「拡張」）は、
+ * お店ごとに別の行にする：1 行に 3 つの手を詰め込まない）
+ */
+export function askGroups(p: Plan): { act: number; at: number[]; kind: Ask['kind'] }[] {
+  const out: { act: number; at: number[]; kind: Ask['kind'] }[] = [];
+  p.acts.forEach((a, k) => {
+    const at = p.steps.map((_, i) => i).filter((i) => (p.of?.[i] ?? 0) === k);
+    const shelves = a.k === 'clear' ? at.filter((i) => p.steps[i].k === 'shelf') : [];
+    const rest = at.filter((i) => !shelves.includes(i));
+    if (rest.length || !shelves.length) out.push({ act: k, at: rest, kind: a.k });
+    for (const i of shelves) out.push({ act: k, at: [i], kind: 'shelf' });
+  });
+  return out;
+}
+/** その行だけの Plan（steps と of を、行の steps に絞る） */
+const subPlan = (p: Plan, at: number[]): Plan => ({ ...p, steps: at.map((i) => p.steps[i]), of: at.map((i) => p.of?.[i] ?? 0) });
+
+/** 承認事項の 1 行：「宣伝：店頭イベント 5 日」「商品：よろず屋 2の棚にランタンを作って並べる」「設備：よろず屋 2の棚を 1 段増やす」 */
+function askWhat(s: P1State, p: Plan, gr: { act: number; at: number[]; kind: Ask['kind'] }): string {
+  const a = p.acts[gr.act];
   if (a.k === 'ad') {
     const ad = adOf(a.id);
     return t(`宣伝：${ad?.name ?? a.id} ${ad?.days ?? 0} 日`, `Ad: ${ad?.name ?? a.id}, ${ad?.days ?? 0} days`);
   }
-  const sub: Plan = {
-    ...p,
-    acts: [a],
-    steps: p.steps.filter((_, i) => (p.of?.[i] ?? 0) === k),
-  };
-  const tt = planTitle(s, sub);
+  const tt = planTitle(s, { ...subPlan(p, gr.at), acts: [a] });
+  const cat = gr.kind === 'shelf' ? t('設備', 'Equipment') : askCat(a);
   // 「パネル「…」を解放」のように、もう種類で始まる文はそのまま
-  return tt.startsWith(askCat(a)) ? tt : `${askCat(a)}${t('：', ': ')}${tt}`; // i18n-ja
+  return tt.startsWith(cat) ? tt : `${cat}${t('：', ': ')}${tt}`; // i18n-ja
 }
 
 // ---------------------------------------------------------------- 要約の一言（ヒーローの口から）
@@ -279,7 +304,8 @@ const plen = (x: string) => [...x].length;
  * 口調は persona.ts の型、呼び方は史実の調査のあるヒーローなら voice.ts の呼び方。テンプレートと差し込みで作り、PITCH_MAX 字に収める
  * （長ければ呼び方 → 2 つ目の手の順に落とす）。dept：提案した部門（ほかの部門の手は「○○部に…」）
  */
-export function pitchOf(hero: number | null, acts: PropAct[], dept: DeptId | null, lead: string | null = null): string {
+export function pitchOf(hero: number | null, acts: PropAct[], dept: DeptId | null, lead: string | null = null, shelves = false): string {
+  const noun = (a: PropAct) => actNoun(a, shelves && a.k === 'clear');
   if (!acts.length) return t('このまま進めましょう。', 'Let’s keep going as is.');
   const d0 = dept ?? actDept(acts[0]);
   const ownFirst = [...acts].sort((a, b) => Number(actDept(b) === d0) - Number(actDept(a) === d0));
@@ -288,16 +314,16 @@ export function pitchOf(hero: number | null, acts: PropAct[], dept: DeptId | nul
   const sub = rest.find((a) => actDept(a) !== d0) ?? rest[0] ?? null;
   const more = rest.length > 1;
   if (isEn) {
-    const a = `${lead ? `It lifts ${lead}. ` : ''}Let’s go for ${actNoun(main)}.`;
+    const a = `${lead ? `It lifts ${lead}. ` : ''}Let’s go for ${noun(main)}.`;
     if (!sub) return a;
-    return actDept(sub) !== d0 ? `${a} I’d ask ${DEPT[actDept(sub)].name} for ${actNoun(sub)}${more ? ' and more' : ''}.` : `${a} Also ${actNoun(sub)}${more ? ' and more' : ''}.`;
+    return actDept(sub) !== d0 ? `${a} I’d ask ${DEPT[actDept(sub)].name} for ${noun(sub)}${more ? ' and more' : ''}.` : `${a} Also ${noun(sub)}${more ? ' and more' : ''}.`;
   }
   const tone: Tone = hero != null ? toneOf(hero) : 'polite';
   const T = PITCH[tone];
-  const y = sub ? `${actNoun(sub)}${more ? 'など' : ''}` : ''; // i18n-ja
+  const y = sub ? `${noun(sub)}${more ? 'など' : ''}` : ''; // i18n-ja
   const second = sub ? (actDept(sub) !== d0 ? T.ask(y, deptShort(actDept(sub))) : T.also(y)) : '';
   // 自分の部門の手が無い（予算の頼みでほかの部門のパネルなど）：主な手から「○○部に…」
-  const first = actDept(main) !== d0 ? T.ask(actNoun(main), deptShort(actDept(main))) : T.main(actNoun(main));
+  const first = actDept(main) !== d0 ? T.ask(noun(main), deptShort(actDept(main))) : T.main(noun(main));
   // 段 UI7c：方針の大事な指標が上がるなら、それを先に（「ブランドが上がります。店頭イベントをしましょう。」）
   const up = lead ? T.up(lead) : '';
   const body = `${up}${first}${second}`;
@@ -381,42 +407,35 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
   const now = monthOf(base, 0, so);
   const aft = monthOf(after, cost.monthly, so);
   const err = Math.round((1 - p.q) * DELEG.prop.err * 100) / 100;
-  // 承認事項（acts ごと。費用は planCost の内訳を、その手の step の分だけ足す）
-  const asks: Ask[] = p.acts.map((a, k) => {
-    const its = cost.items.filter((it) => (p.of?.[it.at ?? -1] ?? 0) === k);
-    const d = actDept(a);
+  // 承認事項（段 UI7d：askGroups の行ごと。費用は planCost の内訳を、その行の step の分だけ足す）
+  const groups = askGroups(p);
+  const asks: Ask[] = groups.map((gr, k) => {
+    const its = cost.items.filter((it) => gr.at.includes(it.at ?? -1));
+    const d = gr.kind === 'shelf' ? 'logistics' : actDept(p.acts[gr.act]);
     return {
       n: k,
+      act: gr.act,
+      at: gr.at,
+      kind: gr.kind,
       dept: d,
       own: dept == null || d === dept,
-      what: askWhat(s, p, k),
+      what: askWhat(s, p, gr),
       money: its.reduce((x, it) => x + (it.money ?? 0), 0),
       rp: its.reduce((x, it) => x + (it.rp ?? 0), 0),
       monthly: its.reduce((x, it) => x + (it.monthly ?? 0), 0),
     };
   });
-  // 部門ごとの分：手を 1 つずつ足して、増えた分をその手の分に（最後は提案の全部と同じ）
+  // 手ごとの分：承認事項の行を 1 つずつ足して、増えた分をその行の分に（最後は提案の全部と同じ。合計は提案の差と一致する）
   const parts: Part[] = [];
-  if (p.acts.length > 1) {
+  if (asks.length > 1) {
     let prev = now;
-    p.acts.forEach((_a, k) => {
-      const sub =
-        k === p.acts.length - 1
-          ? p
-          : planOf(s, p.acts.slice(0, k + 1), {
-              hero: p.hero,
-              q: p.q,
-              dept: p.dept,
-            });
-      const m = k === p.acts.length - 1 ? aft : monthOf(afterOf(s, sub), planCost(s, sub).monthly, so);
-      parts.push({
-        n: k,
-        dept: asks[k].dept,
-        own: asks[k].own,
-        what: asks[k].what,
-        dSales: m.sales - prev.sales,
-        dProfit: m.profit - prev.profit,
-      });
+    const upto: number[] = [];
+    asks.forEach((x, k) => {
+      upto.push(...x.at);
+      const last = k === asks.length - 1;
+      const sub = last ? p : subPlan(p, [...upto].sort((a, b) => a - b));
+      const m = last ? aft : monthOf(afterOf(s, sub), planCost(s, sub).monthly, so);
+      parts.push({ n: k, dept: x.dept, own: x.own, what: x.what, kind: x.kind, dSales: m.sales - prev.sales, dProfit: m.profit - prev.profit, money: x.money });
       prev = m;
     });
   }
@@ -451,7 +470,7 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
   const vals = valuesOf(s, p, { base, after, now, aft, cost, so });
   const b: Brief = {
     dept,
-    pitch: pitchOf(p.hero, p.acts, dept, leadOf(vals.policy, vals)),
+    pitch: pitchOf(p.hero, p.acts, dept, leadOf(vals.policy, vals), asks.some((x) => x.kind === 'shelf')),
     asks,
     cost,
     block,
@@ -467,6 +486,7 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
     budget,
     bg: [],
     risks: [],
+    rk: [],
     co,
     vals,
     theme: 'flow',
@@ -477,7 +497,8 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
   b.theme = themeOf(p, dept);
   b.bg = bgOf(s, p, b);
   b.say = sayOfTheme(s, p, b);
-  b.risks = risksOf(s, p, b, base, after);
+  b.rk = riskList(s, p, b, base, after);
+  b.risks = b.rk.map((x) => x.text);
   const r = recOf(b);
   b.rec = r.rec;
   b.why = r.why;
@@ -884,69 +905,84 @@ export function sayOfTheme(s: P1State, p: Plan, b: Pick<Brief, 'vals' | 'theme'>
   return voiceSay(p.hero, core) ?? heroSay(p.hero, core);
 }
 
-/** 予想されるリスク（下振れ・一時的な効き目・売れ残り・ほかの部門への影響・予算の超過・承認したあとの資金） */
-export function risksOf(s: P1State, p: Plan, b: Brief, base: P1State, after: P1State): string[] {
-  const out: string[] = [];
+/** 段 UI7d：リスクの 1 行（強さ 1 低・2 中・3 高・種類：読み・宣伝・在庫・人と製造・ほかの部門・流れ・予算・資金） */
+export type RiskKind = 'read' | 'ad' | 'stock' | 'ops' | 'dept' | 'flow' | 'budget' | 'cash';
+export interface Risk {
+  text: string;
+  lv: 1 | 2 | 3;
+  kind: RiskKind;
+}
+/** 予想されるリスク（文だけ。強さつきは riskList） */
+export const risksOf = (s: P1State, p: Plan, b: Brief, base: P1State, after: P1State): string[] => riskList(s, p, b, base, after).map((x) => x.text);
+
+/**
+ * 予想されるリスク（下振れ・一時的な効き目・売れ残り・ほかの部門への影響・予算の超過・承認したあとの資金）。
+ * 段 UI7d：強さの札（低・中・高）の決め方：読みの下振れで月の利益がマイナスになる・資金がひと月の固定費を下回る → 高。
+ * 誤差 15% 以上の下振れ・費用を取り戻せない宣伝・注文した素材で倉庫が 9 割を超える・売れ方が読みにくい新商品・流れの細いところが移る・予算の超過 → 中。ほかは低
+ */
+export function riskList(s: P1State, p: Plan, b: Brief, base: P1State, after: P1State): Risk[] {
+  const out: Risk[] = [];
+  const push = (text: string, lv: 1 | 2 | 3, kind: RiskKind) => out.push({ text, lv, kind });
   // 読みの下振れ（読みの確かさの誤差だけ、効き目が小さかったとき）
   if (Math.abs(b.dProfit) >= 0.5 && b.err > 0) {
     const low = b.dProfit - Math.abs(b.dSales) * b.err;
-    out.push(t(`読みが外れて売上の増えが ${Math.round(b.err * 100)}% 小さいとき：月の利益 ${sg(low)}（${g(b.now.profit + low)}）`, `If the sales gain is ${Math.round(b.err * 100)}% smaller: profit ${sg(low)}/mo (${g(b.now.profit + low)})`));
+    push(t(`読みが外れて売上の増えが ${Math.round(b.err * 100)}% 小さいとき：月の利益 ${sg(low)}（${g(b.now.profit + low)}）`, `If the sales gain is ${Math.round(b.err * 100)}% smaller: profit ${sg(low)}/mo (${g(b.now.profit + low)})`), low < -0.5 ? 3 : b.err >= 0.15 ? 2 : 1, 'read');
   }
   // 宣伝は効く日数だけ
   for (const a of p.acts) {
     if (a.k !== 'ad') continue;
     const ad = adOf(a.id);
     if (!ad) continue;
-    const cost = b.asks.find((x) => p.acts[x.n] === a)?.money ?? 0;
-    out.push(t(`宣伝は ${ad.days} 日だけ効く（期待効果は日割り）。続けるなら、そのたびに ${g(cost)}`, `The ad lasts ${ad.days} days (effect pro-rated). Repeating costs ${g(cost)} each time`));
-    if (ad.days < DAYS && b.parts.length === 0 && b.dProfit < cost) out.push(t(`この宣伝だけでは、費用 ${g(cost)} を月の利益の増え（${sg(b.dProfit)}）で取り戻せない見込み`, `The extra profit (${sg(b.dProfit)}) won’t cover the ${g(cost)} cost`));
+    const cost = b.asks.find((x) => p.acts[x.act] === a)?.money ?? 0;
+    push(t(`宣伝は ${ad.days} 日だけ効く（期待効果は日割り）。続けるなら、そのたびに ${g(cost)}`, `The ad lasts ${ad.days} days (effect pro-rated). Repeating costs ${g(cost)} each time`), 1, 'ad');
+    if (ad.days < DAYS && b.parts.length === 0 && b.dProfit < cost) push(t(`この宣伝だけでは、費用 ${g(cost)} を月の利益の増え（${sg(b.dProfit)}）で取り戻せない見込み`, `The extra profit (${sg(b.dProfit)}) won’t cover the ${g(cost)} cost`), 2, 'ad');
   }
   // 売れ残り・在庫：作らなくなる商品・注文する素材
   if (p.drop) {
     const n = stockAll(s, p.drop);
-    out.push(t(`作らなくなる${goodsName(p.drop)}の在庫 ${n} 個は、空いた棚で売り切るまで並ぶ`, `${n} ${goodsName(p.drop)} left in stock sell off from spare shelves`));
+    push(t(`作らなくなる${goodsName(p.drop)}の在庫 ${n} 個は、空いた棚で売り切るまで並ぶ`, `${n} ${goodsName(p.drop)} left in stock sell off from spare shelves`), 1, 'stock');
   }
   const orders = p.steps.filter((x): x is Extract<Plan['steps'][number], { k: 'order' }> => x.k === 'order');
   if (orders.length) {
     const n = orders.reduce((a, x) => a + x.lots * LOT, 0);
-    out.push(
+    push(
       t(
         `素材を ${n} 個注文（${orders.map((x) => MATS[x.m].name).join('・')}）。売れ方が読みより悪いと倉庫に残る（置き場所 ${poolUsed(s) + n} / ${poolCap(s)} 個）`,
         `Orders ${n} materials. If sales lag, they sit in storage (${poolUsed(s) + n} / ${poolCap(s)})`,
       ),
+      poolUsed(s) + n > poolCap(s) * 0.9 ? 2 : 1,
+      'stock',
     );
   }
   // 新しく作る商品のうち、売れる見込みが小さいもの
   const thin = (p.goods ?? []).filter((x) => (b.after.goods.find((y) => y.x === x)?.units ?? 0) < 3);
-  if (thin.length) out.push(t(`新しい商品（${thin.map((x) => goodsName(x)).join('・')}）は売れ方が読みにくい（月 3 個未満の見込み）`, `New items (${thin.map((x) => goodsName(x)).join(', ')}) are hard to read (<3/mo)`));
+  if (thin.length) push(t(`新しい商品（${thin.map((x) => goodsName(x)).join('・')}）は売れ方が読みにくい（月 3 個未満の見込み）`, `New items (${thin.map((x) => goodsName(x)).join(', ')}) are hard to read (<3/mo)`), 2, 'stock');
   // ほかの部門への影響（製造の切り替え・人の移動・依頼する手）
   for (const st of p.steps) {
     if (st.k === 'make') {
       const sl = s.slots[st.slot];
       if (sl?.sku && sl.sku !== st.x)
-        out.push(
+        push(
           t(
             `製造：作業台 ${st.slot + 1} は${sl.running ? 'いまのロットのあとで' : 'すぐに'}${goodsName(st.x)}へ切り替え（${goodsName(sl.sku)}はこの台では作らなくなる）`,
             `Crafting: bench ${st.slot + 1} switches to ${goodsName(st.x)}${sl.running ? ' after this lot' : ''} (stops ${goodsName(sl.sku)} there)`,
           ),
+          1,
+          'ops',
         );
-    } else if (st.k === 'worker') out.push(t(`人：待機中の${heroNm(st.hero)}を作業台 ${st.slot + 1} の担当へ`, `People: idle ${heroNm(st.hero)} goes to bench ${st.slot + 1}`));
+    } else if (st.k === 'worker') push(t(`人：待機中の${heroNm(st.hero)}を作業台 ${st.slot + 1} の担当へ`, `People: idle ${heroNm(st.hero)} goes to bench ${st.slot + 1}`), 1, 'ops');
   }
-  for (const a of b.asks) if (!a.own) out.push(t(`${DEPT[a.dept].name}部の手が要る：${a.what}`, `Needs ${DEPT[a.dept].name}: ${a.what}`));
+  for (const a of b.asks) if (!a.own) push(t(`${DEPT[a.dept].name}部の手が要る：${a.what}`, `Needs ${DEPT[a.dept].name}: ${a.what}`), 1, 'dept');
   // 流れの細いところが移る
   const c0 = stageCaps(base, true);
   const c1 = stageCaps(after, true);
   const bn0 = bottleneck(c0);
   const bn1 = bottleneck(c1);
-  if (bn1 !== bn0) out.push(t(`承認後は${STAGE[bn1]()}が細くなる見込み（月 ${Math.round(c1[bn1].perMonth)} 個）`, `${STAGE[bn1]()} becomes the narrow point (${Math.round(c1[bn1].perMonth)}/mo)`));
+  if (bn1 !== bn0) push(t(`承認後は${STAGE[bn1]()}が細くなる見込み（月 ${Math.round(c1[bn1].perMonth)} 個）`, `${STAGE[bn1]()} becomes the narrow point (${Math.round(c1[bn1].perMonth)}/mo)`), 2, 'flow');
   // 予算の超過
-  if (b.budget && !b.budget.inside)
-    out.push(t(`${DEPT[b.budget.dept].name}部の予算を ${g(b.budget.need - b.budget.rest)} 超える（社長の承認なので会社の資金から払う）`, `Over the ${DEPT[b.budget.dept].name} budget by ${g(b.budget.need - b.budget.rest)} (paid from company funds)`));
+  if (b.budget && !b.budget.inside) push(t(`${DEPT[b.budget.dept].name}部の予算を ${g(b.budget.need - b.budget.rest)} 超える（社長の承認なので会社の資金から払う）`, `Over the ${DEPT[b.budget.dept].name} budget by ${g(b.budget.need - b.budget.rest)} (paid from company funds)`), 2, 'budget');
   // 承認したあとの資金
-  out.push(
-    b.co.left < b.co.reserve
-      ? t(`承認後の資金は ${g(b.co.left)}。ひと月の給料・維持費の目安 ${g(b.co.reserve)} を下回る`, `Funds after: ${g(b.co.left)}, below a month of wages and upkeep (${g(b.co.reserve)})`)
-      : t(`承認後の資金は ${g(b.co.left)}（ひと月の給料・維持費の目安 ${g(b.co.reserve)} は残る）`, `Funds after: ${g(b.co.left)} (a month of wages and upkeep, ${g(b.co.reserve)}, stays covered)`),
-  );
+  if (b.co.left < b.co.reserve) push(t(`承認後の資金は ${g(b.co.left)}。ひと月の給料・維持費の目安 ${g(b.co.reserve)} を下回る`, `Funds after: ${g(b.co.left)}, below a month of wages and upkeep (${g(b.co.reserve)})`), 3, 'cash');
+  else push(t(`承認後の資金は ${g(b.co.left)}（ひと月の給料・維持費の目安 ${g(b.co.reserve)} は残る）`, `Funds after: ${g(b.co.left)} (a month of wages and upkeep, ${g(b.co.reserve)}, stays covered)`), 1, 'cash');
   return out;
 }

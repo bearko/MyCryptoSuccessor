@@ -229,6 +229,8 @@ export interface ClearInfo {
   total: number;
   /** 余っている素材の数 */
   spare: number;
+  /** 段 UI7d：売りさばく品のうち、倉庫（工房の物置）に置いている数（お店の裏・棚・運んでいる途中は倉庫を空けない） */
+  pooled: number;
 }
 export function clearInfo(s: P1State): ClearInfo {
   const items = clearSkus(s).map((x) => ({ x, n: stockAll(s, x) }));
@@ -242,8 +244,16 @@ export function clearInfo(s: P1State): ClearInfo {
     items,
     total: items.reduce((a, y) => a + y.n, 0),
     spare: sum(spareMats(s)),
+    pooled: items.reduce((a, y) => a + (s.stock[y.x] ?? 0), 0),
   };
 }
+/** 段 UI7d：倉庫の埋まりのうち、売りさばく品がこの割合を超えていれば、売りさばきで倉庫が空く */
+export const CLEAR_POOL = 0.1;
+/**
+ * 段 UI7d：売りさばきで倉庫が空くか。倉庫を埋めているのが素材（例：素材 1820・商品 0）なら、在庫品を売りさばいても倉庫は空かないので
+ * 倉庫の提案に「在庫を優先して売りさばく」を出さない（倉庫の強化・いまの素材で作る、を出す）
+ */
+export const clearFrees = (info: Pick<ClearInfo, 'pooled' | 'used'>) => info.pooled > 0 && info.pooled >= info.used * CLEAR_POOL;
 /** 倉庫が埋まりそう（CLEAR.warn を超えた） */
 export const storeFull = (s: P1State) => poolRate(s) >= CLEAR.warn;
 /** 値引きの段の名前（0：値引きなし） */
@@ -376,15 +386,27 @@ export function gatePlan(p: Plan, gate: OneShelf[], pick: ShelfPick): Plan | nul
   if (pick === 'drop' || !gate.length) return p;
   const uids = new Set(gate.map((x) => x.uid));
   const steps: Step[] = [];
-  for (const st of p.steps) {
+  // 段 UI7d：steps のそれぞれがどの手から来たか（of）も並びをそろえる（承認事項の行・費用の内訳がずれない）
+  const of: number[] = [];
+  p.steps.forEach((st, i) => {
+    const k = p.of?.[i] ?? 0;
     const hit = st.k === 'clear' && uids.has(st.uid);
-    if (hit && pick === 'keep') continue;
-    if (hit && pick === 'grow') steps.push({ k: 'shelf', uid: st.uid });
+    if (hit && pick === 'keep') return;
+    if (hit && pick === 'grow') {
+      steps.push({ k: 'shelf', uid: st.uid });
+      of.push(k);
+    }
     steps.push(st);
-  }
+    of.push(k);
+  });
   if (!steps.length) return null;
-  const acts = pick === 'keep' && steps.every((x) => x.k !== 'clear') ? p.acts.filter((a) => a.k !== 'clear') : p.acts;
-  return { ...p, acts, steps };
+  if (pick === 'keep' && steps.every((x) => x.k !== 'clear')) {
+    // 売りさばきの手を外す：残る手の番号を詰める
+    const gone = p.acts.map((a, k) => (a.k === 'clear' ? k : -1)).filter((k) => k >= 0);
+    const acts = p.acts.filter((a) => a.k !== 'clear');
+    return { ...p, acts, steps, of: of.map((k) => k - gone.filter((g) => g < k).length) };
+  }
+  return { ...p, steps, of };
 }
 /** 3 択の「棚を拡張する」を押せないとき（もう増やせない・お金が足りない）の 1 行。押せるなら null */
 export function growBlock(gate: OneShelf[], money: number): string | null {
