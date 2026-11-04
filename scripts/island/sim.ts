@@ -2994,6 +2994,24 @@ export function tables(rep: Report2): string {
     );
   }
   out.push('');
+  // 表 25（段 I2 で足した。計測の比べ用）：方針 × ランクの実時間（秒。シードの平均）と、シードごとの合計（秒）
+  {
+    out.push('### 表 25：方針 × ランクの実時間（秒。シードの平均）');
+    out.push('');
+    out.push(`シード ${seeds.join('・')} の平均。ランクごとは、着いてから離れるまで（再発掘を除く。Common はチュートリアルを含む）。前後の比べ（目安：合計 ±3%・ランクごと ±5%）に使う。`);
+    out.push('');
+    out.push('| 方針 | 合計 | C | U | R | E | シードごとの合計 |');
+    out.push('|---|---|---|---|---|---|---|');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      const tierSec = (tier: Tier) => mean(runs.map((x) => x.sectors.filter((r) => r.tier === tier && !r.revisit).reduce((a, r) => a + (secOf(p, r, 'left') ?? 0), 0) + (tier === 'C' ? SIM_TIME[p].tutorial : 0)));
+      const f = (v: number) => Math.round(v).toLocaleString('en-US');
+      const bySeed = [...runs].sort((a, b) => a.seed - b.seed).map((r) => f(totalSec(r))).join('・');
+      out.push(`| ${POLICY_NAME[p]} | ${f(mean(runs.map(totalSec)))} | ${f(tierSec('C'))} | ${f(tierSec('U'))} | ${f(tierSec('R'))} | ${f(tierSec('E'))} | ${bySeed} |`);
+    }
+    out.push('');
+  }
   // v30（段 I1）：予算で任せる
   if (rep.noBudget?.length || rep.runs.some((r) => r.v30)) {
     out.push('### 表 23：予算で任せる（v30。段 I1）');
