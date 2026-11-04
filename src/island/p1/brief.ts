@@ -23,10 +23,11 @@ import { corpOf, deptPolicyOf, POL_OFF, policyName, policyOf, weightsOf } from '
 import { afterOf, baseOf, flowOf, hasOneShot, lastingPlan, planBlock, planCost, planOf, planTitle, stockPlan, type Plan, type PlanCost } from './plan';
 import { heroNm, reserveOf, type PropAct, type Proposal } from './deleg';
 import { amountOf, budgetDepts, budgetOpen, deptBudget, restOf } from './budget';
-import { cardInbox } from './card';
+import { cardInbox, shownRec } from './card';
 import { goodsName } from './moves';
 import { heroSay, say as toneSay, toneOf, type Tone } from './persona';
 import { voiceOf, voiceSay } from './voice';
+import { projNeeded, projOf, type PMonth, type Proj } from './proj';
 
 // ---------------------------------------------------------------- 型
 
@@ -276,6 +277,49 @@ const PITCH: Record<Tone, { up: (m: string) => string; main: (x: string) => stri
   easy: { up: (m) => `${m}が上がるねえ。`, main: (x) => `${x}、やってみようかねえ。`, also: (y) => `${y}もねえ。`, ask: (y, d) => `${y}は${d}に任せようかねえ。` }, // i18n-ja
   quiet: { up: (m) => `${m}、上がる。`, main: (x) => `${x}を推す。`, also: (y) => `${y}も。`, ask: (y, d) => `${y}は${d}へ依頼。` }, // i18n-ja
 };
+/**
+ * 段 UI7e：推奨が「見送る」のときの言い回し（シゴデキの原則：自分の見積もりで損になる手を「最善」と勧めない）。
+ * no：この手は見送る・alt：この手より、ほかの手（同じカードの推奨）を先に
+ */
+const PITCH_NO: Record<Tone, { no: (x: string) => string; alt: (x: string, y: string) => string }> = {
+  polite: { no: (x) => `${x}は見送りましょう。`, alt: (x, y) => `${x}より、${y}を先にしましょう。` }, // i18n-ja
+  warrior: { no: (x) => `${x}は見送るべし。`, alt: (x, y) => `${x}より、${y}を先にすべし。` }, // i18n-ja
+  leader: { no: (x) => `${x}は見送る。`, alt: (x, y) => `${x}より、${y}を打つべきだ。` }, // i18n-ja
+  scholar: { no: (x) => `${x}は見送りが妥当です。`, alt: (x, y) => `${x}より、${y}が最善です。` }, // i18n-ja
+  cheer: { no: (x) => `${x}は、今回はやめとこう！`, alt: (x, y) => `${x}より、${y}をやろうよ！` }, // i18n-ja
+  merchant: { no: (x) => `${x}は割に合いません。見送りましょう。`, alt: (x, y) => `${x}より、${y}で稼ぎましょう。` }, // i18n-ja
+  easy: { no: (x) => `${x}は見送ろうかねえ。`, alt: (x, y) => `${x}より、${y}を先にしようかねえ。` }, // i18n-ja
+  quiet: { no: (x) => `${x}は見送る。`, alt: (x, y) => `${x}より、${y}を推す。` }, // i18n-ja
+};
+/**
+ * 段 UI7e：推奨が「見送る」の提案書の要約の一言（「倉庫の強化より、手持ちの素材での製造を先にしましょう。」「宣伝は見送りましょう。」）。
+ * alt：同じカードで推奨のほかの手（無ければ null：見送るだけ）
+ */
+export function pitchNo(hero: number | null, acts: PropAct[], dept: DeptId | null, alt: PropAct | null): string {
+  if (!acts.length) return t('このまま進めましょう。', 'Let’s keep going as is.');
+  const d0 = dept ?? actDept(acts[0]);
+  const main = [...acts].sort((a, b) => Number(actDept(b) === d0) - Number(actDept(a) === d0))[0];
+  const x = actNoun(main);
+  if (isEn) return alt ? `Rather than ${x}, let’s go for ${actNoun(alt)}.` : `I’d pass on ${x} for now.`;
+  const T = PITCH_NO[hero != null ? toneOf(hero) : 'polite'];
+  const body = alt ? T.alt(x, actNoun(alt)) : T.no(x);
+  const to = hero == null ? '社長' : (voiceOf(hero)?.to ?? null); // i18n-ja
+  if (to && plen(`${to}、${body}`) <= PITCH_AIM) return `${to}、${body}`;
+  if (plen(body) <= PITCH_MAX) return body;
+  const one = T.no(x);
+  return plen(one) <= PITCH_MAX ? one : [...one].slice(0, PITCH_MAX).join('');
+}
+/** 段 UI7e：同じカードの推奨の手（画面の推奨 shownRec）。この提案と同じ手・手の無い選択肢なら null */
+function altOf(s: P1State, p: Plan, card: number | undefined): PropAct | null {
+  if (card == null) return null;
+  const c = cardInbox(s).find((x) => x.id === card);
+  if (!c) return null;
+  const ch = c.choices[shownRec(s, c)];
+  const a = ch?.act.k === 'do' ? ch.act.a : ch?.act.k === 'approve' ? s.deleg?.inbox.find((x) => x.id === (ch.act as { pid: number }).pid)?.act ?? null : null;
+  if (!a || p.acts.some((y) => JSON.stringify(y) === JSON.stringify(a))) return null;
+  return a;
+}
+
 /** 段 UI7c：方針の大事な指標の名前（要約の一言の頭「ブランドが上がります。」）。動かないなら付けない */
 const LEAD: Record<PolicyId, { key: ValueKey; ja: string; en: string } | null> = {
   balance: null,
@@ -404,8 +448,10 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
   const block = planBlock(s, p, cost);
   const so = stockPlan(p);
   const dept = p.dept ?? (p.acts[0] ? actDept(p.acts[0]) : null);
-  const now = monthOf(base, 0, so);
-  const aft = monthOf(after, cost.monthly, so);
+  // 段 UI7e：倉庫があふれた町・使い切りの手は、月ごとの見込み（proj.ts）の 1 か月目
+  const P = projFor(s, p, base, after, cost);
+  const now = P ? toMonth(P.now1, base) : monthOf(base, 0, so);
+  const aft = P ? toMonth(P.after1, after) : monthOf(after, cost.monthly, so);
   const err = Math.round((1 - p.q) * DELEG.prop.err * 100) / 100;
   // 承認事項（段 UI7d：askGroups の行ごと。費用は planCost の内訳を、その行の step の分だけ足す）
   const groups = askGroups(p);
@@ -434,7 +480,9 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
       upto.push(...x.at);
       const last = k === asks.length - 1;
       const sub = last ? p : subPlan(p, [...upto].sort((a, b) => a - b));
-      const m = last ? aft : monthOf(afterOf(s, sub), planCost(s, sub).monthly, so);
+      const a2 = last ? after : afterOf(s, sub);
+      const c2 = last ? cost : planCost(s, sub);
+      const m = last ? aft : P ? toMonth(projFor(s, sub, base, a2, c2, true)!.after1, a2) : monthOf(a2, c2.monthly, so);
       parts.push({ n: k, dept: x.dept, own: x.own, what: x.what, kind: x.kind, dSales: m.sales - prev.sales, dProfit: m.profit - prev.profit, money: x.money });
       prev = m;
     });
@@ -467,7 +515,7 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
   };
   const dSales = aft.sales - now.sales;
   const dProfit = aft.profit - now.profit;
-  const vals = valuesOf(s, p, { base, after, now, aft, cost, so });
+  const vals = valuesOf(s, p, { base, after, now, aft, cost, so, proj: P });
   const b: Brief = {
     dept,
     pitch: pitchOf(p.hero, p.acts, dept, leadOf(vals.policy, vals), asks.some((x) => x.kind === 'shelf')),
@@ -502,6 +550,8 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
   const r = recOf(b);
   b.rec = r.rec;
   b.why = r.why;
+  // 段 UI7e：要約の一言の向きを推奨にそろえる（見送るなら「最善」と勧めない。同じカードにほかの推奨の手があれば、それを推す）
+  if (b.rec === 'skip') b.pitch = pitchNo(p.hero, p.acts, dept, altOf(s, p, o.card));
   return b;
 }
 
@@ -548,8 +598,14 @@ export interface Values {
   /** お金以外の 1 つぶんを G に直す目安（月の売上 × POLICY.unit。下限 POLICY.floor）・RP 1 の値段 */
   scale: number;
   rpG: number;
-  /** 段 K2：使い切りの手（いまの素材で作る）を含む：長期の 2 か月目からは「このまま」と同じ月（スライド ④ の注記） */
+  /** 段 K2：使い切りの手（いまの素材で作る）を含む（スライド ④ の注記） */
   shot?: boolean;
+  /**
+   * 段 UI7e：月ごとの見込み（倉庫があふれた町・使い切りの手。proj.ts）。now・after は月ごとの利益（after は 1 か月目に導入を引いたもの。
+   * 長期の指標は合計）。jam0・jam1：倉庫があふれて入荷が止まるか（このまま・承認後）・out0：このままで在庫が切れる月・room：空く置き場所・
+   * use：使い切りの手で作る品（数・日数・月ごとに売れる数・売上・並ぶお店）
+   */
+  months?: { now: number[]; after: number[]; jam0: boolean; jam1: boolean; out0: number | null; room: number; use?: Proj['use'] };
 }
 /** 指標のアイコンと名前 */
 export const METRIC_TEXT: Record<ValueKey, { icon: string; name: () => string; short: () => string }> = {
@@ -650,23 +706,25 @@ function baseInfo(s: P1State, base: P1State, so: boolean) {
  * - 士気・満足度：上の moraleAvg・satSettle の差。ブランド：月の増え × 12。研究：月の見込み × 12 − 使う RP
  * - 価値 ＝ Σ 方針の重み × 指標（お金以外は scale × POLICY.unit・RP は寄付の値段で G に）。使う RP は短期の重みで引く
  */
-export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1State; now?: Month; aft?: Month; cost?: PlanCost; so?: boolean } = {}): Values {
+export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1State; now?: Month; aft?: Month; cost?: PlanCost; so?: boolean; proj?: Proj | null } = {}): Values {
   const so = o.so ?? stockPlan(p);
   const base = o.base ?? baseOf(s);
   const after = o.after ?? afterOf(s, p);
   const cost = o.cost ?? planCost(s, p);
-  const now = o.now ?? monthOf(base, 0, so);
-  const aft = o.aft ?? monthOf(after, cost.monthly, so);
+  const P = o.proj !== undefined ? o.proj : projFor(s, p, base, after, cost);
+  const now = o.now ?? (P ? toMonth(P.now1, base) : monthOf(base, 0, so));
+  const aft = o.aft ?? (P ? toMonth(P.after1, after) : monthOf(after, cost.monthly, so));
   const B = baseInfo(s, base, so);
   const sat1 = satSettle(s, after);
   const brand1 = brandRate(after, sat1 ?? (csOn(after) ? after.cs?.sat ?? null : null));
   const morale1 = moraleAvg(after);
   const rp1 = rpRate(s, after);
-  // 2 か月目から：使い切りの手は元に戻る（その手を外した提案。残る手が無ければ「このまま」と同じ月）
+  // 2 か月目から：使い切りの手は元に戻る（その手を外した提案。残る手が無ければ「このまま」と同じ月）。段 UI7e：月ごとの見込みがあれば、そちら
   const shot = hasOneShot(p);
   const rest = shot ? lastingPlan(p) : p;
   let set1: Month;
-  if (!rest) set1 = { ...B.settled[so ? 1 : 0], monthly: cost.monthly, cost: B.settled[so ? 1 : 0].cost + cost.monthly, profit: B.settled[so ? 1 : 0].profit - cost.monthly };
+  if (P) set1 = aft;
+  else if (!rest) set1 = { ...B.settled[so ? 1 : 0], monthly: cost.monthly, cost: B.settled[so ? 1 : 0].cost + cost.monthly, profit: B.settled[so ? 1 : 0].profit - cost.monthly };
   else if (rest === p) set1 = monthOf(settleOf(after, sat1, brand1), cost.monthly, so);
   else {
     const a2 = afterOf(s, rest);
@@ -677,11 +735,20 @@ export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1Sta
   const list: Metric[] = [];
   const shortNow = now.profit;
   const shortAft = aft.profit - cost.money;
-  list.push({ key: 'short', now: shortNow, after: shortAft, d: shortAft - shortNow, why: t('短期：次の 1 か月の利益（宣伝は効く日数で日割り）から導入の費用を引いたもの', 'Short: next month’s profit (ads pro-rated) minus setup') });
-  const longNow = now.profit + B.settled[so ? 1 : 0].profit * (M - 1);
-  const longAft = aft.profit + set1.profit * (M - 1) - cost.money;
-  const longWhy = shot
-    ? t(`長期：1 か月目 ＋ 落ち着いたときの月の利益 × ${M - 1} − 導入。いまの素材で作るのは 1 回きり（作り終えたら作業台は元の商品に戻る）なので、2 か月目からは「このまま」と同じ月として計算`, `Month 1 + settled monthly profit × ${M - 1} − setup. Crafting from stock is one-off (the bench goes back to its product), so months 2+ count as “as is”`)
+  list.push({
+    key: 'short',
+    now: shortNow,
+    after: shortAft,
+    d: shortAft - shortNow,
+    why: P
+      ? t('短期：次の 1 か月の利益から導入の費用を引いたもの。作り続ける商品は作った数の材料費、在庫（売れ残り・手持ちの素材で作った品）を売る分は材料費 0（もう払ってある）', 'Short: next month’s profit minus setup. Products we keep making cost their materials; selling stock (leftovers, goods made from stock) costs nothing more')
+      : t('短期：次の 1 か月の利益（宣伝は効く日数で日割り）から導入の費用を引いたもの', 'Short: next month’s profit (ads pro-rated) minus setup'),
+  });
+  const sum = (xs: number[]) => xs.reduce((a, x) => a + x, 0);
+  const longNow = P ? sum(P.now) : now.profit + B.settled[so ? 1 : 0].profit * (M - 1);
+  const longAft = P ? sum(P.after) - cost.money : aft.profit + set1.profit * (M - 1) - cost.money;
+  const longWhy = P
+    ? projWhy(P, M)
     : t(`長期：1 か月目 ＋ 落ち着いたときの月の利益 × ${M - 1} − 導入（宣伝は 1 か月目だけ。士気・満足度・ブランドの売上への効きも入れる）`, `Month 1 + settled monthly profit × ${M - 1} − setup (ads only in month 1; includes morale, satisfaction and brand effects on sales)`);
   list.push({ key: 'long', now: longNow, after: longAft, d: longAft - longNow, why: longWhy });
   if (B.morale != null && morale1 != null && Math.abs(morale1 - B.morale) >= 0.5) list.push({ key: 'morale', now: B.morale, after: morale1, d: morale1 - B.morale, why: t('士気：給与・職場の環境のパネル・役目などで決まる、全員の士気の目指す値の平均（人事）', 'Average morale target from pay, workplace panels, roles (HR)') });
@@ -708,7 +775,45 @@ export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1Sta
     else parts[m.key] = W[m.key] * m.d * POLICY.unit[m.key] * scale;
   }
   const value = Object.values(parts).reduce((a, x) => a + x, 0);
-  return { policy, names, list, value, parts, scale, rpG, ...(shot ? { shot } : {}) };
+  const months = P ? { now: P.now, after: P.after.map((x, k) => (k ? x : x - cost.money)), jam0: P.jam0, jam1: P.jam1, out0: P.out0, room: P.room, ...(P.use ? { use: P.use } : {}) } : null;
+  return { policy, names, list, value, parts, scale, rpG, ...(shot ? { shot } : {}), ...(months ? { months } : {}) };
+}
+
+// ---------------------------------------------------------------- 段 UI7e：月ごとの見込み（倉庫があふれた町・使い切りの手）
+
+/** 落ち着いたときの状態（満足度・ブランドの落ち着く先もその状態から） */
+const settleFor = (s: P1State, st: P1State) => {
+  const sat = satSettle(s, st);
+  return settleOf(st, sat, brandRate(st, sat ?? (csOn(st) ? st.cs?.sat ?? null : null)));
+};
+/**
+ * 月ごとの見込み（proj.ts）。倉庫があふれて入荷が止まっている町（このままでは在庫だけを売る）か、使い切りの手を含む提案のときだけ（force：いつも）。
+ * 要らなければ null（いままでの「1 か月目 ＋ 落ち着いた月 × 11」）
+ */
+export function projFor(s: P1State, p: Plan, base: P1State, after: P1State, cost: PlanCost, force = false): Proj | null {
+  if (!force && !projNeeded(base, p)) return null;
+  const lp = hasOneShot(p) ? lastingPlan(p) : null;
+  const rest = hasOneShot(p) ? (lp ? afterOf(s, lp) : base) : after;
+  return projOf(s, p, base, after, rest, cost.monthly, (st) => settleFor(s, st));
+}
+/** 月ごとの見込み → Month（宣伝の日数はその状態から） */
+function toMonth(m: PMonth, st: P1State): Month {
+  return { ...m, adDays: Math.min(DAYS, Math.max(0, ...ADS.map((a) => st.ads[a.id] ?? 0))) };
+}
+/** 長期の注記（月ごとに数えたとき） */
+function projWhy(P: Proj, M: number): string {
+  const bits: string[] = [t(`長期：${M} か月を 1 か月ずつ数えた利益の合計 − 導入`, `Long: ${M} months counted one by one, minus setup`)];
+  if (P.jam0) bits.push(P.out0 != null ? t(`このままだと倉庫があふれて素材が入らず、作業台が止まる（お店は在庫だけを売り、${P.out0} か月目に売り切れる）`, `As is, storage stays full, materials can’t come in and benches stop (shops sell only stock, which runs out in month ${P.out0})`) : t('このままだと倉庫があふれて素材が入らず、作業台が止まる（お店は在庫だけを売る）', 'As is, storage stays full, materials can’t come in and benches stop (shops sell only stock)'));
+  if (P.jam0 && !P.jam1) bits.push(t(`承認後は置き場所が ${Math.round(P.room)} 個空き、調達と製造が戻る`, `After approval, ${Math.round(P.room)} spaces free up and buying and crafting resume`));
+  if (P.jam0 && P.jam1) bits.push(t('承認後も倉庫はあふれたまま', 'Storage stays full even after approval'));
+  const u = P.use;
+  if (u) {
+    const per = u.sold.slice(1).find((n) => n > 0.05) ?? 0;
+    const pn = per < 1 ? per.toFixed(1) : `${Math.round(per)}`;
+    const sell = per > 0.05 ? t(`月 ${pn} 個ほど売れていく`, `sell about ${pn} a month`) : t('空いた棚が無いので、作り終えたあとは売れ残る', 'stay unsold once done (no free shelf)');
+    bits.push(t(`いまの素材で作るのは 1 回きり：作業台 ${u.slot + 1} は${goodsName(u.x)} ${u.units} 個を作る ${Math.ceil(u.days)} 日だけ作り、そのあと元の商品に戻る。作った品は材料費 0 で、${sell}`, `Crafting from stock is one-off: bench ${u.slot + 1} makes ${u.units} ${goodsName(u.x)} for ${Math.ceil(u.days)} days, then returns to its product. The goods cost nothing more and ${sell}`));
+  }
+  return bits.join(t('。', '. '));
 }
 
 /** 方針の価値（束ね方・並べ替えの比べ用。同じ base を渡すと、このまま側の計算を 1 回に） */

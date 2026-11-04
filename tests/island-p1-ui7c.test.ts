@@ -128,7 +128,11 @@ describe('経営方針（社長の価値観）', () => {
     const v = valuesOf(s, p);
     expect(leadOf('people', v)).toBe('士気');
     expect(leadOf('balance', v)).toBeNull();
-    expect(briefOf(s, p).pitch).toContain('士気が上がります');
+    expect(pitchOf(null, p.acts, 'general', leadOf('people', v))).toContain('士気が上がります');
+    // 段 UI7e：提案書の一言は推奨にそろう（承認なら指標を先に言って勧める・見送るなら勧めない）
+    const B = briefOf(s, p);
+    if (B.rec === 'ok') expect(B.pitch).toContain('士気が上がります');
+    else expect(B.pitch).toContain('見送');
     const acts: PropAct[][] = [
       [{ k: 'ad', id: 'event' }, { k: 'stock', uid: 1, key: 'Lantern', rar: 'U', idx: 0, add: false }],
       [{ k: 'skill', id: 'ga_canteen' }, { k: 'hire', hero: 1001, task: 'craft', target: null }],

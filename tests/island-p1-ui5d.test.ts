@@ -26,7 +26,7 @@ import {
   type PBuilding,
 } from '../src/island/p1/model';
 import { applyPlan, manualPlan, planCost, planRows, planTitle } from '../src/island/p1/plan';
-import { choiceText, enqueue, planOfChoice, sayLength, sayOf, stockDraft, storeAct, type Card } from '../src/island/p1/card';
+import { choiceText, enqueue, planOfChoice, sayLength, sayOf, shownRec, stockDraft, storeAct, type Card } from '../src/island/p1/card';
 import { gatePlan, growBlock, oneShelf, shelfGate, storeFix } from '../src/island/p1/stock';
 import { findLot, newDeleg, type Proposal } from '../src/island/p1/deleg';
 import { runOnce } from '../scripts/island/sim';
@@ -204,7 +204,9 @@ describe('倉庫の提案のカード（UI5c の 8 割を作り直す）', () =>
     const c: Card = { ...d, id: 1, mk: 0, sector: 'c1', day: 0, pop: false } as Card;
     expect(choiceText(s, c, d.choices[0]).label).toBe('倉庫を建てよう');
     expect(choiceText(s, c, d.choices[0]).sub).toMatch(/置き場所 \+200/);
-    expect(sayOf(s, c)).toMatch(/倉庫を建てよう/);
+    // 段 UI7e：セリフの結びは画面の推奨（shownRec）に合わせる（倉庫の手が推奨なら「倉庫を建てよう」、見合わなければ「このまま」）
+    const r1 = c.choices[shownRec(s, c)].act;
+    expect(sayOf(s, c)).toMatch(r1.k === 'do' && storeAct(r1.a) ? /倉庫を建てよう/ : /このまま/);
     // 倉庫があれば「倉庫を強化しよう（1/3 段目）」
     const w = buildNow(s, 'warehouse');
     fill(s, 0.9);
@@ -215,7 +217,8 @@ describe('倉庫の提案のカード（UI5c の 8 割を作り直す）', () =>
     const c2: Card = { ...d2, id: 2, mk: 0, sector: 'c1', day: 0, pop: false } as Card;
     expect(choiceText(s, c2, d2.choices[0]).label).toBe('倉庫を強化しよう（1/3 段目）');
     expect(choiceText(s, c2, d2.choices[0]).sub).toMatch(/維持費なし/);
-    expect(sayOf(s, c2)).toMatch(/倉庫を強化しよう/);
+    const r2 = c2.choices[shownRec(s, c2)].act;
+    expect(sayOf(s, c2)).toMatch(r2.k === 'do' && storeAct(r2.a) ? /倉庫を強化しよう/ : /このまま/);
   });
 
   it('お金が足りないときは推奨をほかの手へ（倉庫の手は残す）。在庫品が無くても倉庫の手だけで出す', () => {

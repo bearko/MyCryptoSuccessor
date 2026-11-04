@@ -170,7 +170,7 @@ function town(): P1State {
 }
 
 describe('使い切りの手（いまの素材で作る）の 12 か月の長期', () => {
-  it('素材で埋まった倉庫の提案：「いまの素材で作る」の長期は大きなマイナスにならない（2 か月目から「このまま」と同じ月）。折れ線は 2 か月目から平行', () => {
+  it('素材で埋まった倉庫の提案：「いまの素材で作る」の長期は大きなマイナスにならない（段 UI7e：作業台は作り終えるまでの日数だけ・倉庫が空く分も）。折れ線の最後は長期の指標', () => {
     const s = town();
     for (const m of Object.keys(s.mats)) s.mats[m as keyof typeof s.mats] = 0;
     for (const x of Object.keys(s.stock)) s.stock[x as Sku] = 0;
@@ -196,14 +196,15 @@ describe('使い切りの手（いまの素材で作る）の 12 か月の長期
     const S = B.vals.list.find((m) => m.key === 'short')!;
     const L = B.vals.list.find((m) => m.key === 'long')!;
     expect(B.vals.shot).toBe(true);
-    // 2 か月目からは「このまま」と同じ：長期の差は 1 か月目の差（短期の差）だけ
-    expect(L.d).toBeCloseTo(S.d, 3);
-    expect(Math.abs(L.d)).toBeLessThan(Math.max(1, Math.abs(B.now.profit)) * POLICY.months);
-    expect(L.why).toContain('このまま');
-    // スライド ④ の折れ線：承認後の線は 2 か月目から「このまま」と平行（差は 1 か月目のまま）
+    // 段 UI7e：月ごとの見込み。作業台は作り終えるまでの日数だけ、その品を作る（そのあとは元の商品）。倉庫があふれて止まっていた調達が戻る分も入る
+    expect(B.vals.months?.use?.days).toBeGreaterThan(0);
+    expect(L.d).toBeGreaterThan(-Math.max(1, Math.abs(S.d)) * 2);
+    expect(L.why).toContain('1 回きり');
+    // スライド ④ の折れ線：最初の点は短期、最後の点は長期の指標
     const line = longLine(B);
-    const gap = line.after[0] - line.now[0];
-    for (let k = 1; k < POLICY.months; k++) expect(line.after[k] - line.now[k]).toBeCloseTo(gap, 3);
+    expect(line.now[0]).toBeCloseTo(S.now, 3);
+    expect(line.after[0]).toBeCloseTo(S.after, 3);
+    expect(line.now[POLICY.months - 1]).toBeCloseTo(L.now, 3);
     expect(line.after[POLICY.months - 1]).toBeCloseTo(L.after, 3);
   });
   it('使い切りの手とほかの手を束ねた提案は、使い切りの手だけを外して 2 か月目から数える', () => {
