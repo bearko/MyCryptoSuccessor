@@ -159,6 +159,8 @@ import { openBoard, type BoardHooks } from './boardui';
 import { KNOW_TALK, SLOT_TALK, slotNews, slotsOf, takePolNews } from './policy';
 import { POLICY_OF } from './data';
 import { openPolicyView } from './policyui';
+// 段 K3：経営方針発表会のカードの場面（boardui.ts の BOARD_SCENES に登録する）
+import './policycardsui';
 import { tileContent } from './tile';
 import { closeDig, debugTablet, digOpen, digRect, extIcon, openDig, openNotes, refreshDig, refreshTimer, showEndCard } from './digui';
 import { MEET_FOUND, MEET_LINES, canPresent, chiefHome, digMet, chiefOf, digSummary, letterToGet, lettersLeft, meetReady, meetTip, presentAfter, presentPages } from './digmeet';

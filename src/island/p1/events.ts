@@ -12,6 +12,7 @@ import { t } from '../../i18n';
 import { EVENT, MATS, PRODUCT, SECTOR_CHIEF, skuParts, type Mat, type Sku, type Tier } from './data';
 import { book, brandAdd } from './company';
 import { moraleAdd } from './hr';
+import { polEvW } from './policy';
 import { fullUse, matPrice, myShops, priceOf, rng, spend, staffOf, type P1State } from './model';
 
 // ---------------------------------------------------------------- 型
@@ -355,8 +356,9 @@ export function eventDue(s: P1State, mk: number): EvData | null {
   // 良いできごとと困りごとを交互に（はじめはどちらか）。同じ種類は続けない
   const good = E.lastGood == null ? r() < 0.5 : !E.lastGood;
   const pool = (good ? GOOD_KINDS : BAD_KINDS).filter((k) => k !== E.last);
-  // 並びを乱数で混ぜて、出せる種類の 1 つ目
-  const order = pool.map((k) => ({ k, v: r() })).sort((a, b) => a.v - b.v);
+  // 並びを乱数で混ぜて、出せる種類の 1 つ目。段 K3：経営方針の副次効果の重み（polEvW。1 がふつう）で、重い種類ほど前に来やすい
+  // （重み付きの抽選：1 − (1 − u)^(1/w) の小さい順。重みがどれも 1 なら、いままでの u の小さい順と同じ並び）
+  const order = pool.map((k) => ({ k, v: 1 - (1 - r()) ** (1 / polEvW(s, k)) })).sort((a, b) => a.v - b.v);
   for (const { k } of order) {
     const d = build(s, k, r);
     if (!d) continue;

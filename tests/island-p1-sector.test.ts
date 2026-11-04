@@ -72,8 +72,11 @@ describe('セクタの個性', () => {
     runAd(c1, 'flyer');
     runAd(u3, 'flyer');
     runAd(c5, 'flyer');
-    expect(adBoost(u3)).toBeCloseTo(adBoost(c1) * 1.5);
-    expect(adBoost(c5)).toBeCloseTo(adBoost(c1) * 1.4);
+    // 段 K3：経営方針の副次効果（宣伝の効き目の ±）は止めて、セクタの個性だけを比べる
+    withoutPol(() => {
+      expect(adBoost(u3)).toBeCloseTo(adBoost(c1) * 1.5);
+      expect(adBoost(c5)).toBeCloseTo(adBoost(c1) * 1.4);
+    });
   });
 
   it('新しい個性：住宅の数・一部のルート・他社の強さ', () => {

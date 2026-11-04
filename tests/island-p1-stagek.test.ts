@@ -19,6 +19,7 @@ import {
   polFx,
   polOf,
   polPower,
+  polStaffMorale,
   polSync,
   presDepts,
   presDue,
@@ -161,11 +162,12 @@ describe('効き目の式（基本 × 部門のレベル × 部長の能力）',
     setCorp(s, ['balance'], true);
     const d0 = fxSum(s, 'demand');
     const m0 = moraleParts(s, s.staff[0]);
-    expect(m0.pol).toBe(0);
+    // 段 K3：部門の士気の副次効果（バランスは経営企画・経理 +2）は別に数える
+    expect(m0.pol - polStaffMorale(s, s.staff[0])).toBeCloseTo(0);
     setCorp(s, ['growth', 'people'], true);
     if (slotsOf(s) >= 2) {
       expect(fxSum(s, 'demand')).toBeGreaterThan(d0);
-      expect(moraleParts(s, s.staff[0]).pol).toBeGreaterThan(0);
+      expect(moraleParts(s, s.staff[0]).pol - polStaffMorale(s, s.staff[0])).toBeGreaterThan(0);
     } else {
       expect(corpOf(s)).toEqual(['growth']);
       expect(fxSum(s, 'demand')).toBeGreaterThan(d0);
@@ -326,12 +328,14 @@ describe('推奨の重みと提案の傾向', () => {
     expect(weightsOf(s, 'hr').morale).toBeCloseTo((POLICY_OF.profit.w.morale + POLICY_OF.people.w.morale + POLICY_OF.teal.w.morale) / 3);
     expect(weightsOf(s, 'logistics').morale).toBeCloseTo(w.morale);
   });
-  it('方針の推す種類の提案は × (1 + tilt)、ほかは 1。部門の方針は、その部門の提案だけ', () => {
+  it('方針の推す種類の提案は × (1 + tilt)、引き換えで減る種類は × (1 − less)（段 K3）、ほかは 1。部門の方針は、その部門の提案だけ', () => {
     const s = load();
     setCorp(s, ['research'], true);
     expect(themesOf(s).has('rp')).toBe(true);
     expect(tiltOf(s, 'rp')).toBeCloseTo(1 + POL.tilt);
-    expect(tiltOf(s, 'sell')).toBe(1);
+    // 段 K3：研究重視の引き換えで「売る手」は減る（× (1 − less)）。ほかの種類は 1
+    expect(tiltOf(s, 'sell')).toBeCloseTo(1 - POL.less);
+    expect(tiltOf(s, 'flow')).toBe(1);
     gainSkill(s, 'pol_ac');
     setDept(s, 'accounting', 'zeroBased', true);
     expect(tiltOf(s, 'cost', 'accounting')).toBeCloseTo(1 + POL.tilt);
