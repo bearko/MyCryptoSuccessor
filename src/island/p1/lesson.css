@@ -225,3 +225,45 @@
     max-width: calc(100% - 16px);
   }
 }
+/* 図鑑の窓（ほかの窓と同じ層。シートの部門の帯と重ならない） */
+#isl-ui .isl-modal.isl-ls-modal > .isl-ls-panel {
+  width: min(760px, calc(100% - 24px));
+  max-height: calc(100% - 24px);
+  padding: 0;
+  gap: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background: #16213a;
+}
+.isl-ls-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 2px solid var(--isl-line);
+}
+.isl-ls-panel-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.isl-ls-x {
+  flex: none;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 999px;
+}
+.isl-ls-panel-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 12px 12px;
+}
+@media (max-width: 599px) {
+  #isl-ui .isl-modal.isl-ls-modal > .isl-ls-panel {
+    width: calc(100% - 16px);
+    max-height: calc(100% - 16px);
+  }
+  .isl-ls-panel-body {
+    padding: 8px;
+  }
+}

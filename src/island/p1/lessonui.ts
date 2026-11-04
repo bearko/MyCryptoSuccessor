@@ -12,7 +12,7 @@ import { LESSON } from './data';
 import { fxLine, lessonCounts, lessonDex, lessonFx, lessonText, lessonTypeName, lessonLive, LESSON_COLOR, LESSON_ICON, LESSON_TYPES, type LessonRow } from './lesson';
 import type { LessonType } from './data';
 import type { P1State } from './model';
-import { open, type Ctx } from './screens';
+import type { Ctx } from './screens';
 import { btn, h, heroIcon, heroName } from './ui';
 
 /** 型の札（アイコンと名前。縁の色は型ごと） */
@@ -108,9 +108,35 @@ function nearCell(r: LessonRow): HTMLElement {
   return cell;
 }
 
-/** 教えの図鑑（人事 → 育成の小さなカードから） */
+/**
+ * 教えの図鑑（人事 → 育成の小さなカード・お知らせから）。画面（シート）の中でなく、ほかの窓と同じ層の窓（.isl-modal）に出す：
+ * スマホでシートの見出しの下に付く部門の帯（sticky）が、図鑑の上に重ならないように。✕・外を押す・Esc で閉じる（下の育成の画面はそのまま）
+ */
 export function openLessons(ctx: Ctx) {
-  open(ctx, t('教えの図鑑', 'Lessons'), (body) => {
+  ctx.root.querySelector('.isl-ls-modal')?.remove();
+  const m = h('div', 'isl-modal isl-ls-modal');
+  const panel = h('div', 'isl-ls-panel');
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-label', t('教えの図鑑', 'Lessons'));
+  const head = h('div', 'isl-ls-panel-head');
+  const close = () => {
+    m.remove();
+    removeEventListener('keydown', onKey);
+  };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') close();
+  };
+  head.append(h('h2', '', t('教えの図鑑', 'Lessons')), btn('×', close, 'isl-ls-x'));
+  const body = h('div', 'isl-ls-panel-body');
+  panel.append(head, body);
+  m.append(panel);
+  m.addEventListener('click', (e) => {
+    if (e.target === m) close();
+  });
+  addEventListener('keydown', onKey);
+  ctx.root.append(m);
+  ctx.sfx?.('page');
+  {
     const s = ctx.s();
     const d = lessonDex(s);
     const head = h('div', 'isl-card2 isl-ls-head');
@@ -146,7 +172,7 @@ export function openLessons(ctx: Ctx) {
     if (d.near.length) near.append(grid);
     near.append(h('small', 'isl-dim', t(`ほかに ${d.rest} 人の偉人の教えがあります（雇うと、ここに並びます）。`, `${d.rest} more greats have lessons to share (hire them to see them here).`)));
     body.append(near);
-  });
+  }
 }
 
 /** 提案書の「読みの確かさ」の横：数字の教えで小さくなった誤差の札（効いていなければ null） */
