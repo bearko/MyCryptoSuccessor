@@ -299,3 +299,43 @@ export function taxFall(p: { base: number; ded: number; tax: number }): Step[] {
     { key: 'after', name: t('税のあと', 'After tax'), v: 0, total: true },
   ]);
 }
+
+// ---------------------------------------------------------------- 段 UI8c：カリスマ度・セクタの比べ・他社の売れ筋・研究ノート
+
+/** カリスマ度の内訳（積み上げのメーターの切れ。0 は出さない。色と模様は出どころで決まる） */
+export function charismaSegs(p: { clear: number; present: number; brand: number; panel: number; extra: number }): Part[] {
+  const xs: [keyof typeof p, string, Part['pat']][] = [
+    ['clear', t('町の制覇', 'Conquests'), 'solid'],
+    ['present', t('研究成果の発表', 'Findings'), 'dots'],
+    ['brand', t('ブランド力', 'Brand'), 'hatch'],
+    ['panel', t('採用ブランド', 'Employer brand'), 'grid'],
+    ['extra', t('テスト', 'Test'), 'stripe'],
+  ];
+  return xs.map(([k, name, pat], i) => ({ key: k, name, v: Math.max(0, Math.round(p[k])), col: [1, 0, 3, 2, 7][i], pat })).filter((x) => x.v > 0);
+}
+/** 月の締めのカリスマ度（Report.hr.ch）の推移 */
+export function charismaHist(rs: Report[], n = 12): { month: number; v: number }[] {
+  return rs
+    .filter((r) => r.hr != null)
+    .slice(-n)
+    .map((r) => ({ month: r.month, v: r.hr!.ch }));
+}
+
+/** セクタごとの先月の売上（いまの町は最後の報告、ほかの町はセクター長の記録の最後）。大きい順 */
+export function sectorBars(cur: { id: string; rev: number | null }, recs: Record<string, Pick<SectorRec, 'log' | 'manager'>>, mine: string[], nameOf: (id: string) => string): { id: string; name: string; v: number; me: boolean; head: boolean; none: boolean }[] {
+  return mine
+    .map((id) => {
+      if (id === cur.id) return { id, name: nameOf(id), v: Math.round(cur.rev ?? 0), me: true, head: true, none: cur.rev == null };
+      const r = recs[id];
+      const last = r?.log[r.log.length - 1];
+      return { id, name: nameOf(id), v: Math.round(last?.rev ?? 0), me: false, head: r?.manager != null, none: !last };
+    })
+    .sort((a, b) => b.v - a.v);
+}
+
+/** 他社の売れ筋（先月の売上）に自社の先月の売上を並べる。大きい順 */
+export function rivalBars(rivals: { name: string; key: string | null; sales: number }[], mine: number | null, prodName: (k: string) => string): { name: string; v: number; me: boolean; item: string }[] {
+  const xs = rivals.map((r) => ({ name: r.name, v: Math.round(r.sales), me: false, item: r.key ? prodName(r.key) : '—' }));
+  if (mine != null) xs.push({ name: t('あなたの会社', 'Your company'), v: Math.round(mine), me: true, item: '' });
+  return xs.sort((a, b) => b.v - a.v);
+}

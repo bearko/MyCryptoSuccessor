@@ -14,7 +14,7 @@ import { runAd, type P1State } from './model';
 import { after, open, type Ctx } from './screens';
 import { bar, btn, fmt, h, money, skuName } from './ui';
 import { arw, cvBox, rankBarsEl, trendEl, trendLegend, type TSer } from './chartkit';
-import { SAT_REFS, monHead, monLab, satHist } from './dash';
+import { SAT_REFS, monHead, monLab, rivalBars, satHist } from './dash';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const sg = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(Math.round(v * 10) / 10)}`;
@@ -292,10 +292,16 @@ export function openForecast(ctx: Ctx, hooks: { skills?: () => void; ads?: () =>
     const rv = h('div', 'isl-card2');
     rv.append(h('h3', '', t('🏪 他社の売れ筋', '🏪 Rivals’ best-sellers')));
     if (!f.rivals.length) rv.append(h('p', 'isl-dim', t('「市場調査の部署」（パネル）で、他社ごとのいちばん売れている商品と先月の売上が見えます。', 'The Research desk (panel) shows each rival’s best-seller and last month’s sales.')));
-    for (const r of f.rivals) {
-      const x = h('div', 'isl-books-row');
-      x.append(h('span', '', r.name), h('b', '', t(`${r.key ? PRODUCT[r.key]?.name ?? r.key : '—'}・${money(r.sales)}`, `${r.key ? PRODUCT[r.key]?.name ?? r.key : '—'} · ${money(r.sales)}`)));
-      rv.append(x);
+    // 段 UI8c：行の並び → 先月の売上の横棒（自社も並べる・いちばん売れている商品は名前の横の札）
+    if (f.rivals.length) {
+      const mine = s.reports[s.reports.length - 1]?.revenue ?? null;
+      const bars = rivalBars(f.rivals, mine, (k) => PRODUCT[k]?.name ?? k);
+      rv.append(
+        rankBarsEl(
+          bars.map((b) => ({ name: b.name, v: b.v, me: b.me, tag: b.item ? h('span', 'isl-tag', t(`売れ筋：${b.item}`, `Best: ${b.item}`)) : undefined })),
+          { aria: t('他社の先月の売上と売れ筋', 'Rivals’ sales and best-sellers last month') },
+        ),
+      );
     }
     if (horizon(s) < 3) rv.append(h('small', 'isl-dim', horizon(s) === 1 ? t('見通せるのは 1 か月先まで。マーケのパネル「市場調査の部署」で 2 か月先・他社の売れ筋、「需要の読み」で 3 か月先・真似されるまでの予報。', 'You see 1 month ahead. Marketing panels: Research desk → 2 months and rivals’ best-sellers; Demand modeling → 3 months and copy forecasts.') : t('「需要の読み」（パネル）で 3 か月先と、他社が真似してくる時期の予報が見えます。', 'Demand modeling (panel) adds a 3rd month and copy forecasts.')));
     if (hooks.skills) rv.append(btn(t('マーケのパネル', 'Marketing panels'), () => hooks.skills!()));

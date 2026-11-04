@@ -940,3 +940,85 @@
   font-size: 12px;
   color: #b8c0d4;
 }
+/* 段 UI8c：SCM の販売の内訳の表は、スマホでは行ごとのカード（横にずらさない・はみ出さない）。列の名前はます目の上に小さく */
+@media (max-width: 599px) {
+  #isl-ui .isl-sellx-table,
+  #isl-ui .isl-sellx-table tbody {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+  #isl-ui .isl-sellx-table tr:first-child {
+    display: none;
+  }
+  #isl-ui .isl-sellx-table tr.is-tap {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px 10px;
+    padding: 6px 4px;
+    border-bottom: 1px solid #0f1626;
+  }
+  #isl-ui .isl-sellx-table tr.is-tap > td {
+    display: block;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+  #isl-ui .isl-sellx-table tr.is-tap > td:first-child {
+    grid-column: 1 / -1;
+  }
+  #isl-ui .isl-sellx-table tr.is-tap > td:not(:first-child)::before {
+    content: attr(data-l);
+    display: block;
+    font-size: 12px;
+    color: #b8c0d4;
+  }
+  #isl-ui .isl-sellx-table tr.isl-sellx-reason:not([hidden]),
+  #isl-ui .isl-sellx-table tr.isl-sellx-reason > td {
+    display: block;
+    white-space: normal;
+  }
+  #isl-ui .isl-sellx-scroll {
+    overflow-x: visible;
+  }
+}
+/* 段 UI8c：カリスマ度のメーターの切れ（出どころごと） */
+.isl-charisma-seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-right: 2px solid #0f1626;
+}
+.isl-charisma-seg:first-of-type {
+  border-radius: 7px 0 0 7px;
+}
+.isl-charisma .isl-cv-legend {
+  margin: 0 0 2px;
+  color: inherit;
+}
+.isl-charisma-next {
+  display: block;
+}
+/* 段 UI8c：研究ノートの見つけた割合のメーター（2 つ並べる。スマホは縦） */
+.isl-note-meters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 6px 14px;
+}
+.isl-note-meters .isl-cv-bullet {
+  padding: 6px 8px;
+  border: 2px solid #0f1626;
+  border-radius: 4px;
+  background: #16213a;
+  color: #f4f1ea;
+}
+/* 段 UI8c：横棒の名前に札（セクター長なし・売れ筋）が付くときは、名前の列を少し広く・札は 1 行で */
+.isl-cv-rrow:has(.isl-tag) {
+  grid-template-columns: 18px minmax(0, 9.5em) minmax(0, 1fr) auto;
+}
+.isl-cv-rname .isl-tag {
+  white-space: nowrap;
+  font-size: 12px;
+}

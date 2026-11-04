@@ -424,6 +424,11 @@ function sellBreakdown(ctx: Ctx, s: P1State, info: SellInfo, ws: WhatIf[], openN
     box.append(more);
   }
 
+  /** 段 UI8c：スマホでは表を行ごとのカードに（横にずらさない）。ます目に列の名前を持たせ、CSS で上に小さく出す */
+  const cellLabels = (tb: HTMLTableElement) => {
+    const heads = [...(tb.rows[0]?.cells ?? [])].map((c) => c.textContent ?? '');
+    for (const tr of [...tb.rows].slice(1)) if (!tr.classList.contains('isl-sellx-reason')) [...tr.cells].forEach((c, k) => (c.dataset.l = heads[k] ?? ''));
+  };
   // 商品ごとの表
   box.append(h('h4', '', t('商品ごと（並べている商品）', 'By item (on your shelves)')));
   const gt = h('div', 'isl-sellx-scroll');
@@ -454,6 +459,7 @@ function sellBreakdown(ctx: Ctx, s: P1State, info: SellInfo, ws: WhatIf[], openN
     });
     table.append(tr, why2);
   }
+  cellLabels(table);
   gt.append(table);
   box.append(gt, h('small', 'isl-dim isl-sellx-note', t('行を押すと、その商品が取れていない理由。取り分 30% 未満は赤。', 'Tap a row for why. Shares under 30% are red.')));
 
@@ -483,6 +489,7 @@ function sellBreakdown(ctx: Ctx, s: P1State, info: SellInfo, ws: WhatIf[], openN
     tr.addEventListener('click', () => openShop(ctx, r.b.uid));
     t2.append(tr);
   }
+  cellLabels(t2);
   st.append(t2);
   box.append(st, h('small', 'isl-dim isl-sellx-note', t('家ごとに、自社は「いちばん来やすいお店 1 軒」ぶんしか売れません。重なりが大きいお店どうしは、同じお客さんを取り合っています。', 'Each home buys from only your single most convenient shop. Shops with big overlap split the same customers.')));
   return box;
