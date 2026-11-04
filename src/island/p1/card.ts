@@ -58,8 +58,8 @@ import { BUDGET } from './data';
 
 /** 出どころ（統計・受けた割合の数え） */
 export type CardSrc = 'clerk' | 'crafter' | 'buyer' | 'idle' | 'head' | 'cs' | 'flame' | 'quit' | 'tax' | 'rally' | 'hr' | 'event' | 'diplo' | 'stall' | 'duo' | 'stock' | 'budget';
-/** ヒーローからの提案（★3 で「任せる」を選べる出どころ） */
-export const PROPOSAL_SRC: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'stall', 'stock'];
+/** ヒーローからの提案（★3 で「任せる」を選べる出どころ。段 UI9：人事の担当（hr）もふるい分け・推奨の付け直し・失効の対象） */
+export const PROPOSAL_SRC: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'stall', 'stock', 'hr'];
 export const CARD_SRCS: CardSrc[] = ['clerk', 'crafter', 'buyer', 'idle', 'head', 'cs', 'flame', 'quit', 'tax', 'rally', 'hr', 'event', 'diplo', 'stall', 'duo', 'stock', 'budget'];
 
 /** 選ぶと打つ手 */
@@ -164,6 +164,8 @@ export interface Card {
   duo?: DuoData;
   /** 段 UI7g：この提案が解く課題（issues.ts。推奨の手の課題）と、その優先（1 から） */
   iss?: { key: IssueKey; pri: number };
+  /** 段 UI9：作ったときの会社の課題の一覧（提案書は同じ課題で判断する。無くてよい項目：古いセーブは開いたときの一覧） */
+  issues?: CoIssue[];
   /** 段 UI7h：知らせ（推奨の札なし・「わかった」で閉じる）。流れが止まったのに、推奨が承認になる直す手が無い月 */
   note?: true;
 }
@@ -659,7 +661,7 @@ function hrDrafts(s: P1State, iss?: CoIssue[]): Draft[] {
   }
   if (!ok.length) return [];
   const pick2 = [...ok].sort((a, b) => (b.est ?? 0) - (a.est ?? 0)).slice(0, CARD.choices - 1);
-  return [{ src: 'hr', kind: 'hire', hero: hand, q, dept: 'hr', issue: { k: 'hire', stage: bn, n: s.hirePool.length }, choices: markRec(s, [...pick2, SKIP]), pri: 42, iss: { key: bn, pri: top.pri } }];
+  return [{ src: 'hr', kind: 'hire', hero: hand, q, dept: 'hr', issue: { k: 'hire', stage: bn, n: s.hirePool.length }, choices: markRec(s, [...pick2, SKIP]), pri: 42, iss: { key: bn, pri: top.pri }, issues: I }];
 }
 /** 雇える候補のうち、その仕事にいちばん向いている人（雇えなければ null） */
 const poolBest = (s: P1State, task: Task): number | null => (has(s, 'hire') && s.hirePool.length ? [...s.hirePool].sort((a, b) => aptitude(heroStats(b), task) - aptitude(heroStats(a), task))[0] : null);
@@ -920,13 +922,25 @@ export function cardsMonth(s: P1State, r: Report) {
  * 対象外：チュートリアルのあいだ・人事（hrDrafts で判断済み）・自分で実行して報告する任せた提案（trusted）
  */
 export function gateDraft(s: P1State, d: Draft, iss: CoIssue[], gb: { base: P1State | null } = { base: null }): Draft | null {
-  if (inTutorial(s) || !PROPOSAL_SRC.includes(d.src) || d.note || trusted(s, d)) return d;
-  let keep: Choice[] = [];
-  let best: { pri: number; key: IssueKey } | null = null;
+  if (inTutorial(s) || d.note || trusted(s, d)) return d;
   const judge = (a: PropAct) => {
     gb.base ??= baseOf(s);
     return judgeOf(s, planOf(s, [a], { hero: d.hero, q: d.q, dept: d.dept }), iss, gb.base);
   };
+  // 段 UI9：部長からの頼み（予算）の「今回の施策だけ承認」も同じふるい分け（承認になる手でなければ、その選択肢を外す）
+  if (d.src === 'budget') {
+    const choices = d.choices.filter((c) => {
+      if (c.act.k !== 'approve') return true;
+      const a = s.deleg?.inbox.find((p) => p.id === (c.act as { pid: number }).pid)?.act;
+      if (!a || !actOk(s, a)) return false;
+      const j = judge(a);
+      return j.rec === 'ok' && !!j.issue;
+    });
+    return { ...d, choices, issues: iss };
+  }
+  if (!PROPOSAL_SRC.includes(d.src)) return d;
+  let keep: Choice[] = [];
+  let best: { pri: number; key: IssueKey } | null = null;
   for (const c of d.choices) {
     const a = c.act.k === 'do' ? c.act.a : c.act.k === 'approve' ? s.deleg?.inbox.find((p) => p.id === (c.act as { pid: number }).pid)?.act : undefined;
     if (!a) {
@@ -964,7 +978,7 @@ export function gateDraft(s: P1State, d: Draft, iss: CoIssue[], gb: { base: P1St
     const next = choices.some((c) => c.act.k === 'do' && c.act.a.k === 'useup') ? ('useup' as const) : choices.some((c) => c.act.k === 'do' && c.act.a.k === 'clear') ? ('clear' as const) : undefined;
     issue = { ...rest, ...(next ? { next } : {}) };
   }
-  return { ...d, issue, choices, ...(best ? { iss: best } : {}) };
+  return { ...d, issue, choices, ...(best ? { iss: best } : {}), issues: iss };
 }
 /** 段 UI7h：流れが止まったお知らせ（直す手が無い・どれも推奨が承認にならない月）：推奨の札なし・「わかった」で閉じる */
 function stallNote(d: Draft): Draft {
@@ -1126,8 +1140,10 @@ export const cardInbox = (s: P1State) => (s.cards?.inbox ?? []).filter((c) => ca
 const GONE_KEEP = 6;
 /** 見送りの理由の種類（brief.ts の recOf）→ 取り下げの理由 */
 const goneOf = (no: NoKind | undefined): GoneWhy => (no === 'money' ? 'money' : no === 'policy' ? 'policy' : no === 'loss' ? 'loss' : 'solved');
-/** 取り下げを判断するカード（ヒーロー・部長の提案と人事の提案。知らせ・任せた提案の資金待ちは除かない） */
-const staleSrc = (c: Card) => (PROPOSAL_SRC.includes(c.src) || c.src === 'hr') && !c.note;
+/** 取り下げを判断するカード（ヒーロー・部長・人事の提案。知らせ・任せた提案の資金待ちは除かない） */
+const staleSrc = (c: Card) => PROPOSAL_SRC.includes(c.src) && !c.note;
+/** 段 UI9：カードを作ったときの課題の一覧（提案書と取り下げの判断は、同じ課題で。古いセーブは開いたときの一覧） */
+export const issuesOfCard = (s: P1State, c: Pick<Card, 'issues'>, cur?: CoIssue[]): CoIssue[] => c.issues ?? cur ?? issuesOf(s);
 /** カードの手（選択肢の番号と手。部長の提案はその手）。推奨の手を先に */
 function cardActs(s: P1State, c: Card): PropAct[] {
   const xs = c.choices.map((x, k) => ({ x, k })).sort((a, b) => Number(!!b.x.rec) - Number(!!a.x.rec) || a.k - b.k);
@@ -1146,10 +1162,13 @@ export function staleWhy(s: P1State, c: Card, iss: CoIssue[] = issuesOf(s), base
   if (inTutorial(s) || !staleSrc(c)) return null;
   const acts = cardActs(s, c);
   if (!acts.length) return null;
+  // 段 UI9：作ったときの課題が、いまの一覧から消えていれば「課題がほかの手で解けた」
+  if (c.iss && c.issues && !iss.some((x) => x.key === c.iss!.key)) return { why: 'solved', act: acts[0] };
+  const I = issuesOfCard(s, c, iss);
   let first: { why: GoneWhy; act: PropAct } | null = null;
   for (const a of acts) {
     base ??= baseOf(s);
-    const j = judgeOf(s, planOf(s, [a], { hero: c.hero, q: c.q, dept: c.dept }), iss, base);
+    const j = judgeOf(s, planOf(s, [a], { hero: c.hero, q: c.q, dept: c.dept }), I, base);
     if (j.rec === 'ok') return null;
     first ??= { why: goneOf(j.no), act: a };
   }
@@ -1173,6 +1192,16 @@ function dropCard(s: P1State, c: Card, w: { why: GoneWhy; act: PropAct }): Gone 
 export function staleCard(s: P1State, c: Card): Gone | null {
   const w = staleWhy(s, c);
   return w ? dropCard(s, c, w) : null;
+}
+/**
+ * 段 UI9：提案書を開いたとき（proposalui.ts）、推奨が承認でなくなっていたカードを見せずに取り下げる（受け箱から外し、理由の一行）。
+ * 受け箱に無いカード（部長との会話の仮のカード・月次報告の提案）は記録だけ。チュートリアルのあいだは null
+ */
+export function withdrawCard(s: P1State, id: number, act: PropAct, no: NoKind | undefined): Gone | null {
+  if (inTutorial(s)) return null;
+  const c = (s.cards?.inbox ?? []).find((x) => x.id === id);
+  if (c) return dropCard(s, c, { why: goneOf(no), act });
+  return logGone(s, { hero: null, name: actName(s, act), why: goneOf(no) });
 }
 /** いま見直した状態（同じ日・同じ資金・同じ方針・同じ受け箱なら、もう一度は見ない） */
 const staleSeen = new WeakMap<P1State, string>();
@@ -1399,6 +1428,8 @@ export function planOfChoice(s: P1State, c: Card, k: number): Plan | null {
   // 段 UI7c：束ねるのは、社長の経営方針の価値が増えるときだけ（brief.ts の valueOfPlan。このまま側は 1 回だけ計算する）
   let base: P1State | null = null;
   let cur: number | null = null;
+  // 段 UI9：束ねた提案も、提案書と同じ判断（judgeOf：資金・方針・課題・損）で推奨が承認のままのときだけ（束ねたせいで見送りにしない）
+  const iss = inTutorial(s) ? null : c.issues ?? issuesOf(s);
   for (const x of [...c.choices].sort((a, b) => (b.est ?? 0) - (a.est ?? 0))) {
     if (acts.length >= n) break;
     if (x === ch || x.act.k !== 'do' || (x.est ?? 0) <= 0) continue;
@@ -1411,10 +1442,11 @@ export function planOfChoice(s: P1State, c: Card, k: number): Plan | null {
     if (planBlock(s, wide).length) continue;
     base ??= baseOf(s);
     cur ??= valueOfPlan(s, planOf(s, acts, who), base);
-    const next = valueOfPlan(s, wide, base);
-    if (next <= cur) continue;
+    const next = iss ? judgeOf(s, wide, iss, base) : null;
+    const nv = next ? next.value : valueOfPlan(s, wide, base);
+    if (nv <= cur || (next && next.rec !== 'ok')) continue;
     acts.push(a);
-    cur = next;
+    cur = nv;
   }
   return planOf(s, acts, who);
 }

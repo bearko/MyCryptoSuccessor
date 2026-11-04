@@ -275,16 +275,11 @@ describe('性質：チュートリアルのあとは、推奨が見送りの提�
             continue;
           }
           const rk = shownRec(s, c);
-          if (c.src === 'hr') {
-            // 人事の提案は推奨の札がもとのまま（hrDrafts で承認になる手だけ）
-            expect(staleWhy(s, c)).toBeNull();
-            continue;
-          }
           expect(rk).toBeGreaterThanOrEqual(0);
           expect(isDo(c.choices[rk])).toBe(true);
           const plan = planOfChoice(s, c, rk);
           if (!plan) continue;
-          expect(briefOf(s, plan, { card: c.id }).rec).toBe('ok');
+          expect(briefOf(s, plan, { card: c.id, iss: c.issues }).rec).toBe('ok');
           n++;
         }
       }

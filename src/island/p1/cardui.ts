@@ -175,13 +175,14 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
             later: true,
             rec: isRec,
             card: c.id,
+            iss: c.issues,
             // 段 UI7d：出どころ（部長の提案・部長からの頼み。倉庫・在庫・担当者は手から決める）
             ...(c.src === 'head' ? { src: 'head' as const } : c.src === 'budget' ? { src: 'budget' as const } : {}),
             approve: (pp) => approveCard(s, c.id, pp),
             done: (w) => {
               // 段 P2：提案書を承認したら、承認の反応（史実の調査のあるヒーロー）
               if (w === 'ok' && PROPOSAL_SRC.includes(c.src)) sayToast(ctx.toast, c.hero, 'approved', c.id);
-              if (w === 'ok' || w === 'later') quiet();
+              if (w === 'ok' || w === 'later' || w === 'gone') quiet();
             },
           });
         // 段 UI5d：売りさばきで棚が 1 段のお店の主力が外れるときは、先に 3 択（主力を外す・残す・棚を拡張する（推奨））

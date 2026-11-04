@@ -338,6 +338,7 @@ function showPlan(ctx: Ctx, card: Card, plan: Plan, rec = false, pick?: number) 
     role: roleOfCard(s, card).text,
     later: card.id >= 0,
     card: card.id,
+    iss: card.issues,
     ...(card.id >= 0 ? { approve: (p: Plan) => approveCard(s, card.id, p) } : {}),
     done: (w) => {
       if (w === 'ok') sayToast(ctx.toast, card.hero, 'approved', card.id + s.day);

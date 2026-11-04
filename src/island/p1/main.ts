@@ -5001,7 +5001,7 @@ window.setTimeout(() => warmFx(), 3000);
   /** 段 K（撮影・確かめ用）：手（PropAct）の提案書を、いまの方針で開く */
   proposalOf: async (acts: unknown[], dept: string) => {
     const P = await import('./plan');
-    openProposal(ctx, P.planOf(s, acts as never, { hero: null, q: 0.9, dept: dept as never }), { done: () => renderAll() });
+    openProposal(ctx, P.planOf(s, acts as never, { hero: null, q: 0.9, dept: dept as never }), { done: () => renderAll(), force: true });
   },
   /** 段 K（撮影・確かめ用）：方針の画面・研究ノート・発掘の画面の石板の窓 */
   policy: () => openPolicyView(ctx),

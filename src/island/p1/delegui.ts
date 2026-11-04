@@ -26,6 +26,7 @@ import {
   propEst,
   propWhy,
   qText,
+  quality,
   qualityParts,
   reject,
   resultText,
@@ -41,11 +42,13 @@ import {
 } from './deleg';
 import { rarityBadge } from './growthui';
 import { drawer, jobLabel } from './heroui';
-import type { P1State, Staff } from './model';
+import { staffOf, type P1State, type Staff } from './model';
 import { after, open, type Ctx } from './screens';
 import { sectorDef } from './company';
 import { bar, btn, h, heroIcon, money, rich } from './ui';
-import { cardInboxCard, goneBox } from './cardui';
+import { cardInboxCard, goneBox, showCard } from './cardui';
+import { openProposal } from './proposalui';
+import { planOf } from './plan';
 import { cardInbox, starOf, withdrawStale } from './card';
 import { fitTag, sayToast } from './p2ui';
 import { lineOf } from './voice';
@@ -288,25 +291,28 @@ function propCard(ctx: Ctx, s: P1State, p: Proposal): HTMLElement {
   const cost = p.act.k === 'hire' ? t(`費用：雇うのは無料・月給 ${money(p.cost || 0)}`, `Cost: free to hire, monthly wage applies`) : p.rp ? t(`費用：研究ポイント ${p.rp}（いま ${s.rp ?? 0}）`, `Cost: ${p.rp} RP (you have ${s.rp ?? 0})`) : p.cost > 0 ? t(`費用：${money(p.cost)}（払ったあとの資金 ${money(s.money - p.cost)}）`, `Cost: ${money(p.cost)} (funds after: ${money(s.money - p.cost)})`) : t('費用：無料', 'Cost: free');
   c.append(h('small', p.cost > s.money ? 'isl-bad' : 'isl-dim', cost));
   const row = h('div', 'isl-row isl-prop-btns');
+  // 段 UI9：受け箱から直接は承認させない。承認は提案書（課題・推奨・効果）を開いてから（カードがあればカード、無ければ提案書）
+  const seeProposal = () => {
+    const c = cardInbox(s).find((x) => x.src === 'head' && x.pid === p.id);
+    if (c) return showCard(ctx, c, { done: () => after(ctx) });
+    const st = staffOf(s, p.hero);
+    openProposal(ctx, planOf(s, [p.act], { hero: p.hero, q: st ? quality(st, p.dept) : DELEG.q.lo, dept: p.dept }), {
+      src: 'head',
+      role: t(`${d.name}部長`, `${d.name} head`),
+      approve: () => {
+        const name = actName(s, p.act);
+        const act = p.act;
+        const plan = act.k === 'stock' ? stockPlan(s, act) : null;
+        const e = approve(s, p.id);
+        if (e === 'money' || e === 'rp') return { ok: false, err: e, did: [] };
+        if (e) return { ok: false, err: 'gone', did: [] };
+        return { ok: true, did: [name, ...(plan && act.k === 'stock' ? [stockMsg(plan, act.key)] : [])] };
+      },
+      done: () => after(ctx),
+    });
+  };
   row.append(
-    btn(t('承認', 'Approve'), () => {
-      const name = actName(s, p.act);
-      const act = p.act;
-      const plan = act.k === 'stock' ? stockPlan(s, act) : null;
-      const e = approve(s, p.id);
-      if (e === 'money' || e === 'rp') {
-        ctx.sfx?.('error');
-        ctx.toast(e === 'money' ? t(`資金不足：あと ${money(Math.max(0, p.cost - s.money))}（保留にしました）`, `Not enough funds: ${money(Math.max(0, p.cost - s.money))} short (held)`) : t('研究ポイント不足（保留にしました）', 'Not enough RP (held)'));
-      } else if (e) {
-        ctx.sfx?.('error');
-        ctx.toast(t('もう打てない手でした（受け箱から消しました）', 'That move is no longer possible (removed)'));
-      } else {
-        ctx.sfx?.('levelup');
-        ctx.toast(t(`✔ 承認：${name}`, `✔ Approved: ${name}`));
-        if (plan && act.k === 'stock') ctx.toast(stockMsg(plan, act.key));
-      }
-      after(ctx);
-    }, 'is-on'),
+    btn(t('📄 提案書を見る', '📄 See the proposal'), seeProposal, 'is-on'),
     btn(t('却下', 'Reject'), () => {
       reject(s, p.id);
       ctx.sfx?.('tap');

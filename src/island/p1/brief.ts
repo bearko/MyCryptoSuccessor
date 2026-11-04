@@ -127,6 +127,8 @@ export interface Brief {
   /** 推奨（承認・見送る）と、その理由の 1 行（課題・方針つき） */
   rec: 'ok' | 'skip';
   why: string;
+  /** 段 UI9：見送りの理由の種類（取り下げの一行に使う。承認なら無し） */
+  no?: NoKind;
   /**
    * 段 UI7g：会社の課題の一覧（issues.ts。優先の高い順）・この提案が解く課題（いちばん優先の高いもの。無ければ null）・
    * 方針と真っ向から反するか（その方針の名前と、下がる指標の札）・判断の材料（攻めるなら／慎重なら）
@@ -592,7 +594,11 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
   const r = recOf(b);
   b.rec = r.rec;
   b.why = r.why;
+  b.no = r.no;
   b.stance = b.rec === 'ok' ? stanceOf(b) : null;
+  // 段 UI9：短期が損（導入費用・契約金）でも承認を推すときは、根拠として投資回収期間を添える（一貫した扱い）
+  const S = vals.list.find((m) => m.key === 'short');
+  if (b.stance && S && S.d < -0.5) b.why += b.stance.payback != null ? t(`。短期は導入費用で ${chip(S)} だが、投資回収期間 ${b.stance.payback} か月`, `. Short-term ${chip(S)} from setup, payback ${b.stance.payback} mo`) : t(`。短期は ${chip(S)}（毎月の費用）だが、${POLICY.months} か月では上回る`, `. Short-term ${chip(S)} (monthly cost), positive over ${POLICY.months} months`);
   // 段 UI7e：要約の一言の向きを推奨にそろえる（見送るなら「最善」と勧めない。同じカードにほかの推奨の手があれば、それを推す）
   if (b.rec === 'skip') b.pitch = pitchNo(p.hero, p.acts, dept, altOf(s, p, o.card));
   return b;

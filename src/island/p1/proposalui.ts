@@ -17,7 +17,7 @@ import { afterOf, applyPlan, baseOf, planRows, planTitle, shopNm, type Cell, typ
 import { METRIC_TEXT, askTo, briefOf, chip, type Brief, type Metric } from './brief';
 import { RISK_LV, SLIDE_NAME, SRC_NAME, askIcon, budgetBar, fallOf, kpisOf, lineMarks, longLine, metersOf, profitBars, projLines, propStacks, roomKpi, shortWhat, slideKinds, srcOfPlan, stageMap, topRisks, type PropSrc, type SlideId } from './slides';
 import { budgetEl, chartHead, deck, deptChip, fallChart, fundsEl, infoTip, kpiTile, lineChart, lineLegend, meterEl, pairBars, riskRow, slideBox, stackPair, stageMapEl, storeChartEl, storeLegend, storeNote } from './slideui';
-import { ISSUE_ICON, issueName } from './issues';
+import { ISSUE_ICON, issueName, type CoIssue } from './issues';
 import { storeChart } from './storefc';
 import { useUpOf } from './proj';
 import { askDue, policyName } from './policy';
@@ -26,7 +26,7 @@ import { after, chooseMake, type Ctx } from './screens';
 import { pickMake } from './stockui';
 import { craftable } from './orders';
 import { btn, extImage, h, heroIcon, heroName, money, recTag, rich, signCls, signed, skuIcon } from './ui';
-import { starOf } from './card';
+import { goneLine, inTutorial, starOf, withdrawCard } from './card';
 import { goodsName } from './moves';
 
 export interface ProposalOpts {
@@ -36,8 +36,12 @@ export interface ProposalOpts {
   role?: string;
   /** 承認：既定は applyPlan（カード・受け箱は approveCard を渡す） */
   approve?: (p: Plan) => PlanRes;
-  /** 閉じたあと（承認・見送る・あとで） */
-  done?: (what: 'ok' | 'skip' | 'later') => void;
+  /** 閉じたあと（承認・見送る・あとで。gone：段 UI9：推奨が承認でなくなっていたので、見せずに取り下げた） */
+  done?: (what: 'ok' | 'skip' | 'later' | 'gone') => void;
+  /** 段 UI9：カードを作ったときの課題の一覧（提案書は同じ課題で判断する）。無ければ開いた時点の一覧 */
+  iss?: CoIssue[];
+  /** 段 UI9：推奨が承認でなくても見せる（撮影・確かめ用。チュートリアルのあいだは見送りでも見せる） */
+  force?: boolean;
   /** 「あとで」を出す（受け箱に残る提案だけ） */
   later?: boolean;
   /** 段 UI5d：カードで推奨の手から開いた提案書（true：推奨は承認・false：カードの推奨はほかの手・無し：数字で決める。段 UI7b） */
@@ -152,7 +156,15 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   const base = baseOf(s);
   const aft = afterOf(s, plan);
   const { rows, unchanged, touched } = planRows(base, plan, aft);
-  const B = briefOf(s, plan, { rec: o.rec, card: o.card }, base, aft);
+  const B = briefOf(s, plan, { rec: o.rec, card: o.card, iss: o.iss }, base, aft);
+  // 段 UI9：社長の前に出る提案書は、チュートリアル以外、必ず「推奨＝承認」。開いた時点で承認でなくなっていたら、見せずに取り下げる（理由の一行）
+  if (B.rec !== 'ok' && !o.force && !inTutorial(s)) {
+    const g = withdrawCard(s, o.card ?? -1, plan.acts[0] ?? { k: 'skill', id: '' }, B.no);
+    if (g) ctx.toast(`🗂 ${goneLine(g)}`);
+    ctx.sfx?.('tap');
+    o.done?.('gone');
+    return;
+  }
   const cost = B.cost;
   const block = B.block;
   const src = o.src ?? srcOfPlan(plan);
