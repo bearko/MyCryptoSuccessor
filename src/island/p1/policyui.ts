@@ -332,7 +332,7 @@ BOARD_SCENES.push({
       box.append(h('h2', 'isl-bm-title', t(`📜 ${yearOfBoard(a)} 年目の経営方針発表会`, `📜 Year ${yearOfBoard(a)} policy address`)));
       box.append(h('p', 'isl-bm-lead', t(`まず社長が、今年の全社方針を発表します（${n} 枠まで）。方針は 1 年間効き、部長やヒーローの提案も方針に寄ります。`, `First, announce this year’s company policies (up to ${n}). They last a year and steer proposals.`)));
       const cnt = h('b', 'isl-bm-polcnt');
-      const opts = h('div', 'isl-bm-opts is-2 isl-bm-polopts');
+      const opts = h('div', 'isl-bm-opts isl-bm-polopts');
       const draw = () => {
         cnt.textContent = t(`選んだ ${pick.length} / ${n}`, `${pick.length} / ${n} chosen`);
         opts.querySelectorAll<HTMLElement>('.isl-bm-opt').forEach((b) => b.classList.toggle('is-on', pick.includes(b.dataset.policy!)));
@@ -376,7 +376,7 @@ BOARD_SCENES.push({
         blk.append(h('b', 'isl-bm-bt', `${DEPT[d].icon} ${DEPT[d].name}`));
         const xs = openPolicies(s, 'dept', d);
         const r = presRec(s, a, d);
-        const opts = h('div', `isl-bm-opts ${xs.length === 2 ? 'is-2' : ''}`);
+        const opts = h('div', 'isl-bm-opts isl-bm-polopts');
         const cur = () => presOf(s, a).dept[d] ?? r;
         for (const p of xs)
           opts.append(
@@ -410,7 +410,7 @@ BOARD_ITEM_LINES.push((s, it, a) => {
   if (!r) return null;
   const rp = POLICY_OF[r];
   const say = heroLine(it.hero, t(`今年の${DEPT[d].name}は「${rp.name}」でいきます`, `this year ${DEPT[d].name} runs on “${rp.name}”`));
-  const el = h('div', 'isl-bm-opts' + (xs.length === 2 ? ' is-2' : ''));
+  const el = h('div', 'isl-bm-opts isl-bm-polopts');
   const cur = () => presOf(s, a).dept[d] ?? r;
   for (const p of xs)
     el.append(
