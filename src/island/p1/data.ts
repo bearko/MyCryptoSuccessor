@@ -3948,7 +3948,7 @@ export const CROSS_SALES_LEGAL = () => t('掛け合わせ（営業 × 法務）�
  * 段 UI7g：契約金（雇うときに 1 回払う。model.ts の signFee）。目安は月給 1 か月分（給料の倍率込み）× レアリティの倍率（高いほど高い）。
  * 最初の町の 1 か月目（タオックスのチュートリアル。月次報告がまだ無い）は 0（チュートリアルの通しを変えない）。毎月の給与は今までどおり月の締めに払う
  */
-export const SIGN = { mul: { N: 1, C: 1, U: 1.25, R: 1.5, E: 2, L: 3, LL: 3 } as Record<HeroRarity, number>, round: 10 };
+export const SIGN = { mul: { N: 0, C: 0, U: 1.25, R: 1.5, E: 2, L: 3, LL: 3 } as Record<HeroRarity, number>, round: 10 };
 
 /**
  * 段 UI7g：課題の一覧（issues.ts）。会社（いまの町）の課題を、いまのモデルの数字から並べる。
