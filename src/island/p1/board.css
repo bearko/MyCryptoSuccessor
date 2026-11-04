@@ -367,6 +367,8 @@
 }
 .isl-bm-opt .isl-rec-tag {
   vertical-align: 1px;
+  /* 共通の札は 11px。会議の画面はスマホの 12px の決まりにそろえる */
+  font-size: 12px;
 }
 .isl-bm-pick {
   justify-self: start;

@@ -194,14 +194,14 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
       const b4 = block('isl-bm-b4', t('④ その他の要求', '④ Other request'), ol);
       const o = it.other!;
       const otherVal = o.k === 'hero' ? t(`${heroNm(o.hero)}を${DEPT[o.dept].name}部長に`, `${heroNm(o.hero)} heads ${DEPT[o.dept].name}`) : t(`${o.rp} RP を使う`, `Spend ${o.rp} RP`);
-      b4.append(options([{ name: t('承認', 'Approve'), val: otherVal }, { name: t('否認', 'Deny'), val: o.k === 'hero' ? t('空席のまま', 'Leave it empty') : t('RP を使わない', 'No RP') }], it.rec.other, () => pick.other, (v) => (pick.other = v as BoardPick['other'])));
+      b4.append(options([{ name: t('承認', 'Approve'), val: otherVal }, { name: t('否認', 'Deny'), val: o.k === 'hero' ? (o.lvl < BOARD.heroAt ? t(`空席のまま（理解度 ${o.lvl}／${BOARD.heroAt}）`, `Leave empty (level ${o.lvl}/${BOARD.heroAt})`) : t('空席のまま', 'Leave it empty')) : t('RP を使わない', 'No RP') }], it.rec.other, () => pick.other, (v) => (pick.other = v as BoardPick['other'])));
       // ヒーローの追加：候補を自分で選ぶ（段 UI7a の任命の引き出し pickHead → pickFor。選んだ人で承認）
       if (o.k === 'hero') {
         b4.append(
           btn(
             t('👤 ほかの候補から選ぶ', '👤 Choose another candidate'),
             () =>
-              pickHead(ctx, o.dept, o.hero, (hero) => {
+              pickHead(ctx, o.dept, null, (hero) => {
                 o.hero = hero;
                 it.pick = { ...pick, other: 0 };
                 ctx.save();
