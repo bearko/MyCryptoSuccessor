@@ -16227,112 +16227,6 @@ button.isl-dband-lead.is-on {
   font-weight: 700;
   color: #ff8a7a;
 }
-/* 縦棒（比較）とウォーターフォール（SVG） */
-.isl-vb svg,
-.isl-vf-chart svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-.isl-vb-bar.is-now {
-  fill: #8f9bb8;
-}
-.isl-vb-bar.is-after {
-  fill: #f2b544;
-}
-.isl-vb-val {
-  font-size: 12px;
-  font-weight: 700;
-  fill: #f4f1ea;
-}
-.isl-vb-val.is-good {
-  fill: #6fd08c;
-}
-.isl-vb-val.is-bad {
-  fill: #ff8a7a;
-}
-.isl-vf-bar.is-start {
-  fill: #8f9bb8;
-}
-.isl-vf-bar.is-total {
-  fill: #f2b544;
-}
-.isl-vf-bar.is-up {
-  fill: #6fd08c;
-}
-.isl-vf-bar.is-down {
-  fill: #f07070;
-}
-.isl-vf-hatch {
-  stroke: #7a2a2a;
-  stroke-width: 2;
-}
-.isl-vf-link {
-  stroke: #b8c0d4;
-  stroke-width: 1;
-  stroke-dasharray: 2 2;
-}
-.isl-vf-keys {
-  margin: 4px 0 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.isl-vf-key {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #f4f1ea;
-}
-.isl-vf-name {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.isl-vf-n {
-  display: inline-block;
-  min-width: 16px;
-  padding: 0 3px;
-  text-align: center;
-  background: #0f1a30;
-  border: 1px solid #b8c0d4;
-  font-size: 12px;
-}
-.isl-vf-v {
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.isl-vf-v.is-good {
-  color: #6fd08c;
-}
-.isl-vf-v.is-bad {
-  color: #ff8a7a;
-}
-.isl-sl-key.isl-vf-k i {
-  width: 12px;
-  height: 12px;
-  border: 0;
-}
-.isl-vf-k.is-start i {
-  background: #8f9bb8;
-}
-.isl-vf-k.is-up i {
-  background: #6fd08c;
-}
-.isl-vf-k.is-down i {
-  background: repeating-linear-gradient(45deg, #f07070 0 3px, #7a2a2a 3px 5px);
-}
-.isl-vf-k.is-total i {
-  background: #f2b544;
-}
 .isl-sl-pay {
   margin: 0;
   font-size: 13px;
@@ -16573,4 +16467,11 @@ button.isl-dband-lead.is-on {
   .isl-sl-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+/* 段 UI9：縦棒の比較の下の札（特許・真似・自社） */
+.isl-cs-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
 }

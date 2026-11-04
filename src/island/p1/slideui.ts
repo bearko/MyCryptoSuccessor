@@ -10,6 +10,8 @@ import { RISK_ICON, RISK_LV, perDayText, stackSegs, type Alt, type Fall, type Ga
 import type { StoreChart } from './storefc';
 export { storeNote } from './storefc';
 import type { Brief, Risk } from './brief';
+import { fallEl, fallLegend } from './chartkit';
+import type { Step } from './dash';
 
 type CoFunds = Brief['co'];
 import { h, money } from './ui';
@@ -209,7 +211,7 @@ export function kpiTile(k: Kpi): HTMLElement {
   return e;
 }
 
-// ---------------------------------------------------------------- 段 UI9：縦棒（比較）・縦のウォーターフォール（SVG）
+// ---------------------------------------------------------------- 段 UI9：縦のウォーターフォール（chartkit の部品：月次報告・決算書・税と同じ）
 
 const NS = 'http://www.w3.org/2000/svg';
 const sv = <K extends keyof SVGElementTagNameMap>(tag: K, at: Record<string, string | number>) => {
@@ -217,155 +219,12 @@ const sv = <K extends keyof SVGElementTagNameMap>(tag: K, at: Record<string, str
   for (const [k, v] of Object.entries(at)) e.setAttribute(k, String(v));
   return e;
 };
-/** 0 を含む目盛り（下端・上端。1・2・2.5・5 × 10 の何乗か） */
-function niceOf(vals: number[]): { lo: number; hi: number } {
-  const lo0 = Math.min(0, ...vals);
-  const hi0 = Math.max(0, ...vals);
-  const span = hi0 - lo0 || 1;
-  const p10 = 10 ** Math.floor(Math.log10(span / 2));
-  const step = [1, 2, 2.5, 5, 10].map((x) => x * p10).find((x) => x >= span / 3) ?? span / 3;
-  return { lo: Math.floor(lo0 / step) * step, hi: Math.max(Math.ceil(hi0 / step) * step, lo0 + step) };
-}
-/** 横の目盛り線（3 本）と 0 の線 */
-function gridOf(svg: SVGElement, L: number, R: number, W: number, py: (v: number) => number, lo: number, hi: number) {
-  for (const f of [0, 0.5, 1]) {
-    const v = lo + (hi - lo) * f;
-    svg.append(sv('line', { x1: L, x2: W - R, y1: py(v), y2: py(v), class: 'isl-sl-grid' }));
-    const tx = sv('text', { x: L - 4, y: py(v) + 4, 'text-anchor': 'end', class: 'isl-sl-axis' });
-    tx.textContent = short(v);
-    svg.append(tx);
-  }
-  if (lo < 0 && hi > 0) svg.append(sv('line', { x1: L, x2: W - R, y1: py(0), y2: py(0), class: 'isl-sl-zero0' }));
-}
-/** 幅に合わせて描き直す SVG の枠 */
-function svgBox(cls: string, aria: string, draw: (svg: SVGSVGElement, W: number) => void): HTMLElement {
-  const wrap = h('div', cls);
-  const svg = sv('svg', { role: 'img', 'aria-label': aria });
-  wrap.append(svg);
-  const run = () => {
-    const W = Math.max(220, Math.round(wrap.clientWidth || 300));
-    svg.replaceChildren();
-    draw(svg, W);
-  };
-  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => run()) : null;
-  ro?.observe(wrap);
-  requestAnimationFrame(run);
-  return wrap;
-}
-/**
- * 縦棒の比較（横に並べる。As-Is＝灰・To-Be＝金）。値は棒の上に字で（符号つきの差ではなく、その値）。決まり：比較は縦棒、角の丸みは無し
- */
-export function vbarsEl(items: { label: string; v: number; cls: string }[], aria: string, fmt: (v: number) => string = (v) => `${v < -0.5 ? '−' : ''}${fmt0(v)} G`): HTMLElement {
-  return svgBox('isl-vb', aria, (svg, W) => {
-    const H = 170;
-    const L = 44;
-    const R = 8;
-    const T = 22;
-    const B = 22;
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    svg.setAttribute('width', String(W));
-    svg.setAttribute('height', String(H));
-    const { lo, hi } = niceOf(items.map((x) => x.v));
-    const py = (v: number) => T + (H - T - B) * (1 - (v - lo) / (hi - lo || 1));
-    gridOf(svg, L, R, W, py, lo, hi);
-    const n = items.length;
-    const bw = (W - L - R) / n;
-    const barW = Math.max(14, Math.min(56, bw * 0.5));
-    items.forEach((x, k) => {
-      const cx = L + bw * (k + 0.5);
-      const y0 = py(0);
-      const y1 = py(x.v);
-      svg.append(sv('rect', { x: cx - barW / 2, y: Math.min(y0, y1), width: barW, height: Math.max(1, Math.abs(y0 - y1)), class: `isl-vb-bar ${x.cls}` }));
-      const val = sv('text', { x: cx, y: Math.min(y0, y1) - 5, 'text-anchor': 'middle', class: 'isl-vb-val' });
-      val.textContent = fmt(x.v);
-      svg.append(val);
-      const lab = sv('text', { x: cx, y: H - 6, 'text-anchor': 'middle', class: 'isl-sl-axis' });
-      lab.textContent = x.label;
-      svg.append(lab);
-    });
-  });
-}
-const fmt0 = (v: number) => Math.abs(Math.round(v)).toLocaleString('en-US');
-/**
- * 縦のウォーターフォール：両端が全体の棒（As-Is の利益＝灰・To-Be の短期利益＝金）、間が増減の棒（増＝緑・減＝赤の斜線）。
- * 棒の上に値、下に番号。番号と名前・値の一覧は下に（字は 12px 以上）。段を結ぶ細い線で「ここまでの合計」を追える
- */
+/** 効果と費用のウォーターフォール（As-Is の利益 → 増収・費用 → To-Be）。chartkit の fallEl（縦の棒）に渡す */
 export function vfallEl(rows: Fall[], aria: string): HTMLElement {
-  const wrap = h('div', 'isl-vf');
-  let seq = 0;
-  wrap.append(
-    svgBox('isl-vf-chart', aria, (svg, W) => {
-      const H = 190;
-      const L = 44;
-      const R = 8;
-      const T = 20;
-      const B = 20;
-      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-      svg.setAttribute('width', String(W));
-      svg.setAttribute('height', String(H));
-      const id = `isl-vf${++seq}`;
-      const defs = sv('defs', {});
-      const hatch = sv('pattern', { id, width: 6, height: 6, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' });
-      hatch.append(sv('line', { x1: 0, y1: 0, x2: 0, y2: 6, class: 'isl-vf-hatch' }));
-      defs.append(hatch);
-      svg.append(defs);
-      const { lo, hi } = niceOf(rows.flatMap((r) => [r.from, r.to]));
-      const py = (v: number) => T + (H - T - B) * (1 - (v - lo) / (hi - lo || 1));
-      gridOf(svg, L, R, W, py, lo, hi);
-      const n = rows.length;
-      const bw = (W - L - R) / n;
-      const barW = Math.max(12, Math.min(44, bw * 0.6));
-      rows.forEach((r, k) => {
-        const cx = L + bw * (k + 0.5);
-        const a = r.kind === 'start' || r.kind === 'total' ? 0 : r.from;
-        const y0 = py(a);
-        const y1 = py(r.to);
-        const cls = r.kind === 'start' ? 'is-start' : r.kind === 'total' ? 'is-total' : r.v >= 0 ? 'is-up' : 'is-down';
-        svg.append(sv('rect', { x: cx - barW / 2, y: Math.min(y0, y1), width: barW, height: Math.max(1, Math.abs(y0 - y1)), class: `isl-vf-bar ${cls}` }));
-        if (cls === 'is-down') svg.append(sv('rect', { x: cx - barW / 2, y: Math.min(y0, y1), width: barW, height: Math.max(1, Math.abs(y0 - y1)), fill: `url(#${id})` }));
-        // 次の棒へ結ぶ線（ここまでの合計）
-        if (k < n - 1) svg.append(sv('line', { x1: cx + barW / 2, x2: cx + bw - barW / 2, y1: py(r.to), y2: py(r.to), class: 'isl-vf-link' }));
-        const val = sv('text', { x: cx, y: Math.min(y0, y1) - 4, 'text-anchor': 'middle', class: `isl-vb-val ${r.kind === 'ask' || r.kind === 'setup' ? tone(r.v) : ''}` });
-        val.textContent = r.kind === 'ask' || r.kind === 'setup' ? sgn(r.v) : `${r.v < -0.5 ? '−' : ''}${fmt0(r.v)}`;
-        svg.append(val);
-        const lab = sv('text', { x: cx, y: H - 5, 'text-anchor': 'middle', class: 'isl-sl-axis' });
-        lab.textContent = r.kind === 'start' ? 'As-Is' : r.kind === 'total' ? 'To-Be' : String(k);
-        svg.append(lab);
-      });
-    }),
-  );
-  const ol = h('ol', 'isl-vf-keys');
-  rows.forEach((r, k) => {
-    if (r.kind === 'start' || r.kind === 'total') return;
-    const li = h('li', `isl-vf-key is-${r.kind}`);
-    li.dataset.v = String(Math.round(r.v));
-    const nm = h('span', 'isl-vf-name');
-    nm.append(h('b', 'isl-vf-n', String(k)));
-    if (r.dept) nm.append(deptChip(r.dept));
-    nm.append(document.createTextNode(`${r.icon} ${r.label}`));
-    li.append(nm, h('b', `isl-vf-v ${tone(r.v)}`, `${arrow(r.v)} ${sgn(r.v, 'G')}`));
-    ol.append(li);
-  });
-  wrap.append(ol);
-  return wrap;
+  const steps: Step[] = rows.map((r, k) => ({ key: `${r.kind}${k}`, name: r.kind === 'ask' || r.kind === 'setup' ? `${r.icon} ${r.label}` : r.kind === 'start' ? 'As-Is' : 'To-Be', kind: r.kind === 'start' ? 'start' : r.kind === 'total' ? 'total' : r.v >= 0 ? 'up' : 'down', v: r.v, from: r.from, to: r.to }));
+  return fallEl(steps, aria);
 }
-/** 縦棒・ウォーターフォールの凡例（形と名前） */
-export function vfallLegend(): HTMLElement {
-  const e = h('div', 'isl-sl-legend');
-  for (const [cls, lab] of [
-    ['is-start', t('As-Is（灰）', 'As-Is (grey)')],
-    ['is-up', t('▲ 増収（緑）', '▲ gain (green)')],
-    ['is-down', t('▼ 費用（赤の斜線）', '▼ cost (red, hatched)')],
-    ['is-total', t('To-Be（金）', 'To-Be (gold)')],
-  ] as const) {
-    const x = h('span', `isl-sl-key isl-vf-k ${cls}`);
-    x.append(h('i', ''), document.createTextNode(lab));
-    e.append(x);
-  }
-  return e;
-}
-
-// ---------------------------------------------------------------- 効果：12 か月の累計の折れ線
+export const vfallLegend = fallLegend;
 
 /**
  * 累計の折れ線（このまま：灰の点線・承認後：金の実線）。線の右端に名前と値（直接ラベル）。指を置くと月の値（十字の線と吹き出し）。

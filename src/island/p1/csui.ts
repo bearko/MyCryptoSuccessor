@@ -13,7 +13,7 @@ import { masteryCard } from './acctui';
 import { runAd, type P1State } from './model';
 import { after, open, type Ctx } from './screens';
 import { bar, btn, fmt, h, money, skuName } from './ui';
-import { arw, cvBox, rankBarsEl, trendEl, trendLegend, type TSer } from './chartkit';
+import { arw, cvBox, rankBarsEl, trendEl, trendLegend, vbarsEl, type TSer } from './chartkit';
 import { SAT_REFS, monHead, monLab, rivalBars, satHist } from './dash';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -271,17 +271,15 @@ export function openForecast(ctx: Ctx, hooks: { skills?: () => void; ads?: () =>
       const top = bars[0];
       const up = f.h ? Math.round(((top.demand[f.h] - top.demand[0]) / Math.max(1, top.demand[0])) * 100) : 0;
       const cb = cvBox(t('商品ごとの国民のニーズ（いま・月）', 'Demand by product (now, per month)'), f.h ? t(`${f.h} か月先には、どの商品も ▲ +${up}% ほど`, `In ${f.h} mo every item is ▲ +${up}% or so`) : '');
-      cb.body.append(
-        rankBarsEl(
-          bars.map((r) => {
-            let tag: HTMLElement | undefined;
-            if (r.patent > 0) tag = h('span', 'isl-tag is-good', t(`🛡 特許 ${r.patent} か月`, `🛡 patent ${r.patent} mo`));
-            else if (r.copyIn != null) tag = h('span', `isl-tag ${r.copyIn <= 1 ? 'is-bad' : 'is-warn'}`, t(`⚠ ${r.copyIn} か月で真似`, `⚠ copied in ${r.copyIn} mo`));
-            return { name: r.name, v: r.demand[0], me: r.mine, tag };
-          }),
-          { aria: t('商品ごとの国民のニーズ', 'Demand by product'), fmt: (v) => t(`${fmt(v)} 個`, `${fmt(v)}`), meLabel: t('◀ 自社', '◀ Ours') },
-        ),
-      );
+      // 段 UI9：比較は縦棒（自社の商品は金・ほかは灰）。特許・真似の札は下に字で
+      cb.body.append(vbarsEl(bars.map((r) => ({ name: r.name, v: r.demand[0], cls: r.mine ? 'is-gold' : 'is-grey' })), { aria: t('商品ごとの国民のニーズ', 'Demand by product'), fmt: (v) => t(`${fmt(v)} 個`, `${fmt(v)}`) }));
+      const tags = h('div', 'isl-cs-tags');
+      for (const r of bars) {
+        if (r.patent > 0) tags.append(h('span', 'isl-tag is-good', t(`${r.name}：🛡 特許 ${r.patent} か月`, `${r.name}: 🛡 patent ${r.patent} mo`)));
+        else if (r.copyIn != null) tags.append(h('span', `isl-tag ${r.copyIn <= 1 ? 'is-bad' : 'is-warn'}`, t(`${r.name}：⚠ ${r.copyIn} か月で真似`, `${r.name}: ⚠ copied in ${r.copyIn} mo`)));
+        if (r.mine) tags.append(h('span', 'isl-tag', t(`${r.name}：自社（金の棒）`, `${r.name}: ours (gold bar)`)));
+      }
+      if (tags.childElementCount) cb.body.append(tags);
       box.append(cb.el);
       const more = h('details', 'isl-rp-detail');
       more.append(h('summary', '', t('表で見る（先の月・他社）', 'As a table (months ahead, rivals)')), tbl);
