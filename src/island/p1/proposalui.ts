@@ -14,8 +14,10 @@ import { DEPT, POLICY, PRODUCT, skuParts, type Sku } from './data';
 import { bottleneck, poolCap, poolUsed, stageCaps, staffOf, type P1State } from './model';
 import { afterOf, applyPlan, baseOf, planRows, planTitle, shopNm, type Cell, type Plan, type PlanRes, type Row } from './plan';
 import { METRIC_TEXT, askTo, briefOf, chip, type Brief, type Metric } from './brief';
-import { RISK_LV, SLIDE_NAME, SRC_NAME, askIcon, budgetBar, fallOf, kpisOf, longLine, metersOf, profitBars, projLines, roomKpi, shortWhat, slideKinds, srcOfPlan, stageMap, topRisks, type PropSrc, type SlideId } from './slides';
-import { budgetEl, chartHead, deck, deptChip, fallChart, fundsEl, kpiTile, lineChart, lineLegend, meterEl, pairBars, riskRow, slideBox, stageMapEl } from './slideui';
+import { RISK_LV, SLIDE_NAME, SRC_NAME, askIcon, budgetBar, fallOf, kpisOf, lineMarks, longLine, metersOf, profitBars, projLines, roomKpi, shortWhat, slideKinds, srcOfPlan, stageMap, topRisks, type PropSrc, type SlideId } from './slides';
+import { budgetEl, chartHead, deck, deptChip, fallChart, fundsEl, kpiTile, lineChart, lineLegend, meterEl, pairBars, riskRow, slideBox, stageMapEl, storeChartEl, storeLegend, storeNote } from './slideui';
+import { storeChart } from './storefc';
+import { useUpOf } from './proj';
 import { askDue, policyName } from './policy';
 import { openPolicyPick } from './policyui';
 import { after, chooseMake, type Ctx } from './screens';
@@ -175,7 +177,9 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   panel.append(head);
 
   const pics = pictureRows(rows);
-  const kinds = slideKinds(B, { visual: pics.length > 0 });
+  // 段 UI7f：倉庫の提案は ② 何が変わる に倉庫のグラフ（① はタイルと推奨をスクロールせずに見せる）
+  const store = B.theme === 'store';
+  const kinds = slideKinds(B, { visual: pics.length > 0 || store });
   const toMore = () => dk.go(kinds.length - 1);
   const info = () => {
     const b = btn(t('ⓘ 計算のしかた（付録）', 'ⓘ How it’s worked out (appendix)'), toMore, 'isl-sl-info');
@@ -220,7 +224,7 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
         const moved = Math.abs(B.dProfit) >= 0.5 || B.vals.list.some((x) => x.key !== 'short' && x.key !== 'long');
         const r0 = rows.find((x) => x.kind !== 'goods' && x.kind !== 'panel' && x.changed);
         if (!moved && r0) body.append(h('p', 'isl-sl-same', t(`${r0.label}：${r0.asIs.text} → ${r0.toBe.text}`, `${r0.label}: ${r0.asIs.text} → ${r0.toBe.text}`)));
-        if (kinds.length > 2) body.append(h('p', 'isl-sl-hint', phone ? t('← 横にめくると、何が変わる・効果・リスク', '← Swipe for changes, effect and risks') : t('→ で、何が変わる・効果・リスク', '→ for changes, effect and risks')));
+        if (kinds.length > 2) body.append(h('p', 'isl-sl-hint', store ? (phone ? t('← 横にめくると、倉庫のグラフ（月末の中身と予想）・効果・リスク', '← Swipe for the storage chart, effect and risks') : t('→ で、倉庫のグラフ（月末の中身と予想）・効果・リスク', '→ for the storage chart, effect and risks')) : phone ? t('← 横にめくると、何が変わる・効果・リスク', '← Swipe for changes, effect and risks') : t('→ で、何が変わる・効果・リスク', '→ for changes, effect and risks')));
         break;
       }
       // ② 何が変わる：いまの課題（1 行）・承認事項（手ごとに 1 行・部門の札・「○○部に依頼」）・Before → After の絵
@@ -231,6 +235,8 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
           q.append(h('span', 'isl-sl-lab', t('いま', 'Now')), document.createTextNode(t('「', '“')), rich(say), document.createTextNode(t('」', '”')));
           c1.append(q);
         }
+        // 段 UI7f：倉庫の提案は、月末の倉庫の中身の棒・容量の基準線・同じペースの予想のグラフ（要約の一言・セリフはこのグラフを指す）
+        if (store) c1.append(storeBlock(s, { cap: poolCap(aft), free: useUpOf(s, plan)?.mats ?? 0, days: useUpOf(s, plan)?.days }));
         c1.append(chartHead(t('承認してほしいこと', 'What I need you to approve')));
         c1.append(asksList(B, s, plan));
         if (pics.length) {
@@ -329,6 +335,14 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
 }
 
 /** 承認事項（手ごとに 1 行：部門の札・アイコン・何をするか・費用・「○○部に依頼」） */
+/** 段 UI7f：倉庫のグラフの塊（見出し・凡例・グラフ・あふれる先の 1 行）。カードと提案書の結論で使う */
+export function storeBlock(s: P1State, after: { cap: number; free: number; days?: number } | null, compact = false): HTMLElement {
+  const c = storeChart(s, after);
+  const e = h('div', 'isl-sl-sblock');
+  e.append(chartHead(t('倉庫の中身（月末）と、同じペースの予想', 'Storage at month end, and the same-pace forecast')), storeLegend(c), storeChartEl(c, compact), h('p', 'isl-sl-snote', storeNote(c)));
+  return e;
+}
+
 function asksList(B: Brief, s: P1State, plan: Plan): HTMLElement {
   const ol = h('ol', 'isl-sl-asks');
   for (const a of B.asks) {
@@ -396,7 +410,7 @@ function twoCols(body: HTMLElement, split: boolean): [HTMLElement, HTMLElement] 
 /** 効果の 12 か月：累計の折れ線（このまま vs 承認後）と、お金以外の指標のメーター */
 function longParts(body: HTMLElement, body2: HTMLElement, B: Brief, s: P1State) {
   const L = longLine(B);
-  body.append(chartHead(t(`${POLICY.months} か月の利益の累計`, `Profit over ${POLICY.months} months (cumulative)`)), lineLegend(), lineChart(L.now, L.after));
+  body.append(chartHead(t(`${POLICY.months} か月の利益の累計`, `Profit over ${POLICY.months} months (cumulative)`)), lineLegend(), lineChart(L.now, L.after, lineMarks(B)));
   // 段 UI7e：月ごとの見込み（使い切りの手で作る品がどこで・いつ・いくつ売れるか・倉庫があふれて入荷が止まるか）
   for (const x of projLines(B, (y) => goodsName(y as Sku), (u) => shopNm(s, u))) body.append(h('p', 'isl-sl-shot', x));
   const ms = metersOf(B);

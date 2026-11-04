@@ -1029,6 +1029,16 @@ export const AWARE_GOODS = { start: 0.3, perDay: 0.02, ad: 0.03, low: 0.6 };
  * 倉庫の強化（設備投資 rack）は 1 段 rack 個、物流拠点の強化（設備投資 dock）は 1 段 dock 個
  */
 export const STORE = { base: 80, warehouse: 200, depot: 150, rack: 100, dock: 75 };
+/**
+ * 段 UI7f：倉庫があふれる先の見込み（storefc.ts）。hist：グラフに出す月末の記録の数（いちばん新しいものから）・ahead：グラフの予想の月の数（あふれる月が先ならそこまで、max まで）・
+ * minDays：記録の増え方で見込むのに要る日数（足りなければ先月の流れの数＝買った・作った・運んだから）
+ */
+export const STORE_FC = { hist: 4, ahead: 4, max: 6, minDays: 20 };
+/**
+ * 段 I2c：税・経費の手（経理のパネル。acctgain.ts）を部長が打つ・経営会議で出す目安：元が取れるまで（導入 ÷ 月の税・経費の減り）pay か月まで。
+ * 研究ポイントは 1 RP を rpG G として数える（経営会議の打ち手の選び方と同じ）
+ */
+export const MONEY_LEVER = { pay: 24, rpG: 20 };
 
 // ---------------------------------------------------------------- スキルツリー
 

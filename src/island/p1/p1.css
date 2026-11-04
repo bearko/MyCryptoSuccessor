@@ -12150,6 +12150,13 @@ button.isl-dband-lead.is-on {
     max-width: 1120px;
     gap: 20px;
     justify-content: center;
+    /* 段 UI7f：中身が高いとき（倉庫のグラフ）は上から（真ん中寄せで上が切れてスクロールで届かない、を防ぐ） */
+    justify-content: safe center;
+  }
+  /* 段 UI7f：倉庫のグラフのあるカードは、顔を小さくしてグラフに場所を */
+  .isl-cardm-panel:has(.isl-cardm-chart) .isl-cardm-face {
+    width: 128px;
+    height: 128px;
   }
   .isl-cardm-body {
     flex: none;
@@ -14437,7 +14444,7 @@ button.isl-dband-lead.is-on {
   border-radius: 6px;
   background: #c4521b;
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   line-height: 18px;
   letter-spacing: 0.04em;
@@ -15190,6 +15197,149 @@ button.isl-dband-lead.is-on {
 }
 .isl-sl-key.is-now i {
   border-top: 3px dashed #8f9bb8;
+}
+/* 段 UI7f：倉庫があふれる日（折れ線の縦の点線） */
+.isl-sl-mark {
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+.isl-sl-mark.is-now {
+  stroke: #ff8a7a;
+}
+.isl-sl-mark.is-after {
+  stroke: #f2b544;
+}
+.isl-sl-mtxt {
+  font-size: 12px;
+  font-weight: 800;
+  paint-order: stroke;
+  stroke: #16213a;
+  stroke-width: 3px;
+}
+.isl-sl-mtxt.is-now {
+  fill: #ff8a7a;
+}
+.isl-sl-mtxt.is-after {
+  fill: #f2b544;
+}
+/* 段 UI7f：倉庫のグラフ（素材＝青の塗り・商品＝赤紫に点の模様・予想＝薄い塗りに斜線・容量＝白の実線・承認後の容量＝金の点線） */
+.isl-sl-store {
+  position: relative;
+  width: 100%;
+  min-height: 150px;
+  max-width: 640px;
+}
+.isl-sl-store svg {
+  display: block;
+  touch-action: pan-y;
+}
+.isl-sl-smat {
+  fill: #3a8fd8;
+}
+.isl-sl-sgood {
+  fill: #c0609a;
+}
+.isl-sl-smat.is-fc {
+  fill: #265281;
+}
+.isl-sl-sgood.is-fc {
+  fill: #633e65;
+}
+.isl-sl-sover {
+  pointer-events: none;
+}
+.isl-sl-pdot {
+  fill: #6b2c55;
+}
+.isl-sl-phatch {
+  stroke: #b8c0d4;
+  stroke-width: 1.5;
+}
+.isl-sl-fcline {
+  stroke: #8f9bb8;
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+.isl-sl-cap {
+  stroke: #f4f1ea;
+  stroke-width: 2;
+}
+.isl-sl-cap1 {
+  stroke: #f2b544;
+  stroke-width: 2;
+  stroke-dasharray: 2 4;
+  stroke-linecap: round;
+}
+.isl-sl-captxt {
+  font-size: 12px;
+  font-weight: 800;
+  fill: #f4f1ea;
+  paint-order: stroke;
+  stroke: #16213a;
+  stroke-width: 3px;
+}
+.isl-sl-captxt.is-after {
+  fill: #f2b544;
+}
+.isl-sl-overarw {
+  fill: #ff8a7a;
+}
+.isl-sl-overline {
+  stroke: #ff8a7a;
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+.isl-sl-overtxt {
+  font-size: 12px;
+  font-weight: 800;
+  fill: #ff8a7a;
+  paint-order: stroke;
+  stroke: #16213a;
+  stroke-width: 3px;
+}
+.isl-sl-slegend {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+.isl-sl-key.is-mat i,
+.isl-sl-key.is-good i,
+.isl-sl-key.is-fc i {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 2px;
+}
+.isl-sl-key.is-mat i {
+  background: #3a8fd8;
+}
+.isl-sl-key.is-good i {
+  background: radial-gradient(circle, #6b2c55 1px, #c0609a 1.3px) 0 0 / 5px 5px;
+}
+.isl-sl-key.is-fc i {
+  background: repeating-linear-gradient(45deg, #b8c0d4 0 1.5px, #265281 1.5px 4px);
+}
+.isl-sl-key.is-cap i {
+  border-top: 2px solid #f4f1ea;
+}
+.isl-sl-key.is-cap1 i {
+  border-top: 2px dotted #f2b544;
+}
+.isl-sl-snote {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #e6e1d6;
+}
+/* カードの倉庫のグラフ（セリフの下） */
+.isl-cardm-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 6px 8px;
+  border: 2px solid #0f1626;
+  border-radius: 8px;
+  background: #1b2846;
 }
 /* メーター */
 .isl-sl-meters {

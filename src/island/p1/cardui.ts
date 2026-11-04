@@ -30,11 +30,13 @@ import {
   type ChooseRes,
 } from './card';
 import { rankOf } from './heroui';
-import { staffOf, type P1State } from './model';
+import { poolCap, staffOf, type P1State } from './model';
 import { traitOf } from './persona';
 import { landDef, relOf, relTeaser } from './diplo';
 import { after, type Ctx } from './screens';
-import { openProposal } from './proposalui';
+import { openProposal, storeBlock } from './proposalui';
+import { afterOf, planOf } from './plan';
+import { useUpOf } from './proj';
 import { shelfGate } from './stock';
 import { openShelfChoice } from './stockui';
 import { btn, h, heroIcon, heroName, money, recLine, rich } from './ui';
@@ -114,6 +116,15 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
   const say = h('div', 'isl-cardm-say');
   say.append(t('「', '“'), rich(sayOf(s, c)), t('」', '”'));
   main.append(say);
+  // 段 UI7f：倉庫の提案は、セリフが指すグラフ（月末の中身の棒・容量・同じペースの予想。推奨の手の承認後も重ねる）
+  if (c.issue.k === 'store') {
+    const ch = c.choices[shownRec(s, c)];
+    const plan = ch?.act.k === 'do' ? planOf(s, [ch.act.a], { hero: c.hero, q: c.q, dept: c.dept }) : null;
+    const aft = plan ? { cap: poolCap(afterOf(s, plan)), free: useUpOf(s, plan)?.mats ?? 0, days: useUpOf(s, plan)?.days } : null;
+    const box = h('div', 'isl-cardm-chart');
+    box.append(storeBlock(s, aft, true));
+    main.append(box);
+  }
   // 段 P2：組み合わせは、史実の一言（伝承・創作はそう書いてある）
   if (c.src === 'duo' && c.duo) main.append(h('small', 'isl-cardm-note', DUO_BY_ID[c.duo.id]?.note() ?? ''));
   body.append(main, h('div', 'isl-cardm-gap'));
@@ -152,7 +163,7 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
       if (plan) {
         const prop = (p: typeof plan) =>
           openProposal(ctx, p, {
-            say: sayOf(s, c),
+            say: sayOf(s, c, k),
             role: roleOfCard(s, c).text,
             later: true,
             rec: isRec,

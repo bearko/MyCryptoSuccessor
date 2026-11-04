@@ -28,6 +28,7 @@ import { goodsName } from './moves';
 import { heroSay, say as toneSay, toneOf, type Tone } from './persona';
 import { voiceOf, voiceSay } from './voice';
 import { projNeeded, projOf, type PMonth, type Proj } from './proj';
+import { storeFc, whenFull } from './storefc';
 
 // ---------------------------------------------------------------- 型
 
@@ -267,15 +268,15 @@ function askWhat(s: P1State, p: Plan, gr: { act: number; at: number[]; kind: Ask
 // ---------------------------------------------------------------- 要約の一言（ヒーローの口から）
 
 /** 口調の型ごとの言い回し：主な手・同じ部門のもう 1 つの手・ほかの部門に頼む手 */
-const PITCH: Record<Tone, { up: (m: string) => string; main: (x: string) => string; also: (y: string) => string; ask: (y: string, d: string) => string }> = {
-  polite: { up: (m) => `${m}が上がります。`, main: (x) => `${x}をしましょう。`, also: (y) => `${y}も進めたいです。`, ask: (y, d) => `${y}は${d}にお願いしたいです。` }, // i18n-ja
-  warrior: { up: (m) => `${m}が上がるぞ。`, main: (x) => `${x}で攻めるべし。`, also: (y) => `${y}も手配いたす。`, ask: (y, d) => `${y}は${d}に頼み申す。` }, // i18n-ja
-  leader: { up: (m) => `${m}を上げる。`, main: (x) => `${x}を打つべきだ。`, also: (y) => `${y}も進める。`, ask: (y, d) => `${y}は${d}に任せたい。` }, // i18n-ja
-  scholar: { up: (m) => `${m}が向上します。`, main: (x) => `${x}が最善です。`, also: (y) => `${y}も併せて行います。`, ask: (y, d) => `${y}は${d}に依頼します。` }, // i18n-ja
-  cheer: { up: (m) => `${m}が上がるよ！`, main: (x) => `${x}をやろうよ！`, also: (y) => `${y}もね！`, ask: (y, d) => `${y}は${d}にお願い！` }, // i18n-ja
-  merchant: { up: (m) => `${m}が伸びますよ。`, main: (x) => `${x}で稼ぎましょう。`, also: (y) => `${y}も仕込みます。`, ask: (y, d) => `${y}は${d}に頼みます。` }, // i18n-ja
-  easy: { up: (m) => `${m}が上がるねえ。`, main: (x) => `${x}、やってみようかねえ。`, also: (y) => `${y}もねえ。`, ask: (y, d) => `${y}は${d}に任せようかねえ。` }, // i18n-ja
-  quiet: { up: (m) => `${m}、上がる。`, main: (x) => `${x}を推す。`, also: (y) => `${y}も。`, ask: (y, d) => `${y}は${d}へ依頼。` }, // i18n-ja
+const PITCH: Record<Tone, { up: (m: string) => string; main: (x: string) => string; also: (y: string) => string; ask: (y: string, d: string) => string; full: (w: string) => string }> = {
+  polite: { up: (m) => `${m}が上がります。`, main: (x) => `${x}をしましょう。`, also: (y) => `${y}も進めたいです。`, ask: (y, d) => `${y}は${d}にお願いしたいです。`, full: (w) => `このペースだと${w}あふれます。` }, // i18n-ja
+  warrior: { up: (m) => `${m}が上がるぞ。`, main: (x) => `${x}で攻めるべし。`, also: (y) => `${y}も手配いたす。`, ask: (y, d) => `${y}は${d}に頼み申す。`, full: (w) => `このままでは${w}あふれるぞ。` }, // i18n-ja
+  leader: { up: (m) => `${m}を上げる。`, main: (x) => `${x}を打つべきだ。`, also: (y) => `${y}も進める。`, ask: (y, d) => `${y}は${d}に任せたい。`, full: (w) => `このペースなら${w}あふれる。` }, // i18n-ja
+  scholar: { up: (m) => `${m}が向上します。`, main: (x) => `${x}が最善です。`, also: (y) => `${y}も併せて行います。`, ask: (y, d) => `${y}は${d}に依頼します。`, full: (w) => `このペースでは${w}あふれる計算です。` }, // i18n-ja
+  cheer: { up: (m) => `${m}が上がるよ！`, main: (x) => `${x}をやろうよ！`, also: (y) => `${y}もね！`, ask: (y, d) => `${y}は${d}にお願い！`, full: (w) => `このままだと${w}あふれちゃう！` }, // i18n-ja
+  merchant: { up: (m) => `${m}が伸びますよ。`, main: (x) => `${x}で稼ぎましょう。`, also: (y) => `${y}も仕込みます。`, ask: (y, d) => `${y}は${d}に頼みます。`, full: (w) => `このペースだと${w}あふれますよ。` }, // i18n-ja
+  easy: { up: (m) => `${m}が上がるねえ。`, main: (x) => `${x}、やってみようかねえ。`, also: (y) => `${y}もねえ。`, ask: (y, d) => `${y}は${d}に任せようかねえ。`, full: (w) => `このままだと${w}あふれるねえ。` }, // i18n-ja
+  quiet: { up: (m) => `${m}、上がる。`, main: (x) => `${x}を推す。`, also: (y) => `${y}も。`, ask: (y, d) => `${y}は${d}へ依頼。`, full: (w) => `${w}あふれる。` }, // i18n-ja
 };
 /**
  * 段 UI7e：推奨が「見送る」のときの言い回し（シゴデキの原則：自分の見積もりで損になる手を「最善」と勧めない）。
@@ -348,7 +349,7 @@ const plen = (x: string) => [...x].length;
  * 口調は persona.ts の型、呼び方は史実の調査のあるヒーローなら voice.ts の呼び方。テンプレートと差し込みで作り、PITCH_MAX 字に収める
  * （長ければ呼び方 → 2 つ目の手の順に落とす）。dept：提案した部門（ほかの部門の手は「○○部に…」）
  */
-export function pitchOf(hero: number | null, acts: PropAct[], dept: DeptId | null, lead: string | null = null, shelves = false): string {
+export function pitchOf(hero: number | null, acts: PropAct[], dept: DeptId | null, lead: string | null = null, shelves = false, full: string | null = null): string {
   const noun = (a: PropAct) => actNoun(a, shelves && a.k === 'clear');
   if (!acts.length) return t('このまま進めましょう。', 'Let’s keep going as is.');
   const d0 = dept ?? actDept(acts[0]);
@@ -358,7 +359,7 @@ export function pitchOf(hero: number | null, acts: PropAct[], dept: DeptId | nul
   const sub = rest.find((a) => actDept(a) !== d0) ?? rest[0] ?? null;
   const more = rest.length > 1;
   if (isEn) {
-    const a = `${lead ? `It lifts ${lead}. ` : ''}Let’s go for ${noun(main)}.`;
+    const a = `${full ? `At this pace storage fills ${full}. ` : ''}${lead ? `It lifts ${lead}. ` : ''}Let’s go for ${noun(main)}.`;
     if (!sub) return a;
     return actDept(sub) !== d0 ? `${a} I’d ask ${DEPT[actDept(sub)].name} for ${noun(sub)}${more ? ' and more' : ''}.` : `${a} Also ${noun(sub)}${more ? ' and more' : ''}.`;
   }
@@ -369,7 +370,8 @@ export function pitchOf(hero: number | null, acts: PropAct[], dept: DeptId | nul
   // 自分の部門の手が無い（予算の頼みでほかの部門のパネルなど）：主な手から「○○部に…」
   const first = actDept(main) !== d0 ? T.ask(noun(main), deptShort(actDept(main))) : T.main(noun(main));
   // 段 UI7c：方針の大事な指標が上がるなら、それを先に（「ブランドが上がります。店頭イベントをしましょう。」）
-  const up = lead ? T.up(lead) : '';
+  // 段 UI7f：倉庫の提案は、あふれる先の見込み（「このペースだと 3 か月後にあふれます。」）を頭に
+  const up = (full ? T.full(full) : '') + (lead ? T.up(lead) : '');
   const body = `${up}${first}${second}`;
   // 呼び方：史実の調査のあるヒーローはその人の呼び方（「殿」「社長」）。マインちゃんは「社長」
   const to = hero == null ? '社長' : (voiceOf(hero)?.to ?? null); // i18n-ja
@@ -543,6 +545,9 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
     why: '',
   };
   b.theme = themeOf(p, dept);
+  // 段 UI7f：倉庫の提案で、承認するとあふれる日が延びる（来ない）なら、要約の一言はあふれる先の見込みから
+  const M = vals.months;
+  if (b.theme === 'store' && M?.full0 != null && M.full0 >= 1 && (M.full1 == null || M.full1 > M.full0 + 1)) b.pitch = pitchOf(p.hero, p.acts, dept, leadOf(vals.policy, vals), asks.some((x) => x.kind === 'shelf'), whenFull(M.full0));
   b.bg = bgOf(s, p, b);
   b.say = sayOfTheme(s, p, b);
   b.rk = riskList(s, p, b, base, after);
@@ -605,7 +610,7 @@ export interface Values {
    * 長期の指標は合計）。jam0・jam1：倉庫があふれて入荷が止まるか（このまま・承認後）・out0：このままで在庫が切れる月・room：空く置き場所・
    * use：使い切りの手で作る品（数・日数・月ごとに売れる数・売上・並ぶお店）
    */
-  months?: { now: number[]; after: number[]; jam0: boolean; jam1: boolean; out0: number | null; room: number; use?: Proj['use'] };
+  months?: { now: number[]; after: number[]; jam0: boolean; jam1: boolean; out0: number | null; room: number; use?: Proj['use']; full0: number | null; full1: number | null; cut: number; ramp: number | null };
 }
 /** 指標のアイコンと名前 */
 export const METRIC_TEXT: Record<ValueKey, { icon: string; name: () => string; short: () => string }> = {
@@ -775,7 +780,7 @@ export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1Sta
     else parts[m.key] = W[m.key] * m.d * POLICY.unit[m.key] * scale;
   }
   const value = Object.values(parts).reduce((a, x) => a + x, 0);
-  const months = P ? { now: P.now, after: P.after.map((x, k) => (k ? x : x - cost.money)), jam0: P.jam0, jam1: P.jam1, out0: P.out0, room: P.room, ...(P.use ? { use: P.use } : {}) } : null;
+  const months = P ? { now: P.now, after: P.after.map((x, k) => (k ? x : x - cost.money)), jam0: P.jam0, jam1: P.jam1, out0: P.out0, room: P.room, ...(P.use ? { use: P.use } : {}), full0: P.full0, full1: P.full1, cut: P.cut, ramp: P.ramp } : null;
   return { policy, names, list, value, parts, scale, rpG, ...(shot ? { shot } : {}), ...(months ? { months } : {}) };
 }
 
@@ -806,6 +811,17 @@ function projWhy(P: Proj, M: number): string {
   if (P.jam0) bits.push(P.out0 != null ? t(`このままだと倉庫があふれて素材が入らず、作業台が止まる（お店は在庫だけを売り、${P.out0} か月目に売り切れる）`, `As is, storage stays full, materials can’t come in and benches stop (shops sell only stock, which runs out in month ${P.out0})`) : t('このままだと倉庫があふれて素材が入らず、作業台が止まる（お店は在庫だけを売る）', 'As is, storage stays full, materials can’t come in and benches stop (shops sell only stock)'));
   if (P.jam0 && !P.jam1) bits.push(t(`承認後は置き場所が ${Math.round(P.room)} 個空き、調達と製造が戻る`, `After approval, ${Math.round(P.room)} spaces free up and buying and crafting resume`));
   if (P.jam0 && P.jam1) bits.push(t('承認後も倉庫はあふれたまま', 'Storage stays full even after approval'));
+  // 段 UI7f：このペースで倉庫があふれる日（月末の記録の増え方）と、あふれたあと
+  if (P.full0 != null) {
+    const c = Math.round(P.cut);
+    const w = P.full0 < 1 ? t('倉庫はもうあふれていて', 'Storage is already full') : t(`このペースだと ${Math.round(P.full0)} 日目に倉庫があふれ`, `At this pace storage fills on day ${Math.round(P.full0)}`);
+    const after = [
+      P.ramp != null ? t(`たまる素材で調達する素材の置き場所が ${Math.round(P.ramp)} 日でなくなり、調達も製造も止まる（お店は在庫だけ）`, `piling materials squeeze out buying space within ${Math.round(P.ramp)} days and buying and crafting stop (shops sell only stock)`) : '',
+      c > 0 ? t(`作る数が売れ残りの増えぶん（月 ${c} 個）減る（売上は減らない）`, `output drops by the unsold growth (${c}/mo; sales don’t drop)`) : '',
+    ].filter(Boolean).join(t('・', '; '));
+    bits.push(t(`${w}、そこから調達係は空いたぶんしか買えない。${after}`, `${w}; then buyers only refill freed space. ${after}`));
+    bits.push(P.full1 == null ? t(`承認後は ${M} か月のうちにあふれない`, `After approval it doesn’t fill within ${M} months`) : P.full1 > P.full0 + 0.5 ? t(`承認後は ${Math.round(P.full1)} 日目にあふれる（${Math.round(P.full1 - P.full0)} 日遅れる）`, `After approval it fills on day ${Math.round(P.full1)} (${Math.round(P.full1 - P.full0)} days later)`) : t(`承認後も ${Math.round(P.full1)} 日目にあふれる`, `After approval it still fills on day ${Math.round(P.full1)}`));
+  }
   const u = P.use;
   if (u) {
     const per = u.sold.slice(1).find((n) => n > 0.05) ?? 0;
@@ -973,6 +989,14 @@ export function bgOf(s: P1State, p: Plan, b: Pick<Brief, 'now' | 'vals' | 'theme
       if (th === 'store') {
         const cap = poolCap(s);
         out.push(t(`置き場所 ${Math.round((poolUsed(s) / Math.max(1, cap)) * 100)}%（${poolUsed(s)} / ${cap} 個）— 倉庫の数字`, `Storage ${Math.round((poolUsed(s) / Math.max(1, cap)) * 100)}% (${poolUsed(s)} / ${cap}) — warehouse`));
+        // 段 UI7f：月の増え方（月末の記録の実績か、先月の流れの数）と、あふれる先
+        const F = storeFc(s);
+        if (F.src !== 'none') {
+          const pm = Math.round(F.perDay * DAYS);
+          const from = F.src === 'hist' ? t(`直近 ${F.hist.length} か月の月末の記録`, `last ${F.hist.length} month-end records`) : t('先月の買った・作った・運んだ数', 'last month’s bought, made and hauled');
+          const when = F.days != null ? t(`。${whenFull(F.days)}あふれる`, `; fills ${whenFull(F.days)}`) : '';
+          out.push(t(`倉庫の中身の増え 月 ${pm >= 0 ? '+' : '−'}${Math.abs(pm)} 個${when} — ${from}`, `Storage grows ${pm >= 0 ? '+' : '−'}${Math.abs(pm)}/mo${when} — ${from}`));
+        }
       }
       // 4 段の細いところ（物流・設備・システム・経営企画）
       if (th === 'flow' || th === 'legal') {
