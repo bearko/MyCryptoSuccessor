@@ -344,6 +344,29 @@ describe('段 K へのつなぎ口', () => {
   });
 });
 
+describe('段 UI7c の setPolicy を年初の回から呼べる（段 K の置き場所の確かめ）', () => {
+  it('BOARD_FINISH_HOOKS で年初の回だけ setPolicy を呼ぶと、会議を閉じたときに方針が決まる（ほかの回は変えない）', async () => {
+    const { setPolicy, policyOf } = await import('../src/island/p1/policy');
+    const s = withAgenda();
+    const f = (x: P1State, a: { q: number }) => {
+      if (isYearOpening(a)) setPolicy(x, 'growth');
+    };
+    BOARD_FINISH_HOOKS.push(f);
+    try {
+      boardOf(s).agenda!.q = 2;
+      boardAuto(s);
+      expect(policyOf(s)).toBe('balance');
+      const m = Math.round(s.day / 30);
+      boardQuarter(s, 4, m);
+      expect(isYearOpening(boardOf(s).agenda!)).toBe(true);
+      boardAuto(s);
+      expect(policyOf(s)).toBe('growth');
+    } finally {
+      BOARD_FINISH_HOOKS.splice(BOARD_FINISH_HOOKS.indexOf(f), 1);
+    }
+  });
+});
+
 describe('セーブ（版 26）', () => {
   it('版 25 のセーブは 26 へ（会議・目標は空から）。26 はそのまま（議題・目標が残る）', () => {
     const s = withAgenda();

@@ -119,6 +119,7 @@ import {
   DEPTS,
   type HeroRarity,
   type PassiveKind,
+  type PolicyId,
   type PromoItem,
 } from './data';
 import { addXp, baseStats, initGrowth, levelForXp, passiveMul, passiveSum, promoteStaff, syncGrowth, type LevelUp, type PromoErr } from './hero';
@@ -411,6 +412,8 @@ export interface Flags {
   spots?: Record<string, [number, number, Dir]>;
   /** 「人材の募集」を開放したあと、人事タブで人材登用のアンロックの演出を見た */
   hireUnlocked?: boolean;
+  /** 段 UI7c：マインちゃんが経営方針を聞いた（1 回だけ） */
+  policyAsked?: boolean;
   /** 建築の一覧で、ロックが外れる演出を見たカテゴリ */
   buildCats?: string[];
   /** 到着の案内を見たセクタ（id） */
@@ -693,6 +696,11 @@ export interface P1State {
    * 前の四半期の結果・数え。会社のもの（災害でも残る）。無ければ、次の四半期の締めから
    */
   board?: BoardState;
+  /**
+   * 段 UI7c：経営方針（社長の価値観。policy.ts）。提案書の推奨・要約の一言・部長の提案の並び・束ね方だけに使い、ゲームの数字には効かせない。
+   * 無くてよい（無ければ「バランス」）ので、セーブの版は上げない
+   */
+  policy?: PolicyId;
 }
 
 /** ランクアップの災害 1 回の記録（演出・自動プレイの計測） */

@@ -9,6 +9,7 @@ import { aptitude, type Task } from './data';
 import {
   approveCard,
   planOfChoice,
+  shownRec,
   PROPOSAL_SRC,
   canTrust,
   cardInbox,
@@ -119,11 +120,14 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
   // 選択肢（下にそろえる。おすすめは金色）
   const chs = h('div', 'isl-cardm-ch');
   // 並び：おすすめ（金色）を 1 つ目に、ほかはもとの順（見込みの大きい順。「このまま」は最後）。選ぶときはもとの番号で
-  const order = c.choices.map((_, k) => k).sort((a, b) => Number(!!c.choices[b].rec) - Number(!!c.choices[a].rec) || a - b);
+  // 段 UI7c：推奨の札は社長の経営方針の価値で（card.ts の shownRec）。任せる（★3）の手は、もとの推奨（お金の見込み）のまま
+  const rk = shownRec(s, c);
+  const order = c.choices.map((_, k) => k).sort((a, b) => Number(b === rk) - Number(a === rk) || a - b);
   for (const k of order) {
     const ch = c.choices[k];
+    const isRec = k === rk;
     const x = choiceText(s, c, ch);
-    const b = h('button', `isl-cardm-btn ${ch.rec ? 'is-rec' : ''}`);
+    const b = h('button', `isl-cardm-btn ${isRec ? 'is-rec' : ''}`);
     b.type = 'button';
     b.dataset.k = String(k);
     // 払えない手は理由を赤で（資金・研究ポイント）。おすすめは払える手のうち見込みのいちばん大きいもの
@@ -138,8 +142,8 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
       sub.append(h('span', 'isl-nw', part));
     });
     // 段 UI5d：推奨の手には「推奨」の札。段 UI7b：提案書へ進む選択肢は「📄 提案書を見る」（部長との会話と同じ文言）
-    lab.append(recLine(`${x.icon} ${x.label}`, ch.rec), sub);
-    if ((ch.act.k === 'do' || ch.act.k === 'approve') && planOfChoice(s, c, k)) lab.append(h('small', 'isl-cardm-go', t('📄 提案書を見る ›', '📄 See the proposal ›')));
+    lab.append(recLine(`${x.icon} ${x.label}`, isRec), sub);
+    if (ch.act.k === 'do' || (ch.act.k === 'approve' && s.deleg?.inbox.some((p) => p.id === (ch.act as { pid: number }).pid))) lab.append(h('small', 'isl-cardm-go', t('📄 提案書を見る ›', '📄 See the proposal ›')));
     if (why) lab.append(h('small', 'isl-bad', why));
     b.append(lab);
     b.addEventListener('click', () => {
@@ -151,7 +155,7 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
             say: sayOf(s, c),
             role: roleOfCard(s, c).text,
             later: true,
-            rec: !!ch.rec,
+            rec: isRec,
             card: c.id,
             approve: (pp) => approveCard(s, c.id, pp),
             done: (w) => {
