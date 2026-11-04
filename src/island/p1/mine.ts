@@ -10,7 +10,7 @@
 import { isEn, t } from '../../i18n';
 import { heroById } from '../../game/catalog';
 import { introFirstStep, P1B, TABLET_KNOW, type Tier } from './data';
-import { slotsOf } from './policy';
+import { slotPending } from './policy';
 import { sectorDef, tierLabel } from './company';
 import { digMet, meetTip, topicsPage } from './digmeet';
 import { has, jamOf, stallOf, myShops, myWorkshop, rivalMonthGuess, type P1State, type Stage } from './model';
@@ -231,9 +231,9 @@ export function deptTalkNext(s: P1State, ui: TalkUi, o: { intro: boolean; reset:
   if (!s.flags.budgetTalk && s.flags.salesTalk && budgetOpen(s)) return 'budget';
   if (!s.flags.acctTalk && depts.includes('accounting') && tier !== 'C') return 'acct';
   if (!s.flags.csTalk && s.flags.acctTalk && depts.includes('support') && tier !== 'C') return 'cs';
-  // 段 K：初めて石板のノウハウを読んだ（経営方針が増える）・初めて全社方針の枠が増えた
+  // 段 K：初めて石板のノウハウを読んだ（経営方針が増える）。段 K2：初めて「全社方針の枠 +1」（ランクアップの特別なパネル）が受け取れるようになった
   if (!s.flags.polKnowTalk && (s.tablets ?? []).some((x) => !!TABLET_KNOW[x])) return 'polKnow';
-  if (!s.flags.polSlotTalk && slotsOf(s) > 1) return 'polSlot';
+  if (!s.flags.polSlotTalk && slotPending(s) > 0) return 'polSlot';
   return null;
 }
 

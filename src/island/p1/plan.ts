@@ -901,6 +901,19 @@ const actShort = (a: PropAct, s?: P1State): string => {
   }
 };
 /** 段 UI5c：在庫と素材を売る手（売りさばき・使い切りの製造）だけの提案書 */
+/**
+ * 段 K2：使い切りの手（作り終えたら元に戻る 1 回きりの手）か。手の種類で決める：いまの素材で作る（useup。作り終えたら作業台は元の商品に戻る）。
+ * 12 か月の長期の見積もりでは、2 か月目からを「このまま」と同じ月として計算する（brief.ts の valuesOf）
+ */
+export const oneShotStep = (st: Step) => st.k === 'useup';
+/** 使い切りの手を含む提案か */
+export const hasOneShot = (p: Pick<Plan, 'steps'>) => p.steps.some(oneShotStep);
+/** 使い切りの手を外した提案（2 か月目から残る変わり方。残る手が無ければ null＝「このまま」と同じ） */
+export function lastingPlan(p: Plan): Plan | null {
+  const keep = p.steps.map((st, k) => ({ st, k })).filter((x) => !oneShotStep(x.st));
+  if (!keep.length) return null;
+  return { ...p, steps: keep.map((x) => x.st), ...(p.of ? { of: keep.map((x) => p.of![x.k]) } : {}) };
+}
 export const stockPlan = (p: Plan) => p.steps.length > 0 && p.steps.every((x) => x.k === 'clear' || x.k === 'useup' || x.k === 'worker');
 /** 値引きの段の名前 */
 export const clearName = (k: number) => ((CLEAR.cuts[k] ?? 0) > 0 ? t(`${Math.round(CLEAR.cuts[k] * 10)} 割引`, `${Math.round(CLEAR.cuts[k] * 100)}% off`) : t('値引きなし', 'no discount'));

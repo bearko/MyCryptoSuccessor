@@ -278,11 +278,11 @@ describe('5. セーブ（版 10）', () => {
     const o = JSON.parse(serializeP1(s));
     o.v = 9;
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(27);
+    expect(back.v).toBe(28);
     expect(back.letters).toEqual(['U', 'R']);
     expect(letterProgress(back, 'R')).toBeNull();
     // 新しいゲームは版 10
-    expect(newP1(1).v).toBe(27);
+    expect(newP1(1).v).toBe(28);
     void setLevel;
   });
 });

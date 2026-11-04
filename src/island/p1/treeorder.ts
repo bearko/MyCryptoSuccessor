@@ -85,7 +85,7 @@ export const TREE_ORDER: Record<string, string[]> = {
   'strategy|C|1': ['pace2', 'budget'],
   'strategy|C|2': ['pdca'],
   'strategy|U': ['u_ops_2', 'u_ops_3', 'pr', 'u_ops_1', 'u_ops_d'],
-  'strategy|R': ['pol_slots', 'r_ops_1', 'r_ops_2', 'r_ops_3', 'r_ops_4', 'holding', 'r_ops_d'],
+  'strategy|R': ['r_ops_1', 'r_ops_2', 'r_ops_3', 'r_ops_4', 'holding', 'r_ops_d'],
   'strategy|E': ['e_ops_3', 'e_ops_2', 'e_ops_d', 'e_ops_1', 'e_ops_5', 'e_ops_4'],
   'strategy|L': ['l_ops_1', 'l_ops_d', 'l_ops_4', 'l_ops_5', 'l_ops_3', 'l_ops_2'],
   'sales|E': ['pol_sa'],

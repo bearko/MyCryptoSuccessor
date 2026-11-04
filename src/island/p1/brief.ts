@@ -20,7 +20,7 @@ import { moraleAvg as moraleNow, moraleTarget, payGap, wantsToQuit } from './hr'
 import { fatigueAvg } from './ga';
 import { envPanels } from './hr';
 import { corpOf, deptPolicyOf, POL_OFF, policyName, policyOf, weightsOf } from './policy';
-import { afterOf, baseOf, flowOf, planBlock, planCost, planOf, planTitle, stockPlan, type Plan, type PlanCost } from './plan';
+import { afterOf, baseOf, flowOf, hasOneShot, lastingPlan, planBlock, planCost, planOf, planTitle, stockPlan, type Plan, type PlanCost } from './plan';
 import { heroNm, reserveOf, type PropAct, type Proposal } from './deleg';
 import { amountOf, budgetDepts, budgetOpen, deptBudget, restOf } from './budget';
 import { cardInbox } from './card';
@@ -548,6 +548,8 @@ export interface Values {
   /** お金以外の 1 つぶんを G に直す目安（月の売上 × POLICY.unit。下限 POLICY.floor）・RP 1 の値段 */
   scale: number;
   rpG: number;
+  /** 段 K2：使い切りの手（いまの素材で作る）を含む：長期の 2 か月目からは「このまま」と同じ月（スライド ④ の注記） */
+  shot?: boolean;
 }
 /** 指標のアイコンと名前 */
 export const METRIC_TEXT: Record<ValueKey, { icon: string; name: () => string; short: () => string }> = {
@@ -643,7 +645,8 @@ function baseInfo(s: P1State, base: P1State, so: boolean) {
 /**
  * 期待効果の指標と方針の価値（段 UI7c）。式：
  * - 短期利益 ＝ 次の 1 か月の利益の差 − 導入
- * - 長期利益 ＝ 1 か月目の差 ＋ 落ち着いたとき（settleOf）の月の差 × 11 − 導入（宣伝は 1 か月目だけ効く）
+ * - 長期利益 ＝ 1 か月目の差 ＋ 落ち着いたとき（settleOf）の月の差 × 11 − 導入（宣伝は 1 か月目だけ効く）。
+ *   段 K2：使い切りの手（いまの素材で作る。plan.ts の oneShotStep）は 2 か月目から元に戻るので、その手を外した提案（無ければ「このまま」）の落ち着いた月で数える
  * - 士気・満足度：上の moraleAvg・satSettle の差。ブランド：月の増え × 12。研究：月の見込み × 12 − 使う RP
  * - 価値 ＝ Σ 方針の重み × 指標（お金以外は scale × POLICY.unit・RP は寄付の値段で G に）。使う RP は短期の重みで引く
  */
@@ -659,7 +662,17 @@ export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1Sta
   const brand1 = brandRate(after, sat1 ?? (csOn(after) ? after.cs?.sat ?? null : null));
   const morale1 = moraleAvg(after);
   const rp1 = rpRate(s, after);
-  const set1 = monthOf(settleOf(after, sat1, brand1), cost.monthly, so);
+  // 2 か月目から：使い切りの手は元に戻る（その手を外した提案。残る手が無ければ「このまま」と同じ月）
+  const shot = hasOneShot(p);
+  const rest = shot ? lastingPlan(p) : p;
+  let set1: Month;
+  if (!rest) set1 = { ...B.settled[so ? 1 : 0], monthly: cost.monthly, cost: B.settled[so ? 1 : 0].cost + cost.monthly, profit: B.settled[so ? 1 : 0].profit - cost.monthly };
+  else if (rest === p) set1 = monthOf(settleOf(after, sat1, brand1), cost.monthly, so);
+  else {
+    const a2 = afterOf(s, rest);
+    const sat2 = satSettle(s, a2);
+    set1 = monthOf(settleOf(a2, sat2, brandRate(a2, sat2 ?? (csOn(a2) ? a2.cs?.sat ?? null : null))), cost.monthly, so);
+  }
   const M = POLICY.months;
   const list: Metric[] = [];
   const shortNow = now.profit;
@@ -667,7 +680,10 @@ export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1Sta
   list.push({ key: 'short', now: shortNow, after: shortAft, d: shortAft - shortNow, why: t('短期：次の 1 か月の利益（宣伝は効く日数で日割り）から導入の費用を引いたもの', 'Short: next month’s profit (ads pro-rated) minus setup') });
   const longNow = now.profit + B.settled[so ? 1 : 0].profit * (M - 1);
   const longAft = aft.profit + set1.profit * (M - 1) - cost.money;
-  list.push({ key: 'long', now: longNow, after: longAft, d: longAft - longNow, why: t(`長期：1 か月目 ＋ 落ち着いたときの月の利益 × ${M - 1} − 導入（宣伝は 1 か月目だけ。士気・満足度・ブランドの売上への効きも入れる）`, `Month 1 + settled monthly profit × ${M - 1} − setup (ads only in month 1; includes morale, satisfaction and brand effects on sales)`) });
+  const longWhy = shot
+    ? t(`長期：1 か月目 ＋ 落ち着いたときの月の利益 × ${M - 1} − 導入。いまの素材で作るのは 1 回きり（作り終えたら作業台は元の商品に戻る）なので、2 か月目からは「このまま」と同じ月として計算`, `Month 1 + settled monthly profit × ${M - 1} − setup. Crafting from stock is one-off (the bench goes back to its product), so months 2+ count as “as is”`)
+    : t(`長期：1 か月目 ＋ 落ち着いたときの月の利益 × ${M - 1} − 導入（宣伝は 1 か月目だけ。士気・満足度・ブランドの売上への効きも入れる）`, `Month 1 + settled monthly profit × ${M - 1} − setup (ads only in month 1; includes morale, satisfaction and brand effects on sales)`);
+  list.push({ key: 'long', now: longNow, after: longAft, d: longAft - longNow, why: longWhy });
   if (B.morale != null && morale1 != null && Math.abs(morale1 - B.morale) >= 0.5) list.push({ key: 'morale', now: B.morale, after: morale1, d: morale1 - B.morale, why: t('士気：給与・職場の環境のパネル・役目などで決まる、全員の士気の目指す値の平均（人事）', 'Average morale target from pay, workplace panels, roles (HR)') });
   if (B.sat != null && sat1 != null && Math.abs(sat1 - B.sat) >= 0.5) {
     const r = [...s.reports].reverse().find((x) => x.cs);
@@ -692,7 +708,7 @@ export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1Sta
     else parts[m.key] = W[m.key] * m.d * POLICY.unit[m.key] * scale;
   }
   const value = Object.values(parts).reduce((a, x) => a + x, 0);
-  return { policy, names, list, value, parts, scale, rpG };
+  return { policy, names, list, value, parts, scale, rpG, ...(shot ? { shot } : {}) };
 }
 
 /** 方針の価値（束ね方・並べ替えの比べ用。同じ base を渡すと、このまま側の計算を 1 回に） */

@@ -637,7 +637,7 @@ describe('発掘隊（仕事「発掘」）', () => {
 
 describe('スキルツリーの 2 区分', () => {
   it('お金パネルは技を除く 7 本 × 5 ランクの 35 枚と発掘の枝の 17 枚（Lv5 まで）＋研究への寄付、残りは研究パネル（レベルなし。無限の強化パネル 3 枚だけ上限なし）', () => {
-    // 段 K の経営方針のパネル（POL_SKILLS：研究 10・お金 1）は別に数える（tests/island-p1-stagek.test.ts）
+    // 段 K の経営方針のパネル（POL_SKILLS：研究 10。段 K2 で全社方針の枠のお金パネルはやめた）は別に数える（tests/island-p1-stagek.test.ts）
     const money = noPol(SKILLS).filter((k) => !isResearch(k));
     // ＋段 C：営業のお金パネル 4 枚（SALES_MONEY）・段 E2：人事のお金パネル 2 枚（HR_MONEY）・段 F：経理 3 枚（ACCT_MONEY）・総務 2 枚（GA_MONEY）・
     // 段 G：カスタマーサポート 1 枚（CS_MONEY）・マーケ 2 枚（MKT_MONEY）
@@ -776,7 +776,7 @@ describe('調査依頼状', () => {
 describe('セーブ', () => {
   it('新しいゲームは版 6・30 RP。発掘の進み・許可・研究ノートはセーブに残る', () => {
     const s = run(site());
-    expect([s.v, s.rp]).toEqual([27, 30]);
+    expect([s.v, s.rp]).toEqual([28, 30]);
     breakCell(s, 0, 0);
     endRun(s);
     s.research[1011] = 3;
@@ -808,7 +808,7 @@ describe('セーブ', () => {
     const m0 = o.money;
     const old = deserializeP1(JSON.stringify(o))!;
     // 版 1 → 2 → 3 → 4 → 5 と順に移す
-    expect(old.v).toBe(27);
+    expect(old.v).toBe(28);
     expect(old.dig!.sites).toHaveLength(4);
     expect(old.skills).toEqual(expect.arrayContaining(['host', 'golden', 'jig', 'lounge', 'd_shop']));
     expect([lvOf(old, 'host'), lvOf(old, 'golden'), lvOf(old, 'lounge'), lvOf(old, 'd_shop')]).toEqual([3, 1, 1, 1]);
@@ -848,7 +848,7 @@ describe('セーブ', () => {
     o.tablets = ['tab_c1'];
     o.presented = [];
     const back = deserializeP1(JSON.stringify(o))!;
-    expect(back.v).toBe(27);
+    expect(back.v).toBe(28);
     expect(back.rp).toBe(333);
     expect(back.research).toEqual({ [found]: 11, 1011: 4 });
     expect(back.tablets).toEqual(['tab_c1']);

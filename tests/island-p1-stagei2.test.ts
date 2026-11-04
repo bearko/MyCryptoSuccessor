@@ -398,11 +398,11 @@ describe('セーブ（版 26）', () => {
     o.v = 25;
     delete o.board;
     const x = deserializeP1(JSON.stringify(o))!;
-    expect(x.v).toBe(27);
+    expect(x.v).toBe(28);
     expect(x.board).toBeUndefined();
     const back = deserializeP1(serializeP1(s))!;
-    expect(back.v).toBe(27);
+    expect(back.v).toBe(28);
     expect(back.board).toEqual(s.board);
-    expect(newP1(1).v).toBe(27);
+    expect(newP1(1).v).toBe(28);
   });
 });

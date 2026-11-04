@@ -345,14 +345,14 @@ describe('セーブ（版 23）', () => {
     const d = duoDue(s, 0, false)!;
     applyDuo(s, d, 0);
     const back = deserializeP1(serializeP1(s))!;
-    expect(back.v).toBe(27);
+    expect(back.v).toBe(28);
     expect(back.duo!.found.chuhan.opt).toBe('compete');
     expect(back.duo!.found.chuhan.until).toBe(s.duo!.found.chuhan.until);
     const old = JSON.parse(serializeP1(s));
     old.v = 22;
     delete old.duo;
     const o = deserializeP1(JSON.stringify(old))!;
-    expect(o.v).toBe(27);
+    expect(o.v).toBe(28);
     expect(o.duo).toBeUndefined();
     expect(duoMorale(o, 5025)).toBe(0);
   });

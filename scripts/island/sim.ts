@@ -26,7 +26,7 @@ import { DELEG, DEPTS, type DeptId, type DutyId } from '../../src/island/p1/data
 import { deptLevel } from '../../src/island/p1/dept';
 import { BUDGET_OFF, budgetHeads, crewTotal, type BudgetStat } from '../../src/island/p1/budget';
 import { BOARD_OFF, boardAuto, boardDue, type BoardStat } from '../../src/island/p1/board';
-import { POL_OFF, corpOf, deptPolicyOf, polAutoFill, presDepts, slotsOf } from '../../src/island/p1/policy';
+import { POL_OFF, claimSlot, corpOf, deptPolicyOf, polAutoFill, presDepts, slotPending, slotsOf } from '../../src/island/p1/policy';
 import { POL, POL_PANELS, POL_SKILLS } from '../../src/island/p1/data';
 import { BUDGET } from '../../src/island/p1/data';
 import { CARD_SRCS, SIM_CARD_TAKE, cardInbox, chooseCard, simTake, type Card, type CardSrc, type CardStat } from '../../src/island/p1/card';
@@ -371,7 +371,7 @@ export interface RunResult {
   v30?: BudgetStat & { crewEnd: number; heads: number };
   /** v32（段 I2：経営会議と社内監査）：会議の数（自動プレイは全部「推奨」）・話し手・選んだ番号・期末の結果・監査の指摘 */
   v32?: BoardStat;
-  /** v33（段 K：経営方針）：発表会の数・部長の発表を替えた数・終わりの枠と方針の数・開いた方針・取った方針のパネル・枠のレベル */
+  /** v33（段 K：経営方針）：発表会の数・部長の発表を替えた数・終わりの枠と方針の数・開いた方針・取った方針のパネル・受け取った枠（v34 から。段 K2 のランクアップの特別なパネル） */
   v33?: { held: number; changed: number; slots: number; corp: number; dept: number; open: number; panels: number; slotLv: number };
 }
 
@@ -1395,7 +1395,8 @@ export function policy(s: P1State, c: Ctx): Action[] {
     }
   }
   // v33（段 K）：経営方針。標準の選び方（全社方針の空いた枠は開いた順・方針の無い部門は部長の推奨）と、経営方針のパネル（SIM_POL）
-  if (c.monthEnd && !POL_OFF.on) acts.push({ kind: 'skill', run: () => simPolicy(s, c.policy, budget, reserve) });
+  // v34（段 K2）：全社方針の枠 +1（ランクアップの特別なパネル）は、受け取れるようになった日にすぐ受け取る（どの方針も）
+  if ((c.monthEnd || slotPending(s) > 0) && !POL_OFF.on) acts.push({ kind: 'skill', run: () => simPolicy(s, c.policy) });
   // v19（段 E2）：士気と給与の手（SIM_HR）
   if (!HR_OFF.on) hrPlace(s, c, acts, budget, reserve);
   // v22（段 G）：カスタマーサポートとマーケの手（SIM_CS）
@@ -1410,18 +1411,22 @@ export function policy(s: P1State, c: Ctx): Action[] {
 
 /**
  * v33（段 K）：経営方針の自動プレイ。どの方針も、標準の選び方（policy.ts の polAutoFill：全社方針はバランスから、空いた枠は開いた順・
- * 事業別の方針は部長の推奨）。経営方針の研究パネルは、取れるようになったら RP が rpKeep を残して足りる月に取る。全社方針の枠のパネル（お金）は、
- * 手元に残すお金と枠のレベルの値段 × money を超える月に 1 段ずつ（最短は取らない）。年初の経営会議（発表会）は全部「推奨」（board の boardAuto）
+ * 事業別の方針は部長の推奨）。経営方針の研究パネルは、取れるようになったら RP が rpKeep を残して足りる月に取る。年初の経営会議（発表会）は全部「推奨」（board の boardAuto）。
+ * v34（段 K2）：全社方針の枠のパネル（お金）はやめた。ランクアップの特別なパネル「全社方針の枠 +1」（無償）は、どの方針も受け取れるようになったらすぐ受け取る
  */
-export const SIM_POL: Record<PolicyId, { panels: boolean; rpKeep: number; slots: boolean; money: number }> = {
-  rta: { panels: false, rpKeep: 0, slots: false, money: 0 },
-  normal: { panels: true, rpKeep: 150, slots: true, money: 3 },
-  full: { panels: true, rpKeep: 0, slots: true, money: 2 },
+export const SIM_POL: Record<PolicyId, { panels: boolean; rpKeep: number }> = {
+  rta: { panels: false, rpKeep: 0 },
+  normal: { panels: true, rpKeep: 150 },
+  full: { panels: true, rpKeep: 0 },
 };
 const polLog = { panels: 0, slots: 0 };
-function simPolicy(s: P1State, p: PolicyId, budget: number, reserve: number): string | null {
+function simPolicy(s: P1State, p: PolicyId): string | null {
   const P = SIM_POL[p];
   let did = false;
+  while (slotPending(s) > 0 && claimSlot(s) != null) {
+    polLog.slots++;
+    did = true;
+  }
   if (P.panels)
     for (const k of POL_SKILLS) {
       if (!isResearch(k) || skillLock(s, k) !== null || (s.rp ?? 0) - rpCost(k) < P.rpKeep) continue;
@@ -1430,15 +1435,6 @@ function simPolicy(s: P1State, p: PolicyId, budget: number, reserve: number): st
         did = true;
       }
     }
-  if (P.slots) {
-    const k = SKILL.pol_slots;
-    const cost = has(s, k.id) ? nextLevelCost(s, k) : k.cost;
-    const ok = has(s, k.id) ? levelLock(s, k) === null : skillLock(s, k) === null;
-    if (ok && budget >= reserve + cost * P.money && (has(s, k.id) ? levelUp(s, k.id) : learn(s, k.id)) == null) {
-      polLog.slots++;
-      did = true;
-    }
-  }
   const before = `${corpOf(s).join()}|${presDepts(s).map((d) => deptPolicyOf(s, d)).join()}`;
   polAutoFill(s);
   if (before !== `${corpOf(s).join()}|${presDepts(s).map((d) => deptPolicyOf(s, d)).join()}`) did = true;
@@ -3079,13 +3075,13 @@ export function tables(rep: Report2): string {
   }
   // v33（段 K）：経営方針
   if (rep.runs.some((r) => r.v33)) {
-    out.push('### 表 26：経営方針（v33。段 K）');
+    out.push('### 表 26：経営方針（v33。段 K・v34 で段 K2）');
     out.push('');
     out.push(
-      `シード ${seeds.join('・')} の平均（終わりの時点）。自動プレイの標準の選び方：全社方針はバランスから、空いた枠は開いた順・事業別の方針は部長の推奨（全社方針の重みにいちばん合うもの）・年初の経営会議（発表会）は全部「推奨」。経営方針の研究パネルは RP に余裕のある月に取り、全社方針の枠（お金パネル）は手元に残すお金 ＋ 値段 × ${SIM_POL.normal.money}（100% は × ${SIM_POL.full.money}）を超える月に 1 段ずつ（最短は取らない）。強さ ＝ 基本 ×（1 ＋ ${POL.lv} × 理解度（${POL.lvCap} まで））×（1 ＋ ${POL.head} × 部長の出来の帯）。提案の傾向 × ${1 + POL.tilt}。`,
+      `シード ${seeds.join('・')} の平均（終わりの時点）。自動プレイの標準の選び方：全社方針はバランスから、空いた枠は開いた順・事業別の方針は部長の推奨（全社方針の重みにいちばん合うもの）・年初の経営会議（発表会）は全部「推奨」。経営方針の研究パネルは RP に余裕のある月に取る。v34（段 K2）：全社方針の枠は、上のランクの町に初めて進出したときの特別なパネル「枠 +1」（無償）を、どの方針もすぐ受け取る（U 2・R 3・E 4・L 5 枠）。効き目の基本の値は段 K の 1.5 倍。強さ ＝ 基本 ×（1 ＋ ${POL.lv} × 理解度（${POL.lvCap} まで））×（1 ＋ ${POL.head} × 部長の出来の帯）。提案の傾向 × ${1 + POL.tilt}。`,
     );
     out.push('');
-    out.push('| 方針 | 発表会 | 部長の発表を替えた | 全社方針の枠 | 全社方針 | 事業別の方針の部門 | 開いた方針 | 取った方針のパネル | 枠のレベル上げ |');
+    out.push('| 方針 | 発表会 | 部長の発表を替えた | 全社方針の枠 | 全社方針 | 事業別の方針の部門 | 開いた方針 | 取った方針のパネル | 受け取った枠 +1 |');
     out.push('|---|---|---|---|---|---|---|---|---|');
     for (const p of pols) {
       const runs = rep.runs.filter((r) => r.policy === p);

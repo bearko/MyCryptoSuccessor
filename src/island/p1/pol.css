@@ -154,3 +154,87 @@
   color: #9be3a9;
   font-weight: 700;
 }
+
+/* 段 K2：全社方針の枠 +1（ランクアップの特別なパネル・無償）。方針の画面の全社方針の枠の所。光るパネルの形 */
+.isl-pv-gift {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #f2c86a;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #3b2f12, #263453);
+  color: #fff6dc;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  animation: isl-pv-glow 1.6s ease-in-out infinite;
+}
+.isl-pv-gift-ic {
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #f2c86a;
+  font-style: normal;
+  font-size: 24px;
+}
+.isl-pv-gift b {
+  font-size: 15px;
+}
+.isl-pv-gift small {
+  grid-column: 2;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #f6e3b4;
+}
+.isl-pv-gift-go {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #f2c86a;
+  color: #3b2a05;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+@keyframes isl-pv-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(242, 200, 106, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 14px 3px rgba(242, 200, 106, 0.75);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .isl-pv-gift,
+  .isl-pol-change.is-glow {
+    animation: none;
+  }
+}
+.isl-pv-slots {
+  display: grid;
+  gap: 2px;
+}
+.isl-pv-slot {
+  font-size: 12px;
+  color: #b9c3dc;
+}
+/* 受け箱の上の札：受け取れる枠があるとき */
+.isl-pol-gift {
+  margin: 0;
+  font-size: 12px;
+  color: #c98a1b;
+  font-weight: 800;
+}
+.isl-pol-change.is-glow {
+  animation: isl-pv-glow 1.6s ease-in-out infinite;
+}

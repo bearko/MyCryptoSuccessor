@@ -172,7 +172,7 @@ describe('従業員・労力・予算の効き', () => {
 describe('部長が予算の中で施策を実行する（通常の自動プレイの写し）', () => {
   it('Rare の町では、部長のいる部門が予算の中で施策を実行している（費用と労力の記録・報告の 1 行）', () => {
     const s = load();
-    expect(s.v).toBe(27);
+    expect(s.v).toBe(28);
     expect(budgetOpen(s)).toBe(true);
     expect(s.budget!.stat.acts).toBeGreaterThan(0);
     const heads = budgetDepts(s).filter((d) => headOf(s, d));
@@ -310,12 +310,12 @@ describe('組織図・画面の数・セーブ', () => {
       o.v = v;
       delete o.budget;
       const x = deserializeP1(JSON.stringify(o))!;
-      expect(x.v).toBe(27);
+      expect(x.v).toBe(28);
       expect(x.budget).toBeUndefined();
     }
     const y = load();
     const back = deserializeP1(serializeP1(y))!;
-    expect(back.v).toBe(27);
+    expect(back.v).toBe(28);
     expect(back.budget).toEqual(y.budget);
   });
   it('日を進めても壊れない（Rare の写しで 40 日）', () => {

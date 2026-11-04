@@ -157,6 +157,11 @@ describe('Uncommon に着いた日', () => {
     expect(deptTalkNext(s, freeUi(), { intro: false, reset: false })).toBe('cs');
     s.flags.csTalk = true;
     s.flags.talkDay = s.day;
+    // 段 K2：その次の日に「全社方針の枠 +1」（Uncommon への進出の特典）が受け取れる、の一言
+    s.day++;
+    expect(deptTalkNext(s, freeUi(), { intro: false, reset: false })).toBe('polSlot');
+    s.flags.polSlotTalk = true;
+    s.flags.talkDay = s.day;
     s.day += 5;
     expect(deptTalkNext(s, freeUi(), { intro: false, reset: false })).toBeNull();
   });
