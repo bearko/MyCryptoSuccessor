@@ -13916,8 +13916,9 @@ button.isl-dband-lead.is-on {
 }
 .isl-prop-eff {
   display: grid;
-  grid-template-columns: auto 1fr auto 1fr;
-  gap: 2px 8px;
+  grid-template-columns: minmax(0, max-content) max-content max-content max-content max-content;
+  justify-content: start;
+  gap: 2px 10px;
   align-items: baseline;
   font-size: 14px;
 }
@@ -13971,6 +13972,235 @@ button.isl-dband-lead.is-on {
 }
 .isl-prop-ok {
   flex: 1 1 160px;
+}
+/* 段 UI7b：判断しやすい提案書（① 承認してほしいこと・② 背景・③ 期待効果・④ リスク・⑤ 詳しく） */
+.isl-prop-kicker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.isl-prop-dtag {
+  display: inline-block;
+  flex: none;
+  margin-right: 5px;
+  padding: 0 5px;
+  border: 2px solid var(--d, #8a5a1c);
+  border-radius: 6px;
+  background: #fff;
+  color: #2a2016;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 16px;
+  vertical-align: 1px;
+}
+.isl-prop-sec.is-ask {
+  padding: 8px 10px;
+  border: 2px solid #d4892f;
+  border-radius: 12px;
+  background: #fff6dc;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.isl-prop-sec.is-ask h3 {
+  margin: 0;
+}
+.isl-prop-pitch {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+.isl-prop-asks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 14px;
+}
+.isl-prop-asks li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.isl-prop-askt {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.isl-prop-req {
+  color: #b55f1d;
+}
+.isl-prop-askc {
+  flex: none;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.isl-prop-key {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 10px;
+  font-size: 15px;
+  font-weight: 800;
+}
+.isl-prop-keyg.is-good {
+  color: #2f8a4c;
+}
+.isl-prop-keyg.is-bad {
+  color: #c8202a;
+}
+.isl-prop-budget,
+.isl-prop-co,
+.isl-prop-why {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.isl-prop-budget .is-good {
+  color: #2f8a4c;
+}
+.isl-prop-budget .is-bad {
+  color: #c8202a;
+}
+.isl-prop-co {
+  color: #6b5a44;
+}
+.isl-prop-why {
+  font-weight: 700;
+}
+.isl-prop-bg,
+.isl-prop-risks,
+.isl-prop-parts {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.isl-prop-parts {
+  padding-left: 0;
+  list-style: none;
+}
+.isl-prop-parts li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.isl-prop-parts .is-good {
+  color: #2f8a4c;
+}
+.isl-prop-parts .is-bad {
+  color: #c8202a;
+}
+.isl-prop-sec h4 {
+  margin: 8px 0 2px;
+  font-size: 12px;
+  color: #8a5a1c;
+}
+.isl-prop-effh {
+  font-size: 11px;
+  font-weight: 700;
+  color: #8a5a1c;
+  text-align: right;
+}
+.isl-prop-efflabel.is-sub {
+  padding-left: 6px;
+  font-weight: 400;
+  font-size: 12px;
+  color: #6b5a44;
+}
+.isl-prop-effd {
+  text-align: right;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.isl-prop-effd small {
+  font-size: 11px;
+}
+.isl-prop-effd.is-good {
+  color: #2f8a4c;
+}
+.isl-prop-effd.is-bad {
+  color: #c8202a;
+}
+.isl-prop-effnow,
+.isl-prop-effafter {
+  white-space: nowrap;
+  text-align: right;
+}
+.isl-prop-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #6b5a44;
+}
+.isl-prop-more {
+  border-top: 1px dashed #c9b48c;
+  padding-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.isl-prop-more > summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  color: #8a5a1c;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+.isl-prop-more[open] > summary {
+  margin-bottom: 4px;
+}
+.isl-prop-foot .isl-btn.is-rec {
+  box-shadow: inset 0 0 0 3px var(--isl-gold, #f2c14e);
+}
+@media (max-width: 599px) {
+  .isl-prop-eff {
+    font-size: 12px;
+    gap: 2px 5px;
+  }
+  .isl-prop-efflabel.is-sub {
+    font-size: 11px;
+  }
+  .isl-prop-pitch {
+    font-size: 15px;
+  }
+  .isl-prop-key {
+    font-size: 14px;
+  }
+  .isl-prop-foot {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+  .isl-prop-foot .isl-btn {
+    min-height: 44px;
+    font-size: 14px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .isl-prop-ok {
+    flex: 2 1 0;
+  }
+  .isl-prop-skip,
+  .isl-prop-later {
+    flex: 1 1 0;
+  }
+  .isl-prop-ok:not(.is-rec) {
+    flex: 1.4 1 0;
+  }
+  .isl-prop-skip.is-rec {
+    flex: 1.8 1 0;
+  }
+}
+.isl-prop-foot .isl-btn {
+  white-space: nowrap;
 }
 .isl-prop-stampat {
   position: absolute;
@@ -14235,4 +14465,9 @@ button.isl-dband-lead.is-on {
 .isl-gate-opt:disabled .isl-gate-why {
   color: var(--isl-bad);
   font-size: 13px;
+}
+/* 段 UI7b：カードの選択肢から提案書へ進む印（部長との会話の「📄 提案書を見る」と同じ文言） */
+.isl-cardm-go {
+  font-weight: 700;
+  opacity: 0.85;
 }
