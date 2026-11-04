@@ -45,7 +45,8 @@ import { btn, h, heroIcon, recLine } from './ui';
 import { pickHead } from './delegui';
 import { STAGE_JA, causeChips, causeName, coLive, forecastHint, leverOpts, leverWhy, ofSlack, styleOfHero, type Lever } from './boardplan';
 import { styleTags } from './voice';
-import { segBar } from './slideui';
+import { stackPair } from './slideui';
+import type { Stack } from './slides';
 import './board.css';
 
 const g = (v: number) => `${Math.round(v).toLocaleString('en-US')} G`;
@@ -523,19 +524,17 @@ function drawSlack(el: HTMLElement, s: P1State, it: BoardItem, pick: BoardPick) 
   cell(t('全部門の予算', 'All budgets'), r1 == null ? t('利益なし', 'No profit') : t(`利益の ${r1}%`, `${r1}% of profit`), r0 != null && r0 !== r1 ? t(`いま ${r0}% ・月 ${g(caps)}`, `now ${r0}% · ${g(caps)}/mo`) : t(`月 ${g(caps)}`, `${g(caps)}/mo`), r1 != null && r1 > 100 ? 'is-bad' : '');
   if (it.left != null) cell(t('今期の予算の残り', 'Unspent this quarter'), g(it.left), t('繰り越さない（会社の資金に残る）', 'Not carried over (stays in cash)'));
   el.append(kp);
-  const total = Math.max(co.earn, caps, 1);
-  const mine = Math.min(v, it.ask.cur);
+  // 段 UI7g：来期（3 か月）の予算の縦の積み上げ棒（事業部・会社＝全部門の予算の合計）。使う見込みは前期のペース。増額・減額は赤帯と点線
+  const M = BOARD.months;
+  const was = it.was as { amt?: number; used?: number };
+  const n = Math.max(1, Math.min(M, Math.round((was.amt ?? 0) / Math.max(1, it.ask.cur)) || 1));
+  const pace = ((was.used ?? 0) / n) * M;
+  const L = (sign: number): Pick<Stack, 'labUsed' | 'labExp' | 'labDelta' | 'mode'> => ({ mode: 'cap', labUsed: t('使った', 'Used'), labExp: t('使う見込み（前期のペース）', 'Planned (last quarter’s pace)'), labDelta: sign >= 0 ? t('この増額', 'This raise') : t('この減額', 'This cut') });
   el.append(
-    segBar(
-      [
-        { v: Math.max(0, co.caps - it.ask.cur), cls: 'is-used', lab: t(`ほかの部門 ${g(Math.max(0, co.caps - it.ask.cur))}`, `Others ${g(Math.max(0, co.caps - it.ask.cur))}`) },
-        { v: mine, cls: 'is-mine', lab: t(`この部門 ${g(mine)}`, `This ${g(mine)}`) },
-        ...(d > 0 ? [{ v: d, cls: 'is-up', lab: t(`増額 ${g(d)}`, `Raise ${g(d)}`) }] : []),
-        ...(left > 0 ? [{ v: left, cls: 'is-left2', lab: t(`余力 ${g(left)}`, `Slack ${g(left)}`) }] : [{ v: -left, cls: 'is-over', lab: t(`利益を超える ${g(-left)}`, `Over profit ${g(-left)}`) }]),
-      ],
-      total,
-      { at: Math.max(0, co.earn), lab: t(`月の利益 ${g(co.earn)}（部門の予算を使う前）`, `Monthly profit ${g(co.earn)} (before budgets)`) },
-    ),
+    stackPair([
+      { title: t(`${DEPT[it.dept!].name}部（来期 ${M} か月）`, `${DEPT[it.dept!].name} (next ${M} months)`), total: it.ask.cur * M, used: 0, expect: Math.min(pace, Math.max(it.ask.cur, v) * M), delta: d * M, ...L(d) },
+      { title: t(`会社（全部門の予算の合計・来期 ${M} か月）`, `Company (all budgets, next ${M} months)`), total: co.caps * M, used: 0, expect: Math.min(co.spent * M, Math.max(co.caps, caps) * M), delta: d * M, ...L(d) },
+    ]),
   );
   if (d > 0 && left > 0) el.append(h('small', 'isl-bm-dim', t(`この増額は${ofSlack(d, co.slack)}`, `This raise is ${ofSlack(d, co.slack)}`)));
 }

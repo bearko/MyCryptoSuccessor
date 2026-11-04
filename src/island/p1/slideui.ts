@@ -6,7 +6,7 @@
  */
 import { t } from '../../i18n';
 import { DEPT, POLICY, type DeptId } from './data';
-import { RISK_ICON, RISK_LV, type BudgetBar, type Fall, type Kpi, type LineMark, type Meter, type StageMap } from './slides';
+import { RISK_ICON, RISK_LV, perDayText, stackSegs, type BudgetBar, type Fall, type Kpi, type LineMark, type Meter, type Stack, type StageMap } from './slides';
 import type { StoreChart } from './storefc';
 export { storeNote } from './storefc';
 import type { Brief, Risk } from './brief';
@@ -575,7 +575,10 @@ export function meterEl(m: Meter): HTMLElement {
 
 // ---------------------------------------------------------------- 影響とリスク
 
-/** 4 段の地図（変わる段が光る・細いところの札）と、受け持つ部門 */
+/**
+ * 4 段の地図（影響を受ける段が黄色の枠で光る）と、受け持つ部門。段 UI7g：段ごとに、ひと月に流せる数の差を 1 日あたりで書く
+ * （「+2.4 個／日」「±0」。字と符号で。色だけに頼らない）。「変わる」「細い」の札は出さない
+ */
 export function stageMapEl(m: StageMap): HTMLElement {
   const e = h('div', 'isl-sl-map');
   const row = h('div', 'isl-sl-stages');
@@ -584,9 +587,7 @@ export function stageMapEl(m: StageMap): HTMLElement {
     const c = h('div', `isl-sl-stage ${x.on ? 'is-on' : ''}`);
     c.dataset.stage = x.id;
     c.append(h('span', 'isl-sl-sicon', x.icon), h('span', 'isl-sl-sname', x.name));
-    if (x.on) c.append(h('span', 'isl-sl-stag is-on', t('変わる', 'Changes')));
-    const nt = x.narrow0 && x.narrow1 ? t('細い', 'Narrow') : x.narrow0 ? t('細い→解消', 'Narrow→ok') : x.narrow1 ? t('承認後に細い', 'Narrow after') : '';
-    if (nt) c.append(h('span', 'isl-sl-stag is-narrow', `⛓ ${nt}`));
+    c.append(h('span', `isl-sl-sval ${tone(x.d * 10)}`, perDayText(x.d)));
     row.append(c);
   });
   e.append(row);
@@ -671,4 +672,111 @@ export function fundsEl(co: CoFunds): HTMLElement {
   );
   if (co.n > 0) e.append(h('span', 'isl-sl-lab', t(`受け箱のほかの提案 ${co.n} 件（合計 ${money(co.money)}）`, `${co.n} other proposals in the inbox (${money(co.money)})`)));
   return e;
+}
+
+// ---------------------------------------------------------------- 段 UI7g：予算の縦の積み上げ棒・ⓘ の吹き出し
+
+/**
+ * 予算の縦の積み上げ棒 1 本（下から 使った＝濃い灰・使う見込み＝薄い灰・この施策＝赤・残り＝緑）と凡例（形・名前・数字）。
+ * 増額は赤帯の上辺、減額は赤帯の下辺に点線（新しい水準）。赤帯と点線はゆっくり点滅（prefers-reduced-motion では止める：CSS）。
+ * 背景に溶けないよう、棒は明るい枠と目盛りの溝の上に描く
+ */
+export function stackEl(x: Stack): HTMLElement {
+  const S = stackSegs(x);
+  const e = h('div', 'isl-st');
+  e.append(h('b', 'isl-st-title', x.title));
+  const row = h('div', 'isl-st-row');
+  const bar = h('div', 'isl-st-bar');
+  bar.setAttribute('role', 'img');
+  let at = 0;
+  for (const g of S.segs) {
+    const p = h('span', `isl-st-seg ${g.cls}`);
+    p.style.bottom = `${(at / S.max) * 100}%`;
+    p.style.height = `${(g.v / S.max) * 100}%`;
+    bar.append(p);
+    at += g.v;
+  }
+  // 予算の枠の線（施策の前）
+  const top = h('span', 'isl-st-cap');
+  top.style.bottom = `${(Math.min(x.total, S.max) / S.max) * 100}%`;
+  bar.append(top);
+  if (S.line != null) {
+    const ln = h('span', `isl-st-line ${x.delta >= 0 ? 'is-inc' : 'is-dec'}`);
+    ln.style.bottom = `${(S.line / S.max) * 100}%`;
+    bar.append(ln);
+  }
+  const keys = h('ul', 'isl-st-keys');
+  const key = (cls: string, lab: string, v: string) => {
+    const li = h('li', `isl-st-key ${cls}`);
+    li.append(h('i', ''), h('span', '', lab), h('b', '', v));
+    keys.append(li);
+  };
+  if (x.used > 0.5 || x.mode === 'spend') key('is-used', x.labUsed, money(Math.round(x.used)));
+  key('is-exp', x.labExp, money(Math.round(x.expect)));
+  // 点線がどちらの辺か（増額：上辺・減額：下辺）を字でも
+  if (Math.abs(x.delta) >= 0.5) key(`is-delta ${x.delta >= 0 ? 'is-inc' : 'is-dec'}`, x.delta >= 0 ? t(`${x.labDelta}（┄上辺）`, `${x.labDelta} (┄top)`) : t(`${x.labDelta}（┄下辺）`, `${x.labDelta} (┄bottom)`), `${x.delta >= 0 ? '+' : '−'}${money(Math.round(Math.abs(x.delta)))}`);
+  key('is-left', t('残り', 'Left'), money(Math.round(S.left)));
+  if (S.over > 0.5) key('is-over', t('予算を超える', 'Over budget'), money(Math.round(S.over)));
+  const leftLab = t('残り', 'Left');
+  bar.setAttribute('aria-label', [x.title, `${x.labUsed} ${Math.round(x.used)}`, `${x.labExp} ${Math.round(x.expect)}`, `${x.labDelta} ${Math.round(x.delta)}`, `${leftLab} ${Math.round(S.left)}`].join(', '));
+  row.append(bar, keys);
+  e.append(row, h('small', 'isl-st-total', t(`予算 ${money(Math.round(x.total))}${x.mode === 'cap' && x.delta ? ` → ${money(Math.round(x.total + x.delta))}` : ''}`, `Budget ${money(Math.round(x.total))}${x.mode === 'cap' && x.delta ? ` → ${money(Math.round(x.total + x.delta))}` : ''}`)));
+  return e;
+}
+/** 事業部と会社の 2 本を並べる（PC は横、スマホは縦） */
+export function stackPair(xs: Stack[]): HTMLElement {
+  const e = h('div', 'isl-st-pair');
+  for (const x of xs) e.append(stackEl(x));
+  return e;
+}
+
+/**
+ * ⓘ の吹き出し（ヘルプ）：タップ（スマホ）・マウスを乗せる（PC）・フォーカスで説明が出る。開いた瞬間の文字を減らし、計算のしかたは知りたい人だけが開く。
+ * もう一度タップ・外をタップ・Esc で閉じる
+ */
+export function infoTip(text: string | string[], label = t('説明', 'About')): HTMLElement {
+  const w = h('span', 'isl-tip');
+  const b = h('button', 'isl-tip-btn', 'ⓘ');
+  b.type = 'button';
+  b.setAttribute('aria-label', label);
+  b.setAttribute('aria-expanded', 'false');
+  const pop = h('span', 'isl-tip-pop');
+  pop.setAttribute('role', 'tooltip');
+  for (const x of Array.isArray(text) ? text : [text]) pop.append(h('span', 'isl-tip-line', x));
+  w.append(b, pop);
+  const set = (on: boolean) => {
+    w.classList.toggle('is-open', on);
+    b.setAttribute('aria-expanded', on ? 'true' : 'false');
+    if (on) place();
+  };
+  // スライド（無ければ画面）の端からはみ出さないよう、吹き出しの左の位置を決める
+  const place = () => {
+    const box = (w.closest('.isl-sl, .isl-sheet, .isl-modal') ?? document.body).getBoundingClientRect();
+    const lo = Math.max(4, box.left + 4);
+    const hi = Math.min(innerWidth - 4, box.right - 4);
+    const pw = Math.min(280, hi - lo);
+    pop.style.width = `${pw}px`;
+    const r = b.getBoundingClientRect();
+    const want = Math.max(lo, Math.min(hi - pw, r.left - 8));
+    pop.style.left = `${want - w.getBoundingClientRect().left}px`;
+    pop.style.right = 'auto';
+  };
+  b.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const on = !w.classList.contains('is-open');
+    document.querySelectorAll('.isl-tip.is-open').forEach((x) => x !== w && x.classList.remove('is-open'));
+    set(on);
+  });
+  w.addEventListener('mouseenter', () => {
+    place();
+  });
+  b.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') set(false);
+  });
+  const off = (ev: Event) => {
+    if (!w.isConnected) return document.removeEventListener('click', off, true);
+    if (!w.contains(ev.target as Node)) set(false);
+  };
+  document.addEventListener('click', off, true);
+  return w;
 }
