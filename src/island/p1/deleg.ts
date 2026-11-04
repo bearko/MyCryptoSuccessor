@@ -1507,3 +1507,46 @@ export function candidatesFor(s: P1State, dept: DeptId): { st: Staff; q: number 
     .map((st) => ({ st, q: quality(st, dept) }))
     .sort((a, b) => b.q - a.q || aptitude(b.st.stats, 'lead') - aptitude(a.st.stats, 'lead'));
 }
+
+/** 段 UI7a：任命する役（部長はその部門・チームリーダーはその業務） */
+export type PickRole = { kind: 'head'; dept: DeptId } | { kind: 'leader'; duty: DutyId };
+/**
+ * 段 UI7a：その役を選ぶとき、ほかの役（部長・リーダー・セクター長）に就いていて兼ねられない人か。
+ * 持ち場の仕事（製造・調達・バイトなど）は役に数えない。
+ * - 部長：兼ねられない役職（ほかの部門の部長・セクター長。canHoldRole。固有の能力 multiRole のヒーローは上限まで兼ねられる）と、ほかの部門のリーダー。
+ *   同じ部門のリーダーは昇進なので数えない（setHead がリーダーの役目を外す）
+ * - リーダー：セクター長・部長・ほかの業務のリーダー
+ */
+export function otherRole(st: Pick<Staff, 'hero' | 'task' | 'target' | 'heads'>, want: PickRole): boolean {
+  if (st.task === 'manager') return true;
+  const r = roleOf({ task: st.task, target: st.target });
+  if (want.kind === 'head') {
+    if (!canHoldRole(st, { head: want.dept })) return true;
+    return r?.kind === 'leader' && r.dept !== want.dept;
+  }
+  if (st.heads?.length) return true;
+  return r != null && !(r.kind === 'leader' && r.duty === want.duty);
+}
+/** 段 UI7a：任命の候補の 1 人。grey：ほかの役に就いている（チェックボックスで出したとき） */
+export interface PickCand {
+  st: Staff;
+  q: number;
+  grey: boolean;
+}
+/**
+ * 段 UI7a：任命の候補の引き出しの中身（出来の高い順）。修行中は除く。
+ * ほかの部長・リーダー・セクター長（otherRole）は、showOthers のときだけ出して灰色に。いまの人（current）はいつも出す。
+ * 持ち場の仕事の人は灰色にしない（部長はその仕事と兼ねる。リーダーは選ぶとその仕事から外れる）
+ */
+export function pickList(s: P1State, want: PickRole, current: number | null, showOthers: boolean): PickCand[] {
+  const dept = want.kind === 'head' ? want.dept : DUTY[want.duty].dept;
+  return s.staff
+    .filter((x) => x.task !== 'train')
+    .map((st) => ({ st, q: quality(st, dept), grey: st.hero !== current && otherRole(st, want) }))
+    .filter((x) => showOthers || !x.grey)
+    .sort((a, b) => b.q - a.q || aptitude(b.st.stats, 'lead') - aptitude(a.st.stats, 'lead'));
+}
+/** 段 UI7a：隠しているほかの役の人の数（チェックボックスの「（N 人）」） */
+export const othersCount = (s: P1State, want: PickRole, current: number | null) => s.staff.filter((x) => x.task !== 'train' && x.hero !== current && otherRole(x, want)).length;
+/** 段 UI7a：マインちゃんのおすすめ：出している中で選べる人（灰色でなく、休憩中でない）のいちばん出来の高い人 */
+export const pickBest = (list: PickCand[]) => list.find((x) => !x.grey && !x.st.resting)?.st.hero;

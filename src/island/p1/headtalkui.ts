@@ -10,7 +10,7 @@ import './ui6.css';
 import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { DEPT, DEPT_DUTIES, DUTY, TASKS, aptitude, type DeptId } from './data';
-import { actName, approve, candidatesFor, headFx, headOf, heroNm, hold, propEst, propWhy, qText, quality, reject, setHead } from './deleg';
+import { actName, approve, headFx, pickList, headOf, heroNm, hold, propEst, propWhy, qText, quality, reject, setHead } from './deleg';
 import { approveCard, choiceText, chooseCard, planOfChoice, quipOfCard, roleOfCard, sayOf, starOf, type Card, type Choice } from './card';
 import { charismaLine, moraleAvg, payroll, wantsToQuit } from './hr';
 import { hrReportText, moraleChip } from './hrui';
@@ -367,7 +367,8 @@ function summaryData(s: P1State, dept: DeptId, mode: 'head' | 'mine'): HTMLEleme
     // 部長の候補（出来の高い順に 3 人）
     const card = h('div', 'isl-card2 isl-ht-cands');
     card.append(h('h3', '', t(`${DEPT[dept].name}部長の候補`, `Candidates for ${DEPT[dept].name} head`)));
-    for (const { st, q } of candidatesFor(s, dept).slice(0, 3)) {
+    // 段 UI7a：ほかの部長・リーダー・セクター長は候補に出さない（任命の引き出しと同じ）
+    for (const { st, q } of pickList(s, { kind: 'head', dept }, headOf(s, dept)?.hero ?? null, false).slice(0, 3)) {
       const r = h('div', 'isl-ht-row');
       const sn = starOf(q, st.level ?? 1);
       r.append(heroIcon(st.hero, 40), h('b', '', heroNm(st.hero)), h('small', 'isl-ht-star', `${'★'.repeat(sn)}${'☆'.repeat(3 - sn)}`), h('small', q >= 0.85 ? 'isl-good' : 'isl-gold', qText(q)));

@@ -13727,6 +13727,16 @@ button.isl-dband-lead.is-on {
   font-size: 12px;
   letter-spacing: 1px;
 }
+/* 段 UI7a：任命の引き出しの「ほかの部長・リーダー・セクター長も表示」と、リーダーを選ぶと持ち場から外れる人の 1 行 */
+.isl-make-filter.isl-pick-others {
+  display: flex;
+  margin: 0 0 8px;
+}
+.isl-pick-move {
+  font-size: 11px;
+  text-align: center;
+  color: var(--isl-warn, #f2b544);
+}
 
 /* ---------------------------------------------------------------- 段 UI5a：担当者からの提案書（proposalui.ts） */
 .isl-modal.isl-prop > .isl-prop-panel {
