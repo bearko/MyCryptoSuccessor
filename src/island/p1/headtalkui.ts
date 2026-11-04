@@ -7,6 +7,7 @@
  * 打つ手はいまの関数（カード：chooseCard・approveCard、部長の提案：approve・reject・hold、提案書：openProposal）をそのまま使う。
  */
 import './ui6.css';
+import { meetHero } from './lesson';
 import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { DEPT, DEPT_DUTIES, DUTY, TASKS, aptitude, type DeptId } from './data';
@@ -59,6 +60,8 @@ export const headTalkOpen = () => !!cur;
 /** 話題を変える */
 function go(ctx: Ctx, topic: TopicId | null, say: string | null = null) {
   if (!cur) return;
+  // 段 S1：部長と話した（教えの回数。同じ日は 1 回）
+  if (topic) meetHero(ctx.s(), headOf(ctx.s(), cur.dept)?.hero);
   cur.topic = topic;
   cur.k = 0;
   cur.say = say;

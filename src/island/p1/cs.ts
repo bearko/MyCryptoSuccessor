@@ -14,6 +14,7 @@ import { brandAdd } from './company';
 import { priceMul } from './acct';
 import { headFx } from './deleg';
 import { polFx } from './policy';
+import { lessonFx } from './lesson';
 import { moraleAdd } from './hr';
 import { has, myShops, priceAt, spend, staffOf, type P1State, type Report } from './model';
 
@@ -110,9 +111,10 @@ export const flameMul = (s: P1State) => (csOn(s) && s.cs?.flame ? 1 - FLAME.hit 
 /** 自社のお店に来るお客さんの倍率（満足度 × 炎上。model.ts の capture） */
 export const visitMul = (s: P1State) => repeatMul(s) * flameMul(s);
 
-/** 満足度を足す（0〜100） */
-function satAdd(s: P1State, d: number) {
+/** 満足度を足す（0〜100）。段 S1：顧客の教えで、下がるときはゆるく（lesson.ts） */
+export function satAdd(s: P1State, d: number) {
   const C = csOf(s);
+  if (d < 0) d *= 1 - lessonFx(s, 'sat');
   C.sat = Math.max(0, Math.min(100, C.sat + d));
 }
 

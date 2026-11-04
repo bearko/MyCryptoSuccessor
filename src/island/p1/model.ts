@@ -140,6 +140,7 @@ import { duoDrain, duoSpeed, type DuoState } from './duo';
 import { budgetClose, budgetDay, type BudgetReport, type BudgetState } from './budget';
 import { boardQuarter, sectorPush, type BoardClose, type BoardState } from './board';
 import { migratePol, migrateSlots, polFx, polSync, type PolState } from './policy';
+import { lessonFx, lessonMonth, type LessonState } from './lesson';
 import { deptLevel } from './dept';
 
 export type Ground = 'grass' | 'road';
@@ -725,6 +726,11 @@ export interface P1State {
    * 無ければ、はじめて使うときに s.policy（無ければバランス）から作る
    */
   pol?: PolState;
+  /**
+   * 段 S1（lesson.ts）：受け継いだ教え・かかわった回数・まだ知らせていない教え。会社のもの（災害でも残る）。
+   * 無くてよい項目なのでセーブの版は上げない（古いセーブは教えなしから）
+   */
+  lessons?: LessonState;
 }
 
 /** ランクアップの災害 1 回の記録（演出・自動プレイの計測） */
@@ -1156,7 +1162,8 @@ const fxCache = new WeakMap<object, { len: number; lv: object | undefined; sums:
 export function fxSum(s: Pick<P1State, 'skills' | 'skillLv'>, kind: FxKind): number {
   const hit = fxCache.get(s.skills);
   // 段 K：経営方針の効き目（policy.ts の polFx。チュートリアルのあいだ・スキルだけの写しは 0）を足す
-  if (hit && hit.len === s.skills.length && hit.lv === s.skillLv) return (hit.sums[kind] ?? 0) + polFx(s, kind);
+  // 段 S1：教えの効き目（速さ＝運ぶ日数・調達の日数、堅実＝維持費、交渉＝素材の値段。lesson.ts の lessonFx。ほかの種類は 0）
+  if (hit && hit.len === s.skills.length && hit.lv === s.skillLv) return (hit.sums[kind] ?? 0) + polFx(s, kind) + lessonFx(s, kind);
   const sums: Partial<Record<FxKind, number>> = {};
   for (const id of s.skills) {
     const k = SKILL[id];
@@ -1167,7 +1174,7 @@ export function fxSum(s: Pick<P1State, 'skills' | 'skillLv'>, kind: FxKind): num
     for (const f of k.up ?? []) sums[f.kind] = (sums[f.kind] ?? 0) + f.v * (lv - 1);
   }
   fxCache.set(s.skills, { len: s.skills.length, lv: s.skillLv, sums });
-  return (sums[kind] ?? 0) + polFx(s, kind);
+  return (sums[kind] ?? 0) + polFx(s, kind) + lessonFx(s, kind);
 }
 /** 汎用の下げ（日数・値段など）：1 − 合計（−80% まで） */
 export const fxCut = (s: Pick<P1State, 'skills' | 'skillLv'>, kind: FxKind) => Math.max(0.2, 1 - fxSum(s, kind));
@@ -4146,6 +4153,8 @@ export function step(s: P1State): DayResult {
     delegMonth(s, res.report);
     // 提案・報告のカード（段 UI1）：ヒーローからの提案・部長の提案・問い合わせ・炎上の予告・他社の巻き返し
     cardsMonth(s, res.report);
+    // 段 S1：教え（承認した提案が効いた・かかわった回数が届いた人。1 回の締めで LESSON.perMonth まで。画面は s.lessons.fresh を 1 回だけ知らせる）
+    lessonMonth(s, res.report);
     checkMissions(s, res);
   }
   // 会社の月の締め（ゲームの最初から 30 日ごと）：ほかのセクタの運営と、帳簿
@@ -6569,7 +6578,8 @@ export function syncResearchCap(s: P1State): { rp: number; lv: number } {
 /** RP を足す（今月の出土品・発掘作業の出土にも数える） */
 function gainRp(s: P1State, v: number) {
   // 段 K：経営方針（研究重視・オープン・イノベーションなど）の「入る研究ポイント +%」
-  const pr = polFx(s, 'rp');
+  // 段 S1：奇策の教え（入る研究ポイント +%。lesson.ts）
+  const pr = polFx(s, 'rp') + lessonFx(s, 'rp');
   if (pr > 0) v = Math.round(v * (1 + pr));
   s.rp = (s.rp ?? 0) + v;
   if (s.dig) s.dig.month.rp += v;

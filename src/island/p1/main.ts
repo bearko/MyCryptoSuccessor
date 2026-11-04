@@ -21,6 +21,8 @@ import { headHooks, openDeleg, openProps } from './delegui';
 import { openHeadTalk } from './headtalkui';
 import { HEAD_OPEN_TALK, HEAD_PICK_TALK, headTalkDue, talkMode } from './headtalk';
 import { openTrophies, trophyEl, trophyTick } from './trophyui';
+import { lessonPopEl, openLessons } from './lessonui';
+import { takeFresh } from './lesson';
 import { craftedText, makeTicker } from './ticker';
 import { openBudget } from './budgetui';
 import { budgetOpen } from './budget';
@@ -3875,6 +3877,7 @@ function renderAll() {
   deptChecks();
   deptTalk();
   trophyCheck();
+  lessonCheck();
   // 撤退した他社の店のシャッター：報告・画面を閉じて地図が見えたら
   if (pendingShutter.length && !root.querySelector('.isl-modal, .isl-rp-reveal') && !sheetOpen()) playShutters();
 }
@@ -3910,6 +3913,42 @@ function trophyFlush() {
     trophyWait = 0;
     trophyFlush();
   }, 4000);
+}
+/**
+ * 段 S1：受け継いだ教えのお知らせ（画面の中の大事な知らせ。1 つの教えで 1 回）。月の締めで s.lessons.fresh に入ったものを取り出し、
+ * トロフィーと同じく、そのときのトースト・カード・会話・発掘画面が消えてから 1 つずつ（押すと教えの図鑑）
+ */
+const lessonQ: number[] = [];
+let lessonWait = 0;
+function lessonCheck() {
+  if (!s.lessons?.fresh.length) return;
+  lessonQ.push(...takeFresh(s));
+  save();
+  lessonFlush();
+}
+function lessonFlush() {
+  if (!lessonQ.length || lessonWait) return;
+  if (toasts.querySelector('.isl-toast') || holdToasts() || digOpen() || root.querySelector('.isl-modal, .isl-rp-reveal')) {
+    lessonWait = window.setTimeout(() => {
+      lessonWait = 0;
+      lessonFlush();
+    }, 400);
+    return;
+  }
+  const hero = lessonQ.shift()!;
+  const e = lessonPopEl(hero, () => {
+    e.remove();
+    openLessons(ctx);
+  });
+  e.dataset.text = `lesson:${hero}`;
+  toasts.append(e);
+  placeToasts();
+  sfx.play('levelup');
+  lessonWait = window.setTimeout(() => {
+    e.remove();
+    lessonWait = 0;
+    lessonFlush();
+  }, 6500);
 }
 /** 段 UI6：初めて部長を任命するとき（候補を選ぶ前）のマインちゃんの一言。画面の上に出す */
 headHooks.first = (go) => talk(HEAD_PICK_TALK().map((text) => ({ text })), t('部長を選ぶ', 'Pick a head'), go, { over: true });
@@ -4994,6 +5033,8 @@ window.setTimeout(() => warmFx(), 3000);
   /** 撮影スクリプト用：ダンジョンの番号・遺物の展示館の画面・展示館を建てる */
   DUNGEON,
   museum: () => openMuseum(ctx),
+  /** 段 S1（撮影・確かめ用）：教えの図鑑を開く */
+  lessons: () => openLessons(ctx),
   /** 撮影スクリプト用：ランドマップ・ランクアップの進出の確認（発掘 v2 の 7 段目） */
   land: () => openLand(ctx),
   rankUp: (id: string) => openRankUp(ctx, id),

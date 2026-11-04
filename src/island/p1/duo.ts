@@ -9,6 +9,7 @@
  * 小説・ドラマの場面（桃園の誓いなど）は史実として扱わない（図鑑の一言で分ける）。
  */
 import { isEn, t } from '../../i18n';
+import { meetHero } from './lesson';
 import { heroById } from '../../game/catalog';
 import { CARD, DELEG, DUO, DUTY, EVENT, type DeptId, type DutyId, type Task } from './data';
 import type { Draft } from './card';
@@ -531,6 +532,8 @@ export function applyDuo(s: P1State, x: DuoData, k: number): string | null {
   const d = DUO_BY_ID[x.id];
   if (!o || !d) return 'none';
   if (o.cost > s.money) return 'money';
+  // 段 S1：組み合わせのふたりとかかわった（教えの回数）
+  for (const hh of x.heroes) meetHero(s, hh);
   const D = duoOf(s);
   const r = (D.found[x.id] ??= { day: s.day, mk: s.cards?.mk ?? 0 });
   if (o.cost > 0) {

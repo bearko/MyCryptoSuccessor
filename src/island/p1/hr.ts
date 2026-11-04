@@ -16,6 +16,7 @@ import { fatigueMorale } from './ga';
 import { duoMorale } from './duo';
 import { goalMorale } from './board';
 import { polFx, polStaffMorale } from './policy';
+import { lessonFx } from './lesson';
 import { assign, growthOn, has, lvMul, staffOf, uncommonHeroes, wageMul, wageOf, ringOpen, type P1State, type Staff } from './model';
 import { heroById } from '../../game/catalog';
 
@@ -237,7 +238,8 @@ export function moraleParts(s: P1State, st: Staff): { base: number; pay: number;
   const gap = payGap(st);
   const pay = Math.max(P.lo, Math.min(P.hi, gap >= 0 ? gap * P.up : gap * P.down)) - P.cut * Math.max(0, -payStep(st));
   const env = Math.min(MORALE.envMax, MORALE.env * envPanels(s));
-  const role = roleRank(st) > 0 ? MORALE.role : 0;
+  // 段 S1：人を育てる教え（役目のある人の士気の目指す値 +点。lesson.ts）
+  const role = roleRank(st) > 0 ? MORALE.role + lessonFx(s, 'morale') : 0;
   const S = MORALE.same;
   const same = countsSame(st.task) ? -Math.min(S.max, Math.floor(Math.max(0, (st.same ?? 0) - S.after) / S.per)) : 0;
   const table = has(s, 'hr_paytable') && gap >= -0.5 ? MORALE.paytable * lvMul(s, 'hr_paytable') : 0;

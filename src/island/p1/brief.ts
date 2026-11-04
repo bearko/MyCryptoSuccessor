@@ -11,8 +11,9 @@
  * 仕様は docs/ISLAND_PHASE1.md「判断しやすい提案書（段 UI7b）」「経営方針とお金以外の期待効果（段 UI7c）」。
  */
 import { isEn, t } from '../../i18n';
+import { readErr } from './lesson';
 import { DEF } from '../defs';
-import { ADS, BRAND, CS, DELEG, MORALE, DEPT, DIG_BALANCE, INVEST, MATS, P1B, POLICY, SKILL, deptOf, type DeptId, type PolicyId, type Sku, type ValueKey } from './data';
+import { ADS, BRAND, CS, MORALE, DEPT, DIG_BALANCE, INVEST, MATS, P1B, POLICY, SKILL, deptOf, type DeptId, type PolicyId, type Sku, type ValueKey } from './data';
 import { DAYS, LOT, bottleneck, crewMul, fxSum, has, lvMul, lvOf, poolCap, poolUsed, stageCaps, stockAll, unitCost, type P1State, type Stage } from './model';
 import { brandCap } from './company';
 import { careMul, centerRate, csOn } from './cs';
@@ -479,7 +480,8 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
   const P = projFor(s, p, base, after, cost);
   const now = P ? toMonth(P.now1, base) : monthOf(base, 0, so);
   const aft = P ? toMonth(P.after1, after) : monthOf(after, cost.monthly, so);
-  const err = Math.round((1 - p.q) * DELEG.prop.err * 100) / 100;
+  // 段 S1：数字の教えで読みの誤差が小さい（lesson.ts の readErr）
+  const err = readErr(s, p.q);
   // 承認事項（段 UI7d：askGroups の行ごと。費用は planCost の内訳を、その行の step の分だけ足す）
   const groups = askGroups(p);
   const asks: Ask[] = groups.map((gr, k) => {

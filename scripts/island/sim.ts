@@ -27,7 +27,7 @@ import { deptLevel } from '../../src/island/p1/dept';
 import { BUDGET_OFF, budgetHeads, crewTotal, type BudgetStat } from '../../src/island/p1/budget';
 import { BOARD_OFF, boardAuto, boardDue, type BoardStat } from '../../src/island/p1/board';
 import { POL_OFF, claimSlot, corpOf, deptPolicyOf, polAutoFill, presDepts, slotPending, slotsOf } from '../../src/island/p1/policy';
-import { POL, POL_PANELS, POL_SKILLS } from '../../src/island/p1/data';
+import { LESSON, POL, POL_PANELS, POL_SKILLS } from '../../src/island/p1/data';
 import { BUDGET } from '../../src/island/p1/data';
 import { CARD_SRCS, SIM_CARD_TAKE, cardInbox, chooseCard, simTake, type Card, type CardSrc, type CardStat } from '../../src/island/p1/card';
 import { EVENT_OFF, EV_KINDS, GOOD_KINDS, lightOpt, newEventStat, optName, type EvKind, type EventStat } from '../../src/island/p1/events';
@@ -37,6 +37,7 @@ import { CARD } from '../../src/island/p1/data';
 import { DUO, HERO_FIT } from '../../src/island/p1/data';
 import { P2_OFF } from '../../src/island/p1/voice';
 import { DUOS, type DuoOptId } from '../../src/island/p1/duo';
+import { lessonCounts, LESSON_TYPES } from '../../src/island/p1/lesson';
 /** v25：通常の方針が受けるカードの手の名前（表 19） */
 const TAKE_NAME: Record<string, string> = { shelf: '棚 +1 と商品', goods: '品ぞろえの入れ替え', invest: '設備投資', part: 'アルバイト', famous: '名物店主', permit: '発掘許可', ad: '宣伝' };
 /** v25：カードの出どころの名前（表 19） */
@@ -373,6 +374,8 @@ export interface RunResult {
   v32?: BoardStat;
   /** v33（段 K：経営方針）：発表会の数・部長の発表を替えた数・終わりの枠と方針の数・開いた方針・取った方針のパネル・受け取った枠（v34 から。段 K2 のランクアップの特別なパネル） */
   v33?: { held: number; changed: number; slots: number; corp: number; dept: number; open: number; panels: number; slotLv: number };
+  /** v37（段 S1：教え）：受け継いだ教えの数（型ごと）・提案の結果で残った数 */
+  v37?: { n: number; prop: number; by: Record<string, number> };
 }
 
 /**
@@ -2781,6 +2784,8 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   res.v33 = { held: s.pol?.stat?.held ?? 0, changed: s.pol?.stat?.changed ?? 0, slots: slotsOf(s), corp: corpOf(s).length, dept: presDepts(s).filter((d) => deptPolicyOf(s, d)).length, open: s.pol?.got.length ?? 0, panels: polLog.panels, slotLv: polLog.slots };
   polLog.panels = 0;
   polLog.slots = 0;
+  // v37（段 S1）：教え（会社のもの）
+  res.v37 = { n: s.lessons?.n ?? 0, prop: Object.values(s.lessons?.got ?? {}).filter((g) => g.via === 'prop').length, by: { ...lessonCounts(s) } };
   if (s.diplo) {
     res.v26.dip = { ...s.diplo.stat };
     res.v26.rel = Object.fromEntries(s.diplo.lands.map((x) => [x.id, Math.round(x.rel)]));
@@ -3088,6 +3093,22 @@ export function tables(rep: Report2): string {
       if (!runs.length) continue;
       const v = (f: (x: NonNullable<RunResult['v33']>) => number) => mean(runs.map((r) => (r.v33 ? f(r.v33) : 0))).toFixed(1);
       out.push(`| ${POLICY_NAME[p]} | ${v((x) => x.held)} | ${v((x) => x.changed)} | ${v((x) => x.slots)} | ${v((x) => x.corp)} | ${v((x) => x.dept)} | ${v((x) => x.open)} | ${v((x) => x.panels)} | ${v((x) => x.slotLv)} |`);
+    }
+    out.push('');
+  }
+  // v37（段 S1）：教え
+  if (rep.runs.some((r) => r.v37)) {
+    out.push('### 表 27：教え（v37。段 S1）');
+    out.push('');
+    out.push(`シード ${seeds.join('・')} の平均（終わりの時点）。ヒーローの提案を承認して翌月に見込みの向きに動いた・${LESSON.need} 回かかわった（違う日のカード・部長の提案の承認／却下・組み合わせ・経営会議）ヒーローから、月の締めで ${LESSON.perMonth} つまで。型ごとに ${LESSON.cap} つまで効く。`);
+    out.push('');
+    out.push(`| 方針 | 教え | うち提案の結果 | ${LESSON_TYPES.join(' | ')} |`);
+    out.push(`|---|---|---|${LESSON_TYPES.map(() => '---').join('|')}|`);
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      const v = (f: (x: NonNullable<RunResult['v37']>) => number) => mean(runs.map((r) => (r.v37 ? f(r.v37) : 0))).toFixed(1);
+      out.push(`| ${POLICY_NAME[p]} | ${v((x) => x.n)} | ${v((x) => x.prop)} | ${LESSON_TYPES.map((k) => v((x) => x.by[k] ?? 0)).join(' | ')} |`);
     }
     out.push('');
   }

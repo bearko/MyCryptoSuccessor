@@ -2827,6 +2827,24 @@ export const DUO = {
   first: 2,
 };
 /**
+ * 段 S1：教え（ヒーロー → 社長への Successor。lesson.ts・lessonui.ts。docs/ISLAND_PHASE1.md「教え（段 S1）」）の数字（1 か所）。
+ * - need：そのヒーローとかかわった回数（違う日に数える：カードを選ぶ・部長の提案を承認／却下・部長との会話の話題・組み合わせのできごと・経営会議の報告）。
+ *   これに届くか、そのヒーローの提案を承認して翌月の締めで見込みの向きに数字が動いたら、その締めで教えが残る。
+ * - perMonth：1 回の締めで残る教えの数の上限（提案の結果を先に）。first：この町の締めの回数がこれ以上のときから（1 か月目＝チュートリアルは残らない）。
+ * - cap：型ごとに効く数（これより多く集めても効き目は増えない）。
+ * - fx：型ごとの効き目（1 つあたり。いまのモデルの数字だけ）：決断＝部長の施策に使える労力 +%・速さ＝運ぶ日数と調達の日数 −%・堅実＝建物の維持費 −%・
+ *   奇策＝入る研究ポイント +%・人を育てる＝役目（リーダー・部長・セクター長）のある人の士気の目指す値 +点・顧客＝顧客満足度の下がり方 −%・
+ *   数字＝提案の読みの誤差 −%（掛ける）・交渉＝素材の値段 −%
+ */
+export type LessonType = 'decide' | 'speed' | 'steady' | 'novel' | 'people' | 'customer' | 'numbers' | 'deal';
+export const LESSON = {
+  need: 4,
+  perMonth: 1,
+  first: 2,
+  cap: 5,
+  fx: { decide: 0.01, speed: 0.01, steady: 0.01, novel: 0.01, people: 1, customer: 0.03, numbers: 0.03, deal: 0.01 } as Record<LessonType, number>,
+};
+/**
  * Epic の外交（段 UI4。diplo.ts。docs/ISLAND_PHASE1.md「外交（Epic）」）：霧の向こうのランドの使者。石板 e3-b「返事の光」の続き。
  * - lands：会うランド（MCH のランドの名前。色と紋は仮の絵＝docs/ISLAND_ART_TODO.md）。順に会う。
  * - start：初めの仲の良さ（0〜100）。afterMonths：Epic の町に初めて着いてから、この会社の月数で初めての使者（e3-b を読んだらすぐ）。
