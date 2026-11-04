@@ -120,9 +120,19 @@ describe('決める（承認・増減・目標・一括）', () => {
     expect(boardOf(s).goals[b.key].up).toBeCloseTo(0.2, 1);
     expect(boardOf(s).goals[c.key].up).toBeCloseTo(-0.2, 1);
   });
+  it('見込みが 0 の計画は上げられない（目標の上乗せは 0 のまま）', () => {
+    const s = withAgenda();
+    const it = deptItem(s);
+    it.plan.f = 0;
+    decide(s, it, { plan: 2, budget: 0, other: 0 });
+    expect(boardOf(s).goals[it.key].raise).toBe(0);
+    expect(laborPush(s, it.dept!)).toBe(1);
+  });
   it('目標 +20%：労力 ×1.2・月の施策 +1・士気の目標に「目標の重さ」−10（予算も上げれば −4）。期末に届かなければ士気 −3', () => {
     const s = withAgenda();
     const it = deptItem(s);
+    // 見込みのある計画（見込み 0 の計画は上げられない）
+    it.plan.f = Math.max(it.plan.f, 10_000);
     const d = it.dept!;
     const cap0 = laborCap(s, d);
     const H = headOf(s, d)!;
@@ -240,7 +250,7 @@ describe('社内監査', () => {
         continue;
       }
       const see = BOARD.audit.see[au.star];
-      expect(it.audit!.plan).toBe(it.pads.plan >= see);
+      expect(it.audit!.plan).toBe(it.plan.f > 0 && it.pads.plan >= see);
     }
   });
   it('盛りは出来が低いほど大きい（(1 − 出来) × pad × 0.4〜1）', () => {
@@ -272,6 +282,7 @@ describe('セクター長', () => {
     const it = boardOf(s).agenda!.items.find((x) => x.sector === id)!;
     expect(it.kind).toBe('sector');
     expect(budgetOpts(it)).toEqual([MANAGER.choices[1], MANAGER.choices[2], MANAGER.choices[0]]);
+    it.plan.f = Math.max(it.plan.f, 10_000);
     decide(s, it, { plan: 2, budget: 1, other: 0 });
     expect(rec.invest).toBe(MANAGER.choices[2]);
     expect(sectorPush(s, id)).toBeCloseTo(0.2 * BOARD.push.sector);
