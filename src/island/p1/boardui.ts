@@ -80,7 +80,7 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
     const seat = h('div', 'isl-bm-seat');
     seat.style.setProperty('--d', `${n * 70}ms`);
     seat.append(heroIcon(it.hero, 40), h('span', 'isl-bm-mark', ''));
-    seat.title = `${heroNm(it.hero)}（${roleOf(it)}）`;
+    seat.title = t(`${heroNm(it.hero)}（${roleOf(it)}）`, `${heroNm(it.hero)} (${roleOf(it)})`);
     seats.append(seat);
     return seat;
   });
@@ -110,7 +110,8 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
     panel.replaceChildren();
     const box = h('div', 'isl-bm-intro');
     box.append(h('h2', 'isl-bm-title', t(`🏛 第 ${A!.q} 四半期 経営会議`, `🏛 Q${A!.q} board meeting`)));
-    box.append(h('p', 'isl-bm-lead', t(`出席：事業部長 ${heads} 人${secs ? `・セクター長 ${secs} 人` : ''}。1 人ずつ「予実の報告 → 来期の計画 → 必要予算」を聞いて、承認するか決めます。`, `Attending: ${heads} division heads${secs ? `, ${secs} sector heads` : ''}. Hear each one’s results, plan and budget, then decide.`)));
+    const secTxt = secs ? t(`・セクター長 ${secs} 人`, `, ${secs} sector heads`) : '';
+    box.append(h('p', 'isl-bm-lead', t(`出席：事業部長 ${heads} 人${secTxt}。1 人ずつ「予実の報告 → 来期の計画 → 必要予算」を聞いて、承認するか決めます。`, `Attending: ${heads} division heads${secTxt}. Hear each one’s results, plan and budget, then decide.`)));
     const au = A!.auditor;
     box.append(
       h(
@@ -316,7 +317,8 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
       const tags = h('div', 'isl-bm-row-tags');
       tags.append(tag(it.pick.plan ? planOptText(it.pick.plan) : t('計画 承認', 'Plan OK'), it.pick.plan ? 'is-up' : 'is-ok'));
       const bo = budgetOptText(it, it.pick.budget);
-      tags.append(tag(`${it.pick.budget === 0 ? t('予算 承認', 'Budget OK') : bo.name}・${bo.val}`, it.pick.budget === 1 ? 'is-up' : it.pick.budget === 2 ? 'is-no' : 'is-ok'));
+      const bn = it.pick.budget === 0 ? t('予算 承認', 'Budget OK') : bo.name;
+      tags.append(tag(t(`${bn}・${bo.val}`, `${bn} · ${bo.val}`), it.pick.budget === 1 ? 'is-up' : it.pick.budget === 2 ? 'is-no' : 'is-ok'));
       if (it.other) tags.append(tag(it.pick.other ? t('要求 否認', 'Request denied') : t('要求 承認', 'Request OK'), it.pick.other ? 'is-no' : 'is-ok'));
       row.append(nm, tags);
       list.append(row);
