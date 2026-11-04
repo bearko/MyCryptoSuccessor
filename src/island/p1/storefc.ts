@@ -235,9 +235,9 @@ export function storeNote(c: StoreChart): string {
   const pm = Math.round(c.perMonth);
   const pace = c.src === 'none' ? t('記録がまだ無い', 'no records yet') : t(`同じペース（月 ${pm >= 0 ? '+' : '−'}${fmtN(pm)} 個${c.src === 'hist' ? '・月末の記録から' : '・先月の流れから'}）`, `same pace (${pm >= 0 ? '+' : '−'}${fmtN(pm)}/mo${c.src === 'hist' ? ', from month-end records' : ', from last month’s flow'})`);
   const first = c.bars.findIndex((b) => b.fc);
-  const now = c.days0 === 0 ? t('もうあふれている', 'already full') : c.over0 != null ? t(`このまま：${c.bars[c.over0].name}にあふれる`, `As is: fills in ${c.bars[c.over0].name}`) : t('このまま：グラフの間はあふれない', 'As is: doesn’t fill in this window');
+  const now = c.days0 === 0 ? t('もうあふれている', 'already full') : c.over0 != null ? t(`As-Is：${c.bars[c.over0].name}にあふれる`, `As-Is: fills in ${c.bars[c.over0].name}`) : t('As-Is：グラフの間はあふれない', 'As-Is: doesn’t fill in this window');
   const hasAfter = c.cap1 != null || c.bars.some((b) => b.after != null);
   const o1 = c.over1;
-  const aft = !hasAfter ? '' : o1 == null ? t('／承認後：あふれない', ' / After: doesn’t fill') : o1 - 1 >= first && first >= 0 ? t(`／承認後：${c.bars[o1 - 1].name}まで持つ`, ` / After: lasts through ${c.bars[o1 - 1].name}`) : t(`／承認後：${c.bars[o1].name}にあふれる`, ` / After: fills in ${c.bars[o1].name}`);
+  const aft = !hasAfter ? '' : o1 == null ? t('／To-Be：あふれない', ' / To-Be: doesn’t fill') : o1 - 1 >= first && first >= 0 ? t(`／To-Be：${c.bars[o1 - 1].name}まで持つ`, ` / To-Be: lasts through ${c.bars[o1 - 1].name}`) : t(`／To-Be：${c.bars[o1].name}にあふれる`, ` / To-Be: fills in ${c.bars[o1].name}`);
   return t(`${now}${aft}（${pace}）`, `${now}${aft} (${pace})`);
 }

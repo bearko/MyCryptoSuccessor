@@ -28,6 +28,7 @@ import { craftable } from './orders';
 import { btn, extImage, h, heroIcon, heroName, money, recTag, rich, signCls, signed, skuIcon } from './ui';
 import { cardInbox, goneLine, inTutorial, starOf, withdrawCard } from './card';
 import { goodsName } from './moves';
+import { actName } from './deleg';
 
 export interface ProposalOpts {
   /** 現状の課題（担当者のセリフ。[[ ]] で色） */
@@ -202,7 +203,7 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   const slides: { id: SlideId; name: string; el: HTMLElement }[] = [];
   const say = B.say ?? o.say;
   // 段 UI9：メッセージ型の見出し・一言（課題 → 打ち手 → 効果と回収）。打ち手の短い名前は承認事項の 1 行目
-  const what = B.asks[0] ? shortWhat(B.asks[0].what) : planTitle(s, plan);
+  const what = B.asks[0] ? shortWhat(B.asks[0].what) : plan.acts[0] ? actName(s, plan.acts[0]) : planTitle(s, plan);
   const card = o.card != null ? (cardInbox(s).find((c) => c.id === o.card) ?? null) : null;
   const err = t(`予測精度 ±${pct(B.err)}`, `Forecast accuracy ±${pct(B.err)}`);
 

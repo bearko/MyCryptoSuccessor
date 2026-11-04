@@ -66,7 +66,7 @@ export function headlineOf(b: Pick<Brief, 'issue' | 'asks' | 'cost' | 'dProfit' 
         ? t(`${issueName(b.issue.key)}で ${Math.round(b.issue.days)} 日後から月 ${g(b.issue.impact)} を失う。`, `${issueName(b.issue.key)} costs ${g(b.issue.impact)}/mo from day ${Math.round(b.issue.days)}. `)
         : t(`${issueName(b.issue.key)}で月 ${g(b.issue.impact)} を失っている。`, `${issueName(b.issue.key)} is costing ${g(b.issue.impact)}/mo. `)
     : '';
-  const tail = pay != null ? t(`${what}で ${pay} か月以内に回収、${POLICY.months} か月で ${sg(L)}`, `${what} pays back within ${pay} mo; ${sg(L)} over ${POLICY.months} months`) : b.dProfit > 0.5 ? t(`${what}で月 ${sg(b.dProfit)}、${POLICY.months} か月で ${sg(L)}`, `${what}: ${sg(b.dProfit)}/mo, ${sg(L)} over ${POLICY.months} months`) : t(`${what}で ${POLICY.months} か月 ${sg(L)}`, `${what}: ${sg(L)} over ${POLICY.months} months`);
+  const tail = pay != null ? t(`「${what}」で ${pay} か月以内に回収、${POLICY.months} か月で ${sg(L)}`, `“${what}” pays back within ${pay} mo; ${sg(L)} over ${POLICY.months} months`) : b.dProfit > 0.5 ? t(`「${what}」で月 ${sg(b.dProfit)}、${POLICY.months} か月で ${sg(L)}`, `“${what}”: ${sg(b.dProfit)}/mo, ${sg(L)} over ${POLICY.months} months`) : t(`「${what}」で ${POLICY.months} か月 ${sg(L)}`, `“${what}”: ${sg(L)} over ${POLICY.months} months`);
   return head + tail;
 }
 /** 段 UI9：各ページのメッセージ型の見出し（何が言えるか） */
@@ -80,7 +80,7 @@ export function slideTitle(id: SlideId, b: Pick<Brief, 'issue' | 'asks' | 'cost'
     case 'issue':
       return b.issue ? (b.issue.grow ? t(`${issueName(b.issue.key)}に月 ${g(b.issue.impact)} の余地がある`, `${issueName(b.issue.key)} has ${g(b.issue.impact)}/mo of upside`) : t(`${issueName(b.issue.key)}で月 ${g(b.issue.impact)} を失っている`, `${issueName(b.issue.key)} is costing ${g(b.issue.impact)}/mo`)) : t('解くべき課題', 'The issue');
     case 'move':
-      return b.asks.length > 1 ? t(`${what} など ${b.asks.length} 件が最善の打ち手`, `${what} and ${b.asks.length - 1} more are the best moves`) : t(`${what}が最善の打ち手`, `${what} is the best move`);
+      return b.asks.length > 1 ? t(`「${what}」など ${b.asks.length} 件が最善の打ち手`, `“${what}” and ${b.asks.length - 1} more are the best moves`) : t(`「${what}」が最善の打ち手`, `“${what}” is the best move`);
     case 'effect':
       return pay != null ? t(`${pay} か月で回収、${POLICY.months} か月で ${sg(L)}`, `Pays back in ${pay} mo; ${sg(L)} over ${POLICY.months} months`) : t(`月の利益 ${sg(b.dProfit)}、${POLICY.months} か月で ${sg(L)}`, `${sg(b.dProfit)}/mo; ${sg(L)} over ${POLICY.months} months`);
     case 'risk': {

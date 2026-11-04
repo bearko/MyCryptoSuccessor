@@ -227,7 +227,9 @@ export function issuesOf(s: P1State): CoIssue[] {
   const short = Math.max(0, reserve - s.money);
   const loss = Math.max(0, -(r?.profit ?? 0));
   if (short > 0 || loss > 0) {
-    const days = loss > 0 ? Math.max(0, (Math.max(0, s.money) / loss) * DAYS) : null;
+    // 尽きるまでの日数（12 か月より先なら期限なし）
+    const d0 = loss > 0 ? Math.max(0, (Math.max(0, s.money) / loss) * DAYS) : null;
+    const days = d0 != null && d0 <= POLICY.months * DAYS ? d0 : null;
     const impact = Math.max(short, loss);
     out.push({ key: 'cash', score: impact * urgencyOf(days), impact, days, now: s.money, note: loss > 0 ? t(`先月の利益 ${g(-loss)}・資金 ${g(s.money)}`, `Last month’s profit ${g(-loss)}, funds ${g(s.money)}`) : t(`資金 ${g(s.money)}（ひと月の固定費 ${g(reserve)}）`, `Funds ${g(s.money)} (a month of costs ${g(reserve)})`) });
   }

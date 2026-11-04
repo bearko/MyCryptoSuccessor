@@ -201,6 +201,8 @@ export function kpiTile(k: Kpi): HTMLElement {
   e.dataset.kpi = k.key;
   e.append(h('span', 'isl-sl-lab', `${k.icon} ${k.label}`));
   const num = h('b', 'isl-sl-num');
+  // 段 UI9：桁の多い数字（7 桁以上）は少し小さく（2 列のタイルからはみ出さない）
+  if (!k.text && fmt(k.v).length >= 9) num.classList.add('is-long');
   if (k.text) num.append(document.createTextNode(k.text));
   else {
     if (k.tone === 'delta') num.append(h('span', 'isl-sl-arw', arrow(k.v)), document.createTextNode(sgn(k.v)));
@@ -607,22 +609,32 @@ export function stack100El(bars: Stack100[], labels: Stack100Labels, aria: strin
     if (b.over) col.append(h('small', 'isl-s100-over', t(`⚠ 予算を超える ${money(Math.round(b.over))}`, `⚠ Over budget by ${money(Math.round(b.over))}`)));
     const bar = h('div', 'isl-s100-bar');
     const tot = Math.max(1, b.total);
+    // 下から積む（column-reverse）ので、上に来る段（本施策）を最後に。細い段（11% 未満）の数字は右に出し、重ならないよう上から順にずらす
+    let thin = 0;
+    const segs: HTMLElement[] = [];
     for (const k of order) {
       const v = b[k];
       if (v <= 0.5) continue;
       const pc = (v / tot) * 100;
       const seg = h('span', `isl-s100-seg is-${k}`);
       seg.style.height = `${pc}%`;
-      const txt = h('span', pc >= 11 ? 'isl-s100-v' : 'isl-s100-v is-thin', `${Math.round(pc)}%`);
+      const isThin = pc < 11;
+      const txt = h('span', isThin ? 'isl-s100-v is-thin' : 'isl-s100-v', `${Math.round(pc)}%`);
+      if (isThin) {
+        txt.style.top = `${thin * 14}px`;
+        thin++;
+      } else thin = 0;
       txt.title = `${labels[k]} ${money(Math.round(v))}`;
       seg.append(txt);
-      bar.append(seg);
+      segs.push(seg);
     }
+    for (const seg of segs.reverse()) bar.append(seg);
     col.append(bar, h('small', 'isl-s100-note', b.note));
     row.append(col);
   }
   const keys = h('ul', 'isl-s100-keys');
   for (const k of order) {
+    if (!labels[k]) continue;
     const li = h('li', `isl-s100-key is-${k}`);
     li.append(h('i', ''), h('span', '', labels[k]));
     // 数字は凡例にも（棒の中は %。色だけに頼らない）

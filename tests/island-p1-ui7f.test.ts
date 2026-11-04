@@ -261,7 +261,7 @@ describe('提案書の「いま」の一言は、その提案書の手に合わ�
     for (let k = 0; k < 8 && poolUsed(s) < poolCap(s) * 0.8; k++) toMonthEnd(s, inj);
     const c = storeChart(s, { cap: poolCap(s) + 100, free: 0 });
     const note = storeNote(c);
-    expect(note).toMatch(/このまま：(来年 )?\d+ 月にあふれる/);
+    expect(note).toMatch(/As-Is：(来年 )?\d+ 月にあふれる/);
     expect(note).not.toContain('か月目');
     for (const b of c.bars) expect(b.name).toMatch(/^(来年 |\d+ 年後の )?\d+ 月$/);
     // 暦：通算の月 → 月（年をまたぐ）

@@ -14764,6 +14764,9 @@ button.isl-dband-lead.is-on {
   white-space: nowrap;
   color: #f4f1ea;
 }
+.isl-sl-num.is-long {
+  font-size: 20px;
+}
 .isl-sl-num small {
   font-size: 13px;
   font-weight: 700;
@@ -15698,6 +15701,9 @@ button.isl-dband-lead.is-on {
   .isl-sl-num {
     font-size: 28px;
   }
+  .isl-sl-num.is-long {
+    font-size: 24px;
+  }
 }
 @media (max-width: 599px) {
   .isl-sl {
@@ -16288,7 +16294,9 @@ button.isl-dband-lead.is-on {
 .isl-s100-v.is-thin {
   position: absolute;
   left: 100%;
+  top: 0;
   margin-left: 4px;
+  line-height: 1;
   color: #f4f1ea;
   white-space: nowrap;
 }
