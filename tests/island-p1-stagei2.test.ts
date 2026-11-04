@@ -37,7 +37,7 @@ import { runOnce } from '../scripts/island/sim';
 import { TALK_MAX, talkLen } from '../src/island/p1/mine';
 import { budgetWhy } from '../src/island/p1/board';
 import { AREA_MEMO, sellWhatIf } from '../src/island/p1/model';
-import { LEVER_FAST, coLive, causeChips, causeCore, leverCore, noLeverCore, ofSlack, pickLever, styleOfHero, type Cause, type Lever } from '../src/island/p1/boardplan';
+import { LEVER_FAST, coLive, forecastHint, causeChips, causeCore, leverCore, noLeverCore, ofSlack, pickLever, styleOfHero, type Cause, type Lever } from '../src/island/p1/boardplan';
 import { heroLine } from '../src/island/p1/headtalk';
 import { has, lvOf } from '../src/island/p1/model';
 import { parseStyle, styleTags } from '../src/island/p1/voice';
@@ -490,7 +490,10 @@ describe('段 I2b：判断できる報告（何もできなかった原因・来
     const it = deptItem(s, d);
     expect(it.why?.k).toBe('cash');
     expect(planLine(it)).not.toMatch(/来期は守りです/);
-    expect(planLine(it)).toMatch(/取り置き/);
+    // 次の施策があればそれを軸に、無ければ「資金が取り置きを上回る月に打つ」
+    if (it.plan.moves.length) expect(planLine(it)).toContain(it.plan.moves[0]);
+    else expect(planLine(it)).toMatch(/取り置き/);
+    expect(forecastHint(it.lever, it.why)).toMatch(/取り置き/);
   });
 
   it('打てる手が無い：宣伝を全部流しているマーケは「手はもう打ってある」。ほかは、いまの詰まりに効くパネル（開放不足）か「必要が無い」。打ち手のパネルは承認で開く', () => {
