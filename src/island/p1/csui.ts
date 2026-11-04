@@ -13,6 +13,8 @@ import { masteryCard } from './acctui';
 import { runAd, type P1State } from './model';
 import { after, open, type Ctx } from './screens';
 import { bar, btn, fmt, h, money, skuName } from './ui';
+import { arw, cvBox, trendEl, trendLegend, type TSer } from './chartkit';
+import { SAT_REFS, monHead, monLab, satHist } from './dash';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const sg = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(Math.round(v * 10) / 10)}`;
@@ -173,19 +175,15 @@ export function openSat(ctx: Ctx, hooks: CsHooks = {}) {
     if (s.cs?.flame) row(t('　炎上', '  Backlash'), `${sg((visitMul(s) / repeatMul(s) - 1) * 100)}%`, 'is-sub');
     row(t('ブランド力（月の締め）', 'Brand (monthly close)'), v >= CS.brandHi ? '+1' : v <= CS.brandLo ? '−1' : '±0', 'is-sub');
     top.append(rows);
-    // 月ごとの推移（月の締めの満足度）
-    const hist = s.reports.filter((r) => r.cs).slice(-12);
+    // 月ごとの推移（月の締めの満足度）。段 UI8：棒の並び → 線と帯の基準線（ブランド力 +1・−1 の線）
+    const hist = satHist(s.reports);
     if (hist.length) {
-      const ch = h('div', 'isl-cs-hist');
-      for (const r of hist) {
-        const col = h('div', 'isl-cs-col');
-        const b = h('i', satCls(r.cs!.sat));
-        b.style.height = `${Math.max(4, r.cs!.sat)}%`;
-        col.title = t(`${r.month} か月目：満足度 ${r.cs!.sat}・問い合わせ ${r.cs!.got} 件・返事 ${r.cs!.answered} 件・期限切れ ${r.cs!.expired} 件`, `Month ${r.month}: satisfaction ${r.cs!.sat}, ${r.cs!.got} inquiries, ${r.cs!.answered} replies, ${r.cs!.expired} expired`);
-        col.append(b, h('small', '', `${r.cs!.sat}`));
-        ch.append(col);
-      }
-      top.append(h('small', 'isl-dim', t('月の締めの満足度（新しい月が右）', 'Satisfaction at each close (newest on the right)')), ch);
+      const refs = SAT_REFS();
+      const series: TSer[] = [{ name: t('顧客満足度', 'Satisfaction'), kind: 'line', cls: 'is-gold', vals: hist.map((x) => x.v) }];
+      const d = hist.length >= 2 ? hist[hist.length - 1].v - hist[hist.length - 2].v : 0;
+      const g = cvBox(t('月の締めの顧客満足度', 'Satisfaction at each close'), hist.length >= 2 ? t(`先月から ${arw(d)} ${d >= 0 ? '+' : '−'}${Math.abs(d)}`, `${arw(d)} ${d >= 0 ? '+' : '−'}${Math.abs(d)} since last month`) : '');
+      g.body.append(trendEl({ labels: hist.map((x, k) => monLab(x.month, k === 0)), heads: hist.map((x) => monHead(x.month)), series, refs, lo: 0, hi: 100, fmt: (v) => String(Math.round(v)), axis: (v) => String(v), aria: t(`顧客満足度の推移：いま ${hist[hist.length - 1].v}`, `Satisfaction: now ${hist[hist.length - 1].v}`), height: 150 }), trendLegend(series, refs));
+      top.append(g.el);
     }
     // 満足度の調査：来月の見込み
     if (s.skills.includes('cs_survey')) {

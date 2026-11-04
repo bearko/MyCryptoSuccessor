@@ -125,6 +125,8 @@ import { sectorDef, sectorProfile } from './company';
 import { UNSELLABLE_TEXT, seriesTag } from './digview';
 import { applyPlan, manualPlan } from './plan';
 import { bar, btn, extImage, fmt, h, heroIcon, heroName, matIcon, money, sheet, skuIcon, skuName, rich } from './ui';
+import { cvBox, rankBarsEl, trendEl } from './chartkit';
+import { monHead, monLab, rankHist, rankRows } from './dash';
 import { bomRow, extCard, extSlot, jobLabel, knownBar, lotsFromStock, needText, pickExt, pickHero, profitPerDay, radar, rankEl, slot, techNeed } from './heroui';
 import { rolesCard } from './delegui';
 import { adGain } from './moves';
@@ -1737,6 +1739,13 @@ export function openRanking(ctx: Ctx, tab: 'area' | 'land' | 'world' = 'area') {
     const list = h('ol', 'isl-rank');
     const rallying = tab === 'area' && (s.rally ?? 0) > 0;
     const selling = tab === 'area' && s.comeback && s.comeback.left > 0 ? s.comeback : null;
+    /** 反撃中・セール中の札（横棒の名前に添える） */
+    const rivalTag = (name: string, me: boolean): HTMLElement | null => {
+      if (me) return null;
+      if (selling && name === rivalName(selling.rid)) return h('span', 'isl-tag is-bad isl-sale-tag', t(`セール中（あと ${selling.left} か月）`, `On sale (${selling.left} mo)`));
+      if (rallying) return h('span', 'isl-tag is-bad isl-rally-tag', t(`反撃中（あと ${s.rally} か月）`, `Fighting back (${s.rally} mo)`));
+      return null;
+    };
     const row = (name: string, sales: number, me: boolean, n: number) => {
       const li = h('li', me ? 'is-me' : '');
       const nm = h('span', '', me ? t('あなたの会社', 'Your company') : name);
@@ -1760,11 +1769,45 @@ export function openRanking(ctx: Ctx, tab: 'area' | 'land' | 'world' = 'area') {
         body.append(box);
       }
       const rows = last ? last.area : areaRanking(s, mine, Object.fromEntries(s.rivals.map((r) => [r.id, rivalBase(s, r)])));
-      rows.forEach((r, k) => row(r.name, r.sales, r.me, k + 1));
+      // 段 UI8：順位の表 → 横棒（自社は金・1 位と 2 位の間にゴールライン）と、自社の順位の推移（線。1 位が上）
+      const me = rows.findIndex((x) => x.me);
+      const gap = me > 0 ? t(`次の順位（${me} 位）まで あと ${money(Math.max(0, rows[me - 1].sales - rows[me].sales))}`, `${money(Math.max(0, rows[me - 1].sales - rows[me].sales))} to #${me}`) : me === 0 && rows.length > 1 ? t(`2 位との差 ${money(Math.max(0, rows[0].sales - rows[1].sales))}`, `${money(Math.max(0, rows[0].sales - rows[1].sales))} ahead of #2`) : '';
+      const box = cvBox(t(`エリアの月の売上：自社は ${me + 1} 位`, `Area monthly sales: you are #${me + 1}`), gap);
+      box.body.append(
+        rankBarsEl(
+          rows.map((r) => ({ ...rankRows([r])[0], tag: rivalTag(r.name, r.me) ?? undefined })),
+          { goal: 1, aria: t(`エリアの企業ランキング：自社は ${me + 1} 位`, `Area ranking: you are #${me + 1}`) },
+        ),
+      );
+      body.append(box.el);
+      const rh = rankHist(s.reports);
+      if (rh.length >= 2) {
+        const of = Math.max(...rh.map((x) => x.of));
+        const g = cvBox(t('自社の順位の推移', 'Your rank by month'), t('上ほど上位・金の点線がゴール（1 位）', 'Higher is better · gold dotted line is the goal (#1)'));
+        g.body.append(
+          trendEl({
+            labels: rh.map((x, k) => monLab(x.month, k === 0)),
+            heads: rh.map((x) => monHead(x.month)),
+            series: [{ name: t('順位', 'Rank'), kind: 'line', cls: 'is-gold', vals: rh.map((x) => x.rank) }],
+            refs: [{ v: 1, label: t('ゴール 1 位', 'Goal #1'), cls: 'is-goal' }],
+            invert: true,
+            lo: 1,
+            hi: Math.max(2, of),
+            fmt: (v) => t(`${Math.round(v)} 位`, `#${Math.round(v)}`),
+            axis: (v) => (Number.isInteger(v) ? t(`${v} 位`, `#${v}`) : ''),
+            aria: t(`自社の順位の推移：いま ${rh[rh.length - 1].rank} 位`, `Your rank: now #${rh[rh.length - 1].rank}`),
+            height: 150,
+          }),
+        );
+        body.append(g.el);
+      }
       body.append(h('p', 'isl-dim', t('同じエリアで物販をしている同業他社です。ここで 2 か月続けて 1 位になる（制覇）のが目標です。', 'Retail rivals in your area. The goal: #1 here two months in a row (conquer the sector).')));
     } else if (tab === 'land') {
       const rows = [...LAND_COMPANIES.map(([n, v]) => ({ name: n, sales: v, me: false })), { name: '', sales: mine, me: true }].sort((a, b) => b.sales - a.sales);
-      rows.forEach((r, k) => row(r.name, r.sales, r.me, k + 1));
+      // 段 UI8：横棒（自社は金）
+      const box = cvBox(t('ランドの月の売上', 'Land monthly sales'));
+      box.body.append(rankBarsEl(rankRows(rows), { aria: t('ランドの企業ランキング', 'Land ranking') }));
+      body.append(box.el);
     } else {
       WORLD_COMPANIES.forEach(([n, v], k) => row(n, v, false, k + 1));
       const est = Math.max(9, Math.round(4000 / Math.max(1, Math.log10(Math.max(10, mine)))));
@@ -1772,7 +1815,7 @@ export function openRanking(ctx: Ctx, tab: 'area' | 'land' | 'world' = 'area') {
       li.append(h('span', 'isl-rank-n', fmt(est * 37)), h('span', '', t('あなたの会社', 'Your company')), h('b', '', money(mine)));
       list.append(h('li', 'isl-dim', '…'), li);
     }
-    body.append(list);
+    if (list.childElementCount) body.append(list);
   });
 }
 

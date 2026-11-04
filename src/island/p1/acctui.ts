@@ -13,6 +13,7 @@ import { moraleOf } from './hr';
 import { setRest, type P1State, type Staff } from './model';
 import { after, open, type Ctx } from './screens';
 import { bar, btn, fmt, h, heroIcon, heroName, money } from './ui';
+import { cvBox, trendEl, trendLegend, type TSer } from './chartkit';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const TIER_NAME: Record<string, string> = { C: 'Common', U: 'Uncommon', R: 'Rare', E: 'Epic', L: 'Legendary' };
@@ -120,7 +121,17 @@ export function openTax(ctx: Ctx, hooks: { books?: () => void; skills?: () => vo
       x.append(h('span', '', t(`第 ${r.q} 四半期・${pct(r.rate)}`, `Q${r.q} · ${pct(r.rate)}`)), h('b', '', t(`${money(r.paid)}（節税 −${fmt(r.saved)}）`, `${money(r.paid)} (saved ${fmt(r.saved)})`)));
       list.append(x);
     }
-    if (A.hist.length) hist.append(list);
+    // 段 UI8：四半期ごとの払った税と、節税で減った税（棒を 2 本並べる）。2 期より少なければ行の並び
+    if (A.hist.length >= 2) {
+      const hs = A.hist.slice(-8);
+      const series: TSer[] = [
+        { name: t('払った税', 'Tax paid'), kind: 'bar', cls: 'is-grey', vals: hs.map((r) => r.paid) },
+        { name: t('節税で減った税', 'Tax saved'), kind: 'bar', cls: 'is-teal', vals: hs.map((r) => r.saved) },
+      ];
+      const g = cvBox(t('四半期ごとの法人税', 'Corporate tax by quarter'), t(`節税で減らした合計 ${money(A.saved)}`, `Saved in total ${money(A.saved)}`));
+      g.body.append(trendEl({ labels: hs.map((r) => `Q${r.q}`), heads: hs.map((r) => t(`第 ${r.q} 四半期・税率 ${pct(r.rate)}`, `Q${r.q} · rate ${pct(r.rate)}`)), series, aria: t('四半期ごとの払った税と節税で減った税', 'Tax paid and saved by quarter'), height: 150 }), trendLegend(series));
+      hist.append(g.el);
+    } else if (A.hist.length) hist.append(list);
     else hist.append(h('small', 'isl-dim', t('まだ締めた四半期はありません。', 'No quarter has closed yet.')));
     const row = h('div', 'isl-row');
     if (hooks.books) row.append(btn(t('決算書を見る', 'Open statements'), () => hooks.books!(), 'is-on'));

@@ -34,6 +34,8 @@ import type { P1State } from './model';
 import { after, open, type Ctx } from './screens';
 import { bar, btn, h, heroIcon, recTag, rich } from './ui';
 import './i1.css';
+import { cvBox, heatEl } from './chartkit';
+import { budgetHeat } from './dash';
 
 const g = (v: number) => `${Math.round(v).toLocaleString('en-US')} G`;
 const sg = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}`;
@@ -273,6 +275,14 @@ export function openBudget(ctx: Ctx) {
     };
     kpi.append(k(t('今月の予算（部長のいる部門）', 'Budget (headed depts)'), g(tot)), k(t('使った', 'Used'), g(used)), k(t('従業員', 'Staff'), t(`${crew} 人`, `${crew}`)), k(t('部長からの頼み', 'Requests'), String(asks), asks ? 'is-warn' : ''));
     body.append(kpi);
+    // 段 UI8：部門 × 月の予算の使い方（ヒートマップ：使った ÷ 月の予算。ます目の字は %・超えは ⚠）
+    const heat = budgetHeat(s.reports);
+    if (heat.cols.length && heat.rows.length) {
+      const idle = heat.rows.filter((_, i) => heat.cells[i].every((c) => !c || c.pct === 0)).map((r) => r.name);
+      const box = cvBox(t('部門ごとの予算の使い方（月の締め）', 'Budget use by department (month close)'), idle.length ? t(`ずっと使っていない：${idle.join('・')}`, `Never used: ${idle.join(', ')}`) : t('濃いほど使った・赤は予算を超えた', 'Darker = more used · red = over budget'));
+      box.body.append(heatEl(heat, t('部門 × 月の予算の使い方', 'Budget use by department and month')));
+      body.append(box.el);
+    }
     // まとめて：全部門の予算の段
     const bulk = h('div', 'isl-bd-bulk');
     bulk.append(h('small', '', t('全部門の予算を', 'All departments:')));

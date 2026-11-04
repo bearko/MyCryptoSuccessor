@@ -48,6 +48,7 @@ import { styleTags } from './voice';
 import { stackPair } from './slideui';
 import type { Stack } from './slides';
 import './board.css';
+import { bulletEl } from './chartkit';
 
 const g = (v: number) => `${Math.round(v).toLocaleString('en-US')} G`;
 const stars = (n: number) => `${'★'.repeat(n)}${'☆'.repeat(3 - n)}`;
@@ -197,8 +198,13 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
     // ① 予実の報告
     const b1 = block('isl-bm-b1', t('① 予実の報告', '① Results'), reportLine(it));
     const nums = h('div', 'isl-bm-nums');
+    // 段 UI8：予実はメーター（目標の線と実績の棒・✔✖ の字）。予算の使い方も同じ形で
+    const meters = h('div', 'isl-bm-meters');
+    if (it.prev) meters.append(bulletEl({ label: t('前期の成果（報告）', 'Last quarter (reported)'), v: it.prev.claimed, target: it.prev.targetRep, tName: t('目標', 'Target'), fmt: g }));
+    if ('acts' in it.was && it.was.amt > 0) meters.append(bulletEl({ label: t('予算の使い方', 'Budget use'), v: it.was.used, target: it.was.amt, tName: t('予算', 'Budget'), fmt: g, over: 'cap' }));
+    if (meters.childElementCount) b1.append(meters);
     if ('acts' in it.was) {
-      nums.append(chip(t(`予算 ${g(it.was.amt)}`, `Budget ${g(it.was.amt)}`)), chip(t(`使った ${g(it.was.used)}`, `Spent ${g(it.was.used)}`)), chip(t(`施策 ${it.was.acts} 件`, `${it.was.acts} moves`)));
+      nums.append(chip(t(`施策 ${it.was.acts} 件`, `${it.was.acts} moves`)));
       if (it.was.names.length) nums.append(chip(it.was.names.slice(0, 2).join(t('・', ' · ')), 'is-wide'));
     } else nums.append(chip(t(`利益 ${g(it.was.profit)}`, `Profit ${g(it.was.profit)}`)), chip(t(`投資 ${g(it.was.invest)}`, `Reinvested ${g(it.was.invest)}`)), chip(t(`本社へ ${g(it.was.toHQ)}`, `To HQ ${g(it.was.toHQ)}`)));
     if (it.prev) nums.append(chip(it.prev.okRep ? t(`✔ 目標に届いた（報告）`, '✔ Target met (reported)') : t('✖ 目標に届かなかった', '✖ Target missed'), it.prev.okRep ? 'is-good' : 'is-bad'));

@@ -17,15 +17,17 @@ import { legalReportText } from './legalui';
 import { eventReportText } from './events';
 import { dipReportText } from './diplo';
 import { assetUrl } from '../../render/images';
-import { PRODUCT, TOP_STREAK, sku } from './data';
+import { TOP_STREAK } from './data';
 import { jamOf, myShops, whatIf, type P1State, type Report, type Stage } from './model';
 import { moveUp, sellBigUp } from './scm';
 import { bestSell } from './moves';
 import { reportProposal, stallSay } from './card';
 import type { Plan } from './plan';
 import { closeSheet, open, type Ctx } from './screens';
-import { btn, h, heroName, money, rich, select, signCls, signed, skuIcon } from './ui';
+import { btn, h, heroName, money, rich, select, signCls, signed } from './ui';
 import { ZERO_LINE } from './mine';
+import { arw, candleEl, candleLegend, cvBox, donutEl, fallEl, fallLegend, legendEl, pctBarEl, rankBarsEl, shortN, trendEl, trendLegend, type TSer } from './chartkit';
+import { costParts, monHead, monLab, monthFall, moneyCandles, rankRows, salesParts } from './dash';
 
 const STAGE_NAME: Record<Stage, string> = { buy: t('① 調達', '① Buy'), craft: t('② 製造', '② Craft'), haul: t('③ 物流', '③ Haul'), sell: t('④ 販売', '④ Sell') };
 const STAGE_ICON: Record<Stage, string> = { buy: '🧱', craft: '🔨', haul: '🛒', sell: '🏪' };
@@ -138,6 +140,8 @@ let chartRange: Range = (() => {
     return 6;
   }
 })();
+/** 段 UI8：KPI ② で見ているグラフ（売上と利益の推移・資金のろうそく足） */
+let trendView: 'sales' | 'cash' = 'sales';
 function setRange(v: Range) {
   chartRange = v;
   try {
@@ -147,138 +151,65 @@ function setRange(v: Range) {
   }
 }
 
-const NS = 'http://www.w3.org/2000/svg';
-function mk(tag: string, attrs: Record<string, string | number>, text = '') {
-  const e = document.createElementNS(NS, tag);
-  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
-  if (text) e.textContent = text;
-  return e;
-}
-
-function monthLabel(m: number): string {
-  const d = ym(m);
-  return m > 12 ? t(`${d.year}年 ${d.month}月`, `Y${d.year} M${d.month}`) : t(`${d.month} 月`, `M${d.month}`);
-}
-
-/** 売上（左軸・折れ線）と利益（右軸・棒）。押すとその月の吹き出し */
-function chart(reports: Report[]): SVGSVGElement {
+/**
+ * 段 UI8：月次売上推移（1 本の縦の目盛り：売上は金の線・利益は棒（赤字は赤と斜線で 0 の線から下へ）。来月の見込みがあれば、右に点線の点と「予想 →」）。
+ * 前（段 UI3〜UI7）は左右 2 本の目盛り（売上・利益）だった：どちらも G なので 1 本にまとめ、読み違いを減らす
+ */
+function chart(reports: Report[], fc: Report['forecast'] | null): HTMLElement {
   const rs = chartRange ? reports.slice(-chartRange) : reports.slice();
-  // 段 UI5b：スマホはカードの幅いっぱい・高さ 160px（1 単位＝画面の 1px なので目盛りは 12px のまま。月次報告はスクロールしてよい）。
-  // 前（段 UI3）は 1 画面に収めるため高さ 110 で、縮めて置いたので幅の 3 割ほど・目盛りが読めなかった
-  const phone = typeof innerWidth === 'number' && innerWidth < 600;
-  const W = phone ? Math.max(280, Math.round(innerWidth - 44)) : 360;
-  const H = phone ? 160 : 150;
-  // 段 UI3：目盛りは画面の上で 12px 以上（CSS の --ck でグラフの縮み具合を割る）。そのぶん左右と下を少し広く
-  const padL = 40;
-  const padR = 40;
-  const padT = 12;
-  const padB = 24;
-  const plotH = H - padT - padB;
-  const svg = document.createElementNS(NS, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.classList.add('isl-rp-chart');
-  // グラフの縮み具合（画面の幅 ÷ 360）：目盛りの字の大きさに使う
-  if (typeof ResizeObserver !== 'undefined')
-    new ResizeObserver(() => {
-      const w = svg.getBoundingClientRect().width;
-      if (w > 0) svg.style.setProperty('--ck', (w / W).toFixed(3));
-    }).observe(svg);
-  const n = Math.max(1, rs.length);
-  const maxR = Math.max(1, ...rs.map((r) => r.revenue));
-  const hiP = Math.max(1, ...rs.map((r) => r.profit));
-  const loP = Math.min(0, ...rs.map((r) => r.profit));
-  const step = (W - padL - padR) / n;
-  const x = (k: number) => padL + step * (k + 0.5);
-  const yR = (v: number) => padT + plotH * (1 - v / maxR);
-  const yP = (v: number) => padT + (plotH * (hiP - v)) / (hiP - loP);
-  // 目盛り（左＝売上、右＝利益）と薄い横線
-  for (const v of [0, maxR / 2, maxR]) {
-    svg.append(mk('line', { x1: padL, y1: yR(v), x2: W - padR, y2: yR(v), class: 'isl-rp-grid' }));
-    svg.append(mk('text', { x: padL - 4, y: yR(v) + 5, 'text-anchor': 'end', class: 'isl-rp-yl is-l' }, kfmt(v)));
+  const labels = rs.map((r, k) => monLab(r.month, k === 0));
+  const heads = rs.map((r) => monHead(r.month));
+  const sales: (number | null)[] = rs.map((r) => r.revenue);
+  const profit: (number | null)[] = rs.map((r) => r.profit);
+  const series: TSer[] = [
+    { name: t('利益', 'Profit'), kind: 'bar', cls: 'is-teal', vals: profit },
+    { name: t('売上', 'Sales'), kind: 'line', cls: 'is-gold', vals: sales },
+  ];
+  let fcFrom: number | undefined;
+  if (fc && rs.length) {
+    fcFrom = rs.length;
+    labels.push(t('来月', 'Next'));
+    heads.push(t('来月（見込み）', 'Next month (forecast)'));
+    for (const x of series) x.vals.push(null);
+    const last = rs.length - 1;
+    series.push({ name: t('売上の見込み', 'Sales forecast'), kind: 'dash', cls: 'is-gold', vals: [...rs.map((_, k) => (k === last ? rs[k].revenue : null)), fc.sales] });
+    series.push({ name: t('利益の見込み', 'Profit forecast'), kind: 'dash', cls: 'is-teal', vals: [...rs.map((_, k) => (k === last ? rs[k].profit : null)), fc.profit] });
   }
-  // 利益が全部赤字の月だけなら、0・中・最小（下）を出す
-  const pTicks = hiP > 1 ? [0, hiP / 2, hiP] : [loP, loP / 2, 0];
-  for (const v of pTicks) svg.append(mk('text', { x: W - padR + 4, y: yP(v) + 5, 'text-anchor': 'start', class: 'isl-rp-yl is-r' }, kfmt(v)));
-  // 利益の 0 の線
-  svg.append(mk('line', { x1: padL, y1: yP(0), x2: W - padR, y2: yP(0), class: 'isl-rp-zero' }));
-  // 利益の棒（赤字は 0 の線から下へ）
-  const bw = Math.min(26, step * 0.5);
-  rs.forEach((r, k) => {
-    const v = r.profit;
-    const top = v >= 0 ? yP(v) : yP(0);
-    const hgt = Math.max(1, Math.abs(yP(v) - yP(0)));
-    svg.append(mk('rect', { x: x(k) - bw / 2, y: top, width: bw, height: hgt, rx: 3, class: `isl-rp-bar ${v < 0 ? 'is-neg' : ''}`, style: `--d:${k * 0.05}s` }));
-  });
-  // 売上の折れ線と点
-  if (rs.length > 1) svg.append(mk('polyline', { points: rs.map((r, k) => `${x(k).toFixed(1)},${yR(r.revenue).toFixed(1)}`).join(' '), class: 'isl-rp-line' }));
-  rs.forEach((r, k) => {
-    svg.append(mk('circle', { cx: x(k), cy: yR(r.revenue), r: k === rs.length - 1 ? 4.5 : 3.2, class: `isl-rp-dot ${k === rs.length - 1 ? 'is-last' : ''}` }));
-    // 月の目盛りは 6 つまで（多いときは間引く。最後の月は必ず）
-    const every = Math.ceil(rs.length / 6);
-    // 段 UI5b：スマホは「年」を最初の目盛りと 1 月だけに（「2年 2月2年 3月…」と重ならないように）
-    const first = (rs.length - 1) % every;
-    const lab = phone && k !== first && ym(r.month).month !== 1 ? t(`${ym(r.month).month}月`, `M${ym(r.month).month}`) : monthLabel(r.month);
-    if ((rs.length - 1 - k) % every === 0) svg.append(mk('text', { x: x(k), y: H - 6, 'text-anchor': 'middle', class: 'isl-rp-xl' }, lab));
-  });
-  // 吹き出し（押した月の上に）
-  let tip: SVGGElement | null = null;
-  let tipK = -1;
-  const show = (k: number) => {
-    tip?.remove();
-    tip = null;
-    if (k === tipK) {
-      tipK = -1;
-      return;
-    }
-    tipK = k;
-    const r = rs[k];
-    const top = Math.min(yR(r.revenue), r.profit >= 0 ? yP(r.profit) : yP(0));
-    const g = document.createElementNS(NS, 'g') as SVGGElement;
-    g.classList.add('isl-rp-tip');
-    const box = mk('rect', { x: 0, y: 0, width: 104, height: 46, rx: 6 });
-    const lines = [
-      mk('text', { x: 0, y: 0, class: 'is-m' }, monthLabel(r.month)),
-      mk('text', { x: 0, y: 0 }, t(`売上 ${money(r.revenue)}`, `Sales ${money(r.revenue)}`)),
-      mk('text', { x: 0, y: 0, class: r.profit >= 0 ? 'is-good' : 'is-bad' }, t(`利益 ${r.profit < 0 ? '−' : ''}${money(Math.abs(r.profit))}`, `Profit ${r.profit < 0 ? '−' : ''}${money(Math.abs(r.profit))}`)),
-    ];
-    g.append(box, ...lines);
-    svg.append(g);
-    // 吹き出しの字は画面の上で 12px 以上（CSS の --ck で割る）。字の大きさから箱の大きさと位置を決める
-    const fs = parseFloat(getComputedStyle(lines[0]).fontSize) || 10;
-    const lh = fs * 1.25;
-    const tw = Math.max(104, ...lines.map((e) => (e as SVGTextElement).getComputedTextLength?.() ?? 0)) + 14;
-    const th = lh * 3 + 8;
-    const tx = Math.max(2, Math.min(W - tw - 2, x(k) - tw / 2));
-    const ty = Math.max(2, top - th - 6);
-    box.setAttribute('x', String(tx));
-    box.setAttribute('y', String(ty));
-    box.setAttribute('width', String(tw));
-    box.setAttribute('height', String(th));
-    lines.forEach((e, i) => {
-      e.setAttribute('x', String(tx + 7));
-      e.setAttribute('y', String(ty + 4 + lh * (i + 1) - lh * 0.25));
-    });
-  };
-  // 月ごとの縦の当たり判定（透明）
-  rs.forEach((_r, k) => {
-    const hit = mk('rect', { x: x(k) - step / 2, y: 0, width: step, height: H, class: 'isl-rp-hit', 'data-k': k });
-    hit.addEventListener('click', (e) => {
-      e.stopPropagation();
-      show(k);
-    });
-    hit.addEventListener('pointerenter', (e) => {
-      if ((e as PointerEvent).pointerType === 'mouse' && tipK !== k) show(k);
-    });
-    svg.append(hit);
-  });
-  svg.addEventListener('pointerleave', (e) => {
-    if ((e as PointerEvent).pointerType === 'mouse' && tip) {
-      tip.remove();
-      tip = null;
-      tipK = -1;
-    }
-  });
-  return svg;
+  const lastR = rs[rs.length - 1];
+  const el = trendEl({ labels, heads, series, aria: lastR ? t(`月次売上推移：${monHead(lastR.month)}の売上 ${money(lastR.revenue)}・利益 ${signed(lastR.profit, money)}`, `Monthly trend: ${monHead(lastR.month)} sales ${money(lastR.revenue)}, profit ${signed(lastR.profit, money)}`) : t('月次売上推移', 'Monthly trend'), fcFrom });
+  el.classList.add('isl-rp-cv');
+  return el;
+}
+/** 段 UI8：資金のろうそく足（月のはじめ → 月末・その月のいちばん高い・安い） */
+function cashChart(reports: Report[]): HTMLElement {
+  const rs = chartRange ? reports.slice(-chartRange) : reports.slice();
+  const cs = moneyCandles(rs);
+  const box = h('div', '');
+  const last = cs[cs.length - 1];
+  box.append(candleEl(cs, cs.map((c, k) => monLab(c.month, k === 0)), cs.map((c) => monHead(c.month)), last ? t(`資金の月の動き：いま ${money(last.c)}`, `Cash by month: now ${money(last.c)}`) : t('資金の月の動き', 'Cash by month')), candleLegend(cs));
+  return box;
+}
+
+/** 段 UI8：月次報告の内訳のグラフ（商品ごとの割合・費用の内訳・売上から利益まで）。月次報告と、くわしい売上報告（screens.ts）で使う */
+export function breakdownCharts(r: Report): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  const mix = salesParts(r.bySeries);
+  if (mix.length) {
+    const a = cvBox(t('商品ごとの売上の割合', 'Sales by product'), mix.length > 1 ? t(`いちばんは${mix[0].name}（${Math.round((mix[0].v / Math.max(1, r.revenue)) * 100)}%）`, `Top: ${mix[0].name} (${Math.round((mix[0].v / Math.max(1, r.revenue)) * 100)}%)`) : '');
+    a.body.append(pctBarEl(mix, t('商品ごとの売上の割合', 'Sales by product')));
+    out.push(a.el);
+  }
+  const cs = costParts(r.costs);
+  if (cs.length) {
+    const tot = cs.reduce((x, c) => x + c.v, 0);
+    const b = cvBox(t('費用の内訳', 'Costs'), t(`いちばん大きいのは${cs[0].name}（${Math.round((cs[0].v / Math.max(1, tot)) * 100)}%）`, `Largest: ${cs[0].name} (${Math.round((cs[0].v / Math.max(1, tot)) * 100)}%)`));
+    b.body.append(donutEl(cs, { big: shortN(tot), small: t('合計', 'Total') }, t(`費用の合計 ${money(tot)}`, `Total costs ${money(tot)}`)));
+    out.push(b.el);
+  }
+  const c = cvBox(t('売上から利益まで', 'From sales to profit'), r.profit >= 0 ? t(`売上の ${Math.round((r.profit / Math.max(1, r.revenue)) * 100)}% が利益に残った`, `${Math.round((r.profit / Math.max(1, r.revenue)) * 100)}% of sales left as profit`) : t('費用が売上を上回った（赤字）', 'Costs exceeded sales (loss)'));
+  c.body.append(fallEl(monthFall(r), t(`売上 ${money(r.revenue)} から費用を引いて、利益 ${signed(r.profit, money)}`, `Sales ${money(r.revenue)} minus costs: profit ${signed(r.profit, money)}`)), fallLegend());
+  out.push(c.el);
+  return out;
 }
 
 /**
@@ -323,7 +254,8 @@ function cardHead(tag: string, kgi: boolean, title: string, right?: HTMLElement,
 function diffChip(cur: number, prev: number): HTMLElement {
   const d = cur - prev;
   const c = signCls(d);
-  return h('span', `isl-rp-diff ${c === 'is-good' ? 'is-up' : c === 'is-bad' ? 'is-down' : 'is-even'}`, t(`先月比 ${signed(d, money)}`, `${signed(d, money)} vs last`));
+  // 段 UI8：色だけに頼らない（▲▼ と符号）
+  return h('span', `isl-rp-diff ${c === 'is-good' ? 'is-up' : c === 'is-bad' ? 'is-down' : 'is-even'}`, t(`${arw(d)} 先月比 ${signed(d, money)}`, `${arw(d)} ${signed(d, money)} vs last`));
 }
 
 /** 発表の長さ（ミリ秒）：カウント（金額に関係なく一定）→ 跳ね → 金貨 → 「タップで続ける」。待ちきれなければ 6 秒で自動 */
@@ -532,16 +464,9 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       }
       // 内訳（折りたたみ）
       const detail = h('details', 'isl-rp-detail');
-      detail.append(h('summary', '', t('売上の内訳（商品ごとの売上・費用）', 'Breakdown (sales by product, costs)')));
-      const by = h('div', 'isl-stock');
-      for (const [k, v] of Object.entries(r.bySeries)) {
-        if (!v) continue;
-        const c = h('span', 'isl-chip');
-        c.append(skuIcon(sku(k, 'C'), 22), h('span', '', `${PRODUCT[k].name} ${money(v)}`));
-        by.append(c);
-      }
-      const cost = r.costs;
-      detail.append(by, h('p', 'isl-dim', t(`費用：素材 ${money(cost.materials)}・建物とスキル ${money(cost.build)}・維持費 ${money(cost.upkeep)}・給料 ${money(cost.wages)}・アルバイト ${money(cost.part)}・宣伝 ${money(cost.ads ?? 0)}`, `Costs: materials ${money(cost.materials)}, buildings & skills ${money(cost.build)}, upkeep ${money(cost.upkeep)}, wages ${money(cost.wages)}, part-timers ${money(cost.part)}, ads ${money(cost.ads ?? 0)}`)));
+      detail.append(h('summary', '', t('売上の内訳（商品ごとの割合・費用・売上から利益まで）', 'Breakdown (sales mix, costs, sales to profit)')));
+      // 段 UI8：文の並びをグラフに（商品ごとの割合＝100% の積み上げ棒・費用の内訳＝ドーナツ・売上から利益まで＝ウォーターフォール）
+      detail.append(...breakdownCharts(r));
       for (const n of r.news) {
         const [who, what, kind] = n.split('|');
         if (kind === 'out') detail.append(h('p', 'isl-good', t(`${who}が「${what}」から撤退しました。`, `${who} pulled out of ${what}.`)));
@@ -644,34 +569,44 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       // 詰めた表示（スマホで収まらない月）：2 位との差は、一言の下ではなくこの行に
       if (streak > 0 && !conquered && me === 0 && r.area.length > 1) sum.append(h('small', 'isl-rp-sumlead', t(`・2 位との差 ${money(Math.max(0, mySales - r.area[1].sales))}`, ` · ${money(Math.max(0, mySales - r.area[1].sales))} ahead of #2`)));
       rk.append(sum);
-      const list = h('ol', 'isl-rank isl-rp-list');
-      r.area.forEach((x, k) => {
-        const li = h('li', x.me ? 'is-me' : '');
-        li.style.setProperty('--d', `${k * 0.05}s`);
-        li.append(h('span', 'isl-rank-n', `${k + 1}`), h('span', '', x.me ? t('あなたの会社', 'Your company') : x.name), h('b', '', money(x.sales)));
-        list.append(li);
-        if (k + 1 === GOAL_RANK && r.area.length > GOAL_RANK) list.append(h('li', 'isl-rp-goalline', t('── ゴールライン ──', '── Goal line ──')));
-      });
-      rk.append(list);
+      // 段 UI8：順位の表 → 横棒（月の売上・自社は金・1 位と 2 位の間にゴールライン）
+      rk.append(rankBarsEl(rankRows(r.area), { goal: GOAL_RANK, aria: t(`企業ランキング：自社は ${r.rank} 位`, `Ranking: you are #${r.rank}`) }));
       c2.append(rk);
       cards.push(c2);
 
       // ---- ③ 【KPI ②】月次売上推移
       const c3 = h('div', 'isl-card2 isl-rp-card isl-rp-trend');
+      // 段 UI8：1 本の目盛りの線と棒（来月の見込みは点線）・「資金」に切り替えると、月ごとの資金のろうそく足
       const wrap = h('div', 'isl-rp-chartwrap');
-      let svg = chart(upto);
+      const fc = idx < 0 || idx === s.reports.length - 1 ? (r.forecast ?? null) : null;
+      const paint = () => {
+        const sales = trendView === 'sales';
+        const series: TSer[] = [
+          { name: t('利益（棒）', 'Profit (bars)'), kind: 'bar', cls: 'is-teal', vals: [] },
+          { name: t('売上（線）', 'Sales (line)'), kind: 'line', cls: 'is-gold', vals: [] },
+          ...(fc ? [{ name: t('見込み（点線）', 'Forecast (dotted)'), kind: 'dash' as const, cls: 'is-grey', vals: [] }] : []),
+        ];
+        const lg = trendLegend(series);
+        lg.append(legendEl([{ cls: 'is-negbar', name: t('赤字（斜線）', 'Loss (hatched)') }]).firstElementChild!);
+        wrap.replaceChildren(...(sales ? [chart(upto, fc), lg] : [cashChart(upto)]));
+        for (const [k, b] of Object.entries(tg)) b.classList.toggle('is-on', k === trendView);
+      };
+      const tg = {
+        sales: btn(t('売上と利益', 'Sales & profit'), () => ((trendView = 'sales'), paint())),
+        cash: btn(t('資金', 'Cash'), () => ((trendView = 'cash'), paint())),
+      };
       const sel = select(RANGES, chartRange, (v) => {
         setRange(v);
-        const next = chart(upto);
-        svg.replaceWith(next);
-        svg = next;
+        paint();
       });
       sel.classList.add('isl-rp-range');
+      // 見出しの行は期間だけ（スマホで見出しが切れないように）。切り替えは見出しの下の 1 行
       c3.append(cardHead(t('KPI ②', 'KPI 2'), false, t('月次売上推移', 'Monthly trend'), sel));
-      const legend = h('div', 'isl-rp-legend');
-      legend.append(h('span', 'is-line', t('売上（左軸）', 'Sales (left)')), h('span', 'is-bar', t('利益（右軸）', 'Profit (right)')));
-      wrap.append(svg, legend);
-      c3.append(wrap);
+      const tog = h('div', 'isl-cv-toggle isl-rp-tog');
+      tog.setAttribute('role', 'group');
+      tog.append(tg.sales, tg.cash);
+      paint();
+      c3.append(tog, wrap);
       cards.push(c3);
 
       // ---- ④ 【KPI ③】サプライチェーン管理
