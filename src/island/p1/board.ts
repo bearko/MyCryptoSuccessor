@@ -495,15 +495,29 @@ export function otherLine(it: BoardItem): string | null {
 export const canRaise = (it: BoardItem) => it.plan.f > 0;
 /** 計画の選択肢の名前 */
 export const planOptText = (k: number) => (k === 0 ? t('承認', 'Approve') : t(`目標 +${Math.round(BOARD.plan[k] * 100)}%`, `Target +${Math.round(BOARD.plan[k] * 100)}%`));
-/** 予算の選択肢の名前（額つき） */
+/**
+ * 予算の選択肢の名前（額つき）。名前の % と、額の「いま → 決めたあと」は同じ比べ（いまの額から）で書く（読み手が混乱しないように）：
+ * - 承認：要求どおり（増額の要求なら「承認：+N%（要求どおり）」、ほかは「承認：据え置き」）
+ * - 増額：いまの額から +N%（増額の要求のときは、要求 +20% を、いまの額からの % で）
+ * - 減額：いまの額から −20%。増額の要求のときは「据え置き（要求を見送る）」＝いまの額のまま
+ * 額は「月 20,000 → 24,000 G」（変わらなければ「月 20,000 G のまま」）。セクター長は投資の割合
+ */
 export function budgetOptText(it: BoardItem, k: number): { name: string; val: string } {
   const v = budgetOpts(it)[k];
-  const val = it.kind === 'sector' ? t(`投資 ${pct(v)}`, `Reinvest ${pct(v)}`) : t(`月 ${g(v)}`, `${g(v)} / mo`);
-  if (k === 0) return { name: t('承認', 'Approve'), val };
-  if (it.kind === 'sector') return { name: k === 1 ? t('増額', 'Raise') : t('減額', 'Cut'), val };
-  if (k === 1) return { name: t(`増額 +${Math.round(BOARD.budget * 100)}%`, `Raise +${Math.round(BOARD.budget * 100)}%`), val };
-  if (it.ask.up) return { name: t(`減額 −${Math.round((1 - it.ask.cur / Math.max(1, it.ask.amt)) * 100)}%（据え置き）`, `Cut −${Math.round((1 - it.ask.cur / Math.max(1, it.ask.amt)) * 100)}% (keep)`), val };
-  return { name: t(`減額 −${Math.round(BOARD.budget * 100)}%`, `Cut −${Math.round(BOARD.budget * 100)}%`), val };
+  const cur = it.ask.cur;
+  if (it.kind === 'sector') {
+    const val = Math.abs(v - cur) < 1e-9 ? t(`投資 ${pct(cur)} のまま`, `Reinvest ${pct(cur)} (unchanged)`) : t(`投資 ${pct(cur)} → ${pct(v)}`, `Reinvest ${pct(cur)} → ${pct(v)}`);
+    if (k === 0) return { name: t('承認：据え置き', 'Approve: keep'), val };
+    return { name: k === 1 ? t('増額', 'Raise') : t('減額', 'Cut'), val };
+  }
+  const same = Math.abs(v - cur) < 0.5;
+  const val = same ? t(`月 ${g(cur)} のまま`, `${g(cur)} / mo (unchanged)`) : t(`月 ${g(cur).replace(' G', '')} → ${g(v)}`, `${g(cur).replace(' G', '')} → ${g(v)} / mo`);
+  const d = cur > 0 ? Math.round(((v - cur) / cur) * 100) : 0;
+  const sd = d > 0 ? `+${d}%` : d < 0 ? `−${-d}%` : '±0%';
+  if (k === 0) return { name: it.ask.up && !same ? t(`承認：${sd}（要求どおり）`, `Approve: ${sd} (as asked)`) : t('承認：据え置き', 'Approve: keep'), val };
+  if (k === 1) return { name: t(`増額 ${sd}`, `Raise ${sd}`), val };
+  if (it.ask.up) return { name: t('据え置き（要求を見送る）', 'Keep (decline the ask)'), val };
+  return { name: t(`減額 ${sd}`, `Cut ${sd}`), val };
 }
 /** 選んだ目標の上乗せで、士気の目標がどれだけ動くか（画面の見込み） */
 export function moraleHint(it: BoardItem, pick: BoardPick): number {
