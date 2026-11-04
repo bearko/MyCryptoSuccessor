@@ -238,3 +238,13 @@
 .isl-pol-change.is-glow {
   animation: isl-pv-glow 1.6s ease-in-out infinite;
 }
+/* 段 K3：副次効果の 1 行（＋も−も。色は付けず、字で） */
+.isl-pol-side {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #6a5a48;
+}
+.isl-pv .isl-pol-side,
+.isl-board .isl-pol-side {
+  color: var(--isl-dim);
+}

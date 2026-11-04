@@ -42,6 +42,7 @@ import { heroNm, headOf } from './deleg';
 import { after, open, type Ctx } from './screens';
 import { btn, h, recLine } from './ui';
 import type { P1State } from './model';
+import { sideText } from './policycards';
 import './pol.css';
 
 const dot = () => t('・', ', ');
@@ -147,7 +148,7 @@ export function openPolicyView(ctx: Ctx) {
     const s = ctx.s();
     body.classList.add('isl-pv');
     const lock = meetingsOn(s);
-    body.append(h('p', 'isl-dim isl-pv-lead', lock ? t('方針は毎年、年初の経営会議（経営方針発表会）で決めます。空いた枠・方針の無い部門は、いつでも埋められます。効き目は＋だけで、部門のレベル（理解度）と部長の能力で強くなります。', 'Policies are set each year at the opening board meeting. Empty slots and divisions without a policy can be filled anytime. Effects are positive only and grow with department level and the head’s ability.') : t('方針はいつでも変えられます（Rare から、年初の経営会議で決めるようになります）。効き目は＋だけで、部門のレベル（理解度）と部長の能力で強くなります。', 'You can change policies anytime (from Rare they’re set at the opening board meeting). Effects are positive only and grow with department level and the head’s ability.')));
+    body.append(h('p', 'isl-dim isl-pv-lead', lock ? t('方針は毎年、年初の経営会議（経営方針発表会）で決めます。空いた枠・方針の無い部門は、いつでも埋められます。主要な効き目は＋だけで、部門のレベル（理解度）と部長の能力で強くなります。副次効果には＋も−もあります。', 'Policies are set each year at the opening board meeting. Empty slots and divisions without a policy can be filled anytime. Main effects are positive and grow with department level and the head’s ability; side effects can cut both ways.') : t('方針はいつでも変えられます（Rare から、年初の経営会議で決めるようになります）。主要な効き目は＋だけで、部門のレベル（理解度）と部長の能力で強くなります。副次効果には＋も−もあります。', 'You can change policies anytime (from Rare they’re set at the opening board meeting). Main effects are positive and grow with department level and the head’s ability; side effects can cut both ways.')));
     // 全社方針
     const n = slotsOf(s);
     const corp = corpOf(s);
@@ -243,6 +244,8 @@ function polRow(s: P1State, p: PolicyDef): HTMLElement {
   e.dataset.policy = p.id;
   e.append(h('b', '', label(p)), h('small', 'isl-dim', p.note));
   for (const x of powerLines(s, p)) e.append(h('small', 'isl-pol-fx', x));
+  // 段 K3：副次効果（＋も−も。発表会のカードの詳細と同じ中身）
+  e.append(h('small', 'isl-pol-side', t(`副次効果：${sideText(p)}`, `Side effects: ${sideText(p)}`)));
   return e;
 }
 
@@ -265,7 +268,7 @@ export function openCorpPick(ctx: Ctx) {
       b.type = 'button';
       b.dataset.policy = p.id;
       b.disabled = keep.includes(p.id);
-      b.append(h('b', '', label(p)), h('small', '', p.note), h('small', 'isl-pol-fx', nowText(s, p)));
+      b.append(h('b', '', label(p)), h('small', '', p.note), h('small', 'isl-pol-fx', nowText(s, p)), h('small', 'isl-pol-side', sideText(p)));
       b.addEventListener('click', () => {
         if (pick.includes(p.id)) pick = pick.filter((x) => x !== p.id);
         else if (pick.length < n) pick.push(p.id);
@@ -303,7 +306,7 @@ export function openDeptPick(ctx: Ctx, d: DeptId) {
       const b = h('button', `isl-pol-opt ${p.id === cur ? 'is-on' : ''}`);
       b.type = 'button';
       b.dataset.policy = p.id;
-      b.append(recLine(label(p), p.id === recDept(s, d)), h('small', '', p.note), h('small', 'isl-pol-fx', nowText(s, p)));
+      b.append(recLine(label(p), p.id === recDept(s, d)), h('small', '', p.note), h('small', 'isl-pol-fx', nowText(s, p)), h('small', 'isl-pol-side', sideText(p)));
       b.addEventListener('click', () => {
         if (setDept(s, d, p.id)) {
           ctx.toast(t(`${DEPT[d].name}の方針を「${p.name}」にしました`, `${DEPT[d].name} policy set to “${p.name}”`));
