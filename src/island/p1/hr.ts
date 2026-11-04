@@ -15,7 +15,7 @@ import { heroRarityOf, rarIdx } from './hero';
 import { fatigueMorale } from './ga';
 import { duoMorale } from './duo';
 import { goalMorale } from './board';
-import { polFx } from './policy';
+import { polFx, polStaffMorale } from './policy';
 import { assign, growthOn, has, lvMul, staffOf, uncommonHeroes, wageMul, wageOf, ringOpen, type P1State, type Staff } from './model';
 import { heroById } from '../../game/catalog';
 
@@ -247,8 +247,9 @@ export function moraleParts(s: P1State, st: Staff): { base: number; pay: number;
   const duo = duoMorale(s, st.hero);
   // 段 I2：経営会議で決めた目標の重さ（目標の上乗せ・予算の増減。board.ts の goalMorale。ここだけで数える）
   const goal = goalMorale(s, st.hero);
-  // 段 K：経営方針（人を大事に・ティール組織など）の「士気の目指す値 +」（policy.ts の polFx。ここだけで数える）
-  const pol = Math.round(polFx(s, 'morale') * 10) / 10;
+  // 段 K：経営方針（人を大事に・ティール組織など）の「士気の目指す値 +」（policy.ts の polFx。ここだけで数える）。
+  // 段 K3：方針の副次効果で、その人の部門（部長として持つ部門・持ち場とリーダーの部門。policy.ts の staffDepts）の士気が ± する
+  const pol = Math.round((polFx(s, 'morale') + polStaffMorale(s, st)) * 10) / 10;
   const total = Math.max(0, Math.min(100, MORALE.base + pay + env + role + same + table + tired + duo + goal + pol));
   return { base: MORALE.base, pay, env, role, same, table, tired, duo, goal, pol, total };
 }

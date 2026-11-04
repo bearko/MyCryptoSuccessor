@@ -2604,6 +2604,77 @@ export const POLICIES: PolicyDef[] = [
   { id: 'ipStrategy', kind: 'dept', dept: 'legal', icon: '📜', name: t('知財戦略', 'IP strategy'), note: t('考えた工夫を権利として守り、事業の武器にする', 'Protect ideas as rights and turn them into business weapons'), fx: [{ k: 'price', v: 0.015 }], w: wOf('brand'), themes: ['legal'], open: { k: 'tablet', ids: ['tab_e1a', 'tab_e1b'] } },
 ];
 export const POLICY_OF: Record<string, PolicyDef> = Object.fromEntries(POLICIES.map((p) => [p.id, p]));
+
+// ---------------------------------------------------------------- 段 K3：方針の副次効果（policy.ts の polFx・polMorale・polEvW・tiltOf。画面は policycardsui.ts）
+
+/** できごとの種類（events.ts の EvKind と同じ言葉。tests/island-p1-stagek3.test.ts で同じか確かめる） */
+export type PolEvKind = 'heat' | 'festival' | 'tourists' | 'trend' | 'wholesale' | 'idea' | 'traveler' | 'celebrity' | 'bigorder' | 'sponsor' | 'rain' | 'matrise' | 'breakdown' | 'rumor' | 'rivalsale' | 'scout' | 'complaint' | 'defect' | 'roadwork' | 'tired';
+/**
+ * 副次効果（主要な効き目のほかに、その方針を選ぶと起きること。＋も−もある）。強さ（部門のレベル × 部長の能力）は掛けない（いつも同じ値）。
+ * - mo：その部門の人（部長・リーダー・持ち場の人。duo.ts の deptOfStaff）の士気の目指す値 ±v 点（hr.ts の moraleParts の pol）
+ * - fx：汎用の効き目（model.ts の fxSum に足す。− は逆向き：維持費 −2% の逆は +2%）
+ * - less：その種類の提案が減る・並びの下に（× (1 − POL.less)。tiltOf）。増えるほうは方針の themes（× (1 + POL.tilt)）
+ * - ev：できごとの起きやすさ ×(1 + v)（良いできごと・困りごとの中で、その種類が選ばれる重み。events.ts の eventDue）
+ */
+export type PolSide = { k: 'mo'; d: DeptId; v: number } | { k: 'fx'; fx: PolFxKind; v: number } | { k: 'less'; th: PolTheme } | { k: 'ev'; ev: PolEvKind; v: number };
+const mo = (d: DeptId, v: number): PolSide => ({ k: 'mo', d, v });
+const sfx = (fx: PolFxKind, v: number): PolSide => ({ k: 'fx', fx, v });
+const less = (th: PolTheme): PolSide => ({ k: 'less', th });
+const ev = (e: PolEvKind, v: number): PolSide => ({ k: 'ev', ev: e, v });
+/**
+ * 方針ごとの副次効果と「この方針が向いている時期」（1 か所。docs/ISLAND_PHASE1.md「段 K3」の表）。
+ * どの方針も、＋と−を 1 つ以上ずつ（現実らしい引き換え）。数は themes（提案が増える）と合わせて 3〜6
+ */
+export const POL_SIDES: Record<string, { side: PolSide[]; when: string }> = {
+  // ---- 全社方針
+  balance: { side: [mo('strategy', 2), mo('accounting', 2), ev('tired', -0.3), sfx('ads', -0.03)], when: t('まだ会社の形が決まらず、どこも少しずつ伸ばしたいとき', 'When the company is still finding its shape and everything needs a little growth') },
+  profit: { side: [mo('accounting', 3), mo('hr', -2), less('workplace'), ev('scout', 0.5)], when: t('売上はあるのに、お金が手元に残らないとき', 'When sales come in but the money doesn’t stay') },
+  growth: { side: [mo('marketing', 3), mo('accounting', -2), sfx('upkeep', -0.02), ev('tired', 0.3)], when: t('Common の町で、まず売上を伸ばしたいとき', 'In a Common town, when you want sales to grow first') },
+  brand: { side: [mo('marketing', 3), ev('celebrity', 0.6), sfx('matPrice', -0.02), less('cost')], when: t('名前が知られる前に、上のランクの町へ進みたいとき', 'Before moving up to a higher-rank town, while your name is still unknown') },
+  people: { side: [mo('hr', 3), sfx('wage', -0.03), less('cost'), ev('scout', -0.5)], when: t('辞めたい人が出はじめた・士気が下がってきたとき', 'When people start wanting to quit or morale is sagging') },
+  customer: { side: [mo('support', 3), ev('complaint', -0.5), mo('logistics', -1)], when: t('問い合わせが増え、満足度が落ちてきたとき', 'When inquiries pile up and satisfaction is slipping') },
+  research: { side: [mo('rnd', 3), ev('idea', 0.6), less('sell'), mo('sales', -2)], when: t('発掘と研究で、他社にない品を出したいとき', 'When you want digs and research to bring unique goods') },
+  empower: { side: [mo('logistics', 2), mo('strategy', -2), ev('defect', 0.3)], when: t('部長とリーダーがそろい、任せて速く回したいとき', 'When heads and leaders are in place and you want speed') },
+  focus: { side: [mo('sales', 2), less('rp'), less('workplace'), sfx('known', -0.04)], when: t('売れる商品がはっきりしていて、そこに集めたいとき', 'When your best sellers are clear and you want to back them') },
+  purpose: { side: [mo('hr', 2), ev('sponsor', 0.5), ev('bigorder', -0.3)], when: t('人が増えて、会社の向きをそろえたいとき', 'When the team has grown and needs one direction') },
+  okr: { side: [mo('strategy', 3), ev('tired', 0.4), less('workplace')], when: t('部長が動きはじめ、四半期ごとに成果を見たいとき', 'When heads are running and you want results each quarter') },
+  esg: { side: [mo('general', 3), sfx('matPrice', -0.02), ev('complaint', -0.5)], when: t('町が増え、建物の維持費が重くなってきたとき', 'When towns multiply and upkeep weighs heavy') },
+  leanStartup: { side: [mo('marketing', 2), ev('trend', 0.5), ev('defect', 0.3)], when: t('新しい商品をいくつも試したいとき', 'When you want to try many new goods') },
+  ambidex: { side: [mo('rnd', 2), mo('strategy', 2), sfx('labor', -0.04)], when: t('いまの商売が回り、次の柱も探したいとき', 'When today’s business runs and you want the next pillar') },
+  // ---- 事業別：マーケティング
+  stp: { side: [mo('marketing', 3), ev('trend', 0.4), less('store')], when: t('宣伝にお金をかけていて、効き目を上げたいとき', 'When you spend on ads and want them to hit harder') },
+  blueOcean: { side: [mo('marketing', 2), ev('rivalsale', -0.5), sfx('known', -0.03)], when: t('他社の反撃が強く、1 位を守るのがつらいとき', 'When rivals hit back hard and holding #1 is tough') },
+  // ---- 事業別：物流
+  tqm: { side: [mo('logistics', 2), ev('defect', -0.6), less('sell')], when: t('作る数が増え、品質のむらが気になるとき', 'When output grows and quality gets uneven') },
+  jit: { side: [mo('logistics', 1), sfx('upkeep', 0.02), ev('matrise', 0.4)], when: t('調達に日数がかかり、倉庫が素材であふれるとき', 'When buying is slow and the warehouse overflows with materials') },
+  lean: { side: [mo('accounting', 2), ev('breakdown', -0.4), mo('logistics', -1)], when: t('運ぶ距離が長く、荷車が足りないとき', 'When hauls are long and carts run short') },
+  // ---- 事業別：システム
+  agile: { side: [mo('systems', 3), ev('idea', 0.3), ev('defect', 0.3)], when: t('流れのどこかが詰まり、少しずつ直したいとき', 'When the flow jams somewhere and you want to fix it bit by bit') },
+  dx: { side: [mo('systems', 2), mo('accounting', 2), mo('general', -1)], when: t('調達の上限に当たり、帳簿をそろえたいとき', 'When you hit the buying limit and want unified records') },
+  // ---- 事業別：R&D
+  openInnov: { side: [mo('rnd', 2), ev('traveler', 0.5), ev('scout', 0.3)], when: t('研究ポイントが足りず、パネルが開けないとき', 'When research points run short for panels') },
+  stageGate: { side: [mo('rnd', 1), mo('accounting', 2), ev('idea', -0.3)], when: t('発掘の素材を、むだなく研究に回したいとき', 'When you want dug materials to feed research without waste') },
+  designThinking: { side: [mo('support', 2), ev('trend', 0.4), sfx('labor', -0.02)], when: t('新しい商品が、なかなか知られないとき', 'When new goods are slow to get noticed') },
+  // ---- 事業別：人事
+  teal: { side: [mo('hr', 3), mo('logistics', 2), sfx('labor', -0.04), ev('scout', -0.4)], when: t('現場の士気を上げ、自分で動く人を増やしたいとき', 'When you want higher morale and more self-starters') },
+  oneOnOne: { side: [mo('hr', 2), ev('tired', -0.4), sfx('labor', -0.02)], when: t('疲れた人・辞めたい人が出はじめたとき', 'When people start getting worn out or wanting to quit') },
+  jobBased: { side: [mo('hr', 1), mo('general', -1), ev('scout', 0.3)], when: t('人が増え、適材適所にしたいとき', 'When the team is big enough to put the right person in each role') },
+  // ---- 事業別：総務
+  wellbeing: { side: [mo('general', 3), ev('tired', -0.5), sfx('wage', -0.02)], when: t('働く人のスタミナが続かないとき', 'When staff run out of stamina') },
+  workLife: { side: [mo('general', 2), mo('logistics', 1), sfx('labor', -0.03)], when: t('休みのあとの戻りが遅いとき', 'When people come back slowly from rest') },
+  // ---- 事業別：カスタマーサポート
+  custSuccess: { side: [mo('support', 3), ev('complaint', -0.4), sfx('labor', -0.02)], when: t('満足度を上げて、お客さんに戻ってきてほしいとき', 'When you want higher satisfaction and repeat customers') },
+  serviceProfit: { side: [mo('support', 2), mo('logistics', 1), sfx('wage', -0.02)], when: t('お店の人とお客さんの両方を大事にしたいとき', 'When you want to look after both staff and customers') },
+  // ---- 事業別：経理
+  zeroBased: { side: [mo('accounting', 2), mo('marketing', -2), less('sell')], when: t('建物が増え、維持費が利益を食うとき', 'When buildings multiply and upkeep eats profit') },
+  abc: { side: [mo('accounting', 2), mo('logistics', -1), less('workplace')], when: t('素材の仕入れが、いちばんの費用になったとき', 'When materials have become your biggest cost') },
+  // ---- 事業別：営業
+  solution: { side: [mo('sales', 3), ev('bigorder', 0.5), sfx('labor', -0.02)], when: t('値段を上げても売れる、強い品があるとき', 'When you have strong goods that sell even at higher prices') },
+  insideSales: { side: [mo('sales', 2), ev('bigorder', 0.3), mo('logistics', -1)], when: t('任せた町が増え、離れた町の売上を伸ばしたいとき', 'When you manage many towns and want remote sales to grow') },
+  // ---- 事業別：法務
+  compliance: { side: [mo('legal', 3), ev('rumor', -0.5), sfx('labor', -0.02)], when: t('悪いうわさ・争いで、ブランドが揺れたとき', 'When rumors or disputes shake your brand') },
+  ipStrategy: { side: [mo('legal', 2), mo('rnd', 2), ev('rivalsale', -0.3), sfx('labor', -0.02)], when: t('研究の成果を、他社にまねされたくないとき', 'When you don’t want rivals copying your research') },
+};
 /**
  * 経営方針の数字（1 か所）。強さ ＝ 基本 ×（1 ＋ lv × 部門の理解度（lvCap まで））×（部長の能力：1 ＋ head × 出来の帯（0〜1）。部長がいなければ 1）。
  * 出来の帯は、部長は (出来 − 0.7) ÷ 0.27、セクター長は (出来 − 0.5) ÷ 0.45（0〜1 に収める）。
@@ -2613,9 +2684,10 @@ export const POLICY_OF: Record<string, PolicyDef> = Object.fromEntries(POLICIES.
 /**
  * 経営方針の数字（policy.ts）。lv・lvCap：部門のレベルの効き・head：部長の能力の効き・slots：全社方針のはじめの枠・max：枠の上限・tilt：提案の傾向。
  * 段 K2：grant＝全社方針の枠が 1 つ増える特別なパネル（無償）が取れるようになる、会社として初めて進出したランク（U で 2 枠・R で 3・E で 4・L で 5）。
- * 効き目の基本の値（POLICIES の fx）は段 K2 で一律 1.5 倍にした
+ * 効き目の基本の値（POLICIES の fx）は段 K2 で一律 1.5 倍にした。
+ * 段 K3：less＝副次効果の「提案が減る」の重み（× (1 − less)）・evMin＝できごとの起きやすさの下限（×0.1）
  */
-export const POL = { lv: 0.02, lvCap: 20, head: 0.35, slots: 1, max: 5, tilt: 0.25, grant: ['U', 'R', 'E', 'L'] as Tier[] };
+export const POL = { lv: 0.02, lvCap: 20, head: 0.35, slots: 1, max: 5, tilt: 0.25, less: 0.2, evMin: 0.1, grant: ['U', 'R', 'E', 'L'] as Tier[] };
 
 export const BUDGET = {
   from: 'R' as Tier,
