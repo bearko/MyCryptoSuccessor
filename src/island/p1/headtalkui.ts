@@ -11,7 +11,7 @@ import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { DEPT, DEPT_DUTIES, DUTY, TASKS, aptitude, type DeptId } from './data';
 import { actName, approve, headFx, pickList, headOf, heroNm, hold, propEst, propWhy, qText, quality, reject, setHead } from './deleg';
-import { approveCard, choiceText, chooseCard, planOfChoice, quipOfCard, roleOfCard, sayOf, starOf, type Card, type Choice } from './card';
+import { approveCard, choiceText, chooseCard, planOfChoice, quipOfCard, roleOfCard, sayOf, shownRec, starOf, type Card, type Choice } from './card';
 import { charismaLine, moraleAvg, payroll, wantsToQuit } from './hr';
 import { hrReportText, moraleChip } from './hrui';
 import { orgChart } from './org';
@@ -177,7 +177,7 @@ function optsOf(ctx: Ctx, s: P1State, dept: DeptId, mode: 'head' | 'mine', item:
   switch (c.topic) {
     case 'hire': {
       const card = hireCard(s);
-      const k = card ? recIndex(card) : -1;
+      const k = card ? recIndex(s, card) : -1;
       if (card && k >= 0) {
         opt(t(`✔ 承認：${choiceText(s, card, card.choices[k]).label}`, `✔ Approve: ${choiceText(s, card, card.choices[k]).label}`), () => decideCard(ctx, card, k), 'is-rec');
         const plan = planOfChoice(s, card, k);
@@ -225,8 +225,10 @@ function optsOf(ctx: Ctx, s: P1State, dept: DeptId, mode: 'head' | 'mine', item:
 }
 
 /** カードのおすすめの手（無ければ最初の手）。手が無ければ −1 */
-function recIndex(c: Card): number {
-  const k = c.choices.findIndex((x) => x.rec && x.act.k !== 'skip');
+function recIndex(s: P1State, c: Card): number {
+  // 段 UI7c：推奨は社長の経営方針の価値で（card.ts の shownRec）
+  const r = shownRec(s, c);
+  const k = r >= 0 && c.choices[r].act.k !== 'skip' && c.choices[r].act.k !== 'reject' && c.choices[r].act.k !== 'hold' ? r : -1;
   return k >= 0 ? k : c.choices.findIndex((x) => x.act.k !== 'skip' && x.act.k !== 'reject' && x.act.k !== 'hold');
 }
 const isNo = (x: Choice) => x.act.k === 'skip' || x.act.k === 'reject';
@@ -269,12 +271,13 @@ function itemOpts(ctx: Ctx, s: P1State, item: CheckItem, opt: (label: string, on
   }
   const card = item.c;
   const acts = card.choices.map((x, k) => ({ x, k })).filter(({ x }) => !isNo(x) && x.act.k !== 'hold');
-  acts.sort((a, b) => Number(!!b.x.rec) - Number(!!a.x.rec) || a.k - b.k);
+  const rk = shownRec(s, card);
+  acts.sort((a, b) => Number(b.k === rk) - Number(a.k === rk) || a.k - b.k);
   const no = card.choices.findIndex(isNo);
   const room = 4 - 1 - (no >= 0 ? 1 : 0);
   for (const { x, k } of acts.slice(0, room)) {
     const label = choiceText(s, card, x).label;
-    opt(acts.length === 1 || x.rec ? t(`✔ ${label}`, `✔ ${label}`) : label, () => decideCard(ctx, card, k), x.rec ? 'is-rec' : '');
+    opt(acts.length === 1 || k === rk ? t(`✔ ${label}`, `✔ ${label}`) : label, () => decideCard(ctx, card, k), k === rk ? 'is-rec' : '');
   }
   if (no >= 0) opt(t('✖ 却下', '✖ Reject'), () => decideCard(ctx, card, no));
   opt(t('⏳ あとで', '⏳ Later'), next);
@@ -393,7 +396,7 @@ function summaryData(s: P1State, dept: DeptId, mode: 'head' | 'mine'): HTMLEleme
 function hireData(ctx: Ctx, s: P1State): HTMLElement[] {
   const out: HTMLElement[] = [];
   const card = hireCard(s);
-  const k = card ? recIndex(card) : -1;
+  const k = card ? recIndex(s, card) : -1;
   if (card && k >= 0) {
     const box = h('div', 'isl-card2 isl-ht-offer');
     box.append(h('h3', '', t('部長の提案', 'Your head suggests')));
@@ -401,7 +404,7 @@ function hireData(ctx: Ctx, s: P1State): HTMLElement[] {
     const x = choiceText(s, card, ch);
     box.append(h('b', '', `${x.icon} ${x.label}`), h('small', '', x.sub));
     const plan = planOfChoice(s, card, k);
-    if (plan) box.append(btn(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, card, plan, !!ch.rec), 'isl-ht-plan'));
+    if (plan) box.append(btn(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, card, plan, true), 'isl-ht-plan'));
     out.push(box);
   }
   const list = h('div', 'isl-card2 isl-ht-hire');
@@ -510,12 +513,13 @@ function itemData(ctx: Ctx, s: P1State, item: CheckItem): HTMLElement {
   say.append(t('「', '“'), rich(sayOf(s, c)), t('」', '”'));
   box.append(say);
   const list = h('div', 'isl-ht-choices');
+  const rk = shownRec(s, c);
   c.choices.forEach((ch, k) => {
     const x = choiceText(s, c, ch);
-    const r = h('div', `isl-ht-choice ${ch.rec ? 'is-rec' : ''}`);
-    r.append(recLine(`${x.icon} ${x.label}`, ch.rec), h('small', '', x.sub));
+    const r = h('div', `isl-ht-choice ${k === rk ? 'is-rec' : ''}`);
+    r.append(recLine(`${x.icon} ${x.label}`, k === rk), h('small', '', x.sub));
     const plan = ch.act.k === 'do' || ch.act.k === 'approve' ? planOfChoice(s, c, k) : null;
-    if (plan) r.append(btn(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, c, plan, !!ch.rec), 'isl-ht-plan'));
+    if (plan) r.append(btn(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, c, plan, k === rk), 'isl-ht-plan'));
     list.append(r);
   });
   box.append(list);

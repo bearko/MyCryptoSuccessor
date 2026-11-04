@@ -12,19 +12,21 @@
  */
 import { isEn, t } from '../../i18n';
 import { DEF } from '../defs';
-import { ADS, BRAND, CS, DELEG, DEPT, DIG_BALANCE, INVEST, MATS, P1B, POLICY, SKILL, deptOf, type DeptId, type PolicyId, type Sku, type ValueKey } from './data';
+import { ADS, BRAND, CS, DELEG, MORALE, DEPT, DIG_BALANCE, INVEST, MATS, P1B, POLICY, SKILL, deptOf, type DeptId, type PolicyId, type Sku, type ValueKey } from './data';
 import { DAYS, LOT, bottleneck, crewMul, fxSum, has, lvMul, lvOf, poolCap, poolUsed, stageCaps, stockAll, unitCost, type P1State, type Stage } from './model';
 import { brandCap } from './company';
 import { careMul, centerRate, csOn } from './cs';
-import { moraleTarget } from './hr';
+import { moraleAvg as moraleNow, moraleTarget, payGap, wantsToQuit } from './hr';
+import { fatigueAvg } from './ga';
+import { envPanels } from './hr';
 import { policyName, policyOf, weightsOf } from './policy';
 import { afterOf, baseOf, flowOf, planBlock, planCost, planOf, planTitle, stockPlan, type Plan, type PlanCost } from './plan';
 import { heroNm, reserveOf, type PropAct, type Proposal } from './deleg';
 import { amountOf, budgetDepts, budgetOpen, deptBudget, restOf } from './budget';
 import { cardInbox } from './card';
 import { goodsName } from './moves';
-import { toneOf, type Tone } from './persona';
-import { voiceOf } from './voice';
+import { heroSay, say as toneSay, toneOf, type Tone } from './persona';
+import { voiceOf, voiceSay } from './voice';
 
 // ---------------------------------------------------------------- 型
 
@@ -99,6 +101,9 @@ export interface Brief {
   /** 部門の予算（予算がまだ無い町・部門は null） */
   budget: BudgetFit | null;
   bg: string[];
+  /** 段 UI7c：課題の背景の種類（提案の主な手から）と、その種類のヒーローのセリフ（お金の種類は null：カードのセリフのまま） */
+  theme: Theme;
+  say: string | null;
   risks: string[];
   /** 会社全体：受け箱のほかの提案の件数と合計の費用・いまの資金・承認したあとの資金・ひと月の固定費の目安 */
   co: { n: number; money: number; cash: number; left: number; reserve: number };
@@ -464,10 +469,14 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
     risks: [],
     co,
     vals,
+    theme: 'flow',
+    say: null,
     rec: 'skip',
     why: '',
   };
+  b.theme = themeOf(p, dept);
   b.bg = bgOf(s, p, b);
+  b.say = sayOfTheme(s, p, b);
   b.risks = risksOf(s, p, b, base, after);
   const r = recOf(b);
   b.rec = r.rec;
@@ -680,49 +689,199 @@ const STAGE: Record<Stage, () => string> = {
 };
 const kinds = (p: Plan) => new Set(p.acts.map((a) => a.k));
 
-/** 課題の背景：いま何が起きているか（根拠の数字と、どこから言っているか）。3 つまで */
-export function bgOf(s: P1State, p: Plan, b: Pick<Brief, 'now'>): string[] {
+/**
+ * 段 UI7c：課題の背景の種類。提案の主な手（提案した部門の手を先に）から決める：
+ * sell（宣伝・棚・従業員・名物店主・売りさばき・出店）・store（使い切り・倉庫と拠点）・morale（人事のパネル）・workplace（総務のパネル）・
+ * people（雇う・持ち場・採用のパネル）・sat（CS のパネル）・brand（マーケのパネル）・rp（R&D のパネル・発掘許可）・legal（特許・M&A・法務のパネル）・
+ * cost（経理のパネル）・flow（ほか：物流・システム・経営企画のパネル・設備）。表は docs/ISLAND_PHASE1.md「課題の背景の種類（段 UI7c）」
+ */
+export type Theme = 'sell' | 'store' | 'morale' | 'workplace' | 'people' | 'sat' | 'brand' | 'rp' | 'legal' | 'cost' | 'flow';
+/** 採用のパネル（人を増やす。士気でなく人の数の話） */
+const HIRE_PANELS = ['hire', 'slots', 'b_scout', 'headhunt', 'd_people', 'hr_brand'];
+export function actTheme(a: PropAct): Theme {
+  switch (a.k) {
+    case 'ad':
+    case 'stock':
+    case 'part':
+    case 'staff':
+    case 'famous':
+    case 'clear':
+    case 'vacant':
+      return 'sell';
+    case 'useup':
+    case 'order':
+      return 'store';
+    case 'hire':
+    case 'assign':
+      return 'people';
+    case 'permit':
+      return 'rp';
+    case 'patent':
+    case 'ma':
+      return 'legal';
+    case 'build':
+      return P1B[a.id]?.kind === 'shop' ? 'sell' : a.id === 'warehouse' || a.id === 'logistics' ? 'store' : 'flow';
+    case 'invest':
+      return a.id === 'rack' || a.id === 'dock' ? 'store' : INVEST[a.id]?.kind === 'shop' ? 'sell' : 'flow';
+    case 'skill':
+    case 'level': {
+      if (HIRE_PANELS.includes(a.id)) return 'people';
+      const d = actDept(a);
+      return ({ hr: 'morale', general: 'workplace', support: 'sat', marketing: 'brand', rnd: 'rp', legal: 'legal', accounting: 'cost' } as Partial<Record<DeptId, Theme>>)[d] ?? 'flow';
+    }
+  }
+}
+/** 提案の背景の種類（提案した部門の手を先に） */
+export function themeOf(p: Plan, dept: DeptId | null): Theme {
+  if (!p.acts.length) return 'flow';
+  const own = p.acts.find((a) => dept == null || actDept(a) === dept) ?? p.acts[0];
+  return actTheme(own);
+}
+const mval = (b: Pick<Brief, 'vals'>, k: ValueKey) => b.vals.list.find((x) => x.key === k);
+
+/** 課題の背景：いま何が起きているか（提案の手の種類に合った根拠の数字と、どこから言っているか）。3 つまで */
+export function bgOf(s: P1State, p: Plan, b: Pick<Brief, 'now' | 'vals' | 'theme'>): string[] {
   const out: string[] = [];
   const k = kinds(p);
   const r = s.reports[s.reports.length - 1];
-  const sells = k.has('ad') || k.has('stock') || k.has('part') || k.has('staff') || k.has('famous') || k.has('clear');
-  // 売れていない商品（棚に並んでいるのに月 0 個）
-  if (sells) {
-    const f = flowOf(s);
-    const zero = f.goods.filter((x) => x.units < 0.5);
-    if (zero.length)
-      out.push(
-        t(
-          `棚の ${zero.length} 品が月 0 個（${zero
+  const th = b.theme;
+  const moraleLines = () => {
+    const now = moraleNow(s);
+    const tg = moraleAvg(s);
+    if (now != null && tg != null) out.push(t(`士気の平均 ${now}（いまの職場で目指す値 ${Math.round(tg)}）— 人事`, `Average morale ${now} (target with today’s workplace ${Math.round(tg)}) — HR`));
+    const low = s.staff.filter((x) => (x.morale ?? MORALE.start) < MORALE.warn).length;
+    const quit = wantsToQuit(s).length;
+    out.push(t(`士気が ${MORALE.warn} 未満の人 ${low} 人・辞めたいと言っている人 ${quit} 人 — 人事`, `${low} below morale ${MORALE.warn}, ${quit} want to quit — HR`));
+  };
+  switch (th) {
+    case 'morale': {
+      moraleLines();
+      const under = s.staff.filter((x) => payGap(x) < -0.5).length;
+      out.push(t(`給与が相場より低い人 ${under} 人 — 給与・労務`, `${under} paid below market — Pay`));
+      break;
+    }
+    case 'workplace': {
+      out.push(t(`疲れの平均 ${Math.round(fatigueAvg(s) * 100)}%（60% を超えると士気が下がる）— 総務`, `Average fatigue ${Math.round(fatigueAvg(s) * 100)}% (morale drops past 60%) — General affairs`));
+      moraleLines();
+      out.push(t(`職場の環境のパネル ${envPanels(s)} 個（士気の目指す値 +${MORALE.env}／個）— 総務`, `${envPanels(s)} workplace panels (+${MORALE.env} morale target each) — General affairs`));
+      break;
+    }
+    case 'people': {
+      const idle = s.staff.filter((x) => x.task == null && !x.heads?.length).length;
+      out.push(t(`ヒーロー ${s.staff.length} 人・待機中 ${idle} 人 — 人事`, `${s.staff.length} heroes, ${idle} idle — HR`));
+      out.push(t(`雇える候補 ${s.hirePool.length} 人 — 人材登用`, `${s.hirePool.length} candidates — Recruiting`));
+      break;
+    }
+    case 'sat': {
+      const c = [...s.reports].reverse().find((x) => x.cs)?.cs;
+      if (!csOn(s)) out.push(t('顧客満足度は Uncommon の町から効く — CS', 'Satisfaction matters from Uncommon towns — CS'));
+      else {
+        out.push(t(`顧客満足度 ${Math.round(s.cs?.sat ?? CS.start)}${c ? `（先月 ${c.prev}）` : ''}— CS`, `Satisfaction ${Math.round(s.cs?.sat ?? CS.start)}${c ? ` (last month ${c.prev})` : ''} — CS`));
+        if (c) out.push(t(`先月の問い合わせ ${c.got} 件（自動 ${c.auto}・返事 ${c.answered}・合う返事 ${c.good}・期限切れ ${c.expired}）— CS`, `Last month: ${c.got} inquiries (auto ${c.auto}, answered ${c.answered}, good ${c.good}, expired ${c.expired}) — CS`));
+        if (s.cs?.warn) out.push(t('炎上のおそれ（品切れ・放っておいた問い合わせ）— CS', 'Backlash warning (sell-outs, ignored inquiries) — CS'));
+      }
+      break;
+    }
+    case 'brand': {
+      out.push(t(`ブランド力 ${Math.round(s.brand ?? 0)} / 上限 ${brandCap(s)} — 企業ランキング`, `Brand ${Math.round(s.brand ?? 0)} / cap ${brandCap(s)} — Ranking`));
+      const m = mval(b, 'brand');
+      const rate = m ? m.now / POLICY.months : brandRate(s, csOn(s) ? s.cs?.sat ?? null : null);
+      out.push(t(`ブランド力の月の増え ${sn(rate)}（ブランド広告・広報室・取り組みのパネル・満足度）— 月次報告`, `Brand gain ${sn(rate)}/mo (brand ads, PR, initiatives, satisfaction) — monthly report`));
+      if (r) out.push(t(`エリア ${r.rank} 位 — 企業ランキング`, `Area rank #${r.rank} — Ranking`));
+      break;
+    }
+    case 'rp': {
+      out.push(t(`研究ポイント ${Math.round(s.rp ?? 0).toLocaleString('en-US')} RP — 手持ち`, `${Math.round(s.rp ?? 0).toLocaleString('en-US')} RP on hand`));
+      const d = [...s.reports].reverse().find((x) => x.dig)?.dig;
+      out.push(d ? t(`先月の発掘 ${d.rp} RP（出土品 ${d.found}）— 研究ノート`, `Last month’s digs: ${d.rp} RP (${d.found} finds) — Notebook`) : t('先月は発掘の RP なし — 研究ノート', 'No dig RP last month — Notebook'));
+      break;
+    }
+    case 'cost': {
+      if (r) {
+        const c = r.costs;
+        out.push(t(`先月の費用：材料 ${g(c.materials)}・給料 ${g(c.wages + c.part)}・維持費 ${g(c.upkeep)}・宣伝 ${g(c.ads)} — 月次報告`, `Last month’s costs: materials ${g(c.materials)}, wages ${g(c.wages + c.part)}, upkeep ${g(c.upkeep)}, ads ${g(c.ads)} — monthly report`));
+      }
+      break;
+    }
+    default: {
+      const sells = th === 'sell';
+      // 売れていない商品（棚に並んでいるのに月 0 個）
+      if (sells) {
+        const f = flowOf(s);
+        const zero = f.goods.filter((x) => x.units < 0.5);
+        if (zero.length) {
+          const nm = zero
             .slice(0, 2)
             .map((x) => goodsName(x.x))
-            .join(t('・', ', '))}${zero.length > 2 ? t(' ほか', '') : ''}）— いまの売れ方の見込み`,
-          `${zero.length} items sell 0 a month (${zero
-            .slice(0, 2)
-            .map((x) => goodsName(x.x))
-            .join(', ')}) — current estimate`,
-        ),
-      );
+            .join(t('・', ', '));
+          out.push(t(`棚の ${zero.length} 品が月 0 個（${nm}${zero.length > 2 ? t(' ほか', '') : ''}）— いまの売れ方の見込み`, `${zero.length} items sell 0 a month (${nm}) — current estimate`));
+        }
+      }
+      if (k.has('ad')) {
+        const on = ADS.filter((a) => (s.ads[a.id] ?? 0) > 0);
+        const list = on.map((a) => t(`${a.name}（あと ${s.ads[a.id]} 日）`, `${a.name} (${s.ads[a.id]} d left)`)).join(t('・', ', '));
+        out.push(on.length ? t(`いま出している宣伝：${list}`, `Running ads: ${list}`) : t('いまは宣伝を出していない', 'No ads running now'));
+      }
+      // 置き場所
+      if (th === 'store') {
+        const cap = poolCap(s);
+        out.push(t(`置き場所 ${Math.round((poolUsed(s) / Math.max(1, cap)) * 100)}%（${poolUsed(s)} / ${cap} 個）— 倉庫の数字`, `Storage ${Math.round((poolUsed(s) / Math.max(1, cap)) * 100)}% (${poolUsed(s)} / ${cap}) — warehouse`));
+      }
+      // 4 段の細いところ（物流・設備・システム・経営企画）
+      if (th === 'flow' || th === 'legal') {
+        const c = stageCaps(s, true);
+        const bn = bottleneck(c);
+        out.push(t(`4 段のうち細いのは${STAGE[bn]()}：月 ${Math.round(c[bn].perMonth)} 個 — 流れの数字`, `The narrowest of the 4 stages is ${STAGE[bn]()}: ${Math.round(c[bn].perMonth)}/mo — flow`));
+      }
+    }
   }
-  if (k.has('ad')) {
-    const on = ADS.filter((a) => (s.ads[a.id] ?? 0) > 0);
-    const list = on.map((a) => t(`${a.name}（あと ${s.ads[a.id]} 日）`, `${a.name} (${s.ads[a.id]} d left)`)).join(t('・', ', '));
-    out.push(on.length ? t(`いま出している宣伝：${list}`, `Running ads: ${list}`) : t('いまは宣伝を出していない', 'No ads running now'));
-  }
-  // 置き場所
-  if (k.has('clear') || k.has('useup') || p.acts.some((a) => (a.k === 'invest' && (a.id === 'rack' || a.id === 'dock')) || (a.k === 'build' && (a.id === 'warehouse' || a.id === 'logistics')))) {
-    const cap = poolCap(s);
-    out.push(t(`置き場所 ${Math.round((poolUsed(s) / Math.max(1, cap)) * 100)}%（${poolUsed(s)} / ${cap} 個）— 倉庫の数字`, `Storage ${Math.round((poolUsed(s) / Math.max(1, cap)) * 100)}% (${poolUsed(s)} / ${cap}) — warehouse`));
-  }
-  // 4 段の細いところ（パネル・設備・人の手）
-  if (!sells || k.has('skill') || k.has('level') || k.has('invest') || k.has('hire') || k.has('assign')) {
-    const c = stageCaps(s, true);
-    const bn = bottleneck(c);
-    out.push(t(`4 段のうち細いのは${STAGE[bn]()}：月 ${Math.round(c[bn].perMonth)} 個 — 流れの数字`, `The narrowest of the 4 stages is ${STAGE[bn]()}: ${Math.round(c[bn].perMonth)}/mo — flow`));
-  }
+  // お金の締め（どの種類でも、残りの 1 行に）
   if (r) out.push(t(`先月の売上 ${g(r.revenue)}・利益 ${g(r.profit)} — 月次報告`, `Last month: sales ${g(r.revenue)}, profit ${g(r.profit)} — monthly report`));
   else out.push(t(`売上の見込み 月 ${g(b.now.sales)} — いまの見込み`, `Sales estimate ${g(b.now.sales)}/mo — current estimate`));
   return out.slice(0, 3);
+}
+
+/**
+ * 段 UI7c：お金以外の種類（士気・職場・満足度・ブランド・研究）の提案は、ヒーローのセリフ（課題）も、その種類の数字で作る（カードのセリフは
+ * お金の流れの話なので）。口調は persona.ts の型・史実の調査のあるヒーローは呼び方（card.ts の sayOf と同じ）。お金の種類は null（カードのセリフのまま）
+ */
+export function sayOfTheme(s: P1State, p: Plan, b: Pick<Brief, 'vals' | 'theme'>): string | null {
+  const n = (v: number) => Math.round(v);
+  let core: string | null = null;
+  const mo = mval(b, 'morale');
+  switch (b.theme) {
+    case 'morale':
+    case 'workplace': {
+      const now = moraleNow(s);
+      const quit = wantsToQuit(s).length;
+      const tired = fatigueAvg(s);
+      if (b.theme === 'workplace' && tired > 0.6) core = t(`みんな疲れがたまっている（疲れ[[ ${n(tired * 100)}%]]）`, `everyone is worn out ([[${n(tired * 100)}%]] fatigue)`);
+      else if (quit > 0) core = t(`辞めたいと言う人が[[ ${quit} 人]]いて、士気の平均は[[ ${now}]]`, `[[${quit}]] want to quit, and average morale is [[${now}]]`);
+      else if (mo) core = t(`士気の平均は[[ ${now}]]。職場を整えれば目指す値が[[ ${n(mo.now)} → ${n(mo.after)}]]に上がる`, `average morale is [[${now}]]. A better workplace lifts the target [[${n(mo.now)} → ${n(mo.after)}]]`);
+      else core = t(`士気の平均は[[ ${now}]]`, `average morale is [[${now}]]`);
+      break;
+    }
+    case 'sat': {
+      const m = mval(b, 'sat');
+      const v = n(s.cs?.sat ?? CS.start);
+      core = m ? t(`顧客満足度は[[ ${v}]]。手を打てば[[ ${n(m.after)}]]まで上がる`, `satisfaction is [[${v}]]; this lifts it to [[${n(m.after)}]]`) : t(`顧客満足度は[[ ${v}]]`, `satisfaction is [[${v}]]`);
+      break;
+    }
+    case 'brand': {
+      const m = mval(b, 'brand');
+      core = m ? t(`ブランド力は[[ ${n(s.brand ?? 0)}]]で、月に[[ ${sn(m.now / POLICY.months)}]]しか伸びていない`, `the brand is at [[${n(s.brand ?? 0)}]] and grows only [[${sn(m.now / POLICY.months)}]] a month`) : t(`ブランド力は[[ ${n(s.brand ?? 0)}]]`, `the brand is at [[${n(s.brand ?? 0)}]]`);
+      break;
+    }
+    case 'rp': {
+      const m = mval(b, 'rp');
+      core = t(`研究ポイントは月[[ ${n((m?.now ?? 0) / POLICY.months)} RP]]ほどしか入っていない`, `we earn only about [[${n((m?.now ?? 0) / POLICY.months)} RP]] a month`);
+      break;
+    }
+    default:
+      return null;
+  }
+  if (p.hero == null) return toneSay('polite', core);
+  return voiceSay(p.hero, core) ?? heroSay(p.hero, core);
 }
 
 /** 予想されるリスク（下振れ・一時的な効き目・売れ残り・ほかの部門への影響・予算の超過・承認したあとの資金） */

@@ -8,9 +8,9 @@ import { heroById } from '../src/game/catalog';
 import { CS, POLICY, SKILL, type PolicyId } from '../src/island/p1/data';
 import { deserializeP1, myShops, serializeP1, type P1State } from '../src/island/p1/model';
 import { afterOf, baseOf, planOf } from '../src/island/p1/plan';
-import { PITCH_MAX, brandRate, briefOf, leadOf, moraleAvg, pitchOf, recOf, rpRate, satSettle, valuesOf } from '../src/island/p1/brief';
+import { PITCH_MAX, actTheme, brandRate, briefOf, leadOf, moraleAvg, pitchOf, recOf, rpRate, satSettle, valuesOf } from '../src/island/p1/brief';
 import { askDue, policyOf, setPolicy } from '../src/island/p1/policy';
-import { newCards, planOfChoice, type Card } from '../src/island/p1/card';
+import { newCards, planOfChoice, shownRec, type Card } from '../src/island/p1/card';
 import { actOk, type PropAct } from '../src/island/p1/deleg';
 import { loadVoice } from '../src/island/p1/voice';
 import { runOnce } from '../scripts/island/sim';
@@ -189,5 +189,49 @@ describe('セーブ・マインちゃんの問い', () => {
     s.tut = 99;
     setPolicy(s, 'balance');
     expect(askDue(s)).toBe(false);
+  });
+});
+
+describe('課題の背景（手の種類に合わせる）・カードの推奨の札（方針の価値）', () => {
+  it('背景の種類：社員食堂 → 職場（士気・疲れの数字）・満足度の調査 → CS・ブランド広告 → ブランド・宣伝 → 売り場', () => {
+    expect(actTheme(canteen)).toBe('workplace');
+    expect(actTheme(survey)).toBe('sat');
+    expect(actTheme({ k: 'skill', id: 'b_ads' })).toBe('brand');
+    expect(actTheme({ k: 'skill', id: 'hr_paytable' })).toBe('morale');
+    expect(actTheme({ k: 'skill', id: 'slots' })).toBe('people');
+    expect(actTheme({ k: 'ad', id: 'flyer' })).toBe('sell');
+    const s = uTown();
+    const b = briefOf(s, planOf(s, [canteen], { hero: s.staff[0].hero, q: 0.9, dept: 'general' }));
+    expect(b.theme).toBe('workplace');
+    expect(b.bg.some((x) => x.includes('疲れの平均'))).toBe(true);
+    expect(b.bg.some((x) => x.includes('士気の平均'))).toBe(true);
+    expect(b.bg.some((x) => x.includes('4 段のうち'))).toBe(false);
+    expect(b.say).toMatch(/士気|疲れ|辞めたい/);
+    const c = briefOf(s, planOf(s, [survey], { hero: null, q: 0.9, dept: 'support' }));
+    expect(c.bg[0]).toContain('顧客満足度');
+    expect(c.say).toContain('顧客満足度');
+    // お金の種類はカードのセリフのまま
+    expect(briefOf(s, planOf(s, [{ k: 'ad', id: 'flyer' }], { hero: null, q: 0.9, dept: 'marketing' })).say).toBeNull();
+  });
+  it('カードの推奨の札は方針の価値で（利益重視では社員食堂に付かない・人を大事にでは付く）。もとの推奨（任せるの手）は変えない', () => {
+    const s = uTown();
+    s.cards = newCards();
+    const cost0 = SKILL.ga_canteen.cost;
+    SKILL.ga_canteen.cost = Math.round(cost0 / 10);
+    const hero = s.staff[0].hero;
+    const c: Card = { id: 1, src: 'idle', kind: 'idle', hero, q: 0.95, dept: 'general', mk: 0, sector: s.sector ?? 'c1', day: s.day, issue: { k: 'idle', what: 'ad' }, pop: false, choices: [
+      { act: { k: 'do', a: { k: 'ad', id: 'flyer' } }, est: 5000, unit: 'ad', cost: 1500, rec: true },
+      { act: { k: 'do', a: canteen }, est: 100, unit: 'G', cost: 2000 },
+      { act: { k: 'skip' }, cost: 0 },
+    ] };
+    setPolicy(s, 'profit');
+    const a = shownRec(s, c);
+    setPolicy(s, 'people');
+    const b = shownRec(s, c);
+    SKILL.ga_canteen.cost = cost0;
+    // 利益重視では社員食堂に付かない（宣伝か「このまま」）・人を大事にでは社員食堂に付く
+    expect(a).not.toBe(1);
+    expect(b).toBe(1);
+    expect(c.choices.findIndex((x) => x.rec)).toBe(0);
   });
 });

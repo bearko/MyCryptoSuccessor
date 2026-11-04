@@ -244,9 +244,11 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
 
   // ② 課題の背景
   const s2 = sec(t('課題の背景', 'Background'));
-  if (o.say) {
+  // 段 UI7c：お金以外の種類の提案は、その種類の数字でヒーローのセリフを作る（カードのセリフはお金の流れの話なので）
+  const say = B.say ?? o.say;
+  if (say) {
     const p = h('p', 'isl-prop-say');
-    p.append(t('「', '“'), rich(o.say), t('」', '”'));
+    p.append(t('「', '“'), rich(say), t('」', '”'));
     s2.append(p);
   }
   const bg = h('ul', 'isl-prop-bg');
