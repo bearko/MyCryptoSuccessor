@@ -160,7 +160,7 @@ import { KNOW_TALK, SLOT_TALK, slotsOf, takePolNews } from './policy';
 import { POLICY_OF } from './data';
 import { openPolicyView } from './policyui';
 import { tileContent } from './tile';
-import { closeDig, digOpen, digRect, extIcon, openDig, openNotes, refreshDig, refreshTimer, showEndCard } from './digui';
+import { closeDig, debugTablet, digOpen, digRect, extIcon, openDig, openNotes, refreshDig, refreshTimer, showEndCard } from './digui';
 import { MEET_FOUND, MEET_LINES, canPresent, chiefHome, digMet, chiefOf, digSummary, letterToGet, lettersLeft, meetReady, meetTip, presentAfter, presentPages } from './digmeet';
 import { BUDGET_TALK, CHIP_SRC, CLEAR_LINE, FOOT_TALK, HIRE_LINES, RP_LINE, DUNGEON_LINE, GATE_LINES, LAND_CLEAR_LINE, MUSEUM_LINE, RANK_LINES, RELIC_LINE, REVIVE_LINE, SIDE_LINES, TOUR, arrivalPages, bubbleKind, chipOf, deptTalkNext, introPages, needsIntro, talkWaits, type ArrivePage, type TalkUi, type TourEv, type TourPhase } from './mine';
 import type { Stage } from './model';
@@ -4907,6 +4907,10 @@ window.setTimeout(() => warmFx(), 3000);
     why: () => ({ due: boardDue(s), placing: !!placing, menu, pop: !!pop, sheet: sheetOpen(), tour: !!tour, dig: !!s.digRun || digOpen(), meetPing, tut: tutOf(s) }),
     state: () => boardOf(s),
   },
+  /** 段 K（撮影・確かめ用）：方針の画面・研究ノート・発掘の画面の石板の窓 */
+  policy: () => openPolicyView(ctx),
+  notesOpen: () => openNotes(ctx),
+  tablet: (id: string) => debugTablet(id),
   tick: () => renderAll(),
   /** 建てる・置くモードを始める（撮影スクリプト用） */
   place: (id: string) => startPlacing(id),

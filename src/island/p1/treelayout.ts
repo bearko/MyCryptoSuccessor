@@ -302,6 +302,11 @@ export interface Pool {
   slots: { x: number; y: number }[];
 }
 export const POOLS: Pool[] = [];
+/**
+ * 段 K：外周の組を、枝の真ん中から横へ寄せる（弧の長さ。UNIT）。法務の Rare の外周は「経営方針」パネル 1 枚だけで、
+ * 真ん中に置くと、根もとから Epic の外周へ伸びる「契約の雛形」の線が、よけて曲がり、隣の R&D の線と交わる
+ */
+export const OUTER_NUDGE: Record<string, number> = { 'legal|R': 0.5 };
 for (const d of DEPTS) {
   const L = DEPT_LAYOUT[d.id];
   HUBPOS.set(d.id, polar(deptAngle(d.id), L.hubR));
@@ -314,9 +319,10 @@ for (const d of DEPTS) {
       if (!ids.length) continue;
       let at = 0;
       const slots: { x: number; y: number }[] = [];
+      const nudge = (OUTER_NUDGE[`${g.key}|${tier}`] ?? 0) / RING_ROWS[tier][0];
       for (const r of RING_ROWS[tier]) {
         const c = capAt(g.w, r);
-        slots.push(...row(ids.slice(at, at + c).length, r));
+        slots.push(...row(ids.slice(at, at + c).length, r).map((p) => polar(Math.atan2(p.y, p.x) + nudge, r)));
         at += c;
       }
       POOLS.push({ key: `${g.key}|${tier}`, ids, slots });
@@ -449,6 +455,10 @@ export function hubsAround(e: TreeEdge): HubBox[] {
   return [...HUBPOS].filter(([d]) => d !== own).map(([d, p]) => ({ d, ...p, ...hubClear(d) }));
 }
 let bends: Map<TreeEdge, Bend> | null = null;
+/** 並びを探すとき（scripts・テスト）：弧のキャッシュを捨てる */
+export const resetBends = () => {
+  bends = null;
+};
 /** どの線をどれだけ曲げるか（配置は変わらないので、はじめて使うときに 1 回だけ数える） */
 export function edgeBends(): Map<TreeEdge, Bend> {
   if (bends) return bends;

@@ -16,6 +16,7 @@ import {
   boardFinish,
   boardOf,
   boardQuarter,
+  budgetOptText,
   budgetOpts,
   decide,
   goalMorale,
@@ -122,6 +123,26 @@ describe('決める（承認・増減・目標・一括）', () => {
     expect(amountOf(s, c.dept!)).toBe(Math.round((curC * 0.8) / BUDGET.round) * BUDGET.round);
     expect(boardOf(s).goals[b.key].up).toBeCloseTo(0.2, 1);
     expect(boardOf(s).goals[c.key].up).toBeCloseTo(-0.2, 1);
+  });
+  it('予算の選択肢の名前と額は同じ比べで読める（いまの額 → 決めたあと）。増額の要求を見送るのは「据え置き」で、減額の % は出さない', () => {
+    const s = withAgenda();
+    const it = deptItem(s);
+    const pctOf = (k: number) => Math.round(((budgetOpts(it)[k] - it.ask.cur) / it.ask.cur) * 100);
+    // 増額の要求（いま 20,000 G → 要求 46,000 G）
+    it.ask = { up: true, cur: 20000, amt: 46000, lv: 'X' };
+    const up = [0, 1, 2].map((k) => budgetOptText(it, k));
+    expect(up[0].name).toBe(`承認：+${pctOf(0)}%（要求どおり）`);
+    expect(up[0].val).toBe('月 20,000 → 46,000 G');
+    expect(up[1].name).toBe(`増額 +${pctOf(1)}%`);
+    expect(up[1].val).toBe(`月 20,000 → ${budgetOpts(it)[1].toLocaleString('en-US')} G`);
+    expect(up[2].name).toBe('据え置き（要求を見送る）');
+    expect(up[2].val).toBe('月 20,000 G のまま');
+    for (const x of up) expect(x.name).not.toMatch(/減額/);
+    // 据え置きの要求（いま 20,000 G）：承認＝据え置き・増額 +20%・減額 −20%
+    it.ask = { up: false, cur: 20000, amt: 20000, lv: 'M' };
+    const keep = [0, 1, 2].map((k) => budgetOptText(it, k));
+    expect(keep.map((x) => x.name)).toEqual(['承認：据え置き', '増額 +20%', '減額 −20%']);
+    expect(keep.map((x) => x.val)).toEqual(['月 20,000 G のまま', '月 20,000 → 24,000 G', '月 20,000 → 16,000 G']);
   });
   it('見込みが 0 の計画は上げられない（目標の上乗せは 0 のまま）', () => {
     const s = withAgenda();

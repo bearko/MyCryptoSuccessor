@@ -2192,15 +2192,15 @@ SKILLS.push(...LEGAL_SKILLS);
  */
 export const POL_SKILLS: Skill[] = [
   { id: 'pol_mk', branch: 'shop', tier: 'R', deptLv: 8, name: t('経営方針：STP', 'Policy: STP'), note: t('マーケの事業別の方針「STP マーケティング」が選べるようになる', 'Unlocks the Marketing policy “STP marketing”'), cost: 0, requires: ['r_shop_2'] },
-  { id: 'pol_lg', branch: 'craft', tier: 'R', deptLv: 8, name: t('経営方針：TQM', 'Policy: TQM'), note: t('物流の事業別の方針「TQM（総合的品質管理）」が選べるようになる', 'Unlocks the Logistics policy “TQM”'), cost: 0, requires: ['r_craft_1'] },
+  { id: 'pol_lg', branch: 'tech', tier: 'R', deptLv: 8, name: t('経営方針：TQM', 'Policy: TQM'), note: t('物流の事業別の方針「TQM（総合的品質管理）」が選べるようになる', 'Unlocks the Logistics policy “TQM”'), cost: 0, requires: ['r_tech_1'] },
   { id: 'pol_sy', branch: 'sys', tier: 'R', deptLv: 8, name: t('経営方針：アジャイル', 'Policy: Agile'), note: t('システムの事業別の方針「アジャイル開発」が選べるようになる', 'Unlocks the Systems policy “Agile development”'), cost: 0, requires: ['ec'] },
   { id: 'pol_rd', branch: 'ops', tier: 'R', deptLv: 8, name: t('経営方針：オープン・イノベーション', 'Policy: Open innovation'), note: t('R&D の事業別の方針「オープン・イノベーション」が選べるようになる', 'Unlocks the R&D policy “Open innovation”'), cost: 0, requires: ['u_dig_auto'] },
   { id: 'pol_hr', branch: 'people', tier: 'R', deptLv: 8, name: t('経営方針：ティール組織', 'Policy: Teal organization'), note: t('人事の事業別の方針「ティール組織」が選べるようになる', 'Unlocks the HR policy “Teal organization”'), cost: 0, requires: ['r_people_1'] },
   { id: 'pol_ga', branch: 'people', tier: 'R', deptLv: 6, name: t('経営方針：ウェルビーイング', 'Policy: Well-being'), note: t('総務の事業別の方針「ウェルビーイング経営」が選べるようになる', 'Unlocks the General Affairs policy “Well-being management”'), cost: 0, requires: ['r_people_5'] },
   { id: 'pol_cs', branch: 'shop', tier: 'R', deptLv: 5, name: t('経営方針：カスタマーサクセス', 'Policy: Customer success'), note: t('カスタマーサポートの事業別の方針「カスタマーサクセス」が選べるようになる', 'Unlocks the Support policy “Customer success”'), cost: 0, requires: ['cs_center'] },
-  { id: 'pol_ac', branch: 'ops', tier: 'R', deptLv: 5, name: t('経営方針：ゼロベース予算', 'Policy: Zero-based budgeting'), note: t('経理の事業別の方針「ゼロベース予算」が選べるようになる', 'Unlocks the Accounting policy “Zero-based budgeting”'), cost: 0, requires: ['ac_advisor'] },
+  { id: 'pol_ac', branch: 'ops', tier: 'R', deptLv: 5, name: t('経営方針：ゼロベース予算', 'Policy: Zero-based budgeting'), note: t('経理の事業別の方針「ゼロベース予算」が選べるようになる', 'Unlocks the Accounting policy “Zero-based budgeting”'), cost: 0, requires: ['ac_cost'] },
   { id: 'pol_sa', branch: 'sales', tier: 'E', deptLv: 6, name: t('経営方針：インサイド・セールス', 'Policy: Inside sales'), note: t('営業の事業別の方針「インサイド・セールス」が選べるようになる', 'Unlocks the Sales policy “Inside sales”'), cost: 0, requires: ['sa_edge'] },
-  { id: 'pol_le', branch: 'legal', tier: 'R', deptLv: 4, name: t('経営方針：コンプライアンス', 'Policy: Compliance'), note: t('法務の事業別の方針「コンプライアンス経営」が選べるようになる', 'Unlocks the Legal policy “Compliance management”'), cost: 0 },
+  { id: 'pol_le', branch: 'legal', tier: 'R', deptLv: 4, name: t('経営方針：コンプライアンス', 'Policy: Compliance'), note: t('法務の事業別の方針「コンプライアンス経営」が選べるようになる', 'Unlocks the Legal policy “Compliance management”'), cost: 0, requires: ['lg_template'] },
   { id: 'pol_slots', branch: 'ops', tier: 'R', deptLv: 5, max: 4, name: t('全社方針の枠', 'Company policy slots'), note: t('全社方針を同時に選べる数 +1（Lv ごとに +1。はじめは 1 つ・Lv4 で 5 つ）', 'Choose one more company policy at once (+1 per Lv; 1 at first, 5 at Lv4)'), cost: 25000, requires: ['pr'], show: [{ label: t('全社方針の枠', 'Company policy slots'), v: 1, unit: '', lin: true }] },
 ];
 /** 段 K の経営方針のパネルの id（枝の幅の余り・RP の割り振り・自動プレイの研究の並びに入れない） */
