@@ -19,6 +19,8 @@ import {
   DAYS,
   LOT,
   adCost,
+  adOpen,
+  adPick,
   allowedDirs,
   applyPermit,
   aptOf,
@@ -786,7 +788,7 @@ function doAds(s: P1State, r: Runner, rec: DutyStat, rnd: () => number) {
   const st = D(s);
   for (const a of ADS) {
     const left = s.ads[a.id];
-    if (left == null || left > 0) continue;
+    if (left == null || left > 0 || !adPick(s, a)) continue;
     const g = adGain(s, a.id) * errMul(rnd, r.q, DELEG.adErr);
     if (g <= 0) {
       // 効かないと読んだ：出し直さない（切れたままの日には数えない）
@@ -941,8 +943,9 @@ export function candidates(s: P1State, d: DeptId, ifs: () => StageIf[]): Cand[] 
       break;
     }
     case 'marketing':
+      // 段 M1：解禁した上の段も候補に（自動プレイの通常・最短は段 1〜3 だけ：AD_TIER.auto.upper）
       for (const a of ADS) {
-        if ((s.ads[a.id] ?? 0) > 0) continue;
+        if (!adPick(s, a)) continue;
         const g = adGain(s, a.id);
         add({ act: { k: 'ad', id: a.id }, real: g, unit: 'ad', cost: adCost(s, a.id) });
       }
@@ -1182,7 +1185,7 @@ export function actOk(s: P1State, a: PropAct): boolean {
     case 'permit':
       return !!s.dig && !s.dig.sites[a.site]?.permit;
     case 'ad':
-      return (s.ads[a.id] ?? 0) <= 0;
+      return (s.ads[a.id] ?? 0) <= 0 && adOpen(s, a.id);
     case 'vacant': {
       const e = vacantErr(s, a.uid);
       return e == null || e === 'money';

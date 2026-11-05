@@ -7,7 +7,7 @@
 import { t } from '../../i18n';
 import { DEF } from '../defs';
 import { ADS, INVEST, P1B, PRODUCT, SHOP, SKILL, isResearch, rpCost, sku, skuParts, type Rar, type Sku } from './data';
-import { DAYS, adCost, allowedDirs, batchOf, canBuild, craftCheck, has, hasRoute, investCost, myShops, recipeOf, sellNow, sellWhatIf, skillLock, type P1State, type WhatIf, type WhatIfKind } from './model';
+import { DAYS, adBoostAt, adCost, adPick, adWide, allowedDirs, batchOf, canBuild, craftCheck, has, hasRoute, investCost, myShops, recipeOf, sellNow, sellWhatIf, skillLock, type P1State, type WhatIf, type WhatIfKind } from './model';
 import type { Mat } from './data';
 
 /** 販売の手で打つもの（deleg.ts の PropAct の一部と同じ形。execute がそのまま打つ） */
@@ -50,13 +50,30 @@ export function grossRate(s: P1State): number {
   const last = s.reports[s.reports.length - 1];
   return last && last.revenue > 0 ? Math.max(0.3, 1 - (last.costs.materials ?? 0) / last.revenue) : 0.8;
 }
-/** 宣伝の見込み：宣伝のある日の売上の伸び（粗利）× 日数 − 費用（G） */
+/** 宣伝の見込み：宣伝のある日の売上の伸び（粗利）× 日数 − 費用（G）。段 M1：ランド・全店の宣伝は、任せている町の売上の伸び（粗利）も足す */
 export function adGain(s: P1State, id: string): number {
   const ad = ADS.find((a) => a.id === id);
   if (!ad || !myShops(s).length) return 0;
   const base = sellNow(s).yen;
   const on = sellNow({ ...s, ads: { ...s.ads, [id]: ad.days } }).yen;
-  return Math.round((on - base) * (ad.days / DAYS) * grossRate(s) - adCost(s, id));
+  return Math.round((on - base) * (ad.days / DAYS) * grossRate(s) + adRemoteGain(s, id) - adCost(s, id));
+}
+/** 段 M1：ランド・全店の宣伝が、任せている町の売上（マネージャーの売上の倍率）に足すぶんの粗利（期間ぶん。費用は引かない） */
+export function adRemoteGain(s: P1State, id: string): number {
+  const ad = ADS.find((a) => a.id === id);
+  if (!ad || !adWide(ad) || !s.land) return 0;
+  const here = s.sector ?? 'c1';
+  const on: P1State = { ...s, ads: { ...s.ads, [id]: ad.days }, adFrom: { ...s.adFrom, [id]: here } };
+  let g = 0;
+  for (const rid of s.land.mine) {
+    if (rid === here) continue;
+    const b = s.land.recs[rid]?.base;
+    if (!b) continue;
+    const d = adBoostAt(on, rid) - adBoostAt(s, rid);
+    if (d <= 0) continue;
+    g += b.rev * d * (1 - Math.min(0.7, Math.max(0, b.matRate))) * (ad.days / DAYS);
+  }
+  return Math.round(g);
 }
 /** 2 軒目のお店の毎月の費用：維持費 ＋ アルバイト 1 人（店員は月給がかかるので、別に置く） */
 export const shopMonthly = (id = 'general_store') => (P1B[id]?.upkeep ?? 0) + SHOP.partTimeWage * DAYS;
@@ -186,7 +203,7 @@ export function sellMoves(s: P1State): SellMove[] {
     }
   }
   // 宣伝：いま出ていないもののうち、見込み（期間の粗利 − 費用）がいちばん大きいもの
-  const ad = ADS.filter((a) => (s.ads[a.id] ?? 0) <= 0)
+  const ad = ADS.filter((a) => adPick(s, a))
     .map((a) => ({ a, g: adGain(s, a.id) }))
     .sort((x, y) => y.g - x.g)[0];
   if (ad) {

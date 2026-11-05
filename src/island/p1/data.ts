@@ -3524,6 +3524,18 @@ export const DIG_REQUEST: Record<string, { ext: number; name: string; from: stri
 /** アンコモンの開発：値段は Common の値段 × 40、10 日（「魔法の釜」が要る） */
 export const DEV = { rate: 4, days: 10 };
 
+/**
+ * 宣伝の効く範囲（段 M1）：town＝出した町の自社の全店（段 1〜3。いままでどおり）・land＝同じランク（Common ランド・Uncommon ランド…）の町の全店・
+ * all＝会社の全店。land・all の宣伝は会社のもの（町を移っても続く。`s.adFrom` に出した町）。任せている町には `AD_TIER.remote` を掛けて売上の倍率に足す
+ */
+export type AdScope = 'town' | 'land' | 'all';
+/** 解禁の条件（段 M1）：いまの町の自社の店の数・店のある町の数・会社の月商（先月。いまの町 ＋ 任せている町）。or：どれか 1 つで解禁 */
+export interface AdNeed {
+  shops?: number;
+  towns?: number;
+  rev?: number;
+  or?: boolean;
+}
 export interface Ad {
   id: string;
   name: string;
@@ -3531,12 +3543,39 @@ export interface Ad {
   cost: number;
   days: number;
   boost: number;
+  /** 絵文字（段 M1。無ければ 📣） */
+  icon?: string;
+  /** 効く範囲（無ければ town） */
+  scope?: AdScope;
+  /** 期間の終わりに 1 回、ブランド力に足す（段 M1。上限 brandCap まで） */
+  brand?: number;
+  /** 解禁の条件（無ければいつでも。段 1〜3） */
+  need?: AdNeed;
 }
+/**
+ * 宣伝のはしご（段 M1。docs/SUCCESSOR_ROADMAP.md「段 M1 の実装」）。段 1〜3 は前のまま（値段・日数・効き目・範囲）。
+ * 上の段は、店頭 → 近隣 → 市街 → 地域 → 全国で約 3 桁の相場の差を、会社の規模（店の数・月商）に釣り合う値段で。
+ * 値段は「その段に合う月商の 3〜5% ／ 月」になる所に置いた（段を 1 つ飛ばして買うと 10〜20%＝攻めの投資）
+ */
 export const ADS: Ad[] = [
   { id: 'flyer', name: t('チラシ配り', 'Flyers'), note: t('10 日間、自社のお店の売り場の強さ +15%', 'Your shops’ pull +15% for 10 days'), cost: 1500, days: 10, boost: 0.15 },
   { id: 'poster', name: t('駅のポスター', 'Station posters'), note: t('30 日間、自社のお店の売り場の強さ +20%', 'Your shops’ pull +20% for 30 days'), cost: 5000, days: 30, boost: 0.2 },
   { id: 'event', name: t('店頭イベント', 'In-store event'), note: t('5 日間、自社のお店の売り場の強さ +50%', 'Your shops’ pull +50% for 5 days'), cost: 4000, days: 5, boost: 0.5 },
+  { id: 'signage', icon: '🪧', name: t('駅のサイネージ', 'Station signage'), note: t('30 日間、同じ町の全店の売り場の強さ +15%', 'All shops in this town +15% pull for 30 days'), cost: 15000, days: 30, boost: 0.15, scope: 'town', need: { shops: 2 } },
+  { id: 'vision', icon: '🪧', name: t('街頭の大型ビジョン', 'Street video wall'), note: t('14 日間、同じ町の全店の売り場の強さ +25%・ブランド力 +5（期間の終わりに）', 'All shops in this town +25% pull for 14 days; brand +5 when it ends'), cost: 50000, days: 14, boost: 0.25, scope: 'town', brand: 5, need: { shops: 3 } },
+  { id: 'local_tv', icon: '📺', name: t('地域のテレビ・ラジオ', 'Regional TV & radio'), note: t('30 日間、同じランドの全店の売り場の強さ +20%・ブランド力 +15（期間の終わりに）', 'All shops in this land +20% pull for 30 days; brand +15 when it ends'), cost: 80000, days: 30, boost: 0.2, scope: 'land', brand: 15, need: { rev: 5_000_000 } },
+  { id: 'billboard', icon: '🪧', name: t('一等地のビルボード', 'Prime-site billboard'), note: t('14 日間、全店の売り場の強さ +30%・ブランド力 +30（期間の終わりに）', 'All shops +30% pull for 14 days; brand +30 when it ends'), cost: 300000, days: 14, boost: 0.3, scope: 'all', brand: 30, need: { towns: 2, rev: 10_000_000, or: true } },
+  { id: 'nat_tv', icon: '📺', name: t('全国のテレビ CM', 'National TV ads'), note: t('30 日間、全店の売り場の強さ +40%・ブランド力 +50（期間の終わりに。恒久）', 'All shops +40% pull for 30 days; brand +50 when it ends (lasting)'), cost: 1_000_000, days: 30, boost: 0.4, scope: 'all', brand: 50, need: { rev: 30_000_000 } },
 ];
+/**
+ * 宣伝の重ね掛けと範囲の数字（段 M1。ここ 1 か所）。
+ * - cap：効いている宣伝の boost の和の上限（段 1〜3 だけの合計の最大 +85% と同じ。既存の通しを変えない）
+ * - decay：上の段（signage から）の 2 本目以降の効き（大きい順に 1 本目 100%・2 本目 50%・3 本目 25%…）。段 1〜3 どうしは前のまま足す
+ * - remote：任せている町（マネージャーの売上）への効き。売り場の強さがそのまま売上に出ないので半分
+ * - auto.upper：自動の判断（部長の提案・カード・見通しの「いちばん効く宣伝」）に上の段を出すか。ゲームでは true。
+ *   自動プレイ（scripts/island/sim.ts の SIM_AD）は通常・最短で false（段 1〜3 のまま。Sim の時間を変えない）
+ */
+export const AD_TIER = { cap: 0.85, decay: 0.5, remote: 0.5, auto: { upper: true } };
 
 /** 他社の調査：段階ごとに分かることが増える（見習いの速さで 1 日 1） */
 export const INTEL = [5, 12, 20];

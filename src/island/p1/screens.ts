@@ -11,6 +11,7 @@ import raw from '../../generated/catalog.json';
 import { DEF } from '../defs';
 import {
   ADS,
+  AD_TIER,
   AWARE_GOODS,
   PROC,
   procNeed,
@@ -44,6 +45,11 @@ import {
 import {
   hasRoute,
   adBoost,
+  adLock,
+  adUpper,
+  adWide,
+  companyRevenue,
+  townsWithShops,
   fullUse,
   procCap,
   procItems,
@@ -1957,6 +1963,8 @@ export function openAds(ctx: Ctx) {
     const local = sectorProfile(s).ads ?? 1;
     if (local !== 1) body.append(h('p', 'isl-good', t(`このセクタでは宣伝の効き目 ×${local}（${sectorDef(s.sector ?? 'c1').name}）`, `Ads are ×${local} as strong in this sector (${sectorDef(s.sector ?? 'c1').name})`)));
     body.append(h('p', 'isl-dim', now > 0 ? t(`いま自社のお店の売り場の強さが +${Math.round(now * 100)}% です。`, `Your shops have +${Math.round(now * 100)}% pull right now.`) : t('宣伝すると、しばらくの間、自社のすべてのお店が売れやすくなります。種類の違う宣伝は重ねられます。', 'Ads make all your shops sell better for a while. Different ads stack.')));
+    // 段 M1：宣伝のはしご（店先 → 町 → ランド → 全国）。重ね掛けの上限と逓減・解禁の条件の元の数字
+    body.append(h('p', 'isl-dim isl-ad-ladder', t(`重ね掛けは合計 +${Math.round(AD_TIER.cap * 100)}% まで（上の段は 2 本目から半分）。いまの会社：この町のお店 ${myShops(s).length} 軒・お店のある町 ${townsWithShops(s)}・月商 ${money(companyRevenue(s))}。`, `Stacking caps at +${Math.round(AD_TIER.cap * 100)}% (upper tiers halve from the second). Now: ${myShops(s).length} shops here, shops in ${townsWithShops(s)} towns, monthly sales ${money(companyRevenue(s))}.`)));
     // 新商品の認知：並べている商品のうち、まだ知られていないもの（宣伝で早く育つ）
     const fresh = market(s).filter((r) => r.mine && r.known < 1);
     if (fresh.length) {
@@ -1972,16 +1980,25 @@ export function openAds(ctx: Ctx) {
       body.append(c);
     }
     for (const a of ADS) {
-      const card = h('div', 'isl-card2');
+      const lock = adLock(s, a.id);
+      const card = h('div', `isl-card2 isl-ad${adUpper(a) ? ' is-upper' : ''}${lock ? ' is-locked' : ''}`);
       const left = s.ads[a.id] ?? 0;
-      card.append(h('h3', '', a.name), h('p', 'isl-dim', a.note));
-      if (left > 0) card.append(bar(left / a.days, 'var(--isl-gold)'), h('p', '', t(`実施中：あと ${left} 日`, `Running: ${left} days left`)));
+      card.append(h('h3', '', `${a.icon ?? '📣'} ${a.name}`));
+      // 段 M1：効き目の説明は 1 行（効く範囲・日数と効き目・知名度）
+      const scope = a.scope === 'all' ? t('全店', 'All shops') : a.scope === 'land' ? t('同じランドの全店', 'All shops in this land') : t('同じ町の全店', 'All shops in this town');
+      const bits = [`${adWide(a) ? '🌍' : '📍'} ${scope}`, t(`${a.days} 日 +${Math.round(a.boost * 100)}%`, `${a.days} d, +${Math.round(a.boost * 100)}%`)];
+      if (a.brand) bits.push(t(`★ ブランド力 +${a.brand}（期間の終わりに）`, `★ Brand +${a.brand} (when it ends)`));
+      card.append(h('p', 'isl-ad-scope', bits.join(t('・', ' · '))));
+      if (lock) card.append(h('p', 'isl-ad-lock isl-dim', t(`🔒 解禁：${lock}`, `🔒 Unlocks: ${lock}`)), h('p', 'isl-dim', t(`費用 ${money(adCost(s, a.id))}`, `Cost ${money(adCost(s, a.id))}`)));
+      else if (left > 0) card.append(bar(left / a.days, 'var(--isl-gold)'), h('p', '', t(`実施中：あと ${left} 日`, `Running: ${left} days left`)));
       else {
         const cost = adCost(s, a.id);
         // 段 UI3：見込み（期間の粗利の伸び − 費用。この町で元が取れるか。moves.ts の adGain）
         if (myShops(s).length) {
           const g = adGain(s, a.id);
-          card.append(h('p', `isl-ad-gain ${g > 0 ? 'isl-good' : 'isl-warn'}`, g > 0 ? t(`見込み：+${money(g)}（この町で元が取れる）`, `Expected: +${money(g)} (pays off here)`) : t(`見込み：−${money(-g)}（この町ではまだ元が取れない）`, `Expected: −${money(-g)} (won’t pay off here yet)`)));
+          // 段 M1：ランド・全店の宣伝は、任せている町の売上の伸びも入れた見込み
+          const where = adWide(a) ? t('会社の全店で', 'across all shops') : t('この町で', 'here');
+          card.append(h('p', `isl-ad-gain ${g > 0 ? 'isl-good' : 'isl-warn'}`, g > 0 ? t(`見込み：+${money(g)}（${where}元が取れる）`, `Expected: +${money(g)} (pays off ${where})`) : t(`見込み：−${money(-g)}（${where}はまだ元が取れない）`, `Expected: −${money(-g)} (won’t pay off ${where} yet)`)));
         }
         const b = btn(t(`実施する ${money(cost)}`, `Run ${money(cost)}`), () => {
           const e = runAd(s, a.id);

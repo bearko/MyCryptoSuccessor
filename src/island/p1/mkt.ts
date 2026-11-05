@@ -15,7 +15,7 @@ import { brandAdd } from './company';
 import { topTier } from './acct';
 import { CS_OFF, csOf } from './cs';
 import { adGain } from './deleg';
-import { has, lvMul, market, monopolyLeft, myShops, rivalTune, sellersOf, spend, type P1State } from './model';
+import { adPick, has, lvMul, market, monopolyLeft, myShops, rivalTune, sellersOf, spend, type P1State } from './model';
 import { patentBlocks, patentLeft } from './legal';
 
 // ---------------------------------------------------------------- 企業の格
@@ -186,7 +186,7 @@ export function forecast(s: P1State): Forecast {
   let bestAd: Forecast['bestAd'] = null;
   if (myShops(s).length)
     for (const a of ADS) {
-      if ((s.ads[a.id] ?? 0) > 0) continue;
+      if (!adPick(s, a)) continue;
       const g = adGain(s, a.id);
       if (!bestAd || g > bestAd.gain) bestAd = { id: a.id, gain: g };
     }

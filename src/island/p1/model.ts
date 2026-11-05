@@ -9,6 +9,8 @@ import { cells, type Dir } from '../sim';
 import { book, brandAdd, brandCap, brandPull, emptyLedger, newBooks, newLand, reviveMonth, reviveScale, ruinCount, runSector, sectorDef, sectorProfile, type BrandEv, type Books, type Land, type LedgerKey, type ReviveMonth, type RuinLike } from './company';
 import {
   ADS,
+  AD_TIER,
+  type Ad,
   deptOf,
   levelCost,
   lvMulOf,
@@ -567,6 +569,8 @@ export interface P1State {
   lab: { key: string; left: number } | null;
   /** 宣伝の残り日数 */
   ads: Partial<Record<string, number>>;
+  /** 段 M1：ランド・全店に効く宣伝（land・all）を出した町（セクタの id）。会社のもの（セクタの写しに入れない）。無くてよい（古いセーブ） */
+  adFrom?: Partial<Record<string, string>>;
   /** 他社の調査の進み（日） */
   intel: Partial<Record<string, number>>;
   /** 他社の今月の売上（商品ごと）と先月の結果 */
@@ -2474,18 +2478,103 @@ export function develop(s: P1State, key: string): string | null {
 
 // ---------------------------------------------------------------- 宣伝・調査・依頼・給与
 
-export const adBoost = (s: P1State) => ADS.reduce((a, x) => a + ((s.ads[x.id] ?? 0) > 0 ? x.boost : 0), 0) * (1 + 0.5 * lvMul(s, 'b_ads')) * (1 + 0.1 * lvMul(s, 'fair') + fxSum(s, 'ads')) * (sectorProfile(s).ads ?? 1);
+/** 宣伝の定義（段 M1：段 1〜3 と上の段） */
+export const adDef = (id: string) => ADS.find((a) => a.id === id);
+/** 上の段の宣伝（段 M1：解禁の条件があるもの。signage から） */
+export const adUpper = (a: Ad) => !!a.need;
+/** ランド・全店に効く宣伝（会社のもの。町を移っても続く） */
+export const adWide = (a: Ad) => a.scope === 'land' || a.scope === 'all';
+/** 宣伝を出した町（land・all は s.adFrom。無ければいまの町） */
+const adFromOf = (s: Pick<P1State, 'adFrom' | 'sector'>, id: string) => s.adFrom?.[id] ?? s.sector ?? 'c1';
+/** その宣伝がその町（セクタ）の店に効くか */
+function adCovers(s: Pick<P1State, 'adFrom' | 'sector'>, a: Ad, sector: string): boolean {
+  const here = s.sector ?? 'c1';
+  switch (a.scope ?? 'town') {
+    case 'town':
+      // 町の宣伝は s.ads がその町の写しなので、いまの町だけ
+      return sector === here;
+    case 'land':
+      return sectorTierOf(adFromOf(s, a.id)) === sectorTierOf(sector);
+    case 'all':
+      return true;
+  }
+}
+/**
+ * 効いている宣伝の boost の和（段 M1：範囲と逓減）。段 1〜3（町の宣伝）はいままでどおり足す。上の段は大きい順に 1 本目 100%・2 本目 50%・
+ * 3 本目 25%…（AD_TIER.decay）。合計は AD_TIER.cap まで（段 1〜3 だけの最大 +85% と同じ）
+ */
+export function adBoostRaw(s: Pick<P1State, 'ads' | 'adFrom' | 'sector'>, sector = s.sector ?? 'c1'): number {
+  let local = 0;
+  const upper: number[] = [];
+  for (const a of ADS) {
+    if ((s.ads[a.id] ?? 0) <= 0 || !adCovers(s, a, sector)) continue;
+    if (adUpper(a)) upper.push(a.boost);
+    else local += a.boost;
+  }
+  upper.sort((x, y) => y - x);
+  const wide = upper.reduce((acc, b, k) => acc + b * AD_TIER.decay ** k, 0);
+  return Math.min(AD_TIER.cap, local + wide);
+}
+/** 宣伝の効き目の倍率（ブランド広告 ×1.5・季節の催事 +10%・効き目の効果・セクタの個性） */
+const adMul = (s: P1State, sector: string) => (1 + 0.5 * lvMul(s, 'b_ads')) * (1 + 0.1 * lvMul(s, 'fair') + fxSum(s, 'ads')) * ((sector === (s.sector ?? 'c1') ? sectorProfile(s).ads : sectorDef(sector).profile.ads) ?? 1);
+/**
+ * いまの町の自社の店に効いている宣伝（売り場の強さの上乗せ）。段 M1：店ごとに評価する形（adBoostFor）。いまの状態の建物はみな同じ町なので、
+ * どの店も同じ値（段 1〜3 だけなら前の adBoost と同じ数字）
+ */
+export const adBoostFor = (s: P1State, _b?: PBuilding) => adBoostRaw(s) * adMul(s, s.sector ?? 'c1');
+export const adBoost = (s: P1State) => adBoostFor(s);
+/** 任せている町（マネージャーの売上）に効いている宣伝：ランド・全店の宣伝 × AD_TIER.remote（売上の倍率に足す） */
+export const adBoostAt = (s: P1State, sector: string) => (sector === (s.sector ?? 'c1') ? adBoostFor(s) : adBoostRaw(s, sector) * adMul(s, sector) * AD_TIER.remote);
+/** 会社の月商（先月。いまの町の月次報告 ＋ 任せている町の先月の売上。解禁の条件） */
+export function companyRevenue(s: P1State): number {
+  const last = s.reports[s.reports.length - 1];
+  let rev = last?.revenue ?? 0;
+  for (const id of s.land?.mine ?? []) {
+    if (id === (s.land?.cur ?? s.sector)) continue;
+    const log = s.land?.recs[id]?.log;
+    rev += log?.length ? log[log.length - 1].rev : 0;
+  }
+  return rev;
+}
+/** 自社の店のある町の数（いまの町 ＋ 任せている町） */
+export function townsWithShops(s: P1State): number {
+  let n = myShops(s).length ? 1 : 0;
+  for (const id of s.land?.mine ?? []) {
+    if (id === (s.land?.cur ?? s.sector)) continue;
+    if (s.land?.recs[id]?.base) n++;
+  }
+  return n;
+}
+/** 解禁の条件（画面の 🔒 の 1 行。満たしていれば null） */
+export function adLock(s: P1State, id: string): string | null {
+  const a = adDef(id);
+  const need = a?.need;
+  if (!a || !need) return null;
+  const parts: { ok: boolean; text: string }[] = [];
+  if (need.shops != null) parts.push({ ok: myShops(s).length >= need.shops, text: t(`この町に自社のお店 ${need.shops} 軒`, `${need.shops} shops in this town`) });
+  if (need.towns != null) parts.push({ ok: townsWithShops(s) >= need.towns, text: t(`お店のある町が ${need.towns} つ`, `shops in ${need.towns} towns`) });
+  if (need.rev != null) parts.push({ ok: companyRevenue(s) >= need.rev, text: t(`会社の月商 ${Math.round(need.rev / 10000).toLocaleString('en-US')} 万 G 以上`, `monthly sales of ${need.rev.toLocaleString('en-US')} G or more`) });
+  const ok = need.or ? parts.some((p) => p.ok) : parts.every((p) => p.ok);
+  if (ok) return null;
+  return parts.map((p) => p.text).join(need.or ? t(' または ', ' or ') : t('・', ' and '));
+}
+/** 解禁している（段 1〜3 はいつでも） */
+export const adOpen = (s: P1State, id: string) => adLock(s, id) == null;
+/** 候補に出せる（解禁していて、上の段は自動の判断に出す設定のとき。部長の提案・カード・いちばん効く宣伝・販売の手） */
+export const adPick = (s: P1State, a: Ad) => (s.ads[a.id] ?? 0) <= 0 && adOpen(s, a.id) && (!adUpper(a) || AD_TIER.auto.upper);
 /** 宣伝の費用（季節の催事で −30%） */
 export const adCost = (s: P1State, id: string) => Math.round((ADS.find((a) => a.id === id)?.cost ?? 0) * cut(s, 'fair', 0.3));
 export function runAd(s: P1State, id: string): string | null {
   const x = ADS.find((a) => a.id === id);
   if (!x) return 'locked';
   if ((s.ads[id] ?? 0) > 0) return 'busy';
+  if (adLock(s, id) != null) return 'locked';
   const cost = adCost(s, id);
   if (s.money < cost) return 'money';
   s.money -= cost;
   spend(s, 'ads', cost);
   s.ads[id] = x.days;
+  if (adWide(x)) (s.adFrom ??= {})[id] = s.sector ?? 'c1';
   return null;
 }
 
@@ -4140,8 +4229,13 @@ export function step(s: P1State): DayResult {
   const ch = syncCharisma(s);
   if (ch) (res.hr ??= { want: [], stay: [], quit: [] }).charisma = ch;
 
-  // 宣伝の残り日数
-  for (const k of Object.keys(s.ads)) s.ads[k] = Math.max(0, (s.ads[k] ?? 0) - 1);
+  // 宣伝の残り日数（段 M1：期間の終わりに、知名度のぶんをブランド力に 1 回足す）
+  for (const k of Object.keys(s.ads)) {
+    const left = s.ads[k] ?? 0;
+    s.ads[k] = Math.max(0, left - 1);
+    const a = left === 1 ? adDef(k) : undefined;
+    if (a?.brand) brandAdd(s, a.brand, t(`宣伝「${a.name}」で名前が知られた`, `Ad “${a.name}” spread the name`));
+  }
 
   // 依頼は締めの前と後に確かめる（今月の数と、報告の順位）
   checkMissions(s, res);
@@ -4574,7 +4668,8 @@ export function closeCompanyMonth(s: P1State): CompanyMonth {
         continue;
       }
       // マネージャー研修：売上の倍率 +0.1・持株会社：利益 +10%。被災した町は直った割合ぶん
-      const r = runSector(rec, st?.stats ?? null, m, rng(s.seed + s.day * 31 + id.length * 7 + id.charCodeAt(1)), { rate: 0.1 * lvMul(s, 'mgr') + fxSum(s, 'manager') + (st ? passiveSum(st, 'manage') + fitSector(st.hero) + sectorPush(s, id) : 0) + headFx(s, 'strategy'), profit: 1 + 0.1 * lvMul(s, 'holding'), scale: reviveScale(rec) });
+      // 段 M1：ランド・全店に効く宣伝は、任せている町の売上の倍率にも足す（adBoostAt。半分の効き）
+      const r = runSector(rec, st?.stats ?? null, m, rng(s.seed + s.day * 31 + id.length * 7 + id.charCodeAt(1)), { rate: 0.1 * lvMul(s, 'mgr') + fxSum(s, 'manager') + (st ? passiveSum(st, 'manage') + fitSector(st.hero) + sectorPush(s, id) : 0) + headFx(s, 'strategy') + adBoostAt(s, id), profit: 1 + 0.1 * lvMul(s, 'holding'), scale: reviveScale(rec) });
       // セクター長の任せきり（段 D）：部長たちの提案を自分で承認して、そのセクタへ投資
       rec.heads = undefined;
       if (st) sectorApprove(s, rec, r);

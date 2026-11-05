@@ -12792,6 +12792,24 @@ button.isl-dband-lead.is-on {
 .isl-ad-gain {
   font-weight: 700;
 }
+/* 段 M1：宣伝のはしご（上の段・🔒 の段・効く範囲の 1 行） */
+.isl-ad-scope {
+  font-size: 12px;
+  color: var(--isl-gold);
+  margin: 2px 0;
+}
+.isl-ad.is-locked {
+  opacity: 0.75;
+}
+.isl-ad.is-locked h3 {
+  color: var(--isl-dim);
+}
+.isl-ad-lock {
+  font-size: 12px;
+}
+.isl-ad-ladder {
+  font-size: 12px;
+}
 
 /* 会話（マインちゃん）のあいだ：暗幕を濃く（地図・ミッションの札・トーストを覆う。トーストは会話のあとにまとめて出す） */
 .isl-modal.isl-talk {

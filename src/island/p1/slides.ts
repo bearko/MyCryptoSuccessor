@@ -9,7 +9,7 @@ import { ADS, DEPT, POLICY, type DeptId, type ValueKey } from './data';
 import { METRIC_TEXT, actNoun, judgeOf, type Ask, type Brief, type Risk } from './brief';
 import { SKILL, isResearch, rpCost } from './data';
 import { isEn } from '../../i18n';
-import { DAYS, skillLock, whatIf, type P1State, type Stage } from './model';
+import { DAYS, adPick, skillLock, whatIf, type P1State, type Stage } from './model';
 import { planCost, planOf, type Plan } from './plan';
 import { amountOf, budgetDepts, budgetOpen, deptBudget } from './budget';
 import { quarterNow } from './acct';
@@ -642,6 +642,8 @@ export function altsOf(s: P1State, plan: Plan, b: Pick<Brief, 'dProfit' | 'vals'
     if (p.dept !== (plan.dept ?? card?.dept)) continue;
     push(p.act, () => ({ name: actNoun(p.act), dProfit: p.unit === 'G' ? p.est : 0, long: 0, money: p.cost, payback: null, ok: false, chosen: false, status: 'busy', note: t(`提出済み（${DEPT[p.dept].name}部長の提案・受け箱）`, `Submitted (${DEPT[p.dept].name} head’s proposal, in the inbox)`) }));
   }
+  // 段 M1：宣伝の提案は、出せる宣伝（解禁した上の段も）を全部くらべる（効果が薄い・予算不足は judged の状態で。🔒 の段は出さない）
+  if (kinds.has('ad')) for (const ad of ADS_OF()) if (adPick(s, ad)) push({ k: 'ad', id: ad.id }, () => judged({ k: 'ad', id: ad.id }));
   // 4. 同じ課題の段の手（見込みの大きい順）
   if (stage === 'sell') for (const m of sellMoves(s)) if (m.act) push(m.act as PropAct, () => judged(m.act as PropAct));
   if (stage && stage !== 'sell')

@@ -33,7 +33,7 @@ import {
   type PropUnit,
   type Proposal,
 } from './deleg';
-import { DAYS, invLv, myWarehouses, poolCap, poolUsed, madeSkus, adCost, bonus, bonusCost, bottleneck, buyCap, donate, donateLock, has, hasRoute, heroStats, investCost as investCostOf, signFee, skillLock, myShops, nextDonateCost, partMax, raise, raiseStep, recipeOf, sellInfo, stageCaps, staffOf, whatIf, wageOf, type P1State, type Report, type Stage, type StageIf, type Staff, type StallWhy } from './model';
+import { DAYS, invLv, myWarehouses, poolCap, poolUsed, madeSkus, adCost, adPick, bonus, bonusCost, bottleneck, buyCap, donate, donateLock, has, hasRoute, heroStats, investCost as investCostOf, signFee, skillLock, myShops, nextDonateCost, partMax, raise, raiseStep, recipeOf, sellInfo, stageCaps, staffOf, whatIf, wageOf, type P1State, type Report, type Stage, type StageIf, type Staff, type StallWhy } from './model';
 import { flowGain, isFlowKey, issuesOf, limitWord, type CoIssue, type IssueKey, type IssueLv } from './issues';
 import { adGain, goodsName, partMonthly, sellMoves, shopMonthly, stockMsg, stockPlan, type SellMove } from './moves';
 import { apologize, bestReply, csOn, noticeCost, refundCost, reply, replyGain, replyLock, swapItem } from './cs';
@@ -765,7 +765,7 @@ function noticeDrafts(s: P1State, r: Report): Draft[] {
   const ev = r.comeback ? { by: r.comeback.by, sale: true, months: r.comeback.months } : r.rally ? { by: r.rally.by, sale: false, months: r.rally.months } : null;
   if (ev && myShops(s).length) {
     const who = deptHand(s, 'marketing', 'ads') ?? s.staff.find(isFree)?.hero ?? clerkOf(s)?.hero ?? null;
-    const ads = ADS.filter((a) => (s.ads[a.id] ?? 0) <= 0).map((a) => ({ a, g: adGain(s, a.id) })).sort((x, y) => y.g - x.g);
+    const ads = ADS.filter((a) => adPick(s, a)).map((a) => ({ a, g: adGain(s, a.id) })).sort((x, y) => y.g - x.g);
     const top = ads[0];
     if (top) {
       const ch: Choice[] = [{ act: { k: 'do', a: { k: 'ad', id: top.a.id } }, est: top.g, unit: 'ad', cost: adCost(s, top.a.id), kind: 'ad', rec: top.g > 0 }, { act: { k: 'skip' }, cost: 0, rec: top.g <= 0 }];

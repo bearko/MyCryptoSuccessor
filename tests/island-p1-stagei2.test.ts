@@ -2,7 +2,7 @@
 // 議題（話し手・予実・計画・必要予算・その他の要求）・推奨・決める（承認・増減・目標・一括）・士気の目標の 1 項目「目標の重さ」・労力と施策の数の押し上げ・
 // 期末の結果・社内監査（経理部長の ★ で見抜く）・RP の否認・自動プレイは推奨・止めたとき（BOARD_OFF）・セーブの版（25 → 26）・セリフ 60 字
 import { beforeAll, describe, expect, it } from 'vitest';
-import { BOARD, BUDGET, MANAGER, type DeptId } from '../src/island/p1/data';
+import { ADS, BOARD, BUDGET, MANAGER, type DeptId } from '../src/island/p1/data';
 import {
   BOARD_FINISH_HOOKS,
   BOARD_OFF,
@@ -498,7 +498,8 @@ describe('段 I2b：判断できる報告（何もできなかった原因・来
 
   it('打てる手が無い：宣伝を全部流しているマーケは「手はもう打ってある」。ほかは、いまの詰まりに効くパネル（開放不足）か「必要が無い」。打ち手のパネルは承認で開く', () => {
     const s = make((x) => {
-      for (const a of ['flyer', 'poster', 'event']) x.ads[a] = 10;
+      // 段 M1：解禁している宣伝（上の段も）を全部流す
+      for (const a of ADS) x.ads[a.id] = 10;
       for (const d of heads(x)) Object.assign(deptBudget(x, d), { qamt: 60000, qused: 0, qn: 0, qwhy: { ...q0, none: 3 } });
     });
     const A = boardOf(s).agenda!;
