@@ -16171,6 +16171,12 @@ button.isl-dband-lead.is-on {
   border-radius: 6px;
   padding: 1px 8px;
 }
+/* 段 UI9b：セリフを先に、課題の行は補足（小さく） */
+.isl-cardm-iss.is-sub {
+  font-size: 12px;
+  font-weight: 700;
+  border-width: 1px;
+}
 .isl-cardbox-iss {
   font-size: 12px;
   margin-top: 2px;

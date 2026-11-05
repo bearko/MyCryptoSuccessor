@@ -38,8 +38,8 @@ import { flowGain, isFlowKey, issuesOf, limitWord, type CoIssue, type IssueKey, 
 import { adGain, goodsName, partMonthly, sellMoves, shopMonthly, stockMsg, stockPlan, type SellMove } from './moves';
 import { apologize, bestReply, csOn, noticeCost, refundCost, reply, replyGain, replyLock, swapItem } from './cs';
 import { quitLeft, talk, talkGain } from './hr';
-import { afterOf, applyPlan, baseOf, planBlock, planOf, type Plan, type PlanRes } from './plan';
-import { actNoun, actTheme, judgeOf, valueOfPlan, type NoKind } from './brief';
+import { afterOf, applyPlan, baseOf, planBlock, planCost, planOf, type Plan, type PlanRes } from './plan';
+import { actNoun, actTheme, judgeOf, monthOf, valueOfPlan, type NoKind } from './brief';
 import { jammed, prodOf, useUpOf } from './proj';
 import { holdMonth, poolNow, storeFc, whenFull } from './storefc';
 import { corpOf, tiltOf } from './policy';
@@ -1786,8 +1786,20 @@ const coIssueOf = (c: Pick<Card, 'iss' | 'issues'>): CoIssue | undefined => (c.i
 /** 放置したときの 1 行（数字に色・文の形）。無ければ空 */
 const lossOf = (c: Pick<Card, 'iss' | 'issues'>) => {
   const L = coIssueOf(c);
-  return L ? t(`${emNums(L.loss)}。`, ` ${emNums(L.loss)}.`) : '';
+  return L ? lossSentence(L) : '';
 };
+/** 段 UI9b：放置したときの文（必ず述語のある文。「放置すると月 −4,337 G の損失です。」「32 日後にはあふれ、月 −12,494 G の損失になります。」） */
+export function lossSentence(L: Pick<CoIssue, 'key' | 'impact' | 'days' | 'grow'>): string {
+  const v = `[[ −${g(L.impact)}]]`;
+  if (L.grow) return t(`伸ばせば月[[ +${g(L.impact)}]]の余地があります。`, ` Up to [[+${g(L.impact)}]]/mo of upside.`);
+  if (L.days == null) return t(`放置すると月${v}の損失です。`, ` Left alone, that is ${v}/mo.`);
+  if (L.days < 1) return t(`すでに起きていて、月${v}の損失です。`, ` It is already happening: ${v}/mo.`);
+  const d = `[[ ${Math.round(L.days)} 日後]]`; // i18n-ja
+  if (L.key === 'store') return t(`${d}にはあふれ、月${v}の損失になります。`, ` Storage fills in ${d}, costing ${v}/mo.`);
+  if (L.key === 'cash') return t(`${d}には資金が尽き、月${v}の損失です。`, ` Funds run out in ${d}; ${v}/mo.`);
+  if (L.key === 'morale') return t(`${d}には人が辞め、月${v}の損失になります。`, ` Someone quits in ${d}, costing ${v}/mo.`);
+  return t(`${d}には月${v}の損失になります。`, ` In ${d} that becomes ${v}/mo.`);
+}
 /** 選択肢の手（do の手・部長の提案の手）。無ければ null */
 function actOfChoice(s: P1State, ch: Choice | undefined): PropAct | null {
   if (!ch) return null;
@@ -1796,11 +1808,12 @@ function actOfChoice(s: P1State, ch: Choice | undefined): PropAct | null {
   return null;
 }
 /** 承認してほしいこと（手・費用・効果の名詞句。どのパターンも同じ形） */
-function askCore(s: P1State, ch: Choice): SummaryCore['ask'] | null {
+function askCore(s: P1State, c: Card, k: number): SummaryCore['ask'] | null {
+  const ch = c.choices[k];
   const a = ch.act;
   if (a.k === 'budget') {
     const nm = a.lv === 'X' ? g(a.amt ?? 0) : t(`「${lvName(a.lv)}」`, `“${lvName(a.lv)}”`);
-    return { move: t(`${DEPT[a.dept].name}部の予算を${nm}に上げること`, `raising the ${DEPT[a.dept].name} budget to ${nm}`), cost: '', effect: t('次の施策の実行（余りは会社に戻る）', 'the next move running (leftovers come back)') };
+    return { move: t(`${DEPT[a.dept].name}部の予算を${nm}に上げること`, `raising the ${DEPT[a.dept].name} budget to ${nm}`), cost: '', effect: t('次の施策の実行。余りは会社に戻るので無駄はない', 'the next move running; leftovers come back') };
   }
   if (a.k === 'crew') return { move: t(`従業員の上限を[[ ${a.cap} 人]]にすること`, `a staff cap of [[${a.cap}]]`), cost: t(`1 人 月[[ ${g(crewWageMonth())}]]`, `[[${g(crewWageMonth())}]]/mo each`), effect: t('止まっていた施策の再開', 'the stalled moves restarting') };
   const act = actOfChoice(s, ch);
@@ -1809,14 +1822,22 @@ function askCore(s: P1State, ch: Choice): SummaryCore['ask'] | null {
   const p = a.k === 'approve' ? s.deleg?.inbox.find((x) => x.id === a.pid) : undefined;
   const est = p ? p.est : (ch.est ?? 0);
   const unit = p ? p.unit : ch.unit;
-  const cost = ch.cost;
-  const monthly = ch.monthly ?? 0;
-  const costTxt = ch.rp ? t(`研究ポイント[[ ${ch.rp} RP]]`, `[[${ch.rp} RP]]`) : cost > 0 ? (act.k === 'hire' ? t(`契約金[[ ${g(cost)}]]と月給[[ ${g(monthly)}]]`, `[[${g(cost)}]] to sign plus [[${g(monthly)}]]/mo`) : monthly > 0 ? t(`初期投資[[ ${g(cost)}]]と毎月[[ ${g(monthly)}]]`, `[[${g(cost)}]] up front and [[${g(monthly)}]]/mo`) : t(`初期投資[[ ${g(cost)}]]`, `[[${g(cost)}]] up front`)) : monthly > 0 ? t(`毎月[[ ${g(monthly)}]]`, `[[${g(monthly)}]]/mo`) : '';
-  const u = ch.units != null && ch.units > 0.05 ? t(`処理量 月[[ +${Math.round(ch.units)} 個]]と`, `throughput [[+${Math.round(ch.units)}]]/mo and `) : '';
+  // 段 UI9b：セリフの数字は提案書の KPI と同じ定義（短期利益 ＝ 来月の利益の差 − 導入費用。提案書と同じ束ねた手・同じ課題で judgeOf）
+  const plan = planOfChoice(s, c, k) ?? planOf(s, [act], { hero: c.hero, q: c.q, dept: c.dept });
+  const iss = c.issues ?? issuesOf(s);
+  const j = judgeOf(s, plan, iss);
+  const cost = planCost(s, plan);
+  const short = j.dProfit - cost.money;
+  const money = cost.money;
+  const monthly = cost.monthly;
+  const costTxt = cost.rp > 0 && money <= 0 ? t(`研究ポイント[[ ${cost.rp} RP]]`, `[[${cost.rp} RP]]`) : money > 0 ? (act.k === 'hire' ? t(`契約金[[ ${g(money)}]]と月給[[ ${g(monthly)}]]`, `[[${g(money)}]] to sign plus [[${g(monthly)}]]/mo`) : monthly > 0 ? t(`初期投資[[ ${g(money)}]]と毎月[[ ${g(monthly)}]]`, `[[${g(money)}]] up front and [[${g(monthly)}]]/mo`) : t(`初期投資[[ ${g(money)}]]`, `[[${g(money)}]] up front`)) : monthly > 0 ? t(`毎月[[ ${g(monthly)}]]`, `[[${g(monthly)}]]/mo`) : '';
+  // 来月の利益（導入費用を引いた差 ＝ 短期利益）。宣伝は効き目の日数を添える
+  const ad = act.k === 'ad' ? ADS.find((x) => x.id === act.id) : undefined;
+  const gainTxt = money > 0 ? t(`来月の利益[[ ${sgn(short)} G]]（導入費用込み）`, `next month’s profit [[${sgn(short)} G]] net of setup`) : t(`来月から月の利益[[ ${sgn(short)} G]]`, `[[${sgn(short)} G]]/mo from next month`);
   const effect = (() => {
     switch (unit) {
       case 'ad':
-        return t(`期間の利益（費用込み）[[ ${sgn(est)} G]]`, `[[${sgn(est)} G]] over the run, net of cost`);
+        return ad ? t(`来月の利益[[ ${sgn(short)} G]]（${ad.days} 日の宣伝・費用込み）`, `next month’s profit [[${sgn(short)} G]] (${ad.days}-day ad, net of cost)`) : gainTxt;
       case 'finds':
         return t(`出土品[[ ${Math.round(est)} 個]]ぶん`, `[[${Math.round(est)}]] finds`);
       case 'share':
@@ -1825,13 +1846,16 @@ function askCore(s: P1State, ch: Choice): SummaryCore['ask'] | null {
         return t('真似される前の権利の確保', 'securing our rights before copies appear');
       default:
         if (ch.room) return t(`置き場所[[ +${ch.room} 個]]`, `storage [[+${ch.room}]]`);
-        if (act.k === 'useup' || act.k === 'clear') return t(`倉庫を空けつつ月の利益[[ ${sgn(est)} G]]`, `freed storage with [[${sgn(est)} G]]/mo`);
+        if (act.k === 'useup' || act.k === 'clear') return t(`倉庫を空けつつ、来月の利益[[ ${sgn(short)} G]]`, `freed storage and next month’s profit [[${sgn(short)} G]]`);
         if (act.k === 'order') return t('作業台の再稼働', 'the benches restarting');
         if (act.k === 'staff') return t('店長が休む日の営業', 'the shop open on rest days');
-        return est > 0.5 ? t(`来月から月の利益[[ ${sgn(est)} G]]`, `[[${sgn(est)} G]]/mo from next month`) : u ? t(`${u}流れの回復`, `${u}a recovered flow`) : t('流れの回復', 'a recovered flow');
+        return Math.abs(short) >= 0.5 ? gainTxt : t('流れの回復', 'a recovered flow');
     }
   })();
-  return { move, cost: costTxt, effect };
+  // 効果が大きい（月の利益の増加が As-Is の 10% 超）：攻めの決まり文句を使ってよい
+  const now = monthOf(s, 0).profit;
+  const big = j.dProfit > Math.max(1, Math.abs(now)) * 0.1;
+  return { move, cost: costTxt, effect, big };
 }
 /** 原因の言葉（販売の手の種類から） */
 function sellCause(c: Card, act: PropAct | null): string {
@@ -1867,7 +1891,7 @@ export function coreOfCard(s: P1State, c: Card, pick?: number): SummaryCore | nu
   const ch = c.choices[pick ?? shownRec(s, c)];
   const act = actOfChoice(s, ch);
   if (!ch || (ch.act.k === 'skip' && i.k !== 'store')) return null;
-  const ask = ch.act.k === 'skip' ? null : askCore(s, ch);
+  const ask = ch.act.k === 'skip' ? null : askCore(s, c, pick ?? shownRec(s, c));
   const L = coIssueOf(c);
   const limit = L?.limit;
   const person = act?.k === 'hire' || act?.k === 'assign';
@@ -1889,7 +1913,7 @@ export function coreOfCard(s: P1State, c: Card, pick?: number): SummaryCore | nu
     }
     case 'buy': {
       const ev = t(`集まる素材は月[[ ${i.n} 個]]ぶんです。${loss}`, `Materials cover only [[${i.n}]] a month.${loss}`);
-      const cause = limit === 'room' ? t('倉庫が埋まっていて[[置き場所]]が無いことが原因です。', 'The cause is [[no storage space]]: the warehouse is full.') : person ? t('[[調達係の人員]]が足りないことが原因です。', 'The cause is [[too few buyers]].') : t('[[調達の処理能力]]（調達係の能力とパネル）が上限になっていることが原因です。', 'The cause is [[buying capacity]] (buyer skill and panels) at its limit.');
+      const cause = limit === 'room' ? t('倉庫が埋まっていて[[置き場所]]が無いことが原因です。', 'The cause is [[no storage space]]: the warehouse is full.') : person ? t('[[調達係の人員]]が足りないことが原因です。', 'The cause is [[too few buyers]].') : t('調達係の能力とパネルで決まる[[調達の処理能力]]が上限になっていることが原因です。', 'The cause is [[buying capacity]], set by buyer skill and panels, at its limit.');
       return mk(bn('buy'), ev, cause);
     }
     case 'haul': {
@@ -1911,7 +1935,7 @@ export function coreOfCard(s: P1State, c: Card, pick?: number): SummaryCore | nu
       const p = s.deleg?.inbox.find((x) => x.id === c.pid);
       const what = L ? t(`[[${issueNm(L.key)}]]が課題になっています。`, `The issue is [[${issueNm(L.key)}]].`) : t('打てる手があります。', 'There is a move to make.');
       // 根拠：流れの課題は処理量と制約の 1 文（一覧の note は画面の表の書き方なので、そのまま文に入れない）
-      const ev = L ? (isFlowKey(L.key) ? t(`いまの処理量は月[[ ${Math.round(L.now)} 個]]で、制約は[[${limitWord(L.limit ?? 'people')}]]です。${loss}`, `Throughput is [[${Math.round(L.now)}]]/mo, capped by [[${limitWord(L.limit ?? 'people')}]].${loss}`) : L.key === 'store' ? t(`倉庫は[[ ${Math.round(L.now)}%]]まで埋まっています。${loss}`, `Storage is [[${Math.round(L.now)}%]] full.${loss}`) : t(`${emNums(L.note)}。${loss}`, `${emNums(L.note)}.${loss}`)) : '';
+      const ev = L ? (isFlowKey(L.key) ? t(`いまの処理量は月[[ ${Math.round(L.now)} 個]]です。${loss}`, `Throughput is [[${Math.round(L.now)}]]/mo.${loss}`) : L.key === 'store' ? t(`倉庫は[[ ${Math.round(L.now)}%]]まで埋まっています。${loss}`, `Storage is [[${Math.round(L.now)}%]] full.${loss}`) : t(`${emNums(L.note)}。${loss}`, `${emNums(L.note)}.${loss}`)) : '';
       const cause = p?.unit === 'ad' ? t('売り場の集客に余地があり、[[宣伝の期待効果]]が費用を上回ると考えます。', 'The shops can draw more customers, and the [[expected ad effect]] beats its cost.') : p?.unit === 'finds' ? t(`この荒れ地に出土品が[[ ${p.dig?.finds ?? 0} 個]]ほど眠っていると考えます。`, `About [[${p.dig?.finds ?? 0}]] finds sleep in this wasteland.`) : p?.unit === 'share' ? t('この場所の需要に対して売り場が足りないことが原因です。', 'The cause is too few shops for the demand here.') : p?.unit === 'legal' ? t('権利を押さえていないため、[[真似される]]おそれがあることが原因です。', 'The cause is unsecured rights: copies could appear.') : L?.limit ? t(`処理量が[[${limitWord(L.limit)}]]で頭打ちになっていることが原因です。`, `The cause is throughput capped by [[${limitWord(L.limit)}]].`) : t('伸ばせる処理量がまだ残っていると考えます。', 'There is throughput left to gain.');
       return mk(what, ev, cause);
     }

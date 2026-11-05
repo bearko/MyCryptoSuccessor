@@ -13,9 +13,9 @@ import { DAYS, skillLock, whatIf, type P1State, type Stage } from './model';
 import { planCost, planOf, type Plan } from './plan';
 import { amountOf, budgetDepts, budgetOpen, deptBudget } from './budget';
 import { quarterNow } from './acct';
-import { issueLv, issueName, limitWord, lvWord, type CoIssue, type IssueLv } from './issues';
+import { isFlowKey, issueLv, issueName, limitWord, lvWord, type CoIssue, type IssueLv } from './issues';
 import { sellMoves } from './moves';
-import { emNums, type Speech } from './card';
+import { lossSentence, type Speech } from './card';
 import { numsOf, speakCore, type SummaryCore } from './summary';
 import { actOk, type PropAct } from './deleg';
 import type { Card } from './card';
@@ -507,18 +507,22 @@ export function issueRows(B: Pick<Brief, 'solved' | 'iss'>): IssueRow[] {
  * 段 UI9b：提案書のサマリー文と ② のセリフ（現状 → 原因 → 対応）の意味の層（summary.ts の SummaryCore）。カードから開いた提案書はカードの
  * 3 段（card.ts の coreOfCard）を使い、カードの無い提案書（店員の吹き出し・部長の受け箱・撮影）はこの骨組み（課題の一覧と承認事項から）
  */
-export function coreOfBrief(B: Pick<Brief, 'issue' | 'iss' | 'asks' | 'cost' | 'dProfit' | 'vals'>, what: string): SummaryCore {
+export function coreOfBrief(B: Pick<Brief, 'issue' | 'iss' | 'asks' | 'cost' | 'dProfit' | 'vals'> & Partial<Pick<Brief, 'now'>>, what: string): SummaryCore {
   const x = B.issue ?? B.iss[0] ?? null;
   const L = B.vals.list.find((m) => m.key === 'long')?.d ?? 0;
+  const S = B.vals.list.find((m) => m.key === 'short')?.d ?? B.dProfit - B.cost.money;
   const whatNow = x ? (isEn ? `${issueName(x.key)}.` : `[[${issueName(x.key)}]]になっています。`) : t('いまの流れに大きな課題はありません。', 'There is no major issue in the current flow.'); // i18n-ja
-  const evidence = x ? (isEn ? `${x.note}. ${emNums(x.loss)}.` : `${x.note}。${emNums(x.loss)}。`) : '';
+  // 根拠：述語のある文（括弧の補足は ② の表に任せ、セリフには入れない）
+  const evidence = x ? (isFlowKey(x.key) ? t(`いまの処理量は月[[ ${Math.round(x.now)} 個]]です。${lossSentence(x)}`, `Throughput is [[${Math.round(x.now)}]]/mo.${lossSentence(x)}`) : x.key === 'store' ? t(`倉庫は[[ ${Math.round(x.now)}%]]まで埋まっています。${lossSentence(x)}`, `Storage is [[${Math.round(x.now)}%]] full.${lossSentence(x)}`) : lossSentence(x)) : '';
   const cause = x?.limit ? t(`制約は[[${limitWord(x.limit)}]]で、ここを解かない限り処理量が伸びないことが原因です。`, `The constraint is [[${limitWord(x.limit)}]]; throughput won’t rise until it is resolved.`) : x?.grow ? t('伸ばす余地のある指標で、放置しても損は出ませんが機会を逃すと考えます。', 'This metric has room to grow; leaving it costs no money but misses the upside.') : t('このままでは現状の数字が続くと考えます。', 'As is, today’s figures continue.');
   const cost = B.cost.money > 0 ? t(`初期投資[[ ${Math.round(B.cost.money).toLocaleString('en-US')} G]]`, `[[${Math.round(B.cost.money).toLocaleString('en-US')} G]] up front`) : '';
-  const effect = B.dProfit > 0.5 ? t(`来月から月の利益[[ ${sgG(B.dProfit)}]]、${POLICY.months} か月で[[ ${sgG(L)}]]`, `[[${sgG(B.dProfit)}]]/mo from next month and [[${sgG(L)}]] over ${POLICY.months} months`) : t(`${POLICY.months} か月で[[ ${sgG(L)}]]`, `[[${sgG(L)}]] over ${POLICY.months} months`);
-  return { now: { what: whatNow, evidence, num: numsOf(`${whatNow}${evidence}`) }, cause: { what: cause }, ask: { move: what, cost, effect } };
+  // 効果の数字は KPI と同じ定義（短期利益 ＝ 来月の利益の差 − 導入費用・長期利益）
+  const effect = B.cost.money > 0 ? t(`来月の利益[[ ${sgG(S)}]]（導入費用込み）、${POLICY.months} か月で[[ ${sgG(L)}]]`, `next month’s profit [[${sgG(S)}]] net of setup and [[${sgG(L)}]] over ${POLICY.months} months`) : t(`来月から月の利益[[ ${sgG(S)}]]、${POLICY.months} か月で[[ ${sgG(L)}]]`, `[[${sgG(S)}]]/mo from next month and [[${sgG(L)}]] over ${POLICY.months} months`);
+  const big = B.dProfit > Math.max(1, Math.abs(B.now?.profit ?? 0)) * 0.1;
+  return { now: { what: whatNow, evidence, num: numsOf(`${whatNow}${evidence}`) }, cause: { what: cause }, ask: { move: what, cost, effect, big } };
 }
 /** 段 UI9b：カードの無い提案書のセリフ（語り口つき） */
-export function briefSpeech(B: Pick<Brief, 'issue' | 'iss' | 'asks' | 'cost' | 'dProfit' | 'vals'>, what: string, hero: number | null = null, salt = 0): Speech {
+export function briefSpeech(B: Pick<Brief, 'issue' | 'iss' | 'asks' | 'cost' | 'dProfit' | 'vals'> & Partial<Pick<Brief, 'now'>>, what: string, hero: number | null = null, salt = 0): Speech {
   return speakCore(coreOfBrief(B, what), hero, salt);
 }
 

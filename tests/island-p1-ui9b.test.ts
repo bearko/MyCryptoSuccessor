@@ -89,7 +89,7 @@ describe('セリフは 3 段（現状・原因・対応）', () => {
           expect(sp!.cause.length, text).toBeGreaterThan(5);
           expect(sp!.ask.length, text).toBeGreaterThan(5);
           expect(sp!.cause, text).toMatch(/原因|余地|回せ|残って/);
-          expect(sp!.ask, text).toMatch(/承認|上げる|様子を見/);
+          expect(sp!.ask, text).toMatch(/承認|進め|上げる|様子を見|攻め|伸ば|勝負/);
           expect(text, text).toMatch(/\[\[/);
           expect(text, text).not.toMatch(/推奨/);
           seen.add(`${c.src}:${c.issue.k}`);
@@ -115,7 +115,7 @@ describe('セリフは 3 段（現状・原因・対応）', () => {
       const B = briefOf(s, plan, { card: c.id, iss: c.issues });
       const sp = briefSpeech(B, m.name, null, 1);
       expect(sp.now).toMatch(/^社長、/);
-      expect(sp.ask).toMatch(/承認/);
+      expect(sp.ask).toMatch(/承認|進め|攻め|伸ば|勝負/);
       expect(sp.ask).toMatch(/\[\[/);
     }
   });
@@ -252,7 +252,7 @@ describe('追加 2：サマリー文の声の層（意味 → 型 → 語り口�
   const core: SummaryCore = {
     now: { what: '[[販売]]がボトルネックになっています。', evidence: '来店はお客様全体の[[ 10%]]にとどまり、工房には[[ 57 個]]の在庫が滞留しています。', num: ['10', '57'] },
     cause: { what: '製造や輸送ではなく、[[販路の集客力不足]]が原因と考えます。' },
-    ask: { move: '看板の設置', verb: 'で店頭の魅力を上げ', cost: '初期投資[[ 5,000 G]]', effect: '来月から売上[[ +20%]]' },
+    ask: { move: '看板の設置', verb: 'で店頭の魅力を上げ', cost: '初期投資[[ 5,000 G]]', effect: '来月から売上[[ +20%]]', big: true },
   };
   const V = voiceRaw as Record<string, { reg?: string; tic: string[] }>;
   it('voice.json の全員に語尾の型（register）がある。坂本龍馬は tosa・織田信長は assert', async () => {
@@ -274,7 +274,7 @@ describe('追加 2：サマリー文の声の層（意味 → 型 → 語り口�
       expect(plen(text)).toBeLessThanOrEqual(SUMMARY_MAX);
       expect(text.endsWith(sp.ask)).toBe(true);
       if (reg === 'tosa') expect(text).toMatch(/ぜよ|じゃき/);
-      if (reg === 'assert') expect(text).toMatch(/である|せよ|伸ばせ/);
+      if (reg === 'assert') expect(text).toMatch(/である|せよ|伸ばせ|攻めよ/);
       if (reg === 'genki') expect(text).toMatch(/！/);
       if (reg === 'polite') expect(text).toMatch(/ます。|です。/);
       expect(text).not.toMatch(/推奨/);
@@ -305,19 +305,55 @@ describe('追加 2：サマリー文の声の層（意味 → 型 → 語り口�
     expect(['bold', 'steady', 'numeric', 'short']).toContain(styleOf(99999));
     expect(sentencesOf(core, 'short').ask).toContain('看板の設置');
   });
-  it('カードの 3 段（全パターン）も、150 字以内・数字と手の名前が残る・最後が承認してほしいこと', async () => {
+  it('カードの 3 段（全パターン）も、150 字以内・数字と手の名前が残る・最後が承認してほしいこと。セリフの数字 ＝ 提案書の KPI（短期利益・導入費用）', async () => {
     await loadVoice();
-    const s = load(months(1)[1]);
-    for (const c of allCards(s)) {
-      const k = shownRec(s, c);
-      const sp = speechOf(s, c);
-      if (!sp || k < 0) continue;
-      const text = speechText(sp);
-      expect(plen(text), `${c.src}: ${text}`).toBeLessThanOrEqual(SUMMARY_MAX);
-      expect(text.endsWith(sp.ask)).toBe(true);
-      const core2 = coreOf(s, c)!;
-      expect(text).toContain(core2.ask.move);
-      for (const n of numsOf(core2.ask.effect)) expect(numsOf(text), text).toContain(n);
+    const fmtS = (v: number) => `${v >= 0.5 ? '+' : v <= -0.5 ? '−' : '±'}${Math.abs(Math.round(v)).toLocaleString('en-US')}`;
+    let n = 0;
+    for (const x of months(1).slice(0, 3)) {
+      const s = load(x);
+      for (const c of allCards(s)) {
+        const k = shownRec(s, c);
+        const sp = speechOf(s, c);
+        if (!sp || k < 0) continue;
+        const text = speechText(sp);
+        expect(plen(text), `${c.src}: ${text}`).toBeLessThanOrEqual(SUMMARY_MAX);
+        expect(text.endsWith(sp.ask)).toBe(true);
+        // 文法・形：述語の無い断片（「月 −N G。」）・括弧の補足・「るだと思う」のような崩れが無い
+        expect(text).not.toMatch(/[るう]だと思|[るう]じゃと思|になってござる|G[。！]/);
+        expect(text).not.toMatch(/（ほかの段|（調達係の能力/);
+        const core2 = coreOf(s, c)!;
+        expect(text).toContain(core2.ask.move);
+        for (const m of numsOf(core2.ask.effect)) expect(numsOf(text), text).toContain(m);
+        // セリフの数字 ＝ 提案書の表の数字（短期利益 ＝ 来月の利益の差 − 導入費用・導入費用）
+        if (!isDo(c.choices[k]) || c.src === 'budget') continue;
+        const plan = planOfChoice(s, c, k)!;
+        const B = briefOf(s, plan, { card: c.id, iss: c.issues });
+        const S = B.vals.list.find((m) => m.key === 'short')!;
+        if (/G/.test(core2.ask.effect) && !/置き場所|出土品|取り分/.test(core2.ask.effect)) expect(numsOf(core2.ask.effect), `${c.src}: ${core2.ask.effect} vs short ${S.d}`).toContain(fmtS(S.d));
+        if (B.cost.money > 0) expect(numsOf(core2.ask.cost), `${c.src}: ${core2.ask.cost}`).toContain(Math.round(B.cost.money).toLocaleString('en-US'));
+        n++;
+      }
     }
+    expect(n).toBeGreaterThan(3);
+  }, 180000);
+  it('口ぐせは文頭だけ・呼びかけは社長への言葉だけ・archaic の語尾', async () => {
+    await loadVoice();
+    // 1006 ピタゴラス（呼びかけ「あなた」）→ 「社長」。5001 織田信長の口ぐせは文頭、文の途中には無い
+    expect(spokenText(speakCore(core, 1006, 1))).toMatch(/^(.*。)?社長、/);
+    expect(spokenText(speakCore(core, 1006, 1))).not.toMatch(/あなた、/);
+    for (const salt of [0, 1, 2]) {
+      const sp = speakCore(core, 5001, salt);
+      const text = spokenText(sp);
+      const tics = ['結論から申せ', '古い決まりは捨ておけ'];
+      for (const tc of tics) if (text.includes(tc)) expect(text.indexOf(tc)).toBe(0);
+      expect(sp.cause).not.toMatch(/結論から申せ|古い決まり/);
+    }
+    // archaic：「になってござる」は使わない
+    const ar = spokenText(speakCore(core, 4025, 0));
+    expect(ar).not.toMatch(/になってござる/);
+    expect(ar).toMatch(/おりまする|でござる|心得まする/);
+    // 承認の文は 3 通りを月で回す（同じ型・同じ声で、少なくとも 2 通り）
+    const asks = new Set([0, 1, 2].map((salt) => speakCore({ ...core, ask: { ...core.ask, big: false } }, 1005, salt, 'steady').ask));
+    expect(asks.size).toBeGreaterThanOrEqual(2);
   });
 });

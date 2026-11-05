@@ -23,7 +23,15 @@ export interface SummaryCore {
   /** 原因（1 文。語尾は「が原因です。」「と考えます。」のどちらか） */
   cause: { what: string };
   /** 承認してほしいこと：手（名詞）・費用（名詞句。「初期投資[[ 5,000 G]]」。無ければ空）・効果（名詞句。「来月から月の利益[[ +2,735 G]]」） */
-  ask: { move: string; cost: string; effect: string; /** 手のあとの動詞句（「で店頭の魅力を上げ」。無ければ「を承認し」） */ verb?: string };
+  ask: {
+    move: string;
+    cost: string;
+    effect: string;
+    /** 手のあとの動詞句（「で店頭の魅力を上げ」。無ければ「を承認し」） */
+    verb?: string;
+    /** 効果が大きい（月の利益の増加が As-Is の 10% 超）：攻めの決まり文句（一気に伸ばす）を使ってよい */
+    big?: boolean;
+  };
 }
 /** 3 文の型 */
 export type SumStyle = 'bold' | 'steady' | 'numeric' | 'short';
@@ -54,25 +62,32 @@ export function styleOf(hero: number | null | undefined): SumStyle {
   return 'steady';
 }
 /** 型ごとの 3 文（丁寧語。語尾は声の層が置き換える） */
-export function sentencesOf(core: SummaryCore, style: SumStyle, o: { evidence?: boolean | 'short'; cost?: boolean } = {}): Spoken {
+export function sentencesOf(core: SummaryCore, style: SumStyle, o: { evidence?: boolean | 'short'; cost?: boolean; salt?: number } = {}): Spoken {
   // 根拠：全部（既定）・短く（最初の 1 文だけ）・無し
   const ev = o.evidence === false ? '' : o.evidence === 'short' ? (core.now.evidence.split(/(?<=[。！？])/).filter(Boolean)[0] ?? '') : core.now.evidence;
   const verb = core.ask.verb ?? 'を承認し';
   const cost = o.cost !== false ? core.ask.cost : '';
   const move = `[[${core.ask.move}]]`;
+  const salt = o.salt ?? 0;
   if (isEn) {
     const c = cost ? `It costs ${cost}, but ` : '';
     return { now: `${core.now.what} ${ev}`.trim(), cause: core.cause.what, ask: `Please approve ${move}. ${c}${core.ask.effect} is expected.` };
   }
+  // 承認の文：型ごとに 3 通りを月で回す。「一気に伸ばす」は効果が大きいとき（big：月の利益の増加が As-Is の 10% 超）だけ。小さい効果は素直な形
+  const plain = [`${move}を承認してください。`, `${move}を進めさせてください。`, `${move}${verb}ましょう。`];
+  const bold = core.ask.big ? [`${move}${verb}て一気に伸ばしましょう。`, `${move}${verb}て攻めましょう。`, `${move}${verb}て勝負に出ましょう。`] : plain;
+  const steady = core.ask.big ? [`${move}${verb}て手堅く進めましょう。`, `${move}を承認してください。`, `${move}を進めさせてください。`] : plain;
+  const pick = (xs: string[]) => xs[Math.abs(salt) % xs.length];
+  const gain = `${cost ? `${cost}はかかりますが、` : ''}${core.ask.effect}の見込みです。`;
   switch (style) {
     case 'bold':
-      return { now: `${core.now.what}${ev}`, cause: core.cause.what, ask: `${move}${verb}て一気に伸ばしましょう。${cost ? `${cost}はかかりますが、` : ''}${core.ask.effect}の見込みです。` };
+      return { now: `${core.now.what}${ev}`, cause: core.cause.what, ask: `${pick(bold)}${gain}` };
     case 'numeric':
-      return { now: `${core.now.what}${ev}`, cause: core.cause.what, ask: `${cost ? `${cost}で` : ''}${core.ask.effect}の見込みです。${move}${verb}ましょう。` };
+      return { now: `${core.now.what}${ev}`, cause: core.cause.what, ask: `${cost ? `${cost}で` : ''}${core.ask.effect}の見込みです。${pick(plain)}` };
     case 'short':
-      return { now: `${core.now.what}${ev}`, cause: core.cause.what, ask: `${move}${verb}ましょう。${cost ? `${cost}で、` : ''}${core.ask.effect}の見込みです。` };
+      return { now: `${core.now.what}${ev}`, cause: core.cause.what, ask: `${pick(plain)}${cost ? `${cost}で` : ''}${core.ask.effect}の見込みです。` };
     default:
-      return { now: `${core.now.what}${ev}`, cause: core.cause.what, ask: `${move}${verb}て手堅く進めましょう。${cost ? `${cost}はかかりますが、` : ''}${core.ask.effect}の見込みです。` };
+      return { now: `${core.now.what}${ev}`, cause: core.cause.what, ask: `${pick(steady)}${gain}` };
   }
 }
 
@@ -81,12 +96,13 @@ export function sentencesOf(core: SummaryCore, style: SumStyle, o: { evidence?: 
 /** 語尾の置き換え表（丁寧語 → 型）。上から順に、文末（。の前）で当てる */
 const ENDINGS: Record<Exclude<Register, 'polite'>, [string, string][]> = {
   genki: [
+    ['させてください', 'させて！'],
     ['いませんでした', 'いなかったの'],
     ['ました', 'たよ！'],
     ['になっています', 'になってるよ！'],
     ['にとどまっています', 'しか来てないの'],
     ['が原因と考えます', 'が原因だと思う！'],
-    ['と考えます', 'だと思う！'],
+    ['と考えます', 'と思う！'],
     ['が原因です', 'が原因！'],
     ['していません', 'してないの'],
     ['ていません', 'てないの'],
@@ -106,6 +122,7 @@ const ENDINGS: Record<Exclude<Register, 'polite'>, [string, string][]> = {
     ['ます', 'るよ！'],
   ],
   assert: [
+    ['させてください', 'させよ'],
     ['いませんでした', 'おらなんだ'],
     ['ました', 'た'],
     ['になっています', 'になっておる'],
@@ -133,12 +150,13 @@ const ENDINGS: Record<Exclude<Register, 'polite'>, [string, string][]> = {
     ['ます', 'る'],
   ],
   tosa: [
+    ['させてください', 'させてくれんかの'],
     ['いませんでした', 'おらんかった'],
     ['ました', 'たぜよ'],
     ['になっています', 'になっちゅうぜよ'],
     ['にとどまっています', 'にとどまっちゅう'],
     ['が原因と考えます', 'が原因じゃき'],
-    ['と考えます', 'じゃと思うぜよ'],
+    ['と考えます', 'と思うぜよ'],
     ['が原因です', 'が原因じゃき'],
     ['していません', 'しちょらん'],
     ['ていません', 'ちょらん'],
@@ -159,9 +177,10 @@ const ENDINGS: Record<Exclude<Register, 'polite'>, [string, string][]> = {
     ['ます', 'るぜよ'],
   ],
   archaic: [
+    ['させてください', 'させていただきたい'],
     ['いませんでした', 'おらなんだ'],
     ['ました', '申した'],
-    ['になっています', 'になってござる'],
+    ['になっています', 'になっておりまする'],
     ['にとどまっています', 'にとどまってござる'],
     ['が原因と考えます', 'が原因と心得まする'],
     ['と考えます', 'と心得まする'],
@@ -185,6 +204,7 @@ const ENDINGS: Record<Exclude<Register, 'polite'>, [string, string][]> = {
     ['ます', 'まする'],
   ],
   gentle: [
+    ['させてください', 'させていただけますか'],
     ['になっています', 'になっていますね'],
     ['が原因と考えます', 'が原因ではないでしょうか'],
     ['と考えます', 'と考えています'],
@@ -197,6 +217,7 @@ const ENDINGS: Record<Exclude<Register, 'polite'>, [string, string][]> = {
     ['はかかりません', 'はかかりませんよ'],
   ],
   terse: [
+    ['させてください', 'させてくれ'],
     ['いませんでした', 'いなかった'],
     ['ました', 'た'],
     ['がボトルネックになっています', 'がボトルネック'],
@@ -225,12 +246,13 @@ const ENDINGS: Record<Exclude<Register, 'polite'>, [string, string][]> = {
     ['ます', 'る'],
   ],
   rough: [
+    ['させてください', 'させてくれ'],
     ['いませんでした', 'いなかった'],
     ['ました', 'た'],
     ['になっています', 'になってるぜ'],
     ['にとどまっています', 'にとどまってる'],
     ['が原因と考えます', 'が原因だろうな'],
-    ['と考えます', 'だろうな'],
+    ['と考えます', 'と思うぜ'],
     ['が原因です', 'が原因だ'],
     ['していません', 'してねえ'],
     ['ていません', 'てねえ'],
@@ -282,7 +304,9 @@ export function voiceSentence(x: string, reg: Register): string {
       let body = p.replace(/[。！？]$/, '');
       for (const [a, b] of ENDINGS[reg]) {
         if (body.endsWith(a)) {
-          body = body.slice(0, -a.length) + b;
+          // archaic の「です」→「でござる」は名詞のあとだけ（ひらがなの活用語のあとは「でございます」）
+          const b2 = reg === 'archaic' && a === 'です' && /[\u3040-\u309f]$/.test(body.slice(0, -a.length)) ? 'でございます' : b;
+          body = body.slice(0, -a.length) + b2;
           break;
         }
       }
@@ -304,17 +328,27 @@ const mix = (n: number) => {
   x = Math.imul(x ^ (x >>> 16), 0x85ebca6b) >>> 0;
   return (x ^ (x >>> 13)) >>> 0;
 };
-/** 口ぐせ（1 つ。salt で回す。「」は外す）。声が無ければ null */
-export function ticOf(hero: number | null | undefined, salt: number): string | null {
+/**
+ * 口ぐせ（1 つ。salt で回す。「」は外す）。独立した一言として成り立つものだけ：「〜」で始まるもの・括弧つき・長いもの（20 字超）は入れない。
+ * です・ます の口ぐせは polite／gentle 以外では入れない（語尾の型と合わない）。声が無ければ null
+ */
+export function ticOf(hero: number | null | undefined, salt: number, reg: Register = registerOf(hero)): string | null {
   const v = voiceOf(hero);
-  const xs = (v?.tic ?? []).map((x) => x.replace(/^「|」$/g, '').trim()).filter((x) => x && !x.startsWith('〜'));
+  const soft = reg === 'polite' || reg === 'gentle';
+  const xs = (v?.tic ?? [])
+    .map((x) => x.replace(/^「|」$/g, '').trim())
+    .filter((x) => x && !x.startsWith('〜') && !/[（）()]/.test(x) && [...x].length <= 20)
+    .filter((x) => soft || !/(です|ます|ましょう|ません|でしょう|ください)[。！？]?$/.test(x));
   if (!xs.length) return null;
   return xs[mix((hero ?? 0) * 131 + salt) % xs.length];
 }
+/** 社長への呼びかけとして使える言葉（「あなた」「お前」「貴殿」などは社長に話すセリフでは「社長」に固定） */
+const TO_OK = /社長|殿|主君|閣下|大将|旦那|ボス|オーナー|館|姫|様$/;
 /** 呼びかけ（「社長」「殿」）と一人称。声が無ければ既定 */
 export function addressOf(hero: number | null | undefined): { to: string; fp: string } {
   const v = voiceOf(hero);
-  return { to: v?.to || '社長', fp: v?.fp || 'わたし' };
+  const to = v?.to && TO_OK.test(v.to) ? v.to : '社長';
+  return { to, fp: v?.fp || 'わたし' };
 }
 
 /**
@@ -325,15 +359,16 @@ export function speakCore(core: SummaryCore, hero: number | null | undefined, sa
   const reg = registerOf(hero);
   const { to, fp } = addressOf(hero);
   const build = (o: { evidence: boolean | 'short'; tic: boolean; cost: boolean }): Spoken => {
-    const s0 = sentencesOf(core, style, { evidence: o.evidence, cost: o.cost });
+    const s0 = sentencesOf(core, style, { evidence: o.evidence, cost: o.cost, salt });
     if (isEn) return { now: `Chief, ${s0.now[0]?.toLowerCase() ?? ''}${s0.now.slice(1)}`, cause: s0.cause, ask: s0.ask };
     const head = reg === 'assert' || reg === 'terse' ? '' : `${to}、`;
-    const tic = o.tic ? ticOf(hero, salt) : null;
+    // 口ぐせは文頭（「社長、」の前）にだけ（文の途中に貼り付けない。最後の文は承認してほしいこと）
+    const tic = o.tic ? ticOf(hero, salt, reg) : null;
     const t2 = tic ? `${tic}${/[。！？]$/.test(tic) ? '' : '。'}` : '';
     return {
-      now: voiceSentence(`${head}${s0.now}`, reg).split('わたし').join(fp),
+      now: `${t2}${voiceSentence(`${head}${s0.now}`, reg).split('わたし').join(fp)}`,
       cause: voiceSentence(s0.cause, reg).split('わたし').join(fp),
-      ask: `${t2}${voiceSentence(s0.ask, reg).split('わたし').join(fp)}`,
+      ask: voiceSentence(s0.ask, reg).split('わたし').join(fp),
     };
   };
   const len = (x: Spoken) => plen(`${x.now}${x.cause}${x.ask}`);

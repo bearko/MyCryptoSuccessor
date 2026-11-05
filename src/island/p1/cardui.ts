@@ -125,7 +125,6 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
   // 課題のセリフ（数字の要所だけ色）
   // 段 UI7g：この提案が解く課題（会社の課題の一覧の優先つき）
   // 段 UI9：課題の札に、放置したときの影響（月 −N G・N 日後）
-  if (c.iss) main.append(h('div', 'isl-cardm-iss', issueLossOf(c) ? t(`🎯 ${issueTag(c.iss)}・${issueLossOf(c)}`, `🎯 ${issueTag(c.iss)} · ${issueLossOf(c)}`) : `🎯 ${issueTag(c.iss)}`));
   // 段 UI9b：提案のカードは 3 段のセリフ（現状 → 原因 → 対応。1 つのまとまった文章。数字と要点の語に色）。知らせ・ほかのカードは一言のまま
   const say = h('div', 'isl-cardm-say');
   const sp = speechOf(s, c);
@@ -139,6 +138,8 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
     say.append(t('」', '”'));
   } else say.append(t('「', '“'), rich(sayOf(s, c)), t('」', '”'));
   main.append(say);
+  // 段 UI9b：セリフを先に、課題の行は補足（小さく、セリフの下）
+  if (c.iss) main.append(h('div', `isl-cardm-iss ${sp ? 'is-sub' : ''}`.trim(), issueLossOf(c) ? t(`🎯 ${issueTag(c.iss)}・${issueLossOf(c)}`, `🎯 ${issueTag(c.iss)} · ${issueLossOf(c)}`) : `🎯 ${issueTag(c.iss)}`));
   // 段 UI7f：倉庫の提案は、セリフが指すグラフ（月末の中身の棒・容量・同じペースの予想。推奨の手の承認後も重ねる）
   if (c.issue.k === 'store') {
     const ch = c.choices[shownRec(s, c)];
