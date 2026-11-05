@@ -5,7 +5,7 @@
  * ゲームの数値（data.ts・式）は変えない。ここは計測だけ。
  */
 import { writeFileSync } from 'node:fs';
-import { HERO_GROWTH, HERO_RARITIES, aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, isAntique, areaTuneOf, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier, RARE_AREA, EPIC_RIVAL, ANTIQUE, BRAND_CAP } from '../../src/island/p1/data';
+import { AD_TIER, HERO_GROWTH, HERO_RARITIES, aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, isAntique, areaTuneOf, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier, RARE_AREA, EPIC_RIVAL, ANTIQUE, BRAND_CAP } from '../../src/island/p1/data';
 import { managerApt, RUIN, sectorDef, type RuinLike } from '../../src/island/p1/company';
 import { crowned, moveFee, moveTo } from '../../src/island/p1/land';
 import { delegate, rankUpTier, repairAll, reviveView } from '../../src/island/p1/reset';
@@ -655,6 +655,11 @@ const ok = (r: unknown) => r === null || r === true || (typeof r === 'object' &&
  */
 /** v25（段 UI1）：通常の方針がヒーローからの提案のカードを受ける（比べるときだけ止める） */
 export const SIM_CARDS = { on: true };
+/**
+ * 段 M1：宣伝のはしご。自動の判断（部長の提案・カード・いちばん効く宣伝・販売の手）に、解禁した上の段（駅のサイネージから）を出すか。
+ * 通常・最短は段 1〜3 のまま（Sim の時間を変えない）。100% だけ解禁した段も候補に
+ */
+export const SIM_AD: Record<PolicyId, boolean> = { rta: false, normal: false, full: true };
 /**
  * v31（段 UI5d）：倉庫が 85% を超えたら、建てる前にいまある倉庫を強化するか（倉庫の提案の推奨と同じ手）。
  * 既定はオフ（以前どおり 2 棟まで建て、2 棟とも満杯なら強化）：オンにすると通常の合計 −5.5%・Uncommon −10%、100% の Uncommon +8%
@@ -2132,6 +2137,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   }
   const s = newP1(seed);
   Object.assign(csLog, { pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0 });
+  AD_TIER.auto.upper = SIM_AD[p];
   const c: Ctx = { policy: p, route: routeOf(p), at: 0, lineup: [], lineupDirty: true, shopsThisMonth: 0, monthEnd: null, lastBn: null, ban: new Set(o.ban ?? []), onlyFirst: !!o.onlyFirst, dayInMonth: 0, handCarry: 0, rpMoves: 0, runLeft: 0, runsMonth: 0, divesMonth: 0, preInv: 0, preG: 0 };
   const res: RunResult = { policy: p, seed, sectors: [], actions: {}, days: 0, done: false, skillsAt: [], spend: { money: 0, tools: 0, fees: 0, end: 0 }, research: { C: 0, U: 0, allC: null }, recipes: 0, rpLeft: { end: 0, afterAll: 0, allAt: null }, v12: { revived: 0, dungeons: 0, dives: 0, best: 0, found: { U: 0, R: 0, E: 0, L: 0 }, got: { U: 0, R: 0, E: 0, L: 0 }, museum: false, income: 0, marks: 0 }, v14: { donations: 0, donateG: 0, donateRp: 0, inf: {}, infRp: 0, rpDug: 0 }, v14b: { levy: 0, grant: 0, preDonate: 0, lost: 0, delegated: 0, doneMonths: [], undone: 0, funds: 0, grow: 0, growHeroes: 0, redigRp: 0, resWaitU: 0 }, v16: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, delegated: 0, delegatedU: 0, resWaitR: 0, comebackR: 0 }, v17: { promos: 0, passives: 0, items: 0, lvEnd: [], rarEnd: [], byTier: {} }, v18: { duties: 0, dutiesEnd: 0, heads: 0, headsEnd: 0, props: 0, approved: 0, sectorOk: 0, acts: 0, firstLead: null, firstHead: null }, v19: { chEnd: {}, ch: 0, hired: {}, morale: [], want: 0, stay: 0, quit: 0, pay: 0, pay0: 0 }, v20: { paid: 0, saved: 0, quarters: 0, preInv: 0, preG: 0, fatigue: [], morale: [], slow: [] }, v21: { rev: 0, wages: 0, months: 0, morale: [], high: [] }, v22: { got: 0, answered: 0, auto: 0, expired: 0, good: 0, sat: [], warns: 0, flames: 0, flameMonths: 0, pr: 0, prBrand: 0, put: 0, notice: 0, ads: 0, brandEnd: {}, gradeEnd: {} }, v23: { levy: 0, grant: 0, preDonate: 0, lost: 0, hitC: 0, hitU: 0, hitR: 0, kept: 0, delegated: 0, delegatedR: 0, resWaitE: 0, comebackE: 0 }, v24: { ma: 0, maG: 0, acqRev: 0, patents: 0, stopped: 0, royalty: 0, suits: 0, won: 0, lost: 0, settled: 0, contracts: 0, saved: 0, penalty: 0, preDonateG: 0 }, v25: { made: {}, pop: {}, boxed: {}, auto: {}, months: {}, src: {} }, v26: { ev: newEventStat(), dip: newDipStat(), rel: {} }, v28: { found: [], made: 0, opt: {} } };
   /** v19：雇ったことのあるヒーロー（はじめの 3 人も入れる。新しく来た人を数える） */

@@ -25,7 +25,7 @@ import { afterOf, baseOf, flowOf, hasOneShot, lastingPlan, planBlock, planCost, 
 import { heroNm, reserveOf, type PropAct, type Proposal } from './deleg';
 import { amountOf, budgetDepts, budgetOpen, deptBudget, restOf } from './budget';
 import { cardInbox, shownRec } from './card';
-import { goodsName } from './moves';
+import { adRemoteGain, goodsName } from './moves';
 import { heroSay, say as toneSay, toneOf, type Tone } from './persona';
 import { voiceOf, voiceSay } from './voice';
 import { projNeeded, projOf, type PMonth, type Proj } from './proj';
@@ -187,6 +187,8 @@ export const askTo = (d: DeptId) => t(`${DEPT[d].name}部に依頼`, `Ask ${DEPT
 
 const nameOfB = (id: string) => DEF[id]?.name ?? id;
 const adOf = (id: string) => ADS.find((x) => x.id === id);
+/** 段 M1：提案の宣伝が、任せている町の売上に足すぶん（粗利・期間ぶん。moves.ts の adRemoteGain） */
+const adRemoteOf = (s: P1State, p: Pick<Plan, 'acts'>) => p.acts.reduce((acc, a) => acc + (a.k === 'ad' ? adRemoteGain(s, a.id) : 0), 0);
 
 /** 要約の一言に入れる、手の短い名前（名詞。日本語は「〜をしましょう」に入る形） */
 export function actNoun(a: PropAct, shelves = false): string {
@@ -591,7 +593,7 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
     reserve,
   };
   const dSales = aft.sales - now.sales;
-  const dProfit = aft.profit - now.profit;
+  const dProfit = aft.profit - now.profit + adRemoteOf(s, p);
   const vals = valuesOf(s, p, { base, after, now, aft, cost, so, proj: P });
   // 段 UI7g：会社の課題と、この提案が解く課題
   const iss = o.iss ?? issuesOf(s);
@@ -764,7 +766,7 @@ export function judgeOf(s: P1State, p: Plan, iss: CoIssue[], base = baseOf(s)): 
   const issue = solved[0] ?? null;
   const contra = contraOf(s, p.dept ?? (p.acts[0] ? actDept(p.acts[0]) : null), vals);
   const r = recOf({ block, co: { n: 0, money: 0, cash: s.money, left: s.money - cost.money, reserve: 0 }, vals, iss, issue, solved, contra });
-  return { ...r, issue, value: vals.value, dProfit: aft.profit - now.profit, long: vals.list.find((m) => m.key === 'long')?.d ?? 0 };
+  return { ...r, issue, value: vals.value, dProfit: aft.profit - now.profit + adRemoteOf(s, p), long: vals.list.find((m) => m.key === 'long')?.d ?? 0 };
 }
 
 // ---------------------------------------------------------------- 段 UI7c：お金以外の期待効果と、経営方針の価値
@@ -926,8 +928,11 @@ export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1Sta
   }
   const M = POLICY.months;
   const list: Metric[] = [];
+  // 段 M1：ランド・全店に効く宣伝は、任せている町の売上の伸び（粗利・期間ぶん）と、期間の終わりのブランド力も数える（いまの町の流れには出ない）
+  const remote = adRemoteOf(s, p);
+  const adBrand = p.acts.reduce((acc, a) => acc + (a.k === 'ad' ? adOf(a.id)?.brand ?? 0 : 0), 0);
   const shortNow = now.profit;
-  const shortAft = aft.profit - cost.money;
+  const shortAft = aft.profit - cost.money + remote;
   list.push({
     key: 'short',
     now: shortNow,
@@ -939,17 +944,17 @@ export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1Sta
   });
   const sum = (xs: number[]) => xs.reduce((a, x) => a + x, 0);
   const longNow = P ? sum(P.now) - fixed * M : now.profit + settled.profit * (M - 1);
-  const longAft = P ? sum(P.after) - fixed * M - cost.money : aft.profit + set1.profit * (M - 1) - cost.money;
-  const longWhy = P
+  const longAft = (P ? sum(P.after) - fixed * M - cost.money : aft.profit + set1.profit * (M - 1) - cost.money) + remote;
+  const longWhy = (P
     ? projWhy(P, M)
-    : t(`長期：1 か月目 ＋ 落ち着いたときの月の利益 × ${M - 1} − 導入（宣伝は 1 か月目だけ。士気・満足度・ブランドの売上への効きも入れる）`, `Month 1 + settled monthly profit × ${M - 1} − setup (ads only in month 1; includes morale, satisfaction and brand effects on sales)`);
+    : t(`長期：1 か月目 ＋ 落ち着いたときの月の利益 × ${M - 1} − 導入（宣伝は 1 か月目だけ。士気・満足度・ブランドの売上への効きも入れる）`, `Month 1 + settled monthly profit × ${M - 1} − setup (ads only in month 1; includes morale, satisfaction and brand effects on sales)`)) + (remote ? t(`。任せている町の売上の伸び（粗利）${Math.round(remote).toLocaleString('en-US')} G を足す`, `; plus ${Math.round(remote).toLocaleString('en-US')} G gross from delegated towns`) : '');
   list.push({ key: 'long', now: longNow, after: longAft, d: longAft - longNow, why: longWhy });
   if (B.morale != null && morale1 != null && Math.abs(morale1 - B.morale) >= 0.5) list.push({ key: 'morale', now: B.morale, after: morale1, d: morale1 - B.morale, why: t('士気：給与・職場の環境のパネル・役目などで決まる、全員の士気の目指す値の平均（人事）', 'Average morale target from pay, workplace panels, roles (HR)') });
   if (B.sat != null && sat1 != null && Math.abs(sat1 - B.sat) >= 0.5) {
     const r = [...s.reports].reverse().find((x) => x.cs);
     list.push({ key: 'sat', now: B.sat, after: sat1, d: sat1 - B.sat, why: t(`満足度：先月の問い合わせ ${r?.cs?.got ?? 0} 件と、自動で受ける割合・調査の効きから、落ち着く先（CS）`, `Where it settles, from last month’s ${r?.cs?.got ?? 0} inquiries, auto-handling and survey effects (CS)`) });
   }
-  if (Math.abs(brand1 - B.brand) >= 0.5) list.push({ key: 'brand', now: B.brand * M, after: brand1 * M, d: (brand1 - B.brand) * M, why: t(`ブランド：月の増加 ${sn(B.brand)} → ${sn(brand1)}（ブランド広告・広報室・取り組みのパネル・満足度 ${CS.brandHi} 以上）× ${M} か月`, `Monthly gain ${sn(B.brand)} → ${sn(brand1)} (brand ads, PR, initiatives, satisfaction ≥ ${CS.brandHi}) × ${M}`) });
+  if (Math.abs(brand1 - B.brand) >= 0.5 || adBrand > 0) list.push({ key: 'brand', now: B.brand * M, after: brand1 * M + adBrand, d: (brand1 - B.brand) * M + adBrand, why: t(`ブランド：月の増加 ${sn(B.brand)} → ${sn(brand1)}（ブランド広告・広報室・取り組みのパネル・満足度 ${CS.brandHi} 以上）× ${M} か月`, `Monthly gain ${sn(B.brand)} → ${sn(brand1)} (brand ads, PR, initiatives, satisfaction ≥ ${CS.brandHi}) × ${M}`) + (adBrand ? t(` ＋ 宣伝の期間の終わりに +${adBrand}`, ` + ${adBrand} when the ad ends`) : '') });
   const rpNow = B.rp * M;
   const rpAft = rp1 * M - cost.rp;
   if (Math.abs(rpAft - rpNow) >= 1) list.push({ key: 'rp', now: rpNow, after: rpAft, d: rpAft - rpNow, why: cost.rp ? t(`研究：使う ${cost.rp} RP と、先月の発掘の RP × 発掘の倍率 × ${M} か月`, `${cost.rp} RP spent, plus last month’s dig RP × dig multipliers × ${M}`) : t(`研究：先月の発掘の RP × 発掘の倍率 × ${M} か月`, `Last month’s dig RP × dig multipliers × ${M}`) });

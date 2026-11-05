@@ -9,7 +9,7 @@ import { ADS, DEPT, POLICY, type DeptId, type ValueKey } from './data';
 import { METRIC_TEXT, actNoun, judgeOf, type Ask, type Brief, type Risk } from './brief';
 import { SKILL, isResearch, rpCost } from './data';
 import { isEn } from '../../i18n';
-import { DAYS, skillLock, whatIf, type P1State, type Stage } from './model';
+import { DAYS, adPick, skillLock, whatIf, type P1State, type Stage } from './model';
 import { planCost, planOf, type Plan } from './plan';
 import { amountOf, budgetDepts, budgetOpen, deptBudget } from './budget';
 import { quarterNow } from './acct';
@@ -562,7 +562,7 @@ export function gapRows(b: Pick<Brief, 'now' | 'after' | 'vals' | 'co' | 'cost'>
  * pick：本案・weak：効果が薄い（本案より見込みが小さい）・money：予算不足（資金・研究ポイントが足りない：short に足りない額）・
  * busy：実施中・提出済み（出稿中の宣伝・受け箱に出ている部長の提案）・locked：未解放（研究ポイントで開拓できるパネル：skill・rp）・no：見送り（判断で承認にならない）
  */
-export type AltStatus = 'pick' | 'weak' | 'money' | 'busy' | 'locked' | 'no' | 'keep';
+export type AltStatus = 'pick' | 'weak' | 'costly' | 'even' | 'money' | 'busy' | 'locked' | 'no' | 'keep';
 export interface Alt {
   name: string;
   /** 月の利益の差・12 か月の差・導入費用・回収（か月）・推奨が承認になるか */
@@ -583,6 +583,8 @@ export interface Alt {
 export const ALT_STATUS: Record<AltStatus, () => string> = {
   pick: () => t('本案', 'This plan'),
   weak: () => t('効果が薄い', 'Weaker effect'),
+  costly: () => t('費用が大きい', 'Costlier'),
+  even: () => t('本案と同程度', 'About the same'),
   money: () => t('予算不足', 'Short of funds'),
   busy: () => t('実施中・提出済み', 'Running / submitted'),
   locked: () => t('未解放', 'Not unlocked'),
@@ -611,7 +613,8 @@ export function altsOf(s: P1State, plan: Plan, b: Pick<Brief, 'dProfit' | 'vals'
     const cost = planCost(s, p);
     const shortG = Math.max(0, cost.money - s.money);
     const shortRp = Math.max(0, cost.rp - (s.rp ?? 0));
-    const status: AltStatus = shortG > 0 || shortRp > 0 ? 'money' : j.rec !== 'ok' ? 'no' : 'weak';
+    // 段 M1：「効果が薄い」は本案より月の利益が小さいときだけ。同程度以上なら「費用が大きい」か「同程度」（本案は見込みの順で選ぶので、ここに来るのは稀）
+    const status: AltStatus = shortG > 0 || shortRp > 0 ? 'money' : j.rec !== 'ok' ? 'no' : j.dProfit < b.dProfit ? 'weak' : cost.money > b.cost.money ? 'costly' : 'even';
     const why = j.why.replace(/^[^：:]+[：:]\s*/, '').replace(/（[^（）]*）/g, '').replace(/ \([^()]*\)/g, '');
     const note = status === 'money' ? (shortRp > 0 ? t(`研究ポイントがあと ${shortRp} RP 足りない`, `${shortRp} RP short`) : t(`資金があと ${gs(shortG)} 足りない`, `${gs(shortG)} short`)) : status === 'no' ? why : t(`月の利益 ${sgG(j.dProfit)}（本案は ${sgG(b.dProfit)}）`, `${sgG(j.dProfit)}/mo (this plan: ${sgG(b.dProfit)}/mo)`);
     return { name: actNoun(a), dProfit: j.dProfit, long: j.long, money: cost.money, payback: paybackOf({ cost, dProfit: j.dProfit }), ok: j.rec === 'ok', chosen: false, status, note };
@@ -642,6 +645,8 @@ export function altsOf(s: P1State, plan: Plan, b: Pick<Brief, 'dProfit' | 'vals'
     if (p.dept !== (plan.dept ?? card?.dept)) continue;
     push(p.act, () => ({ name: actNoun(p.act), dProfit: p.unit === 'G' ? p.est : 0, long: 0, money: p.cost, payback: null, ok: false, chosen: false, status: 'busy', note: t(`提出済み（${DEPT[p.dept].name}部長の提案・受け箱）`, `Submitted (${DEPT[p.dept].name} head’s proposal, in the inbox)`) }));
   }
+  // 段 M1：宣伝の提案は、出せる宣伝（解禁した上の段も）を全部くらべる（効果が薄い・予算不足は judged の状態で。🔒 の段は出さない）
+  if (kinds.has('ad')) for (const ad of ADS_OF()) if (adPick(s, ad)) push({ k: 'ad', id: ad.id }, () => judged({ k: 'ad', id: ad.id }));
   // 4. 同じ課題の段の手（見込みの大きい順）
   if (stage === 'sell') for (const m of sellMoves(s)) if (m.act) push(m.act as PropAct, () => judged(m.act as PropAct));
   if (stage && stage !== 'sell')
@@ -673,7 +678,7 @@ export function altsOf(s: P1State, plan: Plan, b: Pick<Brief, 'dProfit' | 'vals'
     out.push({ name: t('このまま（何もしない）', 'Do nothing'), dProfit: 0, long: 0, money: 0, payback: null, ok: false, chosen: false, status: 'keep', note: x ? (x.grow ? t(`この種類の手はこれだけ。${x.loss}`, `The only move of its kind. ${x.loss}`) : t(`この種類の手はこれだけ。課題は残り、${x.loss}`, `The only move of its kind. The issue stays: ${x.loss}`)) : t('この種類の手はこれだけ', 'The only move of its kind') });
   }
   // 並び：本案 → 効果が薄い（見込みの大きい順）→ 予算不足 → 実施中・提出済み → 未解放 → 見送り → このまま
-  const rank: Record<AltStatus, number> = { pick: 0, weak: 1, money: 2, busy: 3, locked: 4, no: 5, keep: 6 };
+  const rank: Record<AltStatus, number> = { pick: 0, even: 1, costly: 1, weak: 1, money: 2, busy: 3, locked: 4, no: 5, keep: 6 };
   return out.sort((a, c) => rank[a.status] - rank[c.status] || c.dProfit - a.dProfit).slice(0, n + 1);
 }
 const sgG = (v: number) => `${v >= 0.5 ? '+' : v <= -0.5 ? '−' : '±'}${Math.abs(Math.round(v)).toLocaleString('en-US')} G`;

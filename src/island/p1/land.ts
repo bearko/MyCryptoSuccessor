@@ -7,9 +7,9 @@
 import { t } from '../../i18n';
 import { csMove } from './cs';
 import { diploMoved } from './diplo';
-import { BRAND, LETTER_NEED, MANAGER, P1B, SECTORS, TOP_STREAK, hasArea, type Mat, type Sku, type Task, type Tier } from './data';
+import { ADS, BRAND, LETTER_NEED, MANAGER, P1B, SECTORS, TOP_STREAK, hasArea, type Mat, type Sku, type Task, type Tier } from './data';
 import { brandAdd, book, newLand, sectorDef, sectorState, TIER_NAME, type SectorRec } from './company';
-import { assign, trimForSector, dropStaleArea, ensureDig, fitEquipment, groundOf, hasLetter, letterProgress, newP1, postFree, SECTOR_TASKS, staffOf, syncFacilities, syncGround, type P1State, type Report } from './model';
+import { adWide, assign, trimForSector, dropStaleArea, ensureDig, fitEquipment, groundOf, hasLetter, letterProgress, newP1, postFree, SECTOR_TASKS, staffOf, syncFacilities, syncGround, type P1State, type Report } from './model';
 import { rankUpTier, resetForTier } from './reset';
 
 /** セクタごとに持つもの（セクタを離れるときに写しを取り、戻ったら戻す） */
@@ -160,6 +160,10 @@ export function moveTo(s: P1State, target: string, manager: number | null): Move
   const last = s.reports[s.reports.length - 1];
   rec.base = last && last.revenue > 0 ? { rev: last.revenue, matRate: (last.costs.materials ?? 0) / last.revenue, fixed: (last.costs.upkeep ?? 0) + (last.costs.part ?? 0) + (last.costs.ads ?? 0) } : undefined;
   if (!business) rec.base = undefined;
+  // 段 M1：ランド・全店に効く宣伝は会社のもの（町の写しに入れず、行き先へ持っていく）
+  const wide: Record<string, number> = {};
+  for (const a of ADS) if (adWide(a) && s.ads[a.id] != null) wide[a.id] = s.ads[a.id] ?? 0;
+  for (const k of Object.keys(wide)) delete s.ads[k];
   rec.snap = JSON.parse(JSON.stringify(Object.fromEntries(SECTOR_KEYS.map((k) => [k, s[k as keyof P1State]]))));
   // ランクアップの災害：すべてのセクタの建物が廃墟に・所持金は全額徴収 → 支度金・お金のパネルは未取得へ（reset.ts）
   const reset = up ? resetForTier(s, up, target) : null;
@@ -233,6 +237,8 @@ export function moveTo(s: P1State, target: string, manager: number | null): Move
     for (const [k, n] of Object.entries(reset?.keep ?? {})) s.stock[k as Sku] = (s.stock[k as Sku] ?? 0) + n;
     brandAdd(s, BRAND.enter[def.tier], t(`${def.name}に出店`, `Opened in ${def.name}`));
   }
+  // 段 M1：ランド・全店の宣伝を行き先でも続ける
+  for (const [k, v] of Object.entries(wide)) s.ads[k] = v;
   // カスタマーサポート（段 G）：前の町の問い合わせ・炎上のおそれは消える（顧客満足度・炎上の熱さは会社のもの）
   csMove(s);
   // 外交（段 UI4）：移った日を含む締めの月は、交易の約束を休む

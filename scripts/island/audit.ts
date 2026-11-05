@@ -431,7 +431,8 @@ const fresh = (s: P1State) => {
   for (const b of myShops(s)) for (const x of s.shops[b.uid].shelves) if (x) delete s.known[skuParts(x)[0]];
 };
 const ad = (id: string) => (s: P1State) => {
-  if (runAd(s, id)) throw new Error(`ad ${id}`);
+  // 段 M1：上の段は解禁の条件（店の数・月商）を見ずに効き目だけを測る
+  if (runAd(s, id, true)) throw new Error(`ad ${id}`);
 };
 
 /**

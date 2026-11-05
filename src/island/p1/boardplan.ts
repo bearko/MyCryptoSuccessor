@@ -16,7 +16,7 @@ import { amountOf, budgetDepts, crewWageMonth, deptBudget, headReserve } from '.
 import { headOf, unitMargin } from './deleg';
 import { pl } from './company';
 import { legalHere } from './legal';
-import { bottleneck, gainSkill, has, levelLock, levelUp, learn, lvOf, myShops, scratch, sellNow, setLevel, skillLock, stageCaps, type P1State, type Stage } from './model';
+import { adOpen, adPick, bottleneck, gainSkill, has, levelLock, levelUp, learn, lvOf, myShops, scratch, sellNow, setLevel, skillLock, stageCaps, type P1State, type Stage } from './model';
 import { parseStyle, styleCode, type HeroStyle } from './voice';
 import { toneOf } from './persona';
 import { TALK_MAX, talkLen } from './mine';
@@ -270,7 +270,11 @@ export function diagnose(s: P1State, d: DeptId, acts: number, st: HeroStyle): { 
   const nowL = pickLever(levers.filter((x) => x.now), st, d);
   const L = nowL ?? pickLever(levers, st, d);
   let why: Cause;
-  if (d === 'marketing' && ADS.every((a) => (s.ads[a.id] ?? 0) > 0)) why = { k: 'busy', n: ADS.length, of: ADS.length };
+  if (d === 'marketing' && ADS.every((a) => !adPick(s, a))) {
+    // 段 M1：解禁している宣伝が全部流れている（🔒 の段は数えない）
+    const n = ADS.filter((a) => adOpen(s, a.id)).length;
+    why = { k: 'busy', n, of: n };
+  }
   else if (nowL) why = { k: 'lock', nm: nowL.nm, pre: nowL.pre, stage: nowL.stage, units: nowL.units, ...(nowL.save ? { save: nowL.save.total } : {}) };
   else if (!myShops(s).length) why = { k: 'town', why: 'shop' };
   else if (d === 'rnd') why = { k: 'town', why: 'dig' };

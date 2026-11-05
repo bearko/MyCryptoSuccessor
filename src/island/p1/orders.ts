@@ -7,7 +7,7 @@
  */
 import { t } from '../../i18n';
 import { ADS, INVEST, MATS, P1B, PRODUCTS, SELF_RUN, SHOP, sku, skuParts, techSkill, type Mat, type Sku } from './data';
-import { madeSkus, partMax, recipeOf, adCost, bottleneck, stageCaps, type Stage, craftCheck, fullUse, has, hasRoute, investCost, invLv, leadDays, matPrice, myWorkshop, openRelics, procCap, procMats, relicSku, sellNow, tierOk, unsellableHere, whatIf, LOT, type P1State, type PBuilding } from './model';
+import { madeSkus, partMax, recipeOf, adCost, adPick, bottleneck, stageCaps, type Stage, craftCheck, fullUse, has, hasRoute, investCost, invLv, leadDays, matPrice, myWorkshop, openRelics, procCap, procMats, relicSku, sellNow, tierOk, unsellableHere, whatIf, LOT, type P1State, type PBuilding } from './model';
 import { adGain, supplyFor } from './moves';
 import { toneOf, type Tone } from './persona';
 import { inTutorial } from './card';
@@ -324,7 +324,7 @@ function shopBox(s: P1State, uid: number): OrderBox {
     );
     // 宣伝を頼む：いちばん見込みの大きい宣伝（この町で元が取れるか）
     const run = ADS.find((a) => (s.ads[a.id] ?? 0) > 0);
-    const ad = ADS.filter((a) => (s.ads[a.id] ?? 0) <= 0)
+    const ad = ADS.filter((a) => adPick(s, a))
       .map((a) => ({ a, g: adGain(s, a.id) }))
       .sort((x, y) => y.g - x.g)[0];
     orders.push({
