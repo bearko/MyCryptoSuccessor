@@ -6949,6 +6949,24 @@ const REACH_DIRS: Record<'lr' | 'lrd' | 'all', [number, number][]> = {
     [0, 1],
   ],
 };
+/**
+ * 広く掘るの効く範囲（段 DIG3：なぞって掘るときの点線の枠。純粋な関数）：当てているマス (x, y) と、Lv の向きの隣（壁の中だけ）。
+ * Lv0 は当てているマスだけ（Lv1・2 で左右の 3 マス・Lv3 で左右と下の 4 マス・Lv4・5 で上下左右の 5 マス）
+ */
+export function reachCells(s: Pick<P1State, 'skills' | 'skillLv' | 'dig'>, x: number, y: number): [number, number][] {
+  const L = digSite(s);
+  const out: [number, number][] = [[x, y]];
+  const lv = lvOf(s, 'dig_reach');
+  if (!L || lv <= 0) return out;
+  for (const [dx, dy] of REACH_DIRS[DT.reachDir[Math.min(5, lv) - 1]]) {
+    const X = x + dx;
+    const Y = y + dy;
+    if (X >= 0 && Y >= 0 && X < L.w && Y < L.h) out.push([X, Y]);
+  }
+  return out;
+}
+/** 効く範囲のマスの数（スキルツリーの「3 マス → 5 マス」） */
+export const reachCount = (lv: number) => (lv <= 0 ? 1 : 1 + REACH_DIRS[DT.reachDir[Math.min(5, lv) - 1]].length);
 /** マス k のいまの層を打てる（いちばん奥まで掘っていない・掘ってよい層・待っていない） */
 const open1 = (s: P1State, L: DigLayout, st: DigSiteState, k: number) => st.depth[k] < L.depth && st.hp[k] > 0 && layerOpen(s, L, st.depth[k]);
 /** 1 打（会心・広く掘るを含む）：そのマスを power で打ち、隣のマスの いまの層 にも力の一部（掘ってよい層のマスだけ） */

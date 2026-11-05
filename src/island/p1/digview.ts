@@ -259,6 +259,31 @@ export function runBar(s: Pick<P1State, 'digRun'>): { sec: string; frac: number;
   return { sec: (Math.ceil(sec * 10) / 10).toFixed(1), frac: r.total > 0 ? r.left / r.total : 0, warn: sec <= 5, tick: sec <= 3 };
 }
 
+// ---------------------------------------------------------------- なぞって掘る（段 DIG3）
+
+/** なぞって掘る：いま当てているマスと、次に打つ時刻（performance.now のミリ秒） */
+export interface Aim {
+  x: number;
+  y: number;
+  next: number;
+}
+/**
+ * 1 フレームぶん（純粋な関数）：hover（カーソル・指の下のマス）が無ければ止まる。マスが変わればすぐ 1 打、
+ * 同じマスなら repeatMs ごとに 1 打（Lv0 で 170 ms ＝ 0.5 秒に約 3 回）。strike が true のとき、そのマスを打つ
+ */
+export function aimStep(aim: Aim | null, hover: [number, number] | null, now: number, repeatMs: number): { aim: Aim | null; strike: boolean } {
+  if (!hover) return { aim: null, strike: false };
+  if (!aim || aim.x !== hover[0] || aim.y !== hover[1]) return { aim: { x: hover[0], y: hover[1], next: now + repeatMs }, strike: true };
+  if (now >= aim.next) return { aim: { x: aim.x, y: aim.y, next: Math.max(now, aim.next) + repeatMs }, strike: true };
+  return { aim, strike: false };
+}
+/** ポインタの下の要素 → 壁のマスの座標。マスでなければ null（閉じるボタン・帯・出土品の札・隊員の上では掘らない） */
+export function cellOf(el: Element | null): [number, number] | null {
+  const c = el?.closest?.('.isl-dig-cell') as HTMLElement | null;
+  if (!c || c.dataset.x == null || c.dataset.y == null) return null;
+  return [Number(c.dataset.x), Number(c.dataset.y)];
+}
+
 /** 発掘終了の札の行（今回の出土）：新発見・研究 Lv ↑・RP・素材・はがした層 */
 export function gotLines(g: DigGot): [string, string][] {
   return [

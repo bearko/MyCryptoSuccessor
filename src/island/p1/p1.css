@@ -7690,6 +7690,55 @@ button.isl-mis {
 .isl-dig-cell.is-face:not(.is-idle):hover {
   filter: brightness(1.12);
 }
+/* 段 DIG3：なぞって掘る。壁の上に重ねる、効く範囲の点線の枠（広く掘るの Lv で広がる）と、打っているマスのツルハシ（仮：絵文字。docs/ISLAND_ART_TODO.md） */
+.isl-dig-wall {
+  position: relative;
+}
+.isl-dig-reach,
+.isl-dig-reach-cell,
+.isl-dig-pick {
+  position: absolute;
+  pointer-events: none;
+}
+.isl-dig-reach {
+  inset: 0;
+}
+.isl-dig-reach-cell {
+  box-sizing: border-box;
+  border: 2px dashed rgba(255, 236, 170, 0.85);
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  animation: isl-dig-reach 0.9s linear infinite;
+}
+.isl-dig-reach-cell.is-center {
+  border-style: solid;
+  border-color: #fff3c0;
+}
+@keyframes isl-dig-reach {
+  50% {
+    opacity: 0.55;
+  }
+}
+.isl-dig-pick {
+  z-index: 2;
+  font-size: calc(var(--cs, 44px) * 0.6);
+  font-style: normal;
+  line-height: 1;
+  transform: translate(-50%, -60%) rotate(-20deg);
+  transform-origin: 70% 80%;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.8));
+}
+.isl-dig-pick.is-swing {
+  animation: isl-dig-swing 0.17s ease-out;
+}
+@keyframes isl-dig-swing {
+  0% {
+    transform: translate(-50%, -60%) rotate(-70deg);
+  }
+  60% {
+    transform: translate(-50%, -60%) rotate(10deg);
+  }
+}
 .isl-dig-cell.is-idle {
   cursor: default;
 }
