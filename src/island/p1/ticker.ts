@@ -5,7 +5,9 @@
  * どれを帯に・どれを画面に残すかの表は docs/ISLAND_PHASE1.md「ニュースのテロップ」。
  *
  * - 帯の左に「NEWS」の札。知らせは 1 本の流れで、前の知らせのしっぽが通ったら次が入ってくる（◆ で区切る）。
- * - 同じ知らせは束ねる（まだ流れていない・いま流れている同じ文は「×2」）。たまったら速める。もっとたまったら古いものを「ほか N 件」にまとめる。
+ * - 同じ知らせは束ねる（まだ流れていない・いま流れている同じ文は「×2」）。段 N2：同じ種類の知らせ（kind と group が同じ）は意味のある 1 文に
+ *   束ねる（「よろず屋 4 軒で売上 +34,980 G」「3 人がレベルアップ（A・B・C）」「素材が 3 種届いた（木材・鉄・布）」）。たまっても省かず、速めるだけ。
+ * - 段 N2：1 件ごとに種類のアイコン（💰 売上・📦 物流・⭐ 人事・🏗 建築・📣 宣伝・⚠ 困りごと）。困りごとは注意色。
  * - 会話・カード・提案書・会議などの窓・流れの案内・発掘の画面のあいだは止める（窓の暗幕の下で、続きから流す）。時間を止めていても流し続ける。
  * - 帯を押すと、最近の 20 件の一覧（日付つき）。一覧を開いているあいだも止める。PC はマウスを乗せているあいだ止める。
  * - prefers-reduced-motion では流さず、1 件ずつ切り替えて出す。
@@ -15,9 +17,20 @@ import { t } from '../../i18n';
 import { h } from './ui';
 
 /** 一覧に残す知らせ */
-export type NewsItem = { text: string; n: number; when: string };
-/** 流す前の知らせ（sum：「ほか N 件」のまとめ） */
-type Queued = { text: string; n: number; sum?: number };
+export type NewsItem = { text: string; n: number; when: string; kind?: NewsKind };
+/** 段 N2：知らせの種類（先頭のアイコン。trouble は注意色） */
+export type NewsKind = 'sale' | 'logi' | 'hr' | 'build' | 'promo' | 'trouble';
+export const NEWS_ICON: Record<NewsKind, string> = { sale: '💰', logi: '📦', hr: '⭐', build: '🏗', promo: '📣', trouble: '⚠' };
+/**
+ * 段 N2：束ねる単位。同じ kind と group の知らせを 1 文にする（文は mergedText）。
+ * - name：束ねたときに並べる名前（ヒーロー・素材・お店…）。同じ名前は 1 つに数える
+ * - value：束ねたときに足す数（G・個…）
+ */
+export type NewsOpt = { kind?: NewsKind; group?: NewsGroup; name?: string; value?: number };
+export type NewsGroup = 'sector' | 'levelup' | 'delivered' | 'built' | 'stay' | 'closed' | 'late' | 'grew' | 'route' | 'developed' | 'learned' | 'passive' | 'revive' | 'brand' | 'item' | 'rp';
+type Part = { name?: string; value?: number };
+/** 流す前の知らせ（parts：束ねた中身（2 つ以上なら束ねた文）。row：一覧の行（束ねたら書き直す）） */
+export type Queued = { text: string; n: number; kind?: NewsKind; group?: NewsGroup; parts?: Part[]; row?: NewsItem };
 /** いま帯の上を流れている知らせ */
 type Live = { el: HTMLElement; text: string; n: number; x: number; w: number };
 
@@ -30,40 +43,106 @@ export type TickerHooks = {
 
 /** 一覧に出す数 */
 export const NEWS_LIST = 20;
-/** これより多くたまったら、古いものを「ほか N 件」にまとめる */
-const NEWS_MAX_QUEUE = 6;
-/** まとめたあとに残す新しい知らせの数 */
-const NEWS_KEEP = 3;
 /** 知らせと知らせのあいだ（px） */
 const GAP = 44;
+/** 速める上限（たまっている数。× 0.2 で最大 2.2 倍） */
+const SPEED_CAP = 6;
 
-/** 流す速さ（px/秒）：スマホ 84・PC 100。たまっているほど速く（最大でおよそ 1.8 倍） */
+/** 流す速さ（px/秒）：スマホ 84・PC 100。たまっているほど速く（段 N2：最大でおよそ 2.2 倍。省かない） */
 export function newsSpeed(wide: boolean, waiting: number): number {
   const base = wide ? 100 : 84;
-  return base * (1 + Math.min(4, Math.max(0, waiting)) * 0.2);
+  return base * (1 + Math.min(SPEED_CAP, Math.max(0, waiting)) * 0.2);
+}
+
+const G = (v: number) => `${v < 0 ? '−' : '+'}${Math.abs(Math.round(v)).toLocaleString('en-US')} G`;
+/** 名前を「・」でつなぐ（同じ名前は 1 つ。5 つより多いときは 4 つと「ほか N」） */
+function joinNames(parts: Part[], unit: string): string {
+  const names = [...new Set(parts.map((p) => p.name).filter((x): x is string => !!x))];
+  const shown = names.length > 5 ? [...names.slice(0, 4), t(`ほか ${names.length - 4} ${unit}`, `${names.length - 4} more`)] : names;
+  return shown.join(t('・', ', '));
+}
+const countOf = (parts: Part[]) => new Set(parts.map((p) => p.name ?? '')).size;
+const sumOf = (parts: Part[]) => parts.reduce((a, p) => a + (p.value ?? 0), 0);
+
+/**
+ * 段 N2：同じ種類の知らせを 1 文に（純粋な関数。テストあり）。parts が 2 つ以上のときだけ呼ぶ
+ * 「よろず屋 4 軒で売上 +34,980 G」「3 人がレベルアップ（A・B・C）」「素材が 3 種届いた（木材・鉄・布）」
+ */
+export function mergedText(group: NewsGroup, parts: Part[]): string {
+  const k = countOf(parts);
+  const v = sumOf(parts);
+  const ns = (unit: string) => joinNames(parts, unit);
+  switch (group) {
+    case 'sector':
+      return v >= 0 ? t(`${k} つのセクタで利益 ${G(v)}（${ns('つ')}）`, `${k} sectors: profit ${G(v)} (${ns('')})`) : t(`${k} つのセクタで赤字 ${G(v)}（${ns('つ')}・本社が負担）`, `${k} sectors: loss ${G(v)} (${ns('')}, paid by HQ)`);
+    case 'levelup':
+      return t(`${k} 人がレベルアップ（${ns('人')}）`, `${k} heroes leveled up (${ns('')})`);
+    case 'delivered':
+      return t(`素材が ${k} 種届いた（${ns('種')}・計 ${v} 個）`, `${k} materials arrived (${ns('')}, ${v} in all)`);
+    case 'built':
+      return t(`${k} 軒が完成した（${ns('軒')}）`, `${k} buildings completed (${ns('')})`);
+    case 'stay':
+      return t(`${k} 人が思いとどまってくれた（${ns('人')}）`, `${k} heroes decided to stay (${ns('')})`);
+    case 'closed':
+      return t(`${k} 軒が閉まった（店長が休み：${ns('軒')}）`, `${k} shops closed (manager off: ${ns('')})`);
+    case 'late':
+      return t(`依頼が ${k} 件期限切れ…仲が下がった（${ns('件')}）`, `${k} requests expired… relations fell (${ns('')})`);
+    case 'grew':
+      return t(`${k} 人の能力が上がった（バイトの経験：${ns('人')}）`, `${k} heroes gained a stat (part-time work: ${ns('')})`);
+    case 'route':
+      return t(`${k} 本のルートを開拓した（${ns('本')}）`, `Opened ${k} routes (${ns('')})`);
+    case 'developed':
+      return t(`${k} 品のアンコモンを開発した（${ns('品')}）`, `Developed ${k} Uncommons (${ns('')})`);
+    case 'learned':
+      return t(`${k} 人が技を身につけた（${ns('人')}）`, `${k} heroes mastered a skill (${ns('')})`);
+    case 'passive':
+      return t(`${k} 人のパッシブが開いた（${ns('人')}）`, `${k} heroes unlocked a passive (${ns('')})`);
+    case 'revive':
+      return t(`復興で ${v} 軒を直した（${ns('つ')}）`, `Rebuilt ${v} shops (${ns('')})`);
+    case 'brand':
+      return t(`ブランド力 ${v < 0 ? '−' : '+'}${Math.abs(v)}（${parts.length} 件）`, `Brand ${v < 0 ? '−' : '+'}${Math.abs(v)} (${parts.length} changes)`);
+    case 'item':
+      return t(`強化アイテムを ${k} 種手に入れた（${ns('種')}）`, `Got ${k} promotion items (${ns('')})`);
+    case 'rp':
+      return t(`研究ポイント +${v}（${parts.length} 回）`, `Research points +${v} (${parts.length} times)`);
+  }
 }
 
 /**
- * たまった知らせを詰める（純粋な関数。テストあり）：同じ文は束ね、多すぎたら古いものを「ほか N 件」に。
- * 返すのは新しい列（元の列は変えない）
+ * たまった知らせに 1 件足す（純粋な関数。テストあり）：
+ * 同じ文は「×2」。同じ種類（kind と group が同じ）は 1 文に束ねる（mergedText）。種類の無い知らせは束ねない。
+ * 省かない（「ほか N 件」は作らない）。順は古い順のまま。返すのは新しい列（元の列は変えない）
  */
-export function packQueue(q: Queued[], text: string): Queued[] {
-  const out = q.map((x) => ({ ...x }));
-  const same = out.find((x) => !x.sum && x.text === text);
-  if (same) same.n++;
-  else out.push({ text, n: 1 });
-  const items = out.filter((x) => !x.sum);
-  if (items.length <= NEWS_MAX_QUEUE) return out;
-  const prev = out.find((x) => x.sum)?.sum ?? 0;
-  const drop = items.slice(0, items.length - NEWS_KEEP);
-  const k = prev + drop.reduce((a, x) => a + x.n, 0);
-  return [{ text: t(`…ほか ${k} 件（帯を押すと一覧）`, `…and ${k} more (tap the band for the list)`), n: 1, sum: k }, ...items.slice(-NEWS_KEEP)];
+export function mergeQueue(q: Queued[], it: Queued): Queued[] {
+  const out = q.map((x) => ({ ...x, parts: x.parts?.map((p) => ({ ...p })) }));
+  const same = out.find((x) => x.text === it.text && x.group === it.group);
+  if (same) {
+    same.n++;
+    // 束ねる単位のあるものは中身（数）も足しておく（あとで別の名前と束なったとき、合計に入る）
+    if (it.parts) same.parts = [...(same.parts ?? []), ...it.parts];
+    return out;
+  }
+  if (it.kind && it.group) {
+    const hit = out.find((x) => x.kind === it.kind && x.group === it.group);
+    if (hit) {
+      hit.parts = [...(hit.parts ?? []), ...(it.parts ?? [{}])];
+      hit.text = mergedText(it.group, hit.parts);
+      hit.n = 1;
+      return out;
+    }
+  }
+  out.push({ ...it, parts: it.parts?.map((p) => ({ ...p })) });
+  return out;
+}
+/** 列の中の、この知らせが入った所（同じ文、または同じ種類の束） */
+export function slotOf(q: Queued[], it: Queued): Queued | undefined {
+  return q.find((x) => x.text === it.text && x.group === it.group) ?? (it.kind && it.group ? q.find((x) => x.kind === it.kind && x.group === it.group) : undefined);
 }
 
 export type Ticker = {
   el: HTMLElement;
-  /** 知らせを流す */
-  push: (text: string) => void;
+  /** 知らせを流す（opt：種類・束ねる単位。段 N2） */
+  push: (text: string, opt?: NewsOpt) => void;
   /** 最近の知らせ（新しい順） */
   list: () => NewsItem[];
   /** 流す前にたまっている数 */
@@ -115,10 +194,12 @@ export function makeTicker(root: HTMLElement, hooks: TickerHooks): Ticker {
     idle.textContent = hist.length ? t(`▸ 最近のニュース ${Math.min(hist.length, NEWS_LIST)} 件（押すと一覧）`, `▸ ${Math.min(hist.length, NEWS_LIST)} recent news (tap for the list)`) : t('ニュースはまだありません', 'No news yet');
   }
 
-  function itemEl(text: string, n: number, sum?: boolean) {
-    const e = h('span', `isl-news-item${sum ? ' is-sum' : ''}`);
-    e.append(h('i', 'isl-news-dot', '◆'), h('span', '', text));
-    if (n > 1) e.append(h('b', 'isl-news-n', `×${n}`));
+  function itemEl(q: Queued) {
+    const e = h('span', `isl-news-item${q.kind === 'trouble' ? ' is-trouble' : ''}`);
+    e.append(h('i', 'isl-news-dot', '◆'));
+    if (q.kind) e.append(h('i', 'isl-news-ico', NEWS_ICON[q.kind]));
+    e.append(h('span', '', q.text));
+    if (q.n > 1) e.append(h('b', 'isl-news-n', `×${q.n}`));
     return e;
   }
   function setCount(x: Live) {
@@ -135,12 +216,12 @@ export function makeTicker(root: HTMLElement, hooks: TickerHooks): Ticker {
   function spawn() {
     const q = queue.shift();
     if (!q) return;
-    const e = itemEl(q.text, q.n, !!q.sum);
+    const e = itemEl(q);
     track.append(e);
     const tw = track.clientWidth;
     const prev = onBand[onBand.length - 1];
     const x = Math.max(tw, prev ? prev.x + prev.w + GAP : tw);
-    const it: Live = { el: e, text: q.sum ? '' : q.text, n: q.n, x, w: e.offsetWidth };
+    const it: Live = { el: e, text: (q.parts?.length ?? 0) > 1 ? '' : q.text, n: q.n, x, w: e.offsetWidth };
     e.style.transform = `translateX(${x}px)`;
     onBand.push(it);
   }
@@ -187,10 +268,10 @@ export function makeTicker(root: HTMLElement, hooks: TickerHooks): Ticker {
       const q = queue.shift();
       still = null;
       if (q) {
-        const e = itemEl(q.text, q.n, !!q.sum);
+        const e = itemEl(q);
         e.classList.add('is-still');
         track.append(e);
-        onBand.push({ el: e, text: q.sum ? '' : q.text, n: q.n, x: 0, w: e.offsetWidth });
+        onBand.push({ el: e, text: (q.parts?.length ?? 0) > 1 ? '' : q.text, n: q.n, x: 0, w: e.offsetWidth });
         // 字数に合わせて 2.5〜5 秒（たまっていたら短く）
         const ms = Math.min(5000, Math.max(2500, q.text.length * 130)) * (queue.length > 2 ? 0.6 : 1);
         still = { text: q.text, until: now + ms };
@@ -205,22 +286,33 @@ export function makeTicker(root: HTMLElement, hooks: TickerHooks): Ticker {
   }
 
   // ---------------------------------------------------------------- 知らせを受ける
-  function push(text: string) {
+  function push(text: string, opt: NewsOpt = {}) {
     if (!text) return;
     const when = hooks.when();
-    const top = hist[0];
-    if (top && top.text === text && top.when === when) top.n++;
-    else {
-      hist.unshift({ text, n: 1, when });
-      if (hist.length > NEWS_LIST * 2) hist.length = NEWS_LIST * 2;
-    }
     live.textContent = text;
     // いま流れている同じ知らせ（まだ右半分にあるもの）は、×2 にする
     const on = onBand.find((x) => x.text === text && x.x + x.w > track.clientWidth * 0.3);
     if (on) {
       on.n++;
       setCount(on);
-    } else queue = packQueue(queue, text);
+      const top = hist.find((x) => x.text === text);
+      if (top) top.n++;
+      else hist.unshift({ text, n: 1, when, kind: opt.kind });
+    } else {
+      // 段 N2：同じ文は ×2・同じ種類は 1 文に束ねる。一覧の行も束ねた文に書き直す（日付は最初のまま）
+      const it: Queued = { text, n: 1, kind: opt.kind, group: opt.group, parts: opt.group ? [{ name: opt.name, value: opt.value }] : undefined };
+      queue = mergeQueue(queue, it);
+      const slot = slotOf(queue, it);
+      if (slot?.row) {
+        slot.row.text = slot.text;
+        slot.row.n = slot.n;
+      } else {
+        const row: NewsItem = { text, n: 1, when, kind: opt.kind };
+        hist.unshift(row);
+        if (slot) slot.row = row;
+      }
+    }
+    if (hist.length > NEWS_LIST * 2) hist.length = NEWS_LIST * 2;
     if (listEl) renderList();
     kick();
   }
@@ -230,8 +322,10 @@ export function makeTicker(root: HTMLElement, hooks: TickerHooks): Ticker {
     if (!listEl) return;
     const box = listEl.querySelector('.isl-news-rows')!;
     const rows = hist.slice(0, NEWS_LIST).map((x) => {
-      const li = h('li', 'isl-news-row');
-      const body = h('span', '', x.text);
+      const li = h('li', `isl-news-row${x.kind === 'trouble' ? ' is-trouble' : ''}`);
+      const body = h('span', '');
+      if (x.kind) body.append(h('i', 'isl-news-ico', NEWS_ICON[x.kind]));
+      body.append(x.text);
       if (x.n > 1) body.append(h('b', 'isl-news-n', `×${x.n}`));
       li.append(h('small', '', x.when), body);
       return li;
