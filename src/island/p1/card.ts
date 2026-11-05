@@ -1808,6 +1808,19 @@ function actOfChoice(s: P1State, ch: Choice | undefined): PropAct | null {
   return null;
 }
 /** 承認してほしいこと（手・費用・効果の名詞句。どのパターンも同じ形） */
+/**
+ * 段 UI9b：選択肢の短期利益（来月の利益の差 − 導入費用）。セリフ・提案書の KPI・カードの 2 行目で同じ 1 つの数字を使う。
+ * 手の無い選択肢（見送り・保留）は null
+ */
+export function choiceShort(s: P1State, c: Card, k: number): number | null {
+  const ch = c.choices[k];
+  const act = ch ? actOfChoice(s, ch) : null;
+  if (!ch || !act) return null;
+  const plan = planOfChoice(s, c, k) ?? planOf(s, [act], { hero: c.hero, q: c.q, dept: c.dept });
+  const j = judgeOf(s, plan, c.issues ?? issuesOf(s));
+  return j.dProfit - planCost(s, plan).money;
+}
+
 function askCore(s: P1State, c: Card, k: number): SummaryCore['ask'] | null {
   const ch = c.choices[k];
   const a = ch.act;

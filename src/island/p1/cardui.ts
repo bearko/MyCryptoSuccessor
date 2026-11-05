@@ -15,6 +15,7 @@ import {
   cardInbox,
   cardStar,
   choiceText,
+  choiceShort,
   goneLine,
   goneNow,
   staleCard,
@@ -171,6 +172,11 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
     const ch = c.choices[k];
     const isRec = k === rk;
     const x = two && ch.act.k === 'skip' ? { ...choiceText(s, c, ch), icon: '⏸', label: t('見送り', 'Pass') } : choiceText(s, c, ch);
+    // 段 UI9b：宣伝の 2 行目は、セリフ・提案書の KPI と同じ短期利益（来月の利益の差 − 費用）に
+    if (two && isRec && ch.kind === 'ad') {
+      const sh = choiceShort(s, c, k);
+      if (sh != null) x.sub = t(`${money(ch.cost)}・来月の利益 ${sh >= 0 ? '+' : '−'}${Math.abs(Math.round(sh)).toLocaleString('en-US')} G（費用込み）`, `${money(ch.cost)} · next month ${sh >= 0 ? '+' : '−'}${Math.abs(Math.round(sh)).toLocaleString('en-US')} G net`);
+    }
     const b = h('button', `isl-cardm-btn ${isRec ? 'is-rec' : ''} ${two && ch.act.k === 'hold' ? 'is-later' : ''}`);
     b.type = 'button';
     b.dataset.k = String(k);
