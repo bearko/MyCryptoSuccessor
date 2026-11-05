@@ -23,7 +23,7 @@ import { HEAD_OPEN_TALK, HEAD_PICK_TALK, headTalkDue, talkMode } from './headtal
 import { openTrophies, trophyEl, trophyTick } from './trophyui';
 import { lessonPopEl, openLessons } from './lessonui';
 import { takeFresh } from './lesson';
-import { craftedText, makeTicker } from './ticker';
+import { craftedText, makeTicker, type NewsOpt } from './ticker';
 import { openBudget } from './budgetui';
 import { budgetOpen } from './budget';
 import type { TrophyDef } from './trophy';
@@ -357,9 +357,13 @@ const ticker = makeTicker(root, {
   hold: () => sheetOpen() || digOpen() || !!placing || !!root.querySelector('.isl-modal, .isl-rp-reveal, .isl-tour:not([hidden])'),
   when: () => dayLabel(),
 });
-/** 日々の知らせ（テロップに流す） */
-function news(text: string) {
-  ticker.push(text);
+/**
+ * 日々の知らせ（テロップに流す）。段 N2：opt で種類（kind：先頭のアイコン。trouble は注意色）と束ねる単位（group・name・value）。
+ * 同じ kind と group の知らせがたまったら、ticker.ts の mergedText が 1 文にする（「3 人がレベルアップ（A・B・C）」）。kind の無い知らせは束ねない。
+ * 表は docs/ISLAND_PHASE1.md「ニュースのテロップ」の「束ね方」
+ */
+function news(text: string, opt?: NewsOpt) {
+  ticker.push(text, opt);
 }
 /** いまの日付の札（上の帯の日付と同じ書き方） */
 function dayLabel(): string {
@@ -610,7 +614,7 @@ function brandNews() {
   const fresh = log.slice(0, k < 0 ? 1 : k).reverse();
   brandSeen = log[0];
   for (const e of fresh) {
-    news(t(`ブランド力 ${signed(e.d)}（${e.why}）`, `Brand ${signed(e.d)} (${e.why})`));
+    news(t(`ブランド力 ${signed(e.d)}（${e.why}）`, `Brand ${signed(e.d)} (${e.why})`), { kind: e.d < 0 ? 'trouble' : 'promo', group: 'brand', value: e.d });
     statBrand.classList.remove('is-up', 'is-down');
     void statBrand.offsetWidth;
     statBrand.classList.add(e.d > 0 ? 'is-up' : 'is-down');
@@ -632,7 +636,7 @@ function currencyNews() {
   const d = s.rp ?? 0;
   for (const k of PROMO_ITEMS) {
     const n = s.heroItems?.[k] ?? 0;
-    if (n > (itemSeen[k] ?? 0)) news(t(`✨ 強化アイテム「${PROMO_ITEM[k].name}」を手に入れた！（${n} 個）`, `✨ Got a promotion item: ${PROMO_ITEM[k].name}! (${n})`));
+    if (n > (itemSeen[k] ?? 0)) news(t(`強化アイテム「${PROMO_ITEM[k].name}」を手に入れた！（${n} 個）`, `Got a promotion item: ${PROMO_ITEM[k].name}! (${n})`), { kind: 'hr', group: 'item', name: PROMO_ITEM[k].name });
   }
   itemSeen = { ...s.heroItems };
   if (e > emblemSeen) {
@@ -642,7 +646,7 @@ function currencyNews() {
     toastFx(te, 'power-star', { palette: FX_PAL.gold, opts: { shadow: false }, dy: 25, life: 1300 });
   }
   // 発掘場を開いているあいだは、パネルの演出で見せる（トーストを重ねない）
-  if (d > rpSeen && !digOpen()) news(t(`研究ポイント +${d - rpSeen}（いま ${d}）`, `Research points +${d - rpSeen} (now ${d})`));
+  if (d > rpSeen && !digOpen()) news(t(`研究ポイント +${d - rpSeen}（いま ${d}）`, `Research points +${d - rpSeen} (now ${d})`), { kind: 'logi', group: 'rp', value: d - rpSeen });
   emblemSeen = e;
   rpSeen = d;
 }
@@ -4492,7 +4496,7 @@ function advance(days: number) {
     const r = step(s);
     for (const b of r.finished) {
       fx.push({ uid: b.uid, start: performance.now() });
-      news(t(`${DEF[b.id].name}が完成しました！`, `${DEF[b.id].name} is complete!`));
+      news(t(`${DEF[b.id].name}が完成しました！`, `${DEF[b.id].name} is complete!`), { kind: 'build', group: 'built', name: DEF[b.id].name });
       sfx.play('done');
     }
     if (r.crafted.length) sfx.play('craft');
@@ -4519,26 +4523,26 @@ function advance(days: number) {
       const hero = s.shops[uid]?.staff;
       const b = s.buildings.find((x) => x.uid === uid);
       const nm = b ? DEF[b.id]?.name ?? '' : '';
-      news(hero != null ? t(`${heroName(hero)}「休みの日は${nm}が閉まってしまいます。従業員 2 人いれば開けておけます」`, `${heroName(hero)}: “${nm} closes on my days off. Two staff could keep it open.”`) : t(`${nm}が閉まりました（店長が休み）`, `${nm} closed (manager off)`));
+      news(hero != null ? t(`${heroName(hero)}「休みの日は${nm}が閉まってしまいます。従業員 2 人いれば開けておけます」`, `${heroName(hero)}: “${nm} closes on my days off. Two staff could keep it open.”`) : t(`${nm}が閉まりました（店長が休み）`, `${nm} closed (manager off)`), { kind: 'trouble', group: 'closed', name: nm });
     }
     // 法務（段 H2）：M&A の話の進み・特許の審査が終わった
     if (r.legal) for (const x of legalToasts(r.legal)) news(x);
     // 外交（段 UI4）：使者の依頼がそろった・期限が切れた
     for (const q of r.diplo?.done ?? []) diploFx(toast(t(`🌐 ${landDef(q.land).name}の依頼を届けた！ +${q.reward.toLocaleString('en-US')} G・研究 +${q.rp} RP・仲 ${Math.round(relOf(s, q.land))}`, `🌐 Delivered ${landDef(q.land).name}’s request! +${q.reward.toLocaleString('en-US')} G, +${q.rp} RP, relations ${Math.round(relOf(s, q.land))}`)));
-    for (const q of r.diplo?.late ?? []) news(t(`🌐 ${landDef(q.land).name}の依頼が期限切れ…仲が下がった（${Math.round(relOf(s, q.land))}）`, `🌐 ${landDef(q.land).name}’s request expired… relations fell (${Math.round(relOf(s, q.land))})`));
-    for (const g of r.grew) news(t(`${heroName(g.hero)}の ${g.stat.toUpperCase()} が 1 上がりました（バイトの経験）`, `${heroName(g.hero)}’s ${g.stat.toUpperCase()} rose by 1 (part-time work)`));
+    for (const q of r.diplo?.late ?? []) news(t(`${landDef(q.land).name}の依頼が期限切れ…仲が下がった（${Math.round(relOf(s, q.land))}）`, `${landDef(q.land).name}’s request expired… relations fell (${Math.round(relOf(s, q.land))})`), { kind: 'trouble', group: 'late', name: landDef(q.land).name });
+    for (const g of r.grew) news(t(`${heroName(g.hero)}の ${g.stat.toUpperCase()} が 1 上がりました（バイトの経験）`, `${heroName(g.hero)}’s ${g.stat.toUpperCase()} rose by 1 (part-time work)`), { kind: 'hr', group: 'grew', name: heroName(g.hero) });
     if (r.procLv) {
-      news(t(`調達ランクが Lv.${r.procLv} に上がりました`, `Buying rank is now Lv.${r.procLv}`));
+      news(t(`調達ランクが Lv.${r.procLv} に上がりました`, `Buying rank is now Lv.${r.procLv}`), { kind: 'logi' });
       sfx.play('levelup');
     }
     // 段 N1：同じ日にできた物は 1 つの知らせに（「復刻 ブレイブホース・復刻 賢者の懐中時計ができました」）
-    if (r.crafted.length) news(craftedText(r.crafted.map((x) => PRODUCT[skuParts(x)[0]].name)));
-    for (const m of r.routes) news(t(`${MATS[m].name}のルートを開拓しました！`, `Opened a ${MATS[m].name} route!`));
+    if (r.crafted.length) news(craftedText(r.crafted.map((x) => PRODUCT[skuParts(x)[0]].name)), { kind: 'logi' });
+    for (const m of r.routes) news(t(`${MATS[m].name}のルートを開拓しました！`, `Opened a ${MATS[m].name} route!`), { kind: 'logi', group: 'route', name: MATS[m].name });
     for (const x of r.intel) news(t(`${rivalName(x.rid)}の調査が段階 ${x.lv} に進みました`, `Research on ${rivalName(x.rid)} reached stage ${x.lv}`));
-    for (const k2 of r.developed) news(t(`${PRODUCT[k2].name}のアンコモンを開発しました！`, `Developed the ${PRODUCT[k2].name} Uncommon!`));
+    for (const k2 of r.developed) news(t(`${PRODUCT[k2].name}のアンコモンを開発しました！`, `Developed the ${PRODUCT[k2].name} Uncommon!`), { kind: 'logi', group: 'developed', name: PRODUCT[k2].name });
     // 技の修行が終わった
     for (const x of r.learned ?? []) {
-      news(plain(t(`${heroName(x.hero)}が[[${SKILL[x.id]?.name ?? x.id}]]を身につけた！`, `${heroName(x.hero)} mastered [[${SKILL[x.id]?.name ?? x.id}]]!`)));
+      news(plain(t(`${heroName(x.hero)}が[[${SKILL[x.id]?.name ?? x.id}]]を身につけた！`, `${heroName(x.hero)} mastered [[${SKILL[x.id]?.name ?? x.id}]]!`)), { kind: 'hr', group: 'learned', name: heroName(x.hero) });
       sfx.play('levelup');
     }
     for (const id of r.missions) news(t(`依頼「${MISSIONS.find((m) => m.id === id)?.title ?? ''}」を達成しました`, `Request done: ${MISSIONS.find((m) => m.id === id)?.title ?? ''}`));
@@ -4567,7 +4571,7 @@ function advance(days: number) {
     }
     // 注文が届いた：問屋の人が工房に入って在庫になり、卸問屋へ帰っていく
     for (const o of r.orders ?? []) {
-      news(t(`${heroName(o.courier)}が${MATS[o.m].name} ${o.qty} 個を届けてくれました`, `${heroName(o.courier)} delivered ${o.qty} ${MATS[o.m].name}`));
+      news(t(`${heroName(o.courier)}が${MATS[o.m].name} ${o.qty} 個を届けてくれました`, `${heroName(o.courier)} delivered ${o.qty} ${MATS[o.m].name}`), { kind: 'logi', group: 'delivered', name: MATS[o.m].name, value: o.qty });
       const ws2 = myWorkshop(s);
       const wh2 = wholesaler(s);
       const back = ws2 && wh2 ? pathOf(doorOf(ws2), doorOf(wh2)) : null;
@@ -4605,7 +4609,8 @@ function advance(days: number) {
 function hrNews(x: HrDay) {
   if (x.charisma) {
     const c = x.charisma;
-    (c.cap ? toast : news)(c.cap ? t(`👑 カリスマ度 ${c.from} → ${c.to}！ ${HERO_RARITY[c.cap].name}のヒーローを雇えるようになった`, `👑 Charisma ${c.from} → ${c.to}! You can now hire ${HERO_RARITY[c.cap].name} heroes`) : t(`👑 カリスマ度 ${c.from} → ${c.to}`, `👑 Charisma ${c.from} → ${c.to}`));
+    if (c.cap) toast(t(`👑 カリスマ度 ${c.from} → ${c.to}！ ${HERO_RARITY[c.cap].name}のヒーローを雇えるようになった`, `👑 Charisma ${c.from} → ${c.to}! You can now hire ${HERO_RARITY[c.cap].name} heroes`));
+    else news(t(`👑 カリスマ度 ${c.from} → ${c.to}`, `👑 Charisma ${c.from} → ${c.to}`), { kind: 'hr' });
     if (c.cap) sfx.play('levelup');
   }
   for (const id of x.want) {
@@ -4613,7 +4618,7 @@ function hrNews(x: HrDay) {
     toast(t(`😣 ${heroName(id)}が「辞めたい」と言っている（あと ${st ? quitLeft(s, st) : 0} 日）。人事 → 給与・労務で引き止めよう`, `😣 ${heroName(id)} wants to quit (in ${st ? quitLeft(s, st) : 0} days). Talk them round in HR → Pay & welfare`));
     sfx.play('error');
   }
-  for (const id of x.stay) news(t(`🙂 ${heroName(id)}が思いとどまってくれた`, `🙂 ${heroName(id)} decided to stay`));
+  for (const id of x.stay) news(t(`🙂 ${heroName(id)}が思いとどまってくれた`, `🙂 ${heroName(id)} decided to stay`), { kind: 'hr', group: 'stay', name: heroName(id) });
   for (const id of x.quit) {
     toast(t(`💼 ${heroName(id)}が会社を辞めました`, `💼 ${heroName(id)} left the company`));
     sfx.play('error');
@@ -4621,25 +4626,19 @@ function hrNews(x: HrDay) {
 }
 function levelNews(ups: LevelUp[]) {
   const names = (x: LevelUp) => (['phy', 'int', 'agi'] as const).filter((k) => (x.gain[k] ?? 0) > 0).map((k) => `${k.toUpperCase()} +${x.gain[k]}`).join(t('・', ', '));
-  // 段 N1：レベルアップはテロップへ（育つ人が多いと、毎日のように左上に積まれていた）
+  // 段 N1：レベルアップはテロップへ（育つ人が多いと、毎日のように左上に積まれていた）。段 N2：アイコン ⭐ は種類（hr）で付く。たまったら「N 人がレベルアップ（A・B・C）」に束なる
   if (ups.length <= 2)
     for (const x of ups) {
       const g = names(x);
-      news(t(`⭐ ${heroName(x.hero)}が Lv ${x.to} に！${g ? ` ${g}` : ''}`, `⭐ ${heroName(x.hero)} reached Lv ${x.to}!${g ? ` ${g}` : ''}`));
+      news(t(`${heroName(x.hero)}が Lv ${x.to} に！${g ? ` ${g}` : ''}`, `${heroName(x.hero)} reached Lv ${x.to}!${g ? ` ${g}` : ''}`), { kind: 'hr', group: 'levelup', name: heroName(x.hero) });
     }
-  else news(t(`⭐ ${ups.length} 人がレベルアップ！（くわしくは人事 → ヒーローの育成）`, `⭐ ${ups.length} heroes leveled up! (HR → Hero growth)`));
-  // 段 FX2 → N1：小さな手応えは、テロップの「NEWS」の札で自社の色の光（1 秒に 1 つ。地図には出さない。テロップが隠れているときは出さない）
-  if (ups.length) newsFx('collect-burst', { palette: FX_PAL.ours });
+  else for (const x of ups) news(t(`${ups.length} 人がレベルアップ！（くわしくは人事 → ヒーローの育成）`, `${ups.length} heroes leveled up! (HR → Hero growth)`), { kind: 'hr', group: 'levelup', name: heroName(x.hero) });
+  // 段 N2：「NEWS」の札の光（newsFx）はやめた（トースト時代の名残。左上に白い粒が散って見えた）
   for (const x of ups) {
-    for (const k of x.passives) news(t(`✦ ${heroName(x.hero)}のパッシブ「${PASSIVES[k].name}」が開いた`, `✦ ${heroName(x.hero)} unlocked the passive “${PASSIVES[k].name}”`));
-    if (x.cap) news(t(`🎖 ${heroName(x.hero)}が上限 Lv ${x.to}！ 強化アイテムで昇格できるよ`, `🎖 ${heroName(x.hero)} hit the level cap (${x.to})! Promote with an item`));
+    for (const k of x.passives) news(t(`${heroName(x.hero)}のパッシブ「${PASSIVES[k].name}」が開いた`, `${heroName(x.hero)} unlocked the passive “${PASSIVES[k].name}”`), { kind: 'hr', group: 'passive', name: heroName(x.hero) });
+    if (x.cap) news(t(`${heroName(x.hero)}が上限 Lv ${x.to}！ 強化アイテムで昇格できるよ`, `${heroName(x.hero)} hit the level cap (${x.to})! Promote with an item`), { kind: 'hr' });
   }
   sfx.play('levelup');
-}
-/** 段 N1：テロップの「NEWS」の札で小さな効果（テロップが見えているときだけ） */
-function newsFx(id: FxId, o: Parameters<typeof playFx>[3] = {}) {
-  if (getComputedStyle(ticker.el).visibility === 'hidden') return false;
-  return fxAtEl(id, ticker.el.querySelector('.isl-news-tag'), { scale: innerWidth < 600 ? 1 : 4 / 3, thin: 'small', ...o });
 }
 
 function playShutters() {
@@ -4680,13 +4679,13 @@ function reportNews(rep: NonNullable<ReturnType<typeof step>['report']>) {
     } else if (cr.warn && !s.cs?.warn?.done) toast(cr.warn === 'out' ? t('⚠ 炎上のおそれ：品切れが続いている。今月も続くと炎上（顧客満足度の画面で手を打てる）', '⚠ Backlash risk: sell-outs keep happening. Another month and it blows up (act from Satisfaction)') : t('⚠ 炎上のおそれ：問い合わせを放っておいた。今月も続くと炎上（顧客満足度の画面で手を打てる）', '⚠ Backlash risk: ignored inquiries. Another month and it blows up (act from Satisfaction)'));
   }
   // OJT：担当のある人の能力が上がった
-  if (rep.ojt) news(t(`OJT：${rep.ojt} 人の能力が 1 上がりました`, `OJT: ${rep.ojt} staff gained +1 in a stat`));
+  if (rep.ojt) news(t(`OJT：${rep.ojt} 人の能力が 1 上がりました`, `OJT: ${rep.ojt} staff gained +1 in a stat`), { kind: 'hr' });
   // 他社の反撃：1 位を取った月から、他社が宣伝を始める
   const ra = rep.rally;
-  if (ra) news(plain(t(`他社が反撃！ [[${ra.by}]]が宣伝を始めた（${ra.months} か月）`, `Rivals strike back! [[${ra.by}]] started advertising (${ra.months} months)`)));
+  if (ra) news(plain(t(`他社が反撃！ [[${ra.by}]]が宣伝を始めた（${ra.months} か月）`, `Rivals strike back! [[${ra.by}]] started advertising (${ra.months} months)`)), { kind: 'promo' });
   // 他社の巻き返し（Uncommon）：2 位の会社がセールを始めた
   const cb = rep.comeback;
-  if (cb) news(plain(t(`[[${cb.by}]]がセールで巻き返してきた！（${cb.months} か月）`, `[[${cb.by}]] is fighting back with a sale! (${cb.months} months)`)));
+  if (cb) news(plain(t(`[[${cb.by}]]がセールで巻き返してきた！（${cb.months} か月）`, `[[${cb.by}]] is fighting back with a sale! (${cb.months} months)`)), { kind: 'promo' });
   // 商圏の取り合い（Rare の町 ②）：他社の店の撤退（シャッターの演出）・空き店舗に他社が入った・会社が町から撤退
   const tr = rep.trade;
   if (tr) {
@@ -4718,26 +4717,27 @@ function companyNews(c: NonNullable<ReturnType<typeof step>['company']>) {
     // 被災した町の復興（発掘 v2 の 7 段目）：直した数・支援金が尽きた・担当の伸び
     const rv = x.revive;
     if (rv) {
-      if (rv.fixed) news(t(`🏗 ${name}：${rv.fixed} 軒を直した（${rv.all - rv.left} / ${rv.all} 軒）`, `🏗 ${name}: rebuilt ${rv.fixed} (${rv.all - rv.left} / ${rv.all})`));
+      if (rv.fixed) news(t(`${name}：${rv.fixed} 軒を直した（${rv.all - rv.left} / ${rv.all} 軒）`, `${name}: rebuilt ${rv.fixed} (${rv.all - rv.left} / ${rv.all})`), { kind: 'build', group: 'revive', name, value: rv.fixed });
       if (rv.left === 0 && rv.fixed) toast(t(`🎉 ${name}の復興が終わった！${rv.refund ? `（残りの支援金 ${money(rv.refund)} は本社へ）` : ''}`, `🎉 ${name} is fully rebuilt!${rv.refund ? ` (${money(rv.refund)} of funds returned)` : ''}`));
       else if (rv.out) toast(t(`🏚 ${name}：支援金が尽きた（ランドマップから追加で送れる）`, `🏚 ${name}: recovery funds ran out (send more from the land map)`));
       const g = Object.entries(rv.grow);
       const ups = g.map(([k, v]) => `${k.toUpperCase()} +${v}`).join(t('・', ' · '));
-      if (g.length && x.hero != null) news(t(`${heroName(x.hero)}が復興の担当で成長！ ${ups}`, `${heroName(x.hero)} grew leading the rebuild! ${ups}`));
+      if (g.length && x.hero != null) news(t(`${heroName(x.hero)}が復興の担当で成長！ ${ups}`, `${heroName(x.hero)} grew leading the rebuild! ${ups}`), { kind: 'hr' });
       if (x.rev === 0 && x.profit === 0) continue;
     }
     news(
       x.profit >= 0
         ? t(`${name}：利益 ${money(x.profit)}（本社へ ${money(x.toHQ)}・投資 ${money(x.invest)}）`, `${name}: profit ${money(x.profit)} (to HQ ${money(x.toHQ)}, reinvested ${money(x.invest)})`)
         : t(`${name}：赤字 ${money(-x.profit)}（本社が負担）`, `${name}: loss ${money(-x.profit)} (paid by HQ)`),
+      { kind: 'sale', group: 'sector', name, value: x.profit },
     );
   }
   if (c.quarter) {
     sfx.play('report');
     const acct = menuDepts(s).includes('accounting');
-    news(acct ? t(`第 ${c.quarter} 四半期の決算が出ました（経理 → 決算書）`, `Q${c.quarter} statements are ready (Accounting → Statements)`) : t(`第 ${c.quarter} 四半期の決算が出ました（経営企画 → 決算書）`, `Q${c.quarter} statements are ready (Strategy → Statements)`));
+    news(acct ? t(`第 ${c.quarter} 四半期の決算が出ました（経理 → 決算書）`, `Q${c.quarter} statements are ready (Accounting → Statements)`) : t(`第 ${c.quarter} 四半期の決算が出ました（経営企画 → 決算書）`, `Q${c.quarter} statements are ready (Strategy → Statements)`), { kind: 'sale' });
     // 経理（段 F）：四半期の税の報告
-    if (c.tax) news(c.tax.saved > 0 ? t(`🧾 第 ${c.tax.q} 四半期の法人税 ${money(c.tax.paid)}（節税で −${money(c.tax.saved)}）`, `🧾 Q${c.tax.q} corporate tax ${money(c.tax.paid)} (saved ${money(c.tax.saved)})`) : t(`🧾 第 ${c.tax.q} 四半期の法人税 ${money(c.tax.paid)}`, `🧾 Q${c.tax.q} corporate tax ${money(c.tax.paid)}`));
+    if (c.tax) news(c.tax.saved > 0 ? t(`🧾 第 ${c.tax.q} 四半期の法人税 ${money(c.tax.paid)}（節税で −${money(c.tax.saved)}）`, `🧾 Q${c.tax.q} corporate tax ${money(c.tax.paid)} (saved ${money(c.tax.saved)})`) : t(`🧾 第 ${c.tax.q} 四半期の法人税 ${money(c.tax.paid)}`, `🧾 Q${c.tax.q} corporate tax ${money(c.tax.paid)}`), { kind: 'sale' });
   }
   // 経理（段 F）：決算の 1 か月前のお知らせ（あと ○○ G 投資すると、税が △△ G 減る）
   const hint = taxHint(s);
@@ -4891,7 +4891,7 @@ window.setTimeout(() => warmFx(), 3000);
   state: () => s,
   /** 段 N1（撮影・確かめ用）：テロップの最近の知らせ・知らせを流す・一覧を開く */
   news: () => ticker.list(),
-  newsPush: (text: string) => news(text),
+  newsPush: (text: string, opt?: NewsOpt) => news(text, opt),
   newsList: () => ticker.openList(),
   /** 提案・報告のカード（撮影スクリプト用）：月の締めのカードを作る・辞めたい・経理の助言・持ち場の提案を作って出す・受け箱のカードを出す */
   cardsNow: (opt: { comeback?: string; rally?: string } = {}) => {

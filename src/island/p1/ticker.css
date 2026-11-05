@@ -67,8 +67,15 @@
   margin-left: 6px;
   color: var(--isl-gold, #f2b544);
 }
-.isl-news-item.is-sum {
-  color: #b8c0d8;
+/* 段 N2：種類のアイコン（💰 売上・📦 物流・⭐ 人事・🏗 建築・📣 宣伝・⚠ 困りごと）。困りごとは注意色 */
+.isl-news-ico {
+  margin-right: 5px;
+  font-style: normal;
+  font-size: 13px;
+}
+.isl-news-item.is-trouble,
+.isl-news-row.is-trouble {
+  color: #ffd27a;
 }
 /* 動きを減らす設定：流さず、1 件ずつ（長い文は … で切る。全文は一覧で） */
 .isl-news-item.is-still {

@@ -1,11 +1,10 @@
 // 段 N1（docs/ISLAND_PHASE1.md「ニュースのテロップ（段 N1）」）：日々の知らせは上の帯の下のテロップへ。
-// 同じ知らせは束ねる・たまったら速める・もっとたまったら古いものを「ほか N 件」にまとめる・同じ日にできた物は 1 つの知らせに
+// 同じ知らせは束ねる・たまったら速める・同じ日にできた物は 1 つの知らせに（段 N2 で「ほか N 件」はやめた。束ねは tests/island-p1-n2.test.ts）
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { craftedText, newsSpeed, packQueue } from '../src/island/p1/ticker';
+import { craftedText, mergeQueue, newsSpeed, type Queued } from '../src/island/p1/ticker';
 
-type Q = Parameters<typeof packQueue>[0];
-const fill = (texts: string[]) => texts.reduce<Q>((q, x) => packQueue(q, x), []);
+const fill = (texts: string[]) => texts.reduce<Queued[]>((q, x) => mergeQueue(q, { text: x, n: 1 }), []);
 
 describe('段 N1：ニュースのテロップ', () => {
   it('同じ知らせは束ねる（×2）', () => {
@@ -16,26 +15,18 @@ describe('段 N1：ニュースのテロップ', () => {
     ]);
   });
 
-  it('6 件を超えてたまったら、古いものを「ほか N 件」にまとめ、新しい 3 件を残す', () => {
-    const q = fill(['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7']);
-    expect(q.length).toBe(4);
-    expect(q[0].sum).toBe(4);
-    expect(q[0].text).toContain('4');
-    expect(q.slice(1).map((x) => x.text)).toEqual(['a5', 'a6', 'a7']);
-    // さらにたまると、まとめの数に足していく（束ねた数も数える）
-    const q2 = fill(['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8', 'a8', 'a9', 'a10', 'a11']);
-    const sum = q2.find((x) => x.sum)?.sum ?? 0;
-    const rest = q2.filter((x) => !x.sum).reduce((a, x) => a + x.n, 0);
-    expect(sum + rest).toBe(12);
-    expect(q2.filter((x) => x.sum).length).toBe(1);
-    expect(q2[0].sum).toBeGreaterThan(0);
+  it('段 N2：6 件を超えてたまっても省かない（「ほか N 件」を作らない。古い順のまま）', () => {
+    const q = fill(['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8']);
+    expect(q.map((x) => x.text)).toEqual(['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8']);
+    expect(q.some((x) => /ほか \d+ 件/.test(x.text))).toBe(false);
   });
 
-  it('たまっているほど速く流す（上限あり）。PC はスマホより少し速い', () => {
+  it('たまっているほど速く流す（上限はおよそ 2.2 倍）。PC はスマホより少し速い', () => {
     expect(newsSpeed(false, 0)).toBe(84);
     expect(newsSpeed(true, 0)).toBe(100);
     expect(newsSpeed(false, 2)).toBeGreaterThan(newsSpeed(false, 0));
-    expect(newsSpeed(false, 50)).toBe(newsSpeed(false, 4));
+    expect(newsSpeed(false, 50)).toBe(newsSpeed(false, 6));
+    expect(newsSpeed(false, 50) / newsSpeed(false, 0)).toBeCloseTo(2.2, 5);
   });
 
   it('同じ日にできた物は 1 つの知らせに（同じ物は個数・4 種類からは「ほか」）', () => {
