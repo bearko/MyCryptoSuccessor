@@ -375,20 +375,25 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
     t('承認する', 'Approve'),
     () => {
       if (block.length) return;
+      // 段 UX1（A-6）：押した瞬間に「承認中…」にして、変更を先に反映（資金の帯が減る）。ハンコの演出のあとに閉じる
+      // （前は 800 ms のあいだボタンが灰色のまま・資金も変わらず、反応していないように見えた）
       ok.disabled = true;
+      const label = ok.textContent;
+      ok.textContent = t('承認中…', 'Approving…');
+      const r = (o.approve ?? ((p: Plan) => applyPlanSafe(ctx, p)))(plan);
+      if (!r.ok) {
+        ctx.sfx?.('error');
+        ctx.toast(r.err === 'money' ? t('資金が足りません', 'Not enough funds') : r.err === 'rp' ? t('研究ポイントが足りません', 'Not enough RP') : t('もう打てない提案でした', 'That proposal is no longer possible'));
+        ok.disabled = false;
+        ok.textContent = label;
+        if (r.err === 'gone') close('skip');
+        return;
+      }
+      after(ctx);
       stampThen(ctx, panel, () => {
-        const r = (o.approve ?? ((p: Plan) => applyPlanSafe(ctx, p)))(plan);
-        if (!r.ok) {
-          ctx.sfx?.('error');
-          ctx.toast(r.err === 'money' ? t('資金が足りません', 'Not enough funds') : r.err === 'rp' ? t('研究ポイントが足りません', 'Not enough RP') : t('もう打てない提案でした', 'That proposal is no longer possible'));
-          ok.disabled = false;
-          if (r.err === 'gone') close('skip');
-          return;
-        }
         ctx.sfx?.('levelup');
         const sum = r.did.length ? r.did.slice(0, 4).join(t('・', ' · ')) : t('承認しました', 'Approved');
         ctx.toast('✔ ' + sum);
-        after(ctx);
         close('ok');
       });
     },

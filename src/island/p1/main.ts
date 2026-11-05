@@ -427,7 +427,10 @@ const dateText = h('span');
 const monthBar = h('div', 'isl-month');
 const monthFill = h('i');
 monthBar.append(monthFill);
-statDate.append(dateText, monthBar);
+/** 段 UX1（A-1）：月末ポーズ（計画中）のあいだ、日付の札に「⏸ 計画中 — ▶ で N 月へ」の 1 行 */
+const datePlan = h('small', 'isl-date-plan');
+datePlan.hidden = true;
+statDate.append(dateText, datePlan, monthBar);
 // ブランド力（資金のとなり）。押すとブランド力の画面
 const statBrand = h('button', 'isl-stat isl-stat-btn isl-stat-brand');
 statBrand.type = 'button';
@@ -582,8 +585,14 @@ const speedBtns = SPEEDS.map((v) =>
       toast(t('発掘作業のあいだは、時間は止まらないよ', 'Time keeps running while you dig'));
       return;
     }
+    // 段 UX1（A-1）：月末ポーズ（計画中）のあいだに ▶⏩ を押したら、懐中時計と同じく次の月へ進む（⏩ なら ⏩ のまま）
     if (v > 0 && s.monthPause && !s.digRun) {
-      toast(t('「次の月に進む」を押すと、次の月が始まるよ', 'Press “Next month” to start the next month'));
+      nextMonth(v);
+      return;
+    }
+    // 段 UX1（A-4）：見習い期間で時間を止めている段は、押しても進まない理由を言う
+    if (v > 0 && tutHold()) {
+      toast(root.querySelector('.isl-talk') ? t('会話を進めると、時間が動くよ', 'Move the conversation along and time will run') : t('案内のあいだは時間を止めているよ。右上のミッションを進めてね', 'Time is paused during the guide. Follow the mission at the top right'));
       return;
     }
     speed = v;
@@ -696,6 +705,13 @@ function renderHud() {
   if (last) statRank.innerHTML = `<small>${lr}</small><b>${t(`${last.rank} 位`, `#${last.rank}`)}</b>`;
   const d = date(s);
   dateText.textContent = dayLabel();
+  // 段 UX1（A-1）：月末ポーズ（計画中）は、日付の下に「⏸ 計画中 — ▶ で N 月へ」（date() は次の月の 1 日を返す）
+  const planOn = !!s.monthPause && !s.digRun;
+  datePlan.hidden = !planOn;
+  if (planOn) {
+    const txt = d ? t(`⏸ 計画中 — ▶ で ${d.month} 月へ`, `⏸ Planning — ▶ starts M${d.month}`) : t('⏸ 計画中 — ▶ で次の月へ', '⏸ Planning — ▶ starts next month');
+    if (datePlan.textContent !== txt) datePlan.textContent = txt;
+  }
   // 月の進み：開店後は締めまでの日数、開店前は（最初の締めまでが決まっていないので）空
   const left = daysToClose(s);
   const frac = d ? (DAYS - left) / DAYS : 0;
@@ -993,6 +1009,8 @@ function renderFoot() {
   for (const g of tabbar.querySelectorAll<HTMLElement>('.isl-tab.is-group')) g.classList.toggle('is-guide', !!footGuide && footGuide === g.dataset.group && drawer !== footGuide && !step);
   if (footGuide && drawer === footGuide && !step) tabBtns.hr?.classList.add('is-guide');
   speedBtns[2].classList.toggle('is-guide', hm === 'speed' && speed !== 4);
+  // 段 UX1（A-4）：「⏩ で待つ」段は、速さの箱ごと光らせる（薄くした ▶⏩ と見分ける）
+  speedBox.classList.toggle('is-guide', hm === 'speed' && !tour);
   if (!menu) {
     placeBand();
     return;
@@ -2268,11 +2286,12 @@ nextBtn.addEventListener('click', (e) => {
 });
 /** ボタンが消える演出のあいだ（すぐに hidden にしない） */
 let nextLeaving = false;
-function nextMonth() {
+/** 次の月へ（月末ポーズを解く）。段 UX1（A-1）：▶⏩ からも呼ぶ。v：解いたあとの速さ（⏩ なら 4） */
+function nextMonth(v = 1) {
   if (!s.monthPause) return;
   sfx.play('page');
   s.monthPause = false;
-  speed = 1;
+  speed = v;
   save();
   renderHud();
   nextLeaving = true;
@@ -2284,8 +2303,12 @@ function nextMonth() {
     renderAll();
   }, 260);
 }
-/** ボタンを出すとき：月末ポーズで、画面・窓・吹き出し・建てるモード・メニュー・流れの案内・発表が出ていない */
-const nextShown = () => !!s.monthPause && !placing && !menu && !pop && !sheetOpen() && !tour && !root.querySelector('.isl-modal, .isl-rp-reveal');
+/**
+ * ボタンを出すとき：月末ポーズで、建てるモード・流れの案内・発表・会話の暗幕が出ていない。
+ * 段 UX1（A-2）：画面（シート）・吹き出し・メニューを開いていても隠さない（計画のために SCM やスキルツリーを開いている間も、
+ * 「次の月へ」が見える）。窓（会話・カード・提案書・報告の暗幕）のあいだは隠す。会話は focus（懐中時計を囲む案内）のあるものだけ出す
+ */
+const nextShown = () => !!s.monthPause && !placing && !tour && !root.querySelector('.isl-modal:not(.has-focus), .isl-rp-reveal');
 function renderNext() {
   if (nextLeaving) return;
   const show = nextShown();
@@ -2667,6 +2690,8 @@ let tourReport: Parameters<typeof showReport>[0] | null = null;
  * 待つできごとが無い段は say → then を飛ばして、押すと次の段。
  */
 let tour: { k: number; t0: number; ev: number | null; phase: TourPhase; deliver?: { t0: number; dur: number; hero: number; mat: Mat }; last?: number; tap?: HTMLButtonElement; inside?: HTMLElement } | null = null;
+/** 段 UX1（A-5）：流れの案内に入る前の速さ（終わったら戻す。⏩ で見ていた人が ▶ に戻されない） */
+let tourPrevSpeed = 1;
 const tourEl = h('div', 'isl-tour');
 tourEl.hidden = true;
 
@@ -2676,6 +2701,7 @@ function startTour() {
   menu = null;
   sub = null;
   placing = null;
+  tourPrevSpeed = speed > 0 ? speed : 1;
   tour = { k: 0, t0: performance.now(), ev: null, phase: 'say' };
   root.classList.add('is-tour');
   tourEl.hidden = false;
@@ -2787,7 +2813,8 @@ function tourEnd() {
   s.flags.tour = true;
   s.holdSales = false;
   tourUnpaid = 0;
-  speed = 1;
+  // 段 UX1（A-5）：案内の前の速さに戻す（1 固定をやめる）
+  speed = tourPrevSpeed;
   save();
   renderAll();
   if (tourReport) {
@@ -3002,10 +3029,14 @@ function showTalk(pages: TutPage[], ok: string, then: () => void) {
   let k = 0;
   /** 画面の中の部分を、金色の枠で囲んで見せる（まわりは暗く） */
   const ring = h('div', 'isl-talk-focus');
+  // 段 UX1（A-4）：focus も絵も無い 1 枚だけの会話は、暗幕を薄く（画面を覆って止まったように見せない）
+  m.classList.toggle('is-light', pages.length === 1 && !pages[0].focus && !pages[0].show && !pages[0].el);
   const show = () => {
     const pg = pages[k];
     ring.remove();
     m.classList.toggle('has-focus', !!pg.focus);
+    // 段 UX1（A-3）：懐中時計を囲む案内は、囲む前にボタンを出す（隠れたままだと枠の位置が測れない）
+    if (pg.focus) renderNext();
     const el = pg.focus ? root.querySelector<HTMLElement>(pg.focus) : null;
     if (el) {
       el.scrollIntoView({ block: 'center' });
