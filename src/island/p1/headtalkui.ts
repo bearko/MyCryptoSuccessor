@@ -12,7 +12,7 @@ import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { DEPT, DEPT_DUTIES, DUTY, TASKS, aptitude, type DeptId } from './data';
 import { actName, approve, headFx, pickList, headOf, heroNm, hold, propEst, propWhy, qText, quality, reject, setHead } from './deleg';
-import { approveCard, choiceText, chooseCard, goneLine, planOfChoice, quipOfCard, roleOfCard, sayOf, shownRec, starOf, withdrawStale, type Card, type Choice } from './card';
+import { approveCard, choiceText, chooseCard, goneLine, planOfChoice, quipOfCard, roleOfCard, sayOf, shownRec, starOf, withdrawStale, type Card, type Choice, speechOf, inTutorial } from './card';
 import { charismaLine, moraleAvg, payroll, wantsToQuit } from './hr';
 import { hrReportText, moraleChip } from './hrui';
 import { orgChart } from './org';
@@ -335,6 +335,7 @@ function showPlan(ctx: Ctx, card: Card, plan: Plan, rec = false, pick?: number) 
     rec,
     src: 'talk',
     say: sayOf(s, card, pick),
+    speech: speechOf(s, card, pick) ?? undefined,
     role: roleOfCard(s, card).text,
     later: card.id >= 0,
     card: card.id,
@@ -524,7 +525,8 @@ function itemData(ctx: Ctx, s: P1State, item: CheckItem): HTMLElement {
   c.choices.forEach((ch, k) => {
     const x = choiceText(s, c, ch);
     const r = h('div', `isl-ht-choice ${k === rk ? 'is-rec' : ''}`);
-    r.append(recLine(`${x.icon} ${x.label}`, k === rk), h('small', '', x.sub));
+    // 段 UI9b：「推奨」の札はチュートリアルのあいだだけ
+    r.append(recLine(`${x.icon} ${x.label}`, k === rk && inTutorial(s)), h('small', '', x.sub));
     const plan = ch.act.k === 'do' || ch.act.k === 'approve' ? planOfChoice(s, c, k) : null;
     if (plan) r.append(btn(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, c, plan, k === rk, k), 'isl-ht-plan'));
     list.append(r);

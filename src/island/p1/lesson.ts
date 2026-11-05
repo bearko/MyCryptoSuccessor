@@ -238,7 +238,7 @@ export function fxLine(k: LessonType, n = 1): string {
     case 'customer':
       return t(`顧客満足度の下がり方 −${p}%`, `Satisfaction drops −${p}%`);
     case 'numbers':
-      return t(`提案の読みの誤差 −${p}%`, `Proposal read error −${p}%`);
+      return t(`提案の予測の誤差 −${p}%`, `Proposal read error −${p}%`);
     case 'deal':
       return t(`素材の値段 −${p}%`, `Material prices −${p}%`);
   }

@@ -351,7 +351,7 @@ export function causeChips(c: Cause): string[] {
       return [t(`流している宣伝 ${c.n} / ${c.of}`, `Ads running ${c.n}/${c.of}`)];
     case 'need':
       if (c.best) return [t(`いちばん良い手『${c.best.nm}』月 −${g(c.best.save)}`, `Best move “${c.best.nm}” −${g(c.best.save)}/mo`), t(`元が取れるまで ${c.best.pay} か月`, `Pays back in ${c.best.pay} months`)];
-      return [t(`いまの詰まり：${STAGE_JA[c.stage]()}`, `Bottleneck: ${STAGE_JA[c.stage]()}`), t('この部門の手の効き目 0', 'No effect from this division')];
+      return [t(`いまのボトルネック：${STAGE_JA[c.stage]()}`, `Bottleneck: ${STAGE_JA[c.stage]()}`), t('この部門の手の効き目 0', 'No effect from this division')];
     case 'town':
       return [c.why === 'dig' ? t('申請できる荒れ地 0', 'No site to permit') : c.why === 'legal' ? t('法務は Epic の町から', 'Legal opens in Epic towns') : c.why === 'site' ? t('伸びる出店の区画 0', 'No good site') : t('お店 0 軒', 'No shops')];
   }
@@ -373,12 +373,12 @@ function causeBody(c: Cause): string {
       return head + t(`会社の資金の取り置き ${g(c.reserve)} を守り、止めました`, `I held back to keep the ${g(c.reserve)} reserve`);
     case 'lock':
       if (c.save && c.units < BOARD.lever.minUnits) return head + t(`税と経費を月 ${g(c.save)} 減らす『${c.pre[0] ?? c.nm}』が未開放です`, `“${c.pre[0] ?? c.nm}”, worth ${g(c.save)}/mo in tax and costs, isn’t open`);
-      return head + t(`詰まりの${STAGE_JA[c.stage]()}に効く『${c.pre[0] ?? c.nm}』が未開放です`, `“${c.pre[0] ?? c.nm}”, the fix for ${STAGE_JA[c.stage]()}, isn’t open`);
+      return head + t(`ボトルネックの${STAGE_JA[c.stage]()}に効く『${c.pre[0] ?? c.nm}』が未開放です`, `“${c.pre[0] ?? c.nm}”, the fix for ${STAGE_JA[c.stage]()}, isn’t open`);
     case 'busy':
       return head + t(`宣伝は ${c.n} つとも流し続けています`, `all ${c.n} ads are already running`);
     case 'need':
       if (c.best) return head + t(`税・経費の手は『${c.best.nm}』でも元を取るのに ${c.best.pay} か月。予算は温存しました`, `even “${c.best.nm}” takes ${c.best.pay} months to pay back, so I saved the budget`);
-      return head + t(`詰まりは${STAGE_JA[c.stage]()}で、うちの手は効かず予算は温存しました`, `the bottleneck is ${STAGE_JA[c.stage]()}; our moves don’t touch it, so I saved the budget`);
+      return head + t(`ボトルネックは${STAGE_JA[c.stage]()}で、うちの手は効かず予算は温存しました`, `the bottleneck is ${STAGE_JA[c.stage]()}; our moves don’t touch it, so I saved the budget`);
     case 'town':
       return head + (c.why === 'dig' ? t('申請できる荒れ地がありませんでした', 'there was no site to permit') : c.why === 'legal' ? t('法務の手続きは Epic の町からです', 'legal work opens in Epic towns') : c.why === 'site' ? t('出店で伸びる区画がありませんでした', 'no site would grow sales') : t('お店がまだありません', 'there are no shops yet'));
   }
@@ -409,7 +409,7 @@ function leverText(L: Lever, st: HeroStyle): string {
   const pn = L.pre.length ? t(`『${L.pre[0]}』から『${L.nm}』`, `“${L.pre[0]}” then “${L.nm}”`) : `『${L.nm}』`;
   const eff = effOf(L);
   const up = L.lv ? t('を強化し、', ' upgraded,') : t('を開き、', ' opened,');
-  if (!L.now) return t(`次の詰まりの${STAGE_JA[L.stage]()}に備え、${pn}${up}${eff}`, `ahead of the next bottleneck: ${pn}${up} ${eff}`);
+  if (!L.now) return t(`次のボトルネックの${STAGE_JA[L.stage]()}に備え、${pn}${up}${eff}`, `ahead of the next bottleneck: ${pn}${up} ${eff}`);
   if (st.atk > 0 && st.spd > 0) return t(`すぐ${pn}${up}${eff}。迷う暇はありません`, `${pn}${up} right now: ${eff}`);
   if (st.odd > 0) return t(`新しい手で攻めます。${pn}${up}${eff}`, `a fresh move: ${pn}${up} ${eff}`);
   if (st.atk < 0) return t(`まず${pn}${up}足場を固めます。${eff}`, `first ${pn}${up} to firm up: ${eff}`);
@@ -424,7 +424,7 @@ export function noLeverCore(c: Cause | null): string {
   if (c?.k === 'town' && c.why === 'dig') return t('次の荒れ地が出たら、その月に許可を申請します', 'I’ll file a permit the month a new site opens');
   if (c?.k === 'town' && c.why === 'legal') return t('Epic の町に入ったら、特許と買収の打診から始めます', 'In an Epic town I’ll start with patents and offers');
   if (c?.k === 'need' && c.best) return t(`売上と材料費が伸び、『${c.best.nm}』が ${MONEY_LEVER.pay} か月で元を取れるようになったら打ちます`, `I’ll run “${c.best.nm}” once costs grow enough to pay it back in ${MONEY_LEVER.pay} months`);
-  return t('この部門の手は詰まりに効かないので、予算は会社に残し、詰まりが移ったらすぐ動きます', 'Our moves don’t touch the bottleneck; I’ll leave the budget with HQ until one does');
+  return t('この部門の手はボトルネックに効かないので、予算は会社に残し、ボトルネックが移ったらすぐ動きます', 'Our moves don’t touch the bottleneck; I’ll leave the budget with HQ until one does');
 }
 /** 目標の上乗せが押せないとき：何があれば見込みが出るか（1 行） */
 export function forecastHint(L: Lever | null | undefined, c?: Cause | null): string {
@@ -432,7 +432,7 @@ export function forecastHint(L: Lever | null | undefined, c?: Cause | null): str
     if (c?.k === 'cash') return t('見込みを出すには：会社の資金が取り置きを上回ること', 'A forecast needs cash above the reserve');
     if (c?.k === 'town') return c.why === 'dig' ? t('見込みを出すには：申請できる荒れ地', 'A forecast needs a site to permit') : c.why === 'legal' ? t('見込みを出すには：Epic の町', 'A forecast needs an Epic town') : t('見込みを出すには：伸びる出店の区画', 'A forecast needs a good site');
     if (c?.k === 'need' && c.best) return t(`見込みを出すには：元が取れる税・経費の手（『${c.best.nm}』はいま ${c.best.pay} か月）`, `A forecast needs a move that pays back (“${c.best.nm}” takes ${c.best.pay} months now)`);
-    return t('見込みを出すには：この部門の手が効く詰まりになること', 'A forecast needs a bottleneck this division can move');
+    return t('見込みを出すには：この部門の手が効くボトルネックになること', 'A forecast needs a bottleneck this division can move');
   }
   if (L.k === 'budget') return t(`見込みを出すには：予算 月 ${g(L.amt)}`, `For a forecast: ${g(L.amt)}/mo budget`);
   if (L.k === 'crew') return t(`見込みを出すには：従業員の上限 ${L.cap} 人`, `For a forecast: staff cap ${L.cap}`);
@@ -452,7 +452,7 @@ export function leverOpts(L: Lever): { name: string; val: string }[] {
 export function leverWhy(s: P1State, L: Lever, rec: 0 | 1): string {
   if (L.k === 'crew') return rec === 0 ? t(`給料は月の予算の内に収まる（月 +${g(L.wage)} まで）`, `Wages fit the budget (up to +${g(L.wage)}/mo)`) : t('給料が月の予算を圧迫する', 'Wages would squeeze the budget');
   if (L.k !== 'panel') return '';
-  if (!L.now) return t('次の詰まりへの備え。いまの売れる数は増えない', 'Prep for the next bottleneck; no gain today');
+  if (!L.now) return t('次のボトルネックへの備え。いまの売れる数は増えない', 'Prep for the next bottleneck; no gain today');
   const free = Math.max(0, s.money - headReserve(s));
   if (rec === 0) return L.cost ? t(`費用は自由に使える資金 ${g(free)} の ${Math.max(1, Math.round((L.cost / Math.max(1, free)) * 100))}%。見込み 月 +${g(L.val)}`, `Cost is ${Math.max(1, Math.round((L.cost / Math.max(1, free)) * 100))}% of free cash ${g(free)}; +${g(L.val)}/mo`) : t(`RP ${L.rp}（手持ち ${s.rp ?? 0}）。見込み 月 +${g(L.val)}`, `${L.rp} RP of ${s.rp ?? 0}; +${g(L.val)}/mo`);
   return L.rp > (s.rp ?? 0) * BOARD.lever.rp ? t(`RP が足りない（要る ${L.rp}・手持ち ${s.rp ?? 0}）`, `Not enough RP (${L.rp} of ${s.rp ?? 0})`) : t(`費用 ${g(L.cost)} が自由に使える資金 ${g(free)} に重い`, `${g(L.cost)} is heavy against free cash ${g(free)}`);

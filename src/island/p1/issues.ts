@@ -29,6 +29,8 @@ import { corpOf, policyName, policyOf, POL_OFF } from './policy';
 import { POLICY_OF } from './data';
 
 export type IssueKey = Stage | 'store' | 'cash' | 'profit' | 'morale' | 'sat' | 'brand' | 'rp';
+/** 段 UI9b：優先度の 3 段 */
+export type IssueLv = 'hi' | 'mid' | 'lo';
 export const STAGES: Stage[] = ['buy', 'craft', 'haul', 'sell'];
 /** 段 UI9：流れの段の制約の種類（人・設備・置き場所・需要）。手の種類（actKind）が合う手だけが、その課題を解く */
 export type Limit = 'people' | 'equip' | 'room' | 'demand';
@@ -50,6 +52,8 @@ export interface CoIssue {
   stopped?: boolean;
   /** 伸ばす課題（方針の大事な指標。低いからではない） */
   grow?: boolean;
+  /** 段 UI9b：優先度（高・中・低。score ÷ 月の粗利を ISSUE.lv で 3 段に。古いセーブの課題には無い：issueLv が pri から補う） */
+  lv?: IssueLv;
   /** 流れの段の制約の種類 */
   limit?: Limit;
   /** 解いたと言える最小の増え（流れ：売れる数 個／月。収益性：長期の利益 G） */
@@ -281,8 +285,18 @@ export function issuesOf(s: P1State): CoIssue[] {
   return out
     .filter((x) => x.days != null || x.impact >= floor || x.stopped)
     .sort((a, b) => tierOf(a) - tierOf(b) || b.score - a.score)
-    .map((x, k) => ({ ...x, pri: k + 1, loss: lossLine(x) }));
+    .map((x, k) => ({ ...x, pri: k + 1, lv: lvOf(x, gross), loss: lossLine(x) }));
 }
+/** 段 UI9b：優先度の 3 段（score ÷ 月の粗利。境は ISSUE.lv）。流れが止まっていれば「高」 */
+function lvOf(x: Pick<CoIssue, 'score' | 'stopped'>, gross: number): IssueLv {
+  if (x.stopped) return 'hi';
+  const r = x.score / Math.max(1, gross);
+  return r >= ISSUE.lv.hi ? 'hi' : r >= ISSUE.lv.mid ? 'mid' : 'lo';
+}
+/** 段 UI9b：課題の優先度（無ければ並びの番号から：1 位は高・2〜3 位は中・ほかは低） */
+export const issueLv = (x: Pick<CoIssue, 'pri'> & Partial<Pick<CoIssue, 'lv' | 'stopped'>>): IssueLv => x.lv ?? (x.stopped ? 'hi' : x.pri <= 1 ? 'hi' : x.pri <= 3 ? 'mid' : 'lo');
+/** 優先度の言葉（高・中・低） */
+export const lvWord = (lv: IssueLv) => ({ hi: t('高', 'High'), mid: t('中', 'Mid'), lo: t('低', 'Low') })[lv];
 /** 課題の段（0：お金の課題・1：士気と満足度が低い・2：伸ばす課題） */
 function tierOf(x: Pick<CoIssue, 'key' | 'grow'>): number {
   if (MONEY.includes(x.key) && x.key !== 'profit') return 0;
@@ -371,7 +385,7 @@ export function solvedBy(xs: CoIssue[], p: IssueProbe): CoIssue[] {
   });
 }
 export const moneyIssue = (k: IssueKey) => MONEY.includes(k);
-/** 課題の札の 1 行（「課題：販売がボトルネック（優先 1）」） */
-export const issueTag = (x: Pick<CoIssue, 'key' | 'pri'>) => t(`課題：${issueName(x.key)}（優先 ${x.pri}）`, `Issue: ${issueName(x.key)} (priority ${x.pri})`);
+/** 課題の札の 1 行（「課題：販売がボトルネック（優先度 高）」。段 UI9b：優先は 高・中・低） */
+export const issueTag = (x: Pick<CoIssue, 'key' | 'pri'> & Partial<Pick<CoIssue, 'lv' | 'stopped'>>) => t(`課題：${issueName(x.key)}（優先度 ${lvWord(issueLv(x))}）`, `Issue: ${issueName(x.key)} (priority: ${lvWord(issueLv(x))})`);
 /** 1 日あたりに直す（影響を受ける箇所の数字） */
 export const perDay = (v: number) => v / DAYS;

@@ -32,7 +32,7 @@ import { duoPages } from './duo';
 import { cardNav, showCard } from './cardui';
 import { crestEl, openDiplo } from './diploui';
 import { openProposal } from './proposalui';
-import { reportProposal } from './card';
+import { reportProposal, type Speech } from './card';
 import type { Plan } from './plan';
 import { diploOf, hostCost, landDef, meetPages, relOf, reqTerms, tradeTerms, type LandId } from './diplo';
 import { activeFx, evIcon, fxText, isGood, makeEvent, type EvKind } from './events';
@@ -4745,10 +4745,10 @@ function companyNews(c: NonNullable<ReturnType<typeof step>['company']>) {
 }
 
 /** 月次報告の画面からほかの画面へ */
-const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), openProps: () => openProps(ctx), openPay: () => openPayroll(ctx), openCs: () => openInboxScreen(), openLegal: () => openLegalScreen('ma'), openDiplo: () => goSub('sales', 'diplo'), openProposal: (plan: Plan, say: string, role: string) => {
+const reportHooks = () => ({ openSkills: (br?: string) => openSkills(ctx, br), openSupply: () => openSupply(ctx), openRanking: () => openRanking(ctx), openNotes: () => openNotes(ctx), openGrowth: () => openGrowth(ctx), openTrade: () => openTradeScreen(), openProps: () => openProps(ctx), openPay: () => openPayroll(ctx), openCs: () => openInboxScreen(), openLegal: () => openLegalScreen('ma'), openDiplo: () => goSub('sales', 'diplo'), openProposal: (plan: Plan, say: string, role: string, speech?: Speech) => {
   // 段 UI5a：月次報告の KPI ③「担当者からの提案」→ 提案書（報告は閉じる）
   closeSheet();
-  openProposal(ctx, plan, { say, role, done: () => renderAll() });
+  openProposal(ctx, plan, { say, role, speech, done: () => renderAll() });
 }, sfx: (k: Parameters<typeof sfx.play>[0]) => sfx.play(k) });
 
 function showReport(r: NonNullable<ReturnType<typeof step>['report']>) {
@@ -4952,7 +4952,7 @@ window.setTimeout(() => warmFx(), 3000);
     const r = s.reports[s.reports.length - 1];
     const p = r ? reportProposal(s, r) : null;
     if (!p) return false;
-    openProposal(ctx, p.plan, { say: p.say, role: p.role, done: () => renderAll() });
+    openProposal(ctx, p.plan, { say: p.say, role: p.role, speech: p.speech, done: () => renderAll() });
     return true;
   },
   edges: () => worldEls.filter((x) => x.dir).map((x) => ({ i: x.i, j: x.j, near: x.el.classList.contains('is-near'), text: x.el.textContent, dir: x.dir })),

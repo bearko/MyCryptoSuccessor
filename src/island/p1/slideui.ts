@@ -6,7 +6,10 @@
  */
 import { t } from '../../i18n';
 import { DEPT, POLICY, type DeptId } from './data';
-import { RISK_ICON, RISK_LV, perDayText, stackSegs, type Alt, type Fall, type GapRow, type Kpi, type Meter, type Milestone, type Stack, type StageMap } from './slides';
+import { ALT_STATUS, RISK_ICON, RISK_LV, perDayText, stackSegs, type Alt, type Fall, type GapRow, type IssueRow, type Kpi, type Meter, type Milestone, type Stack, type StageMap } from './slides';
+import { ISSUE_ICON } from './issues';
+import { rich } from './ui';
+import type { Speech } from './card';
 import type { StoreChart } from './storefc';
 export { storeNote } from './storefc';
 import type { Brief, Risk } from './brief';
@@ -197,8 +200,9 @@ export const chartHead = (text: string, note = '') => {
 // ---------------------------------------------------------------- 結論：タイル
 
 export function kpiTile(k: Kpi): HTMLElement {
-  const e = h('div', `isl-sl-kpi ${k.tone === 'delta' ? tone(k.v) : 'is-cost'}`);
+  const e = h('div', `isl-sl-kpi ${k.tone === 'delta' ? tone(k.v) : 'is-cost'} ${k.once ? 'is-once' : ''}`.trim());
   e.dataset.kpi = k.key;
+  if (k.once) e.dataset.once = '1';
   e.append(h('span', 'isl-sl-lab', `${k.icon} ${k.label}`));
   const num = h('b', 'isl-sl-num');
   // 段 UI9：桁の多い数字（7 桁以上）は少し小さく（2 列のタイルからはみ出さない）
@@ -223,7 +227,7 @@ const sv = <K extends keyof SVGElementTagNameMap>(tag: K, at: Record<string, str
 };
 /** 効果と費用のウォーターフォール（As-Is の利益 → 増収・費用 → To-Be）。chartkit の fallEl（縦の棒）に渡す */
 export function vfallEl(rows: Fall[], aria: string): HTMLElement {
-  const steps: Step[] = rows.map((r, k) => ({ key: `${r.kind}${k}`, name: r.kind === 'ask' || r.kind === 'setup' ? `${r.icon} ${r.label}` : r.kind === 'start' ? 'As-Is' : 'To-Be', kind: r.kind === 'start' ? 'start' : r.kind === 'total' ? 'total' : r.v >= 0 ? 'up' : 'down', v: r.v, from: r.from, to: r.to }));
+  const steps: Step[] = rows.map((r, k) => ({ key: `${r.kind}${k}`, name: r.kind === 'ask' || r.kind === 'setup' || r.kind === 'monthly' ? `${r.icon} ${r.label}` : r.kind === 'start' ? 'As-Is' : 'To-Be', kind: r.kind === 'start' ? 'start' : r.kind === 'total' ? 'total' : r.v >= 0 ? 'up' : 'down', v: r.v, from: r.from, to: r.to }));
   return fallEl(steps, aria);
 }
 export const vfallLegend = fallLegend;
@@ -232,8 +236,9 @@ export const vfallLegend = fallLegend;
  * 累計の折れ線（このまま：灰の点線・承認後：金の実線）。線の右端に名前と値（直接ラベル）。指を置くと月の値（十字の線と吹き出し）。
  * 幅は置かれた場所に合わせて描き直す（字はいつも 12px）
  */
-export function lineChart(now: number[], after: number[]): HTMLElement {
+export function lineChart(now: number[], after: number[], o: { once?: { month: number; label: string } } = {}): HTMLElement {
   const wrap = h('div', 'isl-sl-line');
+  if (o.once) wrap.dataset.once = String(o.once.month);
   const svg = sv('svg', { role: 'img', 'aria-label': t(`${POLICY.months} か月の利益の累計：このまま ${fmt(now[now.length - 1])} G、承認後 ${fmt(after[after.length - 1])} G`, `Cumulative profit over ${POLICY.months} months: as is ${fmt(now[now.length - 1])} G, after ${fmt(after[after.length - 1])} G`) });
   const tip = h('div', 'isl-sl-tip');
   tip.hidden = true;
@@ -270,8 +275,17 @@ export function lineChart(now: number[], after: number[]): HTMLElement {
       tx.textContent = t(`${k + 1} か月`, `M${k + 1}`);
       svg.append(tx);
     }
-    const path = (vs: number[]) => vs.map((v, k) => `${k ? 'L' : 'M'}${px(k).toFixed(1)},${py(v).toFixed(1)}`).join('');
-    svg.append(sv('path', { d: path(now), class: 'isl-sl-lnow' }), sv('path', { d: path(after), class: 'isl-sl-lafter' }));
+    const path = (vs: number[], from = 0) => vs.map((v, k) => (k < from ? '' : `${k === from ? 'M' : 'L'}${px(k).toFixed(1)},${py(v).toFixed(1)}`)).join('');
+    svg.append(sv('path', { d: path(now), class: 'isl-sl-lnow' }));
+    // 段 UI9b：単発の施策は、効き目が切れたあとの線を薄く（As-Is と同じ傾きになることが分かるように）・効き目の終わりに印
+    const cut = o.once ? Math.max(0, Math.min(n - 1, o.once.month)) : null;
+    if (cut != null && cut < n - 1) {
+      svg.append(sv('path', { d: path(after.slice(0, cut + 1)), class: 'isl-sl-lafter' }), sv('path', { d: path(after, cut), class: 'isl-sl-lafter is-fade' }));
+      svg.append(sv('line', { x1: px(cut), x2: px(cut), y1: T, y2: H - B, class: 'isl-sl-oncel' }));
+      const tx = sv('text', { x: px(cut) + 4, y: T + 10, class: 'isl-sl-axis isl-sl-oncet' });
+      tx.textContent = o.once!.label;
+      svg.append(tx);
+    } else svg.append(sv('path', { d: path(after), class: 'isl-sl-lafter' }));
     // 右端の名前と値（近すぎたら離す。同じなら 1 つに）
     if (Math.abs(now[n - 1] - after[n - 1]) < 0.5) {
       svg.append(sv('circle', { cx: px(n - 1), cy: py(after[n - 1]), r: 4, class: 'isl-sl-dot2 is-after' }));
@@ -674,16 +688,65 @@ export function gapTable(rows: GapRow[]): HTMLElement {
   }
   return e;
 }
-/** 代替案との比較の表（推奨の手を先頭に。効果・費用・回収） */
-export function altTable(xs: Alt[]): HTMLElement {
+/**
+ * 代替案との比較の表（本案を 1 行目に。残りは状態（効果が薄い・予算不足・実施中・提出済み・未解放・見送り）と数字つき）。
+ * 段 UI9b：「推奨」の札は出さない。未解放のパネルには研究の画面への導線（onSkill）
+ */
+export function altTable(xs: Alt[], onSkill?: (id: string) => void): HTMLElement {
   const e = h('div', 'isl-alt');
-  e.append(h('span', 'isl-alt-h', t('手', 'Move')), h('span', 'isl-alt-h', t('月の利益', 'Monthly')), h('span', 'isl-alt-h', t('12 か月', '12 months')), h('span', 'isl-alt-h', t('導入', 'Setup')), h('span', 'isl-alt-h', t('回収', 'Payback')));
+  e.append(h('span', 'isl-alt-h', t('月の利益', 'Monthly')), h('span', 'isl-alt-h', t('12 か月', '12 months')), h('span', 'isl-alt-h', t('導入', 'Setup')), h('span', 'isl-alt-h', t('回収', 'Payback')));
   for (const x of xs) {
-    const nm = h('span', `isl-alt-n ${x.chosen ? 'is-chosen' : ''}`);
-    if (x.chosen) nm.append(h('span', 'isl-alt-rec', t('推奨', 'Pick')));
-    nm.append(document.createTextNode(x.name));
-    if (!x.ok && !x.chosen) nm.append(h('small', 'isl-alt-no', t('見送り', 'not advised')));
-    e.append(nm, h('b', `isl-alt-v ${tone(x.dProfit)}`, sgn(x.dProfit, 'G')), h('b', `isl-alt-v ${tone(x.long)}`, sgn(x.long, 'G')), h('span', 'isl-alt-v', x.money > 0 ? gfmt(x.money) : t('なし', 'none')), h('span', 'isl-alt-v', x.payback != null ? t(`${x.payback} か月`, `${x.payback} mo`) : x.money > 0 ? '—' : t('即', 'at once')));
+    // 名前の行（4 列をまたぐ：状態の札・手の名前・状態の 1 行）→ 数字の行
+    const nm = h('div', `isl-alt-n ${x.chosen ? 'is-chosen' : ''} is-${x.status}`);
+    nm.dataset.status = x.status;
+    nm.append(h('span', `isl-alt-st is-${x.status}`, ALT_STATUS[x.status]()), h('b', '', x.name));
+    if (x.note) nm.append(h('small', 'isl-alt-no', x.note));
+    if (x.status === 'locked' && x.skill && onSkill) {
+      const id = x.skill;
+      const b = h('button', 'isl-btn isl-alt-go', t('🔬 研究の画面へ', '🔬 Open research'));
+      b.type = 'button';
+      b.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        onSkill(id);
+      });
+      nm.append(b);
+    }
+    const num = x.status === 'locked' || x.status === 'busy' || x.status === 'keep';
+    e.append(
+      nm,
+      num && !x.dProfit ? h('span', 'isl-alt-v isl-dim', '—') : h('b', `isl-alt-v ${tone(x.dProfit)}`, sgn(x.dProfit, 'G')),
+      num ? h('span', 'isl-alt-v isl-dim', '—') : h('b', `isl-alt-v ${tone(x.long)}`, sgn(x.long, 'G')),
+      h('span', 'isl-alt-v', x.status === 'locked' && x.rp ? `${x.rp} RP` : x.money > 0 ? gfmt(x.money) : t('なし', 'none')),
+      h('span', 'isl-alt-v', num ? '—' : x.payback != null ? t(`${x.payback} か月`, `${x.payback} mo`) : x.money > 0 ? '—' : t('即', 'at once')),
+    );
+  }
+  return e;
+}
+/** 段 UI9b：サマリーの課題の表（題名・優先度 高中低・影響） */
+export function issueTable(rows: IssueRow[]): HTMLElement {
+  const e = h('div', 'isl-isst');
+  e.append(h('span', 'isl-isst-h', t('課題', 'Issue')), h('span', 'isl-isst-h', t('優先度', 'Priority')), h('span', 'isl-isst-h', t('影響', 'Impact')));
+  for (const r of rows) {
+    const nm = h('span', 'isl-isst-n');
+    nm.dataset.issue = r.key;
+    nm.append(document.createTextNode(`${ISSUE_ICON[r.key]} ${r.name}`));
+    if (!r.solved) nm.append(h('small', 'isl-isst-miss', t('この提案では解けない', 'Not addressed here')));
+    e.append(nm, h('b', `isl-isst-lv is-${r.lv}`, r.lvText), h('span', 'isl-isst-imp', r.impact));
+  }
+  return e;
+}
+/** 段 UI9b：課題の定義のセリフ（現状・原因・対応の 3 段。数字に色） */
+export function speechEl(sp: Speech): HTMLElement {
+  const e = h('div', 'isl-speech');
+  for (const [lab, x] of [
+    [t('現状', 'Now'), sp.now],
+    [t('原因', 'Cause'), sp.cause],
+    [t('対応', 'Ask'), sp.ask],
+  ] as const) {
+    if (!x) continue;
+    const p = h('p', 'isl-speech-p');
+    p.append(h('span', 'isl-speech-lab', lab), rich(x));
+    e.append(p);
   }
   return e;
 }

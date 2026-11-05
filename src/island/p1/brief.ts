@@ -53,6 +53,8 @@ export interface Ask {
   money: number;
   rp: number;
   monthly: number;
+  /** 段 UI9b：効き目の日数（宣伝。単発の施策の判定に使う） */
+  days?: number;
 }
 /** 月あたりの見込み（宣伝は効く日数で日割り） */
 export interface Month {
@@ -60,11 +62,16 @@ export interface Month {
   units: number;
   /** 商品ごと：ひと月の数・1 個の材料費 */
   goods: { x: Sku; units: number; unit: number }[];
-  /** 材料費（売れる数 × 1 個の材料費）・毎月の費用（従業員・維持費）・合計・利益 */
+  /** 材料費（売れる数 × 1 個の材料費）・毎月の費用（この提案で変わるもの：従業員・維持費）・合計・利益 */
   mats: number;
   monthly: number;
   cost: number;
   profit: number;
+  /**
+   * 段 UI9b（追加 1）：いまの固定費（先月の給料・従業員・維持費。この提案で変わらないもの）。月の利益は月次報告の利益と同じ尺度
+   * （売上 − 材料費 − 毎月の費用 − 固定費）。As-Is・To-Be で同じ額なので、差（dProfit）は変わらない
+   */
+  fixed: number;
   /** 宣伝が効く日（この月のうち）。0 なら宣伝なし */
   adDays: number;
 }
@@ -198,8 +205,14 @@ export function actNoun(a: PropAct, shelves = false): string {
     }
     case 'level':
       return t(`『${SKILL[a.id]?.name ?? a.id}』の強化`, `a stronger ${SKILL[a.id]?.name ?? a.id}`);
-    case 'invest':
-      return a.id === 'rack' ? t('倉庫の強化', 'a warehouse upgrade') : a.id === 'dock' ? t('保管の強化', 'more hub storage') : t(`${INVEST[a.id]?.name ?? a.id}の導入`, INVEST[a.id]?.name ?? a.id);
+    case 'invest': {
+      if (a.id === 'rack') return t('倉庫の強化', 'a warehouse upgrade');
+      if (a.id === 'dock') return t('保管の強化', 'more hub storage');
+      // 段 UI9b：名前が動詞で終わる設備（「棚を増やす」「看板を出す」）は名詞に（「棚の増設」「看板の設置」。「〜の導入」を重ねない）
+      const nm = INVEST[a.id]?.name ?? a.id;
+      const noun = INVEST_NOUN[a.id];
+      return noun ? noun() : t(/[するくう]$/.test(nm) ? nm : `${nm}の導入`, nm); // i18n-ja
+    }
     case 'build':
       return a.id === 'warehouse' ? t('倉庫の建設', 'a warehouse') : a.id === 'logistics' ? t('物流拠点の建設', 'a hub') : P1B[a.id]?.kind === 'shop' ? t('出店', 'a new shop') : t(`${nameOfB(a.id)}の建設`, nameOfB(a.id));
     case 'hire':
@@ -225,6 +238,20 @@ export function actNoun(a: PropAct, shelves = false): string {
       return t('名物店主', 'a celebrity shopkeeper');
   }
 }
+/** 段 UI9b：設備の名詞形（要約の一言・セリフに入れる形） */
+const INVEST_NOUN: Record<string, () => string> = {
+  shelves: () => t('棚の増設', 'an extra shelf'),
+  sign: () => t('看板の設置', 'a sign'),
+  staffroom: () => t('控室の増設', 'a staff room'),
+  fixtures: () => t('什器の導入', 'display fixtures'),
+  backroom: () => t('裏の倉庫の拡張', 'a bigger back room'),
+  bench: () => t('作業台の増設', 'an extra bench'),
+  carts: () => t('荷車の増車', 'more carts'),
+  truck: () => t('小型トラックの導入', 'a small truck'),
+  stockroom: () => t('物置の整理', 'a tidier stockroom'),
+  tools: () => t('道具の新調', 'new tools'),
+  breakroom: () => t('休憩所の設置', 'a break room'),
+};
 /** 承認事項の 1 行の頭（種類） */
 function askCat(a: PropAct): string {
   switch (a.k) {
@@ -445,8 +472,23 @@ export function monthOf(st: P1State, monthly: number, sellOnly = false): Month {
     monthly,
     cost: mats + monthly,
     profit: sales - mats - monthly,
+    fixed: 0,
     adDays,
   };
+}
+/**
+ * 段 UI9b（追加 1）：いまの固定費（月次報告の利益と同じ尺度にするための額）。先月の報告の給料・従業員・維持費（宣伝は導入費用として別に数える）。
+ * 報告が無ければ、いまの給料と維持費（deleg.ts の reserveOf から目安の余白を除いたもの）
+ */
+export function fixedOf(s: P1State): number {
+  const r = s.reports[s.reports.length - 1];
+  if (r) return (r.costs.wages ?? 0) + (r.costs.part ?? 0) + (r.costs.upkeep ?? 0);
+  return Math.max(0, reserveOf(s) - 3000);
+}
+/** 固定費を引いた月（As-Is・To-Be に同じ額） */
+export function withFixed(m: Month, fixed: number): Month {
+  if (m.fixed === fixed) return m;
+  return { ...m, cost: m.cost - m.fixed + fixed, profit: m.profit + m.fixed - fixed, fixed };
 }
 
 /** 割合の差（前が 0 なら null） */
@@ -457,6 +499,8 @@ const sg = (v: number) => `${v >= 0.5 ? '+' : v <= -0.5 ? '−' : '±'}${Math.ab
 /** 月の費用の内訳（材料費は商品ごとにまとめて 1 行・毎月の費用は払うものごと）。合計の差は after.cost − now.cost と一致する */
 export function costRows(now: Month, after: Month, cost: PlanCost): CostRow[] {
   const rows: CostRow[] = [{ label: t('材料費', 'Materials'), now: now.mats, after: after.mats }];
+  // 段 UI9b（追加 1）：いまの固定費（給料・従業員・維持費）は As-Is・To-Be で同じ額（月次報告の利益と同じ尺度）
+  if (now.fixed > 0.5 || after.fixed > 0.5) rows.push({ label: t('給料・維持費（いまの固定費）', 'Wages and upkeep (current fixed costs)'), now: now.fixed, after: after.fixed });
   for (const it of cost.items) if (it.monthly) rows.push({ label: it.label, now: 0, after: it.monthly });
   return rows;
 }
@@ -480,8 +524,9 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
   const dept = p.dept ?? (p.acts[0] ? actDept(p.acts[0]) : null);
   // 段 UI7e：倉庫があふれた町・使い切りの手は、月ごとの見込み（proj.ts）の 1 か月目
   const P = projFor(s, p, base, after, cost);
-  const now = P ? toMonth(P.now1, base) : monthOf(base, 0, so);
-  const aft = P ? toMonth(P.after1, after) : monthOf(after, cost.monthly, so);
+  const fixed = fixedOf(s);
+  const now = withFixed(P ? toMonth(P.now1, base) : monthOf(base, 0, so), fixed);
+  const aft = withFixed(P ? toMonth(P.after1, after) : monthOf(after, cost.monthly, so), fixed);
   // 段 S1：数字の教えで読みの誤差が小さい（lesson.ts の readErr）
   const err = readErr(s, p.q);
   // 承認事項（段 UI7d：askGroups の行ごと。費用は planCost の内訳を、その行の step の分だけ足す）
@@ -500,6 +545,7 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
       money: its.reduce((x, it) => x + (it.money ?? 0), 0),
       rp: its.reduce((x, it) => x + (it.rp ?? 0), 0),
       monthly: its.reduce((x, it) => x + (it.monthly ?? 0), 0),
+      ...(p.acts[gr.act].k === 'ad' ? { days: adOf((p.acts[gr.act] as { id: string }).id)?.days ?? 0 } : {}),
     };
   });
   // 手ごとの分：承認事項の行を 1 つずつ足して、増えた分をその行の分に（最後は提案の全部と同じ。合計は提案の差と一致する）
@@ -513,7 +559,7 @@ export function briefOf(s: P1State, p: Plan, o: BriefOpts = {}, base = baseOf(s)
       const sub = last ? p : subPlan(p, [...upto].sort((a, b) => a - b));
       const a2 = last ? after : afterOf(s, sub);
       const c2 = last ? cost : planCost(s, sub);
-      const m = last ? aft : P ? toMonth(projFor(s, sub, base, a2, c2, true)!.after1, a2) : monthOf(a2, c2.monthly, so);
+      const m = withFixed(last ? aft : P ? toMonth(projFor(s, sub, base, a2, c2, true)!.after1, a2) : monthOf(a2, c2.monthly, so), fixed);
       parts.push({ n: k, dept: x.dept, own: x.own, what: x.what, kind: x.kind, dSales: m.sales - prev.sales, dProfit: m.profit - prev.profit, money: x.money });
       prev = m;
     });
@@ -660,7 +706,7 @@ export function recOf(b: Pick<Brief, 'block' | 'co' | 'vals'> & Partial<Pick<Bri
     // いちばんの課題と、SCM のボトルネック（違えば両方）
     const fl = b.iss.find((x) => isFlowKey(x.key));
     const nm = [top, fl && fl !== top ? fl : null].filter((x): x is CoIssue => !!x).map((x) => issueName(x.key)).join(t('・', ', '));
-    return { rec: 'skip', no: 'issue', why: nm ? t(`見送る：課題（${nm}）の解消につながらない（制約の種類に合わないか、処理量の増えが小さい）`, `Pass: doesn’t resolve the issue (${nm}); wrong kind of move or too small a gain`) : t('見送る：解くべき課題が無い（提案の前提が成り立たない）', 'Pass: no issue to resolve (the premise doesn’t hold)') };
+    return { rec: 'skip', no: 'issue', why: nm ? t(`見送る：課題（${nm}）の解消につながらない（制約の種類に合わないか、処理量の増加が小さい）`, `Pass: doesn’t resolve the issue (${nm}); wrong kind of move or too small a gain`) : t('見送る：解くべき課題が無い（提案の前提が成り立たない）', 'Pass: no issue to resolve (the premise doesn’t hold)') };
   }
   const L = v.list.find((m) => m.key === 'long');
   // 止まっている流れを戻す手は、その月の損では見送りにしない（流れを戻すのが先）
@@ -710,8 +756,9 @@ export function judgeOf(s: P1State, p: Plan, iss: CoIssue[], base = baseOf(s)): 
   const block = planBlock(s, p, cost);
   const so = stockPlan(p);
   const P = projFor(s, p, base, after, cost);
-  const now = P ? toMonth(P.now1, base) : monthOf(base, 0, so);
-  const aft = P ? toMonth(P.after1, after) : monthOf(after, cost.monthly, so);
+  const fixed = fixedOf(s);
+  const now = withFixed(P ? toMonth(P.now1, base) : monthOf(base, 0, so), fixed);
+  const aft = withFixed(P ? toMonth(P.after1, after) : monthOf(after, cost.monthly, so), fixed);
   const vals = valuesOf(s, p, { base, after, now, aft, cost, so, proj: P });
   const solved = issuesOfPlan(iss, p, base, after, now, aft, vals);
   const issue = solved[0] ?? null;
@@ -856,9 +903,11 @@ export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1Sta
   const after = o.after ?? afterOf(s, p);
   const cost = o.cost ?? planCost(s, p);
   const P = o.proj !== undefined ? o.proj : projFor(s, p, base, after, cost);
-  const now = o.now ?? (P ? toMonth(P.now1, base) : monthOf(base, 0, so));
-  const aft = o.aft ?? (P ? toMonth(P.after1, after) : monthOf(after, cost.monthly, so));
+  const fixed = fixedOf(s);
+  const now = withFixed(o.now ?? (P ? toMonth(P.now1, base) : monthOf(base, 0, so)), fixed);
+  const aft = withFixed(o.aft ?? (P ? toMonth(P.after1, after) : monthOf(after, cost.monthly, so)), fixed);
   const B = baseInfo(s, base, so);
+  const settled = withFixed(B.settled[so ? 1 : 0], fixed);
   const sat1 = satSettle(s, after);
   const brand1 = brandRate(after, sat1 ?? (csOn(after) ? after.cs?.sat ?? null : null));
   const morale1 = moraleAvg(after);
@@ -868,12 +917,12 @@ export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1Sta
   const rest = shot ? lastingPlan(p) : p;
   let set1: Month;
   if (P) set1 = aft;
-  else if (!rest) set1 = { ...B.settled[so ? 1 : 0], monthly: cost.monthly, cost: B.settled[so ? 1 : 0].cost + cost.monthly, profit: B.settled[so ? 1 : 0].profit - cost.monthly };
-  else if (rest === p) set1 = monthOf(settleOf(after, sat1, brand1), cost.monthly, so);
+  else if (!rest) set1 = { ...settled, monthly: cost.monthly, cost: settled.cost + cost.monthly, profit: settled.profit - cost.monthly };
+  else if (rest === p) set1 = withFixed(monthOf(settleOf(after, sat1, brand1), cost.monthly, so), fixed);
   else {
     const a2 = afterOf(s, rest);
     const sat2 = satSettle(s, a2);
-    set1 = monthOf(settleOf(a2, sat2, brandRate(a2, sat2 ?? (csOn(a2) ? a2.cs?.sat ?? null : null))), cost.monthly, so);
+    set1 = withFixed(monthOf(settleOf(a2, sat2, brandRate(a2, sat2 ?? (csOn(a2) ? a2.cs?.sat ?? null : null))), cost.monthly, so), fixed);
   }
   const M = POLICY.months;
   const list: Metric[] = [];
@@ -889,8 +938,8 @@ export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1Sta
       : t('短期：次の 1 か月の利益（宣伝は効く日数で日割り）から導入の費用を引いたもの', 'Short: next month’s profit (ads pro-rated) minus setup'),
   });
   const sum = (xs: number[]) => xs.reduce((a, x) => a + x, 0);
-  const longNow = P ? sum(P.now) : now.profit + B.settled[so ? 1 : 0].profit * (M - 1);
-  const longAft = P ? sum(P.after) - cost.money : aft.profit + set1.profit * (M - 1) - cost.money;
+  const longNow = P ? sum(P.now) - fixed * M : now.profit + settled.profit * (M - 1);
+  const longAft = P ? sum(P.after) - fixed * M - cost.money : aft.profit + set1.profit * (M - 1) - cost.money;
   const longWhy = P
     ? projWhy(P, M)
     : t(`長期：1 か月目 ＋ 落ち着いたときの月の利益 × ${M - 1} − 導入（宣伝は 1 か月目だけ。士気・満足度・ブランドの売上への効きも入れる）`, `Month 1 + settled monthly profit × ${M - 1} − setup (ads only in month 1; includes morale, satisfaction and brand effects on sales)`);
@@ -900,7 +949,7 @@ export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1Sta
     const r = [...s.reports].reverse().find((x) => x.cs);
     list.push({ key: 'sat', now: B.sat, after: sat1, d: sat1 - B.sat, why: t(`満足度：先月の問い合わせ ${r?.cs?.got ?? 0} 件と、自動で受ける割合・調査の効きから、落ち着く先（CS）`, `Where it settles, from last month’s ${r?.cs?.got ?? 0} inquiries, auto-handling and survey effects (CS)`) });
   }
-  if (Math.abs(brand1 - B.brand) >= 0.5) list.push({ key: 'brand', now: B.brand * M, after: brand1 * M, d: (brand1 - B.brand) * M, why: t(`ブランド：月の増え ${sn(B.brand)} → ${sn(brand1)}（ブランド広告・広報室・取り組みのパネル・満足度 ${CS.brandHi} 以上）× ${M} か月`, `Monthly gain ${sn(B.brand)} → ${sn(brand1)} (brand ads, PR, initiatives, satisfaction ≥ ${CS.brandHi}) × ${M}`) });
+  if (Math.abs(brand1 - B.brand) >= 0.5) list.push({ key: 'brand', now: B.brand * M, after: brand1 * M, d: (brand1 - B.brand) * M, why: t(`ブランド：月の増加 ${sn(B.brand)} → ${sn(brand1)}（ブランド広告・広報室・取り組みのパネル・満足度 ${CS.brandHi} 以上）× ${M} か月`, `Monthly gain ${sn(B.brand)} → ${sn(brand1)} (brand ads, PR, initiatives, satisfaction ≥ ${CS.brandHi}) × ${M}`) });
   const rpNow = B.rp * M;
   const rpAft = rp1 * M - cost.rp;
   if (Math.abs(rpAft - rpNow) >= 1) list.push({ key: 'rp', now: rpNow, after: rpAft, d: rpAft - rpNow, why: cost.rp ? t(`研究：使う ${cost.rp} RP と、先月の発掘の RP × 発掘の倍率 × ${M} か月`, `${cost.rp} RP spent, plus last month’s dig RP × dig multipliers × ${M}`) : t(`研究：先月の発掘の RP × 発掘の倍率 × ${M} か月`, `Last month’s dig RP × dig multipliers × ${M}`) });
@@ -919,7 +968,7 @@ export function valuesOf(s: P1State, p: Plan, o: { base?: P1State; after?: P1Sta
     else parts[m.key] = W[m.key] * m.d * POLICY.unit[m.key] * scale;
   }
   const value = Object.values(parts).reduce((a, x) => a + x, 0);
-  const months = P ? { now: P.now, after: P.after.map((x, k) => (k ? x : x - cost.money)), jam0: P.jam0, jam1: P.jam1, out0: P.out0, room: P.room, ...(P.use ? { use: P.use } : {}), full0: P.full0, full1: P.full1, cut: P.cut, ramp: P.ramp } : null;
+  const months = P ? { now: P.now.map((x) => x - fixed), after: P.after.map((x, k) => (k ? x - fixed : x - fixed - cost.money)), jam0: P.jam0, jam1: P.jam1, out0: P.out0, room: P.room, ...(P.use ? { use: P.use } : {}), full0: P.full0, full1: P.full1, cut: P.cut, ramp: P.ramp } : null;
   return { policy, names, list, value, parts, scale, rpG, ...(shot ? { shot } : {}), ...(months ? { months } : {}) };
 }
 
@@ -942,7 +991,7 @@ export function projFor(s: P1State, p: Plan, base: P1State, after: P1State, cost
 }
 /** 月ごとの見込み → Month（宣伝の日数はその状態から） */
 function toMonth(m: PMonth, st: P1State): Month {
-  return { ...m, adDays: Math.min(DAYS, Math.max(0, ...ADS.map((a) => st.ads[a.id] ?? 0))) };
+  return { ...m, fixed: 0, adDays: Math.min(DAYS, Math.max(0, ...ADS.map((a) => st.ads[a.id] ?? 0))) };
 }
 /** 長期の注記（月ごとに数えたとき） */
 function projWhy(P: Proj, M: number): string {
@@ -956,7 +1005,7 @@ function projWhy(P: Proj, M: number): string {
     const w = P.full0 < 1 ? t('倉庫はもうあふれていて', 'Storage is already full') : t(`このペースだと ${Math.round(P.full0)} 日目に倉庫があふれ`, `At this pace storage fills on day ${Math.round(P.full0)}`);
     const after = [
       P.ramp != null ? t(`その ${Math.round(P.ramp)} 日後には置き場所が無くなり調達と製造が止まる（事業への影響：月の粗利まるごと）`, `${Math.round(P.ramp)} days later storage runs out and buying and crafting stop (impact: the whole month’s gross profit)`) : '',
-      c > 0 ? t(`処理量が売れ残りの増えぶん（月 ${c} 個）減る（売上は減らない）`, `throughput drops by the unsold growth (${c}/mo; sales don’t drop)`) : '',
+      c > 0 ? t(`処理量が売れ残りの増加ぶん（月 ${c} 個）減る（売上は減らない）`, `throughput drops by the unsold growth (${c}/mo; sales don’t drop)`) : '',
     ].filter(Boolean).join(t('・', '; '));
     bits.push(t(`${w}、そこから調達係は空いたぶんしか買えない。${after}`, `${w}; then buyers only refill freed space. ${after}`));
     bits.push(P.full1 == null ? t(`To-Be：${M} か月のうちにあふれない`, `To-Be: doesn’t fill within ${M} months`) : P.full1 > P.full0 + 0.5 ? t(`To-Be：${Math.round(P.full1)} 日目にあふれる（${Math.round(P.full1 - P.full0)} 日遅れる）`, `To-Be: fills on day ${Math.round(P.full1)} (${Math.round(P.full1 - P.full0)} days later)`) : t('この手は倉庫には効かない（あふれる日は同じ）', 'This move doesn’t affect storage (same fill day)'));
@@ -1088,7 +1137,7 @@ export function bgOf(s: P1State, p: Plan, b: Pick<Brief, 'now' | 'vals' | 'theme
       out.push(t(`ブランド力 ${Math.round(s.brand ?? 0)} / 上限 ${brandCap(s)} — 企業ランキング`, `Brand ${Math.round(s.brand ?? 0)} / cap ${brandCap(s)} — Ranking`));
       const m = mval(b, 'brand');
       const rate = m ? m.now / POLICY.months : brandRate(s, csOn(s) ? s.cs?.sat ?? null : null);
-      out.push(t(`ブランド力の月の増え ${sn(rate)}（ブランド広告・広報室・取り組みのパネル・満足度）— 月次報告`, `Brand gain ${sn(rate)}/mo (brand ads, PR, initiatives, satisfaction) — monthly report`));
+      out.push(t(`ブランド力の月の増加 ${sn(rate)}（ブランド広告・広報室・取り組みのパネル・満足度）— 月次報告`, `Brand gain ${sn(rate)}/mo (brand ads, PR, initiatives, satisfaction) — monthly report`));
       if (r) out.push(t(`エリア ${r.rank} 位 — 企業ランキング`, `Area rank #${r.rank} — Ranking`));
       break;
     }
@@ -1134,7 +1183,7 @@ export function bgOf(s: P1State, p: Plan, b: Pick<Brief, 'now' | 'vals' | 'theme
           const pm = Math.round(F.perDay * DAYS);
           const from = F.src === 'hist' ? t(`直近 ${F.hist.length} か月の月末の記録`, `last ${F.hist.length} month-end records`) : t('先月の買った・作った・運んだ数', 'last month’s bought, made and hauled');
           const when = F.days != null ? t(`。${whenFull(F.days)}あふれる`, `; fills ${whenFull(F.days)}`) : '';
-          out.push(t(`倉庫の中身の増え 月 ${pm >= 0 ? '+' : '−'}${Math.abs(pm)} 個${when} — ${from}`, `Storage grows ${pm >= 0 ? '+' : '−'}${Math.abs(pm)}/mo${when} — ${from}`));
+          out.push(t(`倉庫の中身の増加 月 ${pm >= 0 ? '+' : '−'}${Math.abs(pm)} 個${when} — ${from}`, `Storage grows ${pm >= 0 ? '+' : '−'}${Math.abs(pm)}/mo${when} — ${from}`));
         }
       }
       // 4 段の細いところ（物流・設備・システム・経営企画）
@@ -1146,7 +1195,8 @@ export function bgOf(s: P1State, p: Plan, b: Pick<Brief, 'now' | 'vals' | 'theme
     }
   }
   // お金の締め（どの種類でも、残りの 1 行に）
-  if (r) out.push(t(`先月の売上 ${g(r.revenue)}・利益 ${g(r.profit)} — 月次報告`, `Last month: sales ${g(r.revenue)}, profit ${g(r.profit)} — monthly report`));
+  // 段 UI9b（追加 1）：月次報告の利益は仕入れ・建築・宣伝の支出込み（現金ベース）。提案書の月の利益（売上 − 材料費 − 給料・維持費）と尺度が違うことを書く
+  if (r) out.push(t(`先月の売上 ${g(r.revenue)}・利益 ${g(r.profit)}（仕入れ・建築・宣伝の支出込み）— 月次報告`, `Last month: sales ${g(r.revenue)}, profit ${g(r.profit)} (incl. purchases, building and ad spend) — monthly report`));
   else out.push(t(`売上の見込み 月 ${g(b.now.sales)} — いまの見込み`, `Sales estimate ${g(b.now.sales)}/mo — current estimate`));
   return out.slice(0, 3);
 }
@@ -1215,7 +1265,7 @@ export function riskList(s: P1State, p: Plan, b: Brief, base: P1State, after: P1
   // 読みの下振れ（読みの確かさの誤差だけ、効き目が小さかったとき）
   if (Math.abs(b.dProfit) >= 0.5 && b.err > 0) {
     const low = b.dProfit - Math.abs(b.dSales) * b.err;
-    push(t(`読みが外れて売上の増えが ${Math.round(b.err * 100)}% 小さいとき：月の利益 ${sg(low)}（${g(b.now.profit + low)}）`, `If the sales gain is ${Math.round(b.err * 100)}% smaller: profit ${sg(low)}/mo (${g(b.now.profit + low)})`), low < -0.5 ? 3 : b.err >= 0.15 ? 2 : 1, 'read');
+    push(t(`予測が外れて売上の増加が ${Math.round(b.err * 100)}% 小さいとき：月の利益 ${sg(low)}（${g(b.now.profit + low)}）`, `If the sales gain is ${Math.round(b.err * 100)}% smaller: profit ${sg(low)}/mo (${g(b.now.profit + low)})`), low < -0.5 ? 3 : b.err >= 0.15 ? 2 : 1, 'read');
   }
   // 宣伝は効く日数だけ
   for (const a of p.acts) {
@@ -1224,7 +1274,7 @@ export function riskList(s: P1State, p: Plan, b: Brief, base: P1State, after: P1
     if (!ad) continue;
     const cost = b.asks.find((x) => p.acts[x.act] === a)?.money ?? 0;
     push(t(`宣伝は ${ad.days} 日だけ効く（期待効果は日割り）。続けるなら、そのたびに ${g(cost)}`, `The ad lasts ${ad.days} days (effect pro-rated). Repeating costs ${g(cost)} each time`), 1, 'ad');
-    if (ad.days < DAYS && b.parts.length === 0 && b.dProfit < cost) push(t(`この宣伝だけでは、費用 ${g(cost)} を月の利益の増え（${sg(b.dProfit)}）で取り戻せない見込み`, `The extra profit (${sg(b.dProfit)}) won’t cover the ${g(cost)} cost`), 2, 'ad');
+    if (ad.days < DAYS && b.parts.length === 0 && b.dProfit < cost) push(t(`この宣伝だけでは、費用 ${g(cost)} を月の利益の増加（${sg(b.dProfit)}）で取り戻せない見込み`, `The extra profit (${sg(b.dProfit)}) won’t cover the ${g(cost)} cost`), 2, 'ad');
   }
   // 売れ残り・在庫：作らなくなる商品・注文する素材
   if (p.drop) {
@@ -1236,7 +1286,7 @@ export function riskList(s: P1State, p: Plan, b: Brief, base: P1State, after: P1
     const n = orders.reduce((a, x) => a + x.lots * LOT, 0);
     push(
       t(
-        `素材を ${n} 個注文（${orders.map((x) => MATS[x.m].name).join('・')}）。売れ方が読みより悪いと倉庫に残る（置き場所 ${poolUsed(s) + n} / ${poolCap(s)} 個）`,
+        `素材を ${n} 個注文（${orders.map((x) => MATS[x.m].name).join('・')}）。売れ方が予測より悪いと倉庫に残る（置き場所 ${poolUsed(s) + n} / ${poolCap(s)} 個）`,
         `Orders ${n} materials. If sales lag, they sit in storage (${poolUsed(s) + n} / ${poolCap(s)})`,
       ),
       poolUsed(s) + n > poolCap(s) * 0.9 ? 2 : 1,
@@ -1245,7 +1295,7 @@ export function riskList(s: P1State, p: Plan, b: Brief, base: P1State, after: P1
   }
   // 新しく作る商品のうち、売れる見込みが小さいもの
   const thin = (p.goods ?? []).filter((x) => (b.after.goods.find((y) => y.x === x)?.units ?? 0) < 3);
-  if (thin.length) push(t(`新しい商品（${thin.map((x) => goodsName(x)).join('・')}）は売れ方が読みにくい（月 3 個未満の見込み）`, `New items (${thin.map((x) => goodsName(x)).join(', ')}) are hard to read (<3/mo)`), 2, 'stock');
+  if (thin.length) push(t(`新しい商品（${thin.map((x) => goodsName(x)).join('・')}）は売れ方の予測が難しい（月 3 個未満の見込み）`, `New items (${thin.map((x) => goodsName(x)).join(', ')}) are hard to read (<3/mo)`), 2, 'stock');
   // ほかの部門への影響（製造の切り替え・人の移動・依頼する手）
   for (const st of p.steps) {
     if (st.k === 'make') {

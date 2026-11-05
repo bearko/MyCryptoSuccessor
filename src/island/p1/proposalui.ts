@@ -15,9 +15,9 @@ import { DEPT, POLICY, PRODUCT, skuParts, type Sku } from './data';
 import { bottleneck, poolCap, poolUsed, stageCaps, staffOf, DAYS, type P1State, type Stage } from './model';
 import { afterOf, applyPlan, baseOf, planRows, planTitle, shopNm, type Cell, type Plan, type PlanRes, type Row } from './plan';
 import { METRIC_TEXT, askTo, briefOf, chip, type Brief, type Metric } from './brief';
-import { RISK_LV, SLIDE_NAME, SRC_NAME, altsOf, askIcon, counterOf, fallOf, gapRows, headlineOf, kpisOf, longLine, metersOf, paybackOf, projLines, propStacks, roomKpi, shortWhat, slideKinds, slideTitle, srcOfPlan, stageMap, timelineOf, topRisks, type PropSrc, type SlideId } from './slides';
-import { altTable, budgetLabels, chartHead, deck, deptChip, fundsStack, gapTable, infoTip, kpiTile, lineChart, lineLegend, meterEl, riskPair, slideBox, stack100El, stack100Of, stageMapEl, storeChartEl, storeLegend, storeNote, timelineEl, vfallEl, vfallLegend } from './slideui';
-import { ISSUE_ICON, issueName, type CoIssue } from './issues';
+import { RISK_LV, SLIDE_NAME, SRC_NAME, altOnly, altsOf, askIcon, briefSpeech, counterOf, fallOf, gapRows, headlineOf, issueRows, kpisOf, longLine, metersOf, onceOf, paybackOf, projLines, propStacks, roomKpi, shortWhat, slideKinds, slideTitle, srcOfPlan, stageMap, timelineOf, topRisks, type PropSrc, type SlideId } from './slides';
+import { altTable, budgetLabels, chartHead, deck, deptChip, fundsStack, gapTable, infoTip, issueTable, kpiTile, lineChart, lineLegend, meterEl, riskPair, slideBox, speechEl, stack100El, stack100Of, stageMapEl, storeChartEl, storeLegend, storeNote, timelineEl, vfallEl, vfallLegend } from './slideui';
+import { ISSUE_ICON, issueLv, issueName, lvWord, type CoIssue } from './issues';
 import { storeChart } from './storefc';
 import { useUpOf } from './proj';
 import { askDue, policyName } from './policy';
@@ -25,14 +25,16 @@ import { openPolicyPick } from './policyui';
 import { after, chooseMake, type Ctx } from './screens';
 import { pickMake } from './stockui';
 import { craftable } from './orders';
-import { btn, extImage, h, heroIcon, heroName, money, recTag, rich, signCls, signed, skuIcon } from './ui';
-import { cardInbox, goneLine, inTutorial, starOf, withdrawCard } from './card';
+import { btn, extImage, h, heroIcon, heroName, money, rich, signCls, signed, skuIcon } from './ui';
+import { cardInbox, goneLine, inTutorial, speechText, starOf, withdrawCard, type Speech } from './card';
 import { goodsName } from './moves';
 import { actName } from './deleg';
 
 export interface ProposalOpts {
   /** 現状の課題（担当者のセリフ。[[ ]] で色） */
   say?: string;
+  /** 段 UI9b：3 段のセリフ（現状 → 原因 → 対応。カードから開いた提案書。無ければ課題と承認事項から作る：slides.ts の briefSpeech） */
+  speech?: Speech;
   /** 肩書き（「よろず屋の店長」） */
   role?: string;
   /** 承認：既定は applyPlan（カード・受け箱は approveCard を渡す） */
@@ -204,6 +206,8 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   const say = B.say ?? o.say;
   // 段 UI9：メッセージ型の見出し・一言（課題 → 打ち手 → 効果と回収）。打ち手の短い名前は承認事項の 1 行目
   const what = B.asks[0] ? shortWhat(B.asks[0].what) : plan.acts[0] ? actName(s, plan.acts[0]) : planTitle(s, plan);
+  // 段 UI9b：3 段のセリフ（カードの speechOf。カードが無ければ課題と承認事項から）
+  const speech: Speech = o.speech ?? briefSpeech(B, what, plan.hero, s.day);
   const card = o.card != null ? (cardInbox(s).find((c) => c.id === o.card) ?? null) : null;
   const err = t(`予測精度 ±${pct(B.err)}`, `Forecast accuracy ±${pct(B.err)}`);
 
@@ -213,22 +217,38 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
     switch (id) {
       // ① エグゼクティブサマリー：課題の札（重要度・緊急度）・メッセージ型の一言・KPI（短期・長期・導入・回収・効くまで）・推奨と根拠・承認事項
       case 'sum': {
-        body.append(issueStrip(B));
+        // 段 UI9b：課題は表（題名・優先度 高中低・影響）。ⓘ で会社の課題の一覧
+        const it = issueTable(issueRows(B));
+        if (B.iss.length) it.querySelector('.isl-isst-h')?.append(infoTip(B.iss.slice(0, 6).map((x) => t(`${lvWord(issueLv(x))}：${issueName(x.key)}：${x.note}。${x.loss}`, `${lvWord(issueLv(x))}: ${issueName(x.key)}: ${x.note}. ${x.loss}`)), t('会社の課題の一覧', 'Company issues')));
+        body.append(it);
+        // 段 UI9b（追加 2）：サマリー文（最初の 100〜150 字）はカードのセリフと同じ仕組み（意味の層 → 型 → 語り口）。メッセージ型の一言は ⓘ に
         const pitch = h('p', 'isl-prop-pitch');
-        pitch.append(document.createTextNode(headlineOf(B, what)));
+        pitch.append(rich(speechText(speech)), infoTip(headlineOf(B, what), t('一言で', 'In one line')));
         body.append(pitch);
         const grid = h('div', 'isl-sl-kpis');
-        for (const k of kpisOf(B, roomKpi(poolUsed(base), poolCap(base), poolCap(aft)))) {
+        for (const k of kpisOf(B, roomKpi(poolUsed(base), poolCap(base), poolCap(aft)), { pick: true })) {
           const tile = kpiTile(k);
           const m = B.vals.list.find((x) => x.key === k.key);
           if (m) tile.querySelector('.isl-sl-lab')?.append(infoTip(m.why, t(`${k.label}の計算のしかた`, `How ${k.label} is worked out`)));
           grid.append(tile);
         }
         body.append(grid);
+        // 段 UI9b：「承認する」の欄は箇条書き（手ごとに 1 行：部門・手・費用）。「推奨」の札は出さない（承認が基本）
         const rec = h('div', `isl-sl-rec ${B.rec === 'ok' ? 'is-ok' : 'is-skip'}`);
         const top = h('div', 'isl-sl-rectop');
-        top.append(recTag(), h('b', '', B.rec === 'ok' ? t('承認する', 'Approve') : t('見送る', 'Pass')));
-        rec.append(top, h('p', 'isl-prop-why', B.why));
+        top.append(h('b', '', B.rec === 'ok' ? t('承認する', 'Approve') : t('見送る', 'Pass')));
+        rec.append(top);
+        if (B.asks.length) {
+          const will = h('ul', 'isl-sl-will');
+          for (const a of B.asks.slice(0, 4)) {
+            const li = h('li', '');
+            const bits = [a.money ? money(a.money) : '', a.rp ? `${a.rp} RP` : '', a.monthly ? t(`毎月 ${money(a.monthly)}`, `${money(a.monthly)}/mo`) : ''].filter(Boolean);
+            li.append(deptChip(a.dept), h('span', '', `${askIcon(a.kind)} ${shortWhat(a.what)}`), h('small', 'isl-sl-acost', bits.join(t('・', ' · ')) || t('費用なし', 'free')));
+            will.append(li);
+          }
+          rec.append(will);
+        }
+        rec.append(h('p', 'isl-prop-why', B.why));
         if (B.stance) {
           const st2 = h('ul', 'isl-sl-stance');
           const li = (cls: string, tag: string, text: string) => {
@@ -241,15 +261,6 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
           rec.append(st2);
         }
         body.append(rec);
-        if (B.asks.length) {
-          const will = h('ul', 'isl-sl-will');
-          for (const a of B.asks.slice(0, 4)) {
-            const li = h('li', '');
-            li.append(deptChip(a.dept), h('span', '', `${askIcon(a.kind)} ${shortWhat(a.what)}`));
-            will.append(li);
-          }
-          body.append(chartHead(t('承認事項', 'For approval')), will);
-        }
         const flags = h('div', 'isl-sl-flags');
         if (B.budget) flags.append(h('span', `isl-sl-flag ${B.budget.inside ? 'is-good' : 'is-bad'}`, B.budget.inside ? t(`✔ ${DEPT[B.budget.dept].name}部の予算内`, `✔ Within ${DEPT[B.budget.dept].name} budget`) : t(`⚠ ${DEPT[B.budget.dept].name}部の予算外（${money(B.budget.need - B.budget.rest)} 超え）`, `⚠ Over ${DEPT[B.budget.dept].name} budget by ${money(B.budget.need - B.budget.rest)}`)));
         flags.append(h('span', `isl-sl-flag ${B.co.left < B.co.reserve ? 'is-bad' : 'is-even'}`, t(`資金 ${money(B.co.cash)} → ${money(B.co.left)}`, `Funds ${money(B.co.cash)} → ${money(B.co.left)}`)));
@@ -269,11 +280,8 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
           chipRow.append(h('span', 'isl-sl-ilab', t('課題', 'Issue')), issueChip(B.issue));
           c1.append(chipRow);
         }
-        if (say) {
-          const q = h('p', 'isl-sl-now');
-          q.append(h('span', 'isl-sl-lab', t('現場の声', 'From the floor')), document.createTextNode(t('「', '“')), rich(say), document.createTextNode(t('」', '”')));
-          c1.append(q);
-        }
+        // 段 UI9b：見出しの下に「現状・原因・対応」の文章（数字に色）。As-Is／To-Be の表はその下（根拠）
+        c1.append(speechEl(speech));
         const bgs = h('ul', 'isl-prop-bg');
         for (const x of B.bg) bgs.append(h('li', '', x));
         if (B.bg.length) c1.append(chartHead(t('根拠（いまの数字）', 'Evidence (current figures)')), bgs);
@@ -285,8 +293,12 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
       case 'move': {
         const [c1, c2] = twoCols(body, true);
         c1.append(chartHead(t('承認事項', 'For approval')), asksList(B, s, plan));
+        // 段 UI9b：検討した手を状態つきで列挙（効果が薄い・予算不足・実施中・提出済み・未解放）。未解放のパネルは研究の画面へ
         const alts = altsOf(s, plan, B, card, B.iss, base);
-        c2.append(chartHead(t('代替案との比較', 'Compared with alternatives'), alts.length > 1 ? t(`同じ担当が検討した手 ${alts.length - 1} 本`, `${alts.length - 1} other move${alts.length > 2 ? 's' : ''} considered`) : t('ほかに検討した手は無い', 'No other move considered')), altTable(alts));
+        c2.append(chartHead(t('代替案との比較', 'Compared with alternatives'), alts.some((a) => a.status !== 'pick' && a.status !== 'keep') ? t(`検討した手 ${alts.length - 1} 本と、見送った理由`, `${alts.length - 1} other move${alts.length > 2 ? 's' : ''} considered, with why`) : altOnly()), altTable(alts, (id) => {
+          close(o.later ? 'later' : 'skip');
+          ctx.skills?.(id);
+        }));
         if (pics.length) {
           c2.append(chartHead('Before → After'));
           for (const r of pics) c2.append(beforeAfter(r, phone));
@@ -297,9 +309,10 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
       case 'effect': {
         const [c1, c2] = twoCols(body, true);
         const fall = fallOf(B);
-        c1.append(chartHead(t('来月の利益：As-Is → 増収・費用 → To-Be', 'Next month: As-Is → gains and costs → To-Be'), err), vfallLegend(), vfallEl(fall, t(`来月の利益：As-Is ${money(Math.round(B.now.profit))} → To-Be ${money(Math.round(fall[fall.length - 1].v))}`, `Next month’s profit: As-Is ${money(Math.round(B.now.profit))} → To-Be ${money(Math.round(fall[fall.length - 1].v))}`)));
-        const pay = paybackOf(B);
-        c1.append(h('p', 'isl-sl-pay', pay != null ? t(`💳 導入費用 ${money(cost.money)} は、月の利益の増え ${signed(Math.round(B.dProfit), money)} で ${pay} か月で回収`, `💳 Setup ${money(cost.money)} recovered in ${pay} months at ${signed(Math.round(B.dProfit), money)}/mo`) : cost.money > 0 ? t(`💳 導入費用 ${money(cost.money)}（月の利益は増えないので、回収は ${POLICY.months} か月の合計で見る）`, `💳 Setup ${money(cost.money)} (no monthly gain; judge by the ${POLICY.months}-month total)`) : t('💳 導入費用なし', '💳 No setup cost')));
+        // 段 UI9b：グラフの題は「来月の利益予測」だけ。凡例に色の説明は書かない
+        c1.append(chartHead(t('来月の利益予測', 'Next month’s profit forecast'), err), vfallLegend(), vfallEl(fall, t(`来月の利益予測：As-Is ${money(Math.round(B.now.profit))} → To-Be ${money(Math.round(fall[fall.length - 1].v))}`, `Next month’s profit forecast: As-Is ${money(Math.round(B.now.profit))} → To-Be ${money(Math.round(fall[fall.length - 1].v))}`)));
+        // 段 UI9b：回収の 1 行はサマリーの「投資回収期間」のタイルと重複するので出さない（月の利益が増えない手だけ注記）
+        if (cost.money > 0 && paybackOf(B) == null) c1.append(h('p', 'isl-sl-pay', t(`💳 導入費用 ${money(cost.money)}（月の利益は増えないので、回収は ${POLICY.months} か月の合計で見る）`, `💳 Setup ${money(cost.money)} (no monthly gain; judge by the ${POLICY.months}-month total)`)));
         longParts(c2, c2, B, s);
         // 予算（事業部・会社）と資金：同じ 100% の積み上げ縦棒
         const sts = propStacks(s, B);
@@ -383,10 +396,9 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   );
   ok.disabled = block.length > 0;
   const skip = btn(t('見送る', 'Pass'), () => close('skip'), `isl-prop-skip ${B.rec === 'skip' ? 'is-rec' : ''}`);
-  if (B.rec === 'ok') ok.prepend(recTag());
-  else skip.prepend(recTag());
+  // 段 UI9b：「推奨」の札は出さない（承認が基本）。「あとで（受け箱へ）」は残すが目立たせない
   foot.append(ok, skip);
-  if (o.later) foot.append(btn(phone ? t('あとで', 'Later') : t('あとで（受け箱へ）', 'Later (inbox)'), () => close('later'), 'isl-prop-later'));
+  if (o.later) foot.append(btn(phone ? t('あとで', 'Later') : t('あとで（受け箱へ）', 'Later (inbox)'), () => close('later'), 'isl-prop-later is-dim'));
   panel.append(foot);
   m.append(panel);
   m.addEventListener('click', (e) => e.stopPropagation());
@@ -402,7 +414,7 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
 export function issueChip(x: CoIssue): HTMLElement {
   const c = h('span', 'isl-sl-ichip');
   c.dataset.issue = x.key;
-  c.append(document.createTextNode(`${ISSUE_ICON[x.key]} ${issueName(x.key)}`), h('small', '', t(`優先 ${x.pri}`, `P${x.pri}`)));
+  c.append(document.createTextNode(`${ISSUE_ICON[x.key]} ${issueName(x.key)}`), h('small', `isl-isst-lv is-${issueLv(x)}`, t(`優先度 ${lvWord(issueLv(x))}`, `Priority: ${lvWord(issueLv(x))}`)));
   c.append(h('small', 'isl-sl-iimp', x.grow ? t(`余地 月 ${fmtG(x.impact)}`, `upside ${fmtG(x.impact)}/mo`) : t(`影響 月 −${fmtG(x.impact)}`, `impact −${fmtG(x.impact)}/mo`)));
   if (x.days != null) c.append(h('small', 'isl-sl-iday', x.days < 1 ? t('⚠ 発生中', '⚠ now') : t(`⚠ ${Math.round(x.days)} 日後`, `⚠ in ${Math.round(x.days)} d`)));
   return c;
@@ -416,7 +428,7 @@ export function issueStrip(B: Pick<Brief, 'solved' | 'iss'>): HTMLElement {
   } else if (B.iss[0]) {
     e.append(h('span', 'isl-sl-ilab', t('会社の課題', 'Top issue')), chipOf(B.iss[0]), h('small', 'isl-sl-imiss', t('この提案では解けない', 'Not addressed here')));
   }
-  if (B.iss.length) e.append(infoTip(B.iss.slice(0, 6).map((x) => t(`${x.pri}. ${issueName(x.key)}：${x.note}。${x.loss}`, `${x.pri}. ${issueName(x.key)}: ${x.note}. ${x.loss}`)), t('会社の課題の一覧', 'Company issues')));
+  if (B.iss.length) e.append(infoTip(B.iss.slice(0, 6).map((x) => t(`${lvWord(issueLv(x))}：${issueName(x.key)}：${x.note}。${x.loss}`, `${lvWord(issueLv(x))}: ${issueName(x.key)}: ${x.note}. ${x.loss}`)), t('会社の課題の一覧', 'Company issues')));
   return e;
 }
 
@@ -496,7 +508,11 @@ function twoCols(body: HTMLElement, split: boolean): [HTMLElement, HTMLElement] 
 /** 効果の 12 か月：累計の折れ線（このまま vs 承認後）と、お金以外の指標のメーター */
 function longParts(body: HTMLElement, body2: HTMLElement, B: Brief, s: P1State) {
   const L = longLine(B);
-  body.append(chartHead(t(`${POLICY.months} か月の利益の累計`, `Profit over ${POLICY.months} months (cumulative)`)), lineLegend(), lineChart(L.now, L.after));
+  // 段 UI9b：単発の施策（宣伝・使い切り）は、効き目が切れる月に印を置き、そのあとの線を薄く（As-Is と同じ傾き）
+  const once = onceOf(B);
+  const cutM = once != null ? Math.max(1, Math.ceil(once / DAYS)) : null;
+  body.append(chartHead(t(`${POLICY.months} か月の利益の累計`, `Profit over ${POLICY.months} months (cumulative)`), once != null ? t('単発', 'One-off') : ''), lineLegend(), lineChart(L.now, L.after, cutM != null ? { once: { month: cutM, label: t(`効き目の終わり（${once} 日）`, `Effect ends (${once} d)`) } } : {}));
+  if (once != null) body.append(h('p', 'isl-sl-shot', t(`📣 単発の施策（効き目 ${once} 日）：効き目が切れたあとの線は As-Is と同じ傾きになる`, `📣 One-off (${once}-day effect): after it ends, the line runs parallel to As-Is`)));
   // 段 UI7e：月ごとの見込み（使い切りの手で作る品がどこで・いつ・いくつ売れるか・倉庫があふれて入荷が止まるか）
   for (const x of projLines(B, (y) => goodsName(y as Sku), (u) => shopNm(s, u))) body.append(h('p', 'isl-sl-shot', x));
   const ms = metersOf(B);
@@ -563,10 +579,10 @@ function appendix(body: HTMLElement, ctx: Ctx, s: P1State, plan: Plan, B: Brief,
   const notes: string[] = [t('月の費用は、この提案で変わるものだけ（給料・維持費など変わらないものは入れない）。材料費＝売れる数 × 1 個の材料費', 'Only costs this changes (wages, upkeep etc. not included). Materials = units sold × cost each')];
   if (B.after.adDays && B.after.adDays < 30) notes.push(t(`宣伝は ${B.after.adDays} 日ぶんを日割り（月 30 日のうち）`, `Ads pro-rated: ${B.after.adDays} of 30 days`));
   notes.push(t(`${POLICY.months} か月の折れ線：1 か月目は来月の利益（承認後は導入を引く）、2 か月目からは落ち着いたときの月の利益を足したもの`, `${POLICY.months}-month line: month 1 is next month’s profit (minus setup after approval), then the settled monthly profit added each month`));
-  if (B.parts.length > 1) notes.push(t('どの手で、いくら：承認事項の行を上から順に足したときの、月の利益の増え', 'Which move adds how much: the monthly profit gain as each line is added in order'));
+  if (B.parts.length > 1) notes.push(t('どの手で、いくら：承認事項の行を上から順に足したときの、月の利益の増加', 'Which move adds how much: the monthly profit gain as each line is added in order'));
   h4m.append(infoTip(notes, t('内訳の見方', 'How to read this')));
   if (B.parts.length > 1) {
-    s3.append(h('h4', '', t('手ごとの分（順に足したときの増え方）', 'By move (added in order)')));
+    s3.append(h('h4', '', t('手ごとの分（順に足したときの増加の内訳）', 'By move (added in order)')));
     const ul = h('ul', 'isl-prop-parts');
     for (const x of B.parts) {
       const li = h('li', '');

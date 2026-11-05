@@ -12077,6 +12077,41 @@ button.isl-dband-lead.is-on {
 .isl-cardm-say .isl-hl {
   color: #c4521b;
 }
+.isl-cardm-say.is-speech {
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 600;
+  padding: 6px 10px;
+}
+.isl-cardm-say .isl-em {
+  color: #c4521b;
+}
+/* 段 UI9b：2 択の下の「あとで（保留）」は目立たせない・「今後の判断を委任」のチェック */
+.isl-cardm-btn.is-later {
+  padding: 2px 12px;
+  border-style: dashed;
+  border-width: 1.5px;
+  background: transparent;
+  color: #5b4a36;
+}
+.isl-cardm-btn.is-later .isl-cardm-lab small {
+  display: none;
+}
+.isl-cardm-deleg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.35;
+  color: #5b4a36;
+  cursor: pointer;
+}
+.isl-cardm-deleg input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: none;
+}
 .isl-cardm-gap {
   flex: 1;
   min-height: 0;
@@ -12198,6 +12233,14 @@ button.isl-dband-lead.is-on {
     font-size: 26px;
     line-height: 1.6;
     padding: 22px 24px;
+  }
+  .isl-cardm-say.is-speech {
+    font-size: 20px;
+    line-height: 1.6;
+    padding: 16px 20px;
+  }
+  .isl-cardm-deleg {
+    font-size: 16px;
   }
   .isl-cardm-ch {
     gap: 12px;
@@ -14017,6 +14060,14 @@ button.isl-dband-lead.is-on {
   font-size: 16px;
   font-weight: 800;
   line-height: 1.45;
+}
+/* 段 UI9b（追加 2）：サマリー文の数字と要点の語（金） */
+.isl-prop-pitch .isl-em {
+  color: #f2b544;
+}
+.isl-prop-pitch .isl-tip {
+  margin-left: 4px;
+  font-weight: 400;
 }
 .isl-prop-asks {
   margin: 0;
@@ -16364,7 +16415,20 @@ button.isl-dband-lead.is-on {
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
 }
 .isl-alt {
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.7fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 0.7fr);
+}
+/* 段 UI9b：代替案の名前の行は 4 列をまたぐ（状態の札・手の名前・状態の 1 行）。数字はその下の行 */
+.isl-alt-n {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+  padding-top: 4px;
+  border-top: 1px solid #2a3a5e;
+}
+.isl-alt-n > b {
+  font-weight: 800;
+}
+.isl-alt-h:first-child {
+  text-align: right;
 }
 .isl-gap-h,
 .isl-alt-h {
@@ -16414,6 +16478,145 @@ button.isl-dband-lead.is-on {
   display: block;
   font-size: 12px;
   color: #b8c0d4;
+}
+/* 段 UI9b：代替案の状態の札（本案・効果が薄い・予算不足・実施中・提出済み・未解放・見送り）と、研究の画面への導線 */
+.isl-alt-st {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f1626;
+  background: #b8c0d4;
+}
+.isl-alt-st.is-pick {
+  background: #f2b544;
+}
+.isl-alt-st.is-weak {
+  background: #8f9bb8;
+}
+.isl-alt-st.is-money,
+.isl-alt-st.is-no {
+  background: #ff8a7a;
+}
+.isl-alt-st.is-busy {
+  background: #6fd08c;
+}
+.isl-alt-st.is-locked {
+  background: #a9c7ff;
+}
+.isl-alt-n.is-locked,
+.isl-alt-n.is-busy,
+.isl-alt-n.is-keep {
+  color: #b8c0d4;
+}
+.isl-alt-go {
+  display: inline-block;
+  margin-top: 3px;
+  min-height: 28px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+/* 段 UI9b：サマリーの課題の表（題名・優先度 高中低・影響） */
+.isl-isst {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) max-content minmax(0, 1.3fr);
+  gap: 3px 8px;
+  align-items: center;
+  font-size: 12px;
+  color: #f4f1ea;
+}
+.isl-isst-h {
+  padding-bottom: 2px;
+  border-bottom: 1px solid #2a3a5e;
+  color: #b8c0d4;
+}
+.isl-isst-n {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.isl-isst-miss {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: #b8c0d4;
+}
+.isl-isst-lv {
+  justify-self: start;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f1626;
+  background: #b8c0d4;
+}
+.isl-isst-lv.is-hi {
+  background: #ff8a7a;
+}
+.isl-isst-lv.is-mid {
+  background: #f2b544;
+}
+.isl-isst-lv.is-lo {
+  background: #8f9bb8;
+}
+.isl-isst-imp {
+  min-width: 0;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+/* 段 UI9b：課題の定義のセリフ（現状・原因・対応。数字は金） */
+.isl-speech {
+  display: grid;
+  gap: 4px;
+}
+.isl-speech-p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.isl-speech-lab {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 5px;
+  border: 1px solid #b8c0d4;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #b8c0d4;
+}
+.isl-speech .isl-em {
+  color: #f2b544;
+  font-weight: 800;
+}
+/* 段 UI9b：単発の施策（長期の欄のグレーアウト・12 か月の線の効き目の終わり） */
+.isl-sl-kpi.is-once {
+  opacity: 0.55;
+}
+.isl-sl-kpi.is-once .isl-sl-num {
+  color: #b8c0d4;
+}
+.isl-sl-lafter.is-fade {
+  opacity: 0.35;
+  stroke-dasharray: 3 4;
+}
+.isl-sl-oncel {
+  stroke: #f2b544;
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+.isl-sl-oncet {
+  fill: #f2b544;
+}
+.isl-sl-rec .isl-sl-will {
+  margin: 6px 0;
+}
+.isl-sl-rec .isl-sl-will small {
+  color: #b8c0d4;
+  white-space: nowrap;
+}
+.isl-prop-later.is-dim {
+  opacity: 0.6;
+  font-size: 13px;
 }
 /* 実行計画 */
 .isl-tl {
