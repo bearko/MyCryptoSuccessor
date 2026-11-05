@@ -117,20 +117,28 @@ export interface Kpi {
   text?: string;
   /** 段 UI9b：単発の施策の長期の欄（グレーアウト） */
   once?: boolean;
+  /** 段 UX1（C-1）：初めて開いた日の数字を主に出しているとき、いま計算し直した数字（差が 1 G 以上のときだけ） */
+  renow?: number;
 }
 const fmt = (v: number) => Math.abs(Math.round(v)).toLocaleString('en-US');
 /**
  * 結論のタイル 3〜4 枚：短期利益・長期利益・導入費用・動く指標（お金以外がなければ毎月の利益。毎月の利益も動かず、
  * extra（置き場所など、お金でない変わるもの）があればそれ）
  */
-export function kpisOf(b: Pick<Brief, 'vals' | 'cost' | 'dProfit' | 'now' | 'after'> & Partial<Pick<Brief, 'asks'>>, extra: Kpi | null = null, o: { pick?: boolean } = {}): Kpi[] {
+export function kpisOf(b: Pick<Brief, 'vals' | 'cost' | 'dProfit' | 'now' | 'after'> & Partial<Pick<Brief, 'asks'>>, extra: Kpi | null = null, o: { pick?: boolean; snap?: { day: number; short: number; long: number } | null } = {}): Kpi[] {
   const out: Kpi[] = [];
   const S = b.vals.list.find((m) => m.key === 'short');
   const L = b.vals.list.find((m) => m.key === 'long');
   // 段 UI9b：単発の施策（宣伝・使い切り）は、長期の欄をグレーアウトして「単発（効き目 N 日）」
   const once = o.pick ? onceOf(b) : null;
-  if (S) out.push({ key: 'short', icon: METRIC_TEXT.short.icon, label: t('短期利益', 'Short-term'), v: S.d, unit: 'G', tone: 'delta', sub: t('来月・導入費用を引いた差', 'Next month, net of setup') });
-  if (L) out.push({ key: 'long', icon: METRIC_TEXT.long.icon, label: t('長期利益', 'Long-term'), v: L.d, unit: 'G', tone: 'delta', sub: once != null ? t(`単発（効き目 ${once} 日）`, `One-off (${once}-day effect)`) : t(`${POLICY.months} か月の合計の差`, `${POLICY.months}-month total`), ...(once != null ? { once: true } : {}) });
+  // 段 UX1（C-1）：初めて開いた日の数字（snap）を主に。いま計算し直して 1 G 以上ずれていれば renow に（タイルの下に小さく）
+  const sn = (key: 'short' | 'long', now: number): { v: number; renow?: number } => {
+    const v = o.snap?.[key];
+    if (v == null) return { v: now };
+    return Math.abs(now - v) >= 1 ? { v, renow: now } : { v };
+  };
+  if (S) out.push({ key: 'short', icon: METRIC_TEXT.short.icon, label: t('短期利益', 'Short-term'), ...sn('short', S.d), unit: 'G', tone: 'delta', sub: t('来月・導入費用を引いた差', 'Next month, net of setup') });
+  if (L) out.push({ key: 'long', icon: METRIC_TEXT.long.icon, label: t('長期利益', 'Long-term'), ...sn('long', L.d), unit: 'G', tone: 'delta', sub: once != null ? t(`単発（効き目 ${once} 日）`, `One-off (${once}-day effect)`) : t(`${POLICY.months} か月の合計の差`, `${POLICY.months}-month total`), ...(once != null ? { once: true } : {}) });
   const setup = b.cost.money > 0 || b.cost.rp === 0;
   out.push({
     key: 'setup',

@@ -102,7 +102,8 @@ describe('1 枚 60 字まで', () => {
     for (const x of [ZERO_LINE(), DONATE_LINE(), MEET_WALL(), PEEK_TIP(), AGAIN_TIP(), DEEP_TIP()]) expect(talkLen(x), x).toBeLessThanOrEqual(LINE_MAX);
   });
   it('チュートリアルの会話の流れ（枚数）は変えていない', () => {
-    expect(TUT.map((st) => st.intro?.pages.length ?? 0)).toEqual([4, 0, 5, 0, 0, 0, 3, 3, 0, 2, 3, 0, 0, 2]);
+    // 段 UX1（C-9）：scm 段の intro は 2 枚 → 1 枚（「作って、運んで、売れた」は流れの案内で見たばかり）
+    expect(TUT.map((st) => st.intro?.pages.length ?? 0)).toEqual([4, 0, 5, 0, 0, 0, 3, 3, 0, 1, 3, 0, 0, 2]);
     expect(TUT.find((x) => x.id === 'craft')?.sheetTalk?.pages).toHaveLength(4);
     expect(TUT_END).toHaveLength(3);
     expect(TOUR).toHaveLength(7);

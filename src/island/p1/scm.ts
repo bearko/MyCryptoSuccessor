@@ -504,7 +504,7 @@ const sumOf = (o: Partial<Record<string, number>>) => Object.values(o).reduce<nu
 /** SCM ダッシュボード。breakdown：④ 販売の内訳を開いた状態にして、そこまで送る（販売管理の「販売の内訳」から） */
 export function openSupply(ctx: Ctx, opt: { breakdown?: boolean } = {}) {
   let toBreakdown = !!opt.breakdown;
-  open(ctx, t('SCM ダッシュボード', 'SCM dashboard'), (body) => {
+  open(ctx, t('サプライチェーン（SCM）', 'Supply chain (SCM)'), (body) => {
     const s = ctx.s();
     // 段 UI2：SCM の中の字は 12px 以上（p1.css の .is-scm）
     body.classList.add('is-scm');

@@ -11,6 +11,9 @@
  * - 会話・カード・提案書・会議などの窓・流れの案内・発掘の画面のあいだは止める（窓の暗幕の下で、続きから流す）。時間を止めていても流し続ける。
  * - 帯を押すと、最近の 20 件の一覧（日付つき）。一覧を開いているあいだも止める。PC はマウスを乗せているあいだ止める。
  * - prefers-reduced-motion では流さず、1 件ずつ切り替えて出す。
+ * - 段 UX1（C-11）：**常に見出しを流す**。たまっている知らせが無いときは、一覧（最近 20 件）の見出しを古い順に繰り返し流し続ける
+ *   （前は「▸ 最近のニュース N 件（押すと一覧）」の待機の文で、タップしないと中身が見えなかった）。新しい知らせはいま流れている文のあとに
+ *   割り込み、また繰り返しに戻る。一覧が空（ゲームの最初）のときだけ「ニュースはまだありません」を流す。
  */
 import './ticker.css';
 import { t } from '../../i18n';
@@ -45,10 +48,20 @@ export type TickerHooks = {
 export const NEWS_LIST = 20;
 /** 知らせと知らせのあいだ（px） */
 const GAP = 44;
-/** 速める上限（たまっている数。× 0.2 で最大 2.2 倍） */
-const SPEED_CAP = 6;
+/**
+ * 段 UX1（C-11）：たまっている知らせが無いときに流す見出し（純粋な関数。テストあり）。
+ * hist（新しい順）の最近 NEWS_LIST 件を古い順に、k 番目（繰り返し）。空なら「ニュースはまだありません」
+ */
+export function replayPick(hist: readonly NewsItem[], k: number): Queued {
+  const xs = hist.slice(0, NEWS_LIST).reverse();
+  if (!xs.length) return { text: t('ニュースはまだありません', 'No news yet'), n: 1 };
+  const x = xs[((k % xs.length) + xs.length) % xs.length];
+  return { text: x.text, n: 1, kind: x.kind };
+}
+/** 速める上限（たまっている数。× 0.2 で最大 1.6 倍。段 UX1（C-8）：2.2 倍は速すぎて読めなかった → 1.6 倍） */
+const SPEED_CAP = 3;
 
-/** 流す速さ（px/秒）：スマホ 84・PC 100。たまっているほど速く（段 N2：最大でおよそ 2.2 倍。省かない） */
+/** 流す速さ（px/秒）：スマホ 84・PC 100。たまっているほど速く（段 N2：省かない。段 UX1：最大でおよそ 1.6 倍） */
 export function newsSpeed(wide: boolean, waiting: number): number {
   const base = wide ? 100 : 84;
   return base * (1 + Math.min(SPEED_CAP, Math.max(0, waiting)) * 0.2);
@@ -160,11 +173,9 @@ export function makeTicker(root: HTMLElement, hooks: TickerHooks): Ticker {
   el.tabIndex = 0;
   const tag = h('span', 'isl-news-tag');
   const track = h('div', 'isl-news-track');
-  const idle = h('span', 'isl-news-idle');
   /** 読み上げ用（流れる字は読み上げにくいので、新しい知らせをそのまま入れる） */
   const live = h('span', 'isl-news-sr');
   live.setAttribute('aria-live', 'polite');
-  track.append(idle);
   el.append(tag, track, live);
 
   const hist: NewsItem[] = [];
@@ -178,6 +189,8 @@ export function makeTicker(root: HTMLElement, hooks: TickerHooks): Ticker {
   /** 1 件ずつ切り替える（動きを減らす設定）：いま出している知らせと、次へ切り替える時刻 */
   let still: { text: string; until: number } | null = null;
   let stillTimer = 0;
+  /** 段 UX1（C-11）：繰り返し流している見出しの番号（古い順） */
+  let loopK = 0;
 
   const held = () => !!listEl || hover || hooks.hold();
   const wide = () => innerWidth >= 600;
@@ -185,13 +198,13 @@ export function makeTicker(root: HTMLElement, hooks: TickerHooks): Ticker {
   function relabel() {
     tag.replaceChildren(h('i', '', '📰'), h('b', '', t('NEWS', 'NEWS')));
     el.setAttribute('aria-label', t('ニュース（押すと最近の知らせの一覧）', 'News (tap for recent news)'));
-    showIdle();
+    kick();
   }
-  function showIdle() {
-    const empty = !onBand.length && !queue.length && !still;
-    idle.hidden = !empty;
-    if (!empty) return;
-    idle.textContent = hist.length ? t(`▸ 最近のニュース ${Math.min(hist.length, NEWS_LIST)} 件（押すと一覧）`, `▸ ${Math.min(hist.length, NEWS_LIST)} recent news (tap for the list)`) : t('ニュースはまだありません', 'No news yet');
+  /** 段 UX1（C-11）：次に流すもの。たまっていればそれ、無ければ一覧の見出しを古い順に繰り返し（replay） */
+  function nextItem(): { q: Queued; replay: boolean } {
+    const q = queue.shift();
+    if (q) return { q, replay: false };
+    return { q: replayPick(hist, loopK++), replay: true };
   }
 
   function itemEl(q: Queued) {
@@ -214,14 +227,15 @@ export function makeTicker(root: HTMLElement, hooks: TickerHooks): Ticker {
 
   // ---------------------------------------------------------------- 流す
   function spawn() {
-    const q = queue.shift();
-    if (!q) return;
+    const { q, replay } = nextItem();
     const e = itemEl(q);
+    if (replay) e.classList.add('is-replay');
     track.append(e);
     const tw = track.clientWidth;
     const prev = onBand[onBand.length - 1];
     const x = Math.max(tw, prev ? prev.x + prev.w + GAP : tw);
-    const it: Live = { el: e, text: (q.parts?.length ?? 0) > 1 ? '' : q.text, n: q.n, x, w: e.offsetWidth };
+    // 繰り返しの見出しは text を空に（新しい同じ知らせを ×2 に束ねない）
+    const it: Live = { el: e, text: replay || (q.parts?.length ?? 0) > 1 ? '' : q.text, n: q.n, x, w: e.offsetWidth };
     e.style.transform = `translateX(${x}px)`;
     onBand.push(it);
   }
@@ -239,10 +253,10 @@ export function makeTicker(root: HTMLElement, hooks: TickerHooks): Ticker {
       }
       while (onBand.length && onBand[0].x + onBand[0].w < 0) onBand.shift()!.el.remove();
       const tail = onBand[onBand.length - 1];
-      if (queue.length && (!tail || tail.x + tail.w + GAP <= tw)) spawn();
+      // 段 UX1（C-11）：しっぽが通ったら次（たまっていなければ一覧の見出しの繰り返し）。帯は空にしない
+      if (!tail || tail.x + tail.w + GAP <= tw) spawn();
     }
-    showIdle();
-    if (onBand.length || queue.length) kick();
+    kick();
   }
   function kick() {
     if (reduce.matches) return stepStill();
@@ -265,22 +279,18 @@ export function makeTicker(root: HTMLElement, hooks: TickerHooks): Ticker {
         return;
       }
       for (const it of onBand.splice(0)) it.el.remove();
-      const q = queue.shift();
+      // 段 UX1（C-11）：たまっていなければ一覧の見出しを 1 件ずつ（常に見出しを出す）
+      const { q, replay } = nextItem();
       still = null;
-      if (q) {
-        const e = itemEl(q);
-        e.classList.add('is-still');
-        track.append(e);
-        onBand.push({ el: e, text: (q.parts?.length ?? 0) > 1 ? '' : q.text, n: q.n, x: 0, w: e.offsetWidth });
-        // 字数に合わせて 2.5〜5 秒（たまっていたら短く）
-        const ms = Math.min(5000, Math.max(2500, q.text.length * 130)) * (queue.length > 2 ? 0.6 : 1);
-        still = { text: q.text, until: now + ms };
-        stillTimer = window.setTimeout(tick, 300);
-      } else {
-        // 最後の 1 件は、しばらく残してから消す
-        onBand.length = 0;
-      }
-      showIdle();
+      const e = itemEl(q);
+      e.classList.add('is-still');
+      if (replay) e.classList.add('is-replay');
+      track.append(e);
+      onBand.push({ el: e, text: replay || (q.parts?.length ?? 0) > 1 ? '' : q.text, n: q.n, x: 0, w: e.offsetWidth });
+      // 字数に合わせて 2.5〜5 秒（たまっていたら短く）
+      const ms = Math.min(5000, Math.max(2500, q.text.length * 130)) * (queue.length > 2 ? 0.6 : 1);
+      still = { text: q.text, until: now + ms };
+      stillTimer = window.setTimeout(tick, 300);
     };
     tick();
   }

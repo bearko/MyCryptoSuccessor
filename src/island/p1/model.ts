@@ -334,6 +334,8 @@ export interface Report {
    * 月のはじめと終わりの資金。段 UI8：その月のいちばん高い・安い資金（日ごとの締めの値。資金のろうそく足。以前の報告には無い＝はじめと終わりの範囲だけ）
    */
   money?: { start: number; end: number; hi?: number; lo?: number };
+  /** 段 UX1（C-2）：利益に入らない入出金の内訳（資金の変化 − 利益 の説明。以前の報告には無い） */
+  cash?: Partial<Record<FlowKey, number>>;
   /** その月に上がったブランド力 */
   brand?: number;
   /** 段 UI8b：月の締めの時点のブランド力（ブランド力の推移の線。以前の報告には無い＝さかのぼって数える） */
@@ -600,6 +602,11 @@ export interface P1State {
   orders?: Order[];
   /** 月のはじめの資金とブランド力（報告の「この月で」用） */
   moneyStart?: number;
+  /**
+   * 段 UX1（C-2）：月次報告の「利益」に入らない、その月の入出金（依頼の報酬・できごとの謝礼・発掘の許可料・副業・展示館・開業前の出費…）。
+   * 月の締めで報告の cash に移す。無くてよい項目（以前のセーブには無い＝その月は途中から）
+   */
+  flow?: Partial<Record<FlowKey, number>>;
   /** 段 UI8：今月のいちばん高い・安い資金（日ごとに見る。月の締めで報告の money.hi・lo に移す。以前のセーブには無い＝その月はろうそく足の高い・安いが途中から） */
   moneyHi?: number;
   moneyLo?: number;
@@ -815,6 +822,32 @@ export interface Proc {
 
 export const START_MONEY = 30000;
 export const DAYS = 30;
+
+/**
+ * 段 UX1（C-2）：月次報告の「利益」（売上 − その月の費用）に入らない入出金の種類。
+ * reward 依頼の報酬・event できごとの謝礼・evsales できごとの売上の上乗せ（倍率ぶん。売上の数字には入れない）・
+ * permit 発掘の許可料・side 他店でバイト・museum 展示館の入館料・managed 任せている町からの利益・tax 法人税・
+ * preopen 開業前の出費（1 か月目だけ：利益には入るが「資金の変化」の始まりは開店日なので入らない）
+ */
+export type FlowKey = 'reward' | 'event' | 'evsales' | 'permit' | 'side' | 'museum' | 'managed' | 'tax' | 'preopen';
+export const FLOW_KEYS: FlowKey[] = ['reward', 'event', 'evsales', 'permit', 'side', 'museum', 'managed', 'tax', 'preopen'];
+/** 利益に入らない入出金を今月ぶんに積む（v：資金が増えるなら正） */
+export function flowAdd(s: Pick<P1State, 'flow'>, k: FlowKey, v: number) {
+  if (!v) return;
+  const f = (s.flow ??= {});
+  f[k] = Math.round(((f[k] ?? 0) + v) * 100) / 100;
+}
+/**
+ * 「資金の変化 − 利益」の説明（表示だけ）：gap＝差、items＝内訳（0 のものは除く）、rest＝内訳で説明できない残り
+ * （法務・外交・本社の施策・計上の時期のずれなど）。gap = Σitems + rest
+ */
+export function cashGap(r: Pick<Report, 'profit' | 'money' | 'cash'>): { gap: number; items: { k: FlowKey; v: number }[]; rest: number } | null {
+  if (!r.money) return null;
+  const gap = Math.round(r.money.end - r.money.start - r.profit);
+  const items = FLOW_KEYS.map((k) => ({ k, v: Math.round(r.cash?.[k] ?? 0) })).filter((x) => x.v !== 0);
+  const rest = gap - items.reduce((a, x) => a + x.v, 0);
+  return { gap, items, rest };
+}
 
 /** 費用：このセクタの月の報告（monthCost）と、会社の帳簿の両方へ。as：帳簿では別の科目に（通行料 → fees） */
 export function spend(s: P1State, k: keyof Report['costs'], v: number, as?: LedgerKey) {
@@ -1916,6 +1949,11 @@ function procExp(s: P1State, exp: number): number | null {
   return p.lv > before ? p.lv : null;
 }
 
+/**
+ * 段 UX1（C-6）：素材 1 個の支払いの値段（できごとの倍率込み。買う・注文するときの実際の支払いと同じ式）。
+ * 画面の表示額もこれを使う（表示は matPrice だけで、できごと中は数 % ずれていた：9-3）
+ */
+export const unitPrice = (s: P1State, m: Mat) => Math.round(matPrice(s, m) * evMul(s, 'mat', m));
 /** 素材を買う（手で買うときも、調達係が買うときも、月の上限の中で） */
 export function buy(s: P1State, m: Mat, qty: number, gain = 1): string | null {
   if (!hasRoute(s, m)) return 'route';
@@ -1923,7 +1961,7 @@ export function buy(s: P1State, m: Mat, qty: number, gain = 1): string | null {
   if (qty > procLeft(s)) return 'cap';
   if (qty > poolFree(s)) return 'storage';
   // 段 UI4：突発のできごとの素材の値段（払う時だけ。見込みの計算には入れない）
-  const cost = Math.round(matPrice(s, m) * evMul(s, 'mat', m)) * qty;
+  const cost = unitPrice(s, m) * qty;
   if (cost > s.money) return 'money';
   s.money -= cost;
   spend(s, 'materials', cost);
@@ -1971,7 +2009,7 @@ export function order(s: P1State, m: Mat, lots: number): string | null {
   if (qty <= 0) return null;
   if (qty > procLeft(s)) return 'cap';
   if (qty > poolFree(s)) return 'storage';
-  const cost = Math.round(matPrice(s, m) * evMul(s, 'mat', m)) * qty;
+  const cost = unitPrice(s, m) * qty;
   if (cost > s.money) return 'money';
   s.money -= cost;
   spend(s, 'materials', cost);
@@ -2678,6 +2716,7 @@ export function claim(s: P1State, id: string): string | null {
   s.missions[id] = 'claimed';
   s.money += m.reward;
   book(s, 'other', m.reward);
+  flowAdd(s, 'reward', m.reward);
   // 研究ポイント（以前のゴールドダスト ✨ 1 つ = 40 RP）
   if (m.rp) s.rp = (s.rp ?? 0) + m.rp;
   // ヒーローの育成：依頼の報酬に強化アイテム（上のランクの町ほど、1 つ下の段の証）。タオックスの 1 か月目（チュートリアル）は無し
@@ -3814,6 +3853,8 @@ export function step(s: P1State): DayResult {
             s.moneyStart = Math.round(s.money);
             s.moneyHi = s.moneyLo = s.moneyStart;
             s.brandStart = s.brand ?? 0;
+            // 段 UX1（C-2）：開業前の出費（お店の建築費・素材の注文）は 1 か月目の「利益」に入るが「資金の変化」には入らない
+            flowAdd(s, 'preopen', Object.values(s.monthCost).reduce<number>((a, v) => a + (v ?? 0), 0));
           }
         }
       }
@@ -4056,6 +4097,7 @@ export function step(s: P1State): DayResult {
     s.money += pay;
     s.sideMonth = (s.sideMonth ?? 0) + pay;
     book(s, 'side', pay);
+    flowAdd(s, 'side', pay);
     if (rng(s.seed + s.day * 131 + st.hero)() < SIDE.grow) {
       const keys: (keyof Stats)[] = ['int', 'agi', 'phy'];
       const k = keys[Math.floor(rng(s.seed + s.day * 977 + st.hero)() * 3)];
@@ -4338,6 +4380,7 @@ export function endMonth(s: P1State): Report {
   if (mus && s.museum) {
     s.money += mus.income;
     book(s, 'museum', mus.income);
+    flowAdd(s, 'museum', mus.income);
     s.museum.last = mus;
   }
   const report: Report = {
@@ -4352,6 +4395,7 @@ export function endMonth(s: P1State): Report {
     news,
     flow: { bought: s.proc.bought, made: s.ws.last.made, hauled: hauledThisMonth, sold },
     money: moneyRec(s),
+    ...(s.flow && Object.keys(s.flow).length ? { cash: { ...s.flow } } : {}),
     brand: 0,
     ...(mus ? { museum: mus } : {}),
     ...(s.dig ? { revive: { done: s.dig.sites.filter((x) => x.done).length, all: s.dig.sites.length, dungeon: !!s.dig.dungeon } } : {}),
@@ -4547,6 +4591,7 @@ export function endMonth(s: P1State): Report {
   }
   s.rivalSales = Object.fromEntries(s.rivals.map((r) => [r.id, 0]));
   s.monthCost = { materials: 0, wages: 0, part: 0, upkeep: 0, build: 0, ads: 0 };
+  s.flow = {};
   s.hirePool = pickHires(s);
   report.brand = (s.brand ?? 0) - brandStart;
   report.brandEnd = s.brand ?? 0;
@@ -4675,6 +4720,7 @@ export function closeCompanyMonth(s: P1State): CompanyMonth {
       if (rv?.refund) {
         s.money += rv.refund;
         book(s, 'build', -rv.refund);
+        flowAdd(s, 'managed', rv.refund);
       }
       if (!rec.base) {
         if (rv) managed.push({ id, rev: 0, profit: 0, invest: 0, toHQ: 0, hero: rec.manager ?? null, revive: rv });
@@ -4688,6 +4734,7 @@ export function closeCompanyMonth(s: P1State): CompanyMonth {
       if (st) sectorApprove(s, rec, r);
       s.money += r.toHQ;
       book(s, 'managed', r.toHQ);
+      flowAdd(s, 'managed', r.toHQ);
       // 経理（段 F）：Uncommon 以上の町から回った利益は課税の対象
       if (sectorTierOf(id) !== 'C') managedU += r.toHQ;
       managed.push({ id, ...r, hero: rec.manager ?? null, ...(rv ? { revive: rv } : {}) });
@@ -7129,6 +7176,7 @@ export function applyPermit(s: P1State, k: number): { fee: number } | PermitErr 
   if (fee > 0) {
     s.money -= fee;
     book(s, 'fees', fee);
+    flowAdd(s, 'permit', -fee);
     // 経理（段 F）：発掘許可は研究開発として節税の対象
     deduct(s, 'rnd', fee);
   }

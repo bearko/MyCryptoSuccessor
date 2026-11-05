@@ -16815,3 +16815,54 @@ button.isl-dband-lead.is-on {
   white-space: normal;
   letter-spacing: -0.3px;
 }
+
+/* ================================================================ 段 UX1：数字の説明 */
+/* C-1：提案書の KPI タイル：初めて開いた日の数字を主に、いま計算し直した数字を下に小さく */
+.isl-sl-kpi .isl-sl-renow {
+  color: var(--isl-dim);
+  font-size: 12px;
+}
+.isl-prop-snapnote {
+  display: block;
+  margin-top: 4px;
+  color: var(--isl-dim);
+  font-size: 12px;
+  line-height: 1.4;
+}
+/* C-2：月次報告 KPI ①「利益との差」（折りたたみ。内訳は 1 行ずつ） */
+.isl-rp-gap {
+  margin-top: 4px;
+  font-size: 12px;
+}
+.isl-rp-gap > summary {
+  cursor: pointer;
+  color: var(--isl-gold);
+  font-weight: 700;
+}
+.isl-rp-gap ul {
+  margin: 4px 0 2px;
+  padding: 0;
+  list-style: none;
+}
+.isl-rp-gap li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 1px 0;
+}
+.isl-rp-gap small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  white-space: normal;
+}
+/* C-7：承認事項の「作らなくなる商品」（赤） */
+.isl-sl-will li.isl-sl-drop {
+  color: var(--isl-bad);
+  font-weight: 700;
+}
+/* C-10：宣伝の一覧「元が取れる月商の目安」 */
+.isl-ad-be {
+  margin: 2px 0 6px;
+  font-size: 12px;
+}

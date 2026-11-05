@@ -374,7 +374,8 @@ export function refreshDig() {
   };
   chip('is-date', '📅', st.date);
   chip('is-sales', t('売上', 'Sales'), money(st.sales));
-  chip('is-rp', t('研', 'RP'), `${st.rp}`);
+  // 段 UX1（C-4）：帯の「研」は累計、終了の札の「研究ポイント +N」は今回。同じ言葉で混ざっていたので、帯に今回の増えも添える
+  chip('is-rp', t('研', 'RP'), s.digRun ? t(`${st.rp}（今回 +${st.rpNow}）`, `${st.rp} (+${st.rpNow} now)`) : `${st.rp}`);
   chip('is-got', t('出土', 'Finds'), t(`新 ${st.found}・Lv↑ ${st.lvUp}`, `New ${st.found} · Lv↑ ${st.lvUp}`));
   if (st.dungeon) {
     // ダンジョン：この作業でいちばん深くはがした層と最深記録・掘れる層（深い層の許可）
@@ -382,7 +383,7 @@ export function refreshDig() {
     chip(`is-deep ${dg.deep > 0 && dg.deep >= dg.best ? 'is-done' : ''}`, t('最深', 'Deepest'), t(`${dg.deep} 層（記録 ${dg.best}）`, `${dg.deep} (best ${dg.best})`));
     chip(dg.limit < dg.all ? 'is-lock' : '', t('掘れる', 'Can dig'), t(`${dg.limit} / ${dg.all} 層`, `${dg.limit} / ${dg.all}`));
   } else {
-    chip('', t('掘った', 'Dug'), `${st.pct}%`);
+    chip('', t('掘った', 'Dug'), s.digRun ? t(`${st.pct}%（今回 ${st.cellsNow} マス）`, `${st.pct}% (${st.cellsNow} cells now)`) : `${st.pct}%`);
     chip(st.topics[0] >= st.topics[1] ? 'is-done' : '', t('お題', 'Targets'), `${st.topics[0]} / ${st.topics[1]}`);
   }
   // 道具：発破・掘削ドリル（スキル → 発掘で開いていれば）・発掘隊・研究ノート

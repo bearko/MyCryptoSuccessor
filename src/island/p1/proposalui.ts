@@ -12,8 +12,8 @@ import { assetUrl, drawRef } from '../../render/images';
 import raw from '../../generated/catalog.json';
 import { FX_PAL, fxAtEl } from '../fx/layer';
 import { DEPT, POLICY, PRODUCT, skuParts, type Sku } from './data';
-import { bottleneck, poolCap, poolUsed, stageCaps, staffOf, DAYS, type P1State, type Stage } from './model';
-import { afterOf, applyPlan, baseOf, planRows, planTitle, shopNm, type Cell, type Plan, type PlanRes, type Row } from './plan';
+import { bottleneck, date, poolCap, poolUsed, stageCaps, staffOf, DAYS, type P1State, type Stage } from './model';
+import { afterOf, applyPlan, baseOf, dropLine, planRows, planTitle, shopNm, type Cell, type Plan, type PlanRes, type Row } from './plan';
 import { METRIC_TEXT, askTo, briefOf, chip, type Brief, type Metric } from './brief';
 import { RISK_LV, SLIDE_NAME, SRC_NAME, altOnly, altsOf, askIcon, briefSpeech, counterOf, fallOf, gapRows, headlineOf, issueRows, kpisOf, longLine, metersOf, onceOf, paybackOf, projLines, propStacks, roomKpi, shortWhat, slideKinds, slideTitle, srcOfPlan, stageMap, timelineOf, topRisks, type PropSrc, type SlideId } from './slides';
 import { altTable, budgetLabels, chartHead, deck, deptChip, fundsStack, gapTable, infoTip, issueTable, kpiTile, lineChart, lineLegend, meterEl, riskPair, slideBox, speechEl, stack100El, stack100Of, stageMapEl, storeChartEl, storeLegend, storeNote, timelineEl, vfallEl, vfallLegend } from './slideui';
@@ -188,7 +188,10 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   const st = plan.hero != null ? staffOf(s, plan.hero) : null;
   if (st) {
     const star = starOf(plan.q, st.level ?? 1);
-    who.append(h('small', 'isl-prop-star', t(`予測精度 ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（±${pct(B.err)}）`, `Forecast accuracy ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${pct(B.err)})`)));
+    const starEl = h('small', 'isl-prop-star', t(`予測精度 ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（±${pct(B.err)}）`, `Forecast accuracy ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${pct(B.err)})`));
+    // 段 UX1（C-1）：「予測精度 ±N%」の意味（タップで 1 行）
+    starEl.append(infoTip(t(`作った日の見込みに ±${pct(B.err)} の幅があります（担当の読みの誤差。実績はこの幅でぶれる）。開くたびに在庫や他社の動きで少し変わるのは別で、変わった分は KPI の下に小さく出します`, `The forecast carries a ±${pct(B.err)} band (the proposer's reading error; results land within it). Stock and rival moves shift it a little on each open; that shift is shown under the KPIs`), t('予測精度とは', 'About forecast accuracy')));
+    who.append(starEl);
     // 段 S1：数字の教えで小さくなった誤差の札
     const ec = errChip(s);
     if (ec) who.append(ec);
@@ -210,6 +213,15 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   const speech: Speech = o.speech ?? briefSpeech(B, what, plan.hero, s.day);
   const card = o.card != null ? (cardInbox(s).find((c) => c.id === o.card) ?? null) : null;
   const err = t(`予測精度 ±${pct(B.err)}`, `Forecast accuracy ±${pct(B.err)}`);
+  // 段 UX1（C-1）：カードの提案書は、初めて開いた日の短期・長期の差を覚えて主に出す（開き直すたびに数字が変わらない）。
+  // いま計算し直した数字は、タイルの下に小さく。snap が無い（マインちゃん・報告の提案書）ときは、いまの計算のまま
+  if (card && !card.snap) {
+    const S = B.vals.list.find((m) => m.key === 'short');
+    const L = B.vals.list.find((m) => m.key === 'long');
+    if (S && L) card.snap = { day: s.day, short: S.d, long: L.d };
+  }
+  const snap = card?.snap ?? null;
+  const snapDate = snap ? date({ day: snap.day, open: s.open }) : null;
 
   for (const id of kinds) {
     const box = slideBox(slideTitle(id, B, what), id);
@@ -226,13 +238,15 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
         pitch.append(rich(speechText(speech)), infoTip(headlineOf(B, what), t('一言で', 'In one line')));
         body.append(pitch);
         const grid = h('div', 'isl-sl-kpis');
-        for (const k of kpisOf(B, roomKpi(poolUsed(base), poolCap(base), poolCap(aft)), { pick: true })) {
+        for (const k of kpisOf(B, roomKpi(poolUsed(base), poolCap(base), poolCap(aft)), { pick: true, snap })) {
           const tile = kpiTile(k);
           const m = B.vals.list.find((x) => x.key === k.key);
           if (m) tile.querySelector('.isl-sl-lab')?.append(infoTip(m.why, t(`${k.label}の計算のしかた`, `How ${k.label} is worked out`)));
           grid.append(tile);
         }
         body.append(grid);
+        // 段 UX1（C-1）：いつの見込みか（初めて開いた日）と、開き直すと少し変わる理由
+        if (snap && snapDate && snap.day !== s.day) body.append(h('small', 'isl-prop-snapnote', t(`短期・長期の数字は ${snapDate.month} 月 ${snapDate.day} 日に開いたときの見込み。開き直すと在庫や他社の動きで少し変わるので、変わった分は各タイルの下に`, `Short/long figures are the forecast from when first opened (M${snapDate.month} D${snapDate.day}); stock and rivals shift them a little, so the recalculated value sits under each tile`)));
         // 段 UI9b：「承認する」の欄は箇条書き（手ごとに 1 行：部門・手・費用）。「推奨」の札は出さない（承認が基本）
         const rec = h('div', `isl-sl-rec ${B.rec === 'ok' ? 'is-ok' : 'is-skip'}`);
         const top = h('div', 'isl-sl-rectop');
@@ -244,6 +258,13 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
             const li = h('li', '');
             const bits = [a.money ? money(a.money) : '', a.rp ? `${a.rp} RP` : '', a.monthly ? t(`毎月 ${money(a.monthly)}`, `${money(a.monthly)}/mo`) : ''].filter(Boolean);
             li.append(deptChip(a.dept), h('span', '', `${askIcon(a.kind)} ${shortWhat(a.what)}`), h('small', 'isl-sl-acost', bits.join(t('・', ' · ')) || t('費用なし', 'free')));
+            will.append(li);
+          }
+          // 段 UX1（C-7）：入れ替えで作らなくなる商品を赤で明記（承認すると旧商品の生産が止まる）
+          const dl = dropLine(s, plan);
+          if (dl) {
+            const li = h('li', 'isl-sl-drop');
+            li.append(h('span', '', `⚠ ${dl}`));
             will.append(li);
           }
           rec.append(will);

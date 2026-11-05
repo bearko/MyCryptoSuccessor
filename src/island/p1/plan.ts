@@ -21,7 +21,7 @@ import {
   invLv,
   investCost,
   invest,
-  matPrice,
+  unitPrice,
   madeSkus,
   myShops,
   myWorkshop,
@@ -255,6 +255,18 @@ export function planOf(s: P1State, acts: PropAct[], who: { hero: number | null; 
   return { hero: who.hero, q: who.q ?? DELEG.q.lo, dept: who.dept ?? null, acts, steps, ...(goods.length ? { goods } : {}), drop, of };
 }
 
+/**
+ * 段 UX1（C-7）：入れ替えで作らなくなる商品の 1 行（承認事項に赤で）。「作業台 N を A → B に替える（A は作らなくなる）」。
+ * 棚を足す提案は、作っていない商品を既存の作業台 1 台で作り替えるので、承認すると A の生産が止まる（7-3 の「回転寿司」）
+ */
+export function dropLine(s: P1State, p: Plan): string | null {
+  if (!p.drop) return null;
+  const mk = p.steps.find((st): st is Extract<Step, { k: 'make' }> => st.k === 'make' && s.slots[st.slot]?.sku === p.drop) ?? p.steps.find((st): st is Extract<Step, { k: 'make' }> => st.k === 'make');
+  const a = goodsName(p.drop);
+  if (!mk) return t(`${a}は作らなくなる`, `${a} will no longer be made`);
+  return t(`作業台 ${mk.slot + 1} を ${a} → ${goodsName(mk.x)} に替える（${a}は作らなくなる）`, `Bench ${mk.slot + 1}: ${a} → ${goodsName(mk.x)} (${a} will no longer be made)`);
+}
+
 /** 手で選んだ変更（工房の作る物・主力・従業員）を Plan に（同じ applyPlan で実行する） */
 export const manualPlan = (steps: Step[], hero: number | null = null): Plan => ({ hero, q: DELEG.q.lo, dept: null, acts: [], steps });
 
@@ -318,7 +330,7 @@ export function planCost(s: P1State, p: Plan): PlanCost {
         add(t(`持ち場の移動：${heroNm(st.hero)} → 作業台 ${st.slot + 1}`, `Move ${heroNm(st.hero)} → bench ${st.slot + 1}`), {});
         break;
       case 'order':
-        add(t(`素材の注文：${MATS[st.m].name} ×${st.lots * LOT}`, `Materials: ${MATS[st.m].name} ×${st.lots * LOT}`), { money: matPrice(s, st.m) * st.lots * LOT });
+        add(t(`素材の注文：${MATS[st.m].name} ×${st.lots * LOT}`, `Materials: ${MATS[st.m].name} ×${st.lots * LOT}`), { money: unitPrice(s, st.m) * st.lots * LOT });
         break;
       case 'staff': {
         const sh = s.shops[st.uid];

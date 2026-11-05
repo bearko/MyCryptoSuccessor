@@ -572,7 +572,7 @@ function renderJam() {
   if (c.k === 'jam') {
     // 段 UI5a：「詰まり」→「課題あり」（月次報告の KPI ③ とそろえる）
     statJam.replaceChildren(h('small', '', t('課題あり', 'Issue')), h('b', '', `${JAM_ICON[c.stage]} ${JAM_NAME(c.stage)}`));
-    statJam.title = t('いちばんの課題。押すと、担当の提案か SCM ダッシュボード', 'The biggest issue. Tap for the proposal or the SCM dashboard');
+    statJam.title = t('いちばんの課題。押すと、担当の提案かサプライチェーンの画面', 'The biggest issue. Tap for the proposal or the supply chain screen');
   } else {
     statJam.replaceChildren(h('small', '', t('次の一手', 'Next')), h('b', '', c.k === 'ws' ? t('🔨 工房', '🔨 Workshop') : t('🏪 お店', '🏪 Shop')));
     statJam.title = t('押すと建築', 'Tap to build');
@@ -852,7 +852,7 @@ function buildTabs() {
     // title にサブタブ名の並び、PC の右の帯は部門名の下に主なサブタブ名（tabHint）
     const subs = subDefs(m, ids);
     if (subs.length) {
-      b.title = `${d.name}：${subs.map((x) => x.name).join(t('・', ' · '))}`;
+      b.title = t(`${d.name}：${subs.map((x) => x.name).join('・')}`, `${d.name}: ${subs.map((x) => x.name).join(' · ')}`);
       b.append(h('small', 'isl-tab-sub', tabHint(subs.map((x) => x.short))));
     }
     b.addEventListener('click', () => pickMenu(m));
@@ -5124,9 +5124,9 @@ window.setTimeout(() => warmFx(), 3000);
     state: () => boardOf(s),
   },
   /** 段 K（撮影・確かめ用）：手（PropAct）の提案書を、いまの方針で開く */
-  proposalOf: async (acts: unknown[], dept: string) => {
+  proposalOf: async (acts: unknown[], dept: string, card?: number, hero: number | null = null) => {
     const P = await import('./plan');
-    openProposal(ctx, P.planOf(s, acts as never, { hero: null, q: 0.9, dept: dept as never }), { done: () => renderAll(), force: true });
+    openProposal(ctx, P.planOf(s, acts as never, { hero, q: 0.9, dept: dept as never }), { done: () => renderAll(), force: true, ...(card != null ? { card } : {}) });
   },
   /** 段 K（撮影・確かめ用）：方針の画面・研究ノート・発掘の画面の石板の窓 */
   policy: () => openPolicyView(ctx),

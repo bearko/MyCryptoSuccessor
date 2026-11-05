@@ -84,14 +84,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.isl-news-idle {
-  display: block;
-  padding-left: 10px;
-  overflow: hidden;
-  color: #8f9bb8;
-  font-weight: 600;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+/* 段 UX1（C-11）：たまっている知らせが無いときに繰り返し流す、一覧の見出し（少し落ち着いた色。新しい知らせと見分ける） */
+.isl-news-item.is-replay {
+  color: #c9d2e6;
 }
 .isl-news-sr {
   position: absolute;

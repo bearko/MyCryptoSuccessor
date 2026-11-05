@@ -223,6 +223,9 @@ export interface DigStatus {
   topics: [number, number];
   /** SCM のいちばん細い段（お店が無ければ null） */
   jam: Stage | null;
+  /** 段 UX1（C-4）：今回の作業で増えた RP・はがしたマス（累計と今回を同じ言葉で混ぜない） */
+  rpNow: number;
+  cellsNow: number;
   /** ダンジョン：この作業でいちばん深くはがした層・最深記録・掘れる層の数・層の数 */
   dungeon?: { deep: number; best: number; limit: number; all: number };
 }
@@ -236,6 +239,9 @@ export function digStatus(s: P1State): DigStatus | null {
     sales: monthRevenue(s),
     pct: Math.round(siteProgress(s, L.site) * 100),
     rp: s.rp ?? 0,
+    // 段 UX1（C-4）：今回の作業で増えた RP・はがしたマス（帯の「研 N（今回 +M）」「掘った N%（今回 M マス）」。終了の札と同じ値）
+    rpNow: s.digRun?.got.rp ?? 0,
+    cellsNow: s.digRun?.got.cells ?? 0,
     found: s.digRun?.got.found ?? 0,
     lvUp: s.digRun?.got.lv ?? 0,
     layer: layersOf(L)[digDepthLayer(s)].name,

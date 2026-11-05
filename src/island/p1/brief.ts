@@ -1195,7 +1195,7 @@ export function bgOf(s: P1State, p: Plan, b: Pick<Brief, 'now' | 'vals' | 'theme
       if (th === 'flow' || th === 'legal') {
         const c = stageCaps(s, true);
         const bn = bottleneck(c);
-        out.push(t(`4 段のうち処理量が最小なのは${STAGE[bn]()}：月 ${Math.round(c[bn].perMonth)} 個 — SCM の数字`, `The lowest throughput of the 4 stages is ${STAGE[bn]()}: ${Math.round(c[bn].perMonth)}/mo — flow`));
+        out.push(t(`4 段のうち処理量が最小なのは${STAGE[bn]()}：月 ${Math.round(c[bn].perMonth)} 個 — サプライチェーンの数字`, `The lowest throughput of the 4 stages is ${STAGE[bn]()}: ${Math.round(c[bn].perMonth)}/mo — flow`));
       }
     }
   }

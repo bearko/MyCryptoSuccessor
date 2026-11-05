@@ -67,7 +67,7 @@ export const HIRE_LINES = () => [
   t('さっそく、素材を買い付けてくれる[[調達]]が得意なヒーローを雇おう！', 'Let’s hire a hero who’s good at [[buying]] materials right away!'),
 ];
 /** チュートリアル：研究ポイントの説明の 1 枚（人材の募集の段。文はそのまま） */
-export const RP_LINE = (rp: number) => t(`人材の募集は[[研究ポイント]]で開くパネルだよ。私の前の世界の研究ノートから、[[${rp} RP]] を持ってきたんだ！`, `Recruiting is unlocked with [[research points]]. I brought [[${rp} RP]] from my research notes from my old world!`);
+export const RP_LINE = (rp: number) => t(`人材の募集は[[研究ポイント]]（RP）で開くパネルだよ。私の前の世界の研究ノートから、[[${rp} RP]] を持ってきたんだ！`, `Recruiting is unlocked with [[research points]]. I brought [[${rp} RP]] from my research notes from my old world!`);
 
 // ---------------------------------------------------------------- 画面の中のマインちゃんの一言（残すもの。1 行・LINE_MAX 字まで）
 
