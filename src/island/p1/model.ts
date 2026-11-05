@@ -2564,11 +2564,12 @@ export const adOpen = (s: P1State, id: string) => adLock(s, id) == null;
 export const adPick = (s: P1State, a: Ad) => (s.ads[a.id] ?? 0) <= 0 && adOpen(s, a.id) && (!adUpper(a) || AD_TIER.auto.upper);
 /** 宣伝の費用（季節の催事で −30%） */
 export const adCost = (s: P1State, id: string) => Math.round((ADS.find((a) => a.id === id)?.cost ?? 0) * cut(s, 'fair', 0.3));
-export function runAd(s: P1State, id: string): string | null {
+/** 宣伝を出す。force：解禁の条件を見ない（監査 scripts/island/audit.ts が効き目だけを測るとき） */
+export function runAd(s: P1State, id: string, force = false): string | null {
   const x = ADS.find((a) => a.id === id);
   if (!x) return 'locked';
   if ((s.ads[id] ?? 0) > 0) return 'busy';
-  if (adLock(s, id) != null) return 'locked';
+  if (!force && adLock(s, id) != null) return 'locked';
   const cost = adCost(s, id);
   if (s.money < cost) return 'money';
   s.money -= cost;
