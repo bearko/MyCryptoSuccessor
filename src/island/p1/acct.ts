@@ -11,7 +11,7 @@ import { t } from '../../i18n';
 import { ACCT_SKILLS, P1B, SKILL, TAX, deptOf, type DedKind, type Tier } from './data';
 import { sectorDef, type Ledger } from './company';
 import { headFx } from './deleg';
-import { DAYS, has, lvMul, upkeepOf, type P1State } from './model';
+import { DAYS, flowAdd, has, lvMul, upkeepOf, type P1State } from './model';
 
 /**
  * 段 F を止める（自動プレイ・テストで「段 F の前」と比べるためだけ。ふつうのゲームでは使わない）：税 0・単価の倍率 1・疲れが効かない
@@ -174,6 +174,7 @@ export function closeQuarter(s: P1State, q: number, l: Ledger): TaxRec | null {
   const paid = Math.max(0, Math.min(due, Math.floor(s.money - TAX.keep)));
   A.owed = due - paid;
   s.money -= paid;
+  flowAdd(s, 'tax', -paid);
   l.tax = (l.tax ?? 0) + paid;
   A.paid += paid;
   A.saved += saved;

@@ -38,7 +38,7 @@ import { flowGain, isFlowKey, issuesOf, limitWord, type CoIssue, type IssueKey, 
 import { adGain, goodsName, partMonthly, sellMoves, shopMonthly, stockMsg, stockPlan, type SellMove } from './moves';
 import { apologize, bestReply, csOn, noticeCost, refundCost, reply, replyGain, replyLock, swapItem } from './cs';
 import { quitLeft, talk, talkGain } from './hr';
-import { afterOf, applyPlan, baseOf, planBlock, planCost, planOf, type Plan, type PlanRes } from './plan';
+import { afterOf, applyPlan, baseOf, planBlock, planCost, planOf, stepsOf, type Plan, type PlanRes } from './plan';
 import { actNoun, actTheme, judgeOf, monthOf, valueOfPlan, type NoKind } from './brief';
 import { jammed, prodOf, useUpOf } from './proj';
 import { holdMonth, poolNow, storeFc, whenFull } from './storefc';
@@ -169,6 +169,11 @@ export interface Card {
   issues?: CoIssue[];
   /** 段 UI7h：知らせ（推奨の札なし・「わかった」で閉じる）。流れが止まったのに、推奨が承認になる直す手が無い月 */
   note?: true;
+  /**
+   * 段 UX1（C-1）：提案書を初めて開いた日の KPI（短期・長期の差）。提案書を開き直しても数字が変わらないように、
+   * この数字を主に出し、いま計算し直した数字は小さく添える（無くてよい項目：古いセーブは次に開いたとき）
+   */
+  snap?: { day: number; short: number; long: number };
 }
 /** 段 UI7h：取り下げの理由（資金が減った・方針を替えた・課題がほかの手で解けた・見込みが下がった） */
 export type GoneWhy = 'money' | 'policy' | 'solved' | 'loss';
@@ -2227,7 +2232,11 @@ export function choiceText(s: P1State, c: Card, ch: Choice): { icon: string; lab
         case 'stock': {
           const nm = goodsName(p.key);
           // 段 UI5a：何を売るかは製造が決める（作業台を切り替えると、棚は自動でついてくる）
-          if (p.add) return { icon: '👍', label: t(`棚をもう 1 段、${nm}も作って並べよう`, `One more shelf, and make and sell ${nm} too`), sub: `${costTxt}${SEP()}${unitsTxt}${net}` };
+          // 段 UX1（C-7）：既存の作業台を替えて作るなら、作らなくなる商品を 2 行目にも短く
+          if (p.add) {
+            const dr = stepsOf(s, p).drop;
+            return { icon: '👍', label: t(`棚をもう 1 段、${nm}も作って並べよう`, `One more shelf, and make and sell ${nm} too`), sub: `${costTxt}${SEP()}${unitsTxt}${net}${dr ? `${SEP()}${t(`${goodsName(dr)}は作らなくなる`, `${goodsName(dr)} stops`)}` : ''}` };
+          }
           if (ch.replace) return { icon: '🔁', label: t(`${goodsName(ch.replace)}の代わりに${nm}を作ろう`, `Make ${nm} instead of ${goodsName(ch.replace)}`), sub: `${costTxt}${SEP()}${unitsTxt}${net}` };
           return { icon: '🧺', label: t(`${nm}も作って、空いた棚に並べよう`, `Make ${nm} for the free shelf`), sub: `${costTxt}${SEP()}${unitsTxt}${net}` };
         }

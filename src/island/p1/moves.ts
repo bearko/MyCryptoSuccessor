@@ -58,6 +58,23 @@ export function adGain(s: P1State, id: string): number {
   const on = sellNow({ ...s, ads: { ...s.ads, [id]: ad.days } }).yen;
   return Math.round((on - base) * (ad.days / DAYS) * grossRate(s) + adRemoteGain(s, id) - adCost(s, id));
 }
+/**
+ * 段 UX1（C-10・8-1 の表示）：この宣伝で元が取れる月商の目安（G）。adGain が 0 になる月の売上を逆算：
+ * 伸びの割合 r（宣伝あり／なしの売上の比 − 1。売上がまだ無ければ ad.boost）として、(費用 − 任せている町の伸び) ÷ (r × 日数/30 × 粗利率)。
+ * 表示だけ（見込みの数字・判断は変えない）。計算できなければ null
+ */
+export function adBreakeven(s: P1State, id: string): { need: number | null; now: number } | null {
+  const ad = ADS.find((a) => a.id === id);
+  if (!ad || !myShops(s).length) return null;
+  const base = sellNow(s).yen;
+  const on = sellNow({ ...s, ads: { ...s.ads, [id]: ad.days } }).yen;
+  const r = base > 0 ? (on - base) / base : ad.boost;
+  const k = r * (ad.days / DAYS) * grossRate(s);
+  // 伸びが 0（重ね掛けの上限・棚の頭打ち）：いくら売れていても元が取れない → need は null
+  if (!(k > 0)) return { need: null, now: Math.round(base) };
+  const need = (adCost(s, id) - adRemoteGain(s, id)) / k;
+  return { need: Math.max(0, Math.round(need / 100) * 100), now: Math.round(base) };
+}
 /** 段 M1：ランド・全店の宣伝が、任せている町の売上（マネージャーの売上の倍率）に足すぶんの粗利（期間ぶん。費用は引かない） */
 export function adRemoteGain(s: P1State, id: string): number {
   const ad = ADS.find((a) => a.id === id);

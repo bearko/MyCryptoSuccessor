@@ -59,9 +59,10 @@ describe('段 N2：ニュースの束ね', () => {
     expect(q[0].text).toBe('7 人がレベルアップ（A・B・C・D・ほか 3 人）');
   });
 
-  it('速さは 2.2 倍まで（省かないぶん、速める）', () => {
-    expect(newsSpeed(true, 6)).toBeCloseTo(220, 5);
-    expect(newsSpeed(true, 99)).toBeCloseTo(220, 5);
+  it('速さは 1.6 倍まで（省かないぶん、速める。段 UX1 で 2.2 倍 → 1.6 倍）', () => {
+    // 段 UX1（C-8）：上限は 1.6 倍（160 px/秒）
+    expect(newsSpeed(true, 3)).toBeCloseTo(160, 5);
+    expect(newsSpeed(true, 99)).toBeCloseTo(160, 5);
   });
 
   it('種類のアイコンは 6 つ。「NEWS」の札の光（newsFx）は無い', () => {

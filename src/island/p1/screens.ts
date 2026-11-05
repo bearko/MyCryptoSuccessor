@@ -4,6 +4,7 @@
  */
 import { t, isEn } from '../../i18n';
 import { pickMake } from './stockui';
+import { evMul } from './events';
 import type { Sfx } from './sfx';
 import { assetUrl, drawRef } from '../../render/images';
 import { heroById, heroFacesRight } from '../../game/catalog';
@@ -99,7 +100,7 @@ import {
   poolUsed,
   hire,
   market,
-  matPrice,
+  unitPrice,
   isCheap,
   monthRevenue,
   myShops,
@@ -135,7 +136,7 @@ import { cvBox, rankBarsEl, trendEl } from './chartkit';
 import { monHead, monLab, rankHist, rankRows } from './dash';
 import { bomRow, extCard, extSlot, jobLabel, knownBar, lotsFromStock, needText, pickExt, pickHero, profitPerDay, radar, rankEl, slot, techNeed } from './heroui';
 import { rolesCard } from './delegui';
-import { adGain } from './moves';
+import { adBreakeven, adGain } from './moves';
 import { craftable, shopInvestOrder } from './orders';
 import { charismaCard, charismaNeeds, openPayroll as openPayrollHr } from './hrui';
 import { hireEmptyLines } from './hr';
@@ -436,6 +437,12 @@ export function open(ctx: Ctx, title: string, render: (body: HTMLElement) => voi
   if (hot && hot.getBoundingClientRect().bottom > sh.body.getBoundingClientRect().bottom) requestAnimationFrame(() => hot.scrollIntoView({ block: 'center' }));
 }
 
+/** 段 UX1（C-6）：できごとで素材の値段が動いているあいだの添え書き（「（値上がり中 ×1.1）」「（値引き中 ×0.95）」） */
+function evNote(s: P1State, m: Mat): string {
+  const k = Math.round(evMul(s, 'mat', m) * 100) / 100;
+  if (k === 1) return '';
+  return k > 1 ? t(`（値上がり中 ×${k}）`, ` (price up ×${k})`) : t(`（値引き中 ×${k}）`, ` (discount ×${k})`);
+}
 export const after = (ctx: Ctx) => {
   ctx.save();
   ctx.refresh();
@@ -1141,14 +1148,14 @@ export function openBuy(ctx: Ctx) {
       for (const m of mats.length ? mats : MAT_KEYS.filter((m) => hasRoute(s, m))) {
         const row = h('div', 'isl-row');
         row.append(matIcon(m, 36), h('b', '', MATS[m].name), h('span', 'isl-dim', t(`在庫 ${s.mats[m] ?? 0}`, `have ${s.mats[m] ?? 0}`)));
-        const b = btn(t(`1 ロット（${LOT} 個）注文する（${money(matPrice(s, m) * LOT)}・納期 ${leadDays(s)} 日）`, `Order 1 lot (${LOT}) — ${money(matPrice(s, m) * LOT)}, ${leadDays(s)} days`), () => {
+        const b = btn(t(`1 ロット（${LOT} 個）注文する（${money(unitPrice(s, m) * LOT)}・納期 ${leadDays(s)} 日）`, `Order 1 lot (${LOT}) — ${money(unitPrice(s, m) * LOT)}, ${leadDays(s)} days`), () => {
           const e = placeOrder(s, m, 1);
           if (e === 'money') ctx.toast(t('資金が足りません', 'Not enough funds'));
           else if (e === 'storage') ctx.toast(t('置き場所がありません', 'No storage room'));
           else if (!e) ctx.toast(t(`${MATS[m].name}を 1 ロット注文しました（${leadDays(s)} 日後に届きます）`, `Ordered 1 lot of ${MATS[m].name} (arrives in ${leadDays(s)} days)`));
           after(ctx);
         }, s.orders?.length ? 'is-on' : 'is-on is-guide');
-        b.disabled = s.money < matPrice(s, m) * LOT || poolFree(s) < LOT;
+        b.disabled = s.money < unitPrice(s, m) * LOT || poolFree(s) < LOT;
         row.append(b);
         card.append(row);
       }
@@ -1216,7 +1223,7 @@ export function openBuy(ctx: Ctx) {
       const route = hasRoute(s, m);
       const sel = picked.find((x) => x.m === m);
       const top = h('div', 'isl-row');
-      top.append(matIcon(m, 32), h('b', '', MATS[m].name), h('span', 'isl-dim', t(`在庫 ${s.mats[m] ?? 0}・1 個 ${matPrice(s, m)} G`, `have ${s.mats[m] ?? 0}, ${matPrice(s, m)} G each`)));
+      top.append(matIcon(m, 32), h('b', '', MATS[m].name), h('span', 'isl-dim', t(`在庫 ${s.mats[m] ?? 0}・1 個 ${unitPrice(s, m)} G${evNote(s, m)}`, `have ${s.mats[m] ?? 0}, ${unitPrice(s, m)} G each${evNote(s, m)}`)));
       if (isCheap(s, m)) top.append(h('span', 'isl-chip is-good isl-cheap', t('特産 −20%', 'Local −20%')));
       if (route) {
         if (sel?.from === 'item') top.append(h('span', 'isl-chip is-on', t('エクステから', 'From extensions')));
@@ -1273,7 +1280,7 @@ export function openBuy(ctx: Ctx) {
         spot.append(h('small', 'isl-dim', t(`いま注文する（1 ロット ${LOT} 個・納期 ${leadDays(s)} 日）`, `Order now (${LOT} per lot, ${leadDays(s)} days)`)));
         for (const lots of [1, 5]) {
           const k = lots * LOT;
-          const b = btn(t(`${lots} ロット（${money(matPrice(s, m) * k)}）`, `${lots} lot${lots > 1 ? 's' : ''} (${money(matPrice(s, m) * k)})`), () => {
+          const b = btn(t(`${lots} ロット（${money(unitPrice(s, m) * k)}）`, `${lots} lot${lots > 1 ? 's' : ''} (${money(unitPrice(s, m) * k)})`), () => {
             const e = placeOrder(s, m, lots);
             if (e === 'money') ctx.toast(t('資金が足りません', 'Not enough funds'));
             else if (e === 'cap') ctx.toast(t('今月の調達の上限を超えます', 'Over this month’s buying limit'));
@@ -1281,7 +1288,7 @@ export function openBuy(ctx: Ctx) {
             else if (!e) ctx.toast(t(`${MATS[m].name}を ${k} 個注文しました（${leadDays(s)} 日後に届きます）`, `Ordered ${k} ${MATS[m].name} (arrives in ${leadDays(s)} days)`));
             after(ctx);
           });
-          b.disabled = s.money < matPrice(s, m) * k || procLeft(s) < k || poolFree(s) < k;
+          b.disabled = s.money < unitPrice(s, m) * k || procLeft(s) < k || poolFree(s) < k;
           spot.append(b);
         }
         card.append(spot);
@@ -1999,6 +2006,9 @@ export function openAds(ctx: Ctx) {
           // 段 M1：ランド・全店の宣伝は、任せている町の売上の伸びも入れた見込み
           const where = adWide(a) ? t('会社の全店で', 'across all shops') : t('この町で', 'here');
           card.append(h('p', `isl-ad-gain ${g > 0 ? 'isl-good' : 'isl-warn'}`, g > 0 ? t(`見込み：+${money(g)}（${where}元が取れる）`, `Expected: +${money(g)} (pays off ${where})`) : t(`見込み：−${money(-g)}（${where}はまだ元が取れない）`, `Expected: −${money(-g)} (won’t pay off ${where} yet)`)));
+          // 段 UX1（C-10）：いくら売れていれば元が取れるか（序盤は赤字の見込みが続くので、目安を添える。数字は変えない）
+          const be = adBreakeven(s, a.id);
+          if (be) card.append(h('p', 'isl-ad-be isl-dim', be.need == null ? t('いまは売上が伸びない（重ね掛けの上限か、棚の頭打ち）ので元が取れない', 'No lift right now (stacking cap or shelves maxed), so it can’t pay off') : be.need <= 0 ? t(`任せている町の伸びだけで元が取れる（この町の月商の見込み ${money(be.now)}）`, `Delegated towns alone pay for it (sales here now ${money(be.now)}/mo)`) : t(`元が取れる月商の目安 ${money(be.need)}〜（いまの見込み ${money(be.now)}）`, `Pays off from about ${money(be.need)}/mo in sales (now ${money(be.now)})`)));
         }
         const b = btn(t(`実施する ${money(cost)}`, `Run ${money(cost)}`), () => {
           const e = runAd(s, a.id);

@@ -13,7 +13,7 @@ import { EVENT, MATS, PRODUCT, SECTOR_CHIEF, skuParts, type Mat, type Sku, type 
 import { book, brandAdd } from './company';
 import { moraleAdd } from './hr';
 import { polEvW } from './policy';
-import { fullUse, matPrice, myShops, priceOf, rng, spend, staffOf, type P1State } from './model';
+import { flowAdd, fullUse, matPrice, myShops, priceOf, rng, spend, staffOf, type P1State } from './model';
 
 // ---------------------------------------------------------------- 型
 
@@ -67,7 +67,8 @@ export interface EvOpt {
   morale?: number;
   moraleHero?: number;
   /** 大口の注文：工房の在庫から n 個を、1 個 yen で渡す */
-  order?: { sku: Sku; n: number; yen: number };
+  /** 大口の注文：在庫 n 個を 1 個 yen で。price：ふだんの値段（段 UX1 C-5：「ふだんより +M G 得」の表示用。以前のカードには無い） */
+  order?: { sku: Sku; n: number; yen: number; price?: number };
   /** 様子を見る系（自動プレイの最短が選ぶ、いちばん軽い手） */
   light?: boolean;
   /** 見込み（G。費用込み。ブランド力・研究ポイント・士気は EVENT.val で G に直す） */
@@ -144,6 +145,7 @@ export function evSales(s: P1State, v: number) {
   if (!v) return;
   s.money += v;
   book(s, 'sales', v);
+  flowAdd(s, 'evsales', v);
   const E = eventsOf(s);
   E.yen = (E.yen ?? 0) + v;
 }
@@ -272,9 +274,10 @@ function build(s: P1State, kind: EvKind, r: () => number): Omit<EvData, 'good'> 
         .map(([x, n]) => ({ x, n: Math.min(n ?? 0, Math.max(EVENT.order.min, Math.round(units(skuParts(x)[0]) * EVENT.order.share))) }));
       if (!cands.length) return null;
       const c = cands[Math.floor(r() * cands.length)];
-      const yen = Math.round(priceOf(s, c.x) * (1 + EVENT.order.premium));
+      const price = priceOf(s, c.x);
+      const yen = Math.round(price * (1 + EVENT.order.premium));
       const half = Math.max(1, Math.floor(c.n / 2));
-      return { kind, ...heroOr(clerk(s)), key: c.x, n: c.n, opts: [o('all', { order: { sku: c.x, n: c.n, yen } }), o('half', { order: { sku: c.x, n: half, yen } }), o('no', { light: true })] };
+      return { kind, ...heroOr(clerk(s)), key: c.x, n: c.n, opts: [o('all', { order: { sku: c.x, n: c.n, yen, price } }), o('half', { order: { sku: c.x, n: half, yen, price } }), o('no', { light: true })] };
     }
     case 'sponsor':
       return { kind, ...chief!, opts: [o('sponsor', { cost: amt(s, 0.03), brand: 2 * B }), o('name', { cost: amt(s, 0.01), brand: B }), o('no', { light: true })] };
@@ -401,6 +404,7 @@ export function applyEvent(s: P1State, d: EvData, k: number): string | null {
   if (o.money) {
     s.money += o.money;
     book(s, 'other', -o.money);
+    flowAdd(s, 'event', o.money);
   }
   for (const f of o.fx) E.fx.push({ k: f.k, ...(f.key ? { key: f.key } : {}), mul: f.mul, until: s.day + f.days, sector: s.sector ?? 'c1', ev: d.kind });
   if (o.brand) brandAdd(s, o.brand, t(`できごと：${evTitle(d)}`, `Event: ${evTitle(d)}`));
@@ -418,6 +422,9 @@ export function applyEvent(s: P1State, d: EvData, k: number): string | null {
     s.monthSales[key] = (s.monthSales[key] ?? 0) + yen;
     s.monthUnits[key] = (s.monthUnits[key] ?? 0) + o.order.n;
     book(s, 'sales', yen);
+    // 段 UX1（C-3）：お店の画面の売上（sh.rev）にも足す（上の帯の売上と食い違っていた。その商品を並べている店、無ければ最初の店。順位・満足度には効かない）
+    const shop = myShops(s).find((b) => s.shops[b.uid]?.shelves.includes(o.order!.sku)) ?? myShops(s)[0];
+    if (shop && s.shops[shop.uid]) s.shops[shop.uid].rev += yen;
   }
   // 数え（月次報告・自動プレイの表）
   E.pend.push({ kind: d.kind, ...(d.key ? { key: d.key } : {}), ...(d.mat ? { mat: d.mat } : {}), ...(d.n ? { n: d.n } : {}), opt: o.id, day: s.day, sector: s.sector ?? 'c1' });
@@ -630,7 +637,11 @@ export function optSub(d: EvData, o: EvOpt): string {
   const xs: string[] = [];
   if (o.cost > 0) xs.push(g(o.cost));
   if (o.money) xs.push(t(`謝礼 +${g(o.money)}`, `Fee +${g(o.money)}`));
-  if (o.order) xs.push(t(`在庫 ${o.order.n} 個を 1 個 ${g(o.order.yen)} で`, `${o.order.n} from stock at ${g(o.order.yen)}`));
+  // 段 UX1（C-5）：売上は n × yen が丸ごと入る。「見込み」は上乗せ分だけなので、売上の額と「ふだんより得な分」を分けて書く
+  if (o.order) {
+    const extra = o.order.n * (o.order.yen - (o.order.price ?? o.order.yen));
+    xs.push(t(`在庫 ${o.order.n} 個・売上 +${g(o.order.n * o.order.yen)}（ふだんより +${g(extra)} 得）`, `${o.order.n} from stock · sales +${g(o.order.n * o.order.yen)} (+${g(extra)} over the usual price)`));
+  }
   for (const f of o.fx) xs.push(fxText(f));
   if (o.brand) xs.push(t(`ブランド力 ${sgn(o.brand)}`, `Brand ${sgn(o.brand)}`));
   if (o.rp) xs.push(t(`研究 +${o.rp} RP`, `+${o.rp} RP`));

@@ -174,7 +174,7 @@ export const TUT: TutStep[] = [
       buy: (s) =>
         s.proc.bought > 0
           ? t('注文できた！ 納期になると、問屋の人が[[工房]]まで運んでくれるよ。画面を閉じよう。', 'Ordered! On the due day, the wholesaler’s staff carries it to the [[workshop]]. Close this screen.')
-          : t('光っているボタンで、作るのに使う[[素材]]を 1 ロット注文しよう！', 'Tap the glowing button to order 1 lot of the [[material]] you craft with!'),
+          : t('光っているボタンで、作るのに使う[[素材]]を 1 ロット注文しよう！ 値段は G（この世界のお金）で払うよ。', 'Tap the glowing button to order 1 lot of the [[material]] you craft with! Prices are in G (this world’s money).'),
     },
     checks: [
       [t('素材を 1 ロット注文する', 'Order 1 lot of materials'), (s) => s.proc.bought > 0],
@@ -263,13 +263,11 @@ export const TUT: TutStep[] = [
   {
     id: 'scm',
     focus: 'shop',
-    goal: (_s) => t('SCM ダッシュボードを見る', 'Check the SCM dashboard'),
+    goal: (_s) => t('サプライチェーンの画面を見る', 'Check the supply chain screen'),
     praise: t('これで流れの見方はばっちり！', 'Now you know how to read the flow!'),
+    // 段 UX1（C-9）：「作って、運んで、売れた」は流れの案内で見たばかりなので 1 枚に。「SCM」は初出だけ併記
     intro: {
-      pages: [
-        { text: t('[[初売上]]、おめでとう！ 作って、運んで、売れた！', 'Your [[first sale]]! Made, carried and sold!'), show: 'cycle' },
-        { text: t('流れ全体は、[[SCM ダッシュボード]]で見られるよ。のぞいてみよう！', 'You can see the whole flow on the [[SCM dashboard]]. Take a look!') },
-      ],
+      pages: [{ text: t('[[初売上]]、おめでとう！ 流れ全体は[[サプライチェーン]]（SCM）の画面で見られるよ。', 'Your [[first sale]]! See the whole flow on the [[supply chain]] (SCM) screen.'), show: 'cycle' }],
       ok: t('見てみる', 'Take a look'),
     },
     say: () => t('どこが詰まっているかは、ダッシュボードでひと目で分かるよ。「物流」→「サプライチェーン」を開こう！', 'The dashboard shows at a glance where things jam. Open Logistics → Supply chain!'),
@@ -377,7 +375,8 @@ export const TUT: TutStep[] = [
 export const TUT_END: TutPage[] = [
   { text: t('見習い期間はここまで！ ここからは、あなたの思うままに。', 'That’s the end of the apprentice month! From here, it’s all yours.') },
   { text: t('このランドに、名前を轟かせよう！', 'Let’s make our name known across this land!') },
-  { text: t('右下の[[懐中時計]]を押すと、次の月が始まるよ。', 'Press the [[pocket watch]] at the bottom right to start the next month.') },
+  // 段 UX1（A-3）：懐中時計を金色の枠で囲む（▶⏩ でも進める）
+  { text: t('右下の[[懐中時計]]か、上の [[▶]] を押すと、次の月が始まるよ。', 'Press the [[pocket watch]] at the bottom right, or [[▶]] at the top, to start the next month.'), focus: '.isl-next-month' },
 ];
 
 /**

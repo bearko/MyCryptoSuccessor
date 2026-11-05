@@ -21,12 +21,13 @@ describe('段 N1：ニュースのテロップ', () => {
     expect(q.some((x) => /ほか \d+ 件/.test(x.text))).toBe(false);
   });
 
-  it('たまっているほど速く流す（上限はおよそ 2.2 倍）。PC はスマホより少し速い', () => {
+  it('たまっているほど速く流す（上限はおよそ 1.6 倍。段 UX1 で 2.2 → 1.6）。PC はスマホより少し速い', () => {
     expect(newsSpeed(false, 0)).toBe(84);
     expect(newsSpeed(true, 0)).toBe(100);
     expect(newsSpeed(false, 2)).toBeGreaterThan(newsSpeed(false, 0));
-    expect(newsSpeed(false, 50)).toBe(newsSpeed(false, 6));
-    expect(newsSpeed(false, 50) / newsSpeed(false, 0)).toBeCloseTo(2.2, 5);
+    expect(newsSpeed(false, 50)).toBe(newsSpeed(false, 3));
+    // 段 UX1（C-8）：速める上限は 2.2 倍 → 1.6 倍
+    expect(newsSpeed(false, 50) / newsSpeed(false, 0)).toBeCloseTo(1.6, 5);
   });
 
   it('同じ日にできた物は 1 つの知らせに（同じ物は個数・4 種類からは「ほか」）', () => {

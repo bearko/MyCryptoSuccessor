@@ -214,6 +214,8 @@ export function kpiTile(k: Kpi): HTMLElement {
     if (k.unit) num.append(h('small', '', ` ${k.unit}`));
   }
   e.append(num, h('span', 'isl-sl-lab', k.sub));
+  // 段 UX1（C-1）：初めて開いた日の数字を主にしているとき、いま計算し直した数字を小さく（在庫や他社の動きで少し変わる）
+  if (k.renow != null) e.append(h('span', 'isl-sl-lab isl-sl-renow', t(`いま計算し直すと ${sgn(k.renow)} G`, `Recalculated now: ${sgn(k.renow)} G`)));
   return e;
 }
 

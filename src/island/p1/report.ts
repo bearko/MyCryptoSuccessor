@@ -18,7 +18,7 @@ import { eventReportText } from './events';
 import { dipReportText } from './diplo';
 import { assetUrl } from '../../render/images';
 import { TOP_STREAK } from './data';
-import { jamOf, myShops, whatIf, type P1State, type Report, type Stage } from './model';
+import { cashGap, jamOf, myShops, whatIf, type FlowKey, type P1State, type Report, type Stage } from './model';
 import { moveUp, sellBigUp } from './scm';
 import { bestSell } from './moves';
 import { reportProposal, stallSay, type Speech } from './card';
@@ -36,7 +36,7 @@ const STAGE_HINT: Record<Stage, string> = {
   buy: t('素材が足りていません。調達係を置くか、スキル「調達枠の拡大」「まとめ買い」で仕入れを増強しましょう。', 'Materials are short. Assign a buyer or widen buying with the Bigger quota / Bulk buying skills.'),
   craft: t('作る数が足りていません。作業台を増やす（工房の設備投資）・段取りの改善（スキル）か、製造の得意なヒーローを置きましょう。', 'Crafting is the limit. Add a bench (workshop investment), Better jigs (skill), or put a better crafter on the bench.'),
   haul: t('運ぶ数が足りていません。荷車を増やす・小型トラック（工房の設備投資）、遠いお店には物流拠点を。', 'Hauling is the limit. More carts or a Small truck (workshop investment); a hub for far shops.'),
-  sell: t('売れる数が頭打ち。棚やお店の数ではなく、別の商品・届く場所・売り場の強さ・認知で伸びます（SCM の販売の内訳へ）。', 'Sales are capped. They grow with another item, reaching new homes, stronger shops or awareness — not more shelves or shops (see the SCM sales breakdown).'),
+  sell: t('売れる数が頭打ち。棚やお店の数ではなく、別の商品・届く場所・売り場の強さ・認知で伸びます（サプライチェーンの販売の内訳へ）。', 'Sales are capped. They grow with another item, reaching new homes, stronger shops or awareness — not more shelves or shops (see the SCM sales breakdown).'),
 };
 /** スマホ用の短い版（2 行以内） */
 const STAGE_HINT_SHORT: Record<Stage, string> = {
@@ -140,8 +140,8 @@ let chartRange: Range = (() => {
     return 6;
   }
 })();
-/** 段 UI8：KPI ② で見ているグラフ（売上と利益の推移・資金のろうそく足） */
-let trendView: 'sales' | 'cash' = 'sales';
+/** 段 UI8：KPI ② で見ているグラフ（売上と利益の推移・資金のろうそく足）。段 UX1（C-8）：初期表示は売上の線だけ（利益の棒は「売上と利益」で重ねる） */
+let trendView: 'sales' | 'both' | 'cash' = 'sales';
 function setRange(v: Range) {
   chartRange = v;
   try {
@@ -155,16 +155,14 @@ function setRange(v: Range) {
  * 段 UI8：月次売上推移（1 本の縦の目盛り：売上は金の線・利益は棒（赤字は赤と斜線で 0 の線から下へ）。来月の見込みがあれば、右に点線の点と「予想 →」）。
  * 前（段 UI3〜UI7）は左右 2 本の目盛り（売上・利益）だった：どちらも G なので 1 本にまとめ、読み違いを減らす
  */
-function chart(reports: Report[], fc: Report['forecast'] | null): HTMLElement {
+function chart(reports: Report[], fc: Report['forecast'] | null, withProfit = true): HTMLElement {
   const rs = chartRange ? reports.slice(-chartRange) : reports.slice();
   const labels = rs.map((r, k) => monLab(r.month, k === 0));
   const heads = rs.map((r) => monHead(r.month));
   const sales: (number | null)[] = rs.map((r) => r.revenue);
   const profit: (number | null)[] = rs.map((r) => r.profit);
-  const series: TSer[] = [
-    { name: t('利益', 'Profit'), kind: 'bar', cls: 'is-teal', vals: profit },
-    { name: t('売上', 'Sales'), kind: 'line', cls: 'is-gold', vals: sales },
-  ];
+  // 段 UX1（C-8）：withProfit が偽なら売上の線だけ（線の本数を減らして読みやすく）
+  const series: TSer[] = [...(withProfit ? [{ name: t('利益', 'Profit'), kind: 'bar' as const, cls: 'is-teal', vals: profit }] : []), { name: t('売上', 'Sales'), kind: 'line', cls: 'is-gold', vals: sales }];
   let fcFrom: number | undefined;
   if (fc && rs.length) {
     fcFrom = rs.length;
@@ -173,7 +171,7 @@ function chart(reports: Report[], fc: Report['forecast'] | null): HTMLElement {
     for (const x of series) x.vals.push(null);
     const last = rs.length - 1;
     series.push({ name: t('売上の見込み', 'Sales forecast'), kind: 'dash', cls: 'is-gold', vals: [...rs.map((_, k) => (k === last ? rs[k].revenue : null)), fc.sales] });
-    series.push({ name: t('利益の見込み', 'Profit forecast'), kind: 'dash', cls: 'is-teal', vals: [...rs.map((_, k) => (k === last ? rs[k].profit : null)), fc.profit] });
+    if (withProfit) series.push({ name: t('利益の見込み', 'Profit forecast'), kind: 'dash', cls: 'is-teal', vals: [...rs.map((_, k) => (k === last ? rs[k].profit : null)), fc.profit] });
   }
   const lastR = rs[rs.length - 1];
   const el = trendEl({ labels, heads, series, aria: lastR ? t(`月次売上推移：${monHead(lastR.month)}の売上 ${money(lastR.revenue)}・利益 ${signed(lastR.profit, money)}`, `Monthly trend: ${monHead(lastR.month)} sales ${money(lastR.revenue)}, profit ${signed(lastR.profit, money)}`) : t('月次売上推移', 'Monthly trend'), fcFrom });
@@ -402,6 +400,23 @@ const announced = new WeakSet<Report>();
 /** 発表を済ませたか（テスト用） */
 export const wasAnnounced = (r: Report) => announced.has(r);
 
+export /** 段 UX1（C-2）：利益に入らない入出金の名前 */
+const FLOW_NAME: Record<FlowKey, () => string> = {
+  reward: () => t('依頼の報酬', 'Request rewards'),
+  event: () => t('できごとの謝礼', 'Event gifts'),
+  evsales: () => t('できごとの売上の上乗せ', 'Event sales bonus'),
+  permit: () => t('発掘の許可料', 'Dig permits'),
+  side: () => t('他店でバイト', 'Part-time work'),
+  museum: () => t('展示館の入館料', 'Museum admissions'),
+  managed: () => t('任せている町から', 'From delegated towns'),
+  tax: () => t('法人税', 'Corporate tax'),
+  preopen: () => t('開業前の出費（利益には入る）', 'Pre-opening spend (in profit)'),
+};
+const li = (name: string, v: number) => {
+  const e = h('li', '');
+  e.append(h('span', '', name), h('b', signCls(v), signed(v, money)));
+  return e;
+};
 export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: () => void) {
   const s = ctx.s();
   const idx = s.reports.indexOf(r);
@@ -447,6 +462,18 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       // ブランド力の増減（段 UI5b：減った月が「★ +-10」になっていた → ★ −10（赤）・★ +10（緑））
       if (r.brand) sub.append(h('small', `isl-rp-brand ${signCls(r.brand)}`, `★ ${signed(r.brand)}`));
       if (sub.childElementCount) right.append(sub);
+      // 段 UX1（C-2）：利益と資金の変化の差（利益に入らない入出金の内訳。1 月は開業前の出費）
+      const cg = cashGap(r);
+      if (cg && cg.gap !== 0) {
+        const g = h('details', 'isl-rp-gap');
+        const sm = h('summary', '', t(`利益との差 ${signed(cg.gap, money)}`, `Gap vs profit ${signed(cg.gap, money)}`));
+        g.append(sm);
+        const ul = h('ul', '');
+        for (const it of cg.items) ul.append(li(FLOW_NAME[it.k](), it.v));
+        if (cg.rest) ul.append(li(t('ほか（法務・外交・本社の施策・計上の時期のずれ）', 'Other (legal, diplomacy, HQ moves, timing)'), cg.rest));
+        g.append(ul, h('small', 'isl-dim', t('利益＝売上 − その月の費用。資金にはこのほかの入出金も入る', 'Profit = sales − this month’s costs; cash also moves with the items above')));
+        right.append(g);
+      }
       // 売上のうち復刻品のぶん（1 行）
       if (r.relic) left.append(h('small', 'isl-rp-relic', t(`うち復刻品 ${money(r.relic)}`, `incl. revivals ${money(r.relic)}`)));
       grid.append(left, right);
@@ -580,19 +607,21 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       const wrap = h('div', 'isl-rp-chartwrap');
       const fc = idx < 0 || idx === s.reports.length - 1 ? (r.forecast ?? null) : null;
       const paint = () => {
-        const sales = trendView === 'sales';
+        // 段 UX1（C-8）：初期表示は売上の線だけ。「売上と利益」で利益の棒を重ねる・「資金」でろうそく足
+        const both = trendView === 'both';
         const series: TSer[] = [
-          { name: t('利益（棒）', 'Profit (bars)'), kind: 'bar', cls: 'is-teal', vals: [] },
+          ...(both ? [{ name: t('利益（棒）', 'Profit (bars)'), kind: 'bar' as const, cls: 'is-teal', vals: [] }] : []),
           { name: t('売上（線）', 'Sales (line)'), kind: 'line', cls: 'is-gold', vals: [] },
           ...(fc ? [{ name: t('見込み（点線）', 'Forecast (dotted)'), kind: 'dash' as const, cls: 'is-grey', vals: [] }] : []),
         ];
         const lg = trendLegend(series);
-        lg.append(legendEl([{ cls: 'is-negbar', name: t('赤字（斜線）', 'Loss (hatched)') }]).firstElementChild!);
-        wrap.replaceChildren(...(sales ? [chart(upto, fc), lg] : [cashChart(upto)]));
+        if (both) lg.append(legendEl([{ cls: 'is-negbar', name: t('赤字（斜線）', 'Loss (hatched)') }]).firstElementChild!);
+        wrap.replaceChildren(...(trendView === 'cash' ? [cashChart(upto)] : [chart(upto, fc, both), lg]));
         for (const [k, b] of Object.entries(tg)) b.classList.toggle('is-on', k === trendView);
       };
       const tg = {
-        sales: btn(t('売上と利益', 'Sales & profit'), () => ((trendView = 'sales'), paint())),
+        sales: btn(t('売上', 'Sales'), () => ((trendView = 'sales'), paint())),
+        both: btn(t('売上と利益', 'Sales & profit'), () => ((trendView = 'both'), paint())),
         cash: btn(t('資金', 'Cash'), () => ((trendView = 'cash'), paint())),
       };
       const sel = select(RANGES, chartRange, (v) => {
@@ -604,14 +633,14 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       c3.append(cardHead(t('KPI ②', 'KPI 2'), false, t('月次売上推移', 'Monthly trend'), sel));
       const tog = h('div', 'isl-cv-toggle isl-rp-tog');
       tog.setAttribute('role', 'group');
-      tog.append(tg.sales, tg.cash);
+      tog.append(tg.sales, tg.both, tg.cash);
       paint();
       c3.append(tog, wrap);
       cards.push(c3);
 
       // ---- ④ 【KPI ③】サプライチェーン管理
       const c4 = h('div', 'isl-card2 isl-rp-card');
-      c4.append(cardHead(t('KPI ③', 'KPI 3'), false, t('サプライチェーン管理', 'Supply chain'), btn(t('分析：SCM ダッシュボード', 'Analyze: SCM'), () => hooks.openSupply(), 'isl-rp-go'), t('（SCM）', ' (SCM)')));
+      c4.append(cardHead(t('KPI ③', 'KPI 3'), false, t('サプライチェーン管理', 'Supply chain'), btn(t('分析：サプライチェーンの画面', 'Analyze: supply chain'), () => hooks.openSupply(), 'isl-rp-go'), t('（SCM）', ' (SCM)')));
       // 段 UI2：詰まりの定義の 1 行はやめて、直し方の 1 行だけ（SCM ダッシュボードの上に 1 回だけ書いてある）
       c4.append(flowRow(s, r));
       const hint = h('p', 'isl-rp-hint');

@@ -129,6 +129,17 @@ export function subDefs(m: DeptId, depts: DeptId[]): SubDef[] {
   const xs = SUB_DEFS()[m] ?? [];
   return xs.filter((x) => !(m === 'strategy' && x.key === 'books' && depts.includes('accounting')) && !(x.key === 'budget' && !depts.includes('sales')));
 }
+/** 段 UX1（B-7）：右の帯（幅 104px）に収まる、主なサブタブ名の並び（短い名前を「・」でつなぎ、9 字まで。1 つは必ず） */
+export function tabHint(shorts: string[]): string {
+  const sep = t('・', ' · ');
+  let out = shorts[0] ?? '';
+  for (const x of shorts.slice(1)) {
+    const next = `${out}${sep}${x}`;
+    if ([...next].length > 9) break;
+    out = next;
+  }
+  return out;
+}
 /** 開いている部門のサブタブの数（画面の数の目安） */
 export const subCount = (depts: DeptId[]) => depts.reduce((a, m) => a + subDefs(m, depts).length, 0);
 

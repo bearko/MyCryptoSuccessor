@@ -400,7 +400,7 @@ export function issueList(s: P1State): HTMLElement {
   const xs = issuesOf(s);
   e.append(h('h3', '', t('会社の課題（優先の順）', 'Company issues (by priority)')));
   if (!xs.length) {
-    e.append(h('small', 'isl-dim', t('お店を開くと、課題（SCM のボトルネック・倉庫・資金・士気など）がここに並びます。', 'Open a shop to see issues here (SCM bottleneck, storage, cash, morale...).')));
+    e.append(h('small', 'isl-dim', t('お店を開くと、課題（サプライチェーンのボトルネック・倉庫・資金・士気など）がここに並びます。', 'Open a shop to see issues here (supply chain bottleneck, storage, cash, morale...).')));
     return e;
   }
   const inbox = cardInbox(s);
