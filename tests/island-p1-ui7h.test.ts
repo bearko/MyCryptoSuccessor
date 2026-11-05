@@ -287,5 +287,6 @@ describe('性質：チュートリアルのあとは、推奨が見送りの提�
     expect(n).toBeGreaterThan(5);
     void gone;
     void CLEAR;
-  });
+    // 段 UI9b：提案書と同じ束ねた手で短期利益を出すぶん重くなった（CI の 2 CPU で 80 秒ほど）。性質のテストなので長めに
+  }, 240_000);
 });

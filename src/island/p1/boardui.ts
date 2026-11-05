@@ -475,7 +475,7 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
       else
         num.append(
           h('b', '', t(`+${fmt1(L.units)} 個/月`, `+${fmt1(L.units)}/mo`)),
-          h('small', '', t(`${STAGE_JA[L.stage]()}（${L.now ? 'いまの詰まり' : '次の詰まり'}）・月 +${g(L.val)}${L.save ? `（税・経費 −${g(L.save.total)} を含む）` : ''}`, `${STAGE_JA[L.stage]()} (${L.now ? 'bottleneck now' : 'next bottleneck'}) · +${g(L.val)}/mo${L.save ? ` (incl. tax & costs −${g(L.save.total)})` : ''}`)),
+          h('small', '', t(`${STAGE_JA[L.stage]()}（${L.now ? 'いまのボトルネック' : '次のボトルネック'}）・月 +${g(L.val)}${L.save ? `（税・経費 −${g(L.save.total)} を含む）` : ''}`, `${STAGE_JA[L.stage]()} (${L.now ? 'bottleneck now' : 'next bottleneck'}) · +${g(L.val)}/mo${L.save ? ` (incl. tax & costs −${g(L.save.total)})` : ''}`)),
         );
       big.append(num);
       const preJa = L.pre.map((x) => t(`『${x}』`, `“${x}”`)).join(t('・', ', '));

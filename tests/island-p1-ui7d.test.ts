@@ -167,8 +167,13 @@ describe('グラフの数字は提案書の中身（Brief）と一致する', ()
     const f = fallOf(B);
     expect(f[0].kind).toBe('start');
     expect(f[0].v).toBeCloseTo(B.now.profit, 6);
-    const asks = f.filter((x) => x.kind === 'ask');
-    expect(asks.map((x) => x.v)).toEqual(B.parts.map((x) => x.dProfit));
+    // 段 UI9b（追加 1）：行ごとに 増収（毎月の費用を引く前）→ 毎月の費用 の段。増収 − 毎月の費用 ＝ その行の月の利益の差
+    const nets: number[] = [];
+    f.forEach((x, i) => {
+      if (x.kind === 'ask') nets.push(x.v + (f[i + 1]?.kind === 'monthly' ? f[i + 1].v : 0));
+    });
+    nets.forEach((v, n) => expect(v).toBeCloseTo(B.parts[n].dProfit, 6));
+    expect(nets.length).toBe(B.parts.length);
     expect(f.find((x) => x.kind === 'setup')?.v).toBe(-B.cost.money);
     const total = f[f.length - 1];
     expect(total.kind).toBe('total');

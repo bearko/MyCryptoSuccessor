@@ -21,7 +21,7 @@ import { TOP_STREAK } from './data';
 import { jamOf, myShops, whatIf, type P1State, type Report, type Stage } from './model';
 import { moveUp, sellBigUp } from './scm';
 import { bestSell } from './moves';
-import { reportProposal, stallSay } from './card';
+import { reportProposal, stallSay, type Speech } from './card';
 import type { Plan } from './plan';
 import { closeSheet, open, type Ctx } from './screens';
 import { btn, h, heroName, money, rich, select, signCls, signed } from './ui';
@@ -33,14 +33,14 @@ const STAGE_NAME: Record<Stage, string> = { buy: t('① 調達', '① Buy'), cra
 const STAGE_ICON: Record<Stage, string> = { buy: '🧱', craft: '🔨', haul: '🛒', sell: '🏪' };
 /** 段ごとの直し方（ボトルネックのとき） */
 const STAGE_HINT: Record<Stage, string> = {
-  buy: t('素材が足りていません。調達係を置くか、スキル「調達枠の拡大」「まとめ買い」で仕入れを太くしましょう。', 'Materials are short. Assign a buyer or widen buying with the Bigger quota / Bulk buying skills.'),
+  buy: t('素材が足りていません。調達係を置くか、スキル「調達枠の拡大」「まとめ買い」で仕入れを増強しましょう。', 'Materials are short. Assign a buyer or widen buying with the Bigger quota / Bulk buying skills.'),
   craft: t('作る数が足りていません。作業台を増やす（工房の設備投資）・段取りの改善（スキル）か、製造の得意なヒーローを置きましょう。', 'Crafting is the limit. Add a bench (workshop investment), Better jigs (skill), or put a better crafter on the bench.'),
   haul: t('運ぶ数が足りていません。荷車を増やす・小型トラック（工房の設備投資）、遠いお店には物流拠点を。', 'Hauling is the limit. More carts or a Small truck (workshop investment); a hub for far shops.'),
   sell: t('売れる数が頭打ち。棚やお店の数ではなく、別の商品・届く場所・売り場の強さ・認知で伸びます（SCM の販売の内訳へ）。', 'Sales are capped. They grow with another item, reaching new homes, stronger shops or awareness — not more shelves or shops (see the SCM sales breakdown).'),
 };
 /** スマホ用の短い版（2 行以内） */
 const STAGE_HINT_SHORT: Record<Stage, string> = {
-  buy: t('素材が足りない。調達係やスキルで仕入れを太く。', 'Short of materials. Add a buyer or buying skills.'),
+  buy: t('素材が足りない。調達係やスキルで仕入れを増強。', 'Short of materials. Add a buyer or buying skills.'),
   craft: t('作る数が足りない。作業台（設備投資）・スキル・職人を。', 'Crafting is short. Benches (investment), skills or a crafter.'),
   haul: t('運ぶ数が足りない。荷車（設備投資）・物流拠点を。', 'Hauling is short. Carts (investment) or a hub.'),
   sell: t('売れる数が頭打ち。別の商品・届く場所・売り場・認知で（販売の内訳へ）。', 'Sales capped: new item, reach, pull or awareness (breakdown).'),
@@ -86,7 +86,7 @@ export interface ReportHooks {
   /** 外交（「🌐 交易」の導線。段 UI4） */
   openDiplo?: () => void;
   /** 段 UI5a：KPI ③ の「担当者からの提案」（提案書を開く） */
-  openProposal?: (plan: Plan, say: string, role: string) => void;
+  openProposal?: (plan: Plan, say: string, role: string, speech?: Speech) => void;
   /** 効果音 */
   sfx?: (k: 'sale' | 'win' | 'levelup' | 'check' | 'report' | 'drum' | 'error') => void;
 }
@@ -623,7 +623,7 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       const prop = hooks.openProposal ? reportProposal(s, r) : null;
       const goProp = () => {
         if (!prop) return;
-        hooks.openProposal?.(prop.plan, prop.say, prop.role);
+        hooks.openProposal?.(prop.plan, prop.say, prop.role, prop.speech);
       };
       if (r.stall) {
         const why = stallSay(r.stall.stage, r.stall.why);

@@ -562,7 +562,8 @@ export function fallEl(rows: Step[], aria: string, fmt: (v: number) => string = 
       const val = full ? `${r.to < 0 ? '−' : ''}${compact ? shortN(Math.abs(r.to)) : fmt(Math.abs(r.to))}` : compact ? `${arw(r.v)}${shortN(Math.abs(r.v))}` : `${arw(r.v)} ${sgnG(r.v)}`;
       const dy = compact && !full && k % 2 === 0 ? 16 : 4;
       svg.append(sv('text', { x: cx, y: top - dy, 'text-anchor': 'middle', class: `isl-cv-fv ${r.kind === 'up' ? 'is-good' : r.kind === 'down' ? 'is-bad' : ''}` }, val));
-      svg.append(sv('text', { x: cx, y: H - 5, 'text-anchor': 'middle', class: 'isl-cv-axis' }, full ? clip(r.name, Math.max(3, Math.floor(bw / 12))) : String(mids.indexOf(r) + 1)));
+      // 段 UI9b：両端の名前（As-Is・To-Be）は 5 字までなら切らない（半角は細いので 1 本 40px あれば入る）
+      svg.append(sv('text', { x: cx, y: H - 5, 'text-anchor': 'middle', class: 'isl-cv-axis' }, full ? clip(r.name, Math.max(3, Math.floor(bw / (/^[\x20-\x7e]+$/.test(r.name) ? 7 : 12)))) : String(mids.indexOf(r) + 1)));
       const say = () => tip.show([h('b', '', r.name), full ? `${r.to < 0 ? '−' : ''}${fmt(Math.abs(r.to))}` : t(`${sgnG(r.v)} → ここまで ${r.to < 0 ? '−' : ''}${fmt(Math.abs(r.to))}`, `${sgnG(r.v)} → running ${r.to < 0 ? '−' : ''}${fmt(Math.abs(r.to))}`)], (cx / W) * (chart.clientWidth || W), top);
       rect.addEventListener('pointerenter', say);
       rect.addEventListener('pointerdown', say);
@@ -633,10 +634,10 @@ export function vbarsEl(items: { name: string; v: number; cls?: string }[], o: {
 }
 export const fallLegend = () =>
   legendEl([
-    { cls: 'is-fstart', name: t('はじめ（灰）', 'Start (grey)') },
-    { cls: 'is-fup', name: t('▲ 増やした（緑）', '▲ Adds (green)') },
-    { cls: 'is-fdown', name: t('▼ 減らした（赤の斜線）', '▼ Takes (red, hatched)') },
-    { cls: 'is-ftotal', name: t('終わり（金）', 'End (gold)') },
+    { cls: 'is-fstart', name: t('はじめ', 'Start') },
+    { cls: 'is-fup', name: t('▲ 増加', '▲ Adds') },
+    { cls: 'is-fdown', name: t('▼ 減少（斜線）', '▼ Takes (hatched)') },
+    { cls: 'is-ftotal', name: t('終わり', 'End') },
   ]);
 
 // ---------------------------------------------------------------- 順位：横棒とゴールライン

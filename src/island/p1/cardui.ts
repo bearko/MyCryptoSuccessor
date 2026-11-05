@@ -15,6 +15,7 @@ import {
   cardInbox,
   cardStar,
   choiceText,
+  choiceShort,
   goneLine,
   goneNow,
   staleCard,
@@ -29,10 +30,15 @@ import {
   trustCard,
   trustName,
   trustText,
+  trustOn,
+  inTutorial,
+  moveLine,
+  speechOf,
   untrust,
   type Card,
   type ChooseRes,
 } from './card';
+import { deptChip } from './slideui';
 import { rankOf } from './heroui';
 import { poolCap, staffOf, type P1State } from './model';
 import { traitOf } from './persona';
@@ -120,10 +126,21 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
   // 課題のセリフ（数字の要所だけ色）
   // 段 UI7g：この提案が解く課題（会社の課題の一覧の優先つき）
   // 段 UI9：課題の札に、放置したときの影響（月 −N G・N 日後）
-  if (c.iss) main.append(h('div', 'isl-cardm-iss', issueLossOf(c) ? t(`🎯 ${issueTag(c.iss)}・${issueLossOf(c)}`, `🎯 ${issueTag(c.iss)} · ${issueLossOf(c)}`) : `🎯 ${issueTag(c.iss)}`));
+  // 段 UI9b：提案のカードは 3 段のセリフ（現状 → 原因 → 対応。1 つのまとまった文章。数字と要点の語に色）。知らせ・ほかのカードは一言のまま
   const say = h('div', 'isl-cardm-say');
-  say.append(t('「', '“'), rich(sayOf(s, c)), t('」', '”'));
+  const sp = speechOf(s, c);
+  if (sp) {
+    say.classList.add('is-speech');
+    say.append(t('「', '“'));
+    [sp.now, sp.cause, sp.ask].filter(Boolean).forEach((x, k) => {
+      if (k) say.append(h('br'));
+      say.append(rich(x));
+    });
+    say.append(t('」', '”'));
+  } else say.append(t('「', '“'), rich(sayOf(s, c)), t('」', '”'));
   main.append(say);
+  // 段 UI9b：セリフを先に、課題の行は補足（小さく、セリフの下）
+  if (c.iss) main.append(h('div', `isl-cardm-iss ${sp ? 'is-sub' : ''}`.trim(), issueLossOf(c) ? t(`🎯 ${issueTag(c.iss)}・${issueLossOf(c)}`, `🎯 ${issueTag(c.iss)} · ${issueLossOf(c)}`) : `🎯 ${issueTag(c.iss)}`));
   // 段 UI7f：倉庫の提案は、セリフが指すグラフ（月末の中身の棒・容量・同じペースの予想。推奨の手の承認後も重ねる）
   if (c.issue.k === 'store') {
     const ch = c.choices[shownRec(s, c)];
@@ -141,12 +158,26 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
   // 並び：おすすめ（金色）を 1 つ目に、ほかはもとの順（見込みの大きい順。「このまま」は最後）。選ぶときはもとの番号で
   // 段 UI7c：推奨の札は社長の経営方針の価値で（card.ts の shownRec）。任せる（★3）の手は、もとの推奨（お金の見込み）のまま
   const rk = shownRec(s, c);
-  const order = c.choices.map((_, k) => k).sort((a, b) => Number(b === rk) - Number(a === rk) || a - b);
+  const tut = inTutorial(s);
+  // 段 UI9b：提案のカード（チュートリアル以外）は 2 択：推奨の手（部門・種類：手の名前）と「見送り」。ほかの手は提案書の「代替案」に。
+  // 「推奨」の札は出さない（承認が基本）。部長の提案の「保留」は目立たせない（あとで）
+  const two = !tut && sp != null && rk >= 0 && (c.choices[rk].act.k === 'do' || c.choices[rk].act.k === 'approve');
+  const order = c.choices
+    .map((_, k) => k)
+    .filter((k) => !two || k === rk || c.choices[k].act.k === 'skip' || c.choices[k].act.k === 'reject' || c.choices[k].act.k === 'hold')
+    .sort((a, b) => Number(b === rk) - Number(a === rk) || a - b);
+  /** 段 UI9b：「今後の判断を委任」のチェック（承認したら、同じ種類の手は次からこの担当に任せる） */
+  let delegOn = false;
   for (const k of order) {
     const ch = c.choices[k];
     const isRec = k === rk;
-    const x = choiceText(s, c, ch);
-    const b = h('button', `isl-cardm-btn ${isRec ? 'is-rec' : ''}`);
+    const x = two && ch.act.k === 'skip' ? { ...choiceText(s, c, ch), icon: '⏸', label: t('見送り', 'Pass') } : choiceText(s, c, ch);
+    // 段 UI9b：宣伝の 2 行目は、セリフ・提案書の KPI と同じ短期利益（来月の利益の差 − 費用）に
+    if (two && isRec && ch.kind === 'ad') {
+      const sh = choiceShort(s, c, k);
+      if (sh != null) x.sub = t(`${money(ch.cost)}・来月の利益 ${sh >= 0 ? '+' : '−'}${Math.abs(Math.round(sh)).toLocaleString('en-US')} G（費用込み）`, `${money(ch.cost)} · next month ${sh >= 0 ? '+' : '−'}${Math.abs(Math.round(sh)).toLocaleString('en-US')} G net`);
+    }
+    const b = h('button', `isl-cardm-btn ${isRec ? 'is-rec' : ''} ${two && ch.act.k === 'hold' ? 'is-later' : ''}`);
     b.type = 'button';
     b.dataset.k = String(k);
     // 払えない手は理由を赤で（資金・研究ポイント）。おすすめは払える手のうち見込みのいちばん大きいもの
@@ -160,8 +191,13 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
       if (n) sub.append(t('・', ' · '));
       sub.append(h('span', 'isl-nw', part));
     });
-    // 段 UI5d：推奨の手には「推奨」の札。段 UI7b：提案書へ進む選択肢は「📄 提案書を見る」（部長との会話と同じ文言）
-    lab.append(recLine(`${x.icon} ${x.label}`, isRec), sub);
+    // 段 UI5d：推奨の手には「推奨」の札（段 UI9b：チュートリアルのあいだだけ）。段 UI7b：提案書へ進む選択肢は「📄 提案書を見る」（部長との会話と同じ文言）
+    const ml = two && isRec ? moveLine(s, c, ch) : null;
+    if (ml && ml.dept) {
+      const line = h('b', '');
+      line.append(deptChip(ml.dept), document.createTextNode(ml.cat ? t(`${ml.cat}：${ml.name}`, `${ml.cat}: ${ml.name}`) : ml.name));
+      lab.append(line, sub);
+    } else lab.append(recLine(`${x.icon} ${x.label}`, isRec && tut), sub);
     if (ch.act.k === 'do' || (ch.act.k === 'approve' && s.deleg?.inbox.some((p) => p.id === (ch.act as { pid: number }).pid))) lab.append(h('small', 'isl-cardm-go', t('📄 提案書を見る ›', '📄 See the proposal ›')));
     if (why) lab.append(h('small', 'isl-bad', why));
     b.append(lab);
@@ -172,6 +208,7 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
         const prop = (p: typeof plan) =>
           openProposal(ctx, p, {
             say: sayOf(s, c, k),
+            speech: speechOf(s, c, k) ?? undefined,
             role: roleOfCard(s, c).text,
             later: true,
             rec: isRec,
@@ -181,6 +218,8 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
             ...(c.src === 'head' ? { src: 'head' as const } : c.src === 'budget' ? { src: 'budget' as const } : {}),
             approve: (pp) => approveCard(s, c.id, pp),
             done: (w) => {
+              // 段 UI9b：「今後の判断を委任」がオンなら、承認したあと同じ種類の手は次からこの担当に任せる
+              if (w === 'ok' && delegOn && trustOn(s, c)) ctx.toast(t(`🤝 ${heroName(c.hero!)}に、同じ種類の手を任せました（受け箱からいつでも戻せます）`, `🤝 Trusted ${heroName(c.hero!)} with this kind of move (undo any time from the inbox)`));
               // 段 P2：提案書を承認したら、承認の反応（史実の調査のあるヒーロー）
               if (w === 'ok' && PROPOSAL_SRC.includes(c.src)) sayToast(ctx.toast, c.hero, 'approved', c.id);
               if (w === 'ok' || w === 'later' || w === 'gone') quiet();
@@ -208,7 +247,15 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
     });
     chs.append(b);
   }
-  if (canTrust(s, c)) {
+  // 段 UI9b：2 択のカードは、チェックボックス「今後の判断を委任」（★3 の担当だけ。任せる仕組みは段 UI1 の trust のまま）。ほかは従来の「任せる」の行
+  if (two && canTrust(s, c)) {
+    const lab = h('label', 'isl-cardm-deleg');
+    const cb = h('input');
+    cb.type = 'checkbox';
+    cb.addEventListener('change', () => (delegOn = cb.checked));
+    lab.append(cb, h('span', '', t(`今後の判断を委任（同じ種類の手は ${heroName(c.hero!)} に任せる・受け箱から戻せる）`, `Delegate from now on (${heroName(c.hero!)} handles this kind of move; undo from the inbox)`)));
+    chs.append(lab);
+  } else if (canTrust(s, c)) {
     const x = trustText();
     const b = h('button', 'isl-cardm-btn is-trust');
     b.type = 'button';

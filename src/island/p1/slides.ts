@@ -5,13 +5,18 @@
  * 仕様は docs/ISLAND_PHASE1.md「スライド型の提案書（段 UI7d）」。
  */
 import { t } from '../../i18n';
-import { DEPT, POLICY, type DeptId, type ValueKey } from './data';
+import { ADS, DEPT, POLICY, type DeptId, type ValueKey } from './data';
 import { METRIC_TEXT, actNoun, judgeOf, type Ask, type Brief, type Risk } from './brief';
-import { DAYS, type P1State, type Stage } from './model';
+import { SKILL, isResearch, rpCost } from './data';
+import { isEn } from '../../i18n';
+import { DAYS, skillLock, whatIf, type P1State, type Stage } from './model';
 import { planCost, planOf, type Plan } from './plan';
 import { amountOf, budgetDepts, budgetOpen, deptBudget } from './budget';
 import { quarterNow } from './acct';
-import { issueName, type CoIssue } from './issues';
+import { isFlowKey, issueLv, issueName, limitWord, lvWord, type CoIssue, type IssueLv } from './issues';
+import { sellMoves } from './moves';
+import { lossSentence, type Speech } from './card';
+import { numsOf, speakCore, type SummaryCore } from './summary';
 import { actOk, type PropAct } from './deleg';
 import type { Card } from './card';
 
@@ -76,7 +81,8 @@ export function slideTitle(id: SlideId, b: Pick<Brief, 'issue' | 'asks' | 'cost'
   const lead = leadOf(b);
   switch (id) {
     case 'sum':
-      return t('結論：承認を推奨', 'Conclusion: approve');
+      // 段 UI9b：「推奨」の語は出さない（承認が基本）
+      return t('結論：承認', 'Conclusion: approve');
     case 'issue':
       return b.issue ? (b.issue.grow ? t(`${issueName(b.issue.key)}に月 ${g(b.issue.impact)} の余地がある`, `${issueName(b.issue.key)} has ${g(b.issue.impact)}/mo of upside`) : t(`${issueName(b.issue.key)}で月 ${g(b.issue.impact)} を失っている`, `${issueName(b.issue.key)} is costing ${g(b.issue.impact)}/mo`)) : t('解くべき課題', 'The issue');
     case 'move':
@@ -109,18 +115,22 @@ export interface Kpi {
   sub: string;
   /** 段 UI9：数字の代わりに出す字（回収できない「—」・効果が出るまで「即日」） */
   text?: string;
+  /** 段 UI9b：単発の施策の長期の欄（グレーアウト） */
+  once?: boolean;
 }
 const fmt = (v: number) => Math.abs(Math.round(v)).toLocaleString('en-US');
 /**
  * 結論のタイル 3〜4 枚：短期利益・長期利益・導入費用・動く指標（お金以外がなければ毎月の利益。毎月の利益も動かず、
  * extra（置き場所など、お金でない変わるもの）があればそれ）
  */
-export function kpisOf(b: Pick<Brief, 'vals' | 'cost' | 'dProfit' | 'now' | 'after'>, extra: Kpi | null = null): Kpi[] {
+export function kpisOf(b: Pick<Brief, 'vals' | 'cost' | 'dProfit' | 'now' | 'after'> & Partial<Pick<Brief, 'asks'>>, extra: Kpi | null = null, o: { pick?: boolean } = {}): Kpi[] {
   const out: Kpi[] = [];
   const S = b.vals.list.find((m) => m.key === 'short');
   const L = b.vals.list.find((m) => m.key === 'long');
+  // 段 UI9b：単発の施策（宣伝・使い切り）は、長期の欄をグレーアウトして「単発（効き目 N 日）」
+  const once = o.pick ? onceOf(b) : null;
   if (S) out.push({ key: 'short', icon: METRIC_TEXT.short.icon, label: t('短期利益', 'Short-term'), v: S.d, unit: 'G', tone: 'delta', sub: t('来月・導入費用を引いた差', 'Next month, net of setup') });
-  if (L) out.push({ key: 'long', icon: METRIC_TEXT.long.icon, label: t('長期利益', 'Long-term'), v: L.d, unit: 'G', tone: 'delta', sub: t(`${POLICY.months} か月の合計の差`, `${POLICY.months}-month total`) });
+  if (L) out.push({ key: 'long', icon: METRIC_TEXT.long.icon, label: t('長期利益', 'Long-term'), v: L.d, unit: 'G', tone: 'delta', sub: once != null ? t(`単発（効き目 ${once} 日）`, `One-off (${once}-day effect)`) : t(`${POLICY.months} か月の合計の差`, `${POLICY.months}-month total`), ...(once != null ? { once: true } : {}) });
   const setup = b.cost.money > 0 || b.cost.rp === 0;
   out.push({
     key: 'setup',
@@ -148,7 +158,25 @@ export function kpisOf(b: Pick<Brief, 'vals' | 'cost' | 'dProfit' | 'now' | 'aft
       sub: other.key === 'brand' || other.key === 'rp' ? t(`${POLICY.months} か月`, `${POLICY.months} months`) : `${Math.round(other.now)} → ${Math.round(other.after)}`,
     });
   else if (extra) out.push(extra);
+  // 段 UI9b：この判断に要る数字だけ（pick）：導入費用の無い手の「導入費用 0」「投資回収期間 —」・承認と同時に効く手の「効果が出るまで 即日」は出さない
+  if (o.pick) {
+    const free = b.cost.money === 0 && b.cost.rp === 0 && b.cost.monthly === 0;
+    return out.filter((k) => !(k.key === 'setup' && free) && !(k.key === 'payback' && b.cost.money <= 0) && !(k.key === 'lead' && lead <= 0));
+  }
   return out;
+}
+/**
+ * 段 UI9b：単発の施策（効き目が切れる手だけの提案）の効き目の日数。宣伝（ADS の日数）・使い切り（作り終わるまでの日数：vals.months.use）。
+ * 続く手（設備・人・パネル・建物 など）が 1 つでもあれば null
+ */
+export function onceOf(b: Pick<Brief, 'cost'> & Partial<Pick<Brief, 'asks' | 'vals'>>): number | null {
+  const asks = b.asks ?? [];
+  if (!asks.length) return null;
+  if (!asks.every((a) => a.kind === 'ad' || a.kind === 'useup')) return null;
+  const adDays = Math.max(0, ...asks.filter((a) => a.kind === 'ad').map((a) => a.days ?? 0));
+  const useDays = b.vals?.months?.use ? Math.ceil(b.vals.months.use.days) : 0;
+  const d = Math.max(adDays, useDays);
+  return d > 0 ? d : 1;
 }
 
 // ---------------------------------------------------------------- 効果：棒・寄与・折れ線・メーター
@@ -166,9 +194,12 @@ export function profitBars(b: Pick<Brief, 'vals'>): { now: number; after: number
   return { now: S?.now ?? 0, after: S?.after ?? 0 };
 }
 
-/** ウォーターフォールの 1 本。kind 'start'：As-Is の月の利益（全体の棒）・'ask'：承認事項の行の増収／費用（増減の棒）・'setup'：導入（1 回）・'total'：To-Be の短期利益（全体の棒） */
+/**
+ * ウォーターフォールの 1 本。kind 'start'：As-Is の月の利益（全体の棒）・'ask'：承認事項の行の増収（毎月の費用を引く前。増減の棒）・
+ * 'monthly'：その行の毎月の費用（給与・維持費・従業員の固定費の増加。段 UI9b 追加 1）・'setup'：導入（1 回）・'total'：To-Be の短期利益（全体の棒）
+ */
 export interface Fall {
-  kind: 'start' | 'ask' | 'setup' | 'total';
+  kind: 'start' | 'ask' | 'monthly' | 'setup' | 'total';
   label: string;
   dept: DeptId | null;
   icon: string;
@@ -188,10 +219,22 @@ export function fallOf(b: Pick<Brief, 'parts' | 'asks' | 'dProfit' | 'cost' | 'n
     out.push({ kind, label, dept, icon, v, from: at, to: at + v });
     at += v;
   };
-  if (b.parts.length > 1) for (const x of b.parts) add('ask', shortWhat(x.what), x.dept, askIcon(x.kind), x.dProfit);
+  // 段 UI9b（追加 1）：手ごとに、増収（毎月の費用を引く前）→ その手の毎月の費用（給与・維持費・従業員：固定費の増加）の段。合計はいままでと同じ（差 ＝ 増収 − 毎月の費用）
+  const monthlyLabel = (n: number) => {
+    const its = b.cost.items.filter((it) => it.monthly && (b.asks[n]?.at ?? []).includes(it.at ?? -1));
+    return its.length ? its.map((it) => it.label).join(t('・', ', ')) : t('毎月の費用', 'Monthly cost');
+  };
+  if (b.parts.length > 1)
+    for (const x of b.parts) {
+      const m = b.asks[x.n]?.monthly ?? 0;
+      add('ask', shortWhat(x.what), x.dept, askIcon(x.kind), x.dProfit + m);
+      if (m > 0.5) add('monthly', monthlyLabel(x.n), x.dept, '📆', -m);
+    }
   else {
     const a = b.asks[0];
-    add('ask', a ? shortWhat(a.what) : t('月の利益の差', 'Monthly profit change'), a?.dept ?? null, a ? askIcon(a.kind) : '💰', b.dProfit);
+    const m = b.cost.monthly;
+    add('ask', a ? shortWhat(a.what) : t('月の利益の差', 'Monthly profit change'), a?.dept ?? null, a ? askIcon(a.kind) : '💰', b.dProfit + m);
+    if (m > 0.5) add('monthly', monthlyLabel(0), a?.dept ?? null, '📆', -m);
   }
   if (b.cost.money > 0) add('setup', t('導入費用（1 回）', 'Setup (once)'), null, '💳', -b.cost.money);
   out.push({ kind: 'total', label: t('To-Be の短期利益', 'To-Be short-term profit'), dept: null, icon: METRIC_TEXT.short.icon, v: at, from: 0, to: at });
@@ -441,6 +484,48 @@ export function propStacks(s: P1State, b: Pick<Brief, 'budget' | 'asks' | 'cost'
   ];
 }
 
+// ---------------------------------------------------------------- 段 UI9b：サマリーの課題の表・提案書のセリフ（カードが無いとき）
+
+/** サマリーの課題の表の 1 行（題名・優先度 高中低・影響） */
+export interface IssueRow {
+  key: CoIssue['key'];
+  name: string;
+  lv: IssueLv;
+  lvText: string;
+  /** 影響（「放置すると 月 −12,000 G・18 日後」） */
+  impact: string;
+  /** この提案が解く課題か */
+  solved: boolean;
+}
+/** 段 UI9b：課題の表（この提案が解く課題を 3 つまで。解かないなら会社のいちばんの課題と「この提案では解けない」） */
+export function issueRows(B: Pick<Brief, 'solved' | 'iss'>): IssueRow[] {
+  const row = (x: CoIssue, solved: boolean): IssueRow => ({ key: x.key, name: issueName(x.key), lv: issueLv(x), lvText: lvWord(issueLv(x)), impact: x.loss, solved });
+  if (B.solved.length) return B.solved.slice(0, 3).map((x) => row(x, true));
+  return B.iss[0] ? [row(B.iss[0], false)] : [];
+}
+/**
+ * 段 UI9b：提案書のサマリー文と ② のセリフ（現状 → 原因 → 対応）の意味の層（summary.ts の SummaryCore）。カードから開いた提案書はカードの
+ * 3 段（card.ts の coreOfCard）を使い、カードの無い提案書（店員の吹き出し・部長の受け箱・撮影）はこの骨組み（課題の一覧と承認事項から）
+ */
+export function coreOfBrief(B: Pick<Brief, 'issue' | 'iss' | 'asks' | 'cost' | 'dProfit' | 'vals'> & Partial<Pick<Brief, 'now'>>, what: string): SummaryCore {
+  const x = B.issue ?? B.iss[0] ?? null;
+  const L = B.vals.list.find((m) => m.key === 'long')?.d ?? 0;
+  const S = B.vals.list.find((m) => m.key === 'short')?.d ?? B.dProfit - B.cost.money;
+  const whatNow = x ? (isEn ? `${issueName(x.key)}.` : `[[${issueName(x.key)}]]になっています。`) : t('いまの流れに大きな課題はありません。', 'There is no major issue in the current flow.'); // i18n-ja
+  // 根拠：述語のある文（括弧の補足は ② の表に任せ、セリフには入れない）
+  const evidence = x ? (isFlowKey(x.key) ? t(`いまの処理量は月[[ ${Math.round(x.now)} 個]]です。${lossSentence(x)}`, `Throughput is [[${Math.round(x.now)}]]/mo.${lossSentence(x)}`) : x.key === 'store' ? t(`倉庫は[[ ${Math.round(x.now)}%]]まで埋まっています。${lossSentence(x)}`, `Storage is [[${Math.round(x.now)}%]] full.${lossSentence(x)}`) : lossSentence(x)) : '';
+  const cause = x?.limit ? t(`制約は[[${limitWord(x.limit)}]]で、ここを解かない限り処理量が伸びないことが原因です。`, `The constraint is [[${limitWord(x.limit)}]]; throughput won’t rise until it is resolved.`) : x?.grow ? t('伸ばす余地のある指標で、放置しても損は出ませんが機会を逃すと考えます。', 'This metric has room to grow; leaving it costs no money but misses the upside.') : t('このままでは現状の数字が続くと考えます。', 'As is, today’s figures continue.');
+  const cost = B.cost.money > 0 ? t(`初期投資[[ ${Math.round(B.cost.money).toLocaleString('en-US')} G]]`, `[[${Math.round(B.cost.money).toLocaleString('en-US')} G]] up front`) : '';
+  // 効果の数字は KPI と同じ定義（短期利益 ＝ 来月の利益の差 − 導入費用・長期利益）
+  const effect = B.cost.money > 0 ? t(`来月の利益[[ ${sgG(S)}]]（導入費用込み）、${POLICY.months} か月で[[ ${sgG(L)}]]`, `next month’s profit [[${sgG(S)}]] net of setup and [[${sgG(L)}]] over ${POLICY.months} months`) : t(`来月から月の利益[[ ${sgG(S)}]]、${POLICY.months} か月で[[ ${sgG(L)}]]`, `[[${sgG(S)}]]/mo from next month and [[${sgG(L)}]] over ${POLICY.months} months`);
+  const big = B.dProfit > Math.max(1, Math.abs(B.now?.profit ?? 0)) * 0.1;
+  return { now: { what: whatNow, evidence, num: numsOf(`${whatNow}${evidence}`) }, cause: { what: cause }, ask: { move: what, cost, effect, big } };
+}
+/** 段 UI9b：カードの無い提案書のセリフ（語り口つき） */
+export function briefSpeech(B: Pick<Brief, 'issue' | 'iss' | 'asks' | 'cost' | 'dProfit' | 'vals'> & Partial<Pick<Brief, 'now'>>, what: string, hero: number | null = null, salt = 0): Speech {
+  return speakCore(coreOfBrief(B, what), hero, salt);
+}
+
 // ---------------------------------------------------------------- 段 UI9：課題の定義（As-Is／To-Be／ギャップ）・代替案・対策・実行計画
 
 /** 課題の定義のページの 1 行：事業の数字（As-Is → To-Be → ギャップ）。unit：単位の文。good：増えるのが良いか */
@@ -462,7 +547,8 @@ export function gapRows(b: Pick<Brief, 'now' | 'after' | 'vals' | 'co' | 'cost'>
   const out: GapRow[] = [
     { key: 'units', label: t('処理量（売れる数）', 'Throughput (units sold)'), asIs: b.now.units, toBe: b.after.units, fmt: (v) => t(`${N(v)}／月`, `${N(v)}/mo`), good: 'up' },
     { key: 'sales', label: t('月の売上', 'Monthly sales'), asIs: b.now.sales, toBe: b.after.sales, fmt: G, good: 'up' },
-    { key: 'profit', label: t('月の利益', 'Monthly profit'), asIs: b.now.profit, toBe: b.after.profit, fmt: G, good: 'up' },
+    // 段 UI9b（追加 1）：月の利益の定義は 1 つ（売上 − 材料費 − 給料・維持費。月次報告の利益と同じ尺度。仕入れ・建築の支出は入れない）
+    { key: 'profit', label: t('月の利益（売上 − 材料費 − 給料・維持費）', 'Monthly profit (sales − materials − wages/upkeep)'), asIs: b.now.profit, toBe: b.after.profit, fmt: G, good: 'up' },
   ];
   const M = b.vals.months;
   if (M?.full0 != null && (M.full1 == null || Math.abs(M.full1 - M.full0) >= 1)) out.push({ key: 'full', label: t('倉庫があふれる日', 'Storage fills on day'), asIs: M.full0, toBe: M.full1 ?? POLICY.months * DAYS, fmt: (v) => (v >= POLICY.months * DAYS ? t('あふれない', 'Never') : v < 1 ? t('もう満杯', 'Already full') : t(`${Math.round(v)} 日目`, `day ${Math.round(v)}`)), good: 'up' });
@@ -471,7 +557,12 @@ export function gapRows(b: Pick<Brief, 'now' | 'after' | 'vals' | 'co' | 'cost'>
   return out;
 }
 
-/** 代替案の 1 行（同じカードのほかの手。推奨の手と、効果・費用・回収で比べる） */
+/**
+ * 代替案の 1 行（同じ種類の手。本案と、効果・費用・回収で比べる）。段 UI9b：状態つき
+ * pick：本案・weak：効果が薄い（本案より見込みが小さい）・money：予算不足（資金・研究ポイントが足りない：short に足りない額）・
+ * busy：実施中・提出済み（出稿中の宣伝・受け箱に出ている部長の提案）・locked：未解放（研究ポイントで開拓できるパネル：skill・rp）・no：見送り（判断で承認にならない）
+ */
+export type AltStatus = 'pick' | 'weak' | 'money' | 'busy' | 'locked' | 'no' | 'keep';
 export interface Alt {
   name: string;
   /** 月の利益の差・12 か月の差・導入費用・回収（か月）・推奨が承認になるか */
@@ -481,29 +572,116 @@ export interface Alt {
   payback: number | null;
   ok: boolean;
   chosen: boolean;
+  status: AltStatus;
+  /** 状態の 1 行（「予算不足（あと 2,000 G）」「未解放（研究ポイント 120）」） */
+  note: string;
+  /** 未解放のパネルの id（研究の画面への導線）・要る研究ポイント */
+  skill?: string;
+  rp?: number;
 }
+/** 状態の名前 */
+export const ALT_STATUS: Record<AltStatus, () => string> = {
+  pick: () => t('本案', 'This plan'),
+  weak: () => t('効果が薄い', 'Weaker effect'),
+  money: () => t('予算不足', 'Short of funds'),
+  busy: () => t('実施中・提出済み', 'Running / submitted'),
+  locked: () => t('未解放', 'Not unlocked'),
+  no: () => t('見送り', 'Not advised'),
+  keep: () => t('このまま', 'Do nothing'),
+};
 /**
  * 段 UI9：打ち手のページの「代替案との比較」。カードのほかの手（card.ts の shownRec が内部で比べている手）を 2 本まで、同じ判断（judgeOf）で並べる。
  * 推奨の手（いまの提案）を先頭に。カードが無ければ、いまの提案だけ
  */
-export function altsOf(s: P1State, plan: Plan, b: Pick<Brief, 'dProfit' | 'vals' | 'cost'>, card: Card | null, iss: CoIssue[], base: P1State, n = 2): Alt[] {
+export function altsOf(s: P1State, plan: Plan, b: Pick<Brief, 'dProfit' | 'vals' | 'cost'> & Partial<Pick<Brief, 'issue'>>, card: Card | null, iss: CoIssue[], base: P1State, n = 4): Alt[] {
   const L = b.vals.list.find((m) => m.key === 'long')?.d ?? 0;
-  const mine: Alt = { name: plan.acts.map((a) => actNoun(a)).join(t('＋', ' + ')), dProfit: b.dProfit, long: L, money: b.cost.money, payback: paybackOf(b), ok: true, chosen: true };
+  const mine: Alt = { name: plan.acts.map((a) => actNoun(a)).join(t('＋', ' + ')), dProfit: b.dProfit, long: L, money: b.cost.money, payback: paybackOf(b), ok: true, chosen: true, status: 'pick', note: '' };
   const out: Alt[] = [mine];
-  if (!card) return out;
   const key = (a: PropAct) => JSON.stringify(a);
   const have = new Set(plan.acts.map(key));
-  for (const c of card.choices) {
-    if (out.length > n) break;
-    const a = c.act.k === 'do' ? c.act.a : c.act.k === 'approve' ? s.deleg?.inbox.find((p) => p.id === (c.act as { pid: number }).pid)?.act : undefined;
-    if (!a || have.has(key(a)) || !actOk(s, a)) continue;
-    const p = planOf(s, [a], { hero: card.hero, q: card.q, dept: card.dept });
+  const seen = new Set<string>();
+  const gs = (v: number) => `${Math.round(v).toLocaleString('en-US')} G`;
+  // 段 UI9b：検討した手を正しく列挙する。候補：同じカードのほかの手 → 出稿中の宣伝・受け箱の同じ部門の提案（実施中・提出済み）→
+  // 同じ課題の段の手（whatIf・sellMoves：予算不足・効果が薄い）→ 研究ポイントで開拓できるパネル（未解放）
+  const who = card ? { hero: card.hero, q: card.q, dept: card.dept } : { hero: plan.hero, q: plan.q, dept: plan.dept };
+  const judged = (a: PropAct): Alt | null => {
+    if (!actOk(s, a)) return null;
+    const p = planOf(s, [a], who);
     const j = judgeOf(s, p, iss, base);
     const cost = planCost(s, p);
-    out.push({ name: actNoun(a), dProfit: j.dProfit, long: j.long, money: cost.money, payback: paybackOf({ cost, dProfit: j.dProfit }), ok: j.rec === 'ok', chosen: false });
+    const shortG = Math.max(0, cost.money - s.money);
+    const shortRp = Math.max(0, cost.rp - (s.rp ?? 0));
+    const status: AltStatus = shortG > 0 || shortRp > 0 ? 'money' : j.rec !== 'ok' ? 'no' : 'weak';
+    const why = j.why.replace(/^[^：:]+[：:]\s*/, '').replace(/（[^（）]*）/g, '').replace(/ \([^()]*\)/g, '');
+    const note = status === 'money' ? (shortRp > 0 ? t(`研究ポイントがあと ${shortRp} RP 足りない`, `${shortRp} RP short`) : t(`資金があと ${gs(shortG)} 足りない`, `${gs(shortG)} short`)) : status === 'no' ? why : t(`月の利益 ${sgG(j.dProfit)}（本案は ${sgG(b.dProfit)}）`, `${sgG(j.dProfit)}/mo (this plan: ${sgG(b.dProfit)}/mo)`);
+    return { name: actNoun(a), dProfit: j.dProfit, long: j.long, money: cost.money, payback: paybackOf({ cost, dProfit: j.dProfit }), ok: j.rec === 'ok', chosen: false, status, note };
+  };
+  const push = (a: PropAct, mk: () => Alt | null) => {
+    if (out.length > n || have.has(key(a)) || seen.has(key(a))) return;
+    seen.add(key(a));
+    const x = mk();
+    if (x) out.push(x);
+  };
+  // 1. 同じカードのほかの手
+  for (const c of card?.choices ?? []) {
+    const a = c.act.k === 'do' ? c.act.a : c.act.k === 'approve' ? s.deleg?.inbox.find((p) => p.id === (c.act as { pid: number }).pid)?.act : undefined;
+    if (a) push(a, () => judged(a));
   }
-  return out;
+  const stage = b.issue && (['buy', 'craft', 'haul', 'sell'] as string[]).includes(b.issue.key) ? (b.issue.key as Stage) : null;
+  const kinds = new Set(plan.acts.map((a) => a.k));
+  // 2. 出稿中の宣伝（販売の手・宣伝の提案）：実施中
+  if (stage === 'sell' || kinds.has('ad'))
+    for (const ad of ADS_OF()) {
+      const days = s.ads[ad.id] ?? 0;
+      if (days <= 0) continue;
+      push({ k: 'ad', id: ad.id }, () => ({ name: ad.name, dProfit: 0, long: 0, money: ad.cost, payback: null, ok: false, chosen: false, status: 'busy', note: t(`実施中（あと ${days} 日）`, `Running (${days} days left)`) }));
+    }
+  // 3. 受け箱に出ている同じ部門の部長の提案：提出済み
+  for (const p of s.deleg?.inbox ?? []) {
+    if (p.src || p.status !== 'new' || (p.sector ?? s.sector ?? 'c1') !== (s.sector ?? 'c1')) continue;
+    if (p.dept !== (plan.dept ?? card?.dept)) continue;
+    push(p.act, () => ({ name: actNoun(p.act), dProfit: p.unit === 'G' ? p.est : 0, long: 0, money: p.cost, payback: null, ok: false, chosen: false, status: 'busy', note: t(`提出済み（${DEPT[p.dept].name}部長の提案・受け箱）`, `Submitted (${DEPT[p.dept].name} head’s proposal, in the inbox)`) }));
+  }
+  // 4. 同じ課題の段の手（見込みの大きい順）
+  if (stage === 'sell') for (const m of sellMoves(s)) if (m.act) push(m.act as PropAct, () => judged(m.act as PropAct));
+  if (stage && stage !== 'sell')
+    for (const w of whatIf(s, stage)) {
+      const m = w.move;
+      const a: PropAct | null = m.kind === 'invest' ? { k: 'invest', id: m.id, uid: m.uid } : m.kind === 'skill' ? { k: 'skill', id: m.id } : m.kind === 'level' ? { k: 'level', id: m.id } : null;
+      if (!a) continue;
+      // 研究ポイントが足りないパネル：未解放（開拓する手として出す）
+      if (a.k === 'skill' && skillLock(s, SKILL[a.id]) === 'rp') {
+        const rp = rpCost(SKILL[a.id]);
+        push(a, () => ({ name: t(`『${SKILL[a.id].name}』を開拓する`, `Unlock the ${SKILL[a.id].name} panel`), dProfit: 0, long: 0, money: 0, payback: null, ok: false, chosen: false, status: 'locked', note: t(`未解放（研究ポイント ${rp}・手持ち ${Math.round(s.rp ?? 0)}）`, `Not unlocked (${rp} RP; you have ${Math.round(s.rp ?? 0)})`), skill: a.id, rp }));
+        continue;
+      }
+      push(a, () => judged(a));
+    }
+  // 5. 研究ポイントで開拓できるパネル（この段に効くもの。whatIf に出ない大きめのパネルも）：未解放
+  if (stage)
+    for (const k of Object.values(SKILL)) {
+      if (out.length > n) break;
+      if (!isResearch(k) || skillLock(s, k) !== 'rp') continue;
+      if (!STAGE_BRANCH[stage].includes(k.branch)) continue;
+      const a: PropAct = { k: 'skill', id: k.id };
+      const rp = rpCost(k);
+      push(a, () => ({ name: t(`『${k.name}』を開拓する`, `Unlock the ${k.name} panel`), dProfit: 0, long: 0, money: 0, payback: null, ok: false, chosen: false, status: 'locked', note: t(`未解放（研究ポイント ${rp}・手持ち ${Math.round(s.rp ?? 0)}）`, `Not unlocked (${rp} RP; you have ${Math.round(s.rp ?? 0)})`), skill: k.id, rp }));
+    }
+  // 段 UI9b（追加 1）：本当に候補が 1 つしか無いときは「このまま（何もしない）」の行を比較に置く（課題を放置したときの損）
+  if (out.length === 1) {
+    const x = b.issue;
+    out.push({ name: t('このまま（何もしない）', 'Do nothing'), dProfit: 0, long: 0, money: 0, payback: null, ok: false, chosen: false, status: 'keep', note: x ? (x.grow ? t(`この種類の手はこれだけ。${x.loss}`, `The only move of its kind. ${x.loss}`) : t(`この種類の手はこれだけ。課題は残り、${x.loss}`, `The only move of its kind. The issue stays: ${x.loss}`)) : t('この種類の手はこれだけ', 'The only move of its kind') });
+  }
+  // 並び：本案 → 効果が薄い（見込みの大きい順）→ 予算不足 → 実施中・提出済み → 未解放 → 見送り → このまま
+  const rank: Record<AltStatus, number> = { pick: 0, weak: 1, money: 2, busy: 3, locked: 4, no: 5, keep: 6 };
+  return out.sort((a, c) => rank[a.status] - rank[c.status] || c.dProfit - a.dProfit).slice(0, n + 1);
 }
+const sgG = (v: number) => `${v >= 0.5 ? '+' : v <= -0.5 ? '−' : '±'}${Math.abs(Math.round(v)).toLocaleString('en-US')} G`;
+const ADS_OF = () => ADS;
+/** 流れの段に効くパネルの枝（研究で開拓できる手の候補） */
+const STAGE_BRANCH: Record<Stage, string[]> = { buy: ['buy'], craft: ['craft'], haul: ['logi'], sell: ['shop'] };
+/** 段 UI9b：代替案が本案だけのときの 1 行（本当に候補が 1 つしか無いときだけ） */
+export const altOnly = () => t('この種類の手はこれだけ：「このまま」と比べる', 'The only move of its kind: compared with doing nothing');
 
 /** 段 UI9：リスクの種類ごとの対策（下振れのとき、いまの仕組みでできること） */
 export function counterOf(k: Risk['kind']): string {

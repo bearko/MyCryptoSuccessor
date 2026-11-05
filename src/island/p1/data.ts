@@ -1191,7 +1191,7 @@ export const FX_LABEL: Record<FxKind, string> = {
   procCap: t('月の調達の上限', 'Monthly buying limit'),
   buyDays: t('調達係の往復の日数', 'Buyer round trips'),
   display: t('品出しの速さ', 'Shelving speed'),
-  stamina: t('働くときのスタミナの減り', 'Stamina drain at work'),
+  stamina: t('働くときのスタミナの消耗', 'Stamina drain at work'),
   rest: t('休むと戻るスタミナ', 'Stamina recovered by rest'),
   apt: t('全員の適性', 'Everyone’s aptitude'),
   wage: t('給料', 'Wages'),
@@ -1208,7 +1208,7 @@ export const FX_LABEL: Record<FxKind, string> = {
   'dig.reach': t('隣のマスへの力', 'Power to neighbours'),
   'dig.crew': t('発掘隊の 1 日に打つ回数', 'Dig crew strikes a day'),
   'dig.autoSpeed': t('常駐の速さ', 'Standing crew speed'),
-  'dig.relay': t('常駐で働く日のスタミナの減り', 'Stamina drain on standing days'),
+  'dig.relay': t('常駐で働く日のスタミナの消耗', 'Stamina drain on standing days'),
   'dig.mat': t('掘り出した素材', 'Materials dug up'),
 };
 /** 発掘の枝の効き目の単位（% でないもの）と、そのものの値で見せるもの（長押しの間隔：170 ms から引いた値） */
@@ -1277,7 +1277,7 @@ export const SKILLS: Skill[] = [
   { id: 'golden', branch: 'shop', name: t('ゴールデンゾーンの棚割', 'Golden-zone planogram'), note: t('各お店の 1 番目の棚（主力商品）の売り場の強さ +12%', 'Pull +12% for each shop’s first shelf (main product)'), cost: 6000, requires: ['vmd'] },
   { id: 'set', branch: 'shop', name: t('セット販売', 'Bundle sales'), note: t('2 種類以上並べているお店の商品の値段 +5%', 'Prices +5% at shops stocking 2+ kinds'), cost: 7000, requires: ['golden'] },
   { id: 'point', branch: 'shop', name: t('ポイントカード', 'Loyalty cards'), note: t('他社の反撃の効き目が半分（他社の売り場の強さ ×1.25 → ×1.12）', 'Rival counterattacks hit half as hard (rival pull ×1.25 → ×1.12)'), cost: 8000, requires: ['pop'] },
-  { id: 'hours', branch: 'shop', name: t('営業時間の延長', 'Longer opening hours'), note: t('棚に並べる数 +2／日（お店ごと）・店員のスタミナの減り +20%', 'Shelve +2 a day per shop; clerks tire 20% faster'), cost: 4500, requires: ['display'] },
+  { id: 'hours', branch: 'shop', name: t('営業時間の延長', 'Longer opening hours'), note: t('棚に並べる数 +2／日（お店ごと）・店員のスタミナの消耗 +20%', 'Shelve +2 a day per shop; clerks tire 20% faster'), cost: 4500, requires: ['display'] },
   { id: 'shop2', branch: 'shop', name: t('輸入品店', 'Import store'), note: t('棚 2 の輸入品店を建てられる（売り場の強さ ×1.15）', 'Unlocks the import store (2 shelves, pull ×1.15)'), cost: 6000, requires: ['host'] },
   { id: 'shop3', branch: 'shop', name: t('ブティック', 'Boutique'), note: t('売り場が強いブティックを建てられる（棚 2・売り場の強さ ×1.35）', 'Unlocks the boutique (2 shelves, pull ×1.35)'), cost: 14000, requires: ['shop2'] },
   { id: 'b_sign', branch: 'shop', name: t('ブランドの看板', 'Brand signboards'), note: t('すべてのお店の売り場の強さ +25%', 'All shops’ pull +25%'), cost: 12000, requires: ['host'], brand: 30, tier: 'U', emblem: 1 },
@@ -1289,12 +1289,12 @@ export const SKILLS: Skill[] = [
   // ---------------------------------------------------------------- ② 製造
   { id: 'jig', branch: 'craft', name: t('段取りの改善', 'Better setups'), note: t('クラフトの日数 −20%', 'Crafting −20% days'), cost: 4000 },
   { id: 'pot', branch: 'craft', name: t('魔法の釜', 'Magic pot'), note: t('「商品開発」でアンコモンを開発できる（作るには製造の適性 31 以上の職人）', 'Develop Uncommons in Product development (crafting them needs aptitude 31+)'), cost: 10000 },
-  { id: 'five_s', branch: 'craft', name: t('5S（整理・整頓）', '5S (sort and tidy)'), note: t('クラフトの日数 −5%・職人のスタミナの減り −10%', 'Crafting −5% days; crafters tire 10% slower'), cost: 3000 },
+  { id: 'five_s', branch: 'craft', name: t('5S（整理・整頓）', '5S (sort and tidy)'), note: t('クラフトの日数 −5%・職人のスタミナの消耗 −10%', 'Crafting −5% days; crafters tire 10% slower'), cost: 3000 },
   { id: 'jig2', branch: 'craft', name: t('型の工夫', 'Better molds'), note: t('クラフトの日数 −15%', 'Crafting −15% days'), cost: 7000, requires: ['jig'] },
   { id: 'lot', branch: 'craft', name: t('ロットの改善', 'Bigger lots'), note: t('基礎の商品（技なし）の 1 ロット +1 個', 'Basic goods (no craft skill) +1 per lot'), cost: 6000, requires: ['jig'] },
-  { id: 'chair', branch: 'craft', name: t('職人の椅子', 'Crafter chairs'), note: t('職人のスタミナの減り −30%', 'Crafters tire 30% slower'), cost: 3000, requires: ['five_s'] },
+  { id: 'chair', branch: 'craft', name: t('職人の椅子', 'Crafter chairs'), note: t('職人のスタミナの消耗 −30%', 'Crafters tire 30% slower'), cost: 3000, requires: ['five_s'] },
   { id: 'kaizen', branch: 'craft', name: t('カイゼン提案箱', 'Kaizen suggestion box'), note: t('クラフトの日数 −10%', 'Crafting −10% days'), cost: 9000, requires: ['five_s', 'jig2'] },
-  { id: 'night', branch: 'craft', name: t('夜間稼働', 'Night shifts'), note: t('クラフトの日数 −15%・職人のスタミナの減り +20%', 'Crafting −15% days; crafters tire 20% faster'), cost: 12000, requires: ['kaizen'], tier: 'U', emblem: 1 },
+  { id: 'night', branch: 'craft', name: t('夜間稼働', 'Night shifts'), note: t('クラフトの日数 −15%・職人のスタミナの消耗 +20%', 'Crafting −15% days; crafters tire 20% faster'), cost: 12000, requires: ['kaizen'], tier: 'U', emblem: 1 },
   { id: 'mold', branch: 'craft', name: t('共通の型', 'Shared molds'), note: t('アンコモンの 1 ロット +1 個', 'Uncommons +1 per lot'), cost: 15000, requires: ['pot'], tier: 'U' },
   { id: 'line', branch: 'craft', name: t('自動化ライン', 'Automated line'), note: t('クラフトの日数 −20%', 'Crafting −20% days'), cost: 40000, requires: ['night'], tier: 'R', emblem: 3 },
   { id: 'd_craft', branch: 'craft', name: t('名工の作業台', 'Master’s workbench'), note: t('全員の製造の適性 +15', 'Everyone’s crafting aptitude +15'), cost: 0, big: true },
@@ -1332,7 +1332,7 @@ export const SKILLS: Skill[] = [
   { id: 'hire', branch: 'people', name: t('人材の募集', 'Recruiting'), note: t('ヒーローを雇えるようになる（候補 3 人・毎月入れ替わる）', 'Hire heroes (3 candidates, refreshed monthly)'), cost: 3000 },
   { id: 'lounge', branch: 'people', name: t('休憩室', 'Lounge'), note: t('スタミナの回復 +50%', 'Stamina recovers 50% faster'), cost: 2500 },
   { id: 'manual', branch: 'people', name: t('マニュアル整備', 'Work manuals'), note: t('全員の適性 +3（すべての仕事）', 'Everyone’s aptitude +3 (all jobs)'), cost: 4000, requires: ['hire'] },
-  { id: 'shift', branch: 'people', name: t('シフト制の導入', 'Shift system'), note: t('働くときのスタミナの減り −20%', 'Stamina drain while working −20%'), cost: 5000, requires: ['lounge'] },
+  { id: 'shift', branch: 'people', name: t('シフト制の導入', 'Shift system'), note: t('働くときのスタミナの消耗 −20%', 'Stamina drain while working −20%'), cost: 5000, requires: ['lounge'] },
   { id: 'slots', branch: 'people', name: t('採用枠の拡大', 'More openings'), note: t('雇える候補 3 → 4 人', 'Hiring candidates 3 → 4'), cost: 7000, requires: ['hire'] },
   { id: 'ojt', branch: 'people', name: t('OJT', 'On-the-job training'), note: t('担当のある人の、担当に効く能力が月に +1（PHY・INT・AGI。上限 100）', 'Assigned staff gain +1 a month in the stat their job uses (PHY/INT/AGI, max 100)'), cost: 6000, requires: ['manual'] },
   { id: 'incentive', branch: 'people', name: t('インセンティブ', 'Incentives'), note: t('売り場の強さ +5%・給料 +10%', 'Pull +5%; wages +10%'), cost: 5000, requires: ['manual'] },
@@ -1406,10 +1406,10 @@ const LEVELS: Record<string, Partial<Skill>> = {
   d_shop: { show: [up_(t('選んだ 1 軒の売り場の強さ', 'Chosen shop’s pull'), 0.4)] },
   jig: { show: [dn_(CRAFT_, 0.2)] },
   pot: { max: 3, upShow: [dn_(t('商品開発の日数', 'Development days'), 0.2)] },
-  five_s: { show: [dn_(CRAFT_, 0.05), dn_(t('職人のスタミナの減り', 'Crafter stamina drain'), 0.1)] },
+  five_s: { show: [dn_(CRAFT_, 0.05), dn_(t('職人のスタミナの消耗', 'Crafter stamina drain'), 0.1)] },
   jig2: { show: [dn_(CRAFT_, 0.15)] },
   lot: { max: 3, show: [nm_(FX_LABEL.lot, 1, true)] },
-  chair: { show: [dn_(t('職人のスタミナの減り', 'Crafter stamina drain'), 0.3)] },
+  chair: { show: [dn_(t('職人のスタミナの消耗', 'Crafter stamina drain'), 0.3)] },
   kaizen: { show: [dn_(CRAFT_, 0.1)] },
   night: { show: [dn_(CRAFT_, 0.15)] },
   mold: { max: 3, show: [nm_(t('アンコモンのロット', 'Uncommons per lot'), 1, true)] },
@@ -1747,7 +1747,7 @@ export const DIG_BALANCE: {
     // 発掘隊の役所：隊の人数の上限（Lv0〜5）・発掘隊の手際：1 日に打つ回数 +20%／Lv
     office: [1, 2, 3, 3, 4, 5],
     crew: [0.2, 0.4, 0.6, 0.8, 1.0],
-    // 常駐（自動化）：作業していない日の速さ（作業中の何割）・段取り：速さ +10%／Lv・交代制：スタミナの減り −15%／Lv・素材の選り分け：+20%／Lv
+    // 常駐（自動化）：作業していない日の速さ（作業中の何割）・段取り：速さ +10%／Lv・交代制：スタミナの消耗 −15%／Lv・素材の選り分け：+20%／Lv
     auto: [0.2, 0.4, 0.55, 0.7, 0.8],
     autoSpeed: [0.1, 0.2, 0.3, 0.4, 0.5],
     relay: [0.15, 0.3, 0.45, 0.6, 0.75],
@@ -1984,7 +1984,7 @@ export const DIG_SKILLS: Skill[] = [
     fx: [{ kind: 'dig.autoSpeed', v: DT.autoSpeed[0], at: DT.autoSpeed }],
     show: [dShow(t('マスの選び方', 'Targeting'), [t('お題の気配を優先', 'targets first'), t('お題の気配を優先', 'targets first'), t('＋研究 Lv の低いもの', '+ low research'), t('＋研究 Lv の低いもの', '+ low research'), t('＋重なりを避ける', '+ avoid maxed')])],
   }),
-  dig_('u_dig_relay', t('常駐の交代制', 'Crew shifts'), t(`常駐で働く日のスタミナの減り −${pct(at1(DT.relay, 'u_dig_relay'))}%`, `Stamina drain on standing days −${pct(at1(DT.relay, 'u_dig_relay'))}%`), { tier: 'U', requires: ['u_dig_auto'], fx: [{ kind: 'dig.relay', v: DT.relay[0], at: DT.relay }] }),
+  dig_('u_dig_relay', t('常駐の交代制', 'Crew shifts'), t(`常駐で働く日のスタミナの消耗 −${pct(at1(DT.relay, 'u_dig_relay'))}%`, `Stamina drain on standing days −${pct(at1(DT.relay, 'u_dig_relay'))}%`), { tier: 'U', requires: ['u_dig_auto'], fx: [{ kind: 'dig.relay', v: DT.relay[0], at: DT.relay }] }),
   dig_('u_dig_mat', t('素材の選り分け', 'Material sorting'), t(`掘り出した素材 +${pct(at1(DT.mat, 'u_dig_mat'))}%（端数は持ち越し）`, `Materials dug up +${pct(at1(DT.mat, 'u_dig_mat'))}% (fractions carry over)`), { tier: 'U', fx: [{ kind: 'dig.mat', v: DT.mat[0], at: DT.mat }] }),
 ];
 SKILLS.push(...DIG_SKILLS);
@@ -2947,7 +2947,7 @@ export const INVESTS: Invest[] = [
   { id: 'truck', kind: 'workshop', name: t('小型トラック', 'Small truck'), note: t('積める数 ×2.5・運ぶ速さ ×1.5', 'Load ×2.5, hauling speed ×1.5'), cost: [8000] },
   { id: 'stockroom', kind: 'workshop', name: t('物置の整理', 'Tidy stockroom'), note: t('工房の物置 +40 個', 'Workshop stockroom +40'), cost: [2500] },
   { id: 'tools', kind: 'workshop', name: t('道具の新調', 'New tools'), note: t('クラフトの日数 −10%（1 段ごと）', 'Crafting −10% days per level'), cost: [3000, 6000, 12000] },
-  { id: 'breakroom', kind: 'workshop', name: t('職人の休憩所', 'Crafters’ break room'), note: t('工房で働く人のスタミナの減り −30%', 'Crafters lose 30% less stamina'), cost: [2500] },
+  { id: 'breakroom', kind: 'workshop', name: t('職人の休憩所', 'Crafters’ break room'), note: t('工房で働く人のスタミナの消耗 −30%', 'Crafters lose 30% less stamina'), cost: [2500] },
   // 段 UI5d：倉庫の強化（1 棟を段で。倉庫が乱立しないように）。1 個あたりの値段は建てる（4,000 G で +200 ＝ 20 G・毎月 600 G）と同じくらいで、維持費のぶん少し得
   { id: 'rack', kind: 'warehouse', name: t('倉庫の強化（高い棚）', 'Warehouse upgrade (tall racks)'), note: t('この倉庫の置き場所 +100 個（1 段ごと・維持費は増えない）', 'This warehouse holds 100 more per level (no extra upkeep)'), cost: [2000, 2500, 3000] },
   // 段 UI5d：物流拠点の保管の強化（拠点の置き場所 +75 個／段）
@@ -3708,7 +3708,7 @@ export const PROMO_ITEM: Record<PromoItem, { name: string; note: string }> = {
 };
 /**
  * パッシブスキル（部門と結び付ける）。v：段 1 の効き目（+4〜6%）。tasks：その仕事をしているときに速さ（speed）に効く。
- * mentor は仲間の経験値、manage はマネージャーのときのセクタの売上、system はスタミナの減り（自分の仕事の手間が減る）
+ * mentor は仲間の経験値、manage はマネージャーのときのセクタの売上、system はスタミナの消耗（自分の仕事の手間が減る）
  */
 export const PASSIVES: Record<PassiveKind, { dept: DeptId; v: number; name: string; note: (pct: number) => string; tasks?: Task[] }> = {
   craft: { dept: 'logistics', v: 0.05, tasks: ['craft', 'train'], name: t('職人の勘', 'Maker’s instinct'), note: (p) => t(`製造の速さ +${p}%（作業台・修行のとき）`, `Crafting speed +${p}% (at a bench or training)`) },
@@ -3718,7 +3718,7 @@ export const PASSIVES: Record<PassiveKind, { dept: DeptId; v: number; name: stri
   dig: { dept: 'rnd', v: 0.06, tasks: ['dig'], name: t('掘り当て', 'Lucky strike'), note: (p) => t(`発掘隊の掘る速さ +${p}%（発掘隊のとき）`, `Dig crew speed +${p}% (on the dig crew)`) },
   mentor: { dept: 'hr', v: 0.05, name: t('面倒見', 'Mentor'), note: (p) => t(`この人が働いた日、仲間の経験値 +${p}%（合わせて +${Math.round(HERO_GROWTH.xp.mentorMax * 100)}% まで）`, `Teammates gain +${p}% XP on days this hero works (up to +${Math.round(HERO_GROWTH.xp.mentorMax * 100)}% in all)`) },
   manage: { dept: 'strategy', v: 0.04, name: t('采配', 'Command'), note: (p) => t(`セクタマネージャーのとき、そのセクタの売上 +${p}%`, `Sector sales +${p}% as sector manager`) },
-  system: { dept: 'systems', v: 0.06, name: t('手順の自動化', 'Automated routine'), note: (p) => t(`働くときのスタミナの減り −${p}%`, `Stamina drain while working −${p}%`) },
+  system: { dept: 'systems', v: 0.06, name: t('手順の自動化', 'Automated routine'), note: (p) => t(`働くときのスタミナの消耗 −${p}%`, `Stamina drain while working −${p}%`) },
 };
 /** 陣営 → パッシブ（ヒーローごとの並びの 2 つ目。1 つ目はいちばん向いている仕事） */
 export const FACTION_PASSIVE: Record<string, PassiveKind> = { 玄武: 'dig', 朱雀: 'sell', 青龍: 'craft', 白虎: 'haul', 黄竜: 'manage' };
@@ -3978,5 +3978,6 @@ export const SIGN = { mul: { N: 0, C: 0, U: 1.25, R: 1.5, E: 2, L: 3, LL: 3 } as
  * - grow：成長の余地（ブランド力・研究）は、ほかの課題が無いときの下の段（優先は小さく）
  * - 段 UI9：優先は重要度（G／月）× 緊急度（storeDays 日以内で 1〜2 倍）。solve：流れの課題を「解いた」と言える売れる数の増え（いまの処理量に対する割合）・
  *   raise：提起する最小の重要度（月の粗利に対する割合。期限の無い課題だけ）・profitMonths：収益性の課題を解くのに要る長期の利益（重要度 × 月数）
+ * - 段 UI9b：優先度の 3 段（高・中・低）の境。score（重要度 × 緊急度）÷ 月の粗利が lv.hi 以上で「高」・lv.mid 以上で「中」・それ未満は「低」。流れが止まっていれば「高」
  */
-export const ISSUE = { boost: 2, storeDays: 60, morale: 55, sat: 50, grow: 0.05, min: 1, solve: 0.02, raise: 0.03, profitMonths: 3 };
+export const ISSUE = { boost: 2, storeDays: 60, morale: 55, sat: 50, grow: 0.05, min: 1, solve: 0.02, raise: 0.03, profitMonths: 3, lv: { hi: 0.3, mid: 0.1 } };

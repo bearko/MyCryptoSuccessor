@@ -47,7 +47,8 @@ describe('データの取り込み（scripts/heroes/build.mjs）', () => {
     expect(JSON.parse(JSON.stringify(b.fit))).toEqual(fitJson);
     expect(JSON.parse(JSON.stringify(b.voice))).toEqual(voiceJson);
     const v = (voiceJson as Record<string, Record<string, unknown>>)['5001'];
-    expect(Object.keys(v).sort()).toEqual(['fp', 'l', 'tic', 'to', 'why']);
+    // 段 UI9b（追加 2）：語尾の型 reg
+    expect(Object.keys(v).sort()).toEqual(['fp', 'l', 'reg', 'tic', 'to', 'why']);
     expect(JSON.stringify(voiceJson)).not.toMatch(/https?:\/\//);
   });
 

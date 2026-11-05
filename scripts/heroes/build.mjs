@@ -76,6 +76,40 @@ export function styleOf(d) {
   return ax('atk', 'A', 'D') + ax('spd', 'F', 'S') + ax('odd', 'K', 'O') + ax('grow', 'N', '-');
 }
 
+/**
+ * 段 UI9b（追加 2）：語尾の型（register）。提案書のサマリー文・カードのセリフの語り口（src/island/p1/summary.ts）。
+ * 研究の口調（tone_ja）・時代（era）・一人称の言葉から規則で決める。目立つヒーローは REGISTER_OVERRIDE で確定。
+ * - polite：です・ます（既定）／genki：〜だよ！・〜しよ！（元気）／assert：〜である・〜せよ（指導者の断言）／tosa：〜ぜよ・〜じゃき（土佐）／
+ *   archaic：〜でござる・〜じゃ（古代・中世の人物）／gentle：〜ですね・〜でしょう（穏やか）／terse：体言止め・短文（軍人・職人）／rough：〜だ・〜だぜ（豪快）
+ */
+export const REGISTERS = ['polite', 'genki', 'assert', 'tosa', 'archaic', 'gentle', 'terse', 'rough'];
+export const REGISTER_OVERRIDE = { 坂本龍馬: 'tosa', 織田信長: 'assert', 豊臣秀吉: 'rough', 伊能忠敬: 'polite', 金太郎: 'genki', 宮本武蔵: 'terse', 武田信玄: 'archaic' };
+const REG_WORDS = {
+  tosa: ['土佐'],
+  assert: ['断定', '断言', '命じる', '命令口調', '尊大', '重々し', '棟梁', '威厳', '言い切る'],
+  terse: ['簡潔', '短く', '寡黙', 'ぶっきらぼう', '短い言葉', '必要なことだけ', '説明はほとんど', '朴訥'],
+  genki: ['元気', '明るく', '茶目', 'はきはき', '子ども', 'にぎやか', '早口', '陽気'],
+  rough: ['豪快', '威勢', '骨太', '勢いがあ', '率直で', '若者言葉'],
+  gentle: ['穏やか', 'やわらか', 'やさしい', '温か', 'ゆったり', '物腰', '控えめ'],
+};
+const ARCHAIC_FP = ['それがし', '拙者', 'わし', 'わらわ', '余', '我'];
+export function registerOf(d) {
+  const o = REGISTER_OVERRIDE[d.name_ja];
+  if (o) return o;
+  const tone = d.speech?.tone_ja ?? '';
+  const fp = stripNote(d.speech?.first_person ?? '');
+  const hit = (k) => REG_WORDS[k].some((w) => tone.includes(w));
+  if (hit('tosa')) return 'tosa';
+  if (hit('assert')) return 'assert';
+  if (hit('terse')) return 'terse';
+  const old = /古代|中世|戦国|平安|鎌倉|室町|春秋|三国|後漢|安土|江戸時代|ローマ|ギリシャ|紀元前|前 \d/.test(d.era ?? '');
+  if (old && (ARCHAIC_FP.includes(fp) || /武家|武士|武人|古風/.test(tone))) return 'archaic';
+  if (hit('genki')) return 'genki';
+  if (hit('rough')) return 'rough';
+  if (hit('gentle')) return 'gentle';
+  return 'polite';
+}
+
 /** 研究のフォルダから、fit と voice を作る（ファイルには書かない） */
 export function buildHeroData(dir = RESEARCH) {
   const files = readdirSync(dir).filter((f) => /^\d+\.json$/.test(f)).sort((a, b) => Number(a.slice(0, -5)) - Number(b.slice(0, -5)));
@@ -111,6 +145,7 @@ export function buildHeroData(dir = RESEARCH) {
       tic: (sp.tics_ja ?? []).map(stripNote).filter(Boolean),
       l,
       why: FIT_KEYS.map((k) => safeWhy((d.aptitude?.[k]?.why ?? '').trim())),
+      reg: registerOf(d),
     };
     for (const x of [...v.tic, ...SCENES.flatMap((sc) => l[sc])]) if ([...x].length > LINE_MAX) errs.push(`${id}: セリフが ${LINE_MAX} 字を超える「${x}」`);
     voice[id] = v;

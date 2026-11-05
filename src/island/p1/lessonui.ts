@@ -180,6 +180,6 @@ export function errChip(s: P1State): HTMLElement | null {
   const v = lessonFx(s, 'err');
   if (v <= 0) return null;
   const e = h('small', 'isl-ls-errchip', t(`${LESSON_ICON.numbers} 数字の教えで誤差 −${Math.round(v * 100)}%`, `${LESSON_ICON.numbers} lessons: error −${Math.round(v * 100)}%`));
-  e.title = t('受け継いだ数字の教えの数だけ、提案の読みの誤差が小さくなる（見込みの数字とリスクの見積もりに効く）', 'Numbers lessons shrink the read error of proposals (affects estimates and risks)');
+  e.title = t('受け継いだ数字の教えの数だけ、提案の予測の誤差が小さくなる（見込みの数字とリスクの見積もりに効く）', 'Numbers lessons shrink the read error of proposals (affects estimates and risks)');
   return e;
 }

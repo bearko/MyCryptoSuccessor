@@ -122,6 +122,11 @@ export const GRADE_COLOR: Record<Grade, string> = { S: '#f2c14e', A: '#5fd18a', 
 // ---------------------------------------------------------------- 声（あとから読み込む）
 
 export type Scene = 'greet' | 'propose' | 'approved' | 'rejected' | 'tired' | 'success';
+/**
+ * 段 UI9b（追加 2）：語尾の型（scripts/heroes/build.mjs の registerOf。summary.ts が語尾を置き換える）。
+ * polite：です・ます／genki：〜だよ！／assert：〜である・〜せよ／tosa：〜ぜよ・〜じゃき／archaic：〜でござる／gentle：〜ですね／terse：体言止め／rough：〜だ・〜だぜ
+ */
+export type Register = 'polite' | 'genki' | 'assert' | 'tosa' | 'archaic' | 'gentle' | 'terse' | 'rough';
 export interface Voice {
   /** 一人称・社長の呼び方・口ぐせ */
   fp: string;
@@ -130,6 +135,8 @@ export interface Voice {
   l: Record<Scene, string[]>;
   /** 適性の根拠（FIT_KEYS の順） */
   why: string[];
+  /** 語尾の型（無ければ polite） */
+  reg?: Register;
 }
 let VOICE: Record<string, Voice> | null = null;
 let loading: Promise<void> | null = null;
