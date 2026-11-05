@@ -243,7 +243,11 @@ export function makeTicker(root: HTMLElement, hooks: TickerHooks): Ticker {
     raf = 0;
     const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
     last = now;
-    if (!el.isConnected) return;
+    // 段 UX1（C-11）：まだ帯が画面に付いていなければ（作った直後）、付いてから流し始める
+    if (!el.isConnected) {
+      window.setTimeout(kick, 300);
+      return;
+    }
     if (!held()) {
       const tw = track.clientWidth;
       const v = newsSpeed(wide(), queue.length);
@@ -272,7 +276,10 @@ export function makeTicker(root: HTMLElement, hooks: TickerHooks): Ticker {
     if (stillTimer) return;
     const tick = () => {
       stillTimer = 0;
-      if (!el.isConnected) return;
+      if (!el.isConnected) {
+        stillTimer = window.setTimeout(tick, 300);
+        return;
+      }
       const now = performance.now();
       if (still && (now < still.until || held())) {
         stillTimer = window.setTimeout(tick, 300);

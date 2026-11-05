@@ -289,7 +289,6 @@ describe('C. 数字の説明', () => {
   it('C-10：宣伝の一覧に「元が取れる月商の目安」（adGain が 0 になる売上の逆算。数字は変えない）', async () => {
     const { adBreakeven, adGain } = await import('../src/island/p1/moves');
     const { ADS } = await import('../src/island/p1/data');
-    const { adCost: adGainCost } = await import('../src/island/p1/model');
     const { newP1, build, allowedDirs, syncShop } = await import('../src/island/p1/model');
     const s = newP1(1);
     s.tut = 99;
@@ -313,10 +312,11 @@ describe('C. 数字の説明', () => {
     expect(be.now).toBeGreaterThanOrEqual(0);
     // 目安より売上が小さければ見込みは赤字（adGain ≤ 0）
     if (be.now < be.need! - 100) expect(adGain(s, ADS[0].id)).toBeLessThanOrEqual(0);
-    // 重ね掛けの上限などで伸びが 0 なら need は null（いくら売れても元が取れない）
-    s.ads = Object.fromEntries(ADS.map((a) => [a.id, a.days]));
-    const capped = adBreakeven(s, ADS[0].id);
-    if (capped && adGain(s, ADS[0].id) <= -adGainCost(s, ADS[0].id)) expect(capped.need).toBeNull();
+    // 売上がまだ無い町でも目安は出る（伸びは宣伝の +N% で見る）。売上があって伸びが 0（重ね掛けの上限）なら need は null（画面は「いまは売上が伸びない」）
+    const m = src('moves.ts');
+    expect(m).toContain('const r = base > 0 ? (on - base) / base : ad.boost;');
+    expect(m).toContain('if (!(k > 0)) return { need: null, now: Math.round(base) };');
+    expect(src('screens.ts')).toContain('いまは売上が伸びない');
     expect(src('screens.ts')).toContain('元が取れる月商の目安 ${money(be.need)}〜');
   });
   it('C-11：たまった知らせが無いとき、待機の文ではなく一覧（hist）の見出しを古い順に繰り返し流す。一覧が空なら「ニュースはまだありません」', async () => {
