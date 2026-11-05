@@ -464,6 +464,8 @@ export interface Flags {
   digPeekTip?: boolean;
   /** 初めて荒れ地が復興したときのマインちゃんの一言を出した */
   reviveTalk?: boolean;
+  /** 段 UX1（B-6）：置くモードの初回に、地図の動かし方（タップ・ホイール／ピンチ・ドラッグ）のトーストを出した */
+  zoomTip?: boolean;
   /** 初めてダンジョンの入り口が見つかったときのマインちゃんの一言を出した */
   dungeonTalk?: boolean;
   /** 遺物の展示館を建てられるようになったときのマインちゃんの一言を出した */
@@ -851,6 +853,16 @@ export const FRONT: Record<Dir, [number, number]> = { rd: [1, 0], ld: [0, 1], lu
 export function occupant(s: P1State, i: number, j: number): PBuilding | null {
   for (const b of s.buildings) if (cells(DEF[b.id], b.i, b.j, b.dir).some(([x, y]) => x === i && y === j)) return b;
   return null;
+}
+
+/**
+ * 段 UX1（B-5）：地図のタップの補正。当たり判定は地面の菱形だけで、建物の絵は基準のマスより上に伸びるので、
+ * 絵の上半分を押すと奥（北）の空きマスを押したことになっていた。押したマスが空で、画面で 1 マス手前（i+1, j+1）に建物があれば、そのマスを返す
+ */
+export function tapTarget(s: P1State, i: number, j: number): [number, number] {
+  if (occupant(s, i, j)) return [i, j];
+  if (ground(s, i + 1, j + 1) && occupant(s, i + 1, j + 1)) return [i + 1, j + 1];
+  return [i, j];
 }
 
 /** 入口の前のマス（建物のマスを除く） */

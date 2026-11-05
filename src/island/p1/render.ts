@@ -63,6 +63,34 @@ function cart(ctx: CanvasRenderingContext2D, x: number, y: number) {
   ctx.fillRect(x + 5, y - 5, 6, 6);
 }
 
+/** reduced-motion（脈打つ演出を止める。テストでは matchMedia が無い） */
+const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * 段 UX1（B-2）：チュートリアルの「ここに建ててみて！」のマス。縁は画面で 3px の金色、まわりに金色の輪が 1.2 秒ごとに外へ広がる。
+ * zoom：画面の px をそろえるため。reduced-motion では輪を出さず縁だけ
+ */
+export function markRing(ctx: CanvasRenderingContext2D, i: number, j: number, zoom: number, now: number) {
+  const c = center(i, j);
+  const px = 3 / Math.max(0.1, zoom);
+  const ring = (grow: number, alpha: number, width: number) => {
+    ctx.strokeStyle = `rgba(255,214,90,${alpha.toFixed(3)})`;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(c.x, c.y - 55 - grow * 0.55);
+    ctx.lineTo(c.x + 100 + grow, c.y);
+    ctx.lineTo(c.x, c.y + 55 + grow * 0.55);
+    ctx.lineTo(c.x - 100 - grow, c.y);
+    ctx.closePath();
+    ctx.stroke();
+  };
+  if (!reducedMotion()) {
+    const ph = (now % 1200) / 1200;
+    ring(ph * 70, 0.9 * (1 - ph), px * (1.4 - ph * 0.8));
+  }
+  ring(0, 1, px);
+}
+
 /** マスのふちを線で */
 function edge(ctx: CanvasRenderingContext2D, i: number, j: number, color: string) {
   const c = center(i, j);
@@ -167,10 +195,11 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
       }
   }
   // チュートリアル：建ててもらう場所（金色に光るマスと「ここに建ててみて！」）
+  // 段 UX1（B-2）：地面の層に薄く塗るだけでは荒れ地と見分けにくかった。縁を画面で 3px の金色にし、金色の輪を外へ脈打たせる
+  // （reduced-motion では脈打たない）
   if (anim?.mark) {
     const a = 0.35 + 0.25 * Math.sin(now / 220);
     diamond(ctx, anim.mark.i, anim.mark.j, `rgba(255,214,90,${a.toFixed(3)})`);
-    edge(ctx, anim.mark.i, anim.mark.j, '#ffd65a');
   }
   const sel = selected != null ? s.buildings.find((b) => b.uid === selected) : null;
   if (sel) for (const [x, y] of cells(DEF[sel.id], sel.i, sel.j, sel.dir)) diamond(ctx, x, y, 'rgba(255,230,120,0.35)');
@@ -333,6 +362,8 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
     drawBorders(ctx, s, world, cam.zoom);
   }
   if (anim?.mark) {
+    // 段 UX1（B-2）：金色の輪は建物（ゴースト）の上に描く（ゴーストがその場所に重なると地面の塗りは見えない）
+    markRing(ctx, anim.mark.i, anim.mark.j, cam.zoom, now);
     const c = center(anim.mark.i, anim.mark.j);
     const y = c.y - 150 - Math.abs(Math.sin(now / 300)) * 10;
     ctx.font = "900 30px 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', system-ui, sans-serif";

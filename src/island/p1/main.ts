@@ -71,6 +71,8 @@ import {
   depotInfo,
   missionProgress,
   siteInfo,
+  tapTarget,
+  wasteAt,
   tutSpot,
   walkDays,
   buildCatOpen,
@@ -145,7 +147,7 @@ import { openDigSummary, openMonthReport } from './report';
 import { openOrg } from './orgui';
 import { openSkills } from './tree';
 import { openSide } from './side';
-import { resolveSub, subDefs, type ScreenId, type SubDef } from './menus';
+import { resolveSub, subDefs, tabHint, type ScreenId, type SubDef } from './menus';
 import { openGrowth } from './growthui';
 import { openCharisma } from './hrui';
 import { openGa, openTax } from './acctui';
@@ -709,7 +711,7 @@ function renderHud() {
   const planOn = !!s.monthPause && !s.digRun;
   datePlan.hidden = !planOn;
   if (planOn) {
-    const txt = d ? t(`⏸ 計画中 — ▶ で ${d.month} 月へ`, `⏸ Planning — ▶ starts M${d.month}`) : t('⏸ 計画中 — ▶ で次の月へ', '⏸ Planning — ▶ starts next month');
+    const txt = d ? t(`計画中 — ▶ で ${d.month} 月へ`, `Planning — ▶ starts M${d.month}`) : t('計画中 — ▶ で次の月へ', 'Planning — ▶ starts next month');
     if (datePlan.textContent !== txt) datePlan.textContent = txt;
   }
   // 月の進み：開店後は締めまでの日数、開店前は（最初の締めまでが決まっていないので）空
@@ -846,6 +848,13 @@ function buildTabs() {
     b.type = 'button';
     b.dataset.dept = m;
     b.append(h('i', '', d.icon), h('span', 'is-full', d.name), h('span', 'is-short', d.short));
+    // 段 UX1（B-7）：部門名だけでは中身が分からない（経営企画＝スキルツリー、R&D＝研究ノート）。
+    // title にサブタブ名の並び、PC の右の帯は部門名の下に主なサブタブ名（tabHint）
+    const subs = subDefs(m, ids);
+    if (subs.length) {
+      b.title = `${d.name}：${subs.map((x) => x.name).join(t('・', ' · '))}`;
+      b.append(h('small', 'isl-tab-sub', tabHint(subs.map((x) => x.short))));
+    }
     b.addEventListener('click', () => pickMenu(m));
     tabBtns[m] = b;
     return b;
@@ -1298,7 +1307,8 @@ const placeErr = (): PlaceErr | 'spot' | null => {
 // 置くときの画面：右上に「選択中」と戻る、建物のそばに理由・建てる・回す
 const selBox = h('div', 'isl-selbox');
 const ghostUi = h('div', 'isl-ghost-ui');
-const placeBox = h('div', 'isl-place');
+/** 段 UX1（B-3）：画面の下の固定バー（「建てる ○○ G」「やめる」を大きく。ズームに関係なく押せる） */
+const placeBox = h('div', 'isl-place-bar');
 placeBox.hidden = true;
 
 /** 置けるマス（置くときだけ。地図のほかのマスは暗くする） */
@@ -1327,11 +1337,19 @@ function startPlacing(id: string, opts: { move?: number; at?: [number, number]; 
   if (opts.at) tweenTo(i, j);
   sfx.play('move');
   renderAll();
+  // 段 UX1（B-6）：置くモードの初回だけ、地図の動かし方を一言
+  if (!s.flags.zoomTip) {
+    s.flags.zoomTip = true;
+    save();
+    toast(t('マスをタップで建物を動かす・ホイール／ピンチで拡大・ドラッグで地図を動かせるよ', 'Tap a tile to move the building · wheel/pinch to zoom · drag to pan'));
+  }
 }
 
 /** 置く建物を (i, j) へ。マスが変わったら音を鳴らす */
 function setGhost(i: number, j: number) {
   if (!placing || (placing.i === i && placing.j === j)) return;
+  // 段 UX1（B-1）：チュートリアルの建築中は、地図を動かしても光っている場所から動かさない
+  if (tutSpotNow()) return;
   placing.i = i;
   placing.j = j;
   fitDir();
@@ -1400,6 +1418,7 @@ function renderPlace() {
   canvas.classList.toggle('is-placing', !!placing);
   selBox.hidden = !placing;
   ghostUi.hidden = !placing;
+  placeBox.hidden = !placing;
   if (!placing) return;
   const moving = placing.move != null;
   const name = DEF[placing.id].name;
@@ -1416,8 +1435,11 @@ function renderPlace() {
   const err = placeErr();
   const dirs = allowedDirs(s, placing.id, placing.i, placing.j, ignoreOf());
   const row = h('div', 'isl-row');
-  if (err) row.append(h('span', 'isl-reason', reasonOf(err)));
-  else {
+  if (err) {
+    row.append(h('span', 'isl-reason', reasonOf(err)));
+    // 段 UX1（B-4）：荒れ地の赤い札に「⛏ 掘れば使える → 発掘へ」（荒れ地の吹き出しへ。許可の申請・発掘はそこから）
+    if (err === 'waste') row.append(btn(t('⛏ 掘れば使える → 発掘へ', '⛏ Dig it out to use it → Dig'), () => toWastePop(), 'isl-place-dig'));
+  } else {
     const cost = moving ? moveCost(s.buildings.find((b) => b.uid === placing!.move)!) : P1B[placing.id].cost;
     row.append(btn(moving ? t(`ここへ移転 ${money(cost)}`, `Move here ${money(cost)}`) : cost ? t(`建てる ${money(cost)}`, `Build ${money(cost)}`) : t('建てる', 'Build'), tryPlace, 'is-on'));
   }
@@ -1434,6 +1456,53 @@ function renderPlace() {
   ghostUi.classList.toggle('is-bad', !!err);
   ghostUi.replaceChildren(...siteCard(placing.id, placing.i, placing.j, placing.dir, placing.move), row);
   placeGhostUi();
+  renderPlaceBar(err, dirs.length > 1);
+}
+
+/** 段 UX1（B-4）：置くのをやめて、ゴーストの下の荒れ地の吹き出しへ（許可の申請・発掘はそこから） */
+function toWastePop() {
+  if (!placing) return;
+  const wc = cells(DEF[placing.id], placing.i, placing.j, placing.dir).find(([x, y]) => wasteAt(s, x, y) >= 0) ?? [placing.i, placing.j];
+  placing = null;
+  openPop(wc[0], wc[1]);
+  renderAll();
+}
+
+/**
+ * 段 UX1（B-3・B-4）：画面の下の固定バー。「建てる ○○ G」「やめる」を大きく（ゴーストの真下の小さなボタンはズーム 0.5 だと影に紛れていた）。
+ * 建てられないときは理由。荒れ地なら「⛏ 掘れば使える → 発掘へ」で荒れ地の吹き出し（許可の申請・発掘）へ
+ */
+function renderPlaceBar(err: PlaceErr | 'spot' | null, canRotate: boolean) {
+  if (!placing) return;
+  const moving = placing.move != null;
+  const cost = moving ? moveCost(s.buildings.find((b) => b.uid === placing!.move)!) : P1B[placing.id].cost;
+  const head = h('div', 'isl-place-bar-head');
+  head.append(h('b', '', DEF[placing.id].name), h('small', 'isl-dim', err ? reasonOf(err) : moving ? t(`移転費 ${money(cost)}`, `Move cost ${money(cost)}`) : cost ? t(`費用 ${money(cost)}`, `Cost ${money(cost)}`) : t('無料', 'Free')));
+  const row = h('div', 'isl-row');
+  if (!err) row.append(btn(moving ? t(`ここへ移転 ${money(cost)}`, `Move here ${money(cost)}`) : cost ? t(`建てる ${money(cost)}`, `Build ${money(cost)}`) : t('建てる', 'Build'), tryPlace, 'is-on is-big'));
+  else if (err === 'waste') {
+    row.append(btn(t('⛏ 掘れば使える → 発掘へ', '⛏ Dig it out to use it → Dig'), () => toWastePop(), 'is-on is-big isl-place-dig'));
+  }
+  if (canRotate)
+    row.append(
+      btn(t('↻ 回す', '↻ Rotate'), () => {
+        if (!placing) return;
+        const ok = allowedDirs(s, placing.id, placing.i, placing.j, ignoreOf());
+        if (ok.length) placing.dir = ok[(ok.indexOf(placing.dir) + 1) % ok.length];
+        sfx.play('move', 0.7);
+        renderPlace();
+      }),
+    );
+  row.append(
+    btn(t('やめる', 'Cancel'), () => {
+      const was = placing;
+      placing = null;
+      if (was && was.move == null) return openBuildTab();
+      renderAll();
+    }),
+  );
+  placeBox.classList.toggle('is-bad', !!err);
+  placeBox.replaceChildren(head, row);
 }
 
 /**
@@ -2294,6 +2363,7 @@ function nextMonth(v = 1) {
   speed = v;
   save();
   renderHud();
+  nextMini.remove();
   nextLeaving = true;
   nextBtn.classList.add('is-gone');
   setTimeout(() => {
@@ -2308,12 +2378,21 @@ function nextMonth(v = 1) {
  * 段 UX1（A-2）：画面（シート）・吹き出し・メニューを開いていても隠さない（計画のために SCM やスキルツリーを開いている間も、
  * 「次の月へ」が見える）。窓（会話・カード・提案書・報告の暗幕）のあいだは隠す。会話は focus（懐中時計を囲む案内）のあるものだけ出す
  */
-const nextShown = () => !!s.monthPause && !placing && !tour && !root.querySelector('.isl-modal:not(.has-focus), .isl-rp-reveal');
+const nextShown = () => !!s.monthPause && !placing && !tour && !sheetOpen() && !root.querySelector('.isl-modal:not(.has-focus), .isl-rp-reveal');
+/** 段 UX1（A-2）：画面（シート）を開いているあいだは、見出しの ✕ の横に小さく「▶ N 月へ」（懐中時計は画面の中身に重ねない） */
+const nextMini = btn('', () => nextMonth(), 'isl-next-mini');
+nextMini.title = t('次の月へ（計画中。▶⏩ でも進む）', 'Next month (planning; ▶⏩ also starts it)');
 function renderNext() {
   if (nextLeaving) return;
+  const d = date(s);
+  const head = s.monthPause && !s.digRun && !placing && !tour ? root.querySelector('.isl-sheet .isl-sheet-head') : null;
+  if (head) {
+    const mini = d ? t(`▶ ${d.month} 月へ`, `▶ M${d.month}`) : t('▶ 次の月へ', '▶ Next month');
+    if (nextMini.textContent !== mini) nextMini.textContent = mini;
+    if (nextMini.parentElement !== head) head.insertBefore(nextMini, head.lastElementChild);
+  } else if (nextMini.parentElement) nextMini.remove();
   const show = nextShown();
   if (show) {
-    const d = date(s);
     const label = d ? t(`${d.month} 月に進む ▶`, `Go to M${d.month} ▶`) : t('次の月に進む ▶', 'Next month ▶');
     if (nextBig.textContent !== label) nextBig.textContent = label;
   }
@@ -3795,7 +3874,8 @@ function openSectorCard(id: string) {
 /** 浮く札を作り直し（中身が変わったときだけ）、カメラに合わせて動かす */
 function placeWorldUi() {
   const land = s.land;
-  zoomBox.hidden = !land || !!placing;
+  // 段 UX1（B-6）：ズームの ＋／− は最初の町でも出す（ホイール・ピンチのほかに拡大の手段が無かった）
+  zoomBox.hidden = !!placing || digOpen();
   if (!land || worldBusy()) {
     worldUi.hidden = true;
     return;
@@ -3864,6 +3944,11 @@ function layout() {
     const advOn = !advisor.hidden && advisor.style.display !== 'none' && advisor.getBoundingClientRect().height > 0;
     const dr = digRect();
     nextBtn.style.bottom = `${rail ? 24 : innerHeight - (dr ? dr.top : advOn ? advisor.getBoundingClientRect().top : foot.getBoundingClientRect().top) + 8}px`;
+  }
+  // 段 UX1（B-3）：建てるバーは下の帯の上（置くモードで下の帯を隠しているときは画面の下から 12px。--foot-h は隠れた帯で狂う）
+  if (!placeBox.hidden) {
+    const fr = foot.getBoundingClientRect();
+    placeBox.style.bottom = `${rail || fr.height <= 0 ? 12 : innerHeight - fr.top + 8}px`;
   }
   placeToasts();
   selBox.style.top = `${hud.getBoundingClientRect().top}px`;
@@ -4237,7 +4322,12 @@ canvas.addEventListener('pointerup', (e) => {
   if (placing) {
     // 置いている建物のマスをもう一度押すと建てる。ほかのマスなら、そこを真ん中にして建物を動かす
     if (placing.i === i && placing.j === j) tryPlace();
-    else {
+    else if (tutSpotNow()) {
+      // 段 UX1（B-1）：チュートリアルの建築中は、光っている場所から動かさない（隣の荒れ地を押して「建てられません」が続いていた）
+      sfx.play('error');
+      toast(t('光っている場所に建ててみて！', 'Build on the glowing spot!'));
+      tweenTo(placing.i, placing.j);
+    } else {
       setGhost(i, j);
       tweenTo(i, j);
     }
@@ -4254,13 +4344,15 @@ canvas.addEventListener('pointerup', (e) => {
     renderAll();
     return;
   }
+  // 段 UX1（B-5）：建物の絵は基準のマスより上に伸びるので、空のマスを押したときは画面で手前（南）のマスの建物を選ぶ
+  const [ti, tj] = tapTarget(s, i, j);
   // 道路は押しても何も出さない（地図を動かそうとして押してしまうことが多いので）。開いている吹き出しは閉じる
-  if (ground(s, i, j) === 'road') {
+  if (ground(s, ti, tj) === 'road') {
     closePop();
     renderAll();
     return;
   }
-  openPop(i, j);
+  openPop(ti, tj);
   renderAll();
 });
 canvas.addEventListener('pointercancel', (e) => {
@@ -4897,6 +4989,8 @@ function frame(now: number) {
   if (shutterFx.size && [...shutterFx.values()].some((t0) => t0 !== Infinity && now - t0 > -1000 && now - t0 < 5000)) dirty = true;
   // 動いているものがあるときは、30 コマ/秒ほどで描き直す
   if (!held && speed > 0 && now - lastDraw > 33 && animating()) dirty = true;
+  // 段 UX1（B-2）：「ここに建ててみて！」の金色の輪は、時間を止めていても脈打つ
+  if (anim.mark && now - lastDraw > 33) dirty = true;
   lastWater = wf;
   // 発掘作業のあいだは画面全体が発掘画面なので、町（地図・人・荷車・建物）は描かない（ゲームの計算は上で進めている）
   if (dirty && !digOpen()) {
@@ -5043,6 +5137,11 @@ window.setTimeout(() => warmFx(), 3000);
   tick: () => renderAll(),
   /** 建てる・置くモードを始める（撮影スクリプト用） */
   place: (id: string) => startPlacing(id),
+  /** 段 UX1（撮影スクリプト用）：まだ掘りきっていない荒れ地の 1 マス目 */
+  wasteCell: (): [number, number] | null => {
+    for (let j = 0; j < s.n; j++) for (let i = 0; i < s.n; i++) if (wasteAt(s, i, j) >= 0 && !s.dig?.sites[wasteAt(s, i, j)]?.revived) return [i, j];
+    return null;
+  },
   /** つながった地図（撮影スクリプト用）：描いている隣のセクタ・縮小の札・いちばん縮小 */
   world: () => worldOf(s)?.regions.map((r) => ({ id: r.id, tier: r.tier, kind: r.kind, dx: r.dx, dy: r.dy })) ?? [],
   badges: () => sectorBadges(s),
