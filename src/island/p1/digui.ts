@@ -17,9 +17,9 @@ import { assetUrl } from '../../render/images';
 import { icon } from '../../ui/dom';
 import { PRODUCT, TABLET, type Mat, type Tier } from './data';
 import { RARITY_JA } from '../../game/catalog';
-import { assign, blast, blastCost, blastSize, dig, digRepeatMs, digSite, drill, drillLen, DRILL_FUEL, extName, extRank, extRarity, hasBlast, hasDrill, layersOf, epicRelicsOpen, rareRelicsOpen, sessionSec, type DigErr, type DigHit, type DigItem, type DigLayout, type RunEnd } from './model';
+import { assign, blast, blastCost, blastSize, dig, digRepeatMs, digSite, drill, drillLen, DRILL_FUEL, extName, extRank, extRarity, hasBlast, hasDrill, layersOf, epicRelicsOpen, rareRelicsOpen, reachCells, sessionSec, type DigErr, type DigHit, type DigItem, type DigLayout, type RunEnd } from './model';
 import { bulletEl } from './chartkit';
-import { DEEP_LOCK, DUNGEON_TAB, EPIC_VALUE_TEXT, RARE_RELIC_NOTE, seriesTag, anyPeek, autoDiggers, biggestFx, cellView, crewCount, digBlock, digErrText, digRec, digSpec, digSpecText, digStatus, dungeonNotes, findLabel, fxOf, gotLines, lockedLayer, nextLvText, noteEntries, noteTablets, noteTabs, noteTotals, relicLine, runBar, stars, type CellView } from './digview';
+import { DEEP_LOCK, DUNGEON_TAB, EPIC_VALUE_TEXT, RARE_RELIC_NOTE, seriesTag, aimStep, anyPeek, autoDiggers, biggestFx, cellOf, cellView, crewCount, digBlock, digErrText, digRec, digSpec, digSpecText, digStatus, dungeonNotes, findLabel, fxOf, gotLines, lockedLayer, nextLvText, noteEntries, noteTablets, noteTabs, noteTotals, relicLine, runBar, stars, type Aim, type CellView } from './digview';
 import { AGAIN_TIP, DEEP_TIP, MEET_WALL, PEEK_TIP } from './digmeet';
 import { pickHero } from './heroui';
 import { polSync, tabletKnow } from './policy';
@@ -145,6 +145,14 @@ interface Panel {
   /** 発掘終了の札を出している */
   over: boolean;
   resize: () => void;
+  /** なぞって掘る（段 DIG3）：カーソル・指の下のマス／打っている所と次に打つ時刻／打てなかったマス（同じマスを打ち続けない） */
+  hover: [number, number] | null;
+  aim: Aim | null;
+  dead: string | null;
+  raf: number;
+  /** 打っているマスの上のツルハシ（仮の絵：絵文字。docs/ISLAND_ART_TODO.md）と、効く範囲の点線の枠 */
+  pick: HTMLElement;
+  reach: HTMLElement;
 }
 let P: Panel | null = null;
 let saveTimer = 0;
@@ -157,7 +165,8 @@ export function closeDig() {
   const p = P;
   const hooks = p.hooks;
   flushSave();
-  stopHold();
+  stopAim(p);
+  cancelAnimationFrame(p.raf);
   removeEventListener('resize', p.resize);
   document.querySelector('.isl-dig-big')?.remove();
   P = null;
@@ -194,6 +203,7 @@ export function openDig(ctx: Ctx, hooks: DigHooks, note?: string) {
     fresh = false;
     const old = P;
     P = null;
+    cancelAnimationFrame(old.raf);
     removeEventListener('resize', old.resize);
     old.el.remove();
   }
@@ -221,6 +231,10 @@ export function openDig(ctx: Ctx, hooks: DigHooks, note?: string) {
   const wall = h('div', 'isl-dig-wall');
   const legend = h('div', 'isl-dig-legend');
   wallBox.append(wall);
+  // なぞって掘る（段 DIG3）：効く範囲の点線の枠と、打っているマスのツルハシ（壁の上に重ねる。押せない）
+  const reach = h('div', 'isl-dig-reach');
+  const pick = h('i', 'isl-dig-pick', '⛏');
+  bindWall(wall);
   // 4. 下の帯：ひとこと・道具・発掘隊・研究ノート
   const foot = h('div', 'isl-dig-foot');
   const why = h('p', 'isl-dig-why');
@@ -230,9 +244,10 @@ export function openDig(ctx: Ctx, hooks: DigHooks, note?: string) {
   el.append(top, info, wallBox, foot);
   ctx.root.append(el);
   const resize = () => fitWall();
-  P = { ctx, hooks, el, title, endBtn, timer, fill, sec, info, spec, tools, why, wallBox, wall, legend, notes, cells: [], cs: 40, sector: s.dig.sector, site: s.dig.cur, lay: null, blastArm: false, drillArm: false, deepHit: false, err: note ? { text: note, until: performance.now() + 3500, good: true } : null, ticked: 99, over: false, resize };
+  P = { ctx, hooks, el, title, endBtn, timer, fill, sec, info, spec, tools, why, wallBox, wall, legend, notes, cells: [], cs: 40, sector: s.dig.sector, site: s.dig.cur, lay: null, blastArm: false, drillArm: false, deepHit: false, err: note ? { text: note, until: performance.now() + 3500, good: true } : null, ticked: 99, over: false, resize, hover: null, aim: null, dead: null, raf: 0, pick, reach };
   addEventListener('resize', resize);
   buildWall();
+  P.raf = requestAnimationFrame(aimLoop);
   refreshDig();
   refreshTimer();
   fitWall();
@@ -283,10 +298,16 @@ function buildWall() {
       b.type = 'button';
       b.dataset.x = String(x);
       b.dataset.y = String(y);
-      bindHold(b, x, y);
+      // キーボード（Enter・Space）：1 打。マウス・指は壁ごと（bindWall）
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (e.detail === 0) strike(x, y);
+      });
       p.cells.push(b);
       p.wall.append(b);
     }
+  p.wall.append(p.reach, p.pick);
+  stopAim(p);
 }
 
 /** 層の並び（手前 → 奥。掘れない層は 🔒。押すと「深い層の許可が要る」） */
@@ -447,7 +468,7 @@ export function refreshDig() {
         ? t(`発破：マスを押すと、まわり ${bn} × ${bn} の いまの層が 1 枚ずつはがれる`, `Blast: tap a cell to peel one layer off the ${bn} × ${bn} around it`)
         : p.drillArm
           ? t(`ドリル：マスを押すと、そのマスが奥へ ${drillLen(s)} 層はがれる`, `Drill: tap a cell to peel ${drillLen(s)} layers off it`)
-          : t('マスをタップで 1 打（手前の層から 1 枚ずつはがれる）・長押しで続けて打つ', 'Tap a cell to strike (peels one layer at a time) · hold to keep striking');
+          : t('マスにカーソルを当てる・指でなぞると掘れる（手前の層から 1 枚ずつ）', 'Hover a cell or drag your finger to dig (one layer at a time)');
   p.why.textContent = msg;
   p.why.className = `isl-dig-why ${live && p.err!.good ? 'is-warn' : live || block ? 'is-bad' : ''}`;
   p.el.classList.toggle('is-blast', p.blastArm);
@@ -486,7 +507,7 @@ export function showEndCard(end: RunEnd, o: { then?: () => void; again?: () => v
     return;
   }
   p.over = true;
-  stopHold();
+  stopAim(p);
   p.blastArm = false;
   p.drillArm = false;
   p.el.querySelector('.isl-dig-mine')?.remove();
@@ -614,46 +635,103 @@ function paintCells() {
   for (let k = 0; k < p.cells.length; k++) paintCell(p.cells[k], cellView(s, k % L.w, Math.floor(k / L.w)), none, p.cs);
 }
 
-// ---------------------------------------------------------------- 打つ（タップで 1 打・長押しで連続）
+// ---------------------------------------------------------------- 打つ（なぞって掘る。段 DIG3）
 
-let hold: { timer: number; x: number; y: number; px: number; py: number; repeating: boolean; id: number } | null = null;
-function stopHold() {
-  if (!hold) return;
-  clearTimeout(hold.timer);
-  hold = null;
+/**
+ * なぞって掘る：PC はカーソルを当てたマスを自動で打ち続ける（押さなくてよい。クリックでも 1 打）。
+ * スマホは指でなぞった所を掘る（押しっぱなしで続く。指の下のマスが変わればそこを打つ。離すと止まる）。
+ * 壁の外（閉じるボタン・帯・札・隊員）では掘らない（cellOf）。打つ間隔は digRepeatMs（aimStep）
+ */
+function bindWall(wall: HTMLElement) {
+  const under = (e: PointerEvent): [number, number] | null => cellOf(document.elementFromPoint(e.clientX, e.clientY));
+  wall.addEventListener('pointermove', (e) => {
+    const p = P;
+    if (!p) return;
+    // マウスはホバーで、指・ペンは押しているあいだだけ
+    if (e.pointerType !== 'mouse' && !(e.buttons & 1)) return;
+    p.hover = under(e);
+  });
+  wall.addEventListener('pointerdown', (e) => {
+    const p = P;
+    if (!p || e.button !== 0) return;
+    p.hover = under(e);
+    // クリック（タップ）：すぐ 1 打（当てていたマスでも、押した瞬間に打つ）
+    p.aim = null;
+    p.dead = null;
+  });
+  const stop = (e: PointerEvent) => {
+    const p = P;
+    if (!p) return;
+    if (e.pointerType === 'mouse') p.hover = under(e);
+    else p.hover = null;
+  };
+  wall.addEventListener('pointerup', stop);
+  wall.addEventListener('pointercancel', stop);
+  wall.addEventListener('pointerleave', () => P && (P.hover = null));
+  // 指でなぞるあいだ、画面をスクロールさせない
+  wall.style.touchAction = 'none';
 }
-function bindHold(b: HTMLButtonElement, x: number, y: number) {
-  b.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
-    stopHold();
-    hold = { timer: 0, x, y, px: e.clientX, py: e.clientY, repeating: false, id: e.pointerId };
-    // 長押し：少し待ってから、同じマスを続けて打つ（その層がはがれたら止まる）
-    const loop = () => {
-      if (!hold) return;
-      hold.repeating = true;
-      const r = strike(hold.x, hold.y);
-      if (r !== 'more' || !P) return stopHold();
-      hold.timer = window.setTimeout(loop, digRepeatMs(P.ctx.s()));
-    };
-    hold.timer = window.setTimeout(loop, 380);
-  });
-  b.addEventListener('pointermove', (e) => {
-    if (hold && !hold.repeating && Math.hypot(e.clientX - hold.px, e.clientY - hold.py) > 10) stopHold();
-  });
-  b.addEventListener('pointerup', () => {
-    if (!hold) return;
-    const rep = hold.repeating;
-    stopHold();
-    // 長押しで打っていなければ、指を離したときに 1 打
-    if (!rep) strike(x, y);
-  });
-  b.addEventListener('pointercancel', () => stopHold());
-  b.addEventListener('pointerleave', () => stopHold());
-  // キーボード（Enter・Space）
-  b.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (e.detail === 0) strike(x, y);
-  });
+function stopAim(p: Panel) {
+  p.hover = null;
+  p.aim = null;
+  p.dead = null;
+  p.pick.hidden = true;
+  p.reach.replaceChildren();
+}
+/** 毎フレーム：当てているマスを間隔で打つ・ツルハシと点線の枠を動かす */
+function aimLoop() {
+  const p = P;
+  if (!p) return;
+  p.raf = requestAnimationFrame(aimLoop);
+  const s = p.ctx.s();
+  const hover = p.over || !s.digRun ? null : p.hover;
+  const r = aimStep(p.aim, hover, performance.now(), digRepeatMs(s));
+  const moved = !!r.aim !== !!p.aim || r.aim?.x !== p.aim?.x || r.aim?.y !== p.aim?.y;
+  p.aim = r.aim;
+  if (moved) {
+    p.dead = null;
+    paintAim();
+  }
+  if (r.strike && r.aim && p.dead !== `${r.aim.x},${r.aim.y}`) {
+    const got = strike(r.aim.x, r.aim.y);
+    // 打てないマス（待っている・許可が要る・掘りきった）は、当てているあいだ打ち直さない（音とゆれを繰り返さない）
+    if (got === 'err') p.dead = `${r.aim.x},${r.aim.y}`;
+    else swingPick();
+  }
+}
+/** ツルハシと効く範囲の点線の枠を、当てているマスへ */
+function paintAim() {
+  const p = P;
+  if (!p) return;
+  const a = p.aim;
+  if (!a) {
+    p.pick.hidden = true;
+    p.reach.replaceChildren();
+    return;
+  }
+  const c = cellAt(a.x, a.y);
+  if (!c) return;
+  p.pick.hidden = false;
+  p.pick.style.left = `${c.offsetLeft + c.offsetWidth / 2}px`;
+  p.pick.style.top = `${c.offsetTop + c.offsetHeight / 2}px`;
+  p.reach.replaceChildren();
+  for (const [x, y] of reachCells(p.ctx.s(), a.x, a.y)) {
+    const d = cellAt(x, y);
+    if (!d) continue;
+    const f = h('i', `isl-dig-reach-cell ${x === a.x && y === a.y ? 'is-center' : ''}`);
+    f.style.left = `${d.offsetLeft}px`;
+    f.style.top = `${d.offsetTop}px`;
+    f.style.width = `${d.offsetWidth}px`;
+    f.style.height = `${d.offsetHeight}px`;
+    p.reach.append(f);
+  }
+}
+function swingPick() {
+  const p = P;
+  if (!p) return;
+  p.pick.classList.remove('is-swing');
+  void p.pick.offsetWidth;
+  p.pick.classList.add('is-swing');
 }
 
 /** 打つ：'more'（まだはがれていない）／'broke'／'err' */
