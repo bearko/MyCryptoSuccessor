@@ -13,6 +13,8 @@ import { toneOf, type Tone } from './persona';
 import { inTutorial } from './card';
 import { clearInfo, cutName, storeFull } from './stock';
 import { DEF } from '../defs';
+import { propsOpen } from './stage';
+import { applyPlan, planCost, type Plan, type PlanRes } from './plan';
 
 
 /** チュートリアル（タオックスの 1 か月目）のあいだ：指示の箱は出さない */
@@ -335,7 +337,9 @@ function shopBox(s: P1State, uid: number): OrderBox {
     });
     // 需要の読み（現場からの提言）：お客さんの声と需要から「○○の需要がありそう」。承認すると製造への提案書（作る物の切り替え・素材まで）
     const f = fieldPick(s, uid);
-    orders.push(f ? { k: 'field', label: t('需要の読み（提言を見る）', 'Read demand (see the pitch)'), sub: [t(`${nameOfSku(f.x)}の需要がありそう`, `${nameOfSku(f.x)} looks wanted`), pm(f.units)].join(SEP()), units: f.units, cost: f.cost } : { k: 'field', label: t('需要の読み（提言を見る）', 'Read demand (see the pitch)'), sub: t('いま勧められる商品がない', 'No item to pitch now'), off: true });
+    // 段 L0：Rare より前は提案書を挟まない（押すとそのまま並べる）
+    const fieldNm = propsOpen(s) ? t('需要の読み（提言を見る）', 'Read demand (see the pitch)') : t('需要の読み（すぐ並べる）', 'Read demand (stock it now)');
+    orders.push(f ? { k: 'field', label: fieldNm, sub: [t(`${nameOfSku(f.x)}の需要がありそう`, `${nameOfSku(f.x)} looks wanted`), pm(f.units)].join(SEP()), units: f.units, cost: f.cost } : { k: 'field', label: fieldNm, sub: t('いま勧められる商品がない', 'No item to pitch now'), off: true });
     // 段 UI5c：在庫を優先して売りさばく（売れ残り・発掘で出た品・使い切りに作った品を先に棚へ。値引きの段を選ぶ）
     const ci = clearInfo(s);
     const pct = Math.round(ci.rate * 100);
@@ -417,3 +421,13 @@ export function ordersOf(s: P1State, b: PBuilding): OrderBox | null {
 }
 /** 指示の見込み（テスト用の短い形）：店長の棚の指示の増え方 */
 export const shelfOrderUnits = (s: P1State, uid: number) => shopBox(s, uid).orders.find((o) => o.k === 'shelf')?.units ?? 0;
+
+/**
+ * 段 L0：Rare より前は、吹き出しの指示（棚を整える・需要の読み・従業員を増やす）を提案書を挟まず直接行う（お金の確認は残す）。
+ * Rare からは null（提案書を開く）。払えなければ { ok: false, err: 'money', need }
+ */
+export function directOrder(s: P1State, plan: Plan): (PlanRes & { need: number }) | null {
+  if (propsOpen(s)) return null;
+  const need = planCost(s, plan).money;
+  return { ...applyPlan(s, plan), need };
+}

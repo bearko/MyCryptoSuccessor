@@ -488,6 +488,11 @@ export interface Flags {
   deptMarks?: Partial<Record<DeptId, number>>;
   /** 段 L0：お知らせ済みのヒーローの段（stage.ts の heroStage。リーダー・部長が置けるようになったお知らせ。無くてよい） */
   l0Stage?: 'C' | 'U' | 'R';
+  /** 段 L0：地図の印（困りごと）のトグル（既定オン。false で消す） */
+  issueMarks?: boolean;
+  /** 段 L0：月の締めで出ていた地図の印の数（種類ごと）・それを無くすパネルごと（💡。mapmarks.ts の noteMarks） */
+  markSeen?: Record<string, number>;
+  markFix?: Record<string, number>;
   /** 営業の部門の紹介（Rare の町に初めて進出したときのマインちゃんの会話。段 C）を見た */
   salesTalk?: boolean;
   /** 経理・総務の紹介（マインちゃん。Uncommon の町に初めて進出したあと 1 回。段 F） */

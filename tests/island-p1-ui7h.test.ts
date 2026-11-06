@@ -36,6 +36,7 @@ import {
 import { issuesOf } from '../src/island/p1/issues';
 import { newDeleg, type PropAct, type Proposal } from '../src/island/p1/deleg';
 import { runOnce } from '../scripts/island/sim';
+import { openTier } from './l0util';
 
 /** 最初の町（自動プレイ）の月の締めの写し。シード・方針ごとに 1 回 */
 const saves = new Map<string, string[]>();
@@ -51,7 +52,8 @@ function months(p: 'normal' | 'rta', seed: number, all = false): string[] {
 const load = (x: string): P1State => {
   const s = deserializeP1(x)!;
   s.tut = 99;
-  return s;
+  // 段 L0：ヒーローからの提案・知らせのカードは Rare の町から（会社が Rare の町を開いた状態にする。いまの町は最初の町のまま）
+  return openTier(s, 'R');
 };
 const isDo = (c: Card['choices'][number]) => c.act.k === 'do' || c.act.k === 'approve';
 const card = (s: P1State, d: NonNullable<ReturnType<typeof stockDraft>>): Card => ({ ...d, id: 900 + cardsOf(s).seq, mk: cardsOf(s).mk, sector: s.sector ?? 'c1', day: s.day, pop: false }) as Card;

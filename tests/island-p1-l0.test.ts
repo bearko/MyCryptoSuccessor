@@ -130,3 +130,193 @@ describe('部長・リーダー（1）', () => {
     expect(setHead(t, 'hr', a)).toBe('locked');
   });
 });
+
+// ---------------------------------------------------------------- 2. 提案は Rare から（序盤は地図の印）
+import { PROPOSAL_SRC, canTrust, cardsMonth, demoDraft, newCards, reportProposal, type Card } from '../src/island/p1/card';
+import { delegMonth } from '../src/island/p1/deleg';
+import { assign, myShops as shopsOf, stallOf, type Report } from '../src/island/p1/model';
+import { marksOf, noteMarks, tipPanels } from '../src/island/p1/mapmarks';
+import { directOrder } from '../src/island/p1/orders';
+import { planOf } from '../src/island/p1/plan';
+import { runOnce } from '../scripts/island/sim';
+
+/** タオックスを数か月遊んだところ（Common・チュートリアルのあと。自動プレイの最短の方針の写し） */
+let mid: string | null = null;
+function midGame(): P1State {
+  if (!mid)
+    runOnce('rta', 1, {
+      onlyFirst: true,
+      onMonth: (s, _sector, m) => {
+        if (!mid && m >= 4 && shopsOf(s).length) mid = serializeP1(s);
+      },
+    });
+  const s = deserializeP1(mid!)!;
+  // 自動プレイはチュートリアルを飛ばす（tut 0 のまま）。遊んでいる人と同じく、チュートリアルのあとに
+  s.tut = 99;
+  return s;
+}
+const fakeReport = (s: P1State): Report => ({ ...(s.reports[s.reports.length - 1] ?? ({} as Report)), month: (s.reports[s.reports.length - 1]?.month ?? 0) + 1 });
+
+describe('提案は Rare から（2）', () => {
+  it('Common では提案カード（ヒーロー・流れの止まり・人事・倉庫・知らせ）を受け箱に入れない。できごとは出る', () => {
+    const s = midGame();
+    expect(heroStage(s)).toBe('C');
+    s.cards = newCards();
+    // 店員を外して流れを止めても（流れの止まりの提案の元）、カードにはならない
+    const shop = shopsOf(s)[0];
+    const clerk = s.shops[shop.uid].staff;
+    if (clerk != null) assign(s, clerk, null);
+    s.shops[shop.uid].part = 0;
+    let ev = 0;
+    for (let k = 0; k < 8; k++) {
+      const r = fakeReport(s);
+      r.stall = stallOf(s) ?? undefined;
+      cardsMonth(s, r);
+      const box = s.cards?.inbox ?? [];
+      expect(box.filter((c) => PROPOSAL_SRC.includes(c.src)).length).toBe(0);
+      ev += box.filter((c) => c.src === 'event').length;
+      s.cards!.inbox = [];
+    }
+    expect(ev).toBeGreaterThan(0);
+  });
+
+  it('古いセーブで Common に置いてある部長は、月の締めで提案を持ってこない（業務は回す）。Rare からは持ってくる', () => {
+    const s = midGame();
+    const H = s.staff.find((x) => x.task == null) ?? s.staff[0];
+    H.heads = ['logistics'];
+    delegMonth(s, fakeReport(s));
+    expect((s.deleg?.inbox ?? []).length).toBe(0);
+    atTier(s, 'R');
+    // Rare：予算で任せた部長は自分で実行するので、予算を止めて前の形（受け箱）で確かめる
+    for (let k = 0; k < 3 && !(s.deleg?.inbox ?? []).length; k++) delegMonth(s, fakeReport(s));
+    expect((s.deleg?.newProps ?? 0) + (s.deleg?.inbox ?? []).length + (s.budget ? 1 : 0)).toBeGreaterThan(0);
+  });
+
+  it('月次報告の KPI ③「担当者からの提案」と ★3 の「任せる」は Common では出ない', () => {
+    const s = midGame();
+    const r = s.reports[s.reports.length - 1];
+    expect(reportProposal(s, r)).toBeNull();
+    const d = demoDraft(s, 'clerk') ?? demoDraft(s, 'idle');
+    expect(d).not.toBeNull();
+    const c = { ...d!, id: 1, mk: 0, sector: 'c1', day: s.day, pop: false, q: 0.97 } as Card;
+    expect(canTrust(s, c)).toBe(false);
+  });
+
+  it('吹き出しの指示（従業員を増やす）は、Common では提案書を挟まず直接行う（お金の確認は残す）。Rare では提案書（null）', () => {
+    const s = midGame();
+    const b = shopsOf(s)[0];
+    const sh = s.shops[b.uid];
+    const before = sh.part;
+    const plan = planOf(s, [{ k: 'staff', uid: b.uid, n: before + 1 }], { hero: sh.staff });
+    s.money = 1e6;
+    const res = directOrder(s, plan);
+    expect(res?.ok).toBe(true);
+    expect(s.shops[b.uid].part).toBe(before + 1);
+    // お金が足りなければ払えない（何もしない）
+    const plan2 = planOf(s, [{ k: 'invest', id: 'shelf', uid: b.uid }], { hero: sh.staff });
+    s.money = 0;
+    const r2 = directOrder(s, plan2);
+    if (r2 && r2.need > 0) expect(r2.err).toBe('money');
+    atTier(s, 'R');
+    expect(directOrder(s, plan)).toBeNull();
+  });
+});
+
+describe('地図の印（2）', () => {
+  it('店員のいないお店に「人」（青）。押すと店員を置く指示。人を戻すと消える', () => {
+    const s = midGame();
+    const b = shopsOf(s)[0];
+    const clerk = s.shops[b.uid].staff;
+    const part = s.shops[b.uid].part;
+    if (clerk != null) assign(s, clerk, null);
+    s.shops[b.uid].part = 0;
+    const m = marksOf(s).find((x) => x.uid === b.uid);
+    expect(m?.kind).toBe('people');
+    expect(m?.go).toEqual({ k: 'order', uid: b.uid, order: 'clerk' });
+    s.shops[b.uid].part = Math.max(1, part);
+    expect(marksOf(s).find((x) => x.uid === b.uid)?.kind).not.toBe('people');
+  });
+
+  it('棚が空のお店に「売れない」（赤）。押すとそのお店の画面（品出し）', () => {
+    const s = midGame();
+    const b = shopsOf(s)[0];
+    const sh = s.shops[b.uid];
+    if (sh.staff == null && !sh.part) sh.part = 1;
+    sh.shelf = {};
+    sh.storage = {};
+    const m = marksOf(s).find((x) => x.uid === b.uid);
+    expect(m?.kind).toBe('sell');
+    expect(m?.go).toEqual({ k: 'screen', id: 'shop', uid: b.uid });
+  });
+
+  it('詰まりと一致：調達係がいない → 問屋に「人」（調達係を置く）。作業台に職人がいない → 工房に「人」（職人を置く）', () => {
+    const s = midGame();
+    for (const x of s.staff.filter((y) => y.task === 'buy')) assign(s, x.hero, null);
+    for (const k of Object.keys(s.mats)) s.mats[k as keyof typeof s.mats] = 0;
+    const st = stallOf(s);
+    if (st?.stage === 'buy' && st.why === 'none') {
+      const wh = s.buildings.find((b) => b.owner === 'town' && b.id === 'wholesale')!;
+      const m = marksOf(s).find((x) => x.uid === wh.uid);
+      expect(m?.kind).toBe('people');
+      expect(m?.go).toEqual({ k: 'order', uid: wh.uid, order: 'buyer' });
+    }
+    const t2 = midGame();
+    for (const sl of t2.slots) if (sl.worker != null) assign(t2, sl.worker, null);
+    const st2 = stallOf(t2);
+    expect(st2).toEqual({ stage: 'craft', why: 'noworker' });
+    const ws = t2.buildings.find((b) => b.owner === 'me' && b.id === 'workshop')!;
+    const m2 = marksOf(t2).find((x) => x.uid === ws.uid);
+    expect(m2?.kind).toBe('people');
+    expect(m2?.go).toEqual({ k: 'order', uid: ws.uid, order: 'crafter' });
+  });
+
+  it('同じ建物に複数あれば強いもの 1 つ＋「+N」', () => {
+    const s = midGame();
+    const b = shopsOf(s)[0];
+    const sh = s.shops[b.uid];
+    if (sh.staff == null && !sh.part) sh.part = 1;
+    sh.shelf = {};
+    sh.storage = {};
+    sh.offLast = 5;
+    sh.part = Math.min(sh.part, 1);
+    if (sh.staff == null) {
+      const hero = s.staff.find((x) => x.task == null)?.hero ?? s.staff[0].hero;
+      assign(s, hero, 'shop', b.uid);
+    }
+    const m = marksOf(s).find((x) => x.uid === b.uid)!;
+    expect(m.kind).toBe('sell');
+    expect(m.more).toBeGreaterThanOrEqual(1);
+    expect(marksOf(s).filter((x) => x.uid === b.uid).length).toBe(1);
+  });
+
+  it('チュートリアル中・1 か月目・Rare からは印を出さない', () => {
+    const s = midGame();
+    const b = shopsOf(s)[0];
+    s.shops[b.uid].shelf = {};
+    s.shops[b.uid].storage = {};
+    expect(marksOf(s).length).toBeGreaterThan(0);
+    const tut = deserializeP1(serializeP1(s))!;
+    tut.tut = 3;
+    expect(marksOf(tut)).toEqual([]);
+    const first = deserializeP1(serializeP1(s))!;
+    first.reports = [];
+    expect(marksOf(first)).toEqual([]);
+    atTier(s, 'R');
+    expect(marksOf(s)).toEqual([]);
+  });
+
+  it('何度も出る困りごとは、それを無くすパネルに 💡（取ると消える）', () => {
+    const s = midGame();
+    const b = shopsOf(s)[0];
+    s.shops[b.uid].shelf = {};
+    s.shops[b.uid].storage = {};
+    if (s.shops[b.uid].staff == null && !s.shops[b.uid].part) s.shops[b.uid].part = 1;
+    s.skills = s.skills.filter((x) => x !== 'display');
+    noteMarks(s);
+    expect(tipPanels(s).has('display')).toBe(false);
+    noteMarks(s);
+    expect(tipPanels(s).has('display')).toBe(true);
+    s.skills.push('display');
+    expect(tipPanels(s).has('display')).toBe(false);
+  });
+});

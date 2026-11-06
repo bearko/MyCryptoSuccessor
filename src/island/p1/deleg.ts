@@ -102,7 +102,7 @@ import { adGain, grossRate, sellMoves } from './moves';
 import { applyPlan, planOf, stepsOf } from './plan';
 import { amountOf, budgetOpen, budgetReport, budgetTry, costNeed, deptBudget, restOf, valG, type TryRes } from './budget';
 import { perHeadOf } from './board';
-import { headsOpen, isLocked, leadersOpen, rankLocked, rankLockText, type Left } from './stage';
+import { headsOpen, isLocked, leadersOpen, propsOpen, rankLocked, rankLockText, type Left } from './stage';
 import { actTheme } from './brief';
 import { moneyGain, payOk } from './acctgain';
 import { polTouch, tiltOf } from './policy';
@@ -1069,7 +1069,10 @@ export function delegMonth(s: P1State, r: Report) {
   const ifs = ifsOf(s);
   const fresh: Proposal[] = [];
   const budgeted = budgetOpen(s);
+  // 段 L0：部長の提案は Rare から（古いセーブで Rare より前に置いてある部長は、業務を回すだけで提案は持ってこない）
+  const props = propsOpen(s);
   for (const d of heads) {
+    if (!props) continue;
     const H = headOf(s, d)!;
     const q = quality(H, d);
     const rnd = rndOf(s, d.length * 13 + d.charCodeAt(0) * 7 + r.month);

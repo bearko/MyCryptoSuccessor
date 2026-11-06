@@ -17258,6 +17258,114 @@ button.isl-dband-lead.is-on {
     display: none;
   }
 }
+/* ================================================================ 段 L0：地図の印（困りごとのアイコン。文字なし・色と形。Rare より前） */
+/* 赤＝売れない・橙＝素材と製造・青＝人・灰＝疲れ・紫＝倉庫・黄＝お客さん（--mk。mapmarks.ts の MARK_KIND）。角は丸めない */
+.isl-marks {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.isl-marks[hidden] {
+  display: none;
+}
+.isl-mark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+.isl-mark[hidden] {
+  display: none;
+}
+.isl-mark-pin {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 3px solid var(--isl-line);
+  background: var(--mk, var(--isl-gold));
+  color: var(--isl-ink);
+  font-family: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+  animation: isl-mark-bob 1.1s ease-in-out infinite alternate;
+}
+.isl-mark-pin::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -11px;
+  margin-left: -8px;
+  border: 8px solid transparent;
+  border-bottom: 0;
+  border-top-color: var(--isl-line);
+}
+.isl-mark-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+/* 同じ建物のほかの印：右上の小さな「+N」 */
+.isl-mark-more {
+  position: absolute;
+  right: -10px;
+  top: -10px;
+  min-width: 22px;
+  padding: 0 3px;
+  border: 2px solid var(--isl-line);
+  background: var(--isl-text);
+  color: var(--isl-ink);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 18px;
+}
+/* 何度も出た困りごと：左上の 💡（押すとスキルツリーのそのパネル） */
+.isl-mark-tip {
+  position: absolute;
+  left: -16px;
+  top: -16px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid var(--isl-line);
+  background: var(--isl-gold);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+}
+/* 赤（売れない）は少し強く脈打つ */
+.isl-mark.is-sell .isl-mark-pin {
+  animation-duration: 0.7s;
+}
+@keyframes isl-mark-bob {
+  to {
+    margin-top: -6px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .isl-mark-pin {
+    animation: none;
+  }
+}
+/* 凡例の印の色 */
+.isl-viz-key .isl-viz-markdot {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--isl-line);
+  background: var(--mk);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1;
+}
+.isl-viz .isl-btn[hidden] {
+  display: none;
+}
 /* 3：置くモードの固定バーの「見込み N 軒・被り N」「工房から N 日」 */
 .isl-place-heat {
   display: inline-flex;

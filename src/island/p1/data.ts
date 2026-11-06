@@ -2525,6 +2525,8 @@ export const L0 = {
   leaderFrom: 'U' as 'C' | 'U' | 'R',
   headFrom: 'R' as 'C' | 'U' | 'R',
   propFrom: 'R' as 'C' | 'U' | 'R',
+  /** 地図の印：持ち場の人のスタミナがこの割合を切ったら「疲れ」（灰）・同じ困りごとが何か月の締めで出たら、それを無くすパネルに「💡」 */
+  marks: { tired: 0.3, tipMonths: 2 },
 };
 /**
  * 段 I1：Rare からの「予算で任せる」（budget.ts・budgetui.ts。docs/SUCCESSOR_ROADMAP.md「段 I1 の実装」）。数字はここ 1 か所。

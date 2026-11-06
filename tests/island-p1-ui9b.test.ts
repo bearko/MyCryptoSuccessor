@@ -21,6 +21,7 @@ import { REGISTERS, SUMMARY_MAX, numsOf, plen, registerOf, sentencesOf, speakCor
 import { loadVoice, voiceOf } from '../src/island/p1/voice';
 import voiceRaw from '../src/island/p1/heroes/voice.json';
 import { runOnce } from '../scripts/island/sim';
+import { openTier } from './l0util';
 
 const saves = new Map<number, string[]>();
 function months(seed: number): string[] {
@@ -34,7 +35,8 @@ function months(seed: number): string[] {
 const load = (x: string): P1State => {
   const s = deserializeP1(x)!;
   s.tut = 99;
-  return s;
+  // 段 L0：ヒーロー・部長からの提案は Rare の町から（会社が Rare の町を開いた状態にする。いまの町は最初の町のまま）
+  return openTier(s, 'R');
 };
 const isDo = (c: Card['choices'][number]) => c.act.k === 'do' || c.act.k === 'approve';
 /** 月の締めの提案のカード（全部の出どころ）に、撮影用の下書き（店員・職人・調達係・待機中・倉庫・人事・流れの止まり）を足したもの */

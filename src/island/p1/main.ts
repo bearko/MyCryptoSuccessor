@@ -127,6 +127,7 @@ import {
   openMissions,
   openPayroll,
   openRanking,
+  openShop,
   openStaff,
   openWorkshop,
   makeInWorkshop,
@@ -168,7 +169,8 @@ import { POLICY_OF } from './data';
 import { openPolicyView } from './policyui';
 // 段 K3：経営方針発表会のカードの場面（boardui.ts の BOARD_SCENES に登録する）
 import './policycardsui';
-import { tileContent } from './tile';
+import { runOrderOf, tileContent } from './tile';
+import { MARK_KIND, MARK_LEGEND, markTip, marksOf, marksOn, marksDue, type MapMark } from './mapmarks';
 import { closeDig, debugTablet, digOpen, digRect, extIcon, noteCrewHits, openDig, openNotes, refreshDig, refreshTimer, showEndCard } from './digui';
 import { MEET_FOUND, MEET_LINES, canPresent, chiefHome, digMet, chiefOf, digSummary, letterToGet, lettersLeft, meetReady, meetTip, presentAfter, presentPages } from './digmeet';
 import { BUDGET_TALK, CHIP_SRC, CLEAR_LINE, FOOT_TALK, HIRE_LINES, RP_LINE, DUNGEON_LINE, GATE_LINES, LAND_CLEAR_LINE, MUSEUM_LINE, RANK_LINES, RELIC_LINE, REVIVE_LINE, SIDE_LINES, TOUR, arrivalPages, bubbleKind, chipOf, deptTalkNext, introPages, needsIntro, talkWaits, type ArrivePage, type TalkUi, type TourEv, type TourPhase } from './mine';
@@ -2111,6 +2113,91 @@ function updateMarks() {
   chiefEl.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y - 120 * cam.zoom)}px) translate(-50%, -100%)`;
 }
 
+// ---------------------------------------------------------------- 段 L0：地図の印（困りごとのアイコン。Rare より前・チュートリアルのあと 2 か月目から）
+/** 印の層（建物の上に 1 つずつ。押すとその手の操作へ。時間は止めない） */
+const issueEl = h('div', 'isl-marks');
+issueEl.hidden = true;
+let issueKey = '';
+let issueAt = 0;
+let issueList: MapMark[] = [];
+let issueEls: { m: MapMark; el: HTMLElement }[] = [];
+/** 印を押した：その手の操作に飛ぶ（既存の画面を開くだけ） */
+function goMark(m: MapMark) {
+  const b = s.buildings.find((x) => x.uid === m.go.uid || x.uid === m.uid);
+  sfx.play('tap');
+  const g = m.go;
+  if (g.k === 'order') {
+    const at = s.buildings.find((x) => x.uid === g.uid);
+    if (at && runOrderOf(ctx, at, g.order, { close: () => closePop(), redraw: () => renderAll() })) return;
+    if (at) openPop(at.i, at.j);
+    return;
+  }
+  if (g.k === 'pop') {
+    if (b) openPop(b.i, b.j);
+    return;
+  }
+  closePop();
+  if (g.id === 'buy') openBuy(ctx);
+  else if (g.id === 'staff') openStaff(ctx);
+  else if (g.id === 'store') openWorkshop(ctx, { invest: true });
+  else if (g.id === 'shop' && g.uid != null) openShop(ctx, g.uid);
+  else if (g.id === 'cs') openInboxScreen();
+}
+function markEl(m: MapMark): HTMLElement {
+  const k = MARK_KIND[m.kind];
+  const el = h('div', `isl-mark is-${m.kind}`);
+  el.style.setProperty('--mk', k.color);
+  const b = h('button', 'isl-mark-pin');
+  b.type = 'button';
+  b.dataset.kind = m.kind;
+  b.setAttribute('aria-label', k.name());
+  b.title = k.name();
+  b.append(h('span', 'isl-mark-icon', k.icon));
+  if (m.more > 0) b.append(h('span', 'isl-mark-more', `+${m.more}`));
+  b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    goMark(m);
+  });
+  el.append(b);
+  // 何度も出ている困りごと：それを無くすパネルへの 💡（押すとスキルツリーのそのパネル）
+  const tip = markTip(s, m);
+  if (tip) {
+    const tb = h('button', 'isl-mark-tip', '💡');
+    tb.type = 'button';
+    tb.setAttribute('aria-label', t('この困りごとを無くすパネル', 'A panel that fixes this'));
+    tb.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.play('tap');
+      closePop();
+      openSkills(ctx, tip);
+    });
+    el.append(tb);
+  }
+  return el;
+}
+function updateIssues(now: number) {
+  const busy = !!placing || !!tour || overviewOn() || digOpen() || !!s.digRun || sheetOpen() || !marksOn(s);
+  issueEl.hidden = busy;
+  if (busy) return;
+  // 中身はいまの状態から（1 日ごと・0.5 秒に 1 回まで）。直れば消える
+  if (now - issueAt > 500) {
+    issueAt = now;
+    issueList = marksOf(s);
+  }
+  const key = `${isEn}|${issueList.map((m) => `${m.uid}:${m.kind}:${m.more}:${markTip(s, m) ?? ''}`).join(',')}`;
+  if (key !== issueKey) {
+    issueKey = key;
+    issueEls = issueList.map((m) => ({ m, el: markEl(m) }));
+    issueEl.replaceChildren(...issueEls.map((x) => x.el));
+  }
+  for (const x of issueEls) {
+    const p = toScreen(x.m.i, x.m.j);
+    const off = p.x < -30 || p.x > W + 30 || p.y < 30 || p.y > H + 30 || (pop != null && selected === x.m.uid);
+    x.el.hidden = off;
+    if (!off) x.el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y - 70 * cam.zoom)}px) translate(-50%, -100%)`;
+  }
+}
+
 /** 研究成果の発表：マインちゃんと町の長の会話（3 枚）→ RP（present）→ 調査依頼状を受け取る演出（4 枚目） */
 function startPresent() {
   if (!canPresent(s) || !s.dig) return;
@@ -3702,24 +3789,42 @@ const areaBtn = btn(t('🏪 商圏', '🏪 Areas'), () => {
   renderViz();
   dirty = true;
 }, 'isl-viz-area');
+// 段 L0：地図の印（困りごと）のトグル（既定オン。Rare より前だけ出す）
+const marksBtn = btn(t('❗ 印', '❗ Alerts'), () => {
+  s.flags.issueMarks = !(s.flags.issueMarks !== false);
+  save();
+  renderViz();
+  dirty = true;
+}, 'isl-viz-marks');
 const vizLegend = h('div', 'isl-viz-legend');
-vizBox.append(flowBtn, areaBtn, vizLegend);
+vizBox.append(flowBtn, marksBtn, areaBtn, vizLegend);
 vizBox.hidden = true;
 function renderViz() {
   vizBox.hidden = !!placing || digOpen() || !!s.digRun;
   flowBtn.classList.toggle('is-on', flowOn());
   areaBtn.classList.toggle('is-on', areaOn());
+  marksBtn.hidden = !marksDue(s);
+  marksBtn.classList.toggle('is-on', marksOn(s));
   const items: [string, string][] = [];
   if (areaOn()) items.push(['isl-viz-mine', t('自店', 'Mine')], ['isl-viz-rival', t('他店', 'Rivals')]);
   if (flowOn()) items.push(['isl-viz-supply', t('調達', 'Supply')], ['isl-viz-haul', t('輸送', 'Haul')]);
+  // 段 L0：印の色の意味（赤＝売れない・橙＝素材・青＝人・灰＝疲れ・紫＝倉庫・黄＝お客さん）
+  const marks = marksOn(s) ? MARK_LEGEND : [];
   vizLegend.replaceChildren(
     ...items.map(([cls, name]) => {
       const x = h('span', 'isl-viz-key');
       x.append(h('i', cls), h('small', '', name));
       return x;
     }),
+    ...marks.map((k) => {
+      const x = h('span', 'isl-viz-key is-mark');
+      const dot = h('i', 'isl-viz-markdot', MARK_KIND[k].icon);
+      dot.style.setProperty('--mk', MARK_KIND[k].color);
+      x.append(dot, h('small', '', MARK_KIND[k].name()));
+      return x;
+    }),
   );
-  vizLegend.hidden = !items.length;
+  vizLegend.hidden = !items.length && !marks.length;
 }
 /** いま地図に重ねるもの（毎フレーム。描くデータは mapviz.ts で memo） */
 function vizNow(): MapViz {
@@ -4350,7 +4455,7 @@ function renderAreaPill() {
   if (!s.area) areaOverlay.on = false;
   areaPill.replaceChildren(h('span', '', t('🗺 商圏を表示中（色＝お客さんが行く会社）', '🗺 Showing trade areas (color = where customers go)')), h('b', '', '✕'));
 }
-root.append(worldUi, meetEl, chiefEl, hud, ticker.el, sectorPill, areaPill, zoomBox, vizBox, pointEl, missionBox, tourEl, toasts, advisor, nextBtn, placeBox, popEl, foot, selBox, ghostUi);
+root.append(worldUi, issueEl, meetEl, chiefEl, hud, ticker.el, sectorPill, areaPill, zoomBox, vizBox, pointEl, missionBox, tourEl, toasts, advisor, nextBtn, placeBox, popEl, foot, selBox, ghostUi);
 resize();
 renderAll();
 // 始めたばかりなら、建築の一覧を開いておく
@@ -5086,6 +5191,7 @@ function frame(now: number) {
   }
   updatePoint();
   updateMarks();
+  updateIssues(now);
   checkSeamless();
   if (tour) tourFrame(now);
   for (let k = fx.length - 1; k >= 0; k--) if (effectDone(fx[k], now)) fx.splice(k, 1);
