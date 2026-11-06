@@ -1592,6 +1592,26 @@ export function simTake(s: P1State, keep: number): number {
   return n;
 }
 
+/**
+ * 段 L0：自動プレイ（通常の方針）の Rare より前。提案のカードは出ないので、地図の印（同じ下書きの元）を見て、
+ * simTake と同じ手（棚を増やして並べる・設備・アルバイト・名物店主・発掘許可）を同じ条件で自分で打つ（提案書は挟まない。行動の数に入る）
+ */
+export function simMarkTake(s: P1State, keep: number): number {
+  if (propsOpen(s) || !myShops(s).length) return 0;
+  const iss = issuesOf(s);
+  const gb = { base: null as P1State | null };
+  let n = 0;
+  for (const d0 of heroDrafts(s)) {
+    const d = gateDraft(s, d0, iss, gb);
+    if (!d) continue;
+    const ch = d.choices.find((x) => x.rec && x.act.k === 'do' && SIM_TAKE(x.act.a) && (x.est ?? 0) > 0);
+    if (!ch || ch.act.k !== 'do') continue;
+    if (s.money - ch.cost < keep || (ch.rp ?? 0) > (s.rp ?? 0)) continue;
+    if (applyPlan(s, planOf(s, [ch.act.a], { hero: d.hero, q: d.q, dept: d.dept })).ok) n++;
+  }
+  return n;
+}
+
 // ---------------------------------------------------------------- 文（画面）
 
 /** 区切り（「 ・ 」） */

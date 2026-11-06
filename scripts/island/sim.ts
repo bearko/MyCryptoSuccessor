@@ -30,7 +30,7 @@ import { BOARD_OFF, boardAuto, boardDue, type BoardStat } from '../../src/island
 import { POL_OFF, claimSlot, corpOf, deptPolicyOf, polAutoFill, presDepts, slotPending, slotsOf } from '../../src/island/p1/policy';
 import { LESSON, POL, POL_PANELS, POL_SKILLS } from '../../src/island/p1/data';
 import { BUDGET } from '../../src/island/p1/data';
-import { CARD_SRCS, SIM_CARD_TAKE, cardInbox, chooseCard, simTake, type Card, type CardSrc, type CardStat } from '../../src/island/p1/card';
+import { CARD_SRCS, SIM_CARD_TAKE, cardInbox, chooseCard, simMarkTake, simTake, type Card, type CardSrc, type CardStat } from '../../src/island/p1/card';
 import { EVENT_OFF, EV_KINDS, GOOD_KINDS, lightOpt, newEventStat, optName, type EvKind, type EventStat } from '../../src/island/p1/events';
 import { LAND_IDS, dipOpts, landName, newDipStat, type DipStat } from '../../src/island/p1/diplo';
 import { DIPLO, EVENT } from '../../src/island/p1/data';
@@ -1399,6 +1399,8 @@ export function policy(s: P1State, c: Ctx): Action[] {
   // v25（段 UI1）：ヒーローからの提案のカード（店員・職人・調達係・待機中の人）。部長の提案と同じ条件（見込みがプラス・払ったあとも手元に残すお金が残る）で、
   // おすすめ（金色）を受ける。最短・100% は手で（カードは使わない）。問い合わせ・炎上の予告・辞めたい・経理の助言・巻き返しは、いまの方針の手（SIM_CS・SIM_HR ほか）のまま
   if (SIM_DELEG[c.policy].on && !delegOff && c.monthEnd && SIM_CARDS.on && props) acts.push({ kind: 'approve', run: () => (simTake(s, reserve) > 0 ? null : 'none') });
+  // v45（段 L0）：Rare より前は、地図の印の手（提案のカードと同じ下書きの元・同じ条件）を自分で打つ
+  if (SIM_DELEG[c.policy].on && !delegOff && c.monthEnd && SIM_CARDS.on && !props) acts.push({ kind: 'mark', run: () => (simMarkTake(s, reserve) > 0 ? null : 'none') });
   if (c.monthEnd && c.policy !== 'rta' && donateLock(s) !== 'hidden' && donateLock(s) !== 'closed') {
     const next = c.route[c.at + 1];
     // v14：次がランクアップの進出なら、費用も立ち上げの資金も要らない（お金は徴収される）
