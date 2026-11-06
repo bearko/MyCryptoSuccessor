@@ -57,15 +57,12 @@ import {
   digNext,
   digPower,
   digSite,
-  blast,
-  blastCost,
   digLayouts,
   siteState,
   DUNGEON,
   autoExhibit,
   extRank,
   museumSlots,
-  hasBlast,
   findCells,
   layerOpen,
   clearGoal,
@@ -184,7 +181,7 @@ export const SIM_TIME = {
  * - digger：発掘隊（作業のあいだだけ手伝う）の担当（0＝置かない／1＝いつも 1 人）。
  * - tree（v10）：発掘の枝のパネルの上げ方。'deep'＝お題のための「深い層の許可」Lv1 だけ（最短）／'share'＝月末に、月の売上の share（20%）を積み立てた枠で（買ったあとも 1 万 G 残るとき。研究の目利き Lv2 を先に）
  *   発掘のパネルの安い順に（お題が許可の無い層に残っていれば深い層の許可を先に。通常）／'all'＝ほかのスキルと同じく安い順にまとめて全部 Lv5 まで（100%）。
- *   以前の道具（ツルハシ・ランタン・発破の道具）はパネルに移ったので、道具は買わない。発破は「発破」のパネルがあれば使う。
+ *   以前の道具（ツルハシ・ランタン・発破の道具）はパネルに移ったので、道具は買わない。段 DIG3（v42）：発破は地中に埋まった爆弾になった（掘り出すと勝手に爆発。費用なし）。打つ数は変えない。
  */
 export const SIM_DIG = {
   rta: { perMonth: null as number | null, pending: 0, target: 'know', permit: 2, digger: 0, tree: 'deep' as 'deep' | 'share' | 'all', share: 0, dungeon: 0, museum: null as number | null },
@@ -2035,23 +2032,15 @@ function deepTarget(s: P1State): [number, number] | null {
 }
 const digTarget = (s: P1State, c: Ctx) => (s.digRun?.site === DUNGEON ? deepTarget(s) : SIM_DIG[c.policy].target === 'know' ? knowTarget(s, c) : sweepTarget(s));
 
-/** 手で n 回まで打つ（発破が使えれば、条件のときは発破）。打った数を返す */
-function handDig(s: P1State, c: Ctx, n: number, rec: DigRec, useBlast: () => boolean, spendTools: (v: number) => void): number {
+/** 手で n 回まで打つ（段 DIG3：爆弾を掘り出せば勝手に爆発する。爆発の数を rec.blast に）。打った数を返す */
+function handDig(s: P1State, c: Ctx, n: number, rec: DigRec): number {
   let k = 0;
   while (k < n && s.digRun) {
     const at = digTarget(s, c);
     if (!at) break;
-    if (hasBlast(s) && s.money >= blastCost(s) && useBlast()) {
-      const bc = blastCost(s);
-      const r = blast(s, at[0], at[1]);
-      if (typeof r !== 'string') {
-        rec.blast++;
-        spendTools(bc);
-        k++;
-        continue;
-      }
-    }
-    if (typeof dig(s, at[0], at[1]) === 'string') break;
+    const r = dig(s, at[0], at[1]);
+    if (typeof r === 'string') break;
+    rec.blast += [r, ...(r.extra ?? [])].filter((h) => h.bomb).length;
     k++;
   }
   return k;
@@ -2278,10 +2267,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       if (cur.topDay == null) cur.dig.talksTop++;
     }
     if (s.flags.digMeet && s.dig) {
-      const [got, all] = topicProgress(s);
-      const nextId = c.route[c.at + 1];
-      const needLetter = !!nextId && sectorDef(nextId).tier !== 'C' && !hasLetter(s, sectorDef(nextId).tier);
-      const waiting = !!s.cleared && needLetter && got < all;
+      const all = topicProgress(s)[1];
       const spendTools = (v: number) => (res.spend.tools += v);
       // v10：発掘の枝（以前の道具はパネルに移った）。最短：お題が許可の無い層に残っていれば、深い層の許可の次の Lv（根もとから）。
       // 通常：月末に、その月の売上の 20% までを、発掘のパネルの安い順に（お題が許可の無い層にあれば深い層の許可を先に）。100%：方針のスキルの一覧でまとめて
@@ -2391,8 +2377,6 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
           cur.act++;
         }
       }
-      // 発破を使う（「発破」のパネルがあれば）：依頼状を待っていてお題が残っている（最短・通常）／資金に余裕がある（100%）
-      const useBlast = () => (p === 'full' ? s.money > 50000 : waiting && s.money > blastCost(s) + (p === 'rta' ? 3000 : 10000));
       // 発掘作業を始める：前の作業が終わっていて、今月の回数のめやすに届いていない（null は続けて）。通常は月の前半と後半に 1 回ずつ
       // v13：制覇に研究成果の発表が要るので、お題がまだのセクタでは作業の回数を増やす（通常：月 2 → 3 回。1 位を 2 か月続けて発表を待っているあいだは続けて掘る）
       const goal = clearGoal(s);
@@ -2420,7 +2404,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
         c.handCarry += runTaps(s) / runDays(p, s);
         const m = Math.floor(c.handCarry);
         c.handCarry -= m;
-        cur.dig.mid += handDig(s, c, m, cur.dig, useBlast, spendTools);
+        cur.dig.mid += handDig(s, c, m, cur.dig);
       }
       if (cur.dig.topicsAt == null && topicProgress(s)[0] >= all && all > 0) cur.dig.topicsAt = cur.log.length;
       // お題がそろったら、町の長に発表する（会話）
@@ -3769,7 +3753,7 @@ export function digObservations(rep: Report2): string {
   const pols: PolicyId[] = ['rta', 'normal', 'full'];
   out.push('発掘と研究ポイント（v9。セクタごと・3 シードの平均。打った数は着いてから離れるまで。研究パネルは、そのセクタにいるあいだに開けた枚数。「RP 不足」は、詰まりの段に効く研究パネルがあるのにどれも RP が足りなかった月の締め。「お題」はお題がそろった月（着いてからの月の締め）、「依頼状待ち」は制覇のあと依頼状が無くて Uncommon へ移れなかった月。「掘りきり」は離れたときに掘りきった荒れ地の数（4 か所のうち））：');
   out.push('');
-  out.push('| 方針 | セクタ | 作業の回数 | 許可 | 手 | 発掘隊 | 発破 | 入った RP | 研究パネル | RP 不足の月 | お題 | 依頼状待ち | 掘りきり | 掘り残し（マス） |');
+  out.push('| 方針 | セクタ | 作業の回数 | 許可 | 手 | 発掘隊 | 爆発 | 入った RP | 研究パネル | RP 不足の月 | お題 | 依頼状待ち | 掘りきり | 掘り残し（マス） |');
   out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const p of pols) {
     const runs = rep.runs.filter((r) => r.policy === p);
