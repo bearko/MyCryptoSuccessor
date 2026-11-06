@@ -1914,13 +1914,17 @@ export const fundsOf = (tier: Tier): [number, number, number] => (tier === 'C' ?
 
 /**
  * 発掘の枝のパネル（docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」の「2. 発掘のスキルツリー」）。すべてお金パネル（Lv1〜5・levelCost）。
- * Common の区画（根もとから枝先へ）11 枚と、Uncommon の外周 6 枚。数字は DIG_BALANCE.tree の 1 か所。効き目は model.ts（fxSum・lvOf）。
+ * Common の区画（根もとから枝先へ）12 枚（段 DIG3 で貫通を足した）と、Uncommon の外周 6 枚。数字は DIG_BALANCE.tree の 1 か所。効き目は model.ts（fxSum・lvOf）。
  * 発掘との出会い（digMeet）の前は、枝ごと雲で隠す（skillLock の 'hidden'）。Lime だけ（digLand）
  */
 const DT = DIG_BALANCE.tree;
 const lvTxt = (f: (v: number, lv: number) => string, xs: number[]) => xs.map((v, k) => f(v, k + 1));
 const dShow = (label: string, txt: string[]): Shown => ({ label, v: 0, unit: '', txt });
 const REACH_DIR = { lr: t('左右', 'left & right'), lrd: t('左右と下', 'sides & below'), all: t('上下左右', 'all 4 sides') };
+/** 段 DIG3：発掘隊の行動規則（Lv0〜5。digview.ts の CREW_RULE_TEXT と同じ言葉） */
+const CREW_RULE = [t('いない', 'none'), t('手前から順に', 'front first'), t('硬いマスを避ける', 'avoids hard cells'), t('出土品の気配を優先', 'goes for visible finds'), t('爆弾の近くを優先', 'goes for bombs'), t('深い層へ', 'digs deep')];
+/** 効く範囲のマスの数（当てたマス ＋ 向きの数。model.ts の reachCount と同じ） */
+const REACH_N = { lr: 3, lrd: 4, all: 5 };
 const LAYER_C = [t('表土', 'Topsoil'), t('粘土層', 'Clay'), t('岩盤', 'Bedrock')];
 const LAYER_U = [t('岩盤', 'Bedrock'), t('古い港の跡', 'Old harbor'), t('古い街道の跡', 'Old highway'), t('大地のつなぎ目', 'Seam of the lands')];
 const LAYER_R = [t('崩れた石畳', 'Fallen paving'), t('止まった時計の層', 'Stopped clock'), t('古い坑道', 'Old mine shafts'), t('大地の裂け目', 'Rift in the earth'), t('9 つの境目', 'Border of the nine')];

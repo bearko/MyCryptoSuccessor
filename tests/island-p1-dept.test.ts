@@ -70,8 +70,8 @@ describe('パネルの部門の割り振り', () => {
     // 段 C で足した営業のパネル（営業の枝）・段 E2 で足した人事のパネル（HR_SKILLS）・段 F の経理と総務のパネルは除いて比べる
     // 段 G のカスタマーサポート・マーケのパネル（CS_SKILLS・MKT_SKILLS）も除く
     // 段 H2 の法務のパネル（法務の枝）も除く。M&A の遊びに合わせて見直した Epic の 2 枚（M&A 部門・工芸の工房の買収）は効き目だけを比べから外す
-    // 段 UI5a で足した調達の交代要員（UI5_SKILLS）も除く
-    expect(SKILLS.filter((k) => k.branch !== 'sales' && k.branch !== 'legal' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id) && !POL_PANELS.includes(k.id)).map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
+    // 段 UI5a で足した調達の交代要員（UI5_SKILLS）も除く。段 DIG3 で足した発掘の「貫通」も除く
+    expect(SKILLS.filter((k) => k.branch !== 'sales' && k.branch !== 'legal' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id) && !POL_PANELS.includes(k.id) && k.id !== 'dig_pierce').map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
     for (const b of BEFORE) {
       const k = SKILL[b.id as string];
       // 段 UI5b：先に要るものは、つながりの見直し（treelinks.ts）の前のもの（REQUIRES_ORIG）で比べる。見直しは tests/island-p1-ui5b.test.ts

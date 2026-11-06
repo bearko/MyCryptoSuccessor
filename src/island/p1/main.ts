@@ -5263,6 +5263,13 @@ window.setTimeout(() => warmFx(), 3000);
     refreshDig();
     return f ? { size: f.size } : null;
   },
+  /** 段 DIG3（撮影スクリプト用）：いまの壁（爆弾の候補を動かして撮る）・爆発を起こす */
+  digWall: () => digSite(s),
+  digDetonate: (x: number, y: number) => {
+    const h = detonate(s, x, y);
+    refreshDig();
+    return h;
+  },
   /** 撮影スクリプト用：Epic のエクステの id（1 つ目） */
   epicId: () => allSeries.flatMap((x) => x.items).find((e) => e.rarity === 'Epic')?.id ?? null,
   /** 荒れ地の左上のマス（撮影スクリプト用） */

@@ -8,7 +8,7 @@ import { DEF } from '../src/island/defs';
 import { DIG_BALANCE, DIG_REQUEST, DIG_SITES, DIG_THEME, MISSIONS, RP_GAIN, SECTOR_CHIEF, rewardText } from '../src/island/p1/data';
 import { DIG_IDLE_DAYS, DIG_TIP_ORDER, MEET_FOUND, MEET_IDLE_DAYS, MEET_LINES, canPresent, chiefHome, chiefOf, digMet, digReportLine, digReportText, digSummary, digTips, letterToGet, lettersLeft, meetReady, meetTip, presentAfter, presentPages, topicsPage } from '../src/island/p1/digmeet';
 import { letterLock, letterLocked, moveTo } from '../src/island/p1/land';
-import { accept, allowedDirs, build, claim, dig, digLayouts, endRun, missionMet, newP1, openGate, present, setLevel, startRun, step, type DigHit, type P1State, type Report } from '../src/island/p1/model';
+import { DUNGEON, accept, allowedDirs, build, claim, dig, digLayouts, endRun, missionMet, newP1, openGate, present, setLevel, startRun, step, type DigHit, type P1State, type Report } from '../src/island/p1/model';
 
 const lot = (s: P1State, id: string): [number, number, 'rd' | 'ld' | 'lu' | 'ru'] => {
   for (let j = 0; j < s.n; j++) for (let i = 0; i < s.n; i++) { const d = allowedDirs(s, id, i, j); if (d.length) return [i, j, d[0]]; }
@@ -34,6 +34,8 @@ function run(s: P1State, k: number) {
   s.dig!.sites[k].permit = true;
   if (s.digRun) endRun(s);
   if (typeof startRun(s, k) === 'string') throw new Error('run');
+  // 段 DIG3：地中の爆弾は爆発済みにしておく（位置の決まったテストが爆発で崩れないように。爆弾のテストは tests/island-p1-dig3.test.ts）
+  if (k !== DUNGEON) s.dig!.sites[k].boom = [0, 1, 2, 3, 4, 5];
 }
 function breakCell(s: P1State, x: number, y: number): DigHit {
   for (let k = 0; k < 20; k++) {

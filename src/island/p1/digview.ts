@@ -362,24 +362,38 @@ export function findLabel(hit: DigHit): string {
   return t('研究ノートへ', 'To the notebook');
 }
 
-/** 発掘隊（発掘の担当。発掘作業のあいだ手伝う）と、作業中の 1 日に打つ回数（適性の速さ × DIG_AUTO.perDay × 発掘隊の手際） */
-export function autoDiggers(s: P1State): { hero: number; perDay: number; resting: boolean }[] {
-  if (!s.dig) return [];
-  return s.staff.filter((x) => x.task === 'dig').map((x) => ({ hero: x.hero, perDay: Math.round(DIG_AUTO.perDay * speed(x, 'dig', s) * crewMul(s) * 10) / 10, resting: x.resting }));
-}
-/** 発掘隊の人数 / 上限（発掘隊の役所） */
-export const crewCount = (s: P1State): [number, number] => [s.staff.filter((x) => x.task === 'dig').length, crewCap(s)];
 /**
- * 常駐（自動化）：作業していない日に掘る荒れ地と、1 日に打つ数（休んでいない隊の合計 × 常駐の速さ）。
- * 常駐が無い・隊がいない・掘れる荒れ地が無ければ null
+ * 段 DIG3：発掘隊（シャドーヒーロー）の見え方：隊員の数と上限・1 打の強さ（digPower × 手際）・作業中の 1 日に打つ数（人数 × DIG_AUTO.perDay）・
+ * 行動規則の段と一言・隊員の仮の絵（ヒーローの id。DIG_CREW_HEROES）
+ */
+export interface CrewInfo {
+  n: number;
+  cap: number;
+  power: number;
+  perDay: number;
+  rule: number;
+  ruleText: string;
+  heroes: number[];
+}
+export function crewInfo(s: P1State): CrewInfo {
+  const n = crewSize(s);
+  const rule = crewRule(s);
+  return { n, cap: crewCap(s), power: Math.round(digPower(s) * crewMul(s) * 100) / 100, perDay: Math.round(n * DIG_AUTO.perDay * 10) / 10, rule, ruleText: CREW_RULE_TEXT()[Math.min(5, rule)], heroes: DIG_CREW_HEROES.slice(0, n) };
+}
+/** 発掘隊の行動規則の一言（Lv0〜5） */
+export const CREW_RULE_TEXT = () => [t('いない', 'none'), t('手前から順に', 'front first'), t('硬いマスを避ける', 'avoids hard cells'), t('出土品の気配を優先', 'goes for visible finds'), t('爆弾の近くを優先', 'goes for bombs'), t('深い層へ', 'digs deep')];
+/** 発掘隊の人数 / 上限（発掘隊の役所） */
+export const crewCount = (s: P1State): [number, number] => [crewSize(s), crewCap(s)];
+/**
+ * 常駐（自動化）：作業していない日に掘る荒れ地と、1 日に打つ数（隊員の数 × 常駐の速さ）。
+ * 常駐が無い・隊がいない・掘れる荒れ地が無ければ null。heroes は隊員の仮の絵（地図に描く）
  */
 export function standing(s: P1State): { site: number; perDay: number; heroes: number[] } | null {
   if (!s.dig || !hasAuto(s)) return null;
-  const crew = s.staff.filter((x) => x.task === 'dig' && !x.resting);
+  const n = crewSize(s);
   const k = standSite(s);
-  if (!crew.length || k < 0) return null;
-  const per = crew.reduce((v, x) => v + DIG_AUTO.perDay * speed(x, 'dig', s) * crewMul(s) * autoRate(s), 0);
-  return { site: k, perDay: Math.round(per * 10) / 10, heroes: crew.map((x) => x.hero) };
+  if (n <= 0 || k < 0) return null;
+  return { site: k, perDay: Math.round(n * DIG_AUTO.perDay * autoRate(s) * 10) / 10, heroes: DIG_CREW_HEROES.slice(0, n) };
 }
 
 /** 研究 Lv の ★（★ が Lv、☆ が残り。5 つ） */

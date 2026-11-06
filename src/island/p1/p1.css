@@ -8715,7 +8715,10 @@ button.isl-mis {
   display: grid;
   justify-items: center;
   gap: 6px;
-  width: min(320px, 100%);
+  width: min(360px, 100%);
+  /* 段 DIG3：出土品の札が並ぶので、画面に収まらなければ札の中でスクロール */
+  max-height: 100%;
+  overflow: auto;
   padding: 14px 14px 12px;
   border: 3px solid var(--isl-gold);
   border-radius: 12px;
@@ -9185,6 +9188,250 @@ small.isl-note-series.is-bad {
     opacity: 0;
     transform: translate(-50%, -160%) scale(1.15);
   }
+}
+/* 段 DIG3：数字の飛び（減らした硬さ）。会心は金色で大きく・貫通（下の層へ持ち越し）は青・隣への力は小さく薄く */
+.isl-dig-dmg {
+  position: absolute;
+  z-index: 5;
+  transform: translate(-50%, -50%);
+  color: #fff3d6;
+  font-size: 13px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 0 3px #000,
+    0 2px 0 #1d1410;
+  pointer-events: none;
+  animation: isl-dig-dmg 0.65s ease-out both;
+}
+.isl-dig-dmg.is-crit {
+  color: #ffd65a;
+  font-size: 18px;
+}
+.isl-dig-dmg.is-pierce {
+  color: #8fd8ff;
+}
+.isl-dig-dmg.is-splash {
+  color: #d9c7a8;
+  font-size: 11px;
+  opacity: 0.8;
+}
+@keyframes isl-dig-dmg {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -30%) scale(0.7);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -140%) scale(1);
+  }
+}
+/* 段 DIG3：発掘隊の隊員（壁の上に重ねる。仮の絵：replica のヒーロー 32px ＋ 絵文字のツルハシ。docs/ISLAND_ART_TODO.md）。打ったマスへ歩き、打つたびに振る */
+.isl-dig-crew {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.isl-dig-crewman {
+  position: absolute;
+  z-index: 3;
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  transform: translate(-50%, -100%);
+  transition:
+    left 0.55s ease-in-out,
+    top 0.55s ease-in-out;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.8));
+}
+.isl-dig-crewman .isl-hero {
+  display: block;
+  animation: isl-dig-crewbob 0.9s ease-in-out infinite;
+}
+.isl-dig-crew.is-idle .isl-hero {
+  animation: none;
+}
+.isl-dig-crewpick {
+  position: absolute;
+  right: -10px;
+  top: 2px;
+  font-size: 16px;
+  font-style: normal;
+  line-height: 1;
+  transform: rotate(-20deg);
+  transform-origin: 70% 80%;
+}
+.isl-dig-crewman.is-swing .isl-dig-crewpick {
+  animation: isl-dig-swing2 0.35s ease-out;
+}
+@keyframes isl-dig-crewbob {
+  50% {
+    transform: translateY(-2px);
+  }
+}
+@keyframes isl-dig-swing2 {
+  0% {
+    transform: rotate(-80deg);
+  }
+  60% {
+    transform: rotate(15deg);
+  }
+}
+/* 段 DIG3：見つけた瞬間の小さなトースト（マスの上。1 秒で消える） */
+.isl-dig-ping {
+  position: absolute;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 6px;
+  border: 2px solid var(--isl-gold);
+  border-radius: 999px;
+  background: rgba(29, 20, 16, 0.92);
+  color: #fff3d6;
+  font-size: 13px;
+  white-space: nowrap;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+  animation: isl-dig-ping 1s ease-out both;
+}
+.isl-dig-ping b {
+  color: var(--isl-gold);
+}
+.isl-dig-ping small {
+  color: #7fe0d0;
+}
+.isl-dig-ping.is-big {
+  border-width: 3px;
+  font-size: 15px;
+  box-shadow: 0 0 18px rgba(242, 193, 78, 0.6);
+}
+@keyframes isl-dig-ping {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -80%) scale(0.7);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -110%) scale(1.05);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -120%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -140%) scale(1);
+  }
+}
+/* 段 DIG3：リザルトの出土品の札（見つけた順）。お題・大きな遺物は大きく、光つき */
+.isl-dig-finds {
+  width: 100%;
+  display: grid;
+  gap: 6px;
+}
+.isl-dig-finds-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+.isl-dig-finds-head small {
+  color: #ffb067;
+}
+.isl-dig-finds-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  max-height: min(38vh, 300px);
+  overflow: auto;
+  padding: 2px;
+}
+.isl-dig-find {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  width: 92px;
+  padding: 6px 4px;
+  border: 2px solid #4a3a28;
+  border-radius: 10px;
+  background: #1f1712;
+  color: var(--isl-text);
+  font: 700 11px/1.3 inherit;
+  font-family: inherit;
+  text-align: center;
+  overflow: hidden;
+  isolation: isolate;
+  animation: isl-dig-find 0.45s ease-out both;
+}
+.isl-dig-find > * {
+  position: relative;
+}
+.isl-dig-find.is-first {
+  border-color: var(--isl-gold);
+}
+.isl-dig-find.is-rR {
+  border-color: #7fb6ff;
+}
+.isl-dig-find.is-rE,
+.isl-dig-find.is-rL {
+  border-color: #d08cff;
+}
+.isl-dig-find.is-big {
+  width: 100%;
+  padding: 10px;
+  border-color: var(--isl-gold);
+  box-shadow: 0 0 18px rgba(242, 193, 78, 0.45);
+}
+.isl-dig-find.is-big .isl-dig-find-tag {
+  font-size: 15px;
+}
+.isl-dig-find.is-tablet {
+  cursor: pointer;
+}
+.isl-dig-find-tag {
+  color: var(--isl-gold);
+}
+.isl-dig-find-name {
+  font-weight: 400;
+  color: #d9c7a8;
+}
+.isl-dig-find-recipe {
+  color: #7fe0d0;
+}
+@keyframes isl-dig-find {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.9);
+  }
+}
+/* 段 DIG3：「終える」の 2 回押し（1 回目は赤く「本当に終える？」） */
+.isl-btn.isl-dig-end.is-arm {
+  background: #c7463b;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(199, 70, 59, 0.45);
+}
+/* 段 DIG3：爆弾の帯の札（残りの数。無ければ薄く）と、爆発の文字 */
+.isl-dig-chip.is-bomb b {
+  color: #ffb067;
+}
+.isl-dig-chip.is-bomb.is-none {
+  opacity: 0.55;
+}
+.isl-dig-bombtag {
+  position: absolute;
+  z-index: 6;
+  transform: translate(-50%, -50%);
+  color: #ffb067;
+  font-size: 20px;
+  font-weight: 900;
+  text-shadow:
+    0 0 6px #852c2c,
+    0 2px 0 #1d1410;
+  pointer-events: none;
+  animation: isl-dig-crit 0.9s ease-out both;
 }
 /* 発掘終了の札の「次の強化のおすすめ」 */
 .isl-btn.isl-dig-rec {

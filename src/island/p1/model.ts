@@ -6134,6 +6134,23 @@ export interface DigGot {
   cells: number;
   /** 開いた復刻品のレシピ（商品キー。以前の作業には無い） */
   recipes?: string[];
+  /** 段 DIG3：掘り出して爆発した爆弾の数 */
+  bombs?: number;
+  /** 段 DIG3：見つけた出土品（素材を除く。見つけた順。リザルトに札を並べる） */
+  finds?: DigFound[];
+}
+/** 段 DIG3：発掘作業で見つけた 1 つ（リザルトの札） */
+export interface DigFound {
+  item: DigItem;
+  /** 埋まっていた層 */
+  layer: number;
+  rp: number;
+  first?: boolean;
+  again?: boolean;
+  lv?: number;
+  /** 大きい演出だったもの（お題・2 × 2 の大きな遺物） */
+  big?: boolean;
+  recipe?: string;
 }
 /** 発掘作業（15 秒・現実の秒）。作業のあいだは時間が流れ、月をまたいでも月末ポーズと月次報告の画面は出さない */
 export interface DigRun {
@@ -6402,7 +6419,7 @@ export function digLayouts(sector: string, round = 0): DigLayout[] {
     const cells: DigCell[] = [];
     for (let k = 0; k < D.w * D.h; k++) cells.push({ hard: D.layers.map((L) => L.hard[0] + Math.floor(r() * (L.hard[1] - L.hard[0] + 1))) });
     const tk = topicAt.get(sk);
-    const L: DigLayout = { sector, tier, site: sk, w: D.w, h: D.h, depth, cells, finds: [], at: new Array<number>(D.w * D.h * depth).fill(-1), topic: tk != null ? site.topics[tk] : null };
+    const L: DigLayout = { sector, tier, site: sk, w: D.w, h: D.h, depth, cells, finds: [], at: new Array<number>(D.w * D.h * depth).fill(-1), topic: tk != null ? site.topics[tk] : null, bombs: [] };
     // 空いている所（その層で、範囲のどのマスにもまだ何も無い）にランダムに
     const putSomewhere = (item: DigItem, layer: number) => {
       const [sw, sh] = findSize(item, tier);
@@ -6491,7 +6508,7 @@ export function dungeonLayout(sector: string, runs: number): DigLayout | null {
   const depth = D.layers.length;
   const cells: DigCell[] = [];
   for (let k = 0; k < D.w * D.h; k++) cells.push({ hard: D.layers.map((x) => x.hard[0] + Math.floor(r() * (x.hard[1] - x.hard[0] + 1))) });
-  const L: DigLayout = { sector, tier, site: DUNGEON, w: D.w, h: D.h, depth, cells, finds: [], at: new Array<number>(D.w * D.h * depth).fill(-1), topic: null, dungeon: true };
+  const L: DigLayout = { sector, tier, site: DUNGEON, w: D.w, h: D.h, depth, cells, finds: [], at: new Array<number>(D.w * D.h * depth).fill(-1), topic: null, dungeon: true, bombs: [] };
   const pools = DUNGEON_FINDS[sector] ?? {};
   for (let layer = 0; layer < depth; layer++) {
     const odds = B.rarity[tier][Math.min(B.rarity[tier].length - 1, layer)];
@@ -6843,8 +6860,16 @@ function countLv(s: P1State) {
   s.dig!.month.lv++;
   if (s.digRun) s.digRun.got.lv++;
 }
-/** 層がはがれて、埋まっていたものが取れた：中身を受け取る（研究レベル・RP・素材・石板・お題） */
+/** 層がはがれて、埋まっていたものが取れた：中身を受け取る（研究レベル・RP・素材・石板・お題）。段 DIG3：見つけた順に got.finds に残す（リザルト） */
 function reveal(s: P1State, L: DigLayout, f: DigFind, hit: DigHit) {
+  const rp0 = hit.rp;
+  revealCore(s, L, f, hit);
+  const it = f.item;
+  if (it.kind === 'mat' || !s.digRun) return;
+  const big = (it.kind === 'ext' && !!it.topic) || f.size[0] * f.size[1] > 1;
+  (s.digRun.got.finds ??= []).push({ item: it, layer: f.layer, rp: hit.rp - rp0, ...(hit.first ? { first: true } : {}), ...(hit.again ? { again: true } : {}), ...(hit.lv ? { lv: hit.lv } : {}), ...(big ? { big: true } : {}), ...(hit.recipe ? { recipe: hit.recipe } : {}) });
+}
+function revealCore(s: P1State, L: DigLayout, f: DigFind, hit: DigHit) {
   const it = f.item;
   hit.item = it;
   const G = RP_GAIN[L.tier];
