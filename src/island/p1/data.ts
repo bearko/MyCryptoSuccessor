@@ -3671,6 +3671,8 @@ export interface Mission {
   dig?: number;
   /** 受ける前の一言（段 UI1：中身と報酬は変えずに、気をつけることを添える） */
   note?: string;
+  /** 段 L0：序盤の自動化を覚える依頼（遊ぶ人に教えるもの。自動プレイは受けない） */
+  teach?: boolean;
 }
 export const MISSIONS: Mission[] = [
   { id: 'first_sale', from: t('町内会', 'Neighborhood council'), title: t('はじめての売上', 'First sale'), text: t('お店で商品を 1 つ売る', 'Sell one item in your shop'), reward: 1000 },
@@ -3682,9 +3684,9 @@ export const MISSIONS: Mission[] = [
   { id: 'uncommon', from: t('収集家', 'A collector'), title: t('めずらしい品を', 'Something rare'), text: t('アンコモンを合わせて 5 個売る', 'Sell 5 Uncommons in total'), reward: 5000, rp: 40 },
   { id: 'rank3', from: t('商店会', 'Merchants’ association'), title: t('エリアの顔に', 'Face of the area'), text: t('月の報告でエリア 3 位以内に入る', 'Finish a month in the area top 3'), reward: 5000, rp: 40 },
   // 段 L0：序盤の自動化を自分で取って覚える依頼（リーダー・部長は Uncommon・Rare から。報酬は Common の依頼の段）
-  { id: 'm_edi', from: t('卸問屋', 'The wholesaler'), title: t('注文を待たずに', 'No more waiting on orders'), text: t('スキルツリーで「自動発注（EDI）」を研究する', 'Research “Auto-ordering (EDI)” in the skill tree'), reward: 3000 },
-  { id: 'm_relief', from: t('卸問屋', 'The wholesaler'), title: t('休みの日も買い付けを', 'Buying on days off too'), text: t('「調達の交代要員」を研究して、調達係を 2 人にする', 'Research “Relief buyer” and have 2 buyers'), reward: 3000 },
-  { id: 'm_timetable', from: t('荷車の親方', 'The cart master'), title: t('便を止めない', 'Keep the runs going'), text: t('「定期便の時刻表」を研究する', 'Research “Scheduled runs”'), reward: 2000 },
+  { id: 'm_edi', from: t('卸問屋', 'The wholesaler'), title: t('注文を待たずに', 'No more waiting on orders'), text: t('スキルツリーで「自動発注（EDI）」を研究する', 'Research “Auto-ordering (EDI)” in the skill tree'), reward: 3000, teach: true },
+  { id: 'm_relief', from: t('卸問屋', 'The wholesaler'), title: t('休みの日も買い付けを', 'Buying on days off too'), text: t('「調達の交代要員」を研究して、調達係を 2 人にする', 'Research “Relief buyer” and have 2 buyers'), reward: 3000, teach: true },
+  { id: 'm_timetable', from: t('荷車の親方', 'The cart master'), title: t('便を止めない', 'Keep the runs going'), text: t('「定期便の時刻表」を研究する', 'Research “Scheduled runs”'), reward: 2000, teach: true },
   // セクタの依頼（そのセクタでだけ受けられる。id はセーブと繋がる）
   // 湖・丘の依頼は、そのセクタの「まだ誰も売っていない」商品（ランタン・マレットは他店で供給が足りているので、ゴブレット・ナイフに）
   { id: 'c2_goblet', sector: 'c2', from: t('湖の宿', 'The lakeside inn'), title: t('湖畔で乾杯', 'A toast by the lake'), text: t('ひと月にゴブレットを 10 個売る', 'Sell 10 Goblets in one month'), reward: 4000, rp: 40 },
