@@ -541,7 +541,8 @@ describe('発掘隊：役所・手際・常駐（自動化）・段取り・交�
   it('発掘隊の役所：人数の上限 1 → 2・3・3・4・5。隊員の数は発掘隊の手際の Lv（上限まで）。ヒーローは発掘の担当にできない（no-task）', () => {
     const s = met();
     expect(crewCap(s)).toBe(1);
-    expect(crewSize(s)).toBe(0);
+    // 調整 v44：Lv0 でも 1 人
+    expect(crewSize(s)).toBe(1);
     expect([1, 2, 3, 4, 5].map((n) => (lv(s, 'dig_office', n), crewCap(s)))).toEqual([2, 3, 3, 4, 5]);
     lv(s, 'dig_office', 1);
     lv(s, 'dig_crew', 5);
@@ -563,9 +564,10 @@ describe('発掘隊：役所・手際・常駐（自動化）・段取り・交�
       for (let d = 0; d < 10; d++) hits += own(crewDig(s)).length;
       return { hits, power: digPower(s) * crewMul(s) };
     };
-    expect(per(0).hits).toBe(0);
+    expect(per(0).hits).toBe(Math.floor(1 * T.crewDay * 10 + 1e-9));
     for (const n of [1, 3, 5]) {
       const r = per(n);
+      if (n === 0) continue;
       expect(r.hits, `Lv${n}`).toBe(Math.floor(n * T.crewDay * 10 + 1e-9));
       expect(r.power, `Lv${n}`).toBeCloseTo(1 + 0.2 * n, 6);
     }

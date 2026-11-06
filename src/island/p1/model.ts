@@ -6680,9 +6680,10 @@ export const crewCap = (s: Pick<P1State, 'skills' | 'skillLv'>) => DT.office[Mat
 export const crewMul = (s: Pick<P1State, 'skills' | 'skillLv'>) => 1 + fxSum(s, 'dig.crew');
 /**
  * 段 DIG3：発掘隊の人数（名前のない隊員）：研究パネル「発掘隊の手際」の Lv（開くと Lv2 ＝ 2 人）か、古いセーブで発掘の担当だったヒーローの人数
- * （digCrewOld。Lv は上げず、いた人数ぶんだけ隊員に）の大きいほう。上限は発掘隊の役所（crewCap）。Lv0 で誰もいなければ 0 人
+ * （digCrewOld。Lv は上げず、いた人数ぶんだけ隊員に）の大きいほう。上限は発掘隊の役所（crewCap）。
+ * 調整 v44：Lv0 でも 1 人（前はパネルが無くてもヒーローを 1 人まで発掘の担当にできた：役所 Lv0 の上限 1）
  */
-export const crewSize = (s: Pick<P1State, 'skills' | 'skillLv' | 'digCrewOld'>) => Math.min(crewCap(s), Math.max(lvOf(s, 'dig_crew'), s.digCrewOld ?? 0));
+export const crewSize = (s: Pick<P1State, 'skills' | 'skillLv' | 'digCrewOld'>) => Math.min(crewCap(s), Math.max(1, lvOf(s, 'dig_crew'), s.digCrewOld ?? 0));
 /** 段 DIG3：発掘隊の行動規則の段（発掘隊の手際の Lv。0 は手前から順に） */
 export const crewRule = (s: Pick<P1State, 'skills' | 'skillLv'>) => lvOf(s, 'dig_crew');
 /** 常駐（自動化）：作業していない日も掘る */

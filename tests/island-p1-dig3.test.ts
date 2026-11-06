@@ -303,8 +303,9 @@ describe('3. 爆弾は地中に埋まっている', () => {
 describe('4. 発掘隊はシャドーヒーロー', () => {
   it('隊員の数は「発掘隊の手際」の Lv（役所の上限まで）。研究パネルとして開くと Lv2 ＝ 2 人。ヒーローは発掘の担当にできない', () => {
     const s = met();
-    expect(crewSize(s)).toBe(0);
-    expect(crewInfo(s).n).toBe(0);
+    // 調整 v44：Lv0 でも 1 人
+    expect(crewSize(s)).toBe(1);
+    expect(crewInfo(s).n).toBe(1);
     lv(s, 'dig_office', 5);
     expect(learn(s, 'dig_ext')).toBeNull();
     expect(learn(s, 'dig_crew')).toBeNull();
@@ -320,6 +321,7 @@ describe('4. 発掘隊はシャドーヒーロー', () => {
     lv(s, 'dig_deep', 3);
     lv(s, 'dig_office', 5);
     lv(s, 'dig_crew', 3);
+    // 作業していない日（常駐なし）は掘らない
     expect(crewDig(s)).toEqual([]);
     run(s, 0);
     const hs = Array.from({ length: 6 }, () => crewDig(s)).flat().filter((h) => !h.splash && !h.pierce && !h.blast);
