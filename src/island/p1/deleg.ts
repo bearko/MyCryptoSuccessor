@@ -406,7 +406,7 @@ export const errMul = (r: () => number, q: number, k: number) => 1 + (r() * 2 - 
  */
 export function autoDuty(s: P1State, d: DutyId): boolean {
   if (!s.skills?.length) return false;
-  for (const [id, x] of Object.entries(L0_AUTO.panels)) if (x.duty === d && has(s, id)) return !runnerOf(s, d);
+  for (const [id, x] of Object.entries(L0_AUTO.panels)) if (x.duties.includes(d) && has(s, id)) return !runnerOf(s, d);
   return false;
 }
 /** 仕組みが回している業務（業務の画面・テスト用） */

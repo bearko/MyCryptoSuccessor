@@ -465,7 +465,7 @@ describe('仕組みのパネル（調達・製造計画・勤務シフトの自�
     for (const id of L0_SKILLS) take(s, id);
     delete s.deleg;
     const t = deserializeP1(serializeP1(s))!;
-    expect(autoDuties(t)).toEqual(['order', 'craft', 'rest']);
+    expect(autoDuties(t)).toEqual(['order', 'craft', 'shelf', 'rest']);
     expect(() => {
       for (let k = 0; k < 3; k++) delegDay(t);
     }).not.toThrow();

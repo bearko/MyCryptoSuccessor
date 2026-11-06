@@ -1359,7 +1359,7 @@ export const SKILLS: Skill[] = [
   { id: 'inventory', branch: 'sys', name: t('在庫管理システム', 'Inventory system'), note: t('お店の裏 +10・工房の物置 +20', 'Backrooms +10; workshop stockroom +20'), cost: 6000, requires: ['pos'] },
   // 段 L0：序盤の手を減らす仕組み（リーダー・部長の代わりに、自分で取って回す。数字は L0_AUTO の 1 か所）
   { id: 'auto_proc', branch: 'sys', name: t('調達の自動化', 'Auto-procurement'), note: t('調達の品目を作業台に合わせて自動でそろえ、素材が切れそうなら問屋に注文する', 'Keeps purchase items in step with the benches and orders lots before materials run out'), cost: 6000, requires: ['auto_order'] },
-  { id: 'auto_lineup', branch: 'sys', name: t('製造計画の自動化', 'Auto-production plan'), note: t('作業台の作るものを売れ筋に合わせて自動で切り替え、止まった作業台も素材が届けば再開する', 'Switches each bench to what sells and restarts stalled benches once materials arrive'), cost: 6000, requires: ['inventory'] },
+  { id: 'auto_lineup', branch: 'sys', name: t('製造計画の自動化', 'Auto-production plan'), note: t('作業台の作るものを売れ筋に合わせて自動で切り替え（棚の品ぞろえも合わせる）、止まった作業台も素材が届けば再開する', 'Switches each bench to what sells (and the shelves with it) and restarts stalled benches once materials arrive'), cost: 6000, requires: ['inventory'] },
   { id: 'auto_rest', branch: 'sys', name: t('勤務シフトの自動化', 'Auto-shift cover'), note: t('休む職人・店員の持ち場に待機中の人を自動で入れて、止まった作業台・お店をすぐ再開する（戻ったら返す）', 'Puts a free hero in for a resting crafter or clerk so the bench or shop restarts at once (hands it back on return)'), cost: 6000, requires: ['auto_lineup'] },
   { id: 'erp', branch: 'sys', name: t('ERP', 'ERP'), note: t('全段の「ひと月に流せる数」+5%（調達・製造・物流・販売）', 'Every stage’s monthly flow +5% (buy, craft, haul, sell)'), cost: 20000, requires: ['auto_order', 'inventory'], tier: 'U', emblem: 1 },
   { id: 'dyn', branch: 'sys', name: t('ダイナミックプライシング', 'Dynamic pricing'), note: t('需要が供給より多い商品（扱う他社が 1 社以下）の値段 +8%', 'Prices +8% where demand beats supply (1 rival or fewer)'), cost: 18000, requires: ['pos'], tier: 'U' },
@@ -2295,14 +2295,15 @@ export const RP_PER_DUST = 40;
 const RP_FIXED: Record<string, number> = { hire: START_RP };
 /**
  * 段 L0：序盤の手を減らす仕組みのパネル（システムの枝・Common）。取ると、その業務を「仕組み」が毎日回す（deleg.ts の autoDuty。ヒーローのリーダー・部長がいればそちらが先）。
- * duty：回す業務（DUTIES）・rp：研究の値段（同じ枝のほかのパネルの値段の割り振りに入れない）・q：仕組みの出来（見直しの間隔と読みの誤差。DELEG.q）
+ * duties：回す業務（DUTIES）・rp：研究の値段（同じ枝のほかのパネルの値段の割り振りに入れない）・q：仕組みの出来（見直しの間隔と読みの誤差。DELEG.q）
+ * 製造計画の自動化は、作るものを切り替えたら棚も合わせる（品出し。チュートリアルのあとは model.ts の syncShelves が毎日並べるので、その見届け）
  */
-export const L0_AUTO: { q: number; panels: Record<string, { duty: DutyId; rp: number }> } = {
+export const L0_AUTO: { q: number; panels: Record<string, { duties: DutyId[]; rp: number }> } = {
   q: 0.9,
   panels: {
-    auto_proc: { duty: 'order', rp: 40 },
-    auto_lineup: { duty: 'craft', rp: 40 },
-    auto_rest: { duty: 'rest', rp: 50 },
+    auto_proc: { duties: ['order'], rp: 40 },
+    auto_lineup: { duties: ['craft', 'shelf'], rp: 40 },
+    auto_rest: { duties: ['rest'], rp: 50 },
   },
 };
 /** 段 L0 で足した仕組みのパネル（スキルツリーの枝の幅の余りの数に入れない：treelayout.ts） */

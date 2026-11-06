@@ -5,7 +5,7 @@
  * ゲームの数値（data.ts・式）は変えない。ここは計測だけ。
  */
 import { writeFileSync } from 'node:fs';
-import { AD_TIER, HERO_GROWTH, HERO_RARITIES, aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, isAntique, areaTuneOf, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier, RARE_AREA, EPIC_RIVAL, ANTIQUE, BRAND_CAP } from '../../src/island/p1/data';
+import { AD_TIER, HERO_GROWTH, HERO_RARITIES, aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, isAntique, areaTuneOf, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier, RARE_AREA, EPIC_RIVAL, ANTIQUE, BRAND_CAP, L0_SKILLS } from '../../src/island/p1/data';
 import { managerApt, RUIN, sectorDef, type RuinLike } from '../../src/island/p1/company';
 import { crowned, moveFee, moveTo } from '../../src/island/p1/land';
 import { delegate, rankUpTier, repairAll, reviveView } from '../../src/island/p1/reset';
@@ -1295,6 +1295,15 @@ export function policy(s: P1State, c: Ctx): Action[] {
           }
         }
         if (n > 0) break;
+      }
+      // v45（段 L0）：Rare より前（リーダー・部長がまだで、品出し・作るもの・調達の品目・交代を自分で打つあいだ）は、仕組みのパネル（L0_SKILLS）を順に月 1 枚（先に要るものから）。
+      // 遊ぶ人は地図の印の 💡（同じ困りごとが 2 か月出たら、それを無くすパネル）を見て取る。自動プレイはチュートリアルの段のまま印が出ないので、決めた順で
+      if (c.policy === 'normal' && !propsOpen(s)) {
+        for (const id0 of L0_SKILLS.filter((x) => !has(s, x) && !pending.has(x))) {
+          const id = learnable(id0) ? id0 : missingPre(id0);
+          if (!id || !can(id) || costOf(id) > budget * 0.6) continue;
+          if (take(id, reserve)) break;
+        }
       }
       // v8：RP が残っていれば、詰まりの段の枝の研究パネルを説明の順（BRANCH_ORDER）→ 同じ枝の安い順に（見込みの手と合わせて RP_MOVES まで）
       if (c.policy === 'normal') {
