@@ -55,6 +55,8 @@ export const TREE_ORDER: Record<string, string[]> = {
   'support|U': ['cs_faq', 'cs_center', 'cs_policy', 'cs_survey'],
   'systems|C|0': ['pos'],
   'systems|C|1': ['inventory', 'auto_order'],
+  'systems|C|2': ['auto_lineup', 'auto_proc'],
+  'systems|C|3': ['auto_rest'],
   'systems|U': ['u_sys_2', 'u_sys_3', 'flow', 'erp', 'u_sys_1', 'dyn', 'u_sys_d', 'u_sys_4'],
   'systems|R': ['pol_sy', 'ec', 'r_sys_d', 'r_sys_2', 'r_sys_3', 'r_sys_1', 'forecast'],
   'systems|E': ['e_sys_5', 'e_sys_2', 'e_sys_d', 'e_sys_1', 'e_sys_3', 'e_sys_4'],

@@ -21,7 +21,7 @@ import { BOARD, LEGAL } from '../../src/island/p1/data';
 import { bonus as giveBonus, bonusCost, raise, raiseStep, setRest, wageMul } from '../../src/island/p1/model';
 import { CHARISMA, CS, CSM_RP, FATIGUE, FLAME, GRADE, GRADE_NAME, MORALE, PAY, TAX, deptOf } from '../../src/island/p1/data';
 // v22（段 G）：販売の枝に足したカスタマーサポート・マーケの研究パネル（CSM_RP）は、通常の「詰まりの段の枝の研究パネル」には数えない（売り場の段に効かない）
-import { approve, delegatedDuties, headDepts, headLeft, headOf, leaderLeft, leaderOf, quality, runnerOf, setHead, setLeader } from '../../src/island/p1/deleg';
+import { approve, autoDuty, delegatedDuties, headDepts, headLeft, headOf, leaderLeft, leaderOf, quality, runnerOf, setHead, setLeader } from '../../src/island/p1/deleg';
 import { propsOpen } from '../../src/island/p1/stage';
 import { DELEG, DEPTS, type DeptId, type DutyId } from '../../src/island/p1/data';
 import { deptLevel } from '../../src/island/p1/dept';
@@ -399,8 +399,9 @@ export const SIM_RESET: Record<PolicyId, { donate: number; towns: number; fund: 
 const BRANCH_ORDER: Record<Stage, string[]> = {
   // v5：スキルツリー v2 の新しいパネル（ABC 分析・POS・自動発注・5S・ロット・カイゼン・定期便・配送ルート・VMD・ゴールデンゾーン など）。外周（U・R）は開いてから
   // 段 UI5a：調達の交代要員（大口契約のあと。調達係が休む日も止めない）
-  buy: ['stock1', 'bulk', 'abc', 'swift', '@stockroom:1', 'eye', 'pos', 'auto_order', 'stock2', 'relief', 'bulk2', '@rack:1', 'stock3', 'contract', 'b_partner', 'direct'],
-  craft: ['@bench:1', 'jig', 'five_s', 'chair', 'jig2', 'lot', 'kaizen', '@bench:2', 'pot', 'night', 'mold', 'line'],
+  // v45（段 L0）：仕組みのパネル（調達・製造計画・勤務シフトの自動化）を、それぞれの段の手の順に（先に要るパネルは missingPre が先に取る）
+  buy: ['stock1', 'bulk', 'abc', 'swift', '@stockroom:1', 'eye', 'pos', 'auto_order', 'auto_proc', 'stock2', 'relief', 'bulk2', '@rack:1', 'stock3', 'contract', 'b_partner', 'direct'],
+  craft: ['@bench:1', 'jig', 'five_s', 'auto_lineup', 'auto_rest', 'chair', 'jig2', 'lot', 'kaizen', '@bench:2', 'pot', 'night', 'mold', 'line'],
   haul: ['loading', '@carts:1', 'shortcut', 'timetable', '@backroom:1', 'route_opt', '@truck:1', '@carts:2', 'hub', 'joint', 'crossdock', 'fleet'],
   sell: ['@shelves:1', 'host', '@staffroom:1', 'display', 'vmd', 'hours', 'shop2', 'golden', 'pop', '@shelves:2', 'set', 'point', 'shop3', 'b_sign', 'order', 'fair', 'concierge', 'b_premium'],
 };
@@ -419,7 +420,7 @@ export const fullSkills = () => LEARNABLE().filter((k) => ['C', 'U'].includes(sk
 const RTA_SKILLS = [
   'hire', '@bench:1', 'pot', 'route_cloth', 'route_paper', '@shelves:1', 'host', '@carts:1', 'loading', 'stock1', 'jig', 'bulk', '@stockroom:1', 'b_sign', 'shop2', 'route_gem', '@truck:1', '@bench:2', 'jig2', 'stock2', '@shelves:2', 'display', '@staffroom:1', 'shortcut', '@backroom:1', 'chair', 'lounge', 'shop3', 'swift',
   // v5（スキルツリー v2）：売り場を強くする工夫 → ✨ 名物店主 → Uncommon の外周 → 製造・物流・調達の工夫
-  'vmd', 'golden', 'pos', 'point', 'set', 'd_shop', 'order', 'fair', 'flow', 'dyn', 'five_s', 'kaizen', 'lot', 'night', 'mold', 'timetable', 'route_opt', 'joint', 'abc', 'auto_order', 'inventory', 'erp', 'manual', 'incentive',
+  'vmd', 'golden', 'pos', 'point', 'set', 'd_shop', 'order', 'fair', 'flow', 'dyn', 'five_s', 'kaizen', 'lot', 'night', 'mold', 'timetable', 'route_opt', 'joint', 'abc', 'auto_order', 'inventory', 'auto_proc', 'auto_lineup', 'auto_rest', 'erp', 'manual', 'incentive',
 ];
 
 /**
@@ -880,7 +881,8 @@ export function policy(s: P1State, c: Ctx): Action[] {
 
   // ---- 作るもの（月の締め・作業台が増えた・開発できた・セクタに着いたとき）
   // v18（段 D）：任せた業務は、手で決めない（リーダー・部長が回す。deleg.ts）
-  const dg = (d: DutyId) => SIM_DELEG[c.policy].on && !delegOff && !!runnerOf(s, d);
+  // v45（段 L0）：仕組みのパネル（調達・製造計画・勤務シフトの自動化）が回す業務も、手で決めない（どの方針でも）
+  const dg = (d: DutyId) => (SIM_DELEG[c.policy].on && !delegOff && !!runnerOf(s, d)) || autoDuty(s, d);
   if (dg('craft')) {
     // 作るものの選択を任せた：作業台でいま作っているもの（任された人が決める）
     c.lineup = s.slots.map((sl) => sl.sku).filter((x): x is Sku => !!x);

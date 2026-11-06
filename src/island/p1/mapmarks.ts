@@ -6,7 +6,8 @@
  * - 押すとその手の操作に飛ぶ（既存の画面を開くだけ。go）。時間は止めない。直れば消える（毎回いまの状態から作る）
  * - 同じ建物に複数あれば強いもの 1 つ＋「+N」（more）
  * - チュートリアルのあいだは出さない。チュートリアルのあと 2 か月目から（marksOn）
- * - 同じ困りごとが L0.marks.tipMonths 回の月の締めで出たら、それを無くすパネル（fix）に「💡」（noteMarks・tipPanels）
+ * - 同じ困りごとが L0.marks.tipMonths 回の月の締めで出たら、それを無くすパネル（fix）に「💡」（noteMarks・tipPanels）。
+ *   素材 → 調達の自動化・作る物 → 製造計画の自動化・職人／店員の疲れ → 勤務シフトの自動化（L0_AUTO の仕組みのパネル）
  */
 import { t } from '../../i18n';
 import { L0, SELF_RUN, SKILL } from './data';
@@ -70,10 +71,10 @@ function fromStall(st: Stall, ws: PBuilding, wh: PBuilding | null, out: Raw[]) {
     if (st.why === 'none') at(buyAt, 'people', 82, wh ? { k: 'order', uid: wh.uid, order: 'buyer' } : { k: 'screen', id: 'staff' }, 'hire');
     else if (st.why === 'rest') at(buyAt, 'tired', 72, { k: 'screen', id: 'staff' }, 'relief');
     else if (st.why === 'full' || st.why === 'backlog') at(ws, 'full', 70, { k: 'screen', id: 'store' }, 'inventory');
-    else at(buyAt, 'mats', 76, wh ? { k: 'order', uid: wh.uid, order: st.why === 'route' || st.why === 'cap' ? 'buyopen' : 'order' } : { k: 'screen', id: 'buy' }, 'auto_order');
+    else at(buyAt, 'mats', 76, wh ? { k: 'order', uid: wh.uid, order: st.why === 'route' || st.why === 'cap' ? 'buyopen' : 'order' } : { k: 'screen', id: 'buy' }, 'auto_proc');
   } else if (st.stage === 'craft') {
     if (st.why === 'noworker') at(ws, 'people', 84, { k: 'order', uid: ws.uid, order: 'crafter' }, 'hire');
-    else at(ws, 'make', 78, { k: 'order', uid: ws.uid, order: 'make' });
+    else at(ws, 'make', 78, { k: 'order', uid: ws.uid, order: 'make' }, 'auto_lineup');
   } else if (st.stage === 'haul') {
     if (st.why === 'rest') at(ws, 'tired', 72, { k: 'screen', id: 'staff' }, 'shift');
     else at(ws, 'people', 80, { k: 'screen', id: 'staff' }, st.why === 'backlog' ? 'timetable' : 'hire');
@@ -111,7 +112,7 @@ export function marksOf(s: P1State): MapMark[] {
   for (const x of s.staff) {
     if (!x.task || !ON_JOB.has(x.task) || x.resting || x.stamina > x.stats.hp * L0.marks.tired) continue;
     const b = x.task === 'shop' ? shops.find((y) => s.shops[y.uid]?.staff === x.hero) : x.task === 'buy' ? wh ?? ws : ws;
-    if (b) raw.push({ uid: b.uid, kind: 'tired', pri: 50, go: { k: 'screen', id: 'staff' }, fix: 'shift' });
+    if (b) raw.push({ uid: b.uid, kind: 'tired', pri: 50, go: { k: 'screen', id: 'staff' }, fix: x.task === 'craft' || x.task === 'shop' ? 'auto_rest' : 'shift' });
   }
   // 問い合わせ・炎上の予告（お客さん）：主力のお店（1 軒目）
   const cs = s.cs;

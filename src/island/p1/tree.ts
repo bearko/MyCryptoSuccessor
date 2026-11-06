@@ -101,6 +101,10 @@ const ICON: Record<string, { b?: string; sku?: Sku; ext?: number; mat?: Mat; her
   swift: { b: 'station' },
   eye: { b: 'jewelry' },
   relief: { emoji: '🔁' },
+  // 段 L0：序盤の手を減らす仕組み（仮の絵：絵文字。docs/ISLAND_ART_TODO.md「段 L0」）
+  auto_proc: { emoji: '🧾' },
+  auto_lineup: { emoji: '🗓' },
+  auto_rest: { emoji: '🔄' },
   abc: { emoji: '📊' },
   contract: { emoji: '📜' },
   direct: { emoji: '🌾' },

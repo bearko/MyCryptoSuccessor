@@ -12,7 +12,7 @@ import { isEn, t } from '../../i18n';
 import { meetHero, propErrK, readErr } from './lesson';
 import { heroById } from '../../game/catalog';
 import { DEF } from '../defs';
-import { ADS, CLEAR, DELEG, L0, DEPT, DEPTS, DEPT_DUTIES, DEPT_SKILLS, isResearch, rpCost, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
+import { ADS, CLEAR, DELEG, L0, L0_AUTO, DEPT, DEPTS, DEPT_DUTIES, DEPT_SKILLS, isResearch, rpCost, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
 import { deptLevel, menuDepts } from './dept';
 import { fitDept } from './voice';
 import {
@@ -400,9 +400,24 @@ export const rndOf = (s: P1State, salt: number) => rng(s.seed + s.day * 7919 + s
 export const errMul = (r: () => number, q: number, k: number) => 1 + (r() * 2 - 1) * (1 - q) * k;
 
 /** 1 日の業務：任せた業務を、見直しの日に回す（採掘・交代の戻しは毎日）。採掘で打ったマスを返す（地図の演出用） */
+/**
+ * 段 L0：その業務を仕組みのパネル（data.ts の L0_AUTO）が回しているか（パネルを取っていて、ヒーローのリーダー・部長がいない）。
+ * 自動プレイも、仕組みが回す業務は手で決めない（scripts/island/sim.ts の dg）
+ */
+export function autoDuty(s: P1State, d: DutyId): boolean {
+  if (!s.skills?.length) return false;
+  for (const [id, x] of Object.entries(L0_AUTO.panels)) if (x.duty === d && has(s, id)) return !runnerOf(s, d);
+  return false;
+}
+/** 仕組みが回している業務（業務の画面・テスト用） */
+export const autoDuties = (s: P1State): DutyId[] => DUTIES.map((d) => d.id).filter((d) => autoDuty(s, d));
+/** 仕組みの回し手（ヒーローはいない。出来は L0_AUTO.q。業務の関数は r.q だけを見る：order・craft・shelf） */
+const AUTO_ST = { hero: -1 } as Staff;
+
 export function delegDay(s: P1State): ReturnType<typeof leadDigHits> {
   const any = s.staff.some((x) => x.task === 'lead' || !!x.heads?.length);
-  if (!any && !s.deleg?.cover.length && !Object.keys(s.deleg?.pend ?? {}).length) return [];
+  const autos = autoDuties(s);
+  if (!any && !autos.length && !s.deleg?.cover.length && !Object.keys(s.deleg?.pend ?? {}).length) return [];
   const st = D(s);
   let hits: ReturnType<typeof leadDigHits> = [];
   // 作るものの選択：ロットが終わった作業台を替える
@@ -424,7 +439,14 @@ export function delegDay(s: P1State): ReturnType<typeof leadDigHits> {
   }
   for (const d of DUTIES) {
     const r = runnerOf(s, d.id);
-    if (!r) continue;
+    if (!r) {
+      // 段 L0：仕組みのパネルが回す業務（記録は担当の報告に出さない：ヒーローがいないので）
+      if (!autos.includes(d.id)) continue;
+      if ((st.next[d.id] ?? 0) > s.day) continue;
+      st.next[d.id] = s.day + everyOf(L0_AUTO.q);
+      RUN[d.id](s, { st: AUTO_ST, q: L0_AUTO.q, by: 'leader' }, { acts: 0, miss: 0, n: 0 }, rndOf(s, d.id.length * 37 + d.id.charCodeAt(0)));
+      continue;
+    }
     const rec = (st.stat[d.id] ??= { acts: 0, miss: 0, n: 0 });
     rec.hero = r.st.hero;
     rec.q = r.q;

@@ -510,6 +510,38 @@ export const SKILL_SPEC: Record<string, SkillSpec> = {
   scoutmap: { expect: [], check: 'probe', probe: { name: 'ルートの開拓の日数（布）', f: (s) => scoutMul(s) * 10, better: 'down' }, note: '開拓の日数' },
   abc: { expect: [], check: 'profit', note: '素材の値段 −5%・買いすぎなし → 利益' },
   relief: { expect: [], check: 'probe', probe: { name: '調達係の定員（交代要員）', f: (s) => buyCap(s), better: 'up' }, note: '1 人目が休む日に 2 人目が買い付けへ（段 UI5a）' },
+  // 段 L0：序盤の手を減らす仕組み（取ると、その業務を毎日回す。deleg.ts の autoDuty）
+  auto_proc: {
+    expect: [],
+    check: 'probe',
+    probe: { name: '作っていない調達の品目（作業台に合わせてそろえる）', f: (s) => s.proc.items.filter((x) => !s.slots.some((sl) => sl.sku === x)).length, better: 'down' },
+    setup: (s) => void (s.proc.items = [...s.proc.items, 'Moai:C' as Sku]),
+    days: 10,
+    note: '業務「素材の発注」を仕組みが回す（段 L0）',
+  },
+  auto_lineup: {
+    expect: [],
+    check: 'probe',
+    probe: { name: '作るものが決まっていない作業台', f: (s) => s.slots.filter((sl) => !sl.sku).length, better: 'down' },
+    setup: (s) => s.slots.forEach((sl) => !sl.running && (sl.sku = null)),
+    days: 10,
+    note: '業務「作るものの選択」を仕組みが回す（段 L0）',
+  },
+  auto_rest: {
+    expect: [],
+    check: 'probe',
+    probe: { name: '休む職人の代わりに入った人（交代）', f: (s) => s.deleg?.cover.length ?? 0, better: 'up' },
+    setup: (s) => {
+      const st = s.staff.find((x) => x.task === 'craft');
+      if (st) Object.assign(st, { stamina: 1 });
+      if (!s.staff.some((x) => x.task == null)) {
+        const extra = { ...s.staff[s.staff.length - 1], hero: 10099, task: null, target: null, resting: false, stamina: 100 };
+        s.staff.push(extra);
+      }
+    },
+    days: 3,
+    note: '業務「休ませる（交代）」を仕組みが回す（段 L0）',
+  },
   contract: { expect: [], check: 'profit', note: '素材の値段 → 利益' },
   b_partner: { expect: ['buy'], note: '素材の値段も' },
   direct: { expect: ['buy'], note: '素材の値段も' },

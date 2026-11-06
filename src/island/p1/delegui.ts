@@ -22,6 +22,7 @@ import {
   heroNm,
   hold,
   leaderLeft,
+  autoDuty,
   leaderOf,
   propEst,
   propWhy,
@@ -247,6 +248,8 @@ function dutyCard(ctx: Ctx, s: P1State, dept: DeptId, id: DutyId, locked: boolea
   if (L) {
     c.append(personRow(L, dept, r?.q));
   } else if (r) c.append(h('p', 'isl-good', t(`部長（${heroNm(r.st.hero)}）がまとめて行っています（${qText(r.q)}）`, `The head (${heroNm(r.st.hero)}) handles it (${qText(r.q)})`)));
+  // 段 L0：仕組みのパネル（調達・製造計画・勤務シフトの自動化）が回している
+  else if (autoDuty(s, id)) c.append(h('p', 'isl-good', t('⚙ 仕組みで自動（スキルツリーのパネル）', '⚙ Runs on its own (skill-tree panel)')));
   else c.append(h('p', 'isl-dim', t('いまは手でやっています', 'You do this by hand now')));
   if (r && stat) c.append(h('small', 'isl-dl-stat', t(`今月：${dutyLine({ id, hero: r.st.hero, by: r.by, q: r.q, acts: stat.acts, miss: stat.miss, n: stat.n })}`, `This month: ${dutyLine({ id, hero: r.st.hero, by: r.by, q: r.q, acts: stat.acts, miss: stat.miss, n: stat.n })}`)));
   if (!locked) {

@@ -1357,6 +1357,10 @@ export const SKILLS: Skill[] = [
   { id: 'pos', branch: 'sys', name: t('POS レジ', 'POS registers'), note: t('市場データに商品ごとの「きのう売れた数」が出る・売り場の強さ +3%', 'Market data shows yesterday’s sales per item; pull +3%'), cost: 5000 },
   { id: 'auto_order', branch: 'sys', name: t('自動発注（EDI）', 'Auto-ordering (EDI)'), note: t('調達係の買い付けが毎日届く（往復なし）・注文の納期 −50%', 'Buyer purchases arrive daily (no round trip); order lead time −50%'), cost: 8000, requires: ['pos'] },
   { id: 'inventory', branch: 'sys', name: t('在庫管理システム', 'Inventory system'), note: t('お店の裏 +10・工房の物置 +20', 'Backrooms +10; workshop stockroom +20'), cost: 6000, requires: ['pos'] },
+  // 段 L0：序盤の手を減らす仕組み（リーダー・部長の代わりに、自分で取って回す。数字は L0_AUTO の 1 か所）
+  { id: 'auto_proc', branch: 'sys', name: t('調達の自動化', 'Auto-procurement'), note: t('調達の品目を作業台に合わせて自動でそろえ、素材が切れそうなら問屋に注文する', 'Keeps purchase items in step with the benches and orders lots before materials run out'), cost: 6000, requires: ['auto_order'] },
+  { id: 'auto_lineup', branch: 'sys', name: t('製造計画の自動化', 'Auto-production plan'), note: t('作業台の作るものを売れ筋に合わせて自動で切り替え、止まった作業台も素材が届けば再開する', 'Switches each bench to what sells and restarts stalled benches once materials arrive'), cost: 6000, requires: ['inventory'] },
+  { id: 'auto_rest', branch: 'sys', name: t('勤務シフトの自動化', 'Auto-shift cover'), note: t('休む職人・店員の持ち場に待機中の人を自動で入れて、止まった作業台・お店をすぐ再開する（戻ったら返す）', 'Puts a free hero in for a resting crafter or clerk so the bench or shop restarts at once (hands it back on return)'), cost: 6000, requires: ['auto_lineup'] },
   { id: 'erp', branch: 'sys', name: t('ERP', 'ERP'), note: t('全段の「ひと月に流せる数」+5%（調達・製造・物流・販売）', 'Every stage’s monthly flow +5% (buy, craft, haul, sell)'), cost: 20000, requires: ['auto_order', 'inventory'], tier: 'U', emblem: 1 },
   { id: 'dyn', branch: 'sys', name: t('ダイナミックプライシング', 'Dynamic pricing'), note: t('需要が供給より多い商品（扱う他社が 1 社以下）の値段 +8%', 'Prices +8% where demand beats supply (1 rival or fewer)'), cost: 18000, requires: ['pos'], tier: 'U' },
   { id: 'flow', branch: 'sys', name: t('人流解析', 'Foot-traffic analytics'), note: t('建てるときにお客さんの多い区画（上位 20%）が光る・売り場の強さ +5%', 'Busiest blocks (top 20%) glow when placing; pull +5%'), cost: 15000, requires: ['inventory'], tier: 'U' },
@@ -2289,8 +2293,22 @@ export const START_RP = 30;
 /** 以前のゴールドダスト 1 つ ＝ RP（古いセーブの移し替え・依頼の報酬の置き換え） */
 export const RP_PER_DUST = 40;
 const RP_FIXED: Record<string, number> = { hire: START_RP };
+/**
+ * 段 L0：序盤の手を減らす仕組みのパネル（システムの枝・Common）。取ると、その業務を「仕組み」が毎日回す（deleg.ts の autoDuty。ヒーローのリーダー・部長がいればそちらが先）。
+ * duty：回す業務（DUTIES）・rp：研究の値段（同じ枝のほかのパネルの値段の割り振りに入れない）・q：仕組みの出来（見直しの間隔と読みの誤差。DELEG.q）
+ */
+export const L0_AUTO: { q: number; panels: Record<string, { duty: DutyId; rp: number }> } = {
+  q: 0.9,
+  panels: {
+    auto_proc: { duty: 'order', rp: 40 },
+    auto_lineup: { duty: 'craft', rp: 40 },
+    auto_rest: { duty: 'rest', rp: 50 },
+  },
+};
+/** 段 L0 で足した仕組みのパネル（スキルツリーの枝の幅の余りの数に入れない：treelayout.ts） */
+export const L0_SKILLS = Object.keys(L0_AUTO.panels);
 /** 段 UI5a で足した研究パネルの RP（決め打ち。同じ枝のほかの研究パネルの値段の割り振りに入れない） */
-const UI5_RP: Record<string, number> = { relief: 40 };
+const UI5_RP: Record<string, number> = { relief: 40, ...Object.fromEntries(Object.entries(L0_AUTO.panels).map(([id, x]) => [id, x.rp])) };
 /** 段 UI5a で足したパネル（スキルツリーの枝の幅の余りの数に入れない：treelayout.ts） */
 export const UI5_SKILLS = ['relief'];
 {
@@ -2553,6 +2571,7 @@ export const L0 = {
   /** 地図の印：持ち場の人のスタミナがこの割合を切ったら「疲れ」（灰）・同じ困りごとが何か月の締めで出たら、それを無くすパネルに「💡」 */
   marks: { tired: 0.3, tipMonths: 2 },
 };
+
 /**
  * 段 I1：Rare からの「予算で任せる」（budget.ts・budgetui.ts。docs/SUCCESSOR_ROADMAP.md「段 I1 の実装」）。数字はここ 1 か所。
  * - from：会社がこのランクの町に出店したら開く（全部門に理解度に関係なく部長を置け、部長に月の予算を渡せる）。

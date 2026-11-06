@@ -391,3 +391,83 @@ describe('自動プレイ（4）', () => {
     expect(props).toBe(0);
   }, 300000);
 });
+
+// ---------------------------------------------------------------- 3b. 序盤の手を減らす仕組みのパネル（ユーザーの決定 2026-11-06：案 A）
+import { L0_AUTO, L0_SKILLS } from '../src/island/p1/data';
+import { autoDuties, autoDuty } from '../src/island/p1/deleg';
+
+describe('仕組みのパネル（調達・製造計画・勤務シフトの自動化）', () => {
+  const take = (s: P1State, id: string) => {
+    if (!s.skills.includes(id)) s.skills.push(id);
+  };
+  it('データは L0_AUTO の 1 か所。Common のシステムの枝（研究パネル）・値段は序盤のパネルの段', () => {
+    expect(L0_SKILLS).toEqual(['auto_proc', 'auto_lineup', 'auto_rest']);
+    for (const id of L0_SKILLS) {
+      const k = SKILL[id];
+      expect(k.tier ?? 'C').toBe('C');
+      expect(k.branch).toBe('sys');
+      expect(k.cat).toBe('research');
+      expect(k.rp).toBe(L0_AUTO.panels[id].rp);
+      expect(k.rp).toBeLessThanOrEqual(80);
+    }
+  });
+  it('調達の自動化：取る前は作っていない調達の品目が残る。取ると毎日の業務で作業台に合わせてそろう', () => {
+    const s = midGame();
+    s.skills = s.skills.filter((x) => !L0_SKILLS.includes(x));
+    s.proc.items = [...s.proc.items, 'Moai:C' as never];
+    for (let k = 0; k < 5; k++) delegDay(s);
+    expect(s.proc.items).toContain('Moai:C');
+    expect(autoDuty(s, 'order')).toBe(false);
+    take(s, 'auto_proc');
+    expect(autoDuty(s, 'order')).toBe(true);
+    for (let k = 0; k < 5; k++) {
+      s.day++;
+      delegDay(s);
+    }
+    expect(s.proc.items).not.toContain('Moai:C');
+  });
+  it('製造計画の自動化：作るものが決まっていない作業台に、売れ筋を自動で決める（取る前はそのまま）', () => {
+    const s = midGame();
+    s.skills = s.skills.filter((x) => !L0_SKILLS.includes(x));
+    for (const sl of s.slots) Object.assign(sl, { running: false, sku: null, progress: 0 });
+    const idle = () => s.slots.filter((sl) => !sl.sku).length;
+    const n0 = idle();
+    expect(n0).toBeGreaterThan(0);
+    for (let k = 0; k < 5; k++) delegDay(s);
+    expect(idle()).toBe(n0);
+    take(s, 'auto_lineup');
+    for (let k = 0; k < 5; k++) {
+      s.day++;
+      delegDay(s);
+    }
+    expect(idle()).toBeLessThan(n0);
+  });
+  it('勤務シフトの自動化：休む職人の持ち場に待機中の人が入る（取る前は入らない）。ヒーローのリーダーがいればそちらが回す', () => {
+    const s = midGame();
+    s.skills = s.skills.filter((x) => !L0_SKILLS.includes(x));
+    const crafter = s.staff.find((x) => x.task === 'craft')!;
+    crafter.resting = true;
+    const free = s.staff.find((x) => x.task == null && !x.resting) ?? Object.assign(s.staff[s.staff.length - 1], { task: null, target: null, resting: false });
+    delegDay(s);
+    expect(s.deleg?.cover.length ?? 0).toBe(0);
+    take(s, 'auto_rest');
+    s.day++;
+    delegDay(s);
+    expect(s.deleg!.cover.some((c) => c.for === crafter.hero && c.hero === free.hero)).toBe(true);
+    // ヒーローのリーダーがいれば、仕組みではなくリーダーが回す
+    openTier(s, 'U');
+    setLevel(s, 'hr', DELEG.leaderAt);
+    const lead = s.staff.find((x) => x.task == null && x.hero !== free.hero);
+    if (lead && setLeader(s, 'rest', lead.hero) == null) expect(autoDuty(s, 'rest')).toBe(false);
+  });
+  it('古いセーブ：仕組みのパネルを取ったまま保存して読んでも動く（任せ方の記録が無くても）', () => {
+    const s = midGame();
+    for (const id of L0_SKILLS) take(s, id);
+    delete s.deleg;
+    const t = deserializeP1(serializeP1(s))!;
+    expect(autoDuties(t)).toEqual(['order', 'craft', 'rest']);
+    expect(() => {
+      for (let k = 0; k < 3; k++) delegDay(t);
+    }).not.toThrow();
+  });
+});
