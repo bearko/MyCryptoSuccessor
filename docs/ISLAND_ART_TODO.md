@@ -21,6 +21,16 @@
 | revived_land（復興した土地）・revive_sign（「復興」の立て札） | 掘りきって復興した荒れ地（2 × 2）の地面と、建物が建っていないときの立て札 | `render.ts` の `reviveGround`（明るい草地・むら・小さな花をコードで）・`reviveSign`（木の杭と板・緑の帯・文字「復興」） | コードで描いた菱形の草地と四角い板 | 2 × 2 マス（400×220）／立て札は 1 マスの上に 60×70 ほど | 地面：a 2x2 isometric patch of freshly leveled new grass land, bright green, neat with a few tiny flowers and faint rake lines, edges blending into the surrounding grass ／ 立て札：a small wooden signpost with a light board and a green ribbon, a sprout icon on it (text is drawn by the game), 1 枚。差分：土 → 草地へ変わる 4 コマ（町に戻ったときの演出） |
 | dungeon_gate（ダンジョンの入り口） | セクタで最後に掘りきった荒れ地（2 × 2）の底で見つかる入り口。タップで「⛏ ダンジョンに潜る」 | `render.ts` の `dungeonGate`（石畳・暗い穴・4 段の階段・左右の柱と横石をコードで。潜っているあいだは奥が光る）。見つかった演出は地面から門が立ち上がる | コードで描いた石の門 | 2 × 2 マス（400×220＋高さ 120 ほど） | an ancient stone gate standing over stone stairs that lead down into darkness, set in a 2x2 isometric patch of worn paving stones; mossy pillars and a heavy lintel with faded carvings of the old kingdom, a faint warm glow deep inside ／ 差分：中で人が掘っているとき（奥の光が強い）・門が地面からせり上がる 4 コマ |
 
+### 段 DIG3（なぞって掘る。2026-11-06）
+
+| id | 名前 | 使う場所 | いまの状態 | 大きさ | PixelLab への指示 |
+|---|---|---|---|---|---|
+| dig_crew（いまは replica のヒーローを流用） | 発掘隊の隊員（名前のないシャドーヒーロー。5 人ぶん） | 発掘の画面の壁の上（`digui.ts` の `paintCrew`：打ったマスへ歩いてツルハシを振る）・地図の荒れ地の常駐の作業員（`render.ts` の `digWorker`）・発掘の画面の下の帯の「発掘隊 N 人」の顔 | `data.ts` の `DIG_CREW_HEROES`（RepC の 5 人）＋ 絵文字の ⛏ | 32px（画面）・歩く人の大きさ（地図） | a small nameless miner in a dark hooded work coat and a helmet with a lamp, pixel art, 4-direction walk and a pickaxe swing (2 frames), muted brown and gray so the real heroes stand out; make 5 colour variants of the scarf |
+| dig_pick | ツルハシ（打っているマスの上の振り） | 発掘の画面（`.isl-dig-pick`：カーソル・指の下のマスの上で 170 ms ごとに振る） | 絵文字 ⛏ を CSS で回している | 24〜32px | a pixel-art pickaxe with a worn wooden handle and a steel head, 3-frame swing (raised, mid, struck) with a small spark on the struck frame, transparent background |
+| dig_bomb | 地中の爆弾（掘り出すと爆発） | 発掘の画面：爆弾の層をはがした瞬間（`bombFx`：いまは pixelfx の花火（橙）と煙と「💥 爆発！」）。帯の「💣 N」 | 絵は無い（はがれた瞬間に爆発するので、爆弾そのものは見えない）。帯は絵文字 💣 | 24px（帯）・48px（はがれた瞬間に 1 コマ見せるなら） | a round black iron bomb with a short lit fuse, pixel art, 24px icon and a 48px version with a bright flash frame |
+| dig_badge | 荒れ地の進捗の札「⛏ N%」 | 地図の荒れ地の上（`render.ts` の `wasteBadge`） | コードで描いた黒い札と金色のバー | 60×22px | a small wooden signboard with a tiny pickaxe icon and room for a number, pixel art, isometric town scale |
+| dig_reach | 効く範囲の点線の枠 | 発掘の画面（`.isl-dig-reach-cell`） | CSS の点線（流れる） | マスの大きさ | （コードのままでよい：点線の枠は PixelLab より CSS のほうが自然） |
+
 ## 優先度 中（コードで描いた小物。いまのままでも遊べる）
 
 | 素材 | 使う場所 | いまの状態 | 大きさ | メモ |

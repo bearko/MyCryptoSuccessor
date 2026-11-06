@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { DIG, DIG_SITES, RESEARCH_NEED, TABLETS } from '../src/island/p1/data';
-import { anyPeek, autoDiggers, biggestFx, cellView, digBlock, digErrText, digStatus, findLabel, fxOf, gotLines, nextLvText, noteEntries, noteTablets, noteTabs, noteTotals, runBar, stars } from '../src/island/p1/digview';
+import { anyPeek, biggestFx, crewInfo, cellView, digBlock, digErrText, digStatus, findLabel, fxOf, gotLines, nextLvText, noteEntries, noteTablets, noteTabs, noteTotals, runBar, stars } from '../src/island/p1/digview';
 import { allowedDirs, assign, build, dig, digLayout, endRun, newP1, runTick, setLevel, startRun, type DigHit, type P1State } from '../src/island/p1/model';
 
 const lot = (s: P1State, id: string): [number, number, 'rd' | 'ld' | 'lu' | 'ru'] => {
@@ -135,16 +135,23 @@ describe('上の 1 行と、打てない理由', () => {
     x.dig = null;
     expect(digBlock(x)).toBe('no-site');
     expect(digStatus(x)).toBeNull();
-    for (const e of ['no-site', 'no-run', 'dug', 'deep', 'wait', 'no-blast', 'money'] as const) expect(digErrText(e).length).toBeGreaterThan(0);
+    for (const e of ['no-site', 'no-run', 'dug', 'deep', 'wait', 'money'] as const) expect(digErrText(e).length).toBeGreaterThan(0);
   });
-  it('発掘隊：発掘の担当の顔と 1 日の回数', () => {
+  it('発掘隊（段 DIG3：シャドーヒーロー）：人数・1 打の強さ・1 日の回数・行動規則の一言・仮の絵', () => {
     const s = site();
-    expect(autoDiggers(s)).toEqual([]);
-    expect(assign(s, s.staff[0].hero, 'dig', null)).toBeNull();
-    const a = autoDiggers(s);
-    expect(a).toHaveLength(1);
-    expect(a[0].hero).toBe(s.staff[0].hero);
-    expect(a[0].perDay).toBeGreaterThan(0);
+    expect(crewInfo(s).n).toBe(0);
+    expect(crewInfo(s).heroes).toEqual([]);
+    // ヒーローは発掘の担当にできない
+    expect(assign(s, s.staff[0].hero, 'dig', null)).toBe('no-task');
+    setLevel(s, 'dig_office', 5);
+    setLevel(s, 'dig_crew', 3);
+    const a = crewInfo(s);
+    expect(a.n).toBe(3);
+    expect(a.heroes).toHaveLength(3);
+    expect(a.perDay).toBe(9);
+    expect(a.power).toBeCloseTo(1.6, 6);
+    expect(a.rule).toBe(3);
+    expect(a.ruleText.length).toBeGreaterThan(0);
   });
 });
 

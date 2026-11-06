@@ -10,7 +10,7 @@ import { DIG, DIG_BALANCE, DIG_SITES, RESEARCH_NEED, relicKey } from '../src/isl
 import { moveTo } from '../src/island/p1/land';
 import {
   allowedDirs,
-  blast,
+  detonate,
   build,
   crackOf,
   deserializeP1,
@@ -36,6 +36,7 @@ import {
   startRun,
   type DigHit,
   type P1State,
+  DUNGEON,
 } from '../src/island/p1/model';
 
 const lot = (s: P1State, id: string): [number, number, 'rd' | 'ld' | 'lu' | 'ru'] => {
@@ -58,6 +59,8 @@ function run(s: P1State, k = 0): P1State {
   if (s.digRun) endRun(s);
   const r = startRun(s, k);
   if (typeof r === 'string') throw new Error(r);
+  // 段 DIG3：地中の爆弾は爆発済みにしておく（位置の決まったテストが爆発で崩れないように。爆弾のテストは tests/island-p1-dig3.test.ts）
+  if (k !== DUNGEON) s.dig!.sites[k].boom = [0, 1, 2, 3, 4, 5];
   return s;
 }
 const st = (s: P1State) => s.dig!.sites[s.dig!.cur];
@@ -211,21 +214,19 @@ describe('スキルの効き目（壁）', () => {
     expect(st(s).hp[3 * 7 + 4]).toBeLessThan(hp0);
   });
 
-  it('発破：押したマスを真ん中に 3 × 3 の いまの層を 1 枚ずつ（硬さに関係なく）。深さの違うマスもそれぞれ 1 枚', () => {
+  it('爆発（段 DIG3）：爆弾のマスを真ん中に 3 × 3 の いまの層を 1 枚ずつ（硬さに関係なく）。深さの違うマスもそれぞれ 1 枚', () => {
     const s = run(game());
     setLevel(s, 'dig_blast', 1);
     peelOnce(s, 4, 4);
     peelOnce(s, 4, 4);
     const before = [...st(s).depth];
-    const r = blast(s, 4, 4);
-    if (typeof r === 'string') throw new Error(r);
+    const r = detonate(s, 4, 4)!.extra ?? [];
     expect(r).toHaveLength(9);
     for (const h of r) expect(st(s).depth[h.y * 7 + h.x]).toBe(before[h.y * 7 + h.x] + 1);
-    // 岩盤（硬さ 2〜3）も 1 回の発破で 1 枚
-    expect(r.find((h) => h.x === 4 && h.y === 4)).toMatchObject({ layer: 2, broke: true, depth: 3 });
-    // 真ん中が掘りきったマスでも、まわりがはがせれば使える
-    const r2 = blast(s, 4, 4);
-    if (typeof r2 === 'string') throw new Error(r2);
+    // 岩盤（硬さ 2〜3）も 1 回の爆発で 1 枚
+    expect(r.find((h) => h.x === 4 && h.y === 4)).toMatchObject({ layer: 2, broke: true, depth: 3, blast: true });
+    // 真ん中が掘りきったマスでも、まわりははがれる
+    const r2 = detonate(s, 4, 4)!.extra ?? [];
     expect(r2).toHaveLength(8);
   });
 

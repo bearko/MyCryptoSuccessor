@@ -9,7 +9,7 @@ import { allSeries } from '../src/game/catalog';
 import { DIG_BALANCE, DIG_SITES, DUNGEON_FINDS, RESEARCH_NEED, RP_GAIN } from '../src/island/p1/data';
 import {
   allowedDirs,
-  autoDig,
+  crewDig,
   build,
   canBuild,
   canPlaceAt,
@@ -296,8 +296,8 @@ describe('ダンジョン', () => {
     endRun(s);
     setLevel(s, 'u_dig_auto', 5);
     expect(standSite(s)).toBe(-1);
-    const st = s.staff[0];
-    expect(autoDig(s, st)).toEqual([]);
+    setLevel(s, 'dig_crew', 3);
+    expect(crewDig(s)).toEqual([]);
   });
 });
 
