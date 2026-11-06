@@ -9,7 +9,7 @@ import { center, diamond, drawArt, drawBuilding, drawCell, image, type Camera, t
 import { cells, frontCell, type Dir } from '../sim';
 import { PRODUCT, skuParts, type Sku } from './data';
 import { COIN_KEEP, COIN_MS, PLUS_MS, along, drawRing, drawWalker, floatText, type Anim } from './anim';
-import { DUNGEON, craftDays, doorOf, facilityStatus, ground, isRoad, isVacant, myWorkshop, reachOf, roadPath, siteProgress, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
+import { DUNGEON, craftDays, doorOf, facilityStatus, ground, isRoad, isVacant, myWorkshop, roadPath, siteProgress, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
 import { areaPaint, companyColor } from './trade';
 import { bounds, cacheScale, covered, drawBorders, drawWorld, roadAt, type World } from './worldrender';
 import { standing } from './digview';
