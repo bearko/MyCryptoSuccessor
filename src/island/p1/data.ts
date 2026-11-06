@@ -1241,11 +1241,16 @@ export type SkillCat = 'research' | 'money';
 /** 研究パネルか（お金パネルでなければ研究パネル） */
 export const isResearch = (k: Skill) => k.cat !== 'money';
 /** 最大レベル（研究パネル・封印・準備中・研究への寄付は 1。無限の強化パネルは上限なし＝Infinity） */
-export const maxLv = (k: Skill) => (k.inf ? Infinity : k.sealed || k.soon || k.donate || isResearch(k) ? 1 : (k.max ?? 5));
+/** 段 ST1・R2：Lv 1〜5 にできる研究パネル（+N% 型。data.ts の最後で R2_HAND と fx から決める。r2Panel） */
+export const R2_SET = new Set<string>();
+/** 段 ST1・R2：Lv 1〜5 にできる研究パネル（数字で比例して効く +N% 型）か */
+export const r2Panel = (k: Pick<Skill, 'id'>) => R2_SET.has(k.id);
+export const maxLv = (k: Skill) => (k.inf ? Infinity : k.sealed || k.soon || k.donate ? 1 : R2_SET.has(k.id) ? R2.maxLv : isResearch(k) ? 1 : (k.max ?? 5));
 /** そのレベル（lv）にするコスト（GUM）：round(cost × 倍率 / 100) × 100 */
 export const levelCost = (k: Skill, lv: number) => Math.round((k.cost * LV_COST[Math.max(0, Math.min(LV_COST.length, lv) - 1)]) / 100) * 100;
 /** 効き目の表示の行：レベル lv のときの値（up は Lv2 から） */
-export const shownAt = (x: Shown, lv: number, up = false) => (x.at || x.txt ? (lv <= 0 ? 0 : (x.at?.[lv - 1] ?? lv)) : up ? x.v * Math.max(0, lv - 1) : x.lin ? x.v * lv : x.v * lvMulOf(lv));
+/** 効き目の表示の行：レベル lv のときの値（up は Lv2 から。lin2：段 R2 の研究パネル＝1 段ごとに同じ効き） */
+export const shownAt = (x: Shown, lv: number, up = false, lin2 = false) => (x.at || x.txt ? (lv <= 0 ? 0 : (x.at?.[lv - 1] ?? lv)) : up ? x.v * Math.max(0, lv - 1) : x.lin || lin2 ? x.v * lv : x.v * lvMulOf(lv));
 /** パネルの効き目の行（fx・show と、Lv2 からの up・upShow） */
 /** 効き目の値の表示（+15%・−20%・+2・+3 秒・150 ms） */
 export function fmtShown(x: Shown, v: number): string {
@@ -1254,9 +1259,9 @@ export function fmtShown(x: Shown, v: number): string {
   return `${x.bare ? '' : x.down ? '−' : '+'}${r}${x.unit}${x.suf ?? ''}`;
 }
 /** そのレベルの効き目の文（無ければ null）。文の表（txt）があればそれ、無ければ数（fmtShown） */
-export function shownText(x: Shown, lv: number, up = false): string | null {
+export function shownText(x: Shown, lv: number, up = false, lin2 = false): string | null {
   if (x.txt) return lv <= 0 ? null : (x.txt[Math.min(x.txt.length, lv) - 1] ?? null);
-  const v = shownAt(x, lv, up);
+  const v = shownAt(x, lv, up, lin2);
   return v ? fmtShown(x, v) : null;
 }
 export function shownOf(k: Skill): { base: Shown[]; up: Shown[] } {
@@ -2421,6 +2426,33 @@ for (const k of SKILLS) {
   if (ups.length) k.note += t(`（Lv2〜：${list}）`, ` (Lv2+: ${list})`);
 }
 export const SKILL: Record<string, Skill> = Object.fromEntries(SKILLS.map((s) => [s.id, s]));
+/**
+ * 段 ST1・R2（ユーザーの決定 2026-11-05）：研究パネルの Lv と、研究ポイント（RP）の入り口。数字はここ 1 か所。
+ * - +N% 型の研究パネルは Lv 1〜5（maxLv）。1 段ごとに同じ効き（Lv n で Lv1 の n 倍。model.ts の lvMul・fxSum）。
+ *   次の Lv の RP は Lv1 の RP × mult（Lv2 1.5・Lv3 2.2・Lv4 3.2・Lv5 4.5 倍。合計 12.4 倍）。お金は要らない（必要なお金は上げない）。
+ *   +N% 型：汎用の効き目（fx）だけで効く研究パネルと、個別の効き目が「1 ＋ 値 × 倍率」「下げ（cut）」で上限つきに効く R2_HAND。
+ *   解放型（建物・ルート・技・自動化）・大きめの研究パネル・発掘の枝（決まった段の効き目）・無限の強化パネル・寄付・修行のある技は Lv 1 のまま。
+ * - RP の入り口（毎月の締め。r2.ts）：① 研究の施策（出土品の整理・文献調査。G を払って RP。月に 1 回ずつ。Rare からは R&D 部長が予算で、
+ *   Rare より前はプレイヤーがスキルツリーか研究ノートから手で）② 追試（研究発表を済ませた町ごとに月 1 回・retest）③ 展示館（展示の価値 × museum の RP）。
+ *   scale：会社が出店したことのある最高ランクで、研究の施策の G と RP を同じ倍率で（Common 1 → Uncommon 2.5 → Rare 6.25 → Epic 15.6）
+ */
+export const R2 = {
+  maxLv: 5,
+  mult: [1, 1.5, 2.2, 3.2, 4.5],
+  study: { sort: { g: 2500, rp: 12 }, lit: { g: 6000, rp: 25 } } as Record<'sort' | 'lit', { g: number; rp: number }>,
+  scale: { C: 1, U: 2.5, R: 6.25, E: 15.6, L: 15.6 } as Record<Tier, number>,
+  retest: { C: 3, U: 8, R: 20, E: 50, L: 0 } as Record<Tier, number>,
+  museum: 0.25,
+};
+/** 個別の効き目（model.ts）が「1 ＋ 値 × lvMul」・cut（−80% まで）・上限つきで効く研究パネル（Lv で素直に比例するもの） */
+export const R2_HAND = ['display', 'vmd', 'pop', 'golden', 'set', 'hours', 'b_sign', 'order', 'b_premium', 'concierge', 'five_s', 'jig2', 'chair', 'kaizen', 'line', 'loading', 'route_opt', 'crossdock', 'fleet', 'stock1', 'stock2', 'stock3', 'swift', 'eye', 'scoutmap', 'abc', 'bulk2', 'contract', 'b_partner', 'direct', 'lounge', 'shift', 'welfare', 'training', 'mgr', 'holding', 'inventory', 'erp', 'flow', 'forecast', 'ec', 't_master'];
+for (const k of SKILLS) {
+  if (!isResearch(k) || k.inf || k.donate || k.sealed || k.soon || k.big || k.train || k.branch === 'dig') continue;
+  const fxOnly = !!k.fx?.length && !k.show?.length && !k.up?.length && !k.upShow?.length;
+  if (fxOnly || R2_HAND.includes(k.id)) R2_SET.add(k.id);
+}
+/** 段 R2：研究パネルの次の Lv（lv）の RP（Lv1 の RP × 倍率） */
+export const r2Rp = (k: Skill, lv: number) => Math.round(rpCost(k) * (R2.mult[Math.max(1, Math.min(R2.maxLv, lv)) - 1] ?? 1));
 /** 枝（9 本）。docs/ISLAND_PHASE1.md「スキルツリー」：物流が主軸・人材で勝負・システムでハイテク企業・発掘（Lime。出会いのあと） */
 export const BRANCHES: { key: Branch; name: string }[] = [
   { key: 'shop', name: t('お店', 'Shops') },

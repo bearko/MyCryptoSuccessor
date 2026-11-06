@@ -17889,3 +17889,89 @@ button.isl-tree-cond {
     animation: none;
   }
 }
+/* 段 R2：月の研究ポイントの入り方（入り口ごとの縦の積み上げ棒）と、研究の施策のボタン */
+.isl-r2-box {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0;
+  padding: 6px 8px;
+  border: 1px solid #3a4866;
+  background: rgba(0, 0, 0, 0.2);
+}
+.isl-r2-h {
+  font-size: 13px;
+}
+.isl-r2-bars {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  height: 120px;
+}
+.isl-r2-col {
+  flex: 1;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  justify-items: center;
+  min-width: 0;
+}
+.isl-r2-bar {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  width: min(36px, 100%);
+  border-bottom: 2px solid var(--isl-dim);
+}
+.isl-r2-seg {
+  display: block;
+  border-top: 1px solid #0f1626;
+}
+.isl-r2-seg.is-dots,
+.isl-r2-sw.is-dots {
+  background-image: radial-gradient(#0f1626 1px, transparent 1.4px) !important;
+  background-size: 5px 5px !important;
+}
+.isl-r2-seg.is-hatch,
+.isl-r2-sw.is-hatch {
+  background-image: repeating-linear-gradient(45deg, rgba(15, 22, 38, 0.7) 0 1px, transparent 1px 5px) !important;
+}
+.isl-r2-v,
+.isl-r2-m {
+  color: var(--isl-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.isl-r2-leg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.isl-r2-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.isl-r2-key small {
+  font-size: 12px;
+}
+.isl-r2-sw {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #0f1626;
+}
+.isl-r2-per {
+  font-size: 12px;
+}
+.isl-r2-study {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+}
+.isl-r2-study > small {
+  flex-basis: 100%;
+  font-size: 12px;
+}
+.isl-tree-studyb.is-can {
+  border-color: var(--isl-good);
+}

@@ -18,7 +18,7 @@ import { clauseSlots, ddDays, keepRate, offerChance, patentDays, suitChance } fr
 import { emptyLedger } from '../../src/island/p1/company';
 import { POL_OFF, openPolicies, policyOfPanel } from '../../src/island/p1/policy';
 import { areaShares, deserializeP1 as fromSave, newP1 as freshTown, newStorePull, rivalStores, serializeP1 as toSave, vacantCost } from '../../src/island/p1/model';
-import { POL_PANELS, HERO_GROWTH, ADS, DIG_BALANCE, DIG_SITES, HIRE_POOL, INVEST, INVESTS, MONEY_PANELS, P1B, PRODUCT, RESEARCH_NEED, SKILL, aptitude, isResearch, relicKey, sku, skuParts, type DigFxKind, type FxKind, type Mat, type Skill, type Sku, type Task } from '../../src/island/p1/data';
+import { R2_SET, POL_PANELS, HERO_GROWTH, ADS, DIG_BALANCE, DIG_SITES, HIRE_POOL, INVEST, INVESTS, MONEY_PANELS, P1B, PRODUCT, RESEARCH_NEED, SKILL, aptitude, isResearch, relicKey, sku, skuParts, type DigFxKind, type FxKind, type Mat, type Skill, type Sku, type Task } from '../../src/island/p1/data';
 import {
   LEARNABLE,
   allowedDirs,
@@ -712,6 +712,21 @@ export function specOf(k: Skill): SkillSpec | undefined {
  * 基準は Lv1 の行と同じ（前も後も Lv1 を取ってある）。Epic・Legendary は対象外（まだ遊べない）
  */
 export const LEVEL_AUDIT = (['C', 'U', 'R'] as const).flatMap((tier) => Object.values(MONEY_PANELS[tier]));
+/**
+ * 段 R2：Lv 1〜5 にした研究パネル（+N% 型）の代表の Lv1 → Lv2。汎用の効き目（fx）の種類ごとに Common・Uncommon の 1 枚と、
+ * 個別の効き目（R2_HAND）の代表。Lv で効き目が 2 倍になって、流れの数字に出ること
+ */
+export const R2_AUDIT = [
+  ...new Set([
+    ...[...R2_SET].filter((id) => ['C', 'U'].includes(SKILL[id].tier ?? 'C') && SKILL[id].fx?.length).filter((id, i, xs) => xs.findIndex((x) => SKILL[x].fx![0].kind === SKILL[id].fx![0].kind) === i),
+    'display',
+    'golden',
+    'loading',
+    'stock1',
+    'jig2',
+    'lounge',
+  ]),
+];
 
 /** 設備投資の表：効くはずの段と前提（INVESTS の全部が入っていること） */
 export const INVEST_SPEC: Record<string, { expect: Stage[]; base?: Item['base']; setup?: Setup; after?: Setup; note?: string; out?: string }> = {
@@ -821,14 +836,14 @@ export function items(): Item[] {
     });
   }
   // レベル上げ：代表のパネルの Lv1 → Lv2（前も後も Lv1 を取ってある。after は前と後の両方に）
-  for (const id of LEVEL_AUDIT) {
+  for (const id of [...LEVEL_AUDIT, ...R2_AUDIT]) {
     const k = SKILL[id];
     const spec = specOf(k);
     if (!spec || spec.out) continue;
     out.push({
       id: `${id}@lv2`,
-      group: 'お金パネル',
-      name: `${k.name}（Lv1 → Lv2）`,
+      group: isResearch(k) ? '研究パネル' : 'お金パネル',
+      name: `${k.name}（Lv1 → Lv2${isResearch(k) ? '・段 R2' : ''}）`,
       expect: spec.expect,
       base: spec.base,
       setup: (s) => {

@@ -3,10 +3,13 @@
  * 仕様は docs/SUCCESSOR_ROADMAP.md「段 ST1 の実装」・docs/ISLAND_PHASE1.md「スキルツリー」。
  */
 import { describe, expect, it } from 'vitest';
-import { GOAL, SKILL, SKILLS, ST1_MULTI, isResearch, rpCost, type Tier } from '../src/island/p1/data';
+import { GOAL, R2, R2_SET, SKILL, SKILLS, ST1_MULTI, isResearch, maxLv, r2Panel, r2Rp, rpCost, type Tier } from '../src/island/p1/data';
+import { setBudget } from '../src/island/p1/budget';
+import { museumRp, r2Month, retestRp, runStudy, studyByHead, studyCost, studyLock, studyRp } from '../src/island/p1/r2';
+import { openTier } from './l0util';
 import { headReserve } from '../src/island/p1/budget';
 import { goalFloor, goalMonths, goalPath, goalSeen, goalStep, setGoal } from '../src/island/p1/goal';
-import { condsOf, deserializeP1, has, learn, newP1, prereqLock, serializeP1, skillLock, type P1State } from '../src/island/p1/model';
+import { condsOf, deserializeP1, fxSum, has, learn, levelLock, levelUp, lvMul, museumValue, newP1, nextLevelCost, nextLevelRp, prereqLock, serializeP1, setLevel, skillLock, step, type P1State } from '../src/island/p1/model';
 import { BANDS, BAND_TIERS, EDGES, LANES, POS, crossings, edgePoly, groupOf, laneCross } from '../src/island/p1/treelayout';
 import { CROSS_NOW } from './st1util';
 
@@ -216,5 +219,133 @@ describe('ST1 ③：ここまで研究を進める（goal.ts）', () => {
     expect(setGoal(s, 'host')).toBe(false);
     expect(setGoal(s, 'dig_donate')).toBe(false);
     expect(s.flags.goal).toBe('stock3');
+  });
+});
+
+describe('ST1 ④：R2 研究パネルの Lv と RP の入り口', () => {
+  it('+N% 型の研究パネルだけ Lv 1〜5。解放型・大きめ・発掘の枝・無限・寄付・お金のパネルはそのまま', () => {
+    expect(R2_SET.size).toBeGreaterThan(150);
+    for (const id of R2_SET) {
+      const k = SKILL[id];
+      expect(isResearch(k), id).toBe(true);
+      expect(maxLv(k), id).toBe(5);
+      expect(k.big || k.inf || k.donate || k.branch === 'dig' || k.train, id).toBeFalsy();
+    }
+    for (const id of ['shop2', 'pot', 'hub', 'route_cloth', 'auto_order', 'd_shop', 'dig_ext', 'u_dig_speed_inf', 'dig_donate', 'host', 'hire']) expect(r2Panel(SKILL[id]), id).toBe(false);
+    expect(maxLv(SKILL.shop2)).toBe(1);
+    expect(maxLv(SKILL.host)).toBe(5);
+    expect(SKILL.host.cat).toBe('money');
+  });
+  it('1 段ごとに同じ効き（Lv n で Lv1 の n 倍）・RP は 1.0／1.5／2.2／3.2／4.5 倍・お金は要らない', () => {
+    const s = rich();
+    const k = SKILLS.find((x) => r2Panel(x) && x.fx?.[0]?.kind === 'pull' && (x.tier ?? 'C') !== 'C')!;
+    const kind = k.fx![0].kind;
+    s.flags.rings = ['U', 'R', 'E', 'L'];
+    s.skills.push(k.id);
+    const base = fxSum(s, kind);
+    expect(base).toBeCloseTo(k.fx![0].v);
+    expect(R2.mult).toEqual([1, 1.5, 2.2, 3.2, 4.5]);
+    let rp = 0;
+    for (let lv = 2; lv <= 5; lv++) {
+      const need = r2Rp(k, lv);
+      expect(need, `Lv${lv}`).toBe(Math.round(rpCost(k) * R2.mult[lv - 1]));
+      expect(nextLevelRp(s, k)).toBe(need);
+      expect(nextLevelCost(s, k)).toBe(0);
+      const m0 = s.money;
+      const rp0 = s.rp;
+      expect(levelUp(s, k.id)).toBeNull();
+      expect(s.money).toBe(m0);
+      expect(rp0 - s.rp).toBe(need);
+      rp += need;
+      expect(fxSum(s, kind)).toBeCloseTo(k.fx![0].v * lv);
+      expect(lvMul(s, k.id)).toBe(lv);
+    }
+    expect(rp + rpCost(k)).toBe([1, 1.5, 2.2, 3.2, 4.5].reduce((a, m) => a + Math.round(rpCost(k) * m), 0));
+    expect(levelLock(s, k)).toBe('max');
+    // RP が足りなければ上げられない
+    const t2 = rich();
+    t2.flags.rings = ['U', 'R', 'E', 'L'];
+    t2.skills.push(k.id);
+    t2.rp = r2Rp(k, 2) - 1;
+    expect(levelLock(t2, k)).toBe('rp');
+    // 個別の効き目のパネル（品出しの名人）も Lv で比例
+    const d = rich();
+    d.skills.push('display');
+    expect(lvMul(d, 'display')).toBe(1);
+    setLevel(d, 'display', 3);
+    expect(lvMul(d, 'display')).toBe(3);
+    // お金のパネルは前のまま（Lv5 で 2 倍）
+    d.skills.push('host');
+    setLevel(d, 'host', 5);
+    expect(lvMul(d, 'host')).toBe(2);
+  });
+  it('入り口 ①：研究の施策（整理・文献）はお金を払って RP。月に 1 回ずつ。Rare より前は手で・Rare で R&D 部長がいれば部長が予算で', () => {
+    const s = rich();
+    s.flags.digMeet = 'done';
+    const rp0 = s.rp;
+    const m0 = s.money;
+    expect(studyLock(s, 'sort')).toBeNull();
+    const r = runStudy(s, 'sort');
+    expect(r).toEqual({ cost: studyCost(s, 'sort'), rp: studyRp(s, 'sort') });
+    expect(s.money).toBe(m0 - studyCost(s, 'sort'));
+    expect(s.rp).toBe(rp0 + studyRp(s, 'sort'));
+    expect(s.rpSrc?.study).toBe(studyRp(s, 'sort'));
+    expect(runStudy(s, 'sort')).toBe('done');
+    expect(runStudy(s, 'lit')).not.toBe('done');
+    // 次の月はまた行える
+    s.day += 30;
+    expect(studyLock(s, 'sort')).toBeNull();
+    // 発掘と出会う前は出さない
+    const u = rich();
+    delete u.flags.digMeet;
+    expect(studyLock(u, 'sort')).toBe('hidden');
+    // お金が足りない
+    const p = rich();
+    p.flags.digMeet = 'done';
+    p.money = 0;
+    expect(studyLock(p, 'lit')).toBe('money');
+    // Rare：R&D 部長がいれば部長が予算で（手では行えない）
+    const h = openTier(rich(), 'R');
+    h.flags.digMeet = 'done';
+    const st = h.staff[0];
+    st.heads = ['rnd'];
+    expect(studyByHead(h)).toBe(true);
+    expect(studyLock(h, 'sort')).toBe('head');
+    setBudget(h, 'rnd', 'X', 1_000_000);
+    const rpH = h.rp;
+    const out = r2Month(h);
+    expect(out.study).toEqual(['sort', 'lit']);
+    expect(h.rp).toBeGreaterThanOrEqual(rpH + studyRp(h, 'sort') + studyRp(h, 'lit'));
+    // 倍率：Rare は Common の 6.25 倍
+    expect(studyRp(h, 'sort')).toBe(Math.round(R2.study.sort.rp * R2.scale.R));
+  });
+  it('入り口 ②：追試（研究発表を済ませた町ごとに月 1 回）・③ 展示館（展示の価値 × 倍率）。月の報告に入り口ごとの RP', () => {
+    const s = rich();
+    s.presented = ['c1', 'c2'];
+    expect(retestRp(s)).toBe(R2.retest.C * 2);
+    s.presented.push('u1');
+    expect(retestRp(s)).toBe(R2.retest.C * 2 + R2.retest.U);
+    // 展示館：館が開いていなければ 0
+    expect(museumRp(s)).toBe(0);
+    s.museum = { at: { sector: 'zz', uid: 1 }, items: [], lv: 0, marks: 0 };
+    s.research = { 1011: 3, 1056: 1 };
+    s.museum.items = [1011, 1056];
+    expect(museumRp(s)).toBe(Math.round(museumValue(s) * R2.museum));
+    expect(museumRp(s)).toBeGreaterThan(0);
+    const rp0 = s.rp;
+    const r = r2Month(s);
+    expect(r.retest).toBe(retestRp(s));
+    expect(r.museum).toBe(museumRp(s));
+    expect(s.rp).toBe(rp0 + r.retest + r.museum);
+    expect(s.rpSrc).toMatchObject({ retest: r.retest, museum: r.museum });
+  });
+  it('月の締めで、入り口ごとの RP を月の報告に移す（研究ノートの棒）', () => {
+    const s = rich();
+    s.presented = ['c1'];
+    s.open = 0;
+    s.day = 29;
+    const r = step(s);
+    expect(r.report?.rpSrc?.retest).toBe(R2.retest.C);
+    expect(s.rpSrc).toEqual({});
   });
 });

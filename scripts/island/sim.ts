@@ -4,6 +4,7 @@
  * 実行：`npm run island:sim`（tests/island-p1-sim.test.ts から呼ぶ。結果は console と docs/ISLAND_BALANCE.md）。
  * ゲームの数値（data.ts・式）は変えない。ここは計測だけ。
  */
+import { R2_OFF } from '../../src/island/p1/r2';
 import { writeFileSync } from 'node:fs';
 import { AD_TIER, HERO_GROWTH, HERO_RARITIES, aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, isAntique, areaTuneOf, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier, RARE_AREA, EPIC_RIVAL, ANTIQUE, BRAND_CAP, L0_SKILLS } from '../../src/island/p1/data';
 import { managerApt, RUIN, sectorDef, type RuinLike } from '../../src/island/p1/company';
@@ -1476,6 +1477,15 @@ function simPolicy(s: P1State, p: PolicyId): string | null {
   return did ? null : 'none';
 }
 /** v33（段 K）：経営方針を止めて回す（効き目・提案の傾向・発表会なし＝段 K の前と同じ。比べるためだけ。終わったら戻す） */
+/** 段 ST1・R2：RP の入り口（追試・展示館・研究の施策）と研究パネルの Lv を止めて回す（前の main と同じ流れで比べるテストだけ。終わったら戻す） */
+export function withoutR2<T>(f: () => T): T {
+  R2_OFF.on = true;
+  try {
+    return f();
+  } finally {
+    R2_OFF.on = false;
+  }
+}
 export function withoutPol<T>(f: () => T): T {
   POL_OFF.on = true;
   try {

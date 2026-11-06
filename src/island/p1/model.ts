@@ -14,6 +14,8 @@ import {
   deptOf,
   levelCost,
   lvMulOf,
+  R2_SET,
+  r2Rp,
   OLD_DIG_TOOLS,
   DIG,
   DIG_AUTO,
@@ -140,6 +142,7 @@ import { canHireRarity, charismaOf, hireCap, initMorale, moraleAdd, moraleAvg, m
 import { fitSector, fitTask } from './voice';
 import { duoDrain, duoSpeed, type DuoState } from './duo';
 import { budgetClose, budgetDay, type BudgetReport, type BudgetState } from './budget';
+import { noteRp, r2Month, type RpSrc, type StudyKind } from './r2';
 import { boardQuarter, sectorPush, type BoardClose, type BoardState } from './board';
 import { migratePol, migrateSlots, polFx, polSync, type PolState } from './policy';
 import { lessonFx, lessonMonth, type LessonState } from './lesson';
@@ -322,6 +325,8 @@ export interface Rank {
 export interface Report {
   month: number;
   revenue: number;
+  /** 段 R2：この月に入った RP（入り口ごと。研究ノートの縦の積み上げ棒。前の報告には無い） */
+  rpSrc?: Partial<Record<RpSrc, number>>;
   bySeries: Partial<Record<string, number>>;
   costs: { materials: number; wages: number; part: number; upkeep: number; build: number; ads: number };
   profit: number;
@@ -662,6 +667,10 @@ export interface P1State {
   rp: number;
   /** 研究への寄付の回数（会社の永続の記録。RP の側：のちのリセットでも残るので、値段は下がって戻らない。版 7。古いセーブは 0） */
   rpBuys?: number;
+  /** 段 R2：今月入った RP（入り口ごと。月の報告へ移して 0 から。無くてよい項目） */
+  rpSrc?: Partial<Record<RpSrc, number>>;
+  /** 段 R2：今月行った研究の施策（m：会社の月・done：整理・文献。無くてよい項目） */
+  r2?: { m: number; done: StudyKind[] };
   /** 研究ノート：エクステごとの掘った数（会社で共有。研究レベルは researchLv。上限（研究の目利き）を超えても数は貯める） */
   research: Record<number, number>;
   /** 研究の数の端数（深い層ほど研究が進みやすい：層 n で 1 + 0.25 × (n − 1) × 倍率 個ぶん。端数は持ち越し） */
@@ -1217,8 +1226,8 @@ const topHeroes = (rarity: 'Epic' | 'Legendary') => {
 export const has = (s: Pick<P1State, 'skills'>, skill: string) => s.skills.includes(skill);
 /** パネルのレベル（未取得 0。取ったものは最低 1） */
 export const lvOf = (s: Pick<P1State, 'skills' | 'skillLv'>, id: string) => (s.skills.includes(id) ? Math.max(1, s.skillLv?.[id] ?? 1) : 0);
-/** レベルの効果の倍率：未取得 0、取得済み 1 + 0.25(lv − 1)（Lv5 で 2） */
-export const lvMul = (s: Pick<P1State, 'skills' | 'skillLv'>, id: string) => lvMulOf(lvOf(s, id));
+/** レベルの効果の倍率：未取得 0、取得済み 1 + 0.25(lv − 1)（Lv5 で 2）。段 R2 の研究パネルは 1 段ごとに同じ効き（Lv n で n） */
+export const lvMul = (s: Pick<P1State, 'skills' | 'skillLv'>, id: string) => (R2_SET.has(id) ? lvOf(s, id) : lvMulOf(lvOf(s, id)));
 /** 掛け算型の下げ（日数 −20% など）：1 − v × 倍率（下げは −80% まで） */
 const cut = (s: Pick<P1State, 'skills' | 'skillLv'>, id: string, v: number) => Math.max(0.2, 1 - v * lvMul(s, id));
 /** 汎用の効き目の合計のキャッシュ（skills・skillLv が入れ替わったら作り直す） */
@@ -1238,7 +1247,8 @@ export function fxSum(s: Pick<P1State, 'skills' | 'skillLv'>, kind: FxKind): num
     if (!k || (!k.fx && !k.up)) continue;
     const lv = lvOf(s, id);
     // レベルごとの表（発掘の枝）があれば、その Lv の値
-    for (const f of k.fx ?? []) sums[f.kind] = (sums[f.kind] ?? 0) + (f.at ? (f.at[Math.min(f.at.length, lv) - 1] ?? 0) : f.v * (FX_LIN.includes(f.kind) ? lv : lvMulOf(lv)));
+    // 段 R2：+N% 型の研究パネルは 1 段ごとに同じ効き（v × Lv）
+    for (const f of k.fx ?? []) sums[f.kind] = (sums[f.kind] ?? 0) + (f.at ? (f.at[Math.min(f.at.length, lv) - 1] ?? 0) : f.v * (FX_LIN.includes(f.kind) || R2_SET.has(id) ? lv : lvMulOf(lv)));
     for (const f of k.up ?? []) sums[f.kind] = (sums[f.kind] ?? 0) + f.v * (lv - 1);
   }
   fxCache.set(s.skills, { len: s.skills.length, lv: s.skillLv, sums });
@@ -2270,13 +2280,15 @@ export function levelLock(s: P1State, k: Skill): LevelLock | null {
   if (lv >= maxLv(k)) return 'max';
   if (!ringOpen(s, skillTier(k))) return 'ring';
   if (k.inf) return (s.rp ?? 0) < infCost(lv + 1) ? 'rp' : null;
+  // 段 R2：研究パネルの Lv は RP で（お金は要らない）
+  if (R2_SET.has(k.id)) return (s.rp ?? 0) < r2Rp(k, lv + 1) ? 'rp' : null;
   if (s.money < levelCost(k, lv + 1)) return 'money';
   return null;
 }
-/** 次のレベルの値段（お金パネルは資金。無限の強化パネルは RP：nextLevelRp） */
-export const nextLevelCost = (s: P1State, k: Skill) => (k.inf ? 0 : levelCost(k, lvOf(s, k.id) + 1));
-/** 無限の強化パネルの次の Lv の値段（RP。ほかのパネルは 0） */
-export const nextLevelRp = (s: Pick<P1State, 'skills' | 'skillLv'>, k: Skill) => (k.inf ? infCost(lvOf(s, k.id) + 1) : 0);
+/** 次のレベルの値段（お金パネルは資金。無限の強化パネル・段 R2 の研究パネルは RP：nextLevelRp） */
+export const nextLevelCost = (s: P1State, k: Skill) => (k.inf || R2_SET.has(k.id) ? 0 : levelCost(k, lvOf(s, k.id) + 1));
+/** 無限の強化パネル・段 R2 の研究パネルの次の Lv の値段（RP。ほかのパネルは 0） */
+export const nextLevelRp = (s: Pick<P1State, 'skills' | 'skillLv'>, k: Skill) => (k.inf ? infCost(lvOf(s, k.id) + 1) : R2_SET.has(k.id) ? r2Rp(k, lvOf(s, k.id) + 1) : 0);
 /** お金パネルのレベルを 1 つ上げる（資金）。無限の強化パネルは RP で。docs/ISLAND_PHASE1.md「パネルのレベル」 */
 export function levelUp(s: P1State, id: string): LevelLock | null {
   const k = SKILL[id];
@@ -2286,6 +2298,8 @@ export function levelUp(s: P1State, id: string): LevelLock | null {
   const lv = lvOf(s, id) + 1;
   if (k.inf) {
     s.rp -= infCost(lv);
+  } else if (R2_SET.has(k.id)) {
+    s.rp -= r2Rp(k, lv);
   } else {
     const c = levelCost(k, lv);
     s.money -= c;
@@ -2336,6 +2350,7 @@ export function donate(s: P1State): { cost: number; rp: number; next: number } |
   s.rpBuys = donations(s) + 1;
   const rp = DIG_BALANCE.buyRp.rp;
   s.rp = (s.rp ?? 0) + rp;
+  noteRp(s, 'donate', rp);
   return { cost, rp, next: nextDonateCost(s) };
 }
 /** レベルを決める（skillLv は入れ替える：汎用の効き目のキャッシュが作り直される）。監査・テストからも使う */
@@ -2778,7 +2793,10 @@ export function claim(s: P1State, id: string): string | null {
   book(s, 'other', m.reward);
   flowAdd(s, 'reward', m.reward);
   // 研究ポイント（以前のゴールドダスト ✨ 1 つ = 40 RP）
-  if (m.rp) s.rp = (s.rp ?? 0) + m.rp;
+  if (m.rp) {
+    s.rp = (s.rp ?? 0) + m.rp;
+    noteRp(s, 'other', m.rp);
+  }
   // ヒーローの育成：依頼の報酬に強化アイテム（上のランクの町ほど、1 つ下の段の証）。タオックスの 1 か月目（チュートリアル）は無し
   if (growthOn(s)) gainItem(s, HERO_GROWTH.items.mission[s.tier ?? 'C']);
   brandAdd(s, BRAND.mission, t(`依頼「${m.title}」を達成`, `Request done: ${m.title}`));
@@ -4433,6 +4451,8 @@ export function endMonth(s: P1State): Report {
   const relicRev = Object.entries(s.monthSales).reduce<number>((a, [k, v]) => a + (isRelic(k) ? (v ?? 0) : 0), 0);
   // 遺物の展示館：展示の価値から来館者と入館料（帳簿の「展示館」）。節目のボーナスも
   syncMuseum(s);
+  // 段 R2：追試（発表を済ませた町）・展示館の来館者の RP・R&D 部長の研究の施策（月の報告の前）
+  r2Month(s);
   const mus = museumMonth(s);
   if (mus && s.museum) {
     s.money += mus.income;
@@ -4440,8 +4460,11 @@ export function endMonth(s: P1State): Report {
     flowAdd(s, 'museum', mus.income);
     s.museum.last = mus;
   }
+  const rpSrc = s.rpSrc;
+  s.rpSrc = {};
   const report: Report = {
     month,
+    ...(rpSrc && Object.keys(rpSrc).length ? { rpSrc } : {}),
     revenue: Math.round(revenue),
     ...(relicRev > 0 ? { relic: Math.round(relicRev) } : {}),
     bySeries: { ...s.monthSales },
@@ -6905,13 +6928,16 @@ export function syncResearchCap(s: P1State): { rp: number; lv: number } {
   s.resCapPaid = Math.max(paid, cap);
   return out;
 }
-/** RP を足す（今月の出土品・発掘作業の出土にも数える） */
-function gainRp(s: P1State, v: number) {
+/** RP を足す（今月の出土品・発掘作業の出土にも数える）。段 R2：入り口ごとに数える（src。無ければ発掘） */
+export function gainRp(s: P1State, v: number, src: RpSrc = 'dig') {
   // 段 K：経営方針（研究重視・オープン・イノベーションなど）の「入る研究ポイント +%」
   // 段 S1：奇策の教え（入る研究ポイント +%。lesson.ts）
   const pr = polFx(s, 'rp') + lessonFx(s, 'rp');
   if (pr > 0) v = Math.round(v * (1 + pr));
   s.rp = (s.rp ?? 0) + v;
+  noteRp(s, src, v);
+  // 発掘の月の RP の記録は前と同じ（発掘・研究発表）。段 R2 の入り口は数えない
+  if (src !== 'dig' && src !== 'present') return;
   if (s.dig) s.dig.month.rp += v;
   if (s.digRun) s.digRun.got.rp += v;
 }
@@ -7863,7 +7889,7 @@ export function present(s: P1State): { rp: number; letter: Tier | null; conquere
   // 広報の良いニュース（段 G）
   prNews(s, 'present', t(`${sectorDef(sector).name}で研究成果を発表`, `Presented findings in ${sectorDef(sector).name}`));
   const v = RP_GAIN[tier].present;
-  gainRp(s, v);
+  gainRp(s, v, 'present');
   // ヒーローの育成：研究成果の発表で強化アイテム（そのランクの昇格の証）
   gainItem(s, HERO_GROWTH.items.present[tier]);
   // 調査依頼状：そのランクの 2 つのセクタで発表したら（LETTER_NEED。Common → U・Uncommon → R・Rare → E・Epic → L（枠だけ））

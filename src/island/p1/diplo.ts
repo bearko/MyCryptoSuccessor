@@ -9,6 +9,7 @@
  * - 使者の依頼：「○○を N 個、期限までに」。工房の在庫から少しずつ渡し、そろったら報酬（お金・研究ポイント・仲）。断ってもよい（仲が少し下がる）。
  * 仕様は docs/ISLAND_PHASE1.md「外交（Epic）」。数字は data.ts の DIPLO。
  */
+import { noteRp } from './r2';
 import { t } from '../../i18n';
 import { DIPLO, EVENT, PRODUCT, isRelic, skuParts, type Sku } from './data';
 import { book } from './company';
@@ -292,6 +293,7 @@ export function diploDay(s: P1State): { done: Req[]; late: Req[] } | null {
       s.money += q.reward;
       book(s, 'other', -q.reward);
       s.rp = (s.rp ?? 0) + q.rp;
+      noteRp(s, 'other', q.rp);
       relAdd(s, q.land, DIPLO.rel.done);
       D.month.done++;
       D.stat.reqDone++;

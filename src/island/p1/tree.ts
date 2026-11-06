@@ -12,7 +12,7 @@ import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { icon } from '../../ui/dom';
 import { TIER_NAME } from './company';
-import { DEPT, DEPTS, DIG_BALANCE, GOAL, digRpLv, SKILL, SKILLS, TIERS, deptOf, isResearch, maxLv, rpCost, shownOf, shownText, type DeptId, type FxKind, type Mat, type Skill, type Sku, type Tier } from './data';
+import { DEPT, DEPTS, DIG_BALANCE, GOAL, r2Panel, digRpLv, SKILL, SKILLS, TIERS, deptOf, isResearch, maxLv, rpCost, shownOf, shownText, type DeptId, type FxKind, type Mat, type Skill, type Sku, type Tier } from './data';
 import { deptLevel, deptLockText, deptOpen } from './dept';
 import { affordableSkills, bestSkillMove, carriedRp, condsOf, missingFront, digBranchOpen, donate, donateLock, donations, has, hqOpen, infAt, learn, LEARNABLE, levelLock, levelUp, lvOf, nextDonateCost, nextLevelCost, nextLevelRp, openHQ, openRing, ringOpen, ringsDue, skillLock, skillTier, trainDays, trainingOf, trainees, type P1State } from './model';
 import { after, mineTip, open, type Ctx } from './screens';
@@ -21,6 +21,8 @@ import { pickHero } from './heroui';
 import { halfOf, shapeOf, BANDS, BAND_TIERS, BOUNDS, DEPT_LAYOUT, EDGES, GATES, GROUP_STAGE, HEAD_Y, HUBPOS, JUNCTIONS, KNOTPOS, POS, STEP, UNIT, deptAtX, deptCenter, edgePath, groupCenter, groupOfBranch, polyLen, type P, type TreeEdge } from './treelayout';
 import { bar, btn, h, heroIcon, heroName, matIcon, money, plain, rich, skuIcon } from './ui';
 import { tipLine, tipPanels } from './mapmarks';
+import { rpStackEl, studyEl } from './r2ui';
+import { STUDY_KINDS, studyLock } from './r2';
 import { goalFloor, goalMonths, goalNext, goalPath, goalable, setGoal, type GoalWait } from './goal';
 
 /** ランドセクタの絵（はじまりの国 Lime） */
@@ -201,6 +203,8 @@ const view = { x: 0, y: 0, zoom: 0, sel: null as string | null };
 const filt = { dept: null as DeptId | null, open: false, panel: false, q: '' };
 let more = false;
 let moreFor: string | null = null;
+/** 段 R2：「🔬 研究の施策」のシート（出土品の整理・文献調査と、月の RP の入り方）を開いている */
+let studyOpen = false;
 /** 本社を開放した時刻（放射状に広がる演出のあいだ） */
 let burst = 0;
 const BURST_MS = 2600;
@@ -329,6 +333,20 @@ function catLine(s: P1State, k: Skill, tut = false): HTMLElement {
     row.append(h('i', 'isl-tree-catmark'), h('span', '', t(`お金パネル（寄付 ${donations(s)} 回・上限なし）`, `Money panel (${donations(s)} donations, no limit)`)));
     return row;
   }
+  // 段 R2：+N% 型の研究パネルは Lv 1〜5（RP で上げる。1 段ごとに同じ効き）
+  if (isResearch(k) && r2Panel(k)) {
+    const lv = lvOf(s, k.id);
+    const mx = maxLv(k);
+    const row = h('div', `isl-tree-cat is-research ${lv >= mx ? 'is-max' : ''}`);
+    const txt = tut ? t('研究パネル', 'Research panel') : lv <= 0 ? t(`研究パネル（Lv 1〜${mx}・RP で上げる）`, `Research panel (Lv 1–${mx}, level up with RP)`) : lv >= mx ? t(`研究パネル（Lv ${lv} / ${mx}・最大）`, `Research panel (Lv ${lv} / ${mx}, max)`) : t(`研究パネル（Lv ${lv} / ${mx}）`, `Research panel (Lv ${lv} / ${mx})`);
+    row.append(h('i', 'isl-tree-catmark'), h('span', '', txt));
+    if (!tut && lv > 0) {
+      const dots = h('span', 'isl-tree-dots');
+      for (let i = 1; i <= mx; i++) dots.append(h('i', i <= lv ? 'is-on' : ''));
+      row.append(dots);
+    }
+    return row;
+  }
   if (isResearch(k)) {
     const row = h('div', 'isl-tree-cat is-research');
     row.append(h('i', 'isl-tree-catmark'), h('span', '', t('研究パネル（レベルなし）', 'Research panel (no levels)')));
@@ -403,9 +421,11 @@ function effLines(s: P1State, k: Skill): HTMLElement | null {
   const box = h('div', 'isl-tree-eff');
   const line = (x: (typeof base)[number], isUp: boolean) => {
     // 発掘の枝はレベルごとの表（「+6 秒」「150 ms」「岩盤まで」）。ほかは Lv1 の値 × 倍率
-    const cur = shownText(x, lv, isUp);
+    // 段 R2：+N% 型の研究パネルは 1 段ごとに同じ効き（Lv n で Lv1 の n 倍）
+    const lin2 = r2Panel(k);
+    const cur = shownText(x, lv, isUp, lin2);
     // 発掘の枝の研究パネル（レベルなし）は、開くと決まった段（digRpLv。ふつう Lv3）の効き目で入る
-    const nx = lv < mx ? shownText(x, k.branch === 'dig' && isResearch(k) && !k.donate ? digRpLv(k) : lv + 1, isUp) : null;
+    const nx = lv < mx ? shownText(x, k.branch === 'dig' && isResearch(k) && !k.donate ? digRpLv(k) : lv + 1, isUp, lin2) : null;
     const r = h('div', 'isl-tree-effrow');
     r.append(h('span', '', x.label), h('b', '', cur ?? t('なし', 'none')));
     if (nx != null && nx !== cur) r.append(h('span', 'isl-dim', '→'), h('b', 'isl-good', nx));
@@ -418,9 +438,9 @@ function effLines(s: P1State, k: Skill): HTMLElement | null {
 /** そのパネルは、いまレベルを上げられるか（資金が足りて、最大でない） */
 const canLevel = (s: P1State, k: Skill) => levelLock(s, k) === null;
 /** 次のレベルの値段の表示（無限の強化パネルは RP） */
-const nextPrice = (s: P1State, k: Skill) => (k.inf ? `${nextLevelRp(s, k).toLocaleString('en-US')} RP` : money(nextLevelCost(s, k)));
+const nextPrice = (s: P1State, k: Skill) => (k.inf || r2Panel(k) ? `${nextLevelRp(s, k).toLocaleString('en-US')} RP` : money(nextLevelCost(s, k)));
 /** 次のレベルまで足りないぶん */
-const levelShort = (s: P1State, k: Skill) => (k.inf ? t(`あと ${(nextLevelRp(s, k) - (s.rp ?? 0)).toLocaleString('en-US')} RP 足りない`, `${(nextLevelRp(s, k) - (s.rp ?? 0)).toLocaleString('en-US')} RP short`) : t(`あと ${money(nextLevelCost(s, k) - s.money)} 足りない`, `${money(nextLevelCost(s, k) - s.money)} short`));
+const levelShort = (s: P1State, k: Skill) => (k.inf || r2Panel(k) ? t(`あと ${(nextLevelRp(s, k) - (s.rp ?? 0)).toLocaleString('en-US')} RP 足りない`, `${(nextLevelRp(s, k) - (s.rp ?? 0)).toLocaleString('en-US')} RP short`) : t(`あと ${money(nextLevelCost(s, k) - s.money)} 足りない`, `${money(nextLevelCost(s, k) - s.money)} short`));
 /** 寄付のボタンの言い方：「寄付する 20,000 G → +100 RP」 */
 const donateLabel = (s: P1State) => t(`寄付する ${money(nextDonateCost(s))} → +${DIG_BALANCE.buyRp.rp} RP`, `Donate ${money(nextDonateCost(s))} → +${DIG_BALANCE.buyRp.rp} RP`);
 const DONATE_NEED = () => t('Uncommon の調査依頼状を持っているか、Common のセクタを 1 つ制覇すると開く', 'Opens once you hold the Uncommon survey request or have conquered a Common sector');
@@ -700,6 +720,21 @@ export function openSkills(ctx: Ctx, focus?: string) {
       after(ctx);
     });
     if (!sealed && !only) cur.append(find);
+    // 段 R2：研究の施策（出土品の整理・文献調査）と、月の RP の入り方。発掘と出会ってから（行える施策があれば光る）
+    if (!sealed && !only && digBranchOpen(s)) {
+      const can = STUDY_KINDS.some((k) => studyLock(s, k) === null);
+      const sb = h('button', `isl-tree-curitem isl-tree-studyb ${studyOpen ? 'is-on' : ''} ${can ? 'is-can' : ''}`);
+      sb.type = 'button';
+      sb.append(h('span', '', '🔬'), h('b', '', t('研究の施策', 'Research work')));
+      sb.title = t('出土品の整理・文献調査（月に 1 回ずつ）と、月の研究ポイントの入り方', 'Sorting finds and literature surveys (once a month each), and monthly RP by source');
+      sb.addEventListener('click', (e) => {
+        e.stopPropagation();
+        studyOpen = !studyOpen;
+        filt.panel = false;
+        after(ctx);
+      });
+      cur.append(sb);
+    }
     // いま絞り込んでいるもの（小さな札。✕ で外す）
     if (!sealed && !only && (filt.dept || filt.open)) {
       const fc = h('button', 'isl-tree-curitem isl-tree-fchip');
@@ -1292,7 +1327,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       const mx = maxLv(sel);
       const label =
         st === 'done'
-          ? isResearch(sel) && !sel.inf
+          ? isResearch(sel) && !sel.inf && !(r2Panel(sel) && !only && lv < mx)
             ? carriedRp(s, sel.id)
               ? t('研究済み（引き継ぎ）', 'Researched (carried over)')
               : t('研究済み', 'Researched')
@@ -1440,6 +1475,15 @@ export function openSkills(ctx: Ctx, focus?: string) {
       }
       fpanel.append(fhead, q, hits, row, h('small', 'isl-tree-fk', t('部門', 'Departments')), depts, h('p', 'isl-dim isl-tree-legend', t('四角＝研究ポイント・菱形＝お金。緑＝開けられる・赤＝足りない・暗い＝手前がまだ', 'Square = RP, diamond = money. Green = can unlock, red = short, dim = not yet')));
     }
+    // 段 R2：研究の施策のシート
+    const spanel = h('div', 'isl-tree-fpanel isl-tree-studyp');
+    spanel.hidden = !studyOpen || sealed || !!only || !digBranchOpen(s);
+    if (!spanel.hidden) {
+      spanel.addEventListener('pointerdown', (e) => e.stopPropagation());
+      const head = h('div', 'isl-tree-fhead');
+      head.append(h('b', '', t('🔬 研究の施策', '🔬 Research work')), h('small', 'isl-dim', `${(s.rp ?? 0).toLocaleString('en-US')} RP`), btn('✕', () => ((studyOpen = false), after(ctx)), 'isl-tree-fclose'));
+      spanel.append(head, studyEl(s, { done: () => (ctx.save(), after(ctx)), toast: ctx.toast, sfx: (k) => ctx.sfx?.(k) }), rpStackEl(s));
+    }
     // ズーム
     const zoom = h('div', 'isl-tree-zoom');
     // 段 ST1：拡大と縮小は段階的に（MAP1 と同じ：＋／−で 1 段ずつ・「全体」）
@@ -1496,7 +1540,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       cur.hidden = true;
       zoom.hidden = true;
     }
-    wrap.append(vp, heads, ...bandLabs.map((x) => x.el), top, zoom, detail, card, stop, fpanel);
+    wrap.append(vp, heads, ...bandLabs.map((x) => x.el), top, zoom, detail, card, stop, fpanel, spanel);
     wrap.classList.toggle('is-phone', phone);
     // 外周が開く演出：終わるまで操作を受けない。最後にマインちゃんの一言と「OK」
     if (fx) {

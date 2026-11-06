@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { L0_PANELS_BEFORE, L0_SKILLS, POL_PANELS, POL_PANEL_DEPT, DIG_PANELS, ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, UI5_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, REQUIRES_ORIG, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
+import { L0_PANELS_BEFORE, L0_SKILLS, POL_PANELS, POL_PANEL_DEPT, DIG_PANELS, ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, UI5_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, REQUIRES_ORIG, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf, r2Panel } from '../src/island/p1/data';
 import { deptLevel, deptNews, deptOpen, deptReady, menuDepts, menuLayout, nextMark } from '../src/island/p1/dept';
 import { deserializeP1, newP1, serializeP1 } from '../src/island/p1/model';
 import { BOUNDS, DEPT_LAYOUT, EDGES, HUBPOS, HUB_BOX, KNOTPOS, POS, UNPLACED, groupOf } from '../src/island/p1/treelayout';
@@ -90,7 +90,9 @@ describe('パネルの部門の割り振り', () => {
       // 段 L0：序盤の自動化のパネルは値段だけ下げた（data.ts の L0_PANELS）。ほかは前と同じことを、下げる前の値段で比べる
       const l0 = L0_PANELS_BEFORE[k.id];
       const k0 = l0 ? { ...k, cost: l0.cost, rp: l0.rp } : k;
-      const now = { id: k.id, name: k.name, note: k.note, cost: k0.cost, rp: rpCost(k0), cat: k.cat, max: maxLv(k) === Infinity ? 'inf' : maxLv(k), lv5: maxLv(k) >= 5 && maxLv(k) !== Infinity ? levelCost(k0, 5) : null, requires: REQUIRES_ORIG[k.id] ?? [], reqLv: k.inf && k.branch === 'dig' ? b.reqLv : (k.reqLv ?? null), anyOf: k.anyOf ?? null, brand: k.brand ?? null, tier: k.tier ?? 'C', emblem: k.emblem ?? null, big: !!k.big, train: k.train ?? null, fx: k.fx ?? null, up: k.up ?? null, shown: shownOf(k) };
+      // 段 ST1・R2：+N% 型の研究パネルは Lv 1〜5 になった（RP で上げる）。割り振りの前と同じかは、レベルなし（1）として比べる
+      const mx = r2Panel(k) ? 1 : maxLv(k);
+      const now = { id: k.id, name: k.name, note: k.note, cost: k0.cost, rp: rpCost(k0), cat: k.cat, max: mx === Infinity ? 'inf' : mx, lv5: mx >= 5 && mx !== Infinity ? levelCost(k0, 5) : null, requires: REQUIRES_ORIG[k.id] ?? [], reqLv: k.inf && k.branch === 'dig' ? b.reqLv : (k.reqLv ?? null), anyOf: k.anyOf ?? null, brand: k.brand ?? null, tier: k.tier ?? 'C', emblem: k.emblem ?? null, big: !!k.big, train: k.train ?? null, fx: k.fx ?? null, up: k.up ?? null, shown: shownOf(k) };
       expect(JSON.parse(JSON.stringify(now)), k.id).toEqual(b);
     }
   });
