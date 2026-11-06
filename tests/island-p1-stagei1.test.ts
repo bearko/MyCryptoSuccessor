@@ -74,10 +74,11 @@ function town(): P1State {
 }
 
 describe('開く時期と部長を置ける部門', () => {
-  it('Common・Uncommon は開かない（理解度 8 のまま）。会社が Rare に出店すると開き、理解度に関係なく部長を置ける（経営企画は社長）', () => {
+  it('Common・Uncommon は開かない（段 L0：部長も Rare の町まで置けない）。会社が Rare に出店すると開き、理解度に関係なく部長を置ける（経営企画は社長）', () => {
     const c = newP1(1);
     expect(budgetOpen(c)).toBe(false);
-    expect(headLeft(c, 'hr')).toBeGreaterThan(0);
+    // 段 L0：Common・Uncommon は理解度に関係なく部長を置けない（Rare の町を開くまで）
+    expect(headLeft(c, 'hr')).toBe('R');
     const s = town();
     expect(budgetOpen(s)).toBe(true);
     for (const d of budgetDepts(s)) expect(headLeft(s, d)).toBe(0);

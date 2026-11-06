@@ -1,6 +1,6 @@
 // 任せ方の 4 段（段 D。docs/ISLAND_PHASE1.md「任せ方」）：理解度 3 でチームリーダー・8 で事業部長・出来は能力値と Lv（とパッシブ）で変わる・
 // 外すと手に戻る・部長の提案は実際に取れる手から・承認で実行・お金が足りないと保留・セクター長の条件と古いセーブ
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DELEG, DEPT_SKILLS, HERO_GROWTH, SKILL, isResearch, type DeptId } from '../src/island/p1/data';
 import { deptLevel } from '../src/island/p1/dept';
 import {
@@ -25,6 +25,8 @@ import {
 } from '../src/island/p1/deleg';
 import { deserializeP1, investCost, levelLock, myShops, newP1, serializeP1, setShelf, skillLock, staffOf, step, type P1State, type Report } from '../src/island/p1/model';
 import { runOnce } from '../scripts/island/sim';
+import { BUDGET_OFF } from '../src/island/p1/budget';
+import { openTier } from './l0util';
 
 /** その部門の理解度を n にする（お金パネルを Lv1 ずつ取る） */
 function setLevel(s: P1State, d: DeptId, n: number) {
@@ -48,8 +50,15 @@ function midGame(): P1State {
 const fakeReport = (s: P1State): Report => ({ ...(s.reports[s.reports.length - 1] ?? ({} as Report)), month: (s.reports[s.reports.length - 1]?.month ?? 0) + 1 });
 
 describe('チームリーダー（理解度 3）・事業部長（理解度 8）', () => {
+  // 段 L0：チームリーダーは Uncommon の町から・部長は Rare の町から。ここでは理解度の節目を確かめる（Rare の予算で任せる段 I1 は止める）
+  beforeAll(() => {
+    BUDGET_OFF.on = true;
+  });
+  afterAll(() => {
+    BUDGET_OFF.on = false;
+  });
   it('理解度 3 でリーダーを置ける（2 では置けない）。置いた人は役目の枠を使い、ほかの仕事には就かない', () => {
-    const s = newP1(1);
+    const s = openTier(newP1(1), 'U');
     const hero = s.staff[0].hero;
     setLevel(s, 'logistics', 2);
     expect(setLeader(s, 'order', hero)).toBe('locked');
@@ -66,7 +75,7 @@ describe('チームリーダー（理解度 3）・事業部長（理解度 8）
   });
 
   it('理解度 8 で部長を置ける（7 では置けない）。部長は部門の業務をまとめて回し、リーダーがいれば部長の下で出来が上がる。リーダーから部長へ昇進できる', () => {
-    const s = newP1(1);
+    const s = openTier(newP1(1), 'R');
     const [a, b] = s.staff.map((x) => x.hero);
     setLevel(s, 'logistics', 7);
     expect(setHead(s, 'logistics', a)).toBe('locked');
@@ -122,7 +131,7 @@ describe('チームリーダー（理解度 3）・事業部長（理解度 8）
   });
 
   it('品出しのリーダー：作っている商品を棚に並べる。外すと手に戻り、棚は勝手に替わらない', () => {
-    const s = midGame();
+    const s = openTier(midGame(), 'U');
     setLevel(s, 'logistics', DELEG.leaderAt);
     const shop = myShops(s)[0];
     const made = s.slots.map((x) => x.sku).find((x) => x)!;
@@ -144,7 +153,7 @@ describe('チームリーダー（理解度 3）・事業部長（理解度 8）
   it('役目の経験値：リーダー 1 日 13・部長 16（× ランク。上の役目ほど多い）。マネージャー（セクター長）は 20 のまま', () => {
     expect(HERO_GROWTH.xp.leader).toBeLessThan(HERO_GROWTH.xp.head);
     expect(HERO_GROWTH.xp.head).toBeLessThan(HERO_GROWTH.xp.day.manager);
-    const s = midGame();
+    const s = openTier(midGame(), 'R');
     setLevel(s, 'hr', DELEG.headAt);
     const st = s.staff.find((x) => x.task == null) ?? s.staff[s.staff.length - 1];
     expect(setHead(s, 'hr', st.hero)).toBeNull();
@@ -160,8 +169,15 @@ describe('チームリーダー（理解度 3）・事業部長（理解度 8）
 
 describe('部長の提案のカード', () => {
   /** 物流・人事・マーケ・R&D・経営企画の部長を置いて、月の締めの提案を作る */
+  // 段 L0：部長と提案は Rare の町から。部長が予算で自分で実行する段 I1 は止めて、受け箱の提案を確かめる
+  beforeAll(() => {
+    BUDGET_OFF.on = true;
+  });
+  afterAll(() => {
+    BUDGET_OFF.on = false;
+  });
   function withHeads(): P1State {
-    const s = midGame();
+    const s = openTier(midGame(), 'R');
     const ids = s.staff.map((x) => x.hero);
     const depts: DeptId[] = ['logistics', 'marketing', 'strategy', 'rnd'];
     depts.forEach((d, k) => {
@@ -257,6 +273,8 @@ describe('セクター長（マネージャーと復興の委任のまとめ直�
     const rec = { id: 'c1', invest: 0.3, capital: 0, log: [{ m: 1, rev: 10000, profit: 5000, invest: 1500, toHQ: 3500 }] };
     const r = { toHQ: 3500, invest: 1500 };
     expect(sectorApprove(s, rec, r)).toBeNull();
+    // 段 L0：部長は Rare の町から
+    openTier(s, 'R');
     setLevel(s, 'logistics', DELEG.headAt);
     expect(setHead(s, 'logistics', s.staff[0].hero)).toBeNull();
     const x = sectorApprove(s, rec, r)!;
@@ -279,7 +297,8 @@ describe('セクター長（マネージャーと復興の委任のまとめ直�
     expect(back.deleg).toBeUndefined();
     expect(roleOf(staffOf(back, st.hero)!)).toEqual({ kind: 'sector', sector: 'c2' });
     expect(back.staff.filter((x) => x.task === 'lead')).toEqual([]);
-    // 役目のあるセーブも保存し直してそのまま
+    // 役目のあるセーブも保存し直してそのまま（段 L0：リーダーは Uncommon の町から）
+    openTier(back, 'U');
     setLevel(back, 'logistics', DELEG.leaderAt);
     expect(setLeader(back, 'order', back.staff[1].hero)).toBeNull();
     const again = deserializeP1(serializeP1(back))!;

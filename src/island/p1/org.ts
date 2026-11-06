@@ -9,7 +9,8 @@
  */
 import { DELEG, DEPTS, DEPT_DUTIES, type DeptId, type DutyId, type Task } from './data';
 import { deptLevel, menuDepts } from './dept';
-import { headLeft, headOf, leaderOf, quality } from './deleg';
+import { headLeft, headOf, leaderLeft, leaderOf, quality } from './deleg';
+import { rankLocked, type HeroStage, type Left } from './stage';
 import { starOf } from './card';
 import { staffOf, type P1State, type Staff } from './model';
 import { amountOf, budgetOpen, deptBudget } from './budget';
@@ -24,7 +25,7 @@ export interface Seat {
   /** 空席で、いま置ける */
   open: boolean;
   /** 空席で、まだ置けない：この理解度で置ける（いまの理解度 now） */
-  lock?: { at: number; now: number };
+  lock?: { at: number; now: number; rank?: HeroStage };
   /** 読みの確かさ（★1〜3。その部門の出来と Lv） */
   star?: 1 | 2 | 3;
   morale?: number;
@@ -75,13 +76,17 @@ export function orgChart(s: P1State): OrgChart {
     const lv = deptLevel(s, d.id);
     const byCeo = d.id === 'strategy';
     const H = byCeo ? null : headOf(s, d.id);
-    // 段 I1：Rare からは理解度に関係なく置ける（deleg.ts の headLeft）
-    const ready = headLeft(s, d.id) === 0;
-    const head: Seat = byCeo ? { kind: 'head', dept: d.id, hero: null, open: false } : H ? seatOf(H, 'head', d.id) : { kind: 'head', dept: d.id, hero: null, open: ready, ...(!ready ? { lock: { at: DELEG.headAt, now: lv } } : {}) };
+    // 段 I1：Rare からは理解度に関係なく置ける（deleg.ts の headLeft）。段 L0：Rare の町を開くまでは「🔒 Rare の町を開くと」
+    const hl = headLeft(s, d.id);
+    const ready = hl === 0;
+    const lockOf = (x: Left, at: number): Seat['lock'] => (rankLocked(x) ? { at, now: lv, rank: x } : { at, now: lv });
+    const head: Seat = byCeo ? { kind: 'head', dept: d.id, hero: null, open: false } : H ? seatOf(H, 'head', d.id) : { kind: 'head', dept: d.id, hero: null, open: ready, ...(!ready ? { lock: lockOf(hl, DELEG.headAt) } : {}) };
+    // 段 L0：チームリーダーは Uncommon の町から（Common の空席は「🔒 Uncommon の町を開くと」）
+    const ll = leaderLeft(s, d.id);
     const leaders: Seat[] = DEPT_DUTIES[d.id].map((u) => {
       const L = leaderOf(s, u);
       if (L) return seatOf(L, 'leader', d.id, { duty: u });
-      return { kind: 'leader', dept: d.id, duty: u, hero: null, open: lv >= DELEG.leaderAt, ...(lv < DELEG.leaderAt ? { lock: { at: DELEG.leaderAt, now: lv } } : {}) };
+      return { kind: 'leader', dept: d.id, duty: u, hero: null, open: ll === 0, ...(ll !== 0 ? { lock: lockOf(ll, DELEG.leaderAt) } : {}) };
     });
     const posts: Seat[] = s.staff.filter((x) => x.task && TASK_DEPT[x.task] === d.id).map((x) => seatOf(x, 'post', d.id, { task: x.task! }));
     const nums = budgetOpen(s) && !byCeo ? (() => {

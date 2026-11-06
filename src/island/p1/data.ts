@@ -2517,6 +2517,16 @@ export const DELEG = {
   sector: { need: 3, ready: false, invest: 0.1, max: 2 },
 };
 /**
+ * 段 L0（ユーザーの声 2026-11-06「0 → 1 はプレイヤー」）：ヒーローの力を借りられるランク（会社が出店したことのある最高ランク。stage.ts の heroStage）。
+ * leaderFrom：チームリーダーを置ける（理解度 DELEG.leaderAt も要る）・headFrom：事業部長（経営企画の部長も）を置ける・
+ * propFrom：ヒーロー・部長からの提案（承認を求めるもの）が届く。届く前は地図の印（mapmarks.ts）で困りごとを見せる
+ */
+export const L0 = {
+  leaderFrom: 'U' as 'C' | 'U' | 'R',
+  headFrom: 'R' as 'C' | 'U' | 'R',
+  propFrom: 'R' as 'C' | 'U' | 'R',
+};
+/**
  * 段 I1：Rare からの「予算で任せる」（budget.ts・budgetui.ts。docs/SUCCESSOR_ROADMAP.md「段 I1 の実装」）。数字はここ 1 か所。
  * - from：会社がこのランクの町に出店したら開く（全部門に理解度に関係なく部長を置け、部長に月の予算を渡せる）。
  * - rate：予算の段（小 S・中 M・大 L）＝ いまの町の先月の売上 × 割合（部門ごと）。floor：会社の格ごとの下限。round：丸め。max：数字で決めるときの上限。

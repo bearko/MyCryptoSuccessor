@@ -486,6 +486,8 @@ export interface Flags {
   depts?: DeptId[];
   /** 部門（段 B）：お知らせ済みの理解度の節目の数（部門ごと） */
   deptMarks?: Partial<Record<DeptId, number>>;
+  /** 段 L0：お知らせ済みのヒーローの段（stage.ts の heroStage。リーダー・部長が置けるようになったお知らせ。無くてよい） */
+  l0Stage?: 'C' | 'U' | 'R';
   /** 営業の部門の紹介（Rare の町に初めて進出したときのマインちゃんの会話。段 C）を見た */
   salesTalk?: boolean;
   /** 経理・総務の紹介（マインちゃん。Uncommon の町に初めて進出したあと 1 回。段 F） */

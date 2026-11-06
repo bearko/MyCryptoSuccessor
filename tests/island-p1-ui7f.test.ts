@@ -117,7 +117,9 @@ describe('8 割の倉庫：あふれる先の損を見積もり、グラフを�
   /** 使わない素材が入り続け、月末に倉庫が 8 割を超えた町 */
   function eighty(): P1State {
     const s = town(1);
-    const inj = inflow(s, 120);
+    // 段 L0：通常の自動プレイが Common でリーダーを置かなくなり、写しの町の倉庫の埋まり方が変わった。8 割を超えた月にまだあふれていない町に
+    // なるよう、入る速さを少しゆっくりに（120 → 150 日で埋まる速さ）
+    const inj = inflow(s, 150);
     for (let n = 0; n < 8; n++) {
       toMonthEnd(s, inj);
       if (poolUsed(s) >= poolCap(s) * 0.8) break;
@@ -257,7 +259,8 @@ describe('提案書の「いま」の一言は、その提案書の手に合わ�
   });
   it('グラフの札と下の文は、横軸と同じ暦の月（「7 月にあふれる」「9 月まで持つ」・年をまたげば「来年 2 月」）', () => {
     const s = town(1);
-    const inj = inflow(s, 120);
+    // 段 L0：上の eighty と同じ（入る速さ 150 日）
+    const inj = inflow(s, 150);
     for (let k = 0; k < 8 && poolUsed(s) < poolCap(s) * 0.8; k++) toMonthEnd(s, inj);
     const c = storeChart(s, { cap: poolCap(s) + 100, free: 0 });
     const note = storeNote(c);

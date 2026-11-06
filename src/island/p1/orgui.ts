@@ -15,6 +15,7 @@ import { orgChart, orgCounts, type Seat } from './org';
 import { setSectorHead, staffOf, type P1State } from './model';
 import { after, open, type Ctx } from './screens';
 import { h, heroIcon } from './ui';
+import { rankLockText } from './stage';
 import './i1.css';
 
 const stars = (n: number) => `${'★'.repeat(n)}${'☆'.repeat(3 - n)}`;
@@ -41,7 +42,7 @@ function seatEl(ctx: Ctx, s: P1State, seat: Seat, label: string, onAssign: (() =
     info.append(role, h('b', '', heroNm(seat.hero)), meta);
     row.append(face, info);
   } else {
-    info.append(role, h('b', '', seat.open || seat.kind === 'sector' ? t('あなた（押して人を置く）', 'You (tap to appoint)') : seat.lock ? t(`あなた・🔒 理解度 ${seat.lock.at} で人を置ける（いま ${seat.lock.now}）`, `You · 🔒 appoint at understanding ${seat.lock.at} (now ${seat.lock.now})`) : t('あなた', 'You')));
+    info.append(role, h('b', '', seat.open || seat.kind === 'sector' ? t('あなた（押して人を置く）', 'You (tap to appoint)') : seat.lock?.rank ? t(`あなた・${rankLockText(seat.lock.rank)}`, `You · ${rankLockText(seat.lock.rank)}`) : seat.lock ? t(`あなた・🔒 理解度 ${seat.lock.at} で人を置ける（いま ${seat.lock.now}）`, `You · 🔒 appoint at understanding ${seat.lock.at} (now ${seat.lock.now})`) : t('あなた', 'You')));
     row.append(h('span', 'isl-org-face', seat.open || seat.kind === 'sector' ? '👤' : '🔒'), info);
   }
   if (onAssign && (seat.hero != null || seat.open || seat.kind === 'sector')) info.addEventListener('click', onAssign);

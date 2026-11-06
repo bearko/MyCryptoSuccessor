@@ -176,11 +176,13 @@ describe('部門のお知らせ（トースト）', () => {
     const a = deptNews(s);
     expect(a).toHaveLength(1);
     expect(a[0]).toContain('物流の理解度が 3');
-    expect(a[0]).toContain('置けるようになった');
+    // 段 L0：チームリーダーは Uncommon の町から（Common の節目は「Uncommon の町を開くと置ける」）
+    expect(a[0]).toContain('Uncommon の町を開くと置ける');
     expect(deptNews(s)).toEqual([]);
-    // 新しく開いた部門（段 F ができて、Uncommon に出店した）
+    // 新しく開いた部門（段 F ができて、Uncommon に出店した）。段 L0：リーダーを置けるようになったお知らせも 1 回
     s.tier = 'U';
     const b = deptNews(s, 'F');
+    expect(b.join()).toContain('置けるようになった');
     expect(b.join()).toContain('新しい部門：総務');
     expect(b.join()).toContain('新しい部門：経理');
     expect(deptNews(s, 'F')).toEqual([]);
