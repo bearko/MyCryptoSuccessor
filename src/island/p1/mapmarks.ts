@@ -146,14 +146,26 @@ export function noteMarks(s: P1State) {
   const fx = (s.flags.markFix ??= {});
   for (const id of fixes) fx[id] = (fx[id] ?? 0) + 1;
 }
-/** 「💡」を付けるパネル：何度も出た困りごと（L0.marks.tipMonths 回）を無くすパネルのうち、まだ取っていないもの */
+/** そのパネルへの次の一歩：先に要るパネルが取れていなければ、まだ取っていない手前のパネル（たどって最初に取れるもの） */
+function nextStep(s: P1State, id: string, depth = 0): string {
+  const k = SKILL[id];
+  const miss = (k?.requires ?? []).find((r) => SKILL[r] && !has(s, r));
+  return miss && depth < 6 ? nextStep(s, miss, depth + 1) : id;
+}
+/**
+ * 「💡」を付けるパネル：何度も出た困りごと（L0.marks.tipMonths 回）を無くすパネルのうち、まだ取っていないもの。
+ * 先に要るパネルがまだなら、その手前の取れるパネルに付ける（押してすぐ進めるように）
+ */
 export function tipPanels(s: P1State): Set<string> {
   const out = new Set<string>();
   if (propsOpen(s)) return out;
-  for (const [id, n] of Object.entries(s.flags.markFix ?? {})) if (n >= L0.marks.tipMonths && SKILL[id] && !has(s, id)) out.add(id);
+  for (const [id, n] of Object.entries(s.flags.markFix ?? {})) if (n >= L0.marks.tipMonths && SKILL[id] && !has(s, id)) out.add(nextStep(s, id));
   return out;
 }
 /** 💡 の 1 行（パネルの説明に） */
 export const tipLine = () => t('💡 地図の印によく出る困りごとを無くすパネル', '💡 Fixes a trouble that keeps showing on the map');
 /** その印の 💡（何度も出ていて、まだ取っていないパネル）。無ければ null */
-export const markTip = (s: P1State, m: Pick<MapMark, 'fix'>) => (m.fix && tipPanels(s).has(m.fix) ? m.fix : null);
+export const markTip = (s: P1State, m: Pick<MapMark, 'fix'>) => {
+  if (!m.fix || has(s, m.fix) || (s.flags.markFix?.[m.fix] ?? 0) < L0.marks.tipMonths || propsOpen(s)) return null;
+  return nextStep(s, m.fix);
+};

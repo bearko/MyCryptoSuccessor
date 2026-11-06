@@ -11658,6 +11658,8 @@ button.isl-dband-lead.is-on {
   font-size: 12px;
   text-align: left;
   cursor: pointer;
+  /* 段 L0：スマホで長い業務名がはみ出さないように（説明は「…」で切る） */
+  min-width: 0;
 }
 .isl-roles-row b {
   white-space: nowrap;
@@ -11678,7 +11680,7 @@ button.isl-dband-lead.is-on {
 @media (max-width: 599px) {
   .isl-prop-grid,
   .isl-roles-list {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (max-width: 599px) {
@@ -15014,7 +15016,7 @@ button.isl-dband-lead.is-on {
   border-radius: 6px;
   background: #2a2016;
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 18px;
 }
 .isl-pol-foot {
@@ -17253,6 +17255,9 @@ button.isl-dband-lead.is-on {
   .isl-viz {
     top: auto;
     bottom: calc(var(--foot-h, 60px) + 100px);
+    /* 段 L0：「❗ 印」を足して 3 つになったので、スマホは横に並べる（ズームの ＋／− に重ならない） */
+    grid-auto-flow: column;
+    align-items: end;
   }
   .isl-viz-legend {
     display: none;

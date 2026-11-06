@@ -318,6 +318,10 @@ describe('地図の印（2）', () => {
     expect(tipPanels(s).has('display')).toBe(true);
     s.skills.push('display');
     expect(tipPanels(s).has('display')).toBe(false);
+    // 先に要るパネルがまだなら、手前の取れるパネルに 💡（自動発注 → POS レジ）
+    s.skills = s.skills.filter((x) => x !== 'auto_order' && x !== 'pos');
+    s.flags.markFix = { auto_order: 2 };
+    expect([...tipPanels(s)]).toEqual(['pos']);
   });
 });
 

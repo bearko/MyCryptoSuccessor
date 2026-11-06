@@ -1184,6 +1184,8 @@ export function openSkills(ctx: Ctx, focus?: string) {
       if (st !== 'ring' && st !== 'sealed' && st !== 'soon') txt.append(catLine(s, sel, !!only));
       // 取ったパネルで数字の効果の行があるものは、説明の代わりに「いまの効果 → 次のレベル」を出す
       if ((st !== 'ring' || isGoalTier(sel)) && !sel.sealed && !(st === 'done' && !only && shownOf(sel).base.length)) txt.append(h('p', '', sel.note));
+      // 段 L0：地図の印によく出る困りごとを無くすパネル（1 行）
+      if (st !== 'done' && tips.has(sel.id)) txt.append(h('small', 'isl-good isl-tree-tipline', tipLine()));
       txt.append(...infoLines(s, sel, st));
       // チュートリアル中はレベルの段を出さない（案内の画面を変えない）
       if ((st === 'done' || (sel.branch === 'dig' && isResearch(sel) && !sel.inf && (st === 'open' || st === 'poor' || st === 'locked'))) && !only) {

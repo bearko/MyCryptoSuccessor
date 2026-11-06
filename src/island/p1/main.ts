@@ -2190,11 +2190,15 @@ function updateIssues(now: number) {
     issueEls = issueList.map((m) => ({ m, el: markEl(m) }));
     issueEl.replaceChildren(...issueEls.map((x) => x.el));
   }
+  // 建物の上の状態の吹き出し（canvas。縮小しても字は小さくなりすぎない）より上に
+  const lift = Math.max(190 * cam.zoom, 84);
   for (const x of issueEls) {
     const p = toScreen(x.m.i, x.m.j);
-    const off = p.x < -30 || p.x > W + 30 || p.y < 30 || p.y > H + 30 || (pop != null && selected === x.m.uid);
+    // 画面の端で切れる印は出さない（札の幅 44px の半分）
+    const off = p.x < 26 || p.x > W - 26 || p.y - lift - 55 < 50 || p.y - lift > H || (pop != null && selected === x.m.uid);
     x.el.hidden = off;
-    if (!off) x.el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y - 70 * cam.zoom)}px) translate(-50%, -100%)`;
+    // 建物の上の状態の吹き出し（店員 不在 など。canvas）より上に出す
+    if (!off) x.el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y - lift)}px) translate(-50%, -100%)`;
   }
 }
 
