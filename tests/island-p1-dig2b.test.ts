@@ -175,8 +175,9 @@ describe('データ：9 本目の枝「発掘」', () => {
     // 発掘の枝のパネルはすべて R&D の枝（1 つの束）
     for (const id of DIG_PANELS) expect(groupOf(id)?.key, id).toBe('rnd');
     expect(DEPT_LAYOUT.rnd.groups).toHaveLength(1);
-    // システムの隣（もとの「物流とシステムのあいだ」の流れ）
-    expect(Math.abs(DEPT_LAYOUT.rnd.angle - DEPT_LAYOUT.systems.angle)).toBeLessThan(45);
+    // システムの隣（もとの「物流とシステムのあいだ」の流れ。段 ST1：上から下へ流れる形では、システムの列のすぐ右の列）
+    expect(DEPT_LAYOUT.rnd.x0).toBeGreaterThan(DEPT_LAYOUT.systems.x1);
+    expect(Object.values(DEPT_LAYOUT).filter((L) => L.x0 > DEPT_LAYOUT.systems.x1 && L.x1 < DEPT_LAYOUT.rnd.x0)).toHaveLength(0);
   });
 
   it('出会いの前は枝ごと雲の中：研究も開放もできない（hidden）。「上げられる」にも入らない。出会いのあとは取れる', () => {
