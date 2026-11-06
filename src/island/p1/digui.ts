@@ -171,6 +171,7 @@ export function closeDig() {
   removeEventListener('resize', p.resize);
   document.querySelector('.isl-dig-big')?.remove();
   P = null;
+  document.body.classList.remove('isl-digging');
   p.el.classList.add('is-out');
   p.el.style.pointerEvents = 'none';
   window.setTimeout(() => p.el.remove(), 300);
@@ -259,6 +260,8 @@ export function openDig(ctx: Ctx, hooks: DigHooks, note?: string) {
   foot.append(legend, why, tools);
   el.append(top, info, wallBox, foot);
   ctx.root.append(el);
+  // 段 DIG3（調整）：発掘の画面のあいだは、提案のカード・経営会議を隠す（閉じたあとに出る。maybeCard も発掘中は出さない）
+  document.body.classList.add('isl-digging');
   const resize = () => fitWall();
   P = { ctx, hooks, el, title, endBtn, timer, fill, sec, info, spec, tools, why, wallBox, wall, legend, notes, cells: [], cs: 40, sector: s.dig.sector, site: s.dig.cur, lay: null, drillArm: false, deepHit: false, err: note ? { text: note, until: performance.now() + 3500, good: true } : null, ticked: 99, over: false, resize, hover: null, aim: null, dead: null, raf: 0, pick, reach, crew, confirmUntil: 0 };
   addEventListener('resize', resize);
@@ -506,7 +509,8 @@ export function refreshDig() {
   who.type = 'button';
   if (cw.n) {
     for (const id of cw.heroes.slice(0, 2)) who.append(heroIcon(id, 28));
-    who.append(h('span', '', t(`発掘隊 ${cw.n} 人・威力 ${cw.power}`, `Crew ${cw.n} · power ${cw.power}`)), h('small', 'isl-dig-crewrule', cw.ruleText));
+    who.append(h('span', 'isl-dig-crewn', t(`⛏×${cw.n} 威力 ${cw.power}`, `⛏×${cw.n} power ${cw.power}`)), h('small', 'isl-dig-crewrule', cw.ruleText));
+    who.setAttribute('aria-label', t(`発掘隊 ${cw.n} 人・威力 ${cw.power}・${cw.ruleText}`, `Dig crew ${cw.n}, power ${cw.power}, ${cw.ruleText}`));
   } else who.append(h('span', '', t('発掘隊（スキル → 発掘の「発掘隊の手際」）', 'Dig crew (Skills → Digging: Skilled crew)')));
   who.title = t('発掘隊（名前のない隊員）が、作業のあいだ 1 人につき 1 日 3 打ぶん手伝う。スキル → 発掘の「発掘隊の手際」で人数・威力・行動規則', 'The crew (nameless diggers) helps 3 strikes a day each while you dig. Skills → Digging: Skilled crew sets size, power and behaviour');
   who.addEventListener('click', (e) => {
@@ -799,7 +803,7 @@ function aimLoop() {
     paintAim();
   }
   if (r.strike && r.aim && p.dead !== `${r.aim.x},${r.aim.y}`) {
-    const got = strike(r.aim.x, r.aim.y);
+    const got = strike(r.aim.x, r.aim.y, true);
     // 打てないマス（待っている・許可が要る・掘りきった）は、当てているあいだ打ち直さない（音とゆれを繰り返さない）
     if (got === 'err') p.dead = `${r.aim.x},${r.aim.y}`;
     else swingPick();
@@ -841,7 +845,8 @@ function swingPick() {
 }
 
 /** 打つ：'more'（まだはがれていない）／'broke'／'err' */
-function strike(x: number, y: number): 'more' | 'broke' | 'err' {
+/** quiet：なぞって掘る（当てただけ）ときは、掘りきったマスを通っても音とひとことを出さない */
+function strike(x: number, y: number, quiet = false): 'more' | 'broke' | 'err' {
   const p = P;
   if (!p || p.over) return 'err';
   const s = p.ctx.s();
@@ -851,6 +856,7 @@ function strike(x: number, y: number): 'more' | 'broke' | 'err' {
   const r = useDrill ? drill(s, x, y) : dig(s, x, y);
   if (typeof r === 'string') {
     if (r === 'deep') return deepPressed(x, y), 'err';
+    if (quiet && r === 'dug') return 'err';
     fail(x, y, r, DRILL_FUEL);
     return 'err';
   }
@@ -931,19 +937,31 @@ function showHits(hits: DigHit[], wasBlast: boolean, wasDrill = false) {
   const p = P!;
   const big = biggestFx(hits);
   // 段 DIG3：数字の飛び（減らした硬さ。会心は金色で大きく・貫通は青・隣への力は小さく薄く）
-  hits.forEach((hit, n) => {
-    if (!hit.dmg || hit.dmg >= 1e6) return;
-    const c = cellAt(hit.x, hit.y);
-    if (!c) return;
+  // （同じ 1 打でそのマスに入った量は 1 つにまとめる：貫通で下の層に届いたぶんも足して「↓」。前の数字が残っていれば消してから。重なって読めないので）
+  const per = new Map<string, { hit: DigHit; dmg: number; pierce: boolean; crit: boolean; splash: boolean }>();
+  for (const hit of hits) {
+    if (!hit.dmg || hit.dmg >= 1e6 || hit.blast) continue;
+    const key = `${hit.x},${hit.y}`;
+    const cur = per.get(key);
+    if (cur) {
+      cur.dmg += hit.dmg;
+      cur.pierce ||= !!hit.pierce;
+      cur.crit ||= !!hit.crit;
+    } else per.set(key, { hit, dmg: hit.dmg, pierce: !!hit.pierce, crit: !!hit.crit, splash: !!hit.splash });
+  }
+  for (const [key, v] of per) {
+    const c = cellAt(v.hit.x, v.hit.y);
+    if (!c) continue;
+    p.el.querySelector(`.isl-dig-dmg[data-k="${key}"]`)?.remove();
     const r = c.getBoundingClientRect();
     const pr = p.el.getBoundingClientRect();
-    const f = h('b', `isl-dig-dmg ${hit.crit ? 'is-crit' : ''} ${hit.pierce ? 'is-pierce' : ''} ${hit.splash ? 'is-splash' : ''}`, `${hit.pierce ? '↓' : ''}${Math.round(hit.dmg * 10) / 10}`);
-    f.style.left = `${r.left - pr.left + r.width * (hit.pierce ? 0.72 : 0.5)}px`;
-    f.style.top = `${r.top - pr.top + r.height * (hit.pierce ? 0.55 : 0.35)}px`;
-    f.style.animationDelay = `${Math.min(3, n) * 40}ms`;
+    const f = h('b', `isl-dig-dmg ${v.crit ? 'is-crit' : ''} ${v.pierce ? 'is-pierce' : ''} ${v.splash ? 'is-splash' : ''}`, `${Math.round(v.dmg * 10) / 10}${v.pierce ? '↓' : ''}`);
+    f.dataset.k = key;
+    f.style.left = `${r.left - pr.left + r.width / 2}px`;
+    f.style.top = `${r.top - pr.top + r.height * 0.35}px`;
     p.el.append(f);
     window.setTimeout(() => f.remove(), 700);
-  });
+  }
   // 会心（2 倍）：マスの上に「会心！」
   for (const hit of hits.filter((x) => x.crit)) {
     const c = cellAt(hit.x, hit.y);
@@ -1019,8 +1037,13 @@ function findPing(c: HTMLElement, it: DigItem, hit: DigHit, big: boolean) {
   const f = h('div', `isl-dig-ping ${big ? 'is-big' : ''} is-${it.kind}`);
   const label = it.kind === 'tablet' ? t('石板！', 'Tablet!') : hit.recipe ? t('📜 新レシピ！', '📜 New recipe!') : findLabel(hit) || t('出土！', 'Found!');
   f.append(itemIcon(it, big ? 48 : 32), h('b', '', label), ...(hit.rp ? [h('small', '', `+${hit.rp} RP`)] : []));
-  f.style.left = `${Math.max(60, Math.min(pr.width - 60, r.left - pr.left + r.width / 2))}px`;
-  f.style.top = `${r.top - pr.top}px`;
+  // 段 DIG3（調整）：壁の上（掘っているマスの上）に出すと地層が隠れるので、下の帯（層の並び・ひとこと）の上に重ねて積む
+  const fb = (p.el.querySelector('.isl-dig-foot') as HTMLElement).getBoundingClientRect();
+  // （続けて見つけたら、前のトーストと入れ替える：1 つずつ）
+  p.el.querySelectorAll('.isl-dig-ping').forEach((x) => x.remove());
+  f.style.left = `${fb.left - pr.left + fb.width / 2}px`;
+  f.style.top = `${fb.top - pr.top + 52}px`;
+  void r;
   p.el.append(f);
   window.setTimeout(() => f.remove(), 1000);
   // 研究ノートのボタンが少し光る（続けて来たら 1 秒に 1 つ）

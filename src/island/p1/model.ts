@@ -6107,6 +6107,8 @@ export interface DigState {
   topics: number[];
   /** 発掘隊の端数 */
   carry: number;
+  /** 段 DIG3：次に打つ隊員の番号（隊員が順に打つ） */
+  crewTurn?: number;
   /** 素材の選り分けの端数 */
   matCarry?: number;
   /** 打った数（会心の判定の種） */
@@ -7319,7 +7321,7 @@ export function crewDig(s: P1State): DigHit[] {
   s.dig.carry += n * DT.crewDay * (stand ? autoRate(s) : 1);
   const L = digSite(s)!;
   const rule = crewRule(s);
-  let who = 0;
+  let who = (s.dig.crewTurn ?? 0) % n;
   while (s.dig.carry >= 1) {
     const at = digNext(s, stand, false, rule);
     if (!at) break;
@@ -7331,6 +7333,7 @@ export function crewDig(s: P1State): DigHit[] {
     if (siteState(s, L.site)?.done) break;
   }
   s.dig.carry = Math.min(1, s.dig.carry);
+  s.dig.crewTurn = who;
   return out;
 }
 

@@ -60,7 +60,7 @@ function run(s: P1State, k = 0): P1State {
   const r = startRun(s, k);
   if (typeof r === 'string') throw new Error(r);
   // 段 DIG3：地中の爆弾は爆発済みにしておく（位置の決まったテストが爆発で崩れないように。爆弾のテストは tests/island-p1-dig3.test.ts）
-  if (k !== DUNGEON) s.dig!.sites[k].boom = [0, 1, 2, 3, 4, 5];
+  if (k !== DUNGEON) s.dig!.sites[k].boom = Array.from({ length: 12 }, (_, i) => i);
   return s;
 }
 const st = (s: P1State) => s.dig!.sites[s.dig!.cur];

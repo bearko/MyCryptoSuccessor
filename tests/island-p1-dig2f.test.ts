@@ -78,7 +78,7 @@ function run(s: P1State, k = 0) {
   const r = startRun(s, k);
   if (typeof r === 'string') throw new Error(r);
   // 段 DIG3：地中の爆弾は爆発済みにしておく（位置の決まったテストが爆発で崩れないように。爆弾のテストは tests/island-p1-dig3.test.ts）
-  if (k !== DUNGEON) s.dig!.sites[k].boom = [0, 1, 2, 3, 4, 5];
+  if (k !== DUNGEON) s.dig!.sites[k].boom = Array.from({ length: 12 }, (_, i) => i);
 }
 /** (x, y) を層 layer まで掘り進める */
 function digTo(s: P1State, x: number, y: number, layer: number): DigHit {
@@ -234,7 +234,7 @@ describe('2. 無限の強化パネル（RP 払い・Lv の上限なし）', () =
     maxPrereq(s);
     run(s, 0);
     // Lv5 の発破（爆弾）は 5 × 5（中心の 3, 4 から 25 マス。威力 3 枚なので結果は 25 × 3）
-    s.dig!.sites[0].boom = [0, 1, 2, 3, 4, 5];
+    s.dig!.sites[0].boom = Array.from({ length: 12 }, (_, i) => i);
     const a = detonate(s, 3, 4)!.extra ?? [];
     expect(new Set(a.filter((h) => h.layer === 0).map((h) => `${h.x},${h.y}`)).size).toBe(25);
     setLevel(s, 'u_dig_reach_inf', 100);

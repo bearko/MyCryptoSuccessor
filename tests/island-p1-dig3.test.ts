@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { DIG_BALANCE, DIG_CREW_HEROES, DIG_PANELS, SKILL, rpCost, shownOf, shownText } from '../src/island/p1/data';
 import { aimStep, cellOf, crewInfo } from '../src/island/p1/digview';
-import { BOMB_MAX, allowedDirs, assign, bombsLeft, build, crewDig, crewSize, deserializeP1, dig, digLayout, digLayouts, digNext, digPower, digRepeatMs, dungeonLayout, endRun, holdReport, learn, lvOf, newP1, peekView, pierceRate, reachCells, reachCount, serializeP1, setLevel, startRun, step, type DigHit, type P1State } from '../src/island/p1/model';
+import { BOMB_MAX, allowedDirs, assign, bombCount, bombsLeft, build, crewDig, crewSize, deserializeP1, dig, digLayout, digLayouts, digNext, digPower, digRepeatMs, dungeonLayout, endRun, holdReport, learn, lvOf, newP1, peekView, pierceRate, reachCells, reachCount, serializeP1, setLevel, startRun, step, type DigHit, type P1State } from '../src/island/p1/model';
 
 const T = DIG_BALANCE.tree;
 const lot = (s: P1State, id: string): [number, number, 'rd' | 'ld' | 'lu' | 'ru'] => {
@@ -213,14 +213,14 @@ describe('2. 貫通（打った力が層の硬さを超えたぶんを下の層�
 });
 
 describe('3. 爆弾は地中に埋まっている', () => {
-  it('壁ごとに爆弾の候補 6 個：中層以降・出土品の無い層・マスは別々。同じ壁はいつも同じ所。ダンジョンの壁にも', () => {
+  it('壁ごとに爆弾の候補 BOMB_MAX（12）個：中層以降・出土品の無い層・マスは別々。同じ壁はいつも同じ所。ダンジョンの壁にも', () => {
     for (const sector of ['c1', 'u1', 'r1']) {
       for (const L of digLayouts(sector)) {
         expect(L.bombs, `${sector}:${L.site}`).toHaveLength(BOMB_MAX);
         const cells = new Set(L.bombs.map((b) => b.y * L.w + b.x));
         expect(cells.size).toBe(BOMB_MAX);
         for (const b of L.bombs) {
-          expect(b.layer).toBeGreaterThanOrEqual(Math.floor(L.depth / 2));
+          expect(b.layer).toBeGreaterThanOrEqual(Math.floor((L.depth - 1) / 2));
           expect(b.layer).toBeLessThan(L.depth);
           expect(L.at[(b.y * L.w + b.x) * L.depth + b.layer]).toBe(-1);
         }
@@ -274,6 +274,22 @@ describe('3. 爆弾は地中に埋まっている', () => {
     expect(bombsLeft(s, 0).some((x) => x.i === 0)).toBe(false);
   });
 
+  it('調整 v44：発破のパネルを開くと、荒れ地の格で爆弾の数を足す（Lv0 は格に関係なく 1 個）。掘削ドリルは開くと Lv5（奥へ 7 層）', () => {
+    const B = T.bombTier;
+    expect(bombCount(met(), 'E')).toBe(1);
+    const s = met();
+    expect(learn(s, 'dig_ext')).toBeNull();
+    expect(learn(s, 'dig_power')).toBeNull();
+    expect(learn(s, 'dig_blast')).toBeNull();
+    const L = lvOf(s, 'dig_blast');
+    expect(L).toBe(DIG_BALANCE.tree.rpLv.keep.dig_blast ?? DIG_BALANCE.tree.rpLv.lv);
+    expect([bombCount(s, 'C'), bombCount(s, 'U'), bombCount(s, 'R'), bombCount(s, 'E')]).toEqual((['C', 'U', 'R', 'E'] as const).map((t) => Math.min(BOMB_MAX, T.bombs[L - 1] + B[t])));
+    expect(bombsLeft(s, 0)).toHaveLength(T.bombs[L - 1] + B.C);
+    expect(learn(s, 'dig_drill')).toBeNull();
+    expect(lvOf(s, 'dig_drill')).toBe(5);
+    expect(pierceRate(s)).toBe(0);
+  });
+
   it('自動プレイ：爆弾の有無で打つ数は変えない（simTapsPerSec 4・作業 15 秒のまま）。発破の火薬代は無い', () => {
     expect(DIG_BALANCE.simTapsPerSec).toBe(4);
     expect(DIG_BALANCE.sessionSec).toBe(15);
@@ -299,16 +315,16 @@ describe('4. 発掘隊はシャドーヒーロー', () => {
     expect(SKILL.dig_crew.note).toContain('隊員 2 人');
   });
 
-  it('作業のあいだ、隊員は 1 人 1 日 3 打（digPower × 手際の威力）。打った結果に隊員の番号。作業していない日は常駐が無ければ掘らない', () => {
+  it('作業のあいだ、隊員は 1 人 1 日 tree.crewDay 打（digPower × 手際の威力）。打った結果に隊員の番号。作業していない日は常駐が無ければ掘らない', () => {
     const s = met();
     lv(s, 'dig_deep', 3);
     lv(s, 'dig_office', 5);
     lv(s, 'dig_crew', 3);
     expect(crewDig(s)).toEqual([]);
     run(s, 0);
-    const hs = crewDig(s).filter((h) => !h.splash && !h.pierce && !h.blast);
-    expect(hs).toHaveLength(9);
-    expect(hs.map((h) => h.crew)).toEqual([0, 1, 2, 0, 1, 2, 0, 1, 2]);
+    const hs = Array.from({ length: 6 }, () => crewDig(s)).flat().filter((h) => !h.splash && !h.pierce && !h.blast);
+    expect(hs).toHaveLength(Math.floor(18 * T.crewDay + 1e-9));
+    expect(hs.map((h) => h.crew)).toEqual(hs.map((_, i) => i % 3));
     expect(hs.every((h) => h.dmg === Math.min(1.6, h.dmg! + (h.broke ? 0 : 0)) || h.dmg! <= 1.6)).toBe(true);
     // 1 日の step でも打つ（res.dug）
     const d = step(s);
