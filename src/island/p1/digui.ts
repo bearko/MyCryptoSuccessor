@@ -506,7 +506,7 @@ export function refreshDig() {
   who.type = 'button';
   if (cw.n) {
     for (const id of cw.heroes.slice(0, 2)) who.append(heroIcon(id, 28));
-    who.append(h('span', '', t(`発掘隊 ${cw.n} 人・1 打 ${cw.power}・${cw.ruleText}`, `Crew ${cw.n} · power ${cw.power} · ${cw.ruleText}`)));
+    who.append(h('span', '', t(`発掘隊 ${cw.n} 人・威力 ${cw.power}`, `Crew ${cw.n} · power ${cw.power}`)), h('small', 'isl-dig-crewrule', cw.ruleText));
   } else who.append(h('span', '', t('発掘隊（スキル → 発掘の「発掘隊の手際」）', 'Dig crew (Skills → Digging: Skilled crew)')));
   who.title = t('発掘隊（名前のない隊員）が、作業のあいだ 1 人につき 1 日 3 打ぶん手伝う。スキル → 発掘の「発掘隊の手際」で人数・威力・行動規則', 'The crew (nameless diggers) helps 3 strikes a day each while you dig. Skills → Digging: Skilled crew sets size, power and behaviour');
   who.addEventListener('click', (e) => {
@@ -654,7 +654,7 @@ function foundCards(finds: DigFound[], bombs: number): HTMLElement {
     if (f.big) c.append(h('i', 'isl-dig-big-rays'));
     const ic = itemIcon(it, f.big ? 96 : 56);
     c.append(ic);
-    const tag = it.kind === 'tablet' ? t('石板', 'Tablet') : it.kind === 'ext' && it.topic ? t('お題を発見！', 'Target found!') : f.big ? t(`${RARITY_JA[rar as keyof typeof RARITY_JA] ?? ''}の大きな遺物！`, `A large ${rar} relic!`) : f.first ? t('新発見！', 'New find!') : f.again ? t('再発見', 'Found again') : f.lv ? t(`研究 Lv${f.lv}`, `Research Lv${f.lv}`) : t('研究ノートへ', 'To the notebook');
+    const tag = it.kind === 'tablet' ? t('石板', 'Tablet') : it.kind === 'ext' && it.topic ? t('お題を発見！', 'Target found!') : f.big ? t(`${RARITY_JA[rar as keyof typeof RARITY_JA] ?? ''}の大きな遺物！`, `A large ${rar} relic!`) : f.first ? t('新発見！', 'New find!') : f.again ? t('再発見', 'Found again') : f.lv ? t(`研究 Lv${f.lv}`, `Research Lv${f.lv}`) : t('ノートへ', 'Noted');
     c.append(h('b', 'isl-dig-find-tag', tag), h('span', 'isl-dig-find-name', it.kind === 'tablet' ? (TABLET[it.id]?.title ?? '') : it.kind === 'ext' ? extName(it.id) : ''));
     if (f.rp) c.append(h('small', 'isl-gold', `+${f.rp} RP`));
     if (f.recipe) c.append(h('small', 'isl-dig-find-recipe', t('📜 新レシピ', '📜 New recipe')));

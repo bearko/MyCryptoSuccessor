@@ -9213,7 +9213,7 @@ small.isl-note-series.is-bad {
 }
 .isl-dig-dmg.is-splash {
   color: #d9c7a8;
-  font-size: 11px;
+  font-size: 12px;
   opacity: 0.8;
 }
 @keyframes isl-dig-dmg {
@@ -9353,7 +9353,7 @@ small.isl-note-series.is-bad {
   display: grid;
   justify-items: center;
   gap: 2px;
-  width: 92px;
+  width: 100px;
   padding: 6px 4px;
   border: 2px solid #4a3a28;
   border-radius: 10px;
@@ -9412,6 +9412,15 @@ small.isl-note-series.is-bad {
   background: #c7463b;
   color: #fff;
   box-shadow: 0 0 0 3px rgba(199, 70, 59, 0.45);
+}
+/* 段 DIG3：発掘隊の札の行動規則（スマホでは出さない：帯が狭い） */
+.isl-dig-crewrule {
+  color: var(--isl-dim);
+}
+@media (max-width: 599px) {
+  .isl-dig-crewrule {
+    display: none;
+  }
 }
 /* 段 DIG3：爆弾の帯の札（残りの数。無ければ薄く）と、爆発の文字 */
 .isl-dig-chip.is-bomb b {

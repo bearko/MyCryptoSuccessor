@@ -40,6 +40,7 @@ const ICON: Record<string, { b?: string; sku?: Sku; ext?: number; mat?: Mat; her
   dig_study: { ext: 1008 },
   dig_blast: { emoji: '💥' },
   dig_drill: { ext: 1156 },
+  dig_pierce: { emoji: '🏹' },
   dig_office: { b: 'city_hall' },
   dig_crew: { ext: 1096 },
   u_dig_ext2: { ext: 2111 },
@@ -481,6 +482,11 @@ function skillCard(s: P1State, k: Skill, tut = false): HTMLElement {
     const lv = lvOf(s, k.id);
     if (lv < maxLv(k)) c.append(h('small', canLevel(s, k) ? 'isl-good' : 'isl-dim', canLevel(s, k) ? t(`Lv ${lv + 1} に上げる ${nextPrice(s, k)}・ダブルクリック`, `Lv ${lv + 1} for ${nextPrice(s, k)} · double-click`) : t(`Lv ${lv + 1} に上げる ${nextPrice(s, k)}（足りない）`, `Lv ${lv + 1} for ${nextPrice(s, k)} (short)`)));
     return c;
+  }
+  // 段 DIG3：発掘の研究パネルは、取る前も「いま → 次」（なし → +35%・3 マス → 4 マス）で差が分かるように
+  if (!tut && k.branch === 'dig' && isResearch(k) && !k.inf && (st === 'open' || st === 'poor' || st === 'locked')) {
+    const eff = effLines(s, k);
+    if (eff) c.append(eff);
   }
   const price = isResearch(k) ? `${rpCost(k)} RP` : priceOf(k);
   c.append(
@@ -1173,7 +1179,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       if ((st !== 'ring' || isGoalTier(sel)) && !sel.sealed && !(st === 'done' && !only && shownOf(sel).base.length)) txt.append(h('p', '', sel.note));
       txt.append(...infoLines(s, sel, st));
       // チュートリアル中はレベルの段を出さない（案内の画面を変えない）
-      if (st === 'done' && !only) {
+      if ((st === 'done' || (sel.branch === 'dig' && isResearch(sel) && !sel.inf && (st === 'open' || st === 'poor' || st === 'locked'))) && !only) {
         const eff = effLines(s, sel);
         if (eff) txt.append(eff);
       }
