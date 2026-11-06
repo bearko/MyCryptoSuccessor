@@ -441,6 +441,8 @@ describe('仕組みのパネル（調達・製造計画・勤務シフトの自�
       delegDay(s);
     }
     expect(idle()).toBeLessThan(n0);
+    // 品出しも仕組みが回す（作るものを替えたら棚も合わせる。自動プレイは手で棚を選ばない）
+    expect(autoDuty(s, 'shelf')).toBe(true);
   });
   it('勤務シフトの自動化：休む職人の持ち場に待機中の人が入る（取る前は入らない）。ヒーローのリーダーがいればそちらが回す', () => {
     const s = midGame();
