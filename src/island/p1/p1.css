@@ -17734,3 +17734,158 @@ button.isl-tree-cond {
     outline-offset: 3px;
   }
 }
+/* 段 ST1：「ここまで研究を進める」：目標の帯・道の番号の札・待っている理由の札・道の線 */
+.isl-tree-goal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 4px 8px;
+  border: 2px solid var(--isl-gold);
+  background: rgba(15, 22, 38, 0.94);
+  font-size: 13px;
+}
+.isl-tree-goal[hidden] {
+  display: none;
+}
+.isl-tree-goal-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--isl-gold);
+  font: inherit;
+  cursor: pointer;
+}
+.isl-tree-goal-go img,
+.isl-tree-goal-go .isl-ext,
+.isl-tree-goal-go .isl-tree-emoji {
+  width: 22px;
+  height: 22px;
+  font-size: 16px;
+}
+.isl-tree-goal-left,
+.isl-tree-goal-next {
+  color: var(--isl-dim);
+  font-size: 12px;
+}
+.isl-tree-goal-next.is-wait {
+  color: #ffd27a;
+}
+.isl-tree-goal .isl-btn {
+  min-height: 32px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.isl-tree-goal-x {
+  margin-left: auto;
+}
+.isl-tree-node.is-path {
+  outline: 2px solid var(--isl-gold);
+  outline-offset: 4px;
+}
+.isl-tree-step {
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  z-index: 2;
+  min-width: 20px;
+  padding: 0 4px;
+  border: 1px solid #000;
+  background: var(--isl-gold);
+  color: #1a1408;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  scale: var(--hs, 1);
+  transform-origin: top left;
+}
+.isl-tree-wait {
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  z-index: 2;
+  translate: -50% 0;
+  padding: 0 4px;
+  border: 1px solid #ffd27a;
+  background: #0f1626;
+  color: #ffd27a;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  scale: var(--hs, 1);
+}
+.isl-tree-lines path.isl-tree-edge.is-path {
+  opacity: 1;
+  stroke-dasharray: none;
+  stroke-width: calc(var(--lw, 4px) * 1.4);
+  filter: drop-shadow(0 0 5px rgba(255, 214, 90, 0.85));
+  animation: isl-path-glow 1.2s ease-in-out infinite alternate;
+}
+@keyframes isl-path-glow {
+  from {
+    opacity: 0.7;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.isl-tree-goalbtn.is-on {
+  border-color: var(--isl-gold);
+}
+/* 下の帯の経営企画のタブ：目標の道で自動で取った数 */
+.isl-tab.has-num::before {
+  content: attr(data-num);
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  min-width: 18px;
+  padding: 0 4px;
+  border: 2px solid var(--isl-line);
+  background: var(--isl-gold);
+  color: #1a1408;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+/* 経営企画を開いたときの、自動で取ったパネルの一覧 */
+.isl-goalgot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-left: 3px solid var(--isl-gold);
+  background: rgba(242, 181, 68, 0.12);
+  font-size: 13px;
+}
+.isl-goalgot[hidden] {
+  display: none;
+}
+.isl-goalgot-list {
+  display: flex;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+}
+.isl-goalgot-item,
+.isl-goalgot-x {
+  flex: none;
+  min-height: 32px;
+  padding: 2px 8px;
+  border: 1px solid var(--isl-gold);
+  background: #0f1626;
+  color: var(--isl-gold);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  .isl-tree-lines path.isl-tree-edge.is-path {
+    animation: none;
+  }
+}

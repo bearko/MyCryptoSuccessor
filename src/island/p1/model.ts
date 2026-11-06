@@ -518,6 +518,12 @@ export interface Flags {
   /** 段 K：マインちゃんの一言（初めて石板のノウハウを読んだ・初めて全社方針の枠が増えた）を見た */
   polKnowTalk?: boolean;
   polSlotTalk?: boolean;
+  /** 段 ST1：「ここまで研究を進める」の目標のパネル（goal.ts。無ければ目標なし。無くてもよい項目なのでセーブの版は変えない） */
+  goal?: string;
+  /** 段 ST1：自動で払ったあとに残す資金の下限（ひと月の固定費の何か月ぶん。無ければ 1） */
+  goalMonths?: number;
+  /** 段 ST1：目標の道で自動で取ったパネル（下の帯の経営企画のタブの数字・経営企画を開いたときの一覧。見たら消す） */
+  goalGot?: string[];
 }
 
 export interface P1State {

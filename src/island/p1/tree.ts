@@ -12,7 +12,7 @@ import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { icon } from '../../ui/dom';
 import { TIER_NAME } from './company';
-import { DEPT, DEPTS, DIG_BALANCE, digRpLv, SKILL, SKILLS, TIERS, deptOf, isResearch, maxLv, rpCost, shownOf, shownText, type DeptId, type FxKind, type Mat, type Skill, type Sku, type Tier } from './data';
+import { DEPT, DEPTS, DIG_BALANCE, GOAL, digRpLv, SKILL, SKILLS, TIERS, deptOf, isResearch, maxLv, rpCost, shownOf, shownText, type DeptId, type FxKind, type Mat, type Skill, type Sku, type Tier } from './data';
 import { deptLevel, deptLockText, deptOpen } from './dept';
 import { affordableSkills, bestSkillMove, carriedRp, condsOf, missingFront, digBranchOpen, donate, donateLock, donations, has, hqOpen, infAt, learn, LEARNABLE, levelLock, levelUp, lvOf, nextDonateCost, nextLevelCost, nextLevelRp, openHQ, openRing, ringOpen, ringsDue, skillLock, skillTier, trainDays, trainingOf, trainees, type P1State } from './model';
 import { after, mineTip, open, type Ctx } from './screens';
@@ -21,6 +21,7 @@ import { pickHero } from './heroui';
 import { halfOf, shapeOf, BANDS, BAND_TIERS, BOUNDS, DEPT_LAYOUT, EDGES, GATES, GROUP_STAGE, HEAD_Y, HUBPOS, JUNCTIONS, KNOTPOS, POS, STEP, UNIT, deptAtX, deptCenter, edgePath, groupCenter, groupOfBranch, polyLen, type P, type TreeEdge } from './treelayout';
 import { bar, btn, h, heroIcon, heroName, matIcon, money, plain, rich, skuIcon } from './ui';
 import { tipLine, tipPanels } from './mapmarks';
+import { goalFloor, goalMonths, goalNext, goalPath, goalable, setGoal, type GoalWait } from './goal';
 
 /** ランドセクタの絵（はじまりの国 Lime） */
 const TIER_IMG: Record<Tier, string> = { C: '04_Lime_1_Common', U: '04_Lime_2_Uncommon', R: '04_Lime_3_Rare', E: '04_Lime_4_Epic', L: '04_Lime_5_Legendary' };
@@ -494,6 +495,33 @@ function infoLines(s: P1State, k: Skill, st: State, go?: (id: string) => void): 
   return out;
 }
 
+/** 段 ST1：目標の道の次のパネルが待っている理由（目標の帯の 1 行） */
+function waitText(s: P1State, nx: { id: string; why: GoalWait['why'] | null }): string {
+  const k = SKILL[nx.id];
+  const nm = k?.name ?? nx.id;
+  switch (nx.why) {
+    case null:
+      return t(`次：「${nm}」を取れる`, `Next: ${nm} is ready`);
+    case 'rp':
+      return t(`次：「${nm}」（あと ${rpCost(k) - (s.rp ?? 0)} RP）`, `Next: ${nm} (${rpCost(k) - (s.rp ?? 0)} RP short)`);
+    case 'money':
+      return t(`次：「${nm}」（あと ${money(k.cost - s.money)}）`, `Next: ${nm} (${money(k.cost - s.money)} short)`);
+    case 'floor':
+      return t(`次：「${nm}」（残す資金を守って待つ・あと ${money(k.cost + goalFloor(s) - s.money)}）`, `Next: ${nm} (keeping funds; ${money(k.cost + goalFloor(s) - s.money)} more)`);
+    default:
+      return t(`次：「${nm}」は ${waitTag(nx as GoalWait)} を待つ`, `Next: ${nm} waits for ${waitTag(nx as GoalWait)}`);
+  }
+}
+/** お金で買えない条件の短い札（道の札） */
+function waitTag(w: GoalWait): string {
+  const k = SKILL[w.id];
+  if (w.why === 'brand') return `★${k.brand}`;
+  if (w.why === 'emblem') return `🏅${k.emblem}`;
+  if (w.why === 'ring') return `🔒 ${TIER_NAME[skillTier(k)]}`;
+  if (w.why === 'dept') return t(`理解度 ${k.deptLv}`, `Lv ${k.deptLv}`);
+  if (w.why === 'busy') return t('⏳ 修行中', '⏳ training');
+  return '🔒';
+}
 /** マウスを乗せたときの説明（PC） */
 function skillCard(s: P1State, k: Skill, tut = false): HTMLElement {
   const st = stateOf(s, k);
@@ -689,7 +717,44 @@ export function openSkills(ctx: Ctx, focus?: string) {
       cur.append(fc);
     }
     // 段 ST1：部門のチップは、上に固定した列の見出しに替えた（絞り込みのシートの中には残す）
-    top.append(tip, cur);
+    // 段 ST1：目標の帯（「ここまで研究を進める」）：目標・残りの枚数と RP・G・次のパネルと待っている理由・下限の月数・外す
+    const goal = !sealed && !only && s.flags.goal && SKILL[s.flags.goal] ? s.flags.goal : null;
+    const path = goal ? goalPath(s, goal) : [];
+    const nx = goal ? goalNext(s) : null;
+    const gband = h('div', 'isl-tree-goal');
+    gband.hidden = !goal;
+    if (goal) {
+      const gk = SKILL[goal];
+      const rpLeft = path.reduce((a, id) => a + rpCost(SKILL[id]), 0);
+      const gLeft = path.reduce((a, id) => a + (isResearch(SKILL[id]) ? 0 : SKILL[id].cost), 0);
+      const go = h('button', 'isl-tree-goal-go');
+      go.type = 'button';
+      go.style.setProperty('--br', colorOf(gk));
+      go.append(h('span', '', '🎯'), iconOf(goal, 22), h('b', '', gk.name));
+      go.title = t('目標のパネルへ', 'Go to the goal panel');
+      go.addEventListener('click', (e) => {
+        e.stopPropagation();
+        flyTo(goal);
+      });
+      const left = h('small', 'isl-tree-goal-left', t(`あと ${path.length} 枚・${rpLeft.toLocaleString('en-US')} RP・${money(gLeft)}`, `${path.length} left · ${rpLeft.toLocaleString('en-US')} RP · ${money(gLeft)}`));
+      const next = h('small', `isl-tree-goal-next ${nx?.why && nx.why !== 'rp' && nx.why !== 'money' && nx.why !== 'floor' ? 'is-wait' : ''}`, nx ? waitText(s, nx) : '');
+      const mo = goalMonths(s);
+      const floor = btn(t(`残す資金 ${mo} か月ぶん（${money(goalFloor(s))}）`, `Keep ${mo} mo of costs (${money(goalFloor(s))})`), () => {
+        const ms = GOAL.months;
+        s.flags.goalMonths = ms[(ms.indexOf(mo) + 1) % ms.length];
+        ctx.save();
+        after(ctx);
+      }, 'isl-tree-goal-floor');
+      floor.title = t('自動で払ったあとも残す資金（ひと月の固定費の何か月ぶん）。押すと 0.5・1・2・3 か月を切り替え', 'Funds kept after auto-paying (months of fixed costs). Tap to switch 0.5 / 1 / 2 / 3');
+      const x = btn('✕', () => {
+        setGoal(s, null);
+        ctx.save();
+        after(ctx);
+      }, 'isl-tree-goal-x');
+      x.title = t('目標を外す', 'Clear the goal');
+      gband.append(go, left, next, floor, x);
+    }
+    top.append(tip, cur, gband);
     // 木
     /** マインちゃんが止める（チュートリアル中に、ほかのパネルを開放しようとした） */
     const stop = h('div', 'isl-tree-stop');
@@ -905,6 +970,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       for (const g of L.groups) if (KNOTPOS.has(g.key)) trunk(hp, KNOTPOS.get(g.key)!, L.color, 'is-knot');
     }
     // 先に要るパネル → パネル（根もと・帯の入口から）
+    const pathSet = new Set(path);
     for (const e of EDGES) {
       if (hidden(e.br) || (e.from && hidden(deptOf(SKILL[e.from])))) continue;
       const k = SKILL[e.to];
@@ -912,7 +978,9 @@ export function openSkills(ctx: Ctx, focus?: string) {
       const up = e.from ? has(s, e.from) : true;
       const got = has(s, k.id) || (!!k.donate && donations(s) > 0);
       const cls = closed ? 'is-closed' : up && got ? 'is-done' : up ? 'is-open' : 'is-lock';
-      drawEdge(e, DEPT_LAYOUT[e.br].color, `${cls} ${filtering && !passes(k) ? 'is-dimf' : ''}`);
+      // 段 ST1：目標の道の線（道のパネルへ入る線で、手前が取得済みか道の中）は金色に光らせる
+      const onPath = pathSet.has(e.to) && (e.from ? pathSet.has(e.from) || has(s, e.from) : true);
+      drawEdge(e, onPath ? 'var(--isl-gold)' : DEPT_LAYOUT[e.br].color, `${cls} ${filtering && !passes(k) ? 'is-dimf' : ''} ${onPath ? 'is-path' : ''}`);
     }
     // 帯の入口（Uncommon より下の帯の、先に要るものが無いパネルの線の始まり）：帯の色の小さな点
     if (!sealed)
@@ -1152,6 +1220,13 @@ export function openSkills(ctx: Ctx, focus?: string) {
         // 段 L0：地図の印に何度も出た困りごとを無くすパネル（まだ取っていない）に小さく「💡」
         if (tips.has(k.id) && st !== 'done') n.append(h('span', 'isl-tree-hint', '💡'));
         if (target === k.id) n.classList.add('is-hot');
+        // 段 ST1：目標の道：取る順の番号の札・目標に 🎯・待っている理由の札（★80・🏅3・🔒 など）
+        const pi = path.indexOf(k.id);
+        if (pi >= 0) {
+          n.classList.add('is-path');
+          n.append(h('span', 'isl-tree-step', k.id === goal ? '🎯' : String(pi + 1)));
+          if (nx?.id === k.id && nx.why && nx.why !== 'rp' && nx.why !== 'money' && nx.why !== 'floor') n.append(h('span', 'isl-tree-wait', waitTag(nx as GoalWait)));
+        }
         if (justLearned?.id === k.id && performance.now() - justLearned.t < 1500) n.classList.add('is-learned');
         if (justLeveled?.id === k.id && performance.now() - justLeveled.t < 900) n.classList.add('is-lvup');
         n.addEventListener('click', (e) => {
@@ -1256,6 +1331,17 @@ export function openSkills(ctx: Ctx, focus?: string) {
       if (st === 'poor' && !isResearch(sel)) top2.append(h('small', 'isl-warn', shortOf(s, sel)));
       if (st === 'open') top2.append(h('small', 'isl-dim', isResearch(sel) ? t('パネルをダブルタップしても研究できます', 'Double-tap a panel to research it too') : t('パネルをダブルタップしても開放できます', 'Double-tap a panel to unlock it too')));
       detail.append(top2, b);
+      // 段 ST1：まだ取れないパネル：「🎯 ここまで進める」（目標は 1 つ。別のパネルを選ぶと置き換わる）。目標のパネルなら「目標を外す」
+      if (!only && st !== 'done' && st !== 'open' && goalable(s, sel) && st !== 'training') {
+        const isGoal = s.flags.goal === sel.id;
+        const gb = btn(isGoal ? t('🎯 目標を外す', '🎯 Clear goal') : t('🎯 ここまで進める', '🎯 Research up to here'), () => {
+          setGoal(s, isGoal ? null : sel.id);
+          ctx.save();
+          if (!isGoal) ctx.toast(t(`目標：「${sel.name}」。RP とお金が入るたびに、道の順に自動で取ります`, `Goal: ${sel.name}. Panels on the way unlock automatically as RP and funds come in`));
+          after(ctx);
+        }, `isl-tree-goalbtn ${isGoal ? 'is-on' : ''}`);
+        detail.append(gb);
+      }
       }
     } else if (sealed) detail.append(h('p', 'isl-dim', t('真ん中の本社を押して、開放しましょう。開放すると、11 の部門の枝が広がります。', 'Tap HQ in the middle to unlock it. Branches for the 11 departments will spread out.')));
     // 段 UI3：説明の帯はスマホで 2 行まで（短く）。段 UI5b：スマホは何も選んでいないときは出さない（木を広く。説明は絞り込みの中に）

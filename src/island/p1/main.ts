@@ -149,6 +149,7 @@ import { pickHooks } from './heroui';
 import { openDigSummary, openMonthReport } from './report';
 import { openOrg } from './orgui';
 import { openSkills } from './tree';
+import { goalSeen, goalStep } from './goal';
 import { openSide } from './side';
 import { resolveSub, subDefs, tabHint, type ScreenId, type SubDef } from './menus';
 import { openGrowth } from './growthui';
@@ -827,7 +828,11 @@ const panel = h('div', 'isl-panel');
 const deptBand = h('div', 'isl-dband');
 const subRow = h('div', 'isl-subs');
 const cards = h('div', 'isl-cards');
-panel.append(deptBand, subRow, cards);
+/** 段 ST1：経営企画を開いたときの、目標の道で自動で取ったパネルの一覧（見たら消す） */
+const goalStrip = h('div', 'isl-goalgot');
+goalStrip.hidden = true;
+let goalShown = false;
+panel.append(deptBand, goalStrip, subRow, cards);
 const tabbar = h('nav', 'isl-tabbar');
 let tabBtns = {} as Partial<Record<Menu, HTMLButtonElement>>;
 /** グループの引き出し（部門が 7 つ以上のとき。いまは器だけ） */
@@ -1002,6 +1007,14 @@ function renderFoot() {
   tb('logistics')?.classList.toggle('is-off', !ws);
   const ready = MISSIONS.some((m) => s.missions[m.id] === 'done');
   tb('marketing')?.classList.toggle('has-dot', ready);
+  // 段 ST1：目標の道で自動で取ったパネルの数（経営企画のタブ。開くと一覧を見せて消す）
+  const gotN = s.flags.goalGot?.length ?? 0;
+  const st = tb('strategy');
+  if (st) {
+    st.classList.toggle('has-num', gotN > 0 && menu !== 'strategy');
+    if (gotN > 0) st.dataset.num = String(Math.min(99, gotN));
+    else delete st.dataset.num;
+  }
   // 段 UI3：スキルツリーもほかのサブタブと同じ（サブタブを隠さない）
   panel.hidden = !menu || !!placing?.move;
   // グループの引き出し：開いているあいだはサブタブの代わりに出す（下に積むのは 2 段まで：引き出しかサブタブ ＋ タブ）
@@ -1029,6 +1042,34 @@ function renderFoot() {
     return;
   }
   renderBand(menu);
+  // 段 ST1：経営企画を開いたら、目標の道で自動で取ったパネルの一覧を短く（✕ か、ほかの部門を開くと消える）
+  goalStrip.hidden = !(menu === 'strategy' && s.flags.goalGot?.length);
+  if (!goalStrip.hidden) {
+    const ids = s.flags.goalGot ?? [];
+    const x = h('button', 'isl-goalgot-x', '✕');
+    x.type = 'button';
+    x.title = t('閉じる', 'Close');
+    x.addEventListener('click', () => {
+      goalSeen(s);
+      renderFoot();
+    });
+    const list = h('span', 'isl-goalgot-list');
+    for (const id of ids) {
+      const b = h('button', 'isl-goalgot-item', SKILL[id]?.name ?? id);
+      b.type = 'button';
+      b.addEventListener('click', () => {
+        if (tutStep()) return lockedNote();
+        goalSeen(s);
+        sub = 'tree';
+        closeSheet();
+        openSkills(ctx, id);
+        renderAll();
+      });
+      list.append(b);
+    }
+    goalStrip.replaceChildren(h('b', '', t(`🎯 自動で取った ${ids.length}`, `🎯 Auto-unlocked ${ids.length}`)), list, x);
+  } else if (menu !== 'strategy' && s.flags.goalGot?.length && goalShown) goalSeen(s);
+  goalShown = !goalStrip.hidden;
   subRow.replaceChildren(
     ...subsOf(menu).map((x) => {
       const b = h('button', `isl-sub ${sub === x.key ? 'is-on' : ''} ${needsOff(x) ? 'is-off' : ''} ${hm === menu && hk === x.key && sub !== x.key ? 'is-guide' : ''} ${subLocked(menu as Menu, x.key) ? 'is-lock' : ''}`);
@@ -4830,6 +4871,13 @@ function advance(days: number) {
     // 操作がないまま進んだ日（発掘との出会い）
     if (!tour) idleDays++;
     const r = step(s);
+    // 段 ST1：「ここまで研究を進める」：RP・お金が入ったあと、道の次のパネルが払えて下限を守れるなら自動で取る（時間は止めない）
+    const gs = goalStep(s);
+    if (gs.got.length) {
+      sfx.play('levelup');
+      for (const id of gs.got) news(t(`🎯 自動で「${SKILL[id]?.name ?? id}」を取りました`, `🎯 Auto-unlocked ${SKILL[id]?.name ?? id}`), { kind: 'promo' });
+    }
+    if (gs.reached) news(t(`🎯 目標の「${SKILL[gs.reached]?.name ?? gs.reached}」に届きました`, `🎯 Goal reached: ${SKILL[gs.reached]?.name ?? gs.reached}`), { kind: 'promo' });
     for (const b of r.finished) {
       fx.push({ uid: b.uid, start: performance.now() });
       news(t(`${DEF[b.id].name}が完成しました！`, `${DEF[b.id].name} is complete!`), { kind: 'build', group: 'built', name: DEF[b.id].name });
