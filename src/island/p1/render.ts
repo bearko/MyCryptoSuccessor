@@ -9,11 +9,12 @@ import { center, diamond, drawArt, drawBuilding, drawCell, image, type Camera, t
 import { cells, frontCell, type Dir } from '../sim';
 import { PRODUCT, skuParts, type Sku } from './data';
 import { COIN_KEEP, COIN_MS, PLUS_MS, along, drawRing, drawWalker, floatText, type Anim } from './anim';
-import { DUNGEON, craftDays, doorOf, facilityStatus, ground, isRoad, isVacant, myWorkshop, reachOf, roadPath, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
+import { DUNGEON, craftDays, doorOf, facilityStatus, ground, isRoad, isVacant, myWorkshop, roadPath, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
 import { areaPaint, companyColor } from './trade';
 import { bounds, cacheScale, covered, drawBorders, drawWorld, roadAt, type World } from './worldrender';
 import { standing } from './digview';
 import { RUIN } from './company';
+import { MAPVIZ_COLOR, areaCells, routeLines, type Heat } from './mapviz';
 
 import { extImage } from './ui';
 export interface P1Ghost {
@@ -26,6 +27,15 @@ export interface P1Ghost {
   area?: boolean;
   /** 人流解析：お客さんの多い区画（上位 20%）。薄い金色に塗る */
   hot?: Set<number>;
+}
+/** 段 MAP1：地図に重ねる見える化（main.ts が切り替える。描くデータは mapviz.ts） */
+export interface MapViz {
+  /** 流れの線（調達・輸送） */
+  lines: boolean;
+  /** お店の集客エリア（only：その店だけ） */
+  area: { only: number | null } | null;
+  /** 置くモードの塗り（shop＝見込み客・days＝工房からの日数） */
+  heat: { kind: 'shop' | 'days'; data: Heat } | null;
 }
 
 function roadMask(s: P1State, i: number, j: number, w: World | null = null) {
@@ -109,7 +119,7 @@ function edge(ctx: CanvasRenderingContext2D, i: number, j: number, color: string
  * world：つながった地図（関所を開けたあと。隣のセクタを描く）。
  * overview：縮小して全体を見ているとき（隣のセクタは覚えておいた絵の細かさ。人・荷車・吹き出しは描かない）
  */
-export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w: number, h: number, dpr: number, now: number, fx: Effect[], ghost: P1Ghost | null, selected: number | null, cell: [number, number] | null = null, placeable: Set<number> | null = null, anim: Anim | null = null, world: World | null = null, overview: number | null = null) {
+export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w: number, h: number, dpr: number, now: number, fx: Effect[], ghost: P1Ghost | null, selected: number | null, cell: [number, number] | null = null, placeable: Set<number> | null = null, anim: Anim | null = null, world: World | null = null, overview: number | null = null, viz: MapViz | null = null) {
   ctx.save();
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = '#2f6fae';
@@ -174,14 +184,39 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
       if (visible(i, j)) diamond(ctx, i, j, 'rgba(255,200,60,0.5)');
     }
 
-  // お店を置くとき：お客さんが来やすい範囲（商圏）を金色に。近いほど濃い
-  if (ghost?.area)
-    for (let j = ghost.j - 6; j <= ghost.j + 6; j++)
-      for (let i = ghost.i - 6; i <= ghost.i + 6; i++) {
-        const d = Math.abs(i - ghost.i) + Math.abs(j - ghost.j);
-        if (d > 6 || !ground(s, i, j) || !visible(i, j)) continue;
-        diamond(ctx, i, j, `rgba(255,205,90,${(0.55 * reachOf(s, d)).toFixed(3)})`);
-      }
+  // 段 MAP1：空き地の見込み客（お店）・工房からの日数（倉庫・工房・拠点）の塗り（置くモード。置けるマスだけ）
+  if (viz?.heat) {
+    const pal = viz.heat.kind === 'shop' ? MAPVIZ_COLOR.heat : MAPVIZ_COLOR.days;
+    for (const c of viz.heat.data.cells.values()) {
+      const i = c.k % s.n;
+      const j = Math.floor(c.k / s.n);
+      if (!visible(i, j)) continue;
+      // 日数は近い（小さい）ほど明るく：段を逆に
+      const b = viz.heat.kind === 'shop' ? viz.heat.data.band(c.est) : 4 - viz.heat.data.band(c.est);
+      diamond(ctx, i, j, hexA(pal[b], 0.5));
+    }
+  }
+  // 段 MAP1：お店の集客エリア（自店＝赤の半透明の菱形・被り＝濃く・他店＝青）。置くときはゴーストにも同じ塗り
+  // （以前の金色の「近いほど濃い」塗りは、この赤に替えた）
+  if (viz?.area || ghost?.area) {
+    const ac = areaCells(s, { only: viz?.area && viz.area.only != null ? viz.area.only : null, ghost: ghost?.area ? ghost : null, rivals: true });
+    for (const [k, n] of ac.rival) {
+      const i = k % s.n;
+      const j = Math.floor(k / s.n);
+      // ヒートマップの上では他店の塗りは薄く（ふちの線で分かる）
+      if (ground(s, i, j) && visible(i, j)) diamond(ctx, i, j, hexA(MAPVIZ_COLOR.rival, viz?.heat ? 0.1 : Math.min(0.5, 0.22 + 0.1 * (n - 1))));
+    }
+    for (const [k, n] of ac.mine) {
+      const i = k % s.n;
+      const j = Math.floor(k / s.n);
+      if (ground(s, i, j) && visible(i, j)) diamond(ctx, i, j, hexA(MAPVIZ_COLOR.mine, Math.min(0.72, 0.3 + 0.22 * (n - 1))));
+    }
+    // 建物の下は塗りが隠れるので、範囲のふちを線で（菱形の形が分かる）
+    areaEdge(ctx, s, ac.rival, MAPVIZ_COLOR.rival, cam.zoom, visible);
+    areaEdge(ctx, s, ac.mine, MAPVIZ_COLOR.mine, cam.zoom, visible);
+  }
+  // 段 MAP1：サプライチェーンの線（調達＝橙の点線・輸送＝青の点線と「N 日」の札）。地面の層（荷車・人は上を通る）
+  if (viz?.lines) drawRoutes(ctx, s, cam.zoom, now, visible);
 
   // 営業（Rare の町 ②）：商圏の塗り分け（マスごとに、お客さんがいちばん行く会社の色。濃いほど取り分が大きい。仮の塗り。docs/ISLAND_ART_TODO.md）
   if (areaOverlay.on && s.area) {
@@ -628,6 +663,95 @@ export function drawVacant(ctx: CanvasRenderingContext2D, b: { uid: number; id: 
     ctx.fillText(t('閉店', 'Closed'), c.x, c.y - 150);
     ctx.restore();
   }
+}
+
+/** 段 MAP1：商圏（マスの集まり）のふち。隣が範囲の外の辺だけ線で結ぶ（画面で 2px） */
+function areaEdge(ctx: CanvasRenderingContext2D, s: P1State, cells: Map<number, number>, color: string, zoom: number, visible: (i: number, j: number) => boolean) {
+  if (!cells.size) return;
+  const inside = (i: number, j: number) => i >= 0 && j >= 0 && i < s.n && j < s.n && cells.has(j * s.n + i);
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(4, 2 / Math.max(0.05, zoom));
+  ctx.beginPath();
+  for (const k of cells.keys()) {
+    const i = k % s.n;
+    const j = Math.floor(k / s.n);
+    if (!visible(i, j)) continue;
+    const c = center(i, j);
+    const top: [number, number] = [c.x, c.y - 55];
+    const right: [number, number] = [c.x + 100, c.y];
+    const bottom: [number, number] = [c.x, c.y + 55];
+    const left: [number, number] = [c.x - 100, c.y];
+    const seg = (a: [number, number], b: [number, number]) => {
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+    };
+    if (!inside(i, j - 1)) seg(top, right);
+    if (!inside(i + 1, j)) seg(right, bottom);
+    if (!inside(i, j + 1)) seg(bottom, left);
+    if (!inside(i - 1, j)) seg(left, top);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * 段 MAP1：サプライチェーンの線。調達（問屋 → 工房）は橙の点線、輸送（工房／拠点 → 店）は青の点線に「N 日」の小さな札（片道）。
+ * 荷が動いている線だけ点線が流れる（reduced-motion では流さない）。線はマスの真ん中を結ぶ（道路の上）
+ */
+function drawRoutes(ctx: CanvasRenderingContext2D, s: P1State, zoom: number, now: number, visible: (i: number, j: number) => boolean) {
+  const lines = routeLines(s);
+  if (!lines.length) return;
+  const flow = !reducedMotion();
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  // 画面で 3px より細くならないように
+  const lw = Math.max(7, 3 / Math.max(0.05, zoom));
+  for (const l of lines) {
+    if (l.cells.length < 2 || !l.cells.some(([i, j]) => visible(i, j))) continue;
+    ctx.beginPath();
+    l.cells.forEach(([i, j], n) => {
+      const c = center(i, j);
+      if (n) ctx.lineTo(c.x, c.y);
+      else ctx.moveTo(c.x, c.y);
+    });
+    // 下地（暗い縁）で道路の上でも見えるように
+    ctx.setLineDash([]);
+    ctx.strokeStyle = 'rgba(15,22,38,0.55)';
+    ctx.lineWidth = lw + 4;
+    ctx.stroke();
+    ctx.setLineDash([lw * 3, lw * 2]);
+    ctx.lineDashOffset = l.moving && flow ? -(now / 18) % (lw * 5) : 0;
+    ctx.strokeStyle = l.kind === 'supply' ? MAPVIZ_COLOR.supply : MAPVIZ_COLOR.haul;
+    ctx.lineWidth = lw;
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  // 「N 日」の札（輸送の線の真ん中。画面で 13px 以上）
+  const fs = Math.max(22, 13 / Math.max(0.05, zoom));
+  ctx.font = `700 ${fs}px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const l of lines) {
+    if (l.kind !== 'haul' || l.cells.length < 2) continue;
+    const [i, j] = l.cells[Math.floor(l.cells.length / 2)];
+    if (!visible(i, j)) continue;
+    const c = center(i, j);
+    const label = t(`${l.days < 0.95 ? '1' : l.days.toFixed(l.days < 10 ? 1 : 0)} 日`, `${l.days < 0.95 ? '1' : l.days.toFixed(l.days < 10 ? 1 : 0)} d`);
+    const w = ctx.measureText(label).width + fs * 0.8;
+    const h = fs * 1.4;
+    ctx.fillStyle = 'rgba(15,22,38,0.92)';
+    ctx.strokeStyle = MAPVIZ_COLOR.haul;
+    ctx.lineWidth = Math.max(2, lw * 0.3);
+    ctx.beginPath();
+    ctx.rect(c.x - w / 2, c.y - h / 2, w, h);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, c.x, c.y + 1);
+  }
+  ctx.restore();
 }
 
 /** 荷車の道（工房・拠点 → お店）。道路は変わらないので覚えておく */

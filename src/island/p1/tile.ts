@@ -46,7 +46,7 @@ function vacantPop(ctx: Ctx, b: PBuilding, body: HTMLElement, hooks: TileHooks):
   );
   if (surveyed(s)) body.append(h('p', 'isl-good', t(`取り分の予測：この店 ${pct(areaShares(s, [{ i: b.i, j: b.j, w: newStorePull(s) }]).extra[0])}`, `Share forecast: ${pct(areaShares(s, [{ i: b.i, j: b.j, w: newStorePull(s) }]).extra[0])} for this store`)));
   const e = vacantErr(s, b.uid);
-  const row = h('div', 'isl-row');
+  const row = h('div', 'isl-row isl-pop-acts');
   const go = btn(t(`ここに出店（よろず屋・${money(vacantCost(s))}）`, `Open here (general store, ${money(vacantCost(s))})`), () => {
     const x = takeVacant(s, b.uid);
     if (typeof x === 'string') return ctx.toast(t('出店できません（資金・条件）', 'Can’t open here (funds or conditions)'));
@@ -635,7 +635,7 @@ function gate(s: P1State, body: HTMLElement, hooks: TileHooks): HTMLElement {
   body.append(h('p', '', t('ランドのふちにある関所。この先は、まだ見ぬとなりのランドセクタです。まとまった通行料を納めると開通し、次のセクタへ進めるようになります。', 'A gate at the edge of the land. Beyond lies the next land sector. Pay the toll to open it and move on.')));
   if (s.gateOpen) {
     body.append(h('p', 'isl-gold', t('開通済み！ 関所の先のセクタは、ランドマップから行けます。', 'Open! Reach the sectors beyond from the land map.')));
-    const row = h('div', 'isl-row');
+    const row = h('div', 'isl-row isl-pop-acts');
     row.append(btn(t('ランドマップを開く', 'Open the land map'), () => hooks.land(), 'is-on'));
     body.append(row);
     return body;
@@ -646,7 +646,7 @@ function gate(s: P1State, body: HTMLElement, hooks: TileHooks): HTMLElement {
   stat(grid, t('資金', 'Funds'), money(s.money));
   body.append(grid);
   body.append(h('p', 'isl-dim', t('通行料は、このエリアで 1 位の会社のひと月の売上くらい。エリア 1 位を取れるくらい稼げたら、開けられます。', 'The toll is about one month of sales of the #1 company here. Once you earn like the area leader, you can open it.')));
-  const row = h('div', 'isl-row');
+  const row = h('div', 'isl-row isl-pop-acts');
   const pay = btn(t(`${money(toll)} を払って開通する`, `Pay ${money(toll)} to open`), () => hooks.gate(), 'is-on');
   pay.disabled = s.money < toll;
   row.append(pay);
@@ -672,7 +672,7 @@ function empty(s: P1State, i: number, j: number, body: HTMLElement, hooks: TileH
   body.append(meta([[t('所有者', 'Owner'), t('売り地', 'For sale')]]));
   body.append(h('p', '', ok ? t('道路に面した空き地。工房やお店を建てられます。', 'An empty lot facing a road. You can build here.') : t('道路に面していない空き地。建物は道路に面した場所にしか建てられません。', 'An empty lot away from the road. Buildings must face a road.')));
   if (ok) {
-    const row = h('div', 'isl-row');
+    const row = h('div', 'isl-row isl-pop-acts');
     row.append(btn(t('ここに建てる', 'Build here'), () => hooks.buildHere(i, j), 'is-on'));
     body.append(row);
   }

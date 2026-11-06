@@ -108,7 +108,8 @@ import {
 import type { LevelUp } from './hero';
 import { openMuseum } from './museumui';
 import { along, newAnim, type Walker } from './anim';
-import { areaOverlay, drawP1, shutterFx, type P1Ghost } from './render';
+import { areaOverlay, drawP1, shutterFx, type MapViz, type P1Ghost } from './render';
+import { daysHeat, popPlace, shopHeat, shopHeatAt, landZoomSteps, type Heat } from './mapviz';
 import { openTrade } from './tradeui';
 import { storeName, surveyed } from './trade';
 import {
@@ -1326,6 +1327,23 @@ function placeable(): Set<number> | null {
 /** 画面の真ん中のマス */
 const centerCell = () => pick(cam, W, H, W / 2, H / 2);
 
+/**
+ * 段 MAP1：置くモードの塗り。お店なら置けるマスすべての見込み客（暖色 5 段）、倉庫・工房・物流拠点なら工房からの日数（寒色 5 段）。
+ * 置くモードに入ったとき（建物・マスの数が変わったとき）だけ計算する
+ */
+let heatCache: { key: string; heat: MapViz['heat'] } | null = null;
+function placeHeat(): MapViz['heat'] {
+  if (!placing) return null;
+  const kind = P1B[placing.id]?.kind;
+  const hk: 'shop' | 'days' | null = kind === 'shop' ? 'shop' : kind === 'warehouse' || kind === 'workshop' || kind === 'depot' ? 'days' : null;
+  if (!hk) return null;
+  const key = `${hk}:${placing.id}:${placing.move ?? ''}:${s.buildings.length}:${s.nextUid}:${s.skills.length}`;
+  if (heatCache?.key === key) return heatCache.heat;
+  const data: Heat = hk === 'shop' ? shopHeat(s, placing.id, placing.move) : daysHeat(s, placing.id, placing.move);
+  heatCache = { key, heat: { kind: hk, data } };
+  return heatCache.heat;
+}
+
 /** 置くモードを始める（at があればそのマスへ） */
 function startPlacing(id: string, opts: { move?: number; at?: [number, number]; dir?: Dir } = {}) {
   closePop();
@@ -1478,6 +1496,19 @@ function renderPlaceBar(err: PlaceErr | 'spot' | null, canRotate: boolean) {
   const cost = moving ? moveCost(s.buildings.find((b) => b.uid === placing!.move)!) : P1B[placing.id].cost;
   const head = h('div', 'isl-place-bar-head');
   head.append(h('b', '', DEF[placing.id].name), h('small', 'isl-dim', err ? reasonOf(err) : moving ? t(`移転費 ${money(cost)}`, `Move cost ${money(cost)}`) : cost ? t(`費用 ${money(cost)}`, `Cost ${money(cost)}`) : t('無料', 'Free')));
+  // 段 MAP1：ヒートマップの数字（お店：見込み N 軒・被り N／倉庫など：工房から N 日）。色で見て、数字はここで確かめる
+  const heat = placeHeat();
+  const hc = heat?.data.cells.get(placing.j * s.n + placing.i);
+  if (heat?.kind === 'shop') {
+    const v = hc ?? { ...shopHeatAt(s, placing.i, placing.j, placing.move), k: 0 };
+    const sp = h('small', 'isl-place-heat');
+    sp.append(h('b', '', t(`見込み ${Math.round(v.est)} 軒`, `Est. ${Math.round(v.est)} homes`)), h('span', v.overlap ? 'isl-warn' : 'isl-dim', t(`被り ${v.overlap}`, `Overlap ${v.overlap}`)));
+    head.append(sp);
+  } else if (heat?.kind === 'days' && hc) {
+    const sp = h('small', 'isl-place-heat');
+    sp.append(h('b', '', hc.est < 0.5 ? t('工房のすぐ近く', 'Right by the workshop') : t(`工房から ${hc.est.toFixed(1)} 日`, `${hc.est.toFixed(1)} d from workshop`)));
+    head.append(sp);
+  }
   const row = h('div', 'isl-row');
   if (!err) row.append(btn(moving ? t(`ここへ移転 ${money(cost)}`, `Move here ${money(cost)}`) : cost ? t(`建てる ${money(cost)}`, `Build ${money(cost)}`) : t('建てる', 'Build'), tryPlace, 'is-on is-big'));
   else if (err === 'waste') {
@@ -1581,8 +1612,12 @@ const popHead = h('div', 'isl-pop-head');
 const popTitle = h('h3');
 const popBody = h('div', 'isl-pop-scroll');
 const popTail = h('i', 'isl-pop-tail');
+/** 段 MAP1：アクションのボタン（開く・移転・建てる など）は吹き出しの下部に固定・大きく（中身だけスクロール） */
+const popActs = h('div', 'isl-pop-acts-fix');
 popHead.append(popTitle, btn('✕', () => closePop()));
-popEl.append(popTail, popHead, popBody);
+popEl.append(popTail, popHead, popBody, popActs);
+/** 吹き出しの中身の高さ（置き場所を決めるために測る。renderPop のときだけ） */
+let popNeed = 0;
 popEl.hidden = true;
 popEl.addEventListener('pointerdown', (e) => e.stopPropagation());
 
@@ -1646,8 +1681,14 @@ function renderPop() {
   });
   popTitle.textContent = title;
   popBody.replaceChildren(body);
+  // 段 MAP1：.isl-pop-acts を下部の固定の帯へ（順番はそのまま）
+  popActs.replaceChildren(...body.querySelectorAll<HTMLElement>('.isl-pop-acts'));
+  popActs.hidden = !popActs.childElementCount;
   popBody.scrollTop = y;
   popEl.hidden = false;
+  popEl.style.width = `${Math.min(400, popRight() - 16)}px`;
+  popEl.style.maxHeight = 'none';
+  popNeed = popEl.offsetHeight;
   placePop();
   dirty = true;
 }
@@ -2296,26 +2337,39 @@ function showGate() {
   if (g) openPop(g.i, g.j);
 }
 
-/** 吹き出しを、マスの真下に（しっぽはマスを指す） */
+/** PC は右端に縦のメニュー（下には無い）。吹き出しはそのぶん横を空ける */
+const popRight = () => {
+  const fr = foot.getBoundingClientRect();
+  return fr.height > fr.width ? fr.left : W;
+};
+/**
+ * 吹き出しを、マスの真下に（しっぽはマスを指す）。
+ * 段 MAP1：PC で下にはみ出すなら、建物の左か右（画面の中央より左の建物なら右に、右なら左に）に出し、縦は画面に収める（mapviz.ts の popPlace）。スマホは下のまま
+ */
 function placePop() {
   if (!pop || popEl.hidden) return;
   const b = selected != null ? s.buildings.find((x) => x.uid === selected) : null;
   const [i, j] = b ? [b.i, b.j] : pop;
   const sx = ((i - j) * 100 - cam.x) * cam.zoom + W / 2;
   const sy = ((i + j) * 55 - cam.y) * cam.zoom + H / 2;
-  // PC は右端に縦のメニュー（下には無い）。そのぶん横を空け、下は画面の端まで使う
   const fr = foot.getBoundingClientRect();
   const rail = fr.height > fr.width;
   const right = rail ? fr.left : W;
-  const w = Math.min(400, right - 16);
-  const left = Math.max(8, Math.min(right - w - 8, sx - w / 2));
-  const top = sy + 40 * cam.zoom + 12;
   const bottom = rail ? H - 8 : fr.top - 8;
-  popEl.style.width = `${w}px`;
-  popEl.style.left = `${left}px`;
-  popEl.style.top = `${top}px`;
-  popEl.style.maxHeight = `${Math.max(140, bottom - top)}px`;
-  popTail.style.left = `${Math.max(16, Math.min(w - 16, sx - left))}px`;
+  const p = popPlace({ sx, sy, zoom: cam.zoom, W, H, right, bottom, need: popNeed, pc: W >= 900, bw: b ? 100 * (DEF[b.id]?.size ?? 1) + 10 : 110, top0: newsBottom() });
+  popEl.style.width = `${p.width}px`;
+  popEl.style.left = `${p.left}px`;
+  popEl.style.top = `${p.top}px`;
+  popEl.style.maxHeight = `${p.maxHeight}px`;
+  popEl.classList.toggle('is-side-l', p.side === 'left');
+  popEl.classList.toggle('is-side-r', p.side === 'right');
+  if (p.side === 'below') {
+    popTail.style.left = `${p.tail}px`;
+    popTail.style.top = '';
+  } else {
+    popTail.style.left = '';
+    popTail.style.top = `${p.tail}px`;
+  }
 }
 
 /** カメラをマスへ動かす（吹き出しが下に入るよう、マスは画面の上のほうへ） */
@@ -3171,9 +3225,13 @@ function showTalk(pages: TutPage[], ok: string, then: () => void) {
       show();
     }
   };
-  // 箱でも暗幕でも、押すと次へ（最後の枚はボタンで）
+  // 箱でも暗幕でも、押すと次へ。段 MAP1：最後の枚もどこを押しても送る（選択肢（その枚だけのボタン）があるときは選択肢だけ）
   m.addEventListener('click', (e) => {
-    if (!(e.target instanceof HTMLButtonElement)) next();
+    if (e.target instanceof HTMLButtonElement || (e.target instanceof Element && e.target.closest('button, a, input, select'))) return;
+    if (k < pages.length - 1) return next();
+    if (pages[k].button) return;
+    m.remove();
+    then();
   });
   show();
   root.append(m);
@@ -3625,6 +3683,49 @@ const zoomBox = h('div', 'isl-zoom');
 zoomBox.append(btn('+', () => zoomStep(1)), btn('−', () => zoomStep(-1)));
 zoomBox.hidden = true;
 
+// ---------------------------------------------------------------- 段 MAP1：見える化の切り替え（地図の右下、ズームの隣）と凡例
+/** 流れの線（既定オン。flags に覚える。チュートリアルの流れの案内では強制オン） */
+const flowOn = () => s.flags.flowLines !== false || !!tour;
+/** 商圏（既定オフ。置くモードは常に・店を押したときはその店だけ） */
+const areaOn = () => !!s.flags.areaShow;
+const vizBox = h('div', 'isl-viz');
+const flowBtn = btn(t('🔗 流れ', '🔗 Flow'), () => {
+  s.flags.flowLines = !(s.flags.flowLines !== false);
+  save();
+  renderViz();
+  dirty = true;
+}, 'isl-viz-flow');
+const areaBtn = btn(t('🏪 商圏', '🏪 Areas'), () => {
+  s.flags.areaShow = !s.flags.areaShow;
+  save();
+  renderViz();
+  dirty = true;
+}, 'isl-viz-area');
+const vizLegend = h('div', 'isl-viz-legend');
+vizBox.append(flowBtn, areaBtn, vizLegend);
+vizBox.hidden = true;
+function renderViz() {
+  vizBox.hidden = !!placing || digOpen() || !!s.digRun;
+  flowBtn.classList.toggle('is-on', flowOn());
+  areaBtn.classList.toggle('is-on', areaOn());
+  const items: [string, string][] = [];
+  if (areaOn()) items.push(['isl-viz-mine', t('自店', 'Mine')], ['isl-viz-rival', t('他店', 'Rivals')]);
+  if (flowOn()) items.push(['isl-viz-supply', t('調達', 'Supply')], ['isl-viz-haul', t('輸送', 'Haul')]);
+  vizLegend.replaceChildren(
+    ...items.map(([cls, name]) => {
+      const x = h('span', 'isl-viz-key');
+      x.append(h('i', cls), h('small', '', name));
+      return x;
+    }),
+  );
+  vizLegend.hidden = !items.length;
+}
+/** いま地図に重ねるもの（毎フレーム。描くデータは mapviz.ts で memo） */
+function vizNow(): MapViz {
+  const selShop = selected != null && !placing ? s.buildings.find((b) => b.uid === selected && b.owner === 'me' && P1B[b.id]?.kind === 'shop') : null;
+  return { lines: flowOn(), area: placing ? (P1B[placing.id]?.kind === 'shop' ? { only: null } : null) : areaOn() ? { only: null } : selShop ? { only: selShop.uid } : null, heat: placeHeat() };
+}
+
 /** 縮小して全体を見ている（1 セクタが画面の幅の 60% 未満） */
 const overviewOn = () => !!s.land && s.n * 200 * cam.zoom < W * 0.6;
 
@@ -3876,6 +3977,7 @@ function placeWorldUi() {
   const land = s.land;
   // 段 UX1（B-6）：ズームの ＋／− は最初の町でも出す（ホイール・ピンチのほかに拡大の手段が無かった）
   zoomBox.hidden = !!placing || digOpen();
+  renderViz();
   if (!land || worldBusy()) {
     worldUi.hidden = true;
     return;
@@ -4247,7 +4349,7 @@ function renderAreaPill() {
   if (!s.area) areaOverlay.on = false;
   areaPill.replaceChildren(h('span', '', t('🗺 商圏を表示中（色＝お客さんが行く会社）', '🗺 Showing trade areas (color = where customers go)')), h('b', '', '✕'));
 }
-root.append(worldUi, meetEl, chiefEl, hud, ticker.el, sectorPill, areaPill, zoomBox, pointEl, missionBox, tourEl, toasts, advisor, nextBtn, placeBox, popEl, foot, selBox, ghostUi);
+root.append(worldUi, meetEl, chiefEl, hud, ticker.el, sectorPill, areaPill, zoomBox, vizBox, pointEl, missionBox, tourEl, toasts, advisor, nextBtn, placeBox, popEl, foot, selBox, ghostUi);
 resize();
 renderAll();
 // 始めたばかりなら、建築の一覧を開いておく
@@ -4259,9 +4361,10 @@ const pts = new Map<number, { x: number; y: number }>();
 let drag: { x: number; y: number; cx: number; cy: number; moved: boolean } | null = null;
 let pinch: { d: number; zoom: number } | null = null;
 /** ホイールと「＋／−」の段。関所を開けたあとは、同じ階層の全セクタが入るところまで縮小できる */
+/** 段 MAP1：関所のあと（つながった地図）は、いちばん縮小から 0.25 までを 5 段に（最大と最小しか無かった） */
 const zoomSteps = () => {
   const lo = minZoom();
-  return [...new Set([lo, ...(s.land && lo < 0.12 ? [0.12] : []), 0.25, 0.5, 1, 2])].sort((a, b) => a - b);
+  return s.land ? landZoomSteps(lo) : [...new Set([lo, 0.25, 0.5, 1, 2])].sort((a, b) => a - b);
 };
 const clampZoom = (z: number) => Math.max(minZoom(), Math.min(2, z));
 const local = (e: PointerEvent) => {
@@ -5001,7 +5104,7 @@ function frame(now: number) {
     const ghost: P1Ghost | null = placing ? { id: placing.id, i: placing.i, j: placing.j, dir: placing.dir, ok: !placeErr(), area: P1B[placing.id]?.kind === 'shop', hot: has(s, 'flow') && !placing.move ? hotCells(s) : undefined } : null;
     lastDraw = now;
     const ov = overviewOn() ? overviewScale(cam.zoom, DPR) : null;
-    drawP1(ctx2, s, cam, W, H, DPR, now, fx, ghost, placing?.move ?? selected, pop && selected == null ? pop : null, placeable(), anim, worldOf(s), ov);
+    drawP1(ctx2, s, cam, W, H, DPR, now, fx, ghost, placing?.move ?? selected, pop && selected == null ? pop : null, placeable(), anim, worldOf(s), ov, vizNow());
     placePop();
     placeWorldUi();
     placeGhostUi();
