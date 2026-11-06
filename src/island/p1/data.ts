@@ -1511,12 +1511,15 @@ export interface DigTree {
   repeat: number[];
   reach: number[];
   reachDir: ('lr' | 'lrd' | 'all')[];
+  /** 段 DIG3：貫通（打った力が層の硬さを超えたぶんを、下の層へ持ち越す割合。Lv1〜5） */
+  pierce: number[];
   lamp: number[];
   hint: number;
   deep: Record<DigTier, number[]>;
   cap: number[];
   deepMul: number[];
-  blastCost: number[];
+  /** 段 DIG3：荒れ地ごとに埋まっている爆弾の数（Lv1〜5。Lv0 は 1）・爆発の範囲（N × N）。威力（はがす層の数）は power の段 */
+  bombs: number[];
   blastSize: number[];
   drill: number[];
   drillFuel: number;
@@ -1546,7 +1549,7 @@ export interface DigTree {
  * Common の RP「初めて掘る」10 → 15・「研究 Lv」5・10・15・20 → 8・15・20・25（1 か所目で RP が尽きて止まらない）／
  * ツルハシの新調 5,000・15,000 → 10,000・30,000 G（1 か所目のはじめに買って、すぐ掘り尽くさない）／発破の火薬代 1,000 → 2,000 G（余ったお金の使い道）。
  * v9（発掘 v2 の 1 段目）：ツルハシの回数をやめ、荒れ地 4 か所 × 15 秒の発掘作業に（docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」）
- * v10（発掘 v2 の 2 段目）：発掘のスキルツリー（9 本目の枝「発掘」。tree）。道具の値段（tools）・火薬代（blastCost）は tree へ
+ * v10（発掘 v2 の 2 段目）：発掘のスキルツリー（9 本目の枝「発掘」。tree）。道具の値段（tools）・火薬代は tree へ（段 DIG3 で火薬代はなくなり、爆弾は地中に埋まる：tree.bombs）
  * v11（発掘画面の作り直し）：上から掘る断面（rows）をやめ、正面の壁（wall。横 7 × 縦 9）を手前から奥へ。硬さ（hard）は奥ほど硬く・出土品の割合（odds）は 1 か所の数がそろうように
  */
 export const DIG_BALANCE: {
@@ -1742,8 +1745,8 @@ export const DIG_BALANCE: {
     // 研究の目利き：研究 Lv の上限（Lv0〜5）と、深い層ほど研究が進みやすい倍率（層 n で 1 + 0.25 × (n − 1) × 倍率 個ぶん）
     cap: [3, 4, 5, 5, 5, 5],
     deepMul: [0, 0, 0, 1, 1.5, 2],
-    // 発破：火薬代（G）と大きさ（N × N）
-    blastCost: [2000, 1500, 1000, 1000, 1000],
+    // 発破（段 DIG3：爆弾は地中に埋まっている。掘り出すと爆発。費用なし）：埋まっている数と範囲（N × N）。威力（はがす層の数）は power の段 1・1・2・2・3
+    bombs: [2, 3, 4, 5, 6],
     blastSize: [3, 3, 3, 4, 5],
     // 掘削ドリル：押したマス 1 つを奥へ N 層・1 回の燃料代（G）
     drill: [3, 4, 5, 6, 7],
@@ -1965,9 +1968,10 @@ export const DIG_SKILLS: Skill[] = [
     requires: ['dig_deep'],
     show: [dShow(t('研究 Lv の上限', 'Research cap'), DT.cap.slice(1).map((n) => t(`Lv${n}`, `Lv${n}`))), dShow(t('深い層の倍率', 'Depth multiplier'), DT.deepMul.slice(1).map((m) => (m ? `×${m}` : t('なし', 'none'))))],
   }),
-  dig_('dig_blast', t('発破', 'Blasting'), t(`発破が使える（押したマスを真ん中に ${at1(DT.blastSize, 'dig_blast')} × ${at1(DT.blastSize, 'dig_blast')} の、いまの層を 1 枚ずつ一度にはがす・硬さに関係なく・1 回ごとに火薬代 ${at1(DT.blastCost, 'dig_blast').toLocaleString('en-US')} G）`, `Unlocks blasting (peel one layer off the ${at1(DT.blastSize, 'dig_blast')} × ${at1(DT.blastSize, 'dig_blast')} around the cell at once, however hard; ${at1(DT.blastCost, 'dig_blast').toLocaleString('en-US')} G powder each time)`), {
+  // 段 DIG3：爆弾は地中に埋まっている（荒れ地ごとに一定数。掘り出すと爆発して、まわりの層を一度にはがす。費用なし）。Lv0 でも 1 個
+  dig_('dig_blast', t('発破', 'Blasting'), t(`荒れ地ごとに地中に埋まっている爆弾 1 → ${at1(DT.bombs, 'dig_blast')} 個（掘り出すと爆発して、まわり ${at1(DT.blastSize, 'dig_blast')} × ${at1(DT.blastSize, 'dig_blast')} の層を ${at1(DT.power, 'dig_blast')} 枚一度にはがす・硬さに関係なく・費用なし）`, `Bombs buried in each wasteland 1 → ${at1(DT.bombs, 'dig_blast')} (dig one up and it blasts ${at1(DT.power, 'dig_blast')} layer(s) off the ${at1(DT.blastSize, 'dig_blast')} × ${at1(DT.blastSize, 'dig_blast')} around it, however hard, for free)`), {
     requires: ['dig_power'],
-    show: [dShow(t('火薬代', 'Powder'), DT.blastCost.map((v) => `${v.toLocaleString('en-US')} G`)), dShow(t('大きさ', 'Size'), DT.blastSize.map((v) => `${v} × ${v}`))],
+    show: [dShow(t('埋まっている数', 'Bombs buried'), DT.bombs.map((v) => t(`${v} 個`, `${v}`))), dShow(t('威力', 'Power'), DT.power.map((v) => t(`${v} 枚`, `${v} layer(s)`))), dShow(t('範囲', 'Range'), DT.blastSize.map((v) => `${v} × ${v}`))],
   }),
   dig_('dig_drill', t('掘削ドリル', 'Drill'), t(`押したマス 1 つを奥へ ${at1(DT.drill, 'dig_drill')} 層一気にはがす。1 回ごとに燃料代 ${DT.drillFuel.toLocaleString('en-US')} G`, `Peel ${at1(DT.drill, 'dig_drill')} layers off the tapped cell at once. ${DT.drillFuel.toLocaleString('en-US')} G fuel each time`), {
     requires: ['dig_blast'],
@@ -2024,9 +2028,9 @@ const inf_ = (id: string, kind: InfKind, name: string, note: string, requires: s
  * 開く条件：対応する発掘のパネルを最大 Lv（速さ＝手早い掘り方 Lv5・力＝重機の貸し出し Lv5・範囲＝発破 Lv5 と掘削ドリル Lv5）
  */
 export const INF_SKILLS: Skill[] = [
-  inf_('u_dig_speed_inf', 'speed', t('発掘の速さ ∞', 'Dig speed ∞'), t(`長押しで続けて打つ間隔をさらに短く（Lv ごとに約 −${Math.round(DI.speed * 100)}%。上がるほど少しずつ鈍くなる・${DI.minMs} ms まで）。Lv の上限なし・研究ポイントで上げる`, `Hold-strike interval even shorter (about −${Math.round(DI.speed * 100)}% per level, tapering; down to ${DI.minMs} ms). No level cap · paid in RP`), ['dig_speed']),
+  inf_('u_dig_speed_inf', 'speed', t('発掘の速さ ∞', 'Dig speed ∞'), t(`打つ間隔をさらに短く（Lv ごとに約 −${Math.round(DI.speed * 100)}%。上がるほど少しずつ鈍くなる・${DI.minMs} ms まで）。Lv の上限なし・研究ポイントで上げる`, `Strike interval even shorter (about −${Math.round(DI.speed * 100)}% per level, tapering; down to ${DI.minMs} ms). No level cap · paid in RP`), ['dig_speed']),
   inf_('u_dig_power_inf', 'power', t('掘る力 ∞', 'Dig power ∞'), t(`1 打の強さ ×（1 ＋ 約 ${Math.round(DI.power * 100)}%／Lv。上がるほど少しずつ鈍くなる）。Lv の上限なし・研究ポイントで上げる`, `Strike power × (1 + about ${Math.round(DI.power * 100)}% per level, tapering). No level cap · paid in RP`), ['u_dig_power2']),
-  inf_('u_dig_reach_inf', 'reach', t('掘る範囲 ∞', 'Dig reach ∞'), t(`発破が 1 回り大きく・ドリルが 1 層深くなる確率 +約 ${Math.round(DI.reach * 100)}%／Lv（上がるほど少しずつ鈍くなる。100% を超えたぶんは もう 1 つ）。Lv の上限なし・研究ポイントで上げる`, `Chance for a blast one size bigger and a drill one layer deeper +about ${Math.round(DI.reach * 100)}% per level (tapering; past 100% adds another). No level cap · paid in RP`), ['dig_blast', 'dig_drill']),
+  inf_('u_dig_reach_inf', 'reach', t('掘る範囲 ∞', 'Dig reach ∞'), t(`爆弾の爆発が 1 回り大きく・ドリルが 1 層深くなる確率 +約 ${Math.round(DI.reach * 100)}%／Lv（上がるほど少しずつ鈍くなる。100% を超えたぶんは もう 1 つ）。Lv の上限なし・研究ポイントで上げる`, `Chance for a blast one size bigger and a drill one layer deeper +about ${Math.round(DI.reach * 100)}% per level (tapering; past 100% adds another). No level cap · paid in RP`), ['dig_blast', 'dig_drill']),
 ];
 /**
  * 研究への寄付（お金パネル。発掘の枝の根もとの近く）：押すたびに G を払って RP を受け取る（回数の上限なし。値段は donateCost で上がる）。
@@ -3090,8 +3094,6 @@ export const DIG_ODDS = DIG_BALANCE.odds;
 export const TABLET_LAYERS: Record<DigTier, number[]> = { C: [2], U: [1, 3], R: [1, 3], E: [2, 4] };
 /** 発掘隊（仕事「発掘」）：発掘作業のあいだだけ、適性の速さ 1.0 で 1 日に打つ回数（手で掘るほうが速い） */
 export const DIG_AUTO = { perDay: DIG_BALANCE.autoPerDay };
-/** 発破：Lv1 の火薬代（G。仮。Lv で安くなる：model.ts の blastCost） */
-export const BLAST = { cost: DIG_BALANCE.tree.blastCost[0] };
 
 /**
  * 研究ポイント（RP）の入り方（数字は仮）。研究レベルは Lv1〜5：Lv2・3・4・5 に上がるのに、重なりがそれぞれ 1・2・3・4 個要る。

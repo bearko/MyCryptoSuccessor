@@ -196,7 +196,7 @@ function recText(s: P1State, k: Skill, lv: number, cost: number): string {
     case 'dig_lamp':
       return t(`${head}で ${lvAt(TR.lamp, lv)} 枚手前から見える`, `${head}: glimpse finds ${lvAt(TR.lamp, lv)} layers ahead`);
     case 'dig_blast':
-      return lv === 1 ? t(`${head}で 発破が使える`, `${head}: unlock blasting`) : t(`${head}で 発破 ${lvAt(TR.blastSize, lv)} × ${lvAt(TR.blastSize, lv)}・${lvAt(TR.blastCost, lv).toLocaleString('en-US')} G`, `${head}: ${lvAt(TR.blastSize, lv)} × ${lvAt(TR.blastSize, lv)} blast for ${lvAt(TR.blastCost, lv).toLocaleString('en-US')} G`);
+      return t(`${head}で 爆弾 ${lvAt(TR.bombs, lv)} 個・威力 ${lvAt(TR.power, lv)}・${lvAt(TR.blastSize, lv)} × ${lvAt(TR.blastSize, lv)}`, `${head}: ${lvAt(TR.bombs, lv)} bombs, power ${lvAt(TR.power, lv)}, ${lvAt(TR.blastSize, lv)} × ${lvAt(TR.blastSize, lv)}`);
     case 'dig_drill':
       return t(`${head}で 奥へ ${lvAt(TR.drill, lv)} 層`, `${head}: ${lvAt(TR.drill, lv)} layers deeper`);
     default: {
@@ -301,8 +301,8 @@ export function gotLines(g: DigGot): [string, string][] {
   ];
 }
 
-/** 打てない理由の文（画面に出す。選べないものには理由）。money は火薬代・燃料代（cost） */
-export function digErrText(e: DigErr, cost = DIG_BALANCE.tree.blastCost[0]): string {
+/** 打てない理由の文（画面に出す。選べないものには理由）。money は燃料代（cost） */
+export function digErrText(e: DigErr, cost = DRILL_FUEL): string {
   switch (e) {
     case 'no-run':
       return t('発掘作業は終わった。荒れ地をタップすると、もう一度掘れるよ', 'The dig is over. Tap a wasteland to dig again');
@@ -314,19 +314,15 @@ export function digErrText(e: DigErr, cost = DIG_BALANCE.tree.blastCost[0]): str
       return t('このセクタには荒れ地が無い（Rare 以降は準備中）', 'No wasteland in this sector (Rare and up: coming soon)');
     case 'deep':
       return t('この奥の層は国の許可が要る（スキル → 発掘の「深い層の許可」）', 'Deeper layers need a national permit (Skills → Digging: Deep-layer permit)');
-    case 'no-blast':
-      return t('発破が無い（スキル → 発掘の「発破」）', 'No blasting (Skills → Digging: Blasting)');
     case 'no-drill':
       return t('掘削ドリルが無い（スキル → 発掘の「掘削ドリル」）', 'No drill (Skills → Digging: Drill)');
     case 'money':
-      return t(`${cost === DRILL_FUEL ? '燃料代' : '火薬代'} ${cost.toLocaleString('en-US')} G が足りない`, `Not enough funds (${cost.toLocaleString('en-US')} G)`);
+      return t(`燃料代 ${cost.toLocaleString('en-US')} G が足りない`, `Not enough funds (${cost.toLocaleString('en-US')} G)`);
     case 'out':
       return '';
   }
   return '';
 }
-/** いまの発破の火薬代（スキルの Lv で安くなる） */
-export const blastPrice = (s: P1State) => blastCost(s);
 
 /** パネル全体で掘れない理由（掘れるなら null）：荒れ地が無い・発掘作業が終わった */
 export function digBlock(s: P1State): DigErr | null {

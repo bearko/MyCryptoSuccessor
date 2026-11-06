@@ -132,8 +132,6 @@ interface Panel {
   site: number;
   /** いま描いている壁（ダンジョンは入るたびに作り直すので、壁そのもので見分ける） */
   lay: DigLayout | null;
-  /** 次に押したマスで発破を使う */
-  blastArm: boolean;
   /** 次に押したマスで掘削ドリル（奥へ） */
   drillArm: boolean;
   /** この作業で「深い層の許可が要る」マスを押した（終わりの札のおすすめを深い層の許可に） */
@@ -398,6 +396,11 @@ export function refreshDig() {
   // 段 UX1（C-4）：帯の「研」は累計、終了の札の「研究ポイント +N」は今回。同じ言葉で混ざっていたので、帯に今回の増えも添える
   chip('is-rp', t('研', 'RP'), s.digRun ? t(`${st.rp}（今回 +${st.rpNow}）`, `${st.rp} (+${st.rpNow} now)`) : `${st.rp}`);
   chip('is-got', t('出土', 'Finds'), t(`新 ${st.found}・Lv↑ ${st.lvUp}`, `New ${st.found} · Lv↑ ${st.lvUp}`));
+  // 段 DIG3：埋まっている爆弾（残りの数・威力（はがす層）・範囲）。掘り出すと減る
+  const bombs = bombsLeft(s, s.dig.cur).length;
+  const bc = chip(`is-bomb ${bombs ? '' : 'is-none'}`, '💣', `${bombs}`);
+  bc.append(h('small', '', t(`威力 ${bombPower(s)}・${blastSize(s)}×${blastSize(s)}`, `pow ${bombPower(s)} · ${blastSize(s)}×${blastSize(s)}`)));
+  bc.title = t(`地中に埋まっている爆弾：あと ${bombs} 個。掘り出すと爆発して、まわり ${blastSize(s)} × ${blastSize(s)} の層を ${bombPower(s)} 枚一度にはがす（費用なし。スキル → 発掘の「発破」で増える）`, `Bombs still buried: ${bombs}. Dig one up and it blasts ${bombPower(s)} layer(s) off the ${blastSize(s)} × ${blastSize(s)} around it (free; more with Skills → Digging: Blasting)`);
   if (st.dungeon) {
     // ダンジョン：この作業でいちばん深くはがした層と最深記録・掘れる層（深い層の許可）
     const dg = st.dungeon;
@@ -409,27 +412,10 @@ export function refreshDig() {
   }
   // 道具：発破・掘削ドリル（スキル → 発掘で開いていれば）・発掘隊・研究ノート
   p.tools.replaceChildren();
-  if (hasBlast(s)) {
-    const bc = blastCost(s);
-    const n = blastSize(s);
-    const b = btn(p.blastArm ? t('💥 発破：マスを押す（やめる）', '💥 Blast: tap a cell (cancel)') : t(`💥 発破 ${n}×${n}（${money(bc)}）`, `💥 Blast ${n}×${n} (${money(bc)})`), () => {
-      p.blastArm = !p.blastArm;
-      p.drillArm = false;
-      p.ctx.sfx?.('tap');
-      refreshDig();
-    }, `isl-dig-blast ${p.blastArm ? 'is-on' : ''}`);
-    b.title = t(`火薬代で、押したマスを真ん中に ${n} × ${n} の いまの層を 1 枚ずつ一度にはがす`, `Pay for powder to peel one layer off the ${n} × ${n} around the cell`);
-    if (s.money < bc) {
-      b.disabled = true;
-      b.title = digErrText('money', bc);
-    }
-    p.tools.append(b);
-  }
   if (hasDrill(s)) {
     const n = drillLen(s);
     const b = btn(p.drillArm ? t('🔩 ドリル：マスを押す（やめる）', '🔩 Drill: tap a cell (cancel)') : t(`🔩 ドリル 奥へ ${n}（${money(DRILL_FUEL)}）`, `🔩 Drill ${n} deep (${money(DRILL_FUEL)})`), () => {
       p.drillArm = !p.drillArm;
-      p.blastArm = false;
       p.ctx.sfx?.('tap');
       refreshDig();
     }, `isl-dig-drill ${p.drillArm ? 'is-on' : ''}`);
@@ -508,7 +494,6 @@ export function showEndCard(end: RunEnd, o: { then?: () => void; again?: () => v
   }
   p.over = true;
   stopAim(p);
-  p.blastArm = false;
   p.drillArm = false;
   p.el.querySelector('.isl-dig-mine')?.remove();
   p.el.querySelector('.isl-dig-endcard')?.remove();
@@ -741,21 +726,22 @@ function strike(x: number, y: number): 'more' | 'broke' | 'err' {
   const s = p.ctx.s();
   // 作業が終わった（時間切れの直後）：何もしない
   if (!s.digRun) return 'err';
-  const useBlast = p.blastArm;
-  const useDrill = !useBlast && p.drillArm;
-  const r = useBlast ? blast(s, x, y) : useDrill ? drill(s, x, y) : dig(s, x, y);
+  const useDrill = p.drillArm;
+  const r = useDrill ? drill(s, x, y) : dig(s, x, y);
   if (typeof r === 'string') {
     if (r === 'deep') return deepPressed(x, y), 'err';
-    fail(x, y, r, useDrill ? DRILL_FUEL : blastCost(s));
+    fail(x, y, r, DRILL_FUEL);
     return 'err';
   }
-  // 広く掘る：隣のマスに当たった結果も（extra）
+  // 広く掘る・貫通・爆弾の爆発：隣のマス・下の層に当たった結果も（extra）
   const hits = Array.isArray(r) ? r : [r, ...(r.extra ?? [])];
-  if (useBlast) p.blastArm = false;
   if (useDrill) p.drillArm = false;
   p.err = null;
   soonSave();
-  showHits(hits, useBlast, useDrill);
+  // 段 DIG3：爆弾を掘り出した（爆発）
+  const boom = hits.filter((x) => x.bomb);
+  showHits(hits, boom.length > 0, useDrill);
+  for (const b of boom) bombFx(b);
   p.hooks.hit?.(hits);
   // 再発掘で初めて RP が入った（この周回で初めて掘り出した出土品・石板）：1 回だけ
   if (hits.some((x) => x.again && x.rp > 0) && p.hooks.againTip?.()) mineSay(AGAIN_TIP(), 6000);

@@ -34,6 +34,8 @@ export const FX_PAL = {
   dust: ['#704536', '#b38e76', '#c7ac8f', '#dbcaab', '#f0e6c9'],
   /** 灰色の煙（中立 neutral ＋ 広場 plaza。他社の撤退） */
   smoke: ['#574541', '#786861', '#998d85', '#bab4ad', '#e0d6c1', '#ffffff'],
+  /** 爆発の火（屋根の赤 roofA ＋ 灯り lantern ＋ 砂の白。段 DIG3：地中の爆弾） */
+  fire: ['#852c2c', '#c7735a', '#d4892f', '#f2b844', '#ffdb57', '#f7f0bc', '#ffffff'],
   /** 雨（海 water ＋ 窓 glass ＋ 屋根 roofB の影。災害の雨） */
   rain: ['#2e365c', '#3c547d', '#557b9e', '#73a6bf', '#94d2e0', '#c4eaf2', '#ffffff'],
 } as const;

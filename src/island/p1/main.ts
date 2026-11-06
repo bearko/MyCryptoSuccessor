@@ -87,6 +87,7 @@ import {
   present,
   topicsOf,
   applyPermit,
+  detonate,
   endRun,
   firstSite,
   grantFirst,

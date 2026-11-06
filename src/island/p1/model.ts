@@ -6049,6 +6049,17 @@ export interface DigLayout {
   topic: number | null;
   /** ダンジョンの壁（入るたびに作り直す。site は DUNGEON） */
   dungeon?: boolean;
+  /**
+   * 段 DIG3：地中に埋まっている爆弾の候補（並びの順に bombCount 個が生きている。中層以降・出土品と重ならない・マスは別々）。
+   * その層をはがすと爆発して、まわり blastSize × blastSize の層を bombPower 枚一度にはがす（費用なし）
+   */
+  bombs: DigBomb[];
+}
+/** 段 DIG3：埋まっている爆弾 1 つ（マス (x, y) の層 layer） */
+export interface DigBomb {
+  x: number;
+  y: number;
+  layer: number;
 }
 /** 荒れ地 1 か所の進み具合 */
 export interface DigSiteState {
@@ -6066,6 +6077,8 @@ export interface DigSiteState {
   homes?: number;
   /** 復興で通した小道（道路にしたマス。建物の入口を向けられる） */
   path?: [number, number][];
+  /** 段 DIG3：掘り出して爆発した爆弾（DigLayout.bombs の番号） */
+  boom?: number[];
 }
 /** ダンジョン（セクタで最後に掘りきった荒れ地の底。入るたびに壁を作り直す）：入り口の荒れ地・入った回数・最深記録（はがした層の数）・いまの壁の進み・見つけたエクステ */
 export interface DungeonState {
@@ -6396,7 +6409,33 @@ export function digLayouts(sector: string, round = 0): DigLayout[] {
       }
     out.push(L);
   }
+  // 段 DIG3：爆弾の候補（4 か所の出土品を全部置いたあとに引くので、出土品の配置は前（v41 まで）と同じ）
+  for (const L of out) L.bombs = pickBombs(L, r);
   layoutCache.set(key, out);
+  return out;
+}
+/**
+ * 段 DIG3：埋める爆弾の候補 BOMB_MAX 個（並びの順に bombCount 個が生きる）：中層以降（層の数の半分から奥）・出土品と重ならない層・マスは別々。
+ * 壁の種（r）の続きで決めるので、同じ壁はいつも同じ所
+ */
+export const BOMB_MAX = 6;
+function pickBombs(L: DigLayout, r: () => number): DigBomb[] {
+  const from = Math.floor(L.depth / 2);
+  const cand: DigBomb[] = [];
+  for (let k = 0; k < L.w * L.h; k++) for (let layer = from; layer < L.depth; layer++) if (L.at[k * L.depth + layer] < 0) cand.push({ x: k % L.w, y: Math.floor(k / L.w), layer });
+  for (let k = cand.length - 1; k > 0; k--) {
+    const m = Math.floor(r() * (k + 1));
+    [cand[k], cand[m]] = [cand[m], cand[k]];
+  }
+  const out: DigBomb[] = [];
+  const used = new Set<number>();
+  for (const b of cand) {
+    const k = b.y * L.w + b.x;
+    if (used.has(k)) continue;
+    used.add(k);
+    out.push(b);
+    if (out.length >= BOMB_MAX) break;
+  }
   return out;
 }
 /** 荒れ地 k の壁（無ければ null）。round：何周目の壁か */
@@ -6460,6 +6499,7 @@ export function dungeonLayout(sector: string, runs: number): DigLayout | null {
       if (f.x + f.size[0] <= D.w && f.y + f.size[1] <= D.h && findCells(L, f).every((c) => L.at[c * depth + layer] < 0)) placeFind(L, item, f.x, f.y, layer);
     }
   }
+  L.bombs = pickBombs(L, r);
   // 古い壁は捨てる（いまの 1 枚と、その前の 1 枚だけ）
   for (const k of [...dungeonCache.keys()]) if (dungeonCache.size >= 4) dungeonCache.delete(k);
   dungeonCache.set(key, L);
@@ -6911,6 +6951,15 @@ function strike(s: P1State, L: DigLayout, x: number, y: number, power: number): 
     if (s.digRun) s.digRun.deep = Math.max(s.digRun.deep ?? 0, dd);
     s.dig.dungeon.best = Math.max(s.dig.dungeon.best, dd);
   }
+  // 段 DIG3：はがした層に爆弾が埋まっていたら爆発（まわりを一度にはがす。爆発ではがした層に別の爆弾があれば連鎖）
+  for (const c of hit.span ? findCells(L, { x: hit.span.x, y: hit.span.y, size: [hit.span.w, hit.span.h] }) : [k]) {
+    const bi = bombAt(s, L, st, c, layer);
+    if (bi < 0) continue;
+    (st.boom ??= []).push(bi);
+    hit.bomb = true;
+    if (s.digRun) s.digRun.got.bombs = (s.digRun.got.bombs ?? 0) + 1;
+    explode(s, L, c % L.w, Math.floor(c / L.w), hit);
+  }
   if (!st.done && st.depth.every((v) => v >= L.depth)) {
     st.done = true;
     hit.done = true;
@@ -7025,32 +7074,47 @@ export function dig(s: P1State, x: number, y: number): DigHit | DigErr {
   if (e) return e;
   return strikeAt(s, digSite(s)!, x, y, digPower(s));
 }
-/** 発破が使えるか（スキル「発破」） */
-export const hasBlast = (s: P1State) => lvOf(s, 'dig_blast') > 0;
-/** 発破：火薬代で、(x, y) を真ん中に N × N マスの いまの層を 1 枚ずつ はがす（硬さに関係なく 1 枚。深い層の許可が無い層・待っているマスははがさない） */
-export function blast(s: P1State, x: number, y: number): DigHit[] | DigErr {
-  const e = digCheck(s, x, y);
-  // 真ん中のマスが掘りきっていても、まわりがはがせれば使える
-  if (e && e !== 'dug' && e !== 'deep' && e !== 'wait') return e;
-  if (!hasBlast(s)) return 'no-blast';
-  const L = digSite(s)!;
-  const st = curSite(s)!;
-  // 掘る範囲 ∞：確率で 1 回り大きく
+/**
+ * 段 DIG3：爆発。(x, y) を真ん中に N × N（blastSize ＋ 掘る範囲 ∞）の いまの層を、硬さに関係なく bombPower 枚はがす
+ * （深い層の許可が無い層・待っているマス・掘りきったマスははがさない。費用なし）。はがした結果は hit.extra に（blast。連鎖の爆発の結果もならす）
+ */
+function explode(s: P1State, L: DigLayout, x: number, y: number, hit: DigHit) {
+  const st = siteState(s, L.site)!;
   const n = blastSize(s) + reachBonus(s);
   const lo = -Math.floor((n - 1) / 2);
-  const targets: [number, number][] = [];
-  for (let dy = lo; dy < lo + n; dy++)
-    for (let dx = lo; dx < lo + n; dx++) {
-      const X = x + dx;
-      const Y = y + dy;
-      if (X >= 0 && Y >= 0 && X < L.w && Y < L.h && open1(s, L, st, Y * L.w + X)) targets.push([X, Y]);
-    }
-  if (!targets.length) return e ?? 'dug';
-  const cost = blastCost(s);
-  if (s.money < cost) return 'money';
-  s.money -= cost;
-  spend(s, 'build', cost);
-  return targets.map(([X, Y]) => strike(s, L, X, Y, Infinity));
+  for (let round = 0; round < bombPower(s); round++) {
+    let any = false;
+    for (let dy = lo; dy < lo + n; dy++)
+      for (let dx = lo; dx < lo + n; dx++) {
+        const X = x + dx;
+        const Y = y + dy;
+        if (X < 0 || Y < 0 || X >= L.w || Y >= L.h || !open1(s, L, st, Y * L.w + X)) continue;
+        const h2 = strike(s, L, X, Y, Infinity);
+        h2.blast = true;
+        any = true;
+        const more = h2.extra ?? [];
+        delete h2.extra;
+        (hit.extra ??= []).push(h2, ...more);
+        if (h2.done || more.some((m) => m.done)) hit.done = true;
+      }
+    if (!any) return;
+  }
+}
+/**
+ * 爆発を起こす（撮影・テスト用）：(x, y) に生きている爆弾があれば掘り出したことにして（数が減る）、無くてもその場で爆発させる。
+ * まわりの結果は返り値の extra（blast）。壁が無ければ null
+ */
+export function detonate(s: P1State, x: number, y: number): DigHit | null {
+  const L = digSite(s);
+  const st = curSite(s);
+  if (!L || !st) return null;
+  const k = y * L.w + x;
+  const bi = bombAt(s, L, st, k, st.depth[k]);
+  if (bi >= 0) (st.boom ??= []).push(bi);
+  const hit: DigHit = { x, y, layer: st.depth[k], broke: false, depth: st.depth[k], left: st.hp[k], item: null, rp: 0, bomb: true };
+  if (s.digRun) s.digRun.got.bombs = (s.digRun.got.bombs ?? 0) + 1;
+  explode(s, L, x, y, hit);
+  return hit;
 }
 /** 掘削ドリル：燃料代で、(x, y) のマス 1 つを 奥へ N 層 一気にはがす（深い層の許可が無い層・2 × 2 のものを待つところで止まる） */
 export function drill(s: P1State, x: number, y: number): DigHit[] | DigErr {
@@ -7087,11 +7151,13 @@ export function siteDiggable(s: P1State, k: number): boolean {
  * stand（常駐で働く日）は常駐の段取りで選び方が変わる（層の番号で）：Lv1 お題の気配のある所（お題の範囲の、お題の層まで）を先に・
  * Lv3 いまの層に研究 Lv の低いエクステがあるマスを先に・Lv5 研究 Lv の上限に達したエクステのマスを後回し
  */
-export function digNext(s: P1State, stand = false, noTopic = false): [number, number] | null {
+export function digNext(s: P1State, stand = false, noTopic = false, rule = 0): [number, number] | null {
   const L = digSite(s);
   const st = curSite(s);
   if (!L || !st) return null;
   const rl = stand ? lvOf(s, 'u_dig_route') : 0;
+  // 段 DIG3：発掘隊の行動規則（rule ＝ 発掘隊の手際の Lv）Lv4：爆弾の近く（生きている爆弾のマス）を先に
+  const bombCells = rule >= 4 ? new Set(bombsLeft(s, L.site).map(({ b }) => b.y * L.w + b.x)) : null;
   const bonus = new Map<number, number>();
   const add = (k: number, v: number) => bonus.set(k, Math.min(bonus.get(k) ?? 0, v));
   const skip = new Set<number>();
@@ -7116,7 +7182,17 @@ export function digNext(s: P1State, stand = false, noTopic = false): [number, nu
       const k = y * L.w + x;
       if (!open1(s, L, st, k) || skip.has(k)) continue;
       const d = st.depth[k];
-      let v = (bonus.get(k) ?? 0) + (st.hp[k] < L.cells[k].hard[d] ? -1e6 : 0) + d * 1000 + y * L.w + x;
+      // 段 DIG3 の規則 Lv5：深い層へ（深いマスを先に。Lv1 は手前から順に）
+      let v = (bonus.get(k) ?? 0) + (st.hp[k] < L.cells[k].hard[d] ? -1e6 : 0) + (rule >= 5 ? -d * 1000 : d * 1000) + y * L.w + x;
+      // 規則 Lv2：硬いマスを避ける（いまの層の硬さぶん後回し）
+      if (rule >= 2) v += L.cells[k].hard[d] * 200;
+      // 規則 Lv3：エクステ（出土品の気配）が見えたら優先して掘り当てる
+      if (rule >= 3) {
+        const pv = peekView(s, x, y);
+        if (pv && !pv.hint && pv.item.kind === 'ext') v -= 3e5;
+      }
+      // 規則 Lv4：爆弾の近く（そのマス）を先に
+      if (bombCells?.has(k)) v -= 4e5;
       const it = findAt(s, L, k, d)?.item;
       if (it?.kind === 'ext' && !it.topic) {
         // Lv3：研究 Lv の低いエクステほど先に（上限に達したものは数えない）・Lv5：上限に達したエクステは後回し
