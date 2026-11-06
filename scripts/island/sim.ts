@@ -761,8 +761,9 @@ export function policy(s: P1State, c: Ctx): Action[] {
   // ---- 依頼：達成したら受け取る・空きがあれば受ける
   for (const m of MISSIONS) if (s.missions[m.id] === 'done') acts.push({ kind: 'claim', run: () => claim(s, m.id) });
   const accepted = MISSIONS.filter((m) => s.missions[m.id] === 'accepted').length;
-  // v45（段 L0）：序盤の自動化を覚える依頼（teach）は遊ぶ人に教えるもの。自動プレイは受けない（依頼の手は前のまま）
-  if (accepted < 3) for (const m of offeredMissions(s).filter((x) => !x.teach).slice(0, 3 - accepted)) acts.push({ kind: 'accept', run: () => accept(s, m.id) });
+  // v45（段 L0）：序盤の自動化を覚える依頼（teach）は遊ぶ人に教えるもの。最短・通常は受けない（依頼の手は前のまま）。
+  // 100% は全部の依頼をこなす方針なので受ける（受けないと「全依頼」に届かず終わらない：計測 l0d の 100% +6.4%）
+  if (accepted < 3) for (const m of offeredMissions(s).filter((x) => c.policy === 'full' || !x.teach).slice(0, 3 - accepted)) acts.push({ kind: 'accept', run: () => accept(s, m.id) });
 
   // ---- 工房
   const wsAny = s.buildings.find((b) => b.owner === 'me' && b.id === 'workshop');
