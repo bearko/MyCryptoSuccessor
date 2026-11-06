@@ -22,6 +22,7 @@ import { bonus as giveBonus, bonusCost, raise, raiseStep, setRest, wageMul } fro
 import { CHARISMA, CS, CSM_RP, FATIGUE, FLAME, GRADE, GRADE_NAME, MORALE, PAY, TAX, deptOf } from '../../src/island/p1/data';
 // v22（段 G）：販売の枝に足したカスタマーサポート・マーケの研究パネル（CSM_RP）は、通常の「詰まりの段の枝の研究パネル」には数えない（売り場の段に効かない）
 import { approve, delegatedDuties, headDepts, headLeft, headOf, leaderLeft, leaderOf, quality, runnerOf, setHead, setLeader } from '../../src/island/p1/deleg';
+import { propsOpen } from '../../src/island/p1/stage';
 import { DELEG, DEPTS, type DeptId, type DutyId } from '../../src/island/p1/data';
 import { deptLevel } from '../../src/island/p1/dept';
 import { BUDGET_OFF, budgetHeads, crewTotal, type BudgetStat } from '../../src/island/p1/budget';
@@ -669,6 +670,10 @@ export const SIM_AD: Record<PolicyId, boolean> = { rta: false, normal: false, fu
  * （3 シード）と目安（合計 ±3%・ランクごと ±5%）を超えたため。比べるときは SIM_RACK_FIRST=1
  */
 const SIM_RACK_FIRST = process.env.SIM_RACK_FIRST === '1';
+/**
+ * v18（段 D）：通常の方針だけ任せる。v45（段 L0）：リーダーは Uncommon の町から・部長と提案は Rare の町から（stage.ts の heroStage。
+ * delegPlace の leaderLeft・headLeft がランクで止める。Rare より前は部長の提案の承認・simTake もしない）
+ */
 export const SIM_DELEG: Record<PolicyId, { on: boolean; lead: Partial<Record<DeptId, DutyId>> }> = {
   rta: { on: false, lead: {} },
   normal: { on: true, lead: { logistics: 'shelf', hr: 'rest', rnd: 'dig', marketing: 'ads', sales: 'vacant', support: 'reply' } },
@@ -1383,14 +1388,17 @@ export function policy(s: P1State, c: Ctx): Action[] {
   // v18（段 D）：任せ方の 4 段。理解度 3 の部門に順にリーダー（SIM_DELEG.lead の業務）・8 で部長（その部門のリーダーを昇進）。
   // 提案は月末に、見込みがプラスなら承認（お金が足りなければ資金不足で保留）
   if (SIM_DELEG[c.policy].on && !delegOff && !saving) delegPlace(s, c, acts, budget, reserve, hired, () => (hired = true));
-  if (SIM_DELEG[c.policy].on && !delegOff && c.monthEnd)
+  // v45（段 L0）：Common ではリーダーを置かない・Rare より前は部長を置かない（deleg.ts の leaderLeft・headLeft がランクで止める）。
+  // Rare より前は部長の提案を承認しない・ヒーローの提案のカードを受けない（simTake しない）。代わりに印の手（任せていない業務）を今どおり手で打つ
+  const props = propsOpen(s);
+  if (SIM_DELEG[c.policy].on && !delegOff && c.monthEnd && props)
     for (const pr of [...(s.deleg?.inbox ?? [])]) {
       if (pr.est <= 0) continue;
       acts.push({ kind: 'approve', run: () => (s.money - pr.cost < reserve ? 'none' : approve(s, pr.id) == null ? null : 'none') });
     }
   // v25（段 UI1）：ヒーローからの提案のカード（店員・職人・調達係・待機中の人）。部長の提案と同じ条件（見込みがプラス・払ったあとも手元に残すお金が残る）で、
   // おすすめ（金色）を受ける。最短・100% は手で（カードは使わない）。問い合わせ・炎上の予告・辞めたい・経理の助言・巻き返しは、いまの方針の手（SIM_CS・SIM_HR ほか）のまま
-  if (SIM_DELEG[c.policy].on && !delegOff && c.monthEnd && SIM_CARDS.on) acts.push({ kind: 'approve', run: () => (simTake(s, reserve) > 0 ? null : 'none') });
+  if (SIM_DELEG[c.policy].on && !delegOff && c.monthEnd && SIM_CARDS.on && props) acts.push({ kind: 'approve', run: () => (simTake(s, reserve) > 0 ? null : 'none') });
   if (c.monthEnd && c.policy !== 'rta' && donateLock(s) !== 'hidden' && donateLock(s) !== 'closed') {
     const next = c.route[c.at + 1];
     // v14：次がランクアップの進出なら、費用も立ち上げの資金も要らない（お金は徴収される）

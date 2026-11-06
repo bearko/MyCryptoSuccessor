@@ -362,3 +362,28 @@ describe('序盤の自動化のパネル・依頼（3）', () => {
     expect(s.missions.m_relief).toBe('done');
   });
 });
+
+// ---------------------------------------------------------------- 4. Sim
+import { headDepts } from '../src/island/p1/deleg';
+
+describe('自動プレイ（4）', () => {
+  it('通常の方針：最初の町（Common）ではリーダー・部長を置かず、提案のカードも受けない（任せていない業務は手で打つ）', () => {
+    let months = 0;
+    let leads = 0;
+    let heads = 0;
+    let props = 0;
+    runOnce('normal', 1, {
+      onlyFirst: true,
+      onMonth: (s) => {
+        months++;
+        leads += s.staff.filter((x) => x.task === 'lead').length;
+        heads += headDepts(s).length;
+        props += (s.cards?.inbox ?? []).filter((c) => PROPOSAL_SRC.includes(c.src)).length + (s.deleg?.inbox.length ?? 0);
+      },
+    });
+    expect(months).toBeGreaterThan(2);
+    expect(leads).toBe(0);
+    expect(heads).toBe(0);
+    expect(props).toBe(0);
+  }, 300000);
+});
