@@ -87,7 +87,7 @@ function run(s: P1State, k = 0): P1State {
   const r = startRun(s, k);
   if (typeof r === 'string') throw new Error(r);
   // 段 DIG3：地中の爆弾は爆発済みにしておく（位置の決まったテストが爆発で崩れないように。爆弾のテストは tests/island-p1-dig3.test.ts）
-  if (k !== DUNGEON) s.dig!.sites[k].boom = [0, 1, 2, 3, 4, 5];
+  if (k !== DUNGEON) s.dig!.sites[k].boom = Array.from({ length: 12 }, (_, i) => i);
   return s;
 }
 const hpOf = (s: P1State) => s.dig!.sites[s.dig!.cur].hp;
@@ -469,10 +469,11 @@ describe('発破・ドリル', () => {
       lv(s, 'dig_deep', 3);
       lv(s, 'dig_blast', n);
       expect([bombCount(s), bombPower(s), blastSize(s)], `Lv${n}`).toEqual(want[n - 1]);
-      expect(bombsLeft(s, 0)).toHaveLength(want[n - 1][0]);
+      // 調整 v44：荒れ地の格のぶん（タオックスは Common）を足す
+      expect(bombsLeft(s, 0)).toHaveLength(want[n - 1][0] + T.bombTier.C);
       run(s, 0);
       // （連鎖しないように、ほかの爆弾は爆発済みにしておく）
-      s.dig!.sites[0].boom = [0, 1, 2, 3, 4, 5];
+      s.dig!.sites[0].boom = Array.from({ length: 12 }, (_, i) => i);
       // (3, 3) の 2 枚目（粘土層）まで掘っておく：そのマスは 1 枚奥、まわりは手前の 1 枚
       breakCell(s, 3, 3);
       const m0 = s.money;
@@ -552,7 +553,7 @@ describe('発掘隊：役所・手際・常駐（自動化）・段取り・交�
     expect(s.staff.some((x) => x.task === 'dig')).toBe(false);
   });
 
-  it('発掘隊の手際：隊員の数 ＝ Lv・1 打の強さ ×(1 ＋ 20%／Lv)・作業中は 1 人 1 日 3 打（段 DIG3）', () => {
+  it('発掘隊の手際：隊員の数 ＝ Lv・1 打の強さ ×(1 ＋ 20%／Lv)・作業中は 1 人 1 日 tree.crewDay 打（段 DIG3）', () => {
     const per = (n: number) => {
       const s = met();
       lv(s, 'dig_deep', 1);
@@ -566,7 +567,7 @@ describe('発掘隊：役所・手際・常駐（自動化）・段取り・交�
     expect(per(0).hits).toBe(0);
     for (const n of [1, 3, 5]) {
       const r = per(n);
-      expect(r.hits, `Lv${n}`).toBe(n * 3 * 10);
+      expect(r.hits, `Lv${n}`).toBe(Math.floor(n * T.crewDay * 10 + 1e-9));
       expect(r.power, `Lv${n}`).toBeCloseTo(1 + 0.2 * n, 6);
     }
     // 打った結果に隊員の番号（crew）が付く
@@ -574,8 +575,10 @@ describe('発掘隊：役所・手際・常駐（自動化）・段取り・交�
     lv(s, 'dig_deep', 1);
     crew(s, 2);
     run(s, 0);
-    const hs = own(crewDig(s));
-    expect(hs.map((h) => h.crew)).toEqual([0, 1, 0, 1, 0, 1]);
+    const hs = own(Array.from({ length: 8 }, () => crewDig(s)).flat());
+    expect(hs.length).toBeGreaterThanOrEqual(2);
+    // 隊員が順に打つ（0・1・0・1…）
+    expect(hs.map((h) => h.crew)).toEqual(hs.map((_, i) => i % 2));
   });
 
   it('常駐：無ければ作業していない日は掘らない。あれば許可のある荒れ地を作業中の 20%・40%・55%・70%・80% の速さで掘る（隊員にスタミナは無い）', () => {
@@ -588,14 +591,14 @@ describe('発掘隊：役所・手際・常駐（自動化）・段取り・交�
       s.dig!.sites[0].permit = true;
       if (n) lv(s, 'u_dig_auto', n);
       let hits = 0;
-      for (let d = 0; d < 40; d++) hits += own(step(s).dug ?? []).length;
+      for (let d = 0; d < 120; d++) hits += own(step(s).dug ?? []).length;
       return { hits, s };
     };
     expect(dayHits(0).hits).toBe(0);
     for (let n = 1; n <= 5; n++) {
       const r = dayHits(n);
-      // 1 人 × 3 打 × 常駐の割合 × 40 日
-      expect(r.hits / (3 * 40), `Lv${n}`).toBeCloseTo(T.auto[n - 1], 1);
+      // 1 人 × crewDay 打 × 常駐の割合 × 120 日
+      expect(r.hits / (T.crewDay * 120), `Lv${n}`).toBeCloseTo(T.auto[n - 1], 1);
       // 荒れ地の吹き出し・地図の作業員の元：常駐中 1 日 N 打
       expect(standing(r.s)?.site).toBe(0);
     }

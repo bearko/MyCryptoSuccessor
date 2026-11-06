@@ -102,7 +102,7 @@ function run(s: P1State, k = 0): P1State {
   const r = startRun(s, k);
   if (typeof r === 'string') throw new Error(r);
   // 段 DIG3：地中の爆弾は爆発済みにしておく（位置の決まったテストが爆発で崩れないように。爆弾のテストは tests/island-p1-dig3.test.ts）
-  if (k !== DUNGEON) s.dig!.sites[k].boom = [0, 1, 2, 3, 4, 5];
+  if (k !== DUNGEON) s.dig!.sites[k].boom = Array.from({ length: 12 }, (_, i) => i);
   return s;
 }
 const depthOf = (s: P1State) => s.dig!.sites[s.dig!.cur].depth;
@@ -611,16 +611,16 @@ describe('発掘隊（仕事「発掘」）', () => {
     expect(aptitude({ hp: 100, phy: 50, int: 20, agi: 10 }, 'dig')).toBeCloseTo(0.6 * 50 + 0.2 * 10 + 0.2 * 20, 6);
   });
 
-  it('段 DIG3：発掘隊はシャドーヒーロー。発掘作業のあいだだけ、同じ荒れ地を 1 日に数回ぶん打つ（隊員 1 人 3 打）。作業していない日は働かない。ヒーローは発掘の担当にできない', () => {
+  it('段 DIG3：発掘隊はシャドーヒーロー。発掘作業のあいだだけ、同じ荒れ地を 1 日に数回ぶん打つ（隊員 1 人 1 日 DIG_BALANCE.tree.crewDay 打）。作業していない日は働かない。ヒーローは発掘の担当にできない', () => {
     const s = site();
     expect(assign(s, 10001, 'dig')).toBe('no-task');
     setLevel(s, 'dig_office', 5);
     setLevel(s, 'dig_crew', 1);
     expect(step(s).dug).toBeUndefined();
     run(s, 2);
-    const res = step(s);
-    const n = (res.dug ?? []).filter((h) => !h.splash && !h.blast && !h.pierce).length;
-    expect(n).toBe(3);
+    let n = 0;
+    for (let d = 0; d < 4; d++) n += (step(s).dug ?? []).filter((h) => !h.splash && !h.blast && !h.pierce).length;
+    expect(n).toBe(Math.floor(4 * DIG_BALANCE.tree.crewDay + 1e-9));
     const st2 = s.dig!.sites[2];
     expect(st2.hp.some((v, k) => st2.depth[k] > 0 || v < digLayout('c1', 2)!.cells[k].hard[0])).toBe(true);
     expect(s.dig!.sites[0].hp).toEqual(newDig('c1')!.sites[0].hp);

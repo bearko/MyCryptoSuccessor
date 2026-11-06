@@ -6107,6 +6107,8 @@ export interface DigState {
   topics: number[];
   /** 発掘隊の端数 */
   carry: number;
+  /** 段 DIG3：次に打つ隊員の番号（隊員が順に打つ） */
+  crewTurn?: number;
   /** 素材の選り分けの端数 */
   matCarry?: number;
   /** 打った数（会心の判定の種） */
@@ -6451,12 +6453,12 @@ export function digLayouts(sector: string, round = 0): DigLayout[] {
   return out;
 }
 /**
- * 段 DIG3：埋める爆弾の候補 BOMB_MAX 個（並びの順に bombCount 個が生きる）：中層以降（層の数の半分から奥）・出土品と重ならない層・マスは別々。
+ * 段 DIG3：埋める爆弾の候補 BOMB_MAX 個（並びの順に bombCount 個が生きる）：中層以降（(層の数 − 1) / 2 から奥。Common・Uncommon は 2 層目・Rare・Epic は 3 層目から）・出土品と重ならない層・マスは別々。
  * 壁の種（r）の続きで決めるので、同じ壁はいつも同じ所
  */
-export const BOMB_MAX = 6;
+export const BOMB_MAX = 12;
 function pickBombs(L: DigLayout, r: () => number): DigBomb[] {
-  const from = Math.floor(L.depth / 2);
+  const from = Math.floor((L.depth - 1) / 2);
   const cand: DigBomb[] = [];
   for (let k = 0; k < L.w * L.h; k++) for (let layer = from; layer < L.depth; layer++) if (L.at[k * L.depth + layer] < 0) cand.push({ x: k % L.w, y: Math.floor(k / L.w), layer });
   for (let k = cand.length - 1; k > 0; k--) {
@@ -6643,7 +6645,11 @@ export const lampRows = (s: P1State) => atLv(DT.lamp, lvOf(s, 'dig_lamp'));
  * 段 DIG3：爆弾（研究パネル「発破」dig_blast）。荒れ地ごとに埋まっている数（Lv0 でも 1 個・Lv1〜5 で DT.bombs）・
  * 威力（爆発ではがす層の数。DT.power の段：Lv0 は 1 枚）・範囲（N × N。DT.blastSize：Lv0 は 3）。費用はかからない
  */
-export const bombCount = (s: Pick<P1State, 'skills' | 'skillLv'>) => Math.min(BOMB_MAX, atLv(DT.bombs, lvOf(s, 'dig_blast')) || 1);
+export const bombCount = (s: Pick<P1State, 'skills' | 'skillLv'>, tier?: DigTier) => {
+  const lv = lvOf(s, 'dig_blast');
+  // Lv0 は 1 個。発破のパネルを開いたら、Lv の数に荒れ地の格のぶんを足す（硬い Rare・Epic の壁ほど多く埋まる。DT.bombTier）
+  return lv <= 0 ? 1 : Math.min(BOMB_MAX, atLv(DT.bombs, lv) + (tier ? DT.bombTier[tier] : 0));
+};
 export const bombPower = (s: Pick<P1State, 'skills' | 'skillLv'>) => atLv(DT.power, lvOf(s, 'dig_blast')) || 1;
 export const blastSize = (s: Pick<P1State, 'skills' | 'skillLv'>) => atLv(DT.blastSize, lvOf(s, 'dig_blast')) || 3;
 /** 荒れ地 k（DUNGEON ならダンジョン）に残っている爆弾（生きている候補のうち、まだ爆発していないもの。並びの番号つき） */
@@ -6651,12 +6657,12 @@ export function bombsLeft(s: P1State, k: number): { i: number; b: DigBomb }[] {
   const L = layoutOf(s, k);
   const st = siteState(s, k);
   if (!L || !st) return [];
-  const n = bombCount(s);
+  const n = bombCount(s, L.tier);
   return (L.bombs ?? []).slice(0, n).map((b, i) => ({ i, b })).filter(({ i }) => !(st.boom ?? []).includes(i));
 }
 /** マス k の層 layer に、生きている爆弾があれば その番号（無ければ -1） */
 function bombAt(s: P1State, L: DigLayout, st: DigSiteState, k: number, layer: number): number {
-  const n = bombCount(s);
+  const n = bombCount(s, L.tier);
   const bs = L.bombs ?? [];
   for (let i = 0; i < Math.min(n, bs.length); i++) {
     const b = bs[i];
@@ -7297,7 +7303,7 @@ export function standSite(s: P1State): number {
   return ok.includes(d.cur) ? d.cur : ok[0];
 }
 /**
- * 段 DIG3：発掘隊（シャドーヒーロー）の 1 日：発掘作業のあいだは、隊員 1 人につき DIG_AUTO.perDay 回ぶん同じ荒れ地を打つ（端数は持ち越す）。
+ * 段 DIG3：発掘隊（シャドーヒーロー）の 1 日：発掘作業のあいだは、隊員 1 人につき DIG_BALANCE.tree.crewDay 回ぶん同じ荒れ地を打つ（端数は持ち越す）。
  * 1 打の強さは digPower × 発掘隊の手際（crewMul）。打つマスは行動規則（crewRule）で digNext が選ぶ。
  * 常駐（自動化）があれば、作業していない日も、許可のある荒れ地を その速さ × 常駐の割合（autoRate）で打つ。隊員がいなければ何もしない
  */
@@ -7312,10 +7318,10 @@ export function crewDig(s: P1State): DigHit[] {
     s.dig.cur = k;
   }
   const out: DigHit[] = [];
-  s.dig.carry += n * DIG_AUTO.perDay * (stand ? autoRate(s) : 1);
+  s.dig.carry += n * DT.crewDay * (stand ? autoRate(s) : 1);
   const L = digSite(s)!;
   const rule = crewRule(s);
-  let who = 0;
+  let who = (s.dig.crewTurn ?? 0) % n;
   while (s.dig.carry >= 1) {
     const at = digNext(s, stand, false, rule);
     if (!at) break;
@@ -7327,6 +7333,7 @@ export function crewDig(s: P1State): DigHit[] {
     if (siteState(s, L.site)?.done) break;
   }
   s.dig.carry = Math.min(1, s.dig.carry);
+  s.dig.crewTurn = who;
   return out;
 }
 

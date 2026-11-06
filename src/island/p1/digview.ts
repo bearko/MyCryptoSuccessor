@@ -3,7 +3,7 @@
  * 画面は digui.ts。仕様は docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」の「15 秒の発掘」「発掘場の画面」「研究ノート」。
  */
 import { t } from '../../i18n';
-import { digRpLv, isResearch, rpCost, DIG, DIG_AUTO, DIG_BALANCE, DIG_CREW_HEROES, DIG_PANELS, DIG_SITES, DUNGEON_FINDS, PRODUCT, isAntique, relicOf, relicSells, relicTier, RESEARCH_NEED, SKILL, TABLETS, levelCost, maxLv, type Skill, type Tablet, type Tier } from './data';
+import { digRpLv, isResearch, rpCost, DIG, DIG_BALANCE, DIG_CREW_HEROES, DIG_PANELS, DIG_SITES, DUNGEON_FINDS, PRODUCT, isAntique, relicOf, relicSells, relicTier, RESEARCH_NEED, SKILL, TABLETS, levelCost, maxLv, type Skill, type Tablet, type Tier } from './data';
 import { sectorDef } from './company';
 import {
   autoRate,
@@ -363,7 +363,7 @@ export function findLabel(hit: DigHit): string {
 }
 
 /**
- * 段 DIG3：発掘隊（シャドーヒーロー）の見え方：隊員の数と上限・1 打の強さ（digPower × 手際）・作業中の 1 日に打つ数（人数 × DIG_AUTO.perDay）・
+ * 段 DIG3：発掘隊（シャドーヒーロー）の見え方：隊員の数と上限・1 打の強さ（digPower × 手際）・作業中の 1 日に打つ数（人数 × DIG_BALANCE.tree.crewDay）・
  * 行動規則の段と一言・隊員の仮の絵（ヒーローの id。DIG_CREW_HEROES）
  */
 export interface CrewInfo {
@@ -378,7 +378,7 @@ export interface CrewInfo {
 export function crewInfo(s: P1State): CrewInfo {
   const n = crewSize(s);
   const rule = crewRule(s);
-  return { n, cap: crewCap(s), power: Math.round(digPower(s) * crewMul(s) * 100) / 100, perDay: Math.round(n * DIG_AUTO.perDay * 10) / 10, rule, ruleText: CREW_RULE_TEXT()[Math.min(5, rule)], heroes: DIG_CREW_HEROES.slice(0, n) };
+  return { n, cap: crewCap(s), power: Math.round(digPower(s) * crewMul(s) * 100) / 100, perDay: Math.round(n * DIG_BALANCE.tree.crewDay * 10) / 10, rule, ruleText: CREW_RULE_TEXT()[Math.min(5, rule)], heroes: DIG_CREW_HEROES.slice(0, n) };
 }
 /** 発掘隊の行動規則の一言（Lv0〜5） */
 export const CREW_RULE_TEXT = () => [t('いない', 'none'), t('手前から順に', 'front first'), t('硬いマスを避ける', 'avoids hard cells'), t('出土品の気配を優先', 'goes for visible finds'), t('爆弾の近くを優先', 'goes for bombs'), t('深い層へ', 'digs deep')];
@@ -393,7 +393,7 @@ export function standing(s: P1State): { site: number; perDay: number; heroes: nu
   const n = crewSize(s);
   const k = standSite(s);
   if (n <= 0 || k < 0) return null;
-  return { site: k, perDay: Math.round(n * DIG_AUTO.perDay * autoRate(s) * 10) / 10, heroes: DIG_CREW_HEROES.slice(0, n) };
+  return { site: k, perDay: Math.round(n * DIG_BALANCE.tree.crewDay * autoRate(s) * 10) / 10, heroes: DIG_CREW_HEROES.slice(0, n) };
 }
 
 /** 研究 Lv の ★（★ が Lv、☆ が残り。5 つ） */

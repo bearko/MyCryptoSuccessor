@@ -54,6 +54,8 @@ import {
   claim,
   craftDays,
   dig,
+  drill,
+  hasDrill,
   digNext,
   digPower,
   digSite,
@@ -264,6 +266,8 @@ export interface DigRec {
   permits: number;
   auto: number;
   blast: number;
+  /** 調整 v44：掘削ドリルを使った回数（100%） */
+  drill?: number;
   rp: number;
   research: number;
   rpBlocked: number;
@@ -1985,7 +1989,7 @@ function knowTarget(s: P1State, c: Ctx): [number, number] | null {
 }
 
 /** 覗き見が出ているマス（お題 → 石板 → エクステ → 素材。手前のものほど先）→ 取りかけ・浅いマス（digNext） */
-function sweepTarget(s: P1State): [number, number] | null {
+function sweepTarget(s: P1State, rule = 0): [number, number] | null {
   const L = digSite(s);
   if (!L || !s.dig) return null;
   let best: [number, number] | null = null;
@@ -2004,7 +2008,7 @@ function sweepTarget(s: P1State): [number, number] | null {
       best = [x, y];
     }
   }
-  return best ?? digNext(s);
+  return best ?? digNext(s, false, false, rule);
 }
 
 /**
@@ -2030,14 +2034,30 @@ function deepTarget(s: P1State): [number, number] | null {
   }
   return best;
 }
-const digTarget = (s: P1State, c: Ctx) => (s.digRun?.site === DUNGEON ? deepTarget(s) : SIM_DIG[c.policy].target === 'know' ? knowTarget(s, c) : sweepTarget(s));
+// 調整 v44（段 DIG3）：100% は覗き見の無いときに埋まっている爆弾のマスを先に掘る（掘りきりまで待つ方針なので、爆発で壁をまとめて崩す。前は火薬代で発破を打っていた）
+const digTarget = (s: P1State, c: Ctx) => (s.digRun?.site === DUNGEON ? deepTarget(s) : SIM_DIG[c.policy].target === 'know' ? knowTarget(s, c) : sweepTarget(s, c.policy === 'full' ? 4 : 0));
 
-/** 手で n 回まで打つ（段 DIG3：爆弾を掘り出せば勝手に爆発する。爆発の数を rec.blast に）。打った数を返す */
-function handDig(s: P1State, c: Ctx, n: number, rec: DigRec): number {
+/**
+ * 手で n 回まで打つ（段 DIG3：爆弾を掘り出せば勝手に爆発する。爆発の数を rec.blast に）。打った数を返す。
+ * 調整 v44：100% は資金に余裕があれば（5 万 G より多い。前の発破と同じ目安）掘削ドリル（燃料代。そのマスを奥へ一気に）で打つ。
+ * 前は火薬代で発破を打っていた（お金で時間を買う手）。発破は無くなったので、残っているお金の手（ドリル）に置き換える
+ */
+function handDig(s: P1State, c: Ctx, n: number, rec: DigRec, spendTools: (v: number) => void): number {
   let k = 0;
   while (k < n && s.digRun) {
     const at = digTarget(s, c);
     if (!at) break;
+    if (c.policy === 'full' && hasDrill(s) && s.money > 50000) {
+      const m0 = s.money;
+      const d = drill(s, at[0], at[1]);
+      if (typeof d !== 'string') {
+        rec.drill = (rec.drill ?? 0) + 1;
+        rec.blast += d.flatMap((h) => [h, ...(h.extra ?? [])]).filter((h) => h.bomb).length;
+        spendTools(m0 - s.money);
+        k++;
+        continue;
+      }
+    }
     const r = dig(s, at[0], at[1]);
     if (typeof r === 'string') break;
     rec.blast += [r, ...(r.extra ?? [])].filter((h) => h.bomb).length;
@@ -2404,7 +2424,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
         c.handCarry += runTaps(s) / runDays(p, s);
         const m = Math.floor(c.handCarry);
         c.handCarry -= m;
-        cur.dig.mid += handDig(s, c, m, cur.dig);
+        cur.dig.mid += handDig(s, c, m, cur.dig, spendTools);
       }
       if (cur.dig.topicsAt == null && topicProgress(s)[0] >= all && all > 0) cur.dig.topicsAt = cur.log.length;
       // お題がそろったら、町の長に発表する（会話）
@@ -3753,7 +3773,7 @@ export function digObservations(rep: Report2): string {
   const pols: PolicyId[] = ['rta', 'normal', 'full'];
   out.push('発掘と研究ポイント（v9。セクタごと・3 シードの平均。打った数は着いてから離れるまで。研究パネルは、そのセクタにいるあいだに開けた枚数。「RP 不足」は、詰まりの段に効く研究パネルがあるのにどれも RP が足りなかった月の締め。「お題」はお題がそろった月（着いてからの月の締め）、「依頼状待ち」は制覇のあと依頼状が無くて Uncommon へ移れなかった月。「掘りきり」は離れたときに掘りきった荒れ地の数（4 か所のうち））：');
   out.push('');
-  out.push('| 方針 | セクタ | 作業の回数 | 許可 | 手 | 発掘隊 | 爆発 | 入った RP | 研究パネル | RP 不足の月 | お題 | 依頼状待ち | 掘りきり | 掘り残し（マス） |');
+  out.push('| 方針 | セクタ | 作業の回数 | 許可 | 手 | 発掘隊 | 爆発（ドリル） | 入った RP | 研究パネル | RP 不足の月 | お題 | 依頼状待ち | 掘りきり | 掘り残し（マス） |');
   out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const p of pols) {
     const runs = rep.runs.filter((r) => r.policy === p);
@@ -3763,7 +3783,7 @@ export function digObservations(rep: Report2): string {
       const m = (f: (d: DigRec) => number) => Math.round(mean(rs.map((x) => f(x.dig))));
       const tops = rs.map((x) => x.dig.topicsAt).filter((v): v is number => v != null);
       out.push(
-        `| ${POLICY_NAME[p]} | ${sectorName(id)} | ${m((d) => d.runs)} | ${mean(rs.map((x) => x.dig.permits)).toFixed(1)} | ${m((d) => d.mid)} | ${m((d) => d.auto)} | ${m((d) => d.blast)} | ${m((d) => d.rp)} | ${m((d) => d.research)} | ${m((d) => d.rpBlocked)} | ${tops.length ? `${mean(tops).toFixed(1)}（${tops.length}/${rs.length}）` : '—'} | ${m((d) => d.letterWait)} | ${mean(rs.map((x) => x.dig.done)).toFixed(1)} | ${m((d) => d.left)} |`,
+        `| ${POLICY_NAME[p]} | ${sectorName(id)} | ${m((d) => d.runs)} | ${mean(rs.map((x) => x.dig.permits)).toFixed(1)} | ${m((d) => d.mid)} | ${m((d) => d.auto)} | ${m((d) => d.blast)}（${m((d) => d.drill ?? 0)}） | ${m((d) => d.rp)} | ${m((d) => d.research)} | ${m((d) => d.rpBlocked)} | ${tops.length ? `${mean(tops).toFixed(1)}（${tops.length}/${rs.length}）` : '—'} | ${m((d) => d.letterWait)} | ${mean(rs.map((x) => x.dig.done)).toFixed(1)} | ${m((d) => d.left)} |`,
       );
     }
   }
