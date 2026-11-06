@@ -5,18 +5,18 @@
  * 正面の壁（v11。手前から奥へ・2 × 2 の大きいもの・覗き見）は tests/island-p1-dig2w.test.ts。
  */
 import { describe, expect, it } from 'vitest';
-import { POL_PANELS, ACCT_MONEY, GA_MONEY, BLAST, HR_MONEY, DIG, DIG_BALANCE, DIG_PANELS, DIG_SITES, MISSIONS, MONEY_PANELS, RESEARCH_NEED, RP_GAIN, RP_PER_DUST, SECTORS, SKILL, SKILLS, START_RP, TABLETS, TIERS, WASTE, aptitude, isResearch, levelCost, maxLv, rpCost, researchLv, CS_MONEY, MKT_MONEY } from '../src/island/p1/data';
+import { POL_PANELS, ACCT_MONEY, GA_MONEY, HR_MONEY, DIG, DIG_BALANCE, DIG_PANELS, DIG_SITES, MISSIONS, MONEY_PANELS, RESEARCH_NEED, RP_GAIN, RP_PER_DUST, SECTORS, SKILL, SKILLS, START_RP, TABLETS, TIERS, WASTE, aptitude, isResearch, levelCost, maxLv, rpCost, researchLv, CS_MONEY, MKT_MONEY } from '../src/island/p1/data';
 import { moveTo } from '../src/island/p1/land';
 import {
   allowedDirs,
   applyPermit,
   assign,
-  blast,
   build,
   canMoveTo,
   canPlaceAt,
   claim,
   deserializeP1,
+  detonate,
   dig,
   digCheck,
   digLayout,
@@ -66,6 +66,7 @@ import {
   type DigItem,
   type DigLayout,
   type P1State,
+  DUNGEON,
 } from '../src/island/p1/model';
 import { SECTOR_KEYS } from '../src/island/p1/land';
 /** 段 K の経営方針のパネル（POL_SKILLS）は別に数える（tests/island-p1-stagek.test.ts） */
@@ -100,6 +101,8 @@ function run(s: P1State, k = 0): P1State {
   if (s.digRun) endRun(s);
   const r = startRun(s, k);
   if (typeof r === 'string') throw new Error(r);
+  // 段 DIG3：地中の爆弾は爆発済みにしておく（位置の決まったテストが爆発で崩れないように。爆弾のテストは tests/island-p1-dig3.test.ts）
+  if (k !== DUNGEON) s.dig!.sites[k].boom = Array.from({ length: 12 }, (_, i) => i);
   return s;
 }
 const depthOf = (s: P1State) => s.dig!.sites[s.dig!.cur].depth;
@@ -591,16 +594,15 @@ describe('道具（発掘 v2 の 2 段目でスキルツリーの発掘の枝へ
     expect(peek(t, f.x, f.y)).toEqual(f.item);
   });
 
-  it('発破：火薬代で 3 × 3 の いまの層を 1 枚ずつはがす（発破のパネルが無いと使えない。回数は使わない）', () => {
+  it('爆発（段 DIG3：発破は地中の爆弾になった）：3 × 3 の いまの層を 1 枚ずつはがす。費用はかからない', () => {
     const s = run(site());
-    expect(blast(s, 3, 0)).toBe('no-blast');
-    setLevel(s, 'dig_blast', 1);
     const m0 = s.money;
-    const r = blast(s, 3, 0);
-    if (typeof r === 'string') throw new Error(r);
-    expect(r).toHaveLength(6);
-    expect(r.every((x) => x.broke && x.layer === 0 && x.depth === 1)).toBe(true);
-    expect(s.money).toBe(m0 - BLAST.cost);
+    const r = detonate(s, 3, 0);
+    if (!r) throw new Error('no wall');
+    const ex = r.extra ?? [];
+    expect(ex).toHaveLength(6);
+    expect(ex.every((x) => x.blast && x.broke && x.layer === 0 && x.depth === 1)).toBe(true);
+    expect(s.money).toBe(m0);
   });
 });
 
@@ -609,34 +611,31 @@ describe('発掘隊（仕事「発掘」）', () => {
     expect(aptitude({ hp: 100, phy: 50, int: 20, agi: 10 }, 'dig')).toBeCloseTo(0.6 * 50 + 0.2 * 10 + 0.2 * 20, 6);
   });
 
-  it('発掘作業のあいだだけ、同じ荒れ地を 1 日に数回ぶん打つ。作業していない日は働かない・スタミナも減らない', () => {
+  it('段 DIG3：発掘隊はシャドーヒーロー。発掘作業のあいだだけ、同じ荒れ地を 1 日に数回ぶん打つ（隊員 1 人 1 日 DIG_BALANCE.tree.crewDay 打）。作業していない日は働かない。ヒーローは発掘の担当にできない', () => {
     const s = site();
-    expect(assign(s, 10001, 'dig')).toBeNull();
-    const st = s.staff.find((x) => x.hero === 10001)!;
-    const sta0 = st.stamina;
+    expect(assign(s, 10001, 'dig')).toBe('no-task');
+    setLevel(s, 'dig_office', 5);
+    setLevel(s, 'dig_crew', 1);
     expect(step(s).dug).toBeUndefined();
-    expect(st.stamina).toBeGreaterThanOrEqual(sta0);
     run(s, 2);
-    const res = step(s);
-    const n = res.dug?.length ?? 0;
-    expect(n).toBeGreaterThanOrEqual(1);
-    expect(n).toBeLessThanOrEqual(6);
+    let n = 0;
+    for (let d = 0; d < 4; d++) n += (step(s).dug ?? []).filter((h) => !h.splash && !h.blast && !h.pierce).length;
+    expect(n).toBe(Math.floor(4 * DIG_BALANCE.tree.crewDay + 1e-9));
     const st2 = s.dig!.sites[2];
     expect(st2.hp.some((v, k) => st2.depth[k] > 0 || v < digLayout('c1', 2)!.cells[k].hard[0])).toBe(true);
     expect(s.dig!.sites[0].hp).toEqual(newDig('c1')!.sites[0].hp);
-    expect(st.stamina).toBeLessThan(sta0 + 1e-9);
     endRun(s);
     expect(step(s).dug).toBeUndefined();
   });
 
-  it('発掘場の無いセクタでは発掘の仕事に就けない', () => {
+  it('発掘場の無いセクタでも、発掘の仕事には就けない（段 DIG3：no-task）', () => {
     const s = newP1(1, 'L', 'l1');
-    expect(assign(s, 10001, 'dig')).toBe('no-site');
+    expect(assign(s, 10001, 'dig')).toBe('no-task');
   });
 });
 
 describe('スキルツリーの 2 区分', () => {
-  it('お金パネルは技を除く 7 本 × 5 ランクの 35 枚と発掘の枝の 17 枚（Lv5 まで）＋研究への寄付、残りは研究パネル（レベルなし。無限の強化パネル 3 枚だけ上限なし）', () => {
+  it('お金パネルは技を除く 7 本 × 5 ランクの 35 枚と発掘の枝の 18 枚（Lv5 まで）＋研究への寄付、残りは研究パネル（レベルなし。無限の強化パネル 3 枚だけ上限なし）', () => {
     // 段 K の経営方針のパネル（POL_SKILLS：研究 10。段 K2 で全社方針の枠のお金パネルはやめた）は別に数える（tests/island-p1-stagek.test.ts）
     const money = noPol(SKILLS).filter((k) => !isResearch(k));
     // ＋段 C：営業のお金パネル 4 枚（SALES_MONEY）・段 E2：人事のお金パネル 2 枚（HR_MONEY）・段 F：経理 3 枚（ACCT_MONEY）・総務 2 枚（GA_MONEY）・
@@ -650,7 +649,7 @@ describe('スキルツリーの 2 区分', () => {
     expect(money.filter((k) => HR_MONEY.includes(k.id)).map((k) => k.id)).toEqual(['hr_career', 'hr_paytable']);
     expect(money.filter((k) => k.branch === 'sales').map((k) => k.id)).toEqual(['sa_local', 'sa_road', 'sa_nego', 'sa_edge']);
     expect(money.filter((k) => k.branch === 'dig' && !k.donate)).toHaveLength(0);
-    expect(SKILLS.filter((k) => k.branch === 'dig' && !k.donate && !k.inf && isResearch(k))).toHaveLength(17);
+    expect(SKILLS.filter((k) => k.branch === 'dig' && !k.donate && !k.inf && isResearch(k))).toHaveLength(18);
     expect(money.filter((k) => k.donate).map((k) => [k.id, maxLv(k)])).toEqual([['dig_donate', 1]]);
     expect(Object.values(MONEY_PANELS.C).sort()).toEqual(['budget', 'bulk', 'host', 'jig', 'manual', 'pos', 'shortcut']);
     for (const tier of ['C', 'U', 'R', 'E', 'L'] as const) {

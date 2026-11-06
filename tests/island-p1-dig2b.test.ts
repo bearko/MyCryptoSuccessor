@@ -10,10 +10,14 @@ import {
   affordableSkills,
   assign,
   autoRate,
-  autoDig,
-  blast,
-  blastCost,
+  crewDig,
+  crewMul,
+  crewSize,
   blastSize,
+  bombCount,
+  bombPower,
+  bombsLeft,
+  detonate,
   build,
   allowedDirs,
   crewCap,
@@ -26,11 +30,9 @@ import {
   digNext,
   digPower,
   digRepeatMs,
-  drainOf,
   drill,
   endRun,
   fxSum,
-  hire,
   learn,
   levelLock,
   levelUp,
@@ -52,6 +54,7 @@ import {
   step,
   type DigHit,
   type P1State,
+  DUNGEON,
 } from '../src/island/p1/model';
 import { cellView, digRec, digSpec, lockedLayer, nextLvText, noteEntries, standing } from '../src/island/p1/digview';
 import { BRANCH_TIP, digTips } from '../src/island/p1/digmeet';
@@ -83,6 +86,8 @@ function run(s: P1State, k = 0): P1State {
   if (s.digRun) endRun(s);
   const r = startRun(s, k);
   if (typeof r === 'string') throw new Error(r);
+  // 段 DIG3：地中の爆弾は爆発済みにしておく（位置の決まったテストが爆発で崩れないように。爆弾のテストは tests/island-p1-dig3.test.ts）
+  if (k !== DUNGEON) s.dig!.sites[k].boom = Array.from({ length: 12 }, (_, i) => i);
   return s;
 }
 const hpOf = (s: P1State) => s.dig!.sites[s.dig!.cur].hp;
@@ -115,12 +120,12 @@ function clearOpen(s: P1State, k = 0): DigHit[] {
 const lv = (s: P1State, id: string, n: number) => setLevel(s, id, n);
 
 describe('データ：9 本目の枝「発掘」', () => {
-  it('BRANCHES に dig。パネルは Common 11 枚・Uncommon 外周 6 枚、すべて研究パネル（RP。2026-11-03：以前はお金パネル Lv1〜5。cost はもとの GUM の表）。開くと決まった段の効き目（調整 v25c：Lv2・深い層の許可・研究の目利き・発掘隊の役所は Lv5）', () => {
+  it('BRANCHES に dig。パネルは Common 12 枚（段 DIG3 で貫通を足した）・Uncommon 外周 6 枚、すべて研究パネル（RP。2026-11-03：以前はお金パネル Lv1〜5。cost はもとの GUM の表）。開くと決まった段の効き目（調整 v25c：Lv2・深い層の許可・研究の目利き・発掘隊の役所は Lv5）', () => {
     expect(BRANCHES.at(-1)).toEqual({ key: 'dig', name: '発掘' });
     // 無限の強化パネル・研究への寄付（6 段目）は別（tests/island-p1-dig2f.test.ts）
     const ks = SKILLS.filter((k) => k.branch === 'dig' && !k.inf && !k.donate);
     expect(ks.map((k) => k.id)).toEqual(DIG_PANELS);
-    expect(ks.filter((k) => !k.tier)).toHaveLength(11);
+    expect(ks.filter((k) => !k.tier)).toHaveLength(12);
     expect(ks.filter((k) => k.tier === 'U')).toHaveLength(6);
     for (const k of ks) {
       expect(isResearch(k), k.id).toBe(true);
@@ -133,9 +138,9 @@ describe('データ：9 本目の枝「発掘」', () => {
       // 研究パネルはレベルが無いので「／Lv」の説明は書かない（決まった段の値で書く）
       expect(k.note, k.id).not.toContain('／Lv');
     }
-    // 調整 v25c：Common の発掘のパネルの RP は決め打ちで安く（合計 550 → 260）。Uncommon は段の自動の値段（60〜180）
+    // 調整 v25c：Common の発掘のパネルの RP は決め打ちで安く（合計 550 → 260。段 DIG3 の貫通 30 で 290）。Uncommon は段の自動の値段（60〜180）
     expect(ks.filter((k) => !k.tier).map((k) => rpCost(k))).toEqual(ks.filter((k) => !k.tier).map((k) => DIG_BALANCE.tree.rp[k.id]));
-    expect(ks.filter((k) => !k.tier).reduce((a, k) => a + rpCost(k), 0)).toBe(260);
+    expect(ks.filter((k) => !k.tier).reduce((a, k) => a + rpCost(k), 0)).toBe(290);
     for (const k of ks.filter((x) => x.tier === 'U')) {
       expect(rpCost(k), k.id).toBeGreaterThanOrEqual(60);
       expect(rpCost(k), k.id).toBeLessThanOrEqual(180);
@@ -216,8 +221,8 @@ describe('データ：9 本目の枝「発掘」', () => {
     expect(line('dig_deep', 1)[0]).toBe('岩盤まで');
     expect(line('dig_deep', 3)[1]).toBe('大地のつなぎ目まで');
     expect(line('dig_study', 2)[0]).toBe('Lv5');
-    expect(line('dig_blast', 4)).toEqual(['1,000 G', '4 × 4']);
-    expect(line('u_dig_relay', 2)).toEqual(['−30%']);
+    expect(line('dig_blast', 4)).toEqual(['5 個', '2 枚', '4 × 4']);
+    expect(line('u_dig_relay', 2)).toEqual(['+30%']);
   });
 });
 
@@ -449,32 +454,38 @@ describe('見える深さ・掘れる層・研究', () => {
 });
 
 describe('発破・ドリル', () => {
-  it('発破：火薬代 2,000・1,500・1,000・1,000・1,000 G、大きさ 3・3・3・4・5。いまの層を 1 枚ずつ（硬さに関係なく。深い層の許可の無い層ははがさない）', () => {
-    const want: [number, number][] = [
-      [2000, 3],
-      [1500, 3],
-      [1000, 3],
-      [1000, 4],
-      [1000, 5],
+  it('発破（段 DIG3：地中の爆弾）：埋まっている数 2・3・4・5・6（Lv0 は 1）・威力 1・1・2・2・3 枚・範囲 3・3・3・4・5。費用なし。深い層の許可の無い層ははがさない', () => {
+    const want: [number, number, number][] = [
+      [2, 1, 3],
+      [3, 1, 3],
+      [4, 2, 3],
+      [5, 2, 4],
+      [6, 3, 5],
     ];
+    expect([bombCount(met()), bombPower(met()), blastSize(met())]).toEqual([1, 1, 3]);
     for (let n = 1; n <= 5; n++) {
       const s = met();
       lv(s, 'dig_power', 1);
-      lv(s, 'dig_deep', 1);
+      lv(s, 'dig_deep', 3);
       lv(s, 'dig_blast', n);
-      expect([blastCost(s), blastSize(s)], `Lv${n}`).toEqual(want[n - 1]);
+      expect([bombCount(s), bombPower(s), blastSize(s)], `Lv${n}`).toEqual(want[n - 1]);
+      // 調整 v44：荒れ地の格のぶん（タオックスは Common）を足す
+      expect(bombsLeft(s, 0)).toHaveLength(want[n - 1][0] + T.bombTier.C);
       run(s, 0);
+      // （連鎖しないように、ほかの爆弾は爆発済みにしておく）
+      s.dig!.sites[0].boom = Array.from({ length: 12 }, (_, i) => i);
       // (3, 3) の 2 枚目（粘土層）まで掘っておく：そのマスは 1 枚奥、まわりは手前の 1 枚
       breakCell(s, 3, 3);
       const m0 = s.money;
-      const r = blast(s, 3, 3);
-      if (typeof r === 'string') throw new Error(r);
-      const N = want[n - 1][1];
-      expect(r.length, `Lv${n}`).toBe(N * N);
-      expect(r.every((h) => h.broke)).toBe(true);
-      expect(r.find((h) => h.x === 3 && h.y === 3)?.layer).toBe(1);
-      expect(r.filter((h) => !(h.x === 3 && h.y === 3)).every((h) => h.layer === 0)).toBe(true);
-      expect(m0 - s.money).toBe(want[n - 1][0]);
+      const r = detonate(s, 3, 3)!.extra ?? [];
+      const [, P, N] = want[n - 1];
+      // 1 枚目の爆発は N × N 全部。威力ぶんの枚数（岩盤までの 3 層に収まる範囲）
+      expect(r.filter((h) => !h.pierce && h.layer === (h.x === 3 && h.y === 3 ? 1 : 0)).length, `Lv${n}`).toBe(N * N);
+      expect(r.every((h) => h.broke && h.blast)).toBe(true);
+      const center = r.filter((h) => h.x === 3 && h.y === 3);
+      expect(center.length, `Lv${n}`).toBe(Math.min(P, 2));
+      expect(r.filter((h) => h.x === 2 && h.y === 2).length, `Lv${n}`).toBe(Math.min(P, 3));
+      expect(m0 - s.money).toBe(0);
     }
     // 2 層目まで（岩盤に許可が無い）のときは、岩盤の層ははがさない（真ん中が岩盤でも、まわりは はがれる）
     const s = met();
@@ -483,11 +494,11 @@ describe('発破・ドリル', () => {
     run(s, 0);
     digTo(s, 3, 3, 1);
     expect(digCheck(s, 3, 3)).toBe('deep');
-    const r = blast(s, 3, 3);
-    if (typeof r === 'string') throw new Error(r);
+    const r = detonate(s, 3, 3)!.extra ?? [];
+    void bombsLeft;
     expect(r.some((h) => h.x === 3 && h.y === 3)).toBe(false);
     expect(r.every((h) => h.layer < 2)).toBe(true);
-    expect(r).toHaveLength(24);
+    expect(r.filter((h) => h.layer === 0)).toHaveLength(24);
   });
 
   it('掘削ドリル：押したマス 1 つを奥へ 3・4・5・6・7 層。燃料代 1,000 G。無ければ no-drill。許可の無い層で止まる', () => {
@@ -519,58 +530,58 @@ describe('発破・ドリル', () => {
   });
 });
 
-describe('発掘隊：役所・手際・常駐（自動化）・段取り・交代制・素材', () => {
-  /** n 人を雇って発掘隊に（上限を超えるぶんは crew-full） */
+describe('発掘隊：役所・手際・常駐（自動化）・段取り・交代制・素材（段 DIG3：隊員はシャドーヒーロー）', () => {
+  /** 発掘隊 n 人（発掘隊の手際の Lv ＝ 人数。役所は上限 5） */
   const crew = (s: P1State, n: number) => {
-    const out: (string | null)[] = [];
-    for (let k = 0; k < n; k++) {
-      if (k >= s.staff.length) {
-        const pick = s.hirePool.find((h) => !s.staff.some((x) => x.hero === h))!;
-        expect(hire(s, pick)).toBeNull();
-      }
-      out.push(assign(s, s.staff[k].hero, 'dig'));
-    }
-    return out;
+    lv(s, 'dig_office', 5);
+    lv(s, 'dig_crew', n);
   };
+  /** 1 日ぶんの発掘隊の打った数（隣への力・貫通・爆発を除く） */
+  const own = (hs: DigHit[]) => hs.filter((h) => !h.splash && !h.pierce && !h.blast);
 
-  it('発掘隊の役所：人数の上限 1 → 2・3・3・4・5。上限を超えては付けられない（crew-full）。古いセーブで超えていたら、そのまま', () => {
+  it('発掘隊の役所：人数の上限 1 → 2・3・3・4・5。隊員の数は発掘隊の手際の Lv（上限まで）。ヒーローは発掘の担当にできない（no-task）', () => {
     const s = met();
     expect(crewCap(s)).toBe(1);
-    expect(crew(s, 2)).toEqual([null, 'crew-full']);
+    expect(crewSize(s)).toBe(0);
     expect([1, 2, 3, 4, 5].map((n) => (lv(s, 'dig_office', n), crewCap(s)))).toEqual([2, 3, 3, 4, 5]);
-    // 上限 5 で 3 人 → 役所を Lv1（上限 2）に戻しても、3 人のまま（新しくは付けられない）
-    lv(s, 'dig_office', 5);
-    s.staff.forEach((x) => x.task === 'dig' && assign(s, x.hero, null));
-    expect(crew(s, 3)).toEqual([null, null, null]);
     lv(s, 'dig_office', 1);
-    expect(s.staff.filter((x) => x.task === 'dig')).toHaveLength(3);
-    expect(crew(s, 4)[3]).toBe('crew-full');
-    // 担当の人をもう一度「発掘」にしても外れない
-    expect(assign(s, 10001, 'dig')).toBeNull();
+    lv(s, 'dig_crew', 5);
+    expect(crewSize(s)).toBe(2);
+    lv(s, 'dig_office', 5);
+    expect(crewSize(s)).toBe(5);
+    expect(assign(s, 10001, 'dig')).toBe('no-task');
+    expect(s.staff.some((x) => x.task === 'dig')).toBe(false);
   });
 
-  it('発掘隊の手際：1 日に打つ回数 +20%／Lv（作業のあいだ）', () => {
+  it('発掘隊の手際：隊員の数 ＝ Lv・1 打の強さ ×(1 ＋ 20%／Lv)・作業中は 1 人 1 日 tree.crewDay 打（段 DIG3）', () => {
     const per = (n: number) => {
       const s = met();
       lv(s, 'dig_deep', 1);
-      if (n) {
-        lv(s, 'dig_ext', 1);
-        lv(s, 'dig_office', 1);
-        lv(s, 'dig_crew', n);
-      }
-      crew(s, 1);
+      lv(s, 'dig_ext', 1);
+      if (n) crew(s, n);
       run(s, 0);
-      const st = s.staff.find((x) => x.task === 'dig')!;
       let hits = 0;
-      for (let d = 0; d < 20; d++) hits += autoDig(s, st).filter((h) => !h.splash).length;
-      return hits;
+      for (let d = 0; d < 10; d++) hits += own(crewDig(s)).length;
+      return { hits, power: digPower(s) * crewMul(s) };
     };
-    const base = per(0);
-    expect(base).toBeGreaterThan(10);
-    for (const n of [1, 3, 5]) expect(per(n) / base, `Lv${n}`).toBeCloseTo(1 + 0.2 * n, 1);
+    expect(per(0).hits).toBe(0);
+    for (const n of [1, 3, 5]) {
+      const r = per(n);
+      expect(r.hits, `Lv${n}`).toBe(Math.floor(n * T.crewDay * 10 + 1e-9));
+      expect(r.power, `Lv${n}`).toBeCloseTo(1 + 0.2 * n, 6);
+    }
+    // 打った結果に隊員の番号（crew）が付く
+    const s = met();
+    lv(s, 'dig_deep', 1);
+    crew(s, 2);
+    run(s, 0);
+    const hs = own(Array.from({ length: 8 }, () => crewDig(s)).flat());
+    expect(hs.length).toBeGreaterThanOrEqual(2);
+    // 隊員が順に打つ（0・1・0・1…）
+    expect(hs.map((h) => h.crew)).toEqual(hs.map((_, i) => i % 2));
   });
 
-  it('常駐：無ければ作業していない日は掘らない（疲れない）。あれば許可のある荒れ地を作業中の 20%・40%・55%・70%・80% の速さで掘る（スタミナは減る）', () => {
+  it('常駐：無ければ作業していない日は掘らない。あれば許可のある荒れ地を作業中の 20%・40%・55%・70%・80% の速さで掘る（隊員にスタミナは無い）', () => {
     const dayHits = (n: number) => {
       const s = met();
       s.emblem = 9;
@@ -579,32 +590,15 @@ describe('発掘隊：役所・手際・常駐（自動化）・段取り・交�
       crew(s, 1);
       s.dig!.sites[0].permit = true;
       if (n) lv(s, 'u_dig_auto', n);
-      const st = s.staff.find((x) => x.task === 'dig')!;
-      st.stats.hp = 9999;
-      st.stamina = 9999;
-      const sta0 = st.stamina;
       let hits = 0;
-      for (let d = 0; d < 40; d++) hits += (step(s).dug ?? []).filter((h) => !h.splash).length;
-      return { hits, tired: st.stamina < sta0, s };
+      for (let d = 0; d < 120; d++) hits += own(step(s).dug ?? []).length;
+      return { hits, s };
     };
-    const none = dayHits(0);
-    expect(none.hits).toBe(0);
-    expect(none.tired).toBe(false);
-    // 作業中の 1 日の数
-    const inRun = (() => {
-      const s = met();
-      lv(s, 'dig_deep', 1);
-      crew(s, 1);
-      run(s, 0);
-      const st = s.staff.find((x) => x.task === 'dig')!;
-      let hits = 0;
-      for (let d = 0; d < 40; d++) hits += autoDig(s, st).filter((h) => !h.splash).length;
-      return hits;
-    })();
+    expect(dayHits(0).hits).toBe(0);
     for (let n = 1; n <= 5; n++) {
       const r = dayHits(n);
-      expect(r.tired, `Lv${n}`).toBe(true);
-      expect(r.hits / inRun, `Lv${n}`).toBeCloseTo(T.auto[n - 1], 1);
+      // 1 人 × crewDay 打 × 常駐の割合 × 120 日
+      expect(r.hits / (T.crewDay * 120), `Lv${n}`).toBeCloseTo(T.auto[n - 1], 1);
       // 荒れ地の吹き出し・地図の作業員の元：常駐中 1 日 N 打
       expect(standing(r.s)?.site).toBe(0);
     }
@@ -617,7 +611,6 @@ describe('発掘隊：役所・手際・常駐（自動化）・段取り・交�
     lv(s, 'dig_deep', 1);
     crew(s, 1);
     lv(s, 'u_dig_auto', 1);
-    const st = s.staff.find((x) => x.task === 'dig')!;
     const k = digLayouts('c1').findIndex((L) => L.topic != null);
     s.dig!.sites[k].permit = true;
     s.dig!.cur = k;
@@ -632,7 +625,6 @@ describe('発掘隊：役所・手際・常駐（自動化）・段取り・交�
     // 速さ：常駐の割合 ×（1 ＋ 10%／Lv）
     expect([1, 2, 3, 4, 5].map((n) => (lv(s, 'u_dig_route', n), autoRate(s)))).toEqual([1, 2, 3, 4, 5].map((n) => T.auto[0] * (1 + T.autoSpeed[n - 1])));
     expect(standing(s)?.perDay).toBeGreaterThan(0);
-    void st;
   });
 
   it('常駐の段取り Lv3：いまの層に研究 Lv の低いエクステがあるマスを先に・Lv5：研究 Lv の上限に達したエクステは避ける', () => {
@@ -665,15 +657,14 @@ describe('発掘隊：役所・手際・常駐（自動化）・段取り・交�
     expect(digNext(s, false)).toEqual([0, 0]);
   });
 
-  it('常駐の交代制：常駐で働く日のスタミナの減り −15%／Lv（作業中の日には効かない）', () => {
+  it('常駐の交代制（段 DIG3：隊員にスタミナは無いので、常駐で働く日の打つ数 +15%／Lv に）', () => {
     const s = met();
-    crew(s, 1);
-    const st = s.staff.find((x) => x.task === 'dig')!;
-    const base = drainOf(s, st);
-    const got = [1, 2, 3, 4, 5].map((n) => (lv(s, 'u_dig_relay', n), drainOf(s, st) / base));
-    got.forEach((v, i) => expect(v).toBeCloseTo(1 - 0.15 * (i + 1), 6));
-    run(s, 0);
-    expect(drainOf(s, st)).toBeCloseTo(base, 6);
+    s.emblem = 9;
+    s.flags.rings = ['U'];
+    lv(s, 'u_dig_auto', 1);
+    const base = autoRate(s);
+    const got = [1, 2, 3, 4, 5].map((n) => (lv(s, 'u_dig_relay', n), autoRate(s) / base));
+    got.forEach((v, i) => expect(v).toBeCloseTo(1 + 0.15 * (i + 1), 6));
   });
 
   it('素材の選り分け：掘り出した素材 +20%／Lv（端数は持ち越し）', () => {

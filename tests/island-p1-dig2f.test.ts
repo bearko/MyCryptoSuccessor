@@ -9,7 +9,7 @@ import { clearCondText, presentNeedText, topicsPage } from '../src/island/p1/dig
 import {
   DAYS,
   LEARNABLE,
-  blast,
+  detonate,
   build,
   clearGoal,
   deserializeP1,
@@ -44,6 +44,7 @@ import {
   allowedDirs,
   type DigHit,
   type P1State,
+  DUNGEON,
 } from '../src/island/p1/model';
 import { specOf } from '../scripts/island/audit';
 import { infSpend } from '../scripts/island/sim';
@@ -76,6 +77,8 @@ function run(s: P1State, k = 0) {
   if (s.digRun) endRun(s);
   const r = startRun(s, k);
   if (typeof r === 'string') throw new Error(r);
+  // 段 DIG3：地中の爆弾は爆発済みにしておく（位置の決まったテストが爆発で崩れないように。爆弾のテストは tests/island-p1-dig3.test.ts）
+  if (k !== DUNGEON) s.dig!.sites[k].boom = Array.from({ length: 12 }, (_, i) => i);
 }
 /** (x, y) を層 layer まで掘り進める */
 function digTo(s: P1State, x: number, y: number, layer: number): DigHit {
@@ -230,14 +233,16 @@ describe('2. 無限の強化パネル（RP 払い・Lv の上限なし）', () =
     const s = game();
     maxPrereq(s);
     run(s, 0);
-    // Lv5 の発破は 5 × 5（中心の 3, 4 から 25 マス）
-    const a = blast(s, 3, 4);
-    expect(Array.isArray(a) && a.length).toBe(25);
+    // Lv5 の発破（爆弾）は 5 × 5（中心の 3, 4 から 25 マス。威力 3 枚なので結果は 25 × 3）
+    s.dig!.sites[0].boom = Array.from({ length: 12 }, (_, i) => i);
+    const a = detonate(s, 3, 4)!.extra ?? [];
+    expect(new Set(a.filter((h) => h.layer === 0).map((h) => `${h.x},${h.y}`)).size).toBe(25);
     setLevel(s, 'u_dig_reach_inf', 100);
     expect(infAt(s, 'reach', 100)).toBeGreaterThan(1);
-    const b = blast(s, 3, 4);
+    run(s, 1);
+    const b = detonate(s, 3, 4)!.extra ?? [];
     // 6 × 6 以上（壁の 7 × 9 に収まる範囲）
-    expect(Array.isArray(b) && b.length).toBeGreaterThanOrEqual(30);
+    expect(new Set(b.map((h) => `${h.x},${h.y}`)).size).toBeGreaterThanOrEqual(30);
     const d = drill(s, 0, 0);
     expect(Array.isArray(d) && d.length).toBeGreaterThanOrEqual(1);
   });

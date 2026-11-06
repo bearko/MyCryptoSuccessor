@@ -6,7 +6,7 @@
  *   **発掘作業のあいだは時間を止めない**（憲章 1-2 の例外）。シート（screens.ts の open）ではなく、全部を覆う画面。
  * - 正面の壁（横 7 × 縦 9）：マスを叩くと手前の層から 1 枚ずつはがれる（どのマスも最初から叩ける。奥ほど硬い）。
  *   埋まっているものは、ひびの隙間から少しずつ見える（覗き見）。2 × 2 の大きいもの（Epic 以上）は 4 マスとも掘ると取れる。
- * - 片手のタップで 1 打、長押しで同じマスを連続で打つ（回数の制限は無い。打てるのは作業のあいだだけ）。
+ * - 段 DIG3：なぞって掘る。PC はカーソルを当てたマスを自動で打ち続け、スマホは指でなぞった所を掘る（回数の制限は無い。打てるのは作業のあいだだけ）。
  * - 時間切れか「発掘を終える」で、画面の中に「発掘終了」の札（今回の出土）。月をまたいでいたら、そのあと main.ts がまとめ報告を出す。
  * - 出土の演出は 1 つだけ大きく（憲章 3）：はがれたら小さく砕ける粒、エクステは画面の中央に大きく出て研究ノートのボタンへ吸い込まれる、
  *   お題と大きな遺物（2 × 2）は画面全体。石板は読み物の小さな窓。
@@ -15,17 +15,16 @@
 import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { icon } from '../../ui/dom';
-import { PRODUCT, TABLET, type Mat, type Tier } from './data';
+import { PRODUCT, TABLET, crewPaceText, type Mat, type Tier } from './data';
 import { RARITY_JA } from '../../game/catalog';
-import { assign, blast, blastCost, blastSize, dig, digRepeatMs, digSite, drill, drillLen, DRILL_FUEL, extName, extRank, extRarity, hasBlast, hasDrill, layersOf, epicRelicsOpen, rareRelicsOpen, sessionSec, type DigErr, type DigHit, type DigItem, type DigLayout, type RunEnd } from './model';
+import { blastSize, bombPower, bombsLeft, dig, digRepeatMs, digSite, drill, drillLen, DRILL_FUEL, extName, extRank, extRarity, hasDrill, layersOf, epicRelicsOpen, rareRelicsOpen, reachCells, sessionSec, type DigErr, type DigFound, type DigHit, type DigItem, type DigLayout, type RunEnd } from './model';
 import { bulletEl } from './chartkit';
-import { DEEP_LOCK, DUNGEON_TAB, EPIC_VALUE_TEXT, RARE_RELIC_NOTE, seriesTag, anyPeek, autoDiggers, biggestFx, cellView, crewCount, digBlock, digErrText, digRec, digSpec, digSpecText, digStatus, dungeonNotes, findLabel, fxOf, gotLines, lockedLayer, nextLvText, noteEntries, noteTablets, noteTabs, noteTotals, relicLine, runBar, stars, type CellView } from './digview';
+import { DEEP_LOCK, DUNGEON_TAB, EPIC_VALUE_TEXT, RARE_RELIC_NOTE, seriesTag, aimStep, anyPeek, biggestFx, cellOf, cellView, crewInfo, digBlock, digErrText, digRec, digSpec, digSpecText, digStatus, dungeonNotes, findLabel, fxOf, gotLines, lockedLayer, nextLvText, noteEntries, noteTablets, noteTabs, noteTotals, relicLine, runBar, stars, type Aim, type CellView } from './digview';
 import { AGAIN_TIP, DEEP_TIP, MEET_WALL, PEEK_TIP } from './digmeet';
-import { pickHero } from './heroui';
 import { polSync, tabletKnow } from './policy';
 import { FX_PAL, FX_RARITY, fxAtEl, playFx } from '../fx/layer';
 import { open, refreshSheet, sheetOpen, type Ctx } from './screens';
-import { btn, extImage, h, heroIcon, heroName, matIcon, money, rich } from './ui';
+import { btn, extImage, h, heroIcon, matIcon, money, rich } from './ui';
 
 /** 発掘画面からほかの画面へ（main.ts が渡す） */
 export interface DigHooks {
@@ -132,8 +131,6 @@ interface Panel {
   site: number;
   /** いま描いている壁（ダンジョンは入るたびに作り直すので、壁そのもので見分ける） */
   lay: DigLayout | null;
-  /** 次に押したマスで発破を使う */
-  blastArm: boolean;
   /** 次に押したマスで掘削ドリル（奥へ） */
   drillArm: boolean;
   /** この作業で「深い層の許可が要る」マスを押した（終わりの札のおすすめを深い層の許可に） */
@@ -145,6 +142,18 @@ interface Panel {
   /** 発掘終了の札を出している */
   over: boolean;
   resize: () => void;
+  /** なぞって掘る（段 DIG3）：カーソル・指の下のマス／打っている所と次に打つ時刻／打てなかったマス（同じマスを打ち続けない） */
+  hover: [number, number] | null;
+  aim: Aim | null;
+  dead: string | null;
+  raf: number;
+  /** 打っているマスの上のツルハシ（仮の絵：絵文字。docs/ISLAND_ART_TODO.md）と、効く範囲の点線の枠 */
+  pick: HTMLElement;
+  reach: HTMLElement;
+  /** 段 DIG3：発掘隊の隊員（壁の上を歩いて打つ。仮の絵：replica のヒーロー ＋ 絵文字のツルハシ。docs/ISLAND_ART_TODO.md） */
+  crew: HTMLElement;
+  /** 段 DIG3：「終える」を 1 回押した（この時刻まで、もう 1 回押すと終える） */
+  confirmUntil: number;
 }
 let P: Panel | null = null;
 let saveTimer = 0;
@@ -157,10 +166,12 @@ export function closeDig() {
   const p = P;
   const hooks = p.hooks;
   flushSave();
-  stopHold();
+  stopAim(p);
+  cancelAnimationFrame(p.raf);
   removeEventListener('resize', p.resize);
   document.querySelector('.isl-dig-big')?.remove();
   P = null;
+  document.body.classList.remove('isl-digging');
   p.el.classList.add('is-out');
   p.el.style.pointerEvents = 'none';
   window.setTimeout(() => p.el.remove(), 300);
@@ -194,6 +205,7 @@ export function openDig(ctx: Ctx, hooks: DigHooks, note?: string) {
     fresh = false;
     const old = P;
     P = null;
+    cancelAnimationFrame(old.raf);
     removeEventListener('resize', old.resize);
     old.el.remove();
   }
@@ -206,7 +218,21 @@ export function openDig(ctx: Ctx, hooks: DigHooks, note?: string) {
   const top = h('div', 'isl-dig-top');
   const head = h('div', 'isl-dig-head');
   const title = h('h2', '');
-  const endBtn = btn(t('発掘を終える', 'Stop digging'), () => (P?.over ? closeDig() : hooks.end()), 'isl-dig-end');
+  // 段 DIG3：閉じる（終える）は右上の 1 か所。作業中は 2 回押し（1 回目「本当に終える？」。2.5 秒で戻る）
+  const endBtn = btn(t('✕ 終える', '✕ Stop'), () => {
+    const p = P;
+    if (!p) return;
+    if (p.over) return closeDig();
+    if (p.confirmUntil > performance.now()) {
+      p.confirmUntil = 0;
+      hooks.end();
+      return;
+    }
+    p.confirmUntil = performance.now() + 2500;
+    p.ctx.sfx?.('tap');
+    refreshDig();
+    window.setTimeout(() => P === p && refreshDig(), 2600);
+  }, 'isl-dig-end');
   head.append(title, endBtn);
   const timer = h('div', 'isl-dig-timer');
   const fill = h('i', 'isl-dig-timer-fill');
@@ -221,6 +247,11 @@ export function openDig(ctx: Ctx, hooks: DigHooks, note?: string) {
   const wall = h('div', 'isl-dig-wall');
   const legend = h('div', 'isl-dig-legend');
   wallBox.append(wall);
+  // なぞって掘る（段 DIG3）：効く範囲の点線の枠と、打っているマスのツルハシ（壁の上に重ねる。押せない）
+  const reach = h('div', 'isl-dig-reach');
+  const pick = h('i', 'isl-dig-pick', '⛏');
+  const crew = h('div', 'isl-dig-crew');
+  bindWall(wall);
   // 4. 下の帯：ひとこと・道具・発掘隊・研究ノート
   const foot = h('div', 'isl-dig-foot');
   const why = h('p', 'isl-dig-why');
@@ -229,10 +260,13 @@ export function openDig(ctx: Ctx, hooks: DigHooks, note?: string) {
   foot.append(legend, why, tools);
   el.append(top, info, wallBox, foot);
   ctx.root.append(el);
+  // 段 DIG3（調整）：発掘の画面のあいだは、提案のカード・経営会議を隠す（閉じたあとに出る。maybeCard も発掘中は出さない）
+  document.body.classList.add('isl-digging');
   const resize = () => fitWall();
-  P = { ctx, hooks, el, title, endBtn, timer, fill, sec, info, spec, tools, why, wallBox, wall, legend, notes, cells: [], cs: 40, sector: s.dig.sector, site: s.dig.cur, lay: null, blastArm: false, drillArm: false, deepHit: false, err: note ? { text: note, until: performance.now() + 3500, good: true } : null, ticked: 99, over: false, resize };
+  P = { ctx, hooks, el, title, endBtn, timer, fill, sec, info, spec, tools, why, wallBox, wall, legend, notes, cells: [], cs: 40, sector: s.dig.sector, site: s.dig.cur, lay: null, drillArm: false, deepHit: false, err: note ? { text: note, until: performance.now() + 3500, good: true } : null, ticked: 99, over: false, resize, hover: null, aim: null, dead: null, raf: 0, pick, reach, crew, confirmUntil: 0 };
   addEventListener('resize', resize);
   buildWall();
+  P.raf = requestAnimationFrame(aimLoop);
   refreshDig();
   refreshTimer();
   fitWall();
@@ -264,6 +298,8 @@ function fitWall() {
   // 覗き見のアイコンの大きさが変わるので描き直す
   for (const c of p.cells) delete c.dataset.k;
   paintCells();
+  paintCrew();
+  paintAim();
 }
 
 function buildWall() {
@@ -283,10 +319,68 @@ function buildWall() {
       b.type = 'button';
       b.dataset.x = String(x);
       b.dataset.y = String(y);
-      bindHold(b, x, y);
+      // キーボード（Enter・Space）：1 打。マウス・指は壁ごと（bindWall）
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (e.detail === 0) strike(x, y);
+      });
       p.cells.push(b);
       p.wall.append(b);
     }
+  p.wall.append(p.reach, p.crew, p.pick);
+  p.crew.replaceChildren();
+  stopAim(p);
+}
+
+// ---------------------------------------------------------------- 発掘隊（段 DIG3：シャドーヒーロー。壁の上を歩いて打つ）
+
+/** 隊員が最後に打ったマス（隊員の番号 → マス。画面を閉じても覚えておく） */
+const crewAt = new Map<number, [number, number]>();
+/** 1 日ごと（main.ts）：発掘隊が打った結果。隊員をそのマスへ動かして振る */
+export function noteCrewHits(hits: DigHit[]) {
+  const p = P;
+  let moved = false;
+  for (const x of hits) {
+    if (x.crew == null || x.splash || x.blast || x.pierce) continue;
+    crewAt.set(x.crew, [x.x, x.y]);
+    moved = true;
+    if (!p || p.over) continue;
+    const c = cellAt(x.x, x.y);
+    if (c) dust(c, x.broke ? 6 : 3, x.broke);
+    const man = p.crew.children[x.crew] as HTMLElement | undefined;
+    if (man) {
+      man.classList.remove('is-swing');
+      void man.offsetWidth;
+      man.classList.add('is-swing');
+    }
+  }
+  if (moved && p) paintCrew();
+}
+/** 隊員を描く（人数ぶん。最後に打ったマスの足もとへ。まだなら下の段に並ぶ） */
+function paintCrew() {
+  const p = P;
+  if (!p) return;
+  const s = p.ctx.s();
+  const L = digSite(s);
+  if (!L) return;
+  const cw = crewInfo(s);
+  while (p.crew.children.length > cw.n) p.crew.lastElementChild?.remove();
+  while (p.crew.children.length < cw.n) {
+    const n = p.crew.children.length;
+    const man = h('span', 'isl-dig-crewman');
+    man.append(heroIcon(cw.heroes[n] ?? cw.heroes[0], 32), h('i', 'isl-dig-crewpick', '⛏'));
+    man.title = t(`発掘隊 ${n + 1}`, `Crew ${n + 1}`);
+    p.crew.append(man);
+  }
+  for (let n = 0; n < cw.n; n++) {
+    const man = p.crew.children[n] as HTMLElement;
+    const at = crewAt.get(n) ?? [Math.min(L.w - 1, 1 + n * 2) % L.w, L.h - 1];
+    const c = cellAt(at[0], at[1]);
+    if (!c) continue;
+    man.style.left = `${c.offsetLeft + c.offsetWidth / 2}px`;
+    man.style.top = `${c.offsetTop + c.offsetHeight}px`;
+  }
+  p.crew.classList.toggle('is-idle', !s.digRun || p.over);
 }
 
 /** 層の並び（手前 → 奥。掘れない層は 🔒。押すと「深い層の許可が要る」） */
@@ -359,8 +453,10 @@ export function refreshDig() {
   p.spec.replaceChildren(...(sp ? digSpecText(sp).map((x) => h('b', '', x)) : []));
   const st = digStatus(s)!;
   p.title.textContent = t(`⛏ ${st.name}`, `⛏ ${st.name}`);
-  // 「発掘を終える」：作業のあいだ（出会いの最初の 1 回は出さない）。札を出したあとは ✕（町に戻る）
-  p.endBtn.textContent = p.over ? t('✕ 町に戻る', '✕ Back to town') : t('発掘を終える', 'Stop digging');
+  // 「終える」：作業のあいだ（出会いの最初の 1 回は出さない）。1 回押すと「本当に終える？」、札を出したあとは ✕（町に戻る）
+  const arming = !p.over && p.confirmUntil > performance.now();
+  p.endBtn.textContent = p.over ? t('✕ 町に戻る', '✕ Back to town') : arming ? t('本当に終える？', 'Really stop?') : t('✕ 終える', '✕ Stop');
+  p.endBtn.classList.toggle('is-arm', arming);
   p.endBtn.hidden = !p.over && !!p.hooks.noEnd?.();
   p.endBtn.setAttribute('aria-label', p.over ? t('町に戻る', 'Back to town') : t('発掘を終える', 'Stop digging'));
   // 小さな帯：日付（時間が流れている）・今月の売上・RP・今回の出土・掘った割合・お題（SCM の詰まりは、作業のあいだは出さない：発掘に集中）
@@ -377,6 +473,11 @@ export function refreshDig() {
   // 段 UX1（C-4）：帯の「研」は累計、終了の札の「研究ポイント +N」は今回。同じ言葉で混ざっていたので、帯に今回の増えも添える
   chip('is-rp', t('研', 'RP'), s.digRun ? t(`${st.rp}（今回 +${st.rpNow}）`, `${st.rp} (+${st.rpNow} now)`) : `${st.rp}`);
   chip('is-got', t('出土', 'Finds'), t(`新 ${st.found}・Lv↑ ${st.lvUp}`, `New ${st.found} · Lv↑ ${st.lvUp}`));
+  // 段 DIG3：埋まっている爆弾（残りの数・威力（はがす層）・範囲）。掘り出すと減る
+  const bombs = bombsLeft(s, s.dig.cur).length;
+  const bc = chip(`is-bomb ${bombs ? '' : 'is-none'}`, '💣', `${bombs}`);
+  bc.append(h('small', '', t(`威力 ${bombPower(s)}・${blastSize(s)}×${blastSize(s)}`, `pow ${bombPower(s)} · ${blastSize(s)}×${blastSize(s)}`)));
+  bc.title = t(`地中に埋まっている爆弾：あと ${bombs} 個。掘り出すと爆発して、まわり ${blastSize(s)} × ${blastSize(s)} の層を ${bombPower(s)} 枚一度にはがす（費用なし。スキル → 発掘の「発破」で増える）`, `Bombs still buried: ${bombs}. Dig one up and it blasts ${bombPower(s)} layer(s) off the ${blastSize(s)} × ${blastSize(s)} around it (free; more with Skills → Digging: Blasting)`);
   if (st.dungeon) {
     // ダンジョン：この作業でいちばん深くはがした層と最深記録・掘れる層（深い層の許可）
     const dg = st.dungeon;
@@ -388,27 +489,10 @@ export function refreshDig() {
   }
   // 道具：発破・掘削ドリル（スキル → 発掘で開いていれば）・発掘隊・研究ノート
   p.tools.replaceChildren();
-  if (hasBlast(s)) {
-    const bc = blastCost(s);
-    const n = blastSize(s);
-    const b = btn(p.blastArm ? t('💥 発破：マスを押す（やめる）', '💥 Blast: tap a cell (cancel)') : t(`💥 発破 ${n}×${n}（${money(bc)}）`, `💥 Blast ${n}×${n} (${money(bc)})`), () => {
-      p.blastArm = !p.blastArm;
-      p.drillArm = false;
-      p.ctx.sfx?.('tap');
-      refreshDig();
-    }, `isl-dig-blast ${p.blastArm ? 'is-on' : ''}`);
-    b.title = t(`火薬代で、押したマスを真ん中に ${n} × ${n} の いまの層を 1 枚ずつ一度にはがす`, `Pay for powder to peel one layer off the ${n} × ${n} around the cell`);
-    if (s.money < bc) {
-      b.disabled = true;
-      b.title = digErrText('money', bc);
-    }
-    p.tools.append(b);
-  }
   if (hasDrill(s)) {
     const n = drillLen(s);
     const b = btn(p.drillArm ? t('🔩 ドリル：マスを押す（やめる）', '🔩 Drill: tap a cell (cancel)') : t(`🔩 ドリル 奥へ ${n}（${money(DRILL_FUEL)}）`, `🔩 Drill ${n} deep (${money(DRILL_FUEL)})`), () => {
       p.drillArm = !p.drillArm;
-      p.blastArm = false;
       p.ctx.sfx?.('tap');
       refreshDig();
     }, `isl-dig-drill ${p.drillArm ? 'is-on' : ''}`);
@@ -419,38 +503,38 @@ export function refreshDig() {
     }
     p.tools.append(b);
   }
-  const auto = autoDiggers(s);
-  const who = h('button', `isl-dig-auto ${auto.length ? '' : 'is-empty'}`);
+  // 段 DIG3：発掘隊はシャドーヒーロー（研究パネル「発掘隊の手際」の Lv で人数・威力・行動規則）。押すとそのパネルへ
+  const cw = crewInfo(s);
+  const who = h('button', `isl-dig-auto ${cw.n ? '' : 'is-empty'}`);
   who.type = 'button';
-  if (auto.length) {
-    for (const a of auto.slice(0, 2)) who.append(heroIcon(a.hero, 28));
-    const per = auto.reduce((v, a) => v + (a.resting ? 0 : a.perDay), 0);
-    const [cn, cap] = crewCount(s);
-    who.append(h('span', '', t(`発掘隊 ${cn}/${cap}・1 日 ${Math.round(per * 10) / 10} 打`, `Crew ${cn}/${cap} · ${Math.round(per * 10) / 10}/day`)));
-    if (auto.every((a) => a.resting)) who.append(h('small', 'isl-bad', t('休憩中', 'Resting')));
-  } else who.append(h('span', '', t('＋ 発掘隊', '+ Dig crew')));
+  if (cw.n) {
+    for (const id of cw.heroes.slice(0, 2)) who.append(heroIcon(id, 28));
+    who.append(h('span', 'isl-dig-crewn', t(`⛏×${cw.n} 威力 ${cw.power}`, `⛏×${cw.n} power ${cw.power}`)), h('small', 'isl-dig-crewrule', cw.ruleText));
+    who.setAttribute('aria-label', t(`発掘隊 ${cw.n} 人・威力 ${cw.power}・${cw.ruleText}`, `Dig crew ${cw.n}, power ${cw.power}, ${cw.ruleText}`));
+  } else who.append(h('span', '', t('発掘隊（スキル → 発掘の「発掘隊の手際」）', 'Dig crew (Skills → Digging: Skilled crew)')));
+  who.title = t(`発掘隊（名前のない隊員）が、作業のあいだ 1 人につき ${crewPaceText()} ぶん手伝う。スキル → 発掘の「発掘隊の手際」で人数・威力・行動規則`, `The crew (nameless diggers) helps ${crewPaceText()} each while you dig. Skills → Digging: Skilled crew sets size, power and behaviour`);
   who.addEventListener('click', (e) => {
     e.stopPropagation();
-    pickDigger();
+    const go = p.hooks.skill;
+    if (!go) return;
+    closeDig();
+    go('dig_crew');
   });
   p.tools.append(who, p.notes);
+  paintCrew();
   // ひとこと：打てない理由（画面全体：作業が終わった など）・直前に押したマスの理由（数秒だけ）・道具の使い方・掘り方
   const block = p.over ? null : digBlock(s);
   const now = performance.now();
-  const bn = blastSize(s);
   const live = p.err && p.err.until > now;
   const msg = live
     ? p.err!.text
     : block
       ? digErrText(block)
-      : p.blastArm
-        ? t(`発破：マスを押すと、まわり ${bn} × ${bn} の いまの層が 1 枚ずつはがれる`, `Blast: tap a cell to peel one layer off the ${bn} × ${bn} around it`)
-        : p.drillArm
-          ? t(`ドリル：マスを押すと、そのマスが奥へ ${drillLen(s)} 層はがれる`, `Drill: tap a cell to peel ${drillLen(s)} layers off it`)
-          : t('マスをタップで 1 打（手前の層から 1 枚ずつはがれる）・長押しで続けて打つ', 'Tap a cell to strike (peels one layer at a time) · hold to keep striking');
+      : p.drillArm
+        ? t(`ドリル：マスを押すと、そのマスが奥へ ${drillLen(s)} 層はがれる`, `Drill: tap a cell to peel ${drillLen(s)} layers off it`)
+        : t('マスにカーソルを当てる・指でなぞると掘れる（手前の層から 1 枚ずつ）', 'Hover a cell or drag your finger to dig (one layer at a time)');
   p.why.textContent = msg;
   p.why.className = `isl-dig-why ${live && p.err!.good ? 'is-warn' : live || block ? 'is-bad' : ''}`;
-  p.el.classList.toggle('is-blast', p.blastArm);
   p.el.classList.toggle('is-drill', p.drillArm);
   paintLegend();
   paintCells();
@@ -486,8 +570,7 @@ export function showEndCard(end: RunEnd, o: { then?: () => void; again?: () => v
     return;
   }
   p.over = true;
-  stopHold();
-  p.blastArm = false;
+  stopAim(p);
   p.drillArm = false;
   p.el.querySelector('.isl-dig-mine')?.remove();
   p.el.querySelector('.isl-dig-endcard')?.remove();
@@ -501,6 +584,10 @@ export function showEndCard(end: RunEnd, o: { then?: () => void; again?: () => v
     g.append(c);
   }
   box.append(g);
+  // 段 DIG3：見つけた出土品の札（見つけた順。発掘中の演出をここにまとめる：お題・大きな遺物は大きく、石板は読める）
+  const finds = end.got.finds ?? [];
+  if (finds.length) box.append(foundCards(finds, end.got.bombs ?? 0));
+  else if (end.got.bombs) box.append(h('p', 'isl-dim', t(`💣 爆弾 ${end.got.bombs} 個を掘り出した`, `💣 Set off ${end.got.bombs} bomb(s)`)));
   // ダンジョン：最深記録（初めての層に届いたら「新記録！」）
   if (end.isDungeon) {
     const rec = h('p', `isl-dig-deeprec ${end.record ? 'is-new' : ''}`);
@@ -534,21 +621,65 @@ export function showEndCard(end: RunEnd, o: { then?: () => void; again?: () => v
   refreshTimer();
   window.setTimeout(() => {
     if (P !== p || !p.el.isConnected) return;
+    // 段 DIG3：月の締めと重なっていても、リザルトは必ず見せる（自分で「▶ 月次報告へ」を押すまで残す。前は 1.2 秒で月次報告に飛んでいた）
     if (end.crossed && o.then) {
-      closeDig();
-      o.then();
+      const go = o.then;
+      acts.append(btn(t('▶ 月次報告へ', '▶ Monthly report'), () => {
+        closeDig();
+        go();
+      }, 'is-on'));
+      o.after?.();
       return;
     }
     const sec = sessionSec(p.ctx.s());
     if (o.again && !end.done) acts.append(btn(end.isDungeon ? t(`⛏ もう一度潜る（${sec} 秒）`, `⛏ Dive again (${sec} s)`) : t(`⛏ もう一度（${sec} 秒）`, `⛏ Again (${sec} s)`), () => o.again?.(), 'is-on'));
     acts.append(btn(t('町に戻る', 'Back to town'), () => closeDig()));
     o.after?.();
-    // 新しいレシピがあるときは、自分で閉じるまで残す（「工房で作る」を押せるように）
-    if (!recipes.length)
+    // 新しいレシピ・出土品の札があるときは、自分で閉じるまで残す（「工房で作る」を押せるように・札を眺められるように）
+    if (!recipes.length && !finds.length)
       window.setTimeout(() => {
         if (P === p && p.over && p.el.isConnected) closeDig();
       }, 6000);
   }, 1200);
+}
+/** 段 DIG3：リザルトの出土品の札（見つけた順）。お題・大きな遺物は大きい札（光つき）、石板は押すと読める。研究ノートに残ったことが分かる */
+function foundCards(finds: DigFound[], bombs: number): HTMLElement {
+  const box = h('div', 'isl-dig-finds');
+  const head = h('div', 'isl-dig-finds-head');
+  head.append(h('b', '', t(`見つけたもの ${finds.length}`, `Finds ${finds.length}`)));
+  if (bombs) head.append(h('small', '', t(`💣 爆弾 ${bombs}`, `💣 bombs ${bombs}`)));
+  box.append(head);
+  const list = h('div', 'isl-dig-finds-list');
+  finds.forEach((f, n) => {
+    const it = f.item;
+    const rar = it.kind === 'ext' ? extRarity(it.id) : 'Common';
+    const c = h(it.kind === 'tablet' ? 'button' : 'div', `isl-dig-find is-${it.kind} is-r${it.kind === 'ext' ? extRank(it.id) : 'C'} ${f.big ? 'is-big' : ''} ${f.first ? 'is-first' : ''}`);
+    c.style.animationDelay = `${Math.min(12, n) * 70}ms`;
+    if (f.big) c.append(h('i', 'isl-dig-big-rays'));
+    const ic = itemIcon(it, f.big ? 96 : 56);
+    c.append(ic);
+    const tag = it.kind === 'tablet' ? t('石板', 'Tablet') : it.kind === 'ext' && it.topic ? t('お題を発見！', 'Target found!') : f.big ? t(`${RARITY_JA[rar as keyof typeof RARITY_JA] ?? ''}の大きな遺物！`, `A large ${rar} relic!`) : f.first ? t('新発見！', 'New find!') : f.again ? t('再発見', 'Found again') : f.lv ? t(`研究 Lv${f.lv}`, `Research Lv${f.lv}`) : t('ノートへ', 'Noted');
+    c.append(h('b', 'isl-dig-find-tag', tag), h('span', 'isl-dig-find-name', it.kind === 'tablet' ? (TABLET[it.id]?.title ?? '') : it.kind === 'ext' ? extName(it.id) : ''));
+    if (f.rp) c.append(h('small', 'isl-gold', `+${f.rp} RP`));
+    if (f.recipe) c.append(h('small', 'isl-dig-find-recipe', t('📜 新レシピ', '📜 New recipe')));
+    if (it.kind === 'tablet' && c instanceof HTMLButtonElement) {
+      c.type = 'button';
+      c.title = t('押すと読む', 'Tap to read');
+      c.addEventListener('click', (e) => {
+        e.stopPropagation();
+        readTablet(it.id, f.rp);
+      });
+    }
+    if (f.big && it.kind === 'ext') {
+      const sg = seriesTag(it.id);
+      if (sg && !sg[1]) c.append(h('small', 'isl-dig-epicval', EPIC_VALUE_TEXT()));
+      window.setTimeout(() => c.isConnected && beamBehind(c, ic, it.id, 2400), 200 + n * 70);
+      window.setTimeout(() => c.isConnected && fxAtEl('collect-burst', ic, { palette: FX_RARITY[rar] ?? FX_PAL.gold, dy: 30 }), 400 + n * 70);
+    }
+    list.append(c);
+  });
+  box.append(list);
+  return box;
 }
 
 /** マス 1 つを描く（面の色・奥まった影・ひび・覗き見・あと何回・🔒） */
@@ -614,70 +745,130 @@ function paintCells() {
   for (let k = 0; k < p.cells.length; k++) paintCell(p.cells[k], cellView(s, k % L.w, Math.floor(k / L.w)), none, p.cs);
 }
 
-// ---------------------------------------------------------------- 打つ（タップで 1 打・長押しで連続）
+// ---------------------------------------------------------------- 打つ（なぞって掘る。段 DIG3）
 
-let hold: { timer: number; x: number; y: number; px: number; py: number; repeating: boolean; id: number } | null = null;
-function stopHold() {
-  if (!hold) return;
-  clearTimeout(hold.timer);
-  hold = null;
+/**
+ * なぞって掘る：PC はカーソルを当てたマスを自動で打ち続ける（押さなくてよい。クリックでも 1 打）。
+ * スマホは指でなぞった所を掘る（押しっぱなしで続く。指の下のマスが変わればそこを打つ。離すと止まる）。
+ * 壁の外（閉じるボタン・帯・札・隊員）では掘らない（cellOf）。打つ間隔は digRepeatMs（aimStep）
+ */
+function bindWall(wall: HTMLElement) {
+  const under = (e: PointerEvent): [number, number] | null => cellOf(document.elementFromPoint(e.clientX, e.clientY));
+  wall.addEventListener('pointermove', (e) => {
+    const p = P;
+    if (!p) return;
+    // マウスはホバーで、指・ペンは押しているあいだだけ
+    if (e.pointerType !== 'mouse' && !(e.buttons & 1)) return;
+    p.hover = under(e);
+  });
+  wall.addEventListener('pointerdown', (e) => {
+    const p = P;
+    if (!p || e.button !== 0) return;
+    p.hover = under(e);
+    // クリック（タップ）：すぐ 1 打（当てていたマスでも、押した瞬間に打つ）
+    p.aim = null;
+    p.dead = null;
+  });
+  const stop = (e: PointerEvent) => {
+    const p = P;
+    if (!p) return;
+    if (e.pointerType === 'mouse') p.hover = under(e);
+    else p.hover = null;
+  };
+  wall.addEventListener('pointerup', stop);
+  wall.addEventListener('pointercancel', stop);
+  wall.addEventListener('pointerleave', () => P && (P.hover = null));
+  // 指でなぞるあいだ、画面をスクロールさせない
+  wall.style.touchAction = 'none';
 }
-function bindHold(b: HTMLButtonElement, x: number, y: number) {
-  b.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
-    stopHold();
-    hold = { timer: 0, x, y, px: e.clientX, py: e.clientY, repeating: false, id: e.pointerId };
-    // 長押し：少し待ってから、同じマスを続けて打つ（その層がはがれたら止まる）
-    const loop = () => {
-      if (!hold) return;
-      hold.repeating = true;
-      const r = strike(hold.x, hold.y);
-      if (r !== 'more' || !P) return stopHold();
-      hold.timer = window.setTimeout(loop, digRepeatMs(P.ctx.s()));
-    };
-    hold.timer = window.setTimeout(loop, 380);
-  });
-  b.addEventListener('pointermove', (e) => {
-    if (hold && !hold.repeating && Math.hypot(e.clientX - hold.px, e.clientY - hold.py) > 10) stopHold();
-  });
-  b.addEventListener('pointerup', () => {
-    if (!hold) return;
-    const rep = hold.repeating;
-    stopHold();
-    // 長押しで打っていなければ、指を離したときに 1 打
-    if (!rep) strike(x, y);
-  });
-  b.addEventListener('pointercancel', () => stopHold());
-  b.addEventListener('pointerleave', () => stopHold());
-  // キーボード（Enter・Space）
-  b.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (e.detail === 0) strike(x, y);
-  });
+function stopAim(p: Panel) {
+  p.hover = null;
+  p.aim = null;
+  p.dead = null;
+  p.pick.hidden = true;
+  p.reach.replaceChildren();
+}
+/** 毎フレーム：当てているマスを間隔で打つ・ツルハシと点線の枠を動かす */
+function aimLoop() {
+  const p = P;
+  if (!p) return;
+  p.raf = requestAnimationFrame(aimLoop);
+  const s = p.ctx.s();
+  const hover = p.over || !s.digRun ? null : p.hover;
+  const r = aimStep(p.aim, hover, performance.now(), digRepeatMs(s));
+  const moved = !!r.aim !== !!p.aim || r.aim?.x !== p.aim?.x || r.aim?.y !== p.aim?.y;
+  p.aim = r.aim;
+  if (moved) {
+    p.dead = null;
+    paintAim();
+  }
+  if (r.strike && r.aim && p.dead !== `${r.aim.x},${r.aim.y}`) {
+    const got = strike(r.aim.x, r.aim.y, true);
+    // 打てないマス（待っている・許可が要る・掘りきった）は、当てているあいだ打ち直さない（音とゆれを繰り返さない）
+    if (got === 'err') p.dead = `${r.aim.x},${r.aim.y}`;
+    else swingPick();
+  }
+}
+/** ツルハシと効く範囲の点線の枠を、当てているマスへ */
+function paintAim() {
+  const p = P;
+  if (!p) return;
+  const a = p.aim;
+  if (!a) {
+    p.pick.hidden = true;
+    p.reach.replaceChildren();
+    return;
+  }
+  const c = cellAt(a.x, a.y);
+  if (!c) return;
+  p.pick.hidden = false;
+  p.pick.style.left = `${c.offsetLeft + c.offsetWidth / 2}px`;
+  p.pick.style.top = `${c.offsetTop + c.offsetHeight / 2}px`;
+  p.reach.replaceChildren();
+  for (const [x, y] of reachCells(p.ctx.s(), a.x, a.y)) {
+    const d = cellAt(x, y);
+    if (!d) continue;
+    const f = h('i', `isl-dig-reach-cell ${x === a.x && y === a.y ? 'is-center' : ''}`);
+    f.style.left = `${d.offsetLeft}px`;
+    f.style.top = `${d.offsetTop}px`;
+    f.style.width = `${d.offsetWidth}px`;
+    f.style.height = `${d.offsetHeight}px`;
+    p.reach.append(f);
+  }
+}
+function swingPick() {
+  const p = P;
+  if (!p) return;
+  p.pick.classList.remove('is-swing');
+  void p.pick.offsetWidth;
+  p.pick.classList.add('is-swing');
 }
 
 /** 打つ：'more'（まだはがれていない）／'broke'／'err' */
-function strike(x: number, y: number): 'more' | 'broke' | 'err' {
+/** quiet：なぞって掘る（当てただけ）ときは、掘りきったマスを通っても音とひとことを出さない */
+function strike(x: number, y: number, quiet = false): 'more' | 'broke' | 'err' {
   const p = P;
   if (!p || p.over) return 'err';
   const s = p.ctx.s();
   // 作業が終わった（時間切れの直後）：何もしない
   if (!s.digRun) return 'err';
-  const useBlast = p.blastArm;
-  const useDrill = !useBlast && p.drillArm;
-  const r = useBlast ? blast(s, x, y) : useDrill ? drill(s, x, y) : dig(s, x, y);
+  const useDrill = p.drillArm;
+  const r = useDrill ? drill(s, x, y) : dig(s, x, y);
   if (typeof r === 'string') {
     if (r === 'deep') return deepPressed(x, y), 'err';
-    fail(x, y, r, useDrill ? DRILL_FUEL : blastCost(s));
+    if (quiet && r === 'dug') return 'err';
+    fail(x, y, r, DRILL_FUEL);
     return 'err';
   }
-  // 広く掘る：隣のマスに当たった結果も（extra）
+  // 広く掘る・貫通・爆弾の爆発：隣のマス・下の層に当たった結果も（extra）
   const hits = Array.isArray(r) ? r : [r, ...(r.extra ?? [])];
-  if (useBlast) p.blastArm = false;
   if (useDrill) p.drillArm = false;
   p.err = null;
   soonSave();
-  showHits(hits, useBlast, useDrill);
+  // 段 DIG3：爆弾を掘り出した（爆発）
+  const boom = hits.filter((x) => x.bomb);
+  showHits(hits, boom.length > 0, useDrill);
+  for (const b of boom) bombFx(b);
   p.hooks.hit?.(hits);
   // 再発掘で初めて RP が入った（この周回で初めて掘り出した出土品・石板）：1 回だけ
   if (hits.some((x) => x.again && x.rp > 0) && p.hooks.againTip?.()) mineSay(AGAIN_TIP(), 6000);
@@ -745,6 +936,32 @@ const cellAt = (x: number, y: number) => {
 function showHits(hits: DigHit[], wasBlast: boolean, wasDrill = false) {
   const p = P!;
   const big = biggestFx(hits);
+  // 段 DIG3：数字の飛び（減らした硬さ。会心は金色で大きく・貫通は青・隣への力は小さく薄く）
+  // （同じ 1 打でそのマスに入った量は 1 つにまとめる：貫通で下の層に届いたぶんも足して「↓」。前の数字が残っていれば消してから。重なって読めないので）
+  const per = new Map<string, { hit: DigHit; dmg: number; pierce: boolean; crit: boolean; splash: boolean }>();
+  for (const hit of hits) {
+    if (!hit.dmg || hit.dmg >= 1e6 || hit.blast) continue;
+    const key = `${hit.x},${hit.y}`;
+    const cur = per.get(key);
+    if (cur) {
+      cur.dmg += hit.dmg;
+      cur.pierce ||= !!hit.pierce;
+      cur.crit ||= !!hit.crit;
+    } else per.set(key, { hit, dmg: hit.dmg, pierce: !!hit.pierce, crit: !!hit.crit, splash: !!hit.splash });
+  }
+  for (const [key, v] of per) {
+    const c = cellAt(v.hit.x, v.hit.y);
+    if (!c) continue;
+    p.el.querySelector(`.isl-dig-dmg[data-k="${key}"]`)?.remove();
+    const r = c.getBoundingClientRect();
+    const pr = p.el.getBoundingClientRect();
+    const f = h('b', `isl-dig-dmg ${v.crit ? 'is-crit' : ''} ${v.pierce ? 'is-pierce' : ''} ${v.splash ? 'is-splash' : ''}`, `${Math.round(v.dmg * 10) / 10}${v.pierce ? '↓' : ''}`);
+    f.dataset.k = key;
+    f.style.left = `${r.left - pr.left + r.width / 2}px`;
+    f.style.top = `${r.top - pr.top + r.height * 0.35}px`;
+    p.el.append(f);
+    window.setTimeout(() => f.remove(), 700);
+  }
   // 会心（2 倍）：マスの上に「会心！」
   for (const hit of hits.filter((x) => x.crit)) {
     const c = cellAt(hit.x, hit.y);
@@ -798,29 +1015,65 @@ function showHits(hits: DigHit[], wasBlast: boolean, wasDrill = false) {
     }
     // 置き場所がいっぱいなら、入ったぶんだけ（「置き場所がいっぱい」）
     if (f === 'mat' && hit.item?.kind === 'mat') floatUp(c, matIcon(hit.item.mat as Mat, 24), hit.matFull ? (hit.mat ? t(`+${hit.mat}（置き場所がいっぱい）`, `+${hit.mat} (storage full)`) : t('置き場所がいっぱい', 'Storage full')) : `+${hit.mat ?? hit.item.n}`);
-    else if (f === 'ext' && hit.item?.kind === 'ext') {
+    // 段 DIG3：発掘中の演出（エクステ・Rare・石板・お題・大きな遺物・レシピ）は出さない。見つけた瞬間は小さなトースト（1 秒）と音だけ、
+    // 中身はリザルト（発掘終了の札）にまとめる（見つけた順に札を並べる：got.finds）
+    else if (hit.item && hit.item.kind !== 'mat') {
       const it = hit.item;
-      window.setTimeout(() => flyToNotes(c, it.id, findLabel(hit), hit.rp), delay);
-      delay += 220;
-    } else if (f === 'rare' && hit.item?.kind === 'ext') {
-      // Rare：中くらいの演出（作業は止めない）→ 研究ノートへ
-      const it = hit.item;
-      window.setTimeout(() => rareFind(c, it.id, hit), delay);
-      delay += 400;
-    }
-    // 復刻品のレシピが開いた：作業を止めない小さな札（まとめは発掘終了の札）
-    if (hit.recipe) {
-      const key = hit.recipe;
-      window.setTimeout(() => recipePing(key), delay + 600);
-    }
-    if (f === 'tablet' && hit.item?.kind === 'tablet') {
-      const id = hit.item.id;
-      window.setTimeout(() => readTablet(id, hit.rp), 350);
-    } else if ((f === 'topic' || f === 'epic') && hit.item?.kind === 'ext') {
-      const it = hit.item;
-      window.setTimeout(() => bigFind(it.id, hit.rp, f === 'topic', hit), 250);
+      const big = f === 'topic' || f === 'epic';
+      window.setTimeout(() => findPing(c, it, hit, big), delay);
+      delay += 160;
+      // 段 FX2 の光の柱だけ残す（すぐ消える。次に打てば消える）
+      const r = c.getBoundingClientRect();
+      if (it.kind === 'ext' && r.width) playFx('loot-beam', r.left + r.width / 2, r.bottom - r.height * 0.2, { palette: FX_RARITY[extRarity(it.id)] ?? FX_RARITY.Common, opts: { item: false }, scale: innerWidth < 600 ? 1 : 1.5, life: 700, seed: it.id, thin: big ? undefined : 'dig-beam' });
     }
   }
+}
+/** 段 DIG3：見つけた瞬間の小さなトースト（マスの上に絵 32px と札。1 秒で消える。作業は止めない） */
+function findPing(c: HTMLElement, it: DigItem, hit: DigHit, big: boolean) {
+  const p = P;
+  if (!p) return;
+  const r = c.getBoundingClientRect();
+  const pr = p.el.getBoundingClientRect();
+  const f = h('div', `isl-dig-ping ${big ? 'is-big' : ''} is-${it.kind}`);
+  const label = it.kind === 'tablet' ? t('石板！', 'Tablet!') : hit.recipe ? t('📜 新レシピ！', '📜 New recipe!') : findLabel(hit) || t('出土！', 'Found!');
+  f.append(itemIcon(it, big ? 48 : 32), h('b', '', label), ...(hit.rp ? [h('small', '', `+${hit.rp} RP`)] : []));
+  // 段 DIG3（調整）：壁の上（掘っているマスの上）に出すと地層が隠れるので、下の帯（層の並び・ひとこと）の上に重ねて積む
+  const fb = (p.el.querySelector('.isl-dig-foot') as HTMLElement).getBoundingClientRect();
+  // （続けて見つけたら、前のトーストと入れ替える：1 つずつ）
+  p.el.querySelectorAll('.isl-dig-ping').forEach((x) => x.remove());
+  f.style.left = `${fb.left - pr.left + fb.width / 2}px`;
+  f.style.top = `${fb.top - pr.top + 52}px`;
+  void r;
+  p.el.append(f);
+  window.setTimeout(() => f.remove(), 1000);
+  // 研究ノートのボタンが少し光る（続けて来たら 1 秒に 1 つ）
+  if (it.kind === 'ext') {
+    p.notes.classList.remove('is-gulp');
+    void p.notes.offsetWidth;
+    p.notes.classList.add('is-gulp');
+  }
+}
+
+/** 段 DIG3：爆弾を掘り出した：そのマスから爆発の光（pixelfx の花火を橙で）と煙。画面はゆれる（is-boom） */
+function bombFx(hit: DigHit) {
+  const p = P;
+  if (!p) return;
+  const c = cellAt(hit.x, hit.y);
+  if (!c) return;
+  const r = c.getBoundingClientRect();
+  if (!r.width) return;
+  const x = r.left + r.width / 2;
+  const y = r.top + r.height / 2;
+  const sc = innerWidth < 600 ? 1 : 1.5;
+  playFx('firework-burst', x, y, { palette: FX_PAL.fire, opts: { core: FX_PAL.gold }, scale: sc, life: 900, seed: hit.x * 7 + hit.y });
+  playFx('poof', x, y + 6, { palette: FX_PAL.smoke, scale: sc * 1.5, delay: 120, life: 900, seed: hit.y * 7 + hit.x });
+  const f = h('b', 'isl-dig-bombtag', t('💥 爆発！', '💥 Boom!'));
+  const pr = p.el.getBoundingClientRect();
+  f.style.left = `${x - pr.left}px`;
+  f.style.top = `${y - pr.top}px`;
+  p.el.append(f);
+  window.setTimeout(() => f.remove(), 900);
+  p.ctx.sfx?.('mining');
 }
 
 function shake(c: HTMLElement) {
@@ -858,53 +1111,12 @@ function floatUp(c: HTMLElement, ic: HTMLElement, text: string) {
   p.el.append(f);
   window.setTimeout(() => f.remove(), 1200);
 }
-/** エクステ：マスから画面の中央に大きく出て（札と RP）、研究ノートのボタンへ吸い込まれる */
-function flyToNotes(c: HTMLElement, id: number, label: string, rp: number) {
-  const p = P;
-  if (!p) return;
-  const r = c.getBoundingClientRect();
-  const nb = p.notes.getBoundingClientRect();
-  const f = h('div', 'isl-dig-fly');
-  f.append(extIcon(id, 64), h('b', '', label), ...(rp ? [h('small', '', t(`研究 +${rp}`, `RP +${rp}`))] : []));
-  const sx = r.left + r.width / 2;
-  const sy = r.top + r.height / 2;
-  f.style.left = `${sx}px`;
-  f.style.top = `${sy}px`;
-  f.style.setProperty('--cx', `${Math.round(innerWidth / 2 - sx)}px`);
-  f.style.setProperty('--cy', `${Math.round(innerHeight * 0.42 - sy)}px`);
-  f.style.setProperty('--tx', `${Math.round(nb.left + nb.width / 2 - sx)}px`);
-  f.style.setProperty('--ty', `${Math.round(nb.top + nb.height / 2 - sy)}px`);
-  p.ctx.root.append(f);
-  // 段 FX2：掘り出したマスから、レアリティの色の光の柱（すぐ消える。次に打てば消える）
-  if (r.width) playFx('loot-beam', sx, r.bottom - r.height * 0.2, { palette: FX_RARITY[extRarity(id)] ?? FX_RARITY.Common, opts: { item: false }, scale: innerWidth < 600 ? 1 : 1.5, life: 700, seed: id });
-  window.setTimeout(() => {
-    f.remove();
-    if (!P) return;
-    P.notes.classList.remove('is-gulp');
-    void P.notes.offsetWidth;
-    P.notes.classList.add('is-gulp');
-    // 研究ノートに吸い込まれたところで光る（続けて来たら 1 秒に 1 つ）
-    fxAtEl('collect-burst', P.notes, { palette: FX_PAL.gold, dy: 30, scale: innerWidth < 600 ? 1 : 4 / 3, thin: 'dig-notes' });
-  }, 1500);
-}
 /** 段 FX2：札・窓の中の絵の後ろに、レアリティの色の光の柱（host の中に。絵の足もとから上へ。放射の模様の上・文字と絵の下） */
 function beamBehind(host: HTMLElement, icon: HTMLElement, id: number, life: number) {
   const rays = host.querySelector(':scope > .isl-dig-rare-rays, :scope > .isl-dig-big-rays');
   const x = icon.offsetLeft + icon.offsetWidth / 2;
   const y = icon.offsetTop + icon.offsetHeight * 0.85;
   playFx('loot-beam', x, y, { host, under: rays?.nextElementSibling ?? icon, palette: FX_RARITY[extRarity(id)] ?? FX_RARITY.Common, opts: { item: false }, ink: false, scale: innerWidth < 600 ? 4 / 3 : 2, life, seed: id });
-}
-/** 新しいレシピ（作業中）：画面の上に小さく「📜 新しいレシピ！『復刻 ○○』」。作業は止めない */
-function recipePing(key: string) {
-  const p = P;
-  if (!p) return;
-  const prod = PRODUCT[key];
-  if (!prod?.relic) return;
-  p.ctx.sfx?.('check');
-  const f = h('div', 'isl-dig-recipe');
-  f.append(extIcon(prod.relic.ext, 32), h('b', '', t(`📜 新しいレシピ！「${prod.name}」`, `📜 New recipe! ${prod.name}`)));
-  p.el.append(f);
-  window.setTimeout(() => f.remove(), 2600);
 }
 /** 新しいレシピの札（発掘終了の札の中）：エクステの絵 64px・「『復刻 ○○』を工房で作れるようになった」・「工房で作る」 */
 export function recipeCards(keys: string[], make: (key: string) => void): HTMLElement {
@@ -947,90 +1159,6 @@ function readTablet(id: string, rp: number) {
   w.append(btn(t('閉じる', 'Close'), () => w.remove(), 'is-on'));
   p.el.append(w);
 }
-/** ダンジョンの奥の Rare：壁の上に中くらいの札（光・絵 96px・「Rare の遺物！」・RP）。作業は止めない。2.4 秒で研究ノートへ */
-function rareFind(c: HTMLElement, id: number, hit: DigHit) {
-  const p = P;
-  if (!p) return;
-  p.el.querySelector('.isl-dig-rare')?.remove();
-  const w = h('div', 'isl-dig-rare');
-  const ic = extIcon(id, 96);
-  w.append(h('i', 'isl-dig-rare-rays'), h('span', 'isl-dig-rare-tag', t(`${RARITY_JA.Rare}の遺物！`, 'A Rare relic!')), ic, h('b', '', extName(id)), h('small', '', `${findLabel(hit)}${hit.rp ? t(`・研究 +${hit.rp}`, ` · RP +${hit.rp}`) : ''}`));
-  // 売れるシリーズ：ダンジョン由来（Rare の町の市場に無い）なら「Epic の町で価値が出る」
-  const tag = seriesTag(id);
-  if (tag && !tag[1]) w.append(h('small', 'isl-dig-epicval', EPIC_VALUE_TEXT()));
-  p.el.append(w);
-  beamBehind(w, ic, id, 2000);
-  window.setTimeout(() => {
-    w.remove();
-    if (P) flyToNotes(c, id, '', 0);
-  }, 2400);
-}
-/** お題・大きな遺物（2 × 2）：画面全体に大きく（絵・名前・札・RP・進み）。タップで閉じる（時間は止めない） */
-function bigFind(id: number, rp: number, topic: boolean, hit: DigHit) {
-  const p = P;
-  if (!p) return;
-  document.querySelector('.isl-dig-big')?.remove();
-  const s = p.ctx.s();
-  const st = digStatus(s);
-  const rk = topic ? null : extRank(id);
-  const w = h('div', `isl-dig-big ${topic ? '' : 'is-epic'} ${rk === 'L' ? 'is-legend' : ''}`);
-  const box = h('div', 'isl-dig-big-box');
-  const rays = h('i', 'isl-dig-big-rays');
-  const rname = RARITY_JA[extRarity(id) as keyof typeof RARITY_JA] ?? '';
-  const tag = topic ? t('お題を発見！', 'Target found!') : t(`${rname}の大きな遺物を発見！`, `A large ${rname} relic!`);
-  const sub = topic ? t(`研究 Lv5・研究ポイント +${rp}`, `Research Lv5 · RP +${rp}`) : `${findLabel(hit)}${rp ? t(`・研究ポイント +${rp}`, ` · RP +${rp}`) : ''}`;
-  const ic = extIcon(id, 128);
-  box.append(rays, h('span', 'isl-dig-big-tag', tag), ic, h('b', 'isl-dig-big-name', extName(id)), h('span', 'isl-dig-big-rp', sub));
-  if (topic && st) box.append(h('small', 'isl-dig-big-prog', st.topics[0] >= st.topics[1] ? t(`お題 ${st.topics[0]} / ${st.topics[1]}：全部そろった！ 町の長に発表しよう`, `Targets ${st.topics[0]} / ${st.topics[1]}: all found! Present to the town head`) : t(`お題 ${st.topics[0]} / ${st.topics[1]}`, `Targets ${st.topics[0]} / ${st.topics[1]}`)));
-  if (!topic) box.append(h('small', 'isl-dig-big-prog', t(`4 マスぶんの大きな遺物（${rname}）。本来このセクタでは手に入らない！`, `A 4-cell ${rname} relic — not normally found here!`)));
-  // ダンジョンの Rare 以上：Epic の町の骨董の需要（準備中）
-  if (!topic) box.append(h('small', 'isl-dig-big-prog isl-dig-epicval', EPIC_VALUE_TEXT()));
-  box.append(h('small', 'isl-dig-big-tap', t('▶ タップで閉じる', '▶ Tap to close')));
-  w.append(box);
-  const close = () => w.remove();
-  w.addEventListener('click', close);
-  w.addEventListener('pointerdown', (e) => e.stopPropagation());
-  p.ctx.root.append(w);
-  // 段 FX2：絵の後ろにレアリティの色の光の柱（窓を閉じたら消える）と、出てきた瞬間の光
-  beamBehind(box, ic, id, 4600);
-  fxAtEl('collect-burst', ic, { palette: FX_RARITY[extRarity(id)] ?? FX_PAL.gold, dy: 30, delay: 200 });
-  window.setTimeout(close, 5000);
-}
-
-const CREW_NOTE = () => t('数字は「発掘」の適性（PHY 重視）。発掘作業のあいだ、同じ荒れ地を 1 日に数回ぶん手伝って掘ります（手で掘るほうが速い。常駐（スキル → 発掘）があれば、作業していない日も掘ります）。', 'Numbers are Digging aptitude (mostly PHY). They help on the same wasteland a few times a day while you dig (by hand is faster; with the standing crew skill they dig on other days too).');
-/** 自動発掘の担当を選ぶ（ヒーローのカード） */
-function pickDigger() {
-  const p = P;
-  if (!p) return;
-  const s = p.ctx.s();
-  // 発掘隊の人数の上限（スキル → 発掘隊の役所）。上限まで付いていれば、選ぶと最初の人と入れ替える
-  const [cn, cap] = crewCount(s);
-  const full = cn >= cap;
-  const cur = full ? (s.staff.find((x) => x.task === 'dig')?.hero ?? null) : null;
-  const capNote = full ? t(`発掘隊は ${cap} 人まで（いま ${cn} 人。スキル → 発掘の「発掘隊の役所」で増える）。選ぶと${cur != null ? heroName(cur) : ''}と入れ替えます。`, `Crew limit ${cap} (now ${cn}; raise it with Dig crew office). Picking swaps out ${cur != null ? heroName(cur) : ''}.`) : t(`発掘隊 ${cn} / ${cap} 人。`, `Crew ${cn} / ${cap}.`);
-  pickHero(p.ctx.root, s, {
-    title: t('発掘隊の担当', 'Dig crew'),
-    task: 'dig',
-    current: cur,
-    note: capNote + CREW_NOTE(),
-    onPick: (hero) => {
-      if (hero == null) {
-        if (cur != null) assign(s, cur, null);
-      } else {
-        if (full && cur != null && hero !== cur && s.staff.find((x) => x.hero === hero)?.task !== 'dig') assign(s, cur, null);
-        const e = assign(s, hero, 'dig', null);
-        const say = (text: string, good = false) => P && (P.err = { text, until: performance.now() + 2600, good });
-        if (e === 'crew-full') say(t(`発掘隊は ${cap} 人まで（スキル → 発掘の「発掘隊の役所」で増える）`, `Crew limit is ${cap} (raise it with Dig crew office)`));
-        else if (e) say(t('この人は、いまは発掘の担当にできません', 'This hero can’t dig right now'));
-        else say(t(`${heroName(hero)}が発掘隊になりました`, `${heroName(hero)} joined the dig crew`), true);
-      }
-      p.ctx.save();
-      p.ctx.refresh();
-      refreshDig();
-    },
-  });
-}
-
 // ---------------------------------------------------------------- 研究ノート
 
 let noteTab: string | null = null;

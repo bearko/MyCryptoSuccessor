@@ -1147,7 +1147,7 @@ export type FxKind =
  * 発掘の枝の効き目（docs/ISLAND_PHASE1.md「発掘のスキルツリー」）。値はレベルごとの表（Fx.at）で書く（Lv で素直に比例しないため）。
  * fxSum で合計を読む（発掘作業の長さ・1 打の強さ・会心・長押しの間隔・隣への力・隊の速さ・常駐の速さ・交代制・素材）
  */
-export type DigFxKind = 'dig.sec' | 'dig.power' | 'dig.crit' | 'dig.repeat' | 'dig.reach' | 'dig.crew' | 'dig.autoSpeed' | 'dig.relay' | 'dig.mat';
+export type DigFxKind = 'dig.sec' | 'dig.power' | 'dig.crit' | 'dig.repeat' | 'dig.reach' | 'dig.pierce' | 'dig.crew' | 'dig.autoSpeed' | 'dig.relay' | 'dig.mat';
 export interface Fx {
   kind: FxKind;
   v: number;
@@ -1176,7 +1176,7 @@ export interface Shown {
 /** 数で足す効き目（ロット・ブランド力）：レベルで 1 ずつ（v × lv）。このパネルは最大 3 */
 export const FX_LIN: FxKind[] = ['lot', 'brand'];
 /** 下げる効き目（表示で −） */
-export const FX_DOWN: FxKind[] = ['craftDays', 'haulDays', 'matPrice', 'buyDays', 'stamina', 'wage', 'upkeep', 'rally', 'dig.relay'];
+export const FX_DOWN: FxKind[] = ['craftDays', 'haulDays', 'matPrice', 'buyDays', 'stamina', 'wage', 'upkeep', 'rally'];
 /** fx の種類の表示名 */
 export const FX_LABEL: Record<FxKind, string> = {
   pull: t('すべてのお店の売り場の強さ', 'All shops’ pull'),
@@ -1204,11 +1204,12 @@ export const FX_LABEL: Record<FxKind, string> = {
   'dig.sec': t('1 回の発掘作業', 'Each dig run'),
   'dig.power': t('1 打の強さ', 'Strike power'),
   'dig.crit': t('会心（2 倍）の確率', 'Critical (×2) chance'),
-  'dig.repeat': t('長押しの間隔', 'Hold-strike interval'),
+  'dig.repeat': t('打つ間隔', 'Strike interval'),
   'dig.reach': t('隣のマスへの力', 'Power to neighbours'),
-  'dig.crew': t('発掘隊の 1 日に打つ回数', 'Dig crew strikes a day'),
+  'dig.pierce': t('貫通（余った力を奥の層へ）', 'Pierce (spare power carries deeper)'),
+  'dig.crew': t('発掘隊の 1 打の強さ', 'Dig crew strike power'),
   'dig.autoSpeed': t('常駐の速さ', 'Standing crew speed'),
-  'dig.relay': t('常駐で働く日のスタミナの消耗', 'Stamina drain on standing days'),
+  'dig.relay': t('常駐で働く日の打つ数', 'Standing-day strikes'),
   'dig.mat': t('掘り出した素材', 'Materials dug up'),
 };
 /** 発掘の枝の効き目の単位（% でないもの）と、そのものの値で見せるもの（長押しの間隔：170 ms から引いた値） */
@@ -1218,6 +1219,7 @@ const DIG_UNIT: Partial<Record<FxKind, { suf?: string; pct?: boolean; disp?: (v:
   'dig.crit': { pct: true },
   'dig.repeat': { suf: ' ms', disp: (v) => 170 - v, bare: true },
   'dig.reach': { pct: true },
+  'dig.pierce': { pct: true },
   'dig.crew': { pct: true },
   'dig.autoSpeed': { pct: true },
   'dig.relay': { pct: true },
@@ -1510,13 +1512,20 @@ export interface DigTree {
   repeat: number[];
   reach: number[];
   reachDir: ('lr' | 'lrd' | 'all')[];
+  /** 段 DIG3：貫通（打った力が層の硬さを超えたぶんを、下の層へ持ち越す割合。Lv1〜5） */
+  pierce: number[];
   lamp: number[];
   hint: number;
   deep: Record<DigTier, number[]>;
   cap: number[];
   deepMul: number[];
-  blastCost: number[];
+  /** 段 DIG3：荒れ地ごとに埋まっている爆弾の数（Lv1〜5。Lv0 は 1）・爆発の範囲（N × N）。威力（はがす層の数）は power の段 */
+  bombs: number[];
+  /** 段 DIG3（調整 v44）：発破のパネルを開いたあと、荒れ地の格ごとに足す爆弾の数（硬い壁ほど多く埋まる） */
+  bombTier: Record<DigTier, number>;
   blastSize: number[];
+  /** 段 DIG3（調整 v44）：発掘隊の隊員 1 人が、作業のあいだ 1 日に打つ数 */
+  crewDay: number;
   drill: number[];
   drillFuel: number;
   office: number[];
@@ -1545,7 +1554,7 @@ export interface DigTree {
  * Common の RP「初めて掘る」10 → 15・「研究 Lv」5・10・15・20 → 8・15・20・25（1 か所目で RP が尽きて止まらない）／
  * ツルハシの新調 5,000・15,000 → 10,000・30,000 G（1 か所目のはじめに買って、すぐ掘り尽くさない）／発破の火薬代 1,000 → 2,000 G（余ったお金の使い道）。
  * v9（発掘 v2 の 1 段目）：ツルハシの回数をやめ、荒れ地 4 か所 × 15 秒の発掘作業に（docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」）
- * v10（発掘 v2 の 2 段目）：発掘のスキルツリー（9 本目の枝「発掘」。tree）。道具の値段（tools）・火薬代（blastCost）は tree へ
+ * v10（発掘 v2 の 2 段目）：発掘のスキルツリー（9 本目の枝「発掘」。tree）。道具の値段（tools）・火薬代は tree へ（段 DIG3 で火薬代はなくなり、爆弾は地中に埋まる：tree.bombs）
  * v11（発掘画面の作り直し）：上から掘る断面（rows）をやめ、正面の壁（wall。横 7 × 縦 9）を手前から奥へ。硬さ（hard）は奥ほど硬く・出土品の割合（odds）は 1 か所の数がそろうように
  */
 export const DIG_BALANCE: {
@@ -1700,6 +1709,7 @@ export const DIG_BALANCE: {
       dig_power: 4000,
       dig_speed: 5000,
       dig_reach: 8000,
+      dig_pierce: 9000,
       dig_lamp: 3000,
       dig_deep: 5000,
       dig_study: 6000,
@@ -1729,6 +1739,8 @@ export const DIG_BALANCE: {
     // 広く掘る：隣のマスへの力（打った強さの割合）と向き（lr 左右・lrd 左右と下・all 上下左右）
     reach: [0.25, 0.35, 0.45, 0.5, 0.6],
     reachDir: ['lr', 'lr', 'lrd', 'all', 'all'],
+    // 段 DIG3：貫通（超えた力の持ち越し）25 → 35・50・65・80%
+    pierce: [0.25, 0.35, 0.5, 0.65, 0.8],
     // 発掘のランタン：ひびの隙間から見え始める深さ（何枚手前から。ふだんは いまの層だけ）。Lv4 でお題の気配が さらに 2 枚先から、Lv5 で石板も
     lamp: [1, 2, 3, 3, 3],
     hint: 2,
@@ -1738,8 +1750,10 @@ export const DIG_BALANCE: {
     // 研究の目利き：研究 Lv の上限（Lv0〜5）と、深い層ほど研究が進みやすい倍率（層 n で 1 + 0.25 × (n − 1) × 倍率 個ぶん）
     cap: [3, 4, 5, 5, 5, 5],
     deepMul: [0, 0, 0, 1, 1.5, 2],
-    // 発破：火薬代（G）と大きさ（N × N）
-    blastCost: [2000, 1500, 1000, 1000, 1000],
+    // 発破（段 DIG3：爆弾は地中に埋まっている。掘り出すと爆発。費用なし）：埋まっている数と範囲（N × N）。威力（はがす層の数）は power の段 1・1・2・2・3
+    bombs: [2, 3, 4, 5, 6],
+    // 調整 v44：Rare・Epic の荒れ地ほど多く埋まる（発破の火薬代で壁を崩していた 100% の手の代わり）
+    bombTier: { C: 0, U: 1, R: 3, E: 5 },
     blastSize: [3, 3, 3, 4, 5],
     // 掘削ドリル：押したマス 1 つを奥へ N 層・1 回の燃料代（G）
     drill: [3, 4, 5, 6, 7],
@@ -1747,6 +1761,8 @@ export const DIG_BALANCE: {
     // 発掘隊の役所：隊の人数の上限（Lv0〜5）・発掘隊の手際：1 日に打つ回数 +20%／Lv
     office: [1, 2, 3, 3, 4, 5],
     crew: [0.2, 0.4, 0.6, 0.8, 1.0],
+    // 調整 v44：隊員 1 人 1 日 0.5 打（v42 は 3 打。通常の Epic が −30% 縮んだ）
+    crewDay: 0.5,
     // 常駐（自動化）：作業していない日の速さ（作業中の何割）・段取り：速さ +10%／Lv・交代制：スタミナの消耗 −15%／Lv・素材の選り分け：+20%／Lv
     auto: [0.2, 0.4, 0.55, 0.7, 0.8],
     autoSpeed: [0.1, 0.2, 0.3, 0.4, 0.5],
@@ -1754,10 +1770,11 @@ export const DIG_BALANCE: {
     mat: [0.2, 0.4, 0.6, 0.8, 1.0],
     // 調整 v25c（PR #29 で研究パネルにした発掘の枝）：効き目は Lv3 の段（以前の最大 Lv5 のままだと、災害で消えなくなったぶん
     // Rare・Epic の再発掘が速くなりすぎた）。深い層の許可・研究の目利き・発掘隊の役所は Lv5（Rare・Epic のお題の層・研究 Lv5・発掘隊 5 人に要る）
-    rpLv: { lv: 2, keep: { dig_deep: 5, dig_study: 5, dig_office: 5 } },
+    // 調整 v44（段 DIG3）：掘削ドリルは Lv5（奥へ 7 層：硬い Rare・Epic の壁の 1 列を一気に。燃料代はそのまま）で開く
+    rpLv: { lv: 2, keep: { dig_deep: 5, dig_study: 5, dig_office: 5, dig_drill: 5 } },
     // 調整 v25c：Common の発掘のパネルの RP（前は Common の研究パネルの段 20〜80 で合計 550 → 合計 210）。
     // Common の RP をほかの研究に回せるように（v25b で Common が +9〜12% 遅くなった）。Uncommon の 6 枚は段の自動の値段（60〜180）のまま
-    rp: { dig_ext: 15, dig_lamp: 25, dig_deep: 40, dig_power: 10, dig_office: 15, dig_speed: 15, dig_blast: 20, dig_crew: 25, dig_reach: 30, dig_drill: 30, dig_study: 35 },
+    rp: { dig_ext: 15, dig_lamp: 25, dig_deep: 40, dig_power: 10, dig_office: 15, dig_speed: 15, dig_blast: 20, dig_crew: 25, dig_reach: 30, dig_pierce: 30, dig_drill: 30, dig_study: 35 },
   },
   // 発掘作業：15 秒（現実の秒）・長押し 0.17 秒ごと
   sessionSec: 15,
@@ -1906,13 +1923,17 @@ export const fundsOf = (tier: Tier): [number, number, number] => (tier === 'C' ?
 
 /**
  * 発掘の枝のパネル（docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」の「2. 発掘のスキルツリー」）。すべてお金パネル（Lv1〜5・levelCost）。
- * Common の区画（根もとから枝先へ）11 枚と、Uncommon の外周 6 枚。数字は DIG_BALANCE.tree の 1 か所。効き目は model.ts（fxSum・lvOf）。
+ * Common の区画（根もとから枝先へ）12 枚（段 DIG3 で貫通を足した）と、Uncommon の外周 6 枚。数字は DIG_BALANCE.tree の 1 か所。効き目は model.ts（fxSum・lvOf）。
  * 発掘との出会い（digMeet）の前は、枝ごと雲で隠す（skillLock の 'hidden'）。Lime だけ（digLand）
  */
 const DT = DIG_BALANCE.tree;
 const lvTxt = (f: (v: number, lv: number) => string, xs: number[]) => xs.map((v, k) => f(v, k + 1));
 const dShow = (label: string, txt: string[]): Shown => ({ label, v: 0, unit: '', txt });
 const REACH_DIR = { lr: t('左右', 'left & right'), lrd: t('左右と下', 'sides & below'), all: t('上下左右', 'all 4 sides') };
+/** 段 DIG3：発掘隊の行動規則（Lv0〜5。digview.ts の CREW_RULE_TEXT と同じ言葉） */
+const CREW_RULE = [t('いない', 'none'), t('手前から順に', 'front first'), t('硬いマスを避ける', 'avoids hard cells'), t('出土品の気配を優先', 'goes for visible finds'), t('爆弾の近くを優先', 'goes for bombs'), t('深い層へ', 'digs deep')];
+/** 効く範囲のマスの数（当てたマス ＋ 向きの数。model.ts の reachCount と同じ） */
+const REACH_N = { lr: 3, lrd: 4, all: 5 };
 const LAYER_C = [t('表土', 'Topsoil'), t('粘土層', 'Clay'), t('岩盤', 'Bedrock')];
 const LAYER_U = [t('岩盤', 'Bedrock'), t('古い港の跡', 'Old harbor'), t('古い街道の跡', 'Old highway'), t('大地のつなぎ目', 'Seam of the lands')];
 const LAYER_R = [t('崩れた石畳', 'Fallen paving'), t('止まった時計の層', 'Stopped clock'), t('古い坑道', 'Old mine shafts'), t('大地の裂け目', 'Rift in the earth'), t('9 つの境目', 'Border of the nine')];
@@ -1923,6 +1944,8 @@ const dig_ = (id: string, name: string, note: string, more: Partial<Skill> = {})
  * 説明の文はこの段の値で書く（研究パネルはレベルが無いので「／Lv」と書かない）
  */
 const rl = (id: string) => Math.min(5, DT.rpLv.keep[id] ?? DT.rpLv.lv);
+/** 段 DIG3（調整 v44）：隊員 1 人の、作業のあいだの打つ速さの一言（DT.crewDay。1 未満は「N 日に 1 打」） */
+export const crewPaceText = () => (DT.crewDay >= 1 ? t(`1 日 ${DT.crewDay} 打`, `${DT.crewDay} strikes a day`) : t(`${Math.round(1 / DT.crewDay)} 日に 1 打`, `1 strike every ${Math.round(1 / DT.crewDay)} days`));
 const at1 = <T,>(xs: T[], id: string): T => xs[rl(id) - 1];
 const at0 = <T,>(xs: T[], id: string): T => xs[rl(id)];
 const pct = (v: number) => Math.round(v * 100);
@@ -1937,11 +1960,17 @@ export const DIG_SKILLS: Skill[] = [
       { kind: 'dig.crit', v: DT.crit[1], at: DT.crit },
     ],
   }),
-  dig_('dig_speed', t('手早い掘り方', 'Quick swings'), t(`長押しで続けて打つ間隔 170 → ${170 - at1(DT.repeat, 'dig_speed')} ms`, `Hold-strike interval 170 → ${170 - at1(DT.repeat, 'dig_speed')} ms`), { requires: ['dig_power'], fx: [{ kind: 'dig.repeat', v: DT.repeat[0], at: DT.repeat }] }),
+  dig_('dig_speed', t('手早い掘り方', 'Quick swings'), t(`なぞって掘るときに打つ間隔 170 → ${170 - at1(DT.repeat, 'dig_speed')} ms`, `Strike interval while digging 170 → ${170 - at1(DT.repeat, 'dig_speed')} ms`), { requires: ['dig_power'], fx: [{ kind: 'dig.repeat', v: DT.repeat[0], at: DT.repeat }] }),
   dig_('dig_reach', t('広く掘る', 'Wide digging'), t(`打ったマスの隣（${REACH_DIR[at1(DT.reachDir, 'dig_reach')]}）の、いまの層にも力の ${pct(at1(DT.reach, 'dig_reach'))}%（はがれたら中身も出る）`, `${pct(at1(DT.reach, 'dig_reach'))}% of each strike also hits the neighbours (${REACH_DIR[at1(DT.reachDir, 'dig_reach')]}) on the current layer (their contents come out too)`), {
     requires: ['dig_speed'],
     fx: [{ kind: 'dig.reach', v: DT.reach[0], at: DT.reach }],
-    show: [dShow(t('力が届く向き', 'Directions'), DT.reachDir.map((d) => REACH_DIR[d]))],
+    // 段 DIG3：スキルツリーの札に「範囲：3 マス → 5 マス」（なぞって掘るときの点線の枠の広さ）
+    show: [dShow(t('効く範囲', 'Cells hit'), DT.reachDir.map((d) => t(`${REACH_N[d]} マス`, `${REACH_N[d]} cells`))), dShow(t('力が届く向き', 'Directions'), DT.reachDir.map((d) => REACH_DIR[d]))],
+  }),
+  // 段 DIG3：貫通（打った力が層の硬さを超えたぶんを、下の層へ持ち越す）。Common の枝・広く掘るの先
+  dig_('dig_pierce', t('貫通', 'Pierce'), t(`打った力が層の硬さを超えたぶんの ${pct(at1(DT.pierce, 'dig_pierce'))}% を、同じマスの下の層へ持ち越す（奥まで一気に）`, `${pct(at1(DT.pierce, 'dig_pierce'))}% of the power left over after a layer breaks carries into the next layer of that cell`), {
+    requires: ['dig_reach'],
+    fx: [{ kind: 'dig.pierce', v: DT.pierce[0], at: DT.pierce }],
   }),
   dig_('dig_lamp', t('発掘のランタン', 'Dig lantern'), t(`ひびの隙間から、奥に埋まっているものがうっすら見える（ふだんは いまの層だけ → ${at1(DT.lamp, 'dig_lamp')} 枚手前から）${lampHint('dig_lamp')}`, `Faintly glimpse finds deeper in (normally only the current layer → ${at1(DT.lamp, 'dig_lamp')} layer(s) ahead)${lampHint('dig_lamp')}`), {
     requires: ['dig_ext'],
@@ -1955,9 +1984,10 @@ export const DIG_SKILLS: Skill[] = [
     requires: ['dig_deep'],
     show: [dShow(t('研究 Lv の上限', 'Research cap'), DT.cap.slice(1).map((n) => t(`Lv${n}`, `Lv${n}`))), dShow(t('深い層の倍率', 'Depth multiplier'), DT.deepMul.slice(1).map((m) => (m ? `×${m}` : t('なし', 'none'))))],
   }),
-  dig_('dig_blast', t('発破', 'Blasting'), t(`発破が使える（押したマスを真ん中に ${at1(DT.blastSize, 'dig_blast')} × ${at1(DT.blastSize, 'dig_blast')} の、いまの層を 1 枚ずつ一度にはがす・硬さに関係なく・1 回ごとに火薬代 ${at1(DT.blastCost, 'dig_blast').toLocaleString('en-US')} G）`, `Unlocks blasting (peel one layer off the ${at1(DT.blastSize, 'dig_blast')} × ${at1(DT.blastSize, 'dig_blast')} around the cell at once, however hard; ${at1(DT.blastCost, 'dig_blast').toLocaleString('en-US')} G powder each time)`), {
+  // 段 DIG3：爆弾は地中に埋まっている（荒れ地ごとに一定数。掘り出すと爆発して、まわりの層を一度にはがす。費用なし）。Lv0 でも 1 個
+  dig_('dig_blast', t('発破', 'Blasting'), t(`荒れ地ごとに地中に埋まっている爆弾 1 → ${at1(DT.bombs, 'dig_blast')} 個（掘り出すと爆発して、まわり ${at1(DT.blastSize, 'dig_blast')} × ${at1(DT.blastSize, 'dig_blast')} の層を ${at1(DT.power, 'dig_blast')} 枚一度にはがす・硬さに関係なく・費用なし）`, `Bombs buried in each wasteland 1 → ${at1(DT.bombs, 'dig_blast')} (dig one up and it blasts ${at1(DT.power, 'dig_blast')} layer(s) off the ${at1(DT.blastSize, 'dig_blast')} × ${at1(DT.blastSize, 'dig_blast')} around it, however hard, for free)`), {
     requires: ['dig_power'],
-    show: [dShow(t('火薬代', 'Powder'), DT.blastCost.map((v) => `${v.toLocaleString('en-US')} G`)), dShow(t('大きさ', 'Size'), DT.blastSize.map((v) => `${v} × ${v}`))],
+    show: [dShow(t('埋まっている数', 'Bombs buried'), DT.bombs.map((v) => t(`${v} 個`, `${v}`))), dShow(t('威力', 'Power'), DT.power.map((v) => t(`${v} 枚`, `${v} layer(s)`))), dShow(t('範囲', 'Range'), DT.blastSize.map((v) => `${v} × ${v}`))],
   }),
   dig_('dig_drill', t('掘削ドリル', 'Drill'), t(`押したマス 1 つを奥へ ${at1(DT.drill, 'dig_drill')} 層一気にはがす。1 回ごとに燃料代 ${DT.drillFuel.toLocaleString('en-US')} G`, `Peel ${at1(DT.drill, 'dig_drill')} layers off the tapped cell at once. ${DT.drillFuel.toLocaleString('en-US')} G fuel each time`), {
     requires: ['dig_blast'],
@@ -1967,7 +1997,12 @@ export const DIG_SKILLS: Skill[] = [
     requires: ['dig_ext'],
     show: [dShow(t('発掘隊の上限', 'Crew limit'), DT.office.slice(1).map((n) => t(`${n} 人`, `${n}`)))],
   }),
-  dig_('dig_crew', t('発掘隊の手際', 'Skilled crew'), t(`発掘隊の 1 日に打つ回数 +${pct(at1(DT.crew, 'dig_crew'))}%`, `Dig crew strikes a day +${pct(at1(DT.crew, 'dig_crew'))}%`), { requires: ['dig_office'], fx: [{ kind: 'dig.crew', v: DT.crew[0], at: DT.crew }] }),
+  // 段 DIG3：発掘隊はシャドーヒーロー（名前のない隊員）。このパネルの段で 人数（＝段。役所の上限まで）・1 打の強さ・行動規則
+  dig_('dig_crew', t('発掘隊の手際', 'Skilled crew'), t(`発掘隊（名前のない隊員）が作業のあいだ 1 人 ${crewPaceText()} ぶん手伝う：隊員 ${rl('dig_crew')} 人・1 打の強さ +${pct(at1(DT.crew, 'dig_crew'))}%・行動規則「${CREW_RULE[rl('dig_crew')]}」`, `A crew of nameless diggers helps ${crewPaceText()} each while you dig: ${rl('dig_crew')} diggers, strike power +${pct(at1(DT.crew, 'dig_crew'))}%, behaviour “${CREW_RULE[rl('dig_crew')]}”`), {
+    requires: ['dig_office'],
+    fx: [{ kind: 'dig.crew', v: DT.crew[0], at: DT.crew }],
+    show: [dShow(t('隊員の数', 'Diggers'), [1, 2, 3, 4, 5].map((n) => t(`${n} 人`, `${n}`))), dShow(t('行動規則', 'Behaviour'), CREW_RULE.slice(1))],
+  }),
   // Uncommon の外周
   dig_('u_dig_ext2', t('長期の発掘許可', 'Long-term dig permit'), t(`1 回の発掘作業 さらに +${at1(DT.ext2, 'u_dig_ext2')} 秒（最大 ${DT.maxSec} 秒）`, `Each dig run +${at1(DT.ext2, 'u_dig_ext2')} s more (max ${DT.maxSec} s)`), { tier: 'U', emblem: 1, requires: ['dig_ext'], reqLv: { dig_ext: 5 }, fx: [{ kind: 'dig.sec', v: DT.ext2[0], at: DT.ext2 }] }),
   dig_('u_dig_auto', t('発掘隊の常駐（自動化）', 'Standing dig crew'), t(`作業していない日も、許可のある荒れ地を発掘隊が掘る（作業中の速さの ${pct(at1(DT.auto, 'u_dig_auto'))}%）。出土品・RP・研究は手で掘ったのと同じ。スタミナは減る`, `On days you are not digging, the crew digs permitted wastelands (${pct(at1(DT.auto, 'u_dig_auto'))}% of the in-run pace). Finds, RP and research count the same. They tire`), {
@@ -1984,12 +2019,13 @@ export const DIG_SKILLS: Skill[] = [
     fx: [{ kind: 'dig.autoSpeed', v: DT.autoSpeed[0], at: DT.autoSpeed }],
     show: [dShow(t('マスの選び方', 'Targeting'), [t('お題の気配を優先', 'targets first'), t('お題の気配を優先', 'targets first'), t('＋研究 Lv の低いもの', '+ low research'), t('＋研究 Lv の低いもの', '+ low research'), t('＋重なりを避ける', '+ avoid maxed')])],
   }),
-  dig_('u_dig_relay', t('常駐の交代制', 'Crew shifts'), t(`常駐で働く日のスタミナの消耗 −${pct(at1(DT.relay, 'u_dig_relay'))}%`, `Stamina drain on standing days −${pct(at1(DT.relay, 'u_dig_relay'))}%`), { tier: 'U', requires: ['u_dig_auto'], fx: [{ kind: 'dig.relay', v: DT.relay[0], at: DT.relay }] }),
+  // 段 DIG3：隊員はシャドーヒーローでスタミナが無いので、交代制は「常駐で働く日の打つ数 +15%／Lv」に
+  dig_('u_dig_relay', t('常駐の交代制', 'Crew shifts'), t(`交代で休みながら掘るので、常駐で働く日の打つ数 +${pct(at1(DT.relay, 'u_dig_relay'))}%`, `Working in shifts, the standing crew strikes +${pct(at1(DT.relay, 'u_dig_relay'))}% more on idle days`), { tier: 'U', requires: ['u_dig_auto'], fx: [{ kind: 'dig.relay', v: DT.relay[0], at: DT.relay }] }),
   dig_('u_dig_mat', t('素材の選り分け', 'Material sorting'), t(`掘り出した素材 +${pct(at1(DT.mat, 'u_dig_mat'))}%（端数は持ち越し）`, `Materials dug up +${pct(at1(DT.mat, 'u_dig_mat'))}% (fractions carry over)`), { tier: 'U', fx: [{ kind: 'dig.mat', v: DT.mat[0], at: DT.mat }] }),
 ];
 SKILLS.push(...DIG_SKILLS);
 /**
- * 発掘の枝のパネル（17 枚）。以前はお金パネル（Lv1〜5）だったが、ランクアップの災害でお金のパネルが未取得に戻って遊びにくいので、
+ * 発掘の枝のパネル（18 枚）。以前はお金パネル（Lv1〜5）だったが、ランクアップの災害でお金のパネルが未取得に戻って遊びにくいので、
  * **研究パネル（RP で開く・レベルなし）** にした（値段は同じランクの研究パネルの RP の段。下の RP の決め方）。
  * 効き目は決まった段（調整 v25c：ふつう Lv3・深い層の許可・研究の目利き・発掘隊の役所は Lv5。DT.rpLv）：開いたとき skillLv をその段にする（model.ts の gainSkill）。
  * 値段は DT.rp（Common は決め打ちで安く）。無限の強化パネル・研究への寄付・発掘許可・発破とドリルの毎回の代金は、そのままお金
@@ -2014,9 +2050,9 @@ const inf_ = (id: string, kind: InfKind, name: string, note: string, requires: s
  * 開く条件：対応する発掘のパネルを最大 Lv（速さ＝手早い掘り方 Lv5・力＝重機の貸し出し Lv5・範囲＝発破 Lv5 と掘削ドリル Lv5）
  */
 export const INF_SKILLS: Skill[] = [
-  inf_('u_dig_speed_inf', 'speed', t('発掘の速さ ∞', 'Dig speed ∞'), t(`長押しで続けて打つ間隔をさらに短く（Lv ごとに約 −${Math.round(DI.speed * 100)}%。上がるほど少しずつ鈍くなる・${DI.minMs} ms まで）。Lv の上限なし・研究ポイントで上げる`, `Hold-strike interval even shorter (about −${Math.round(DI.speed * 100)}% per level, tapering; down to ${DI.minMs} ms). No level cap · paid in RP`), ['dig_speed']),
+  inf_('u_dig_speed_inf', 'speed', t('発掘の速さ ∞', 'Dig speed ∞'), t(`打つ間隔をさらに短く（Lv ごとに約 −${Math.round(DI.speed * 100)}%。上がるほど少しずつ鈍くなる・${DI.minMs} ms まで）。Lv の上限なし・研究ポイントで上げる`, `Strike interval even shorter (about −${Math.round(DI.speed * 100)}% per level, tapering; down to ${DI.minMs} ms). No level cap · paid in RP`), ['dig_speed']),
   inf_('u_dig_power_inf', 'power', t('掘る力 ∞', 'Dig power ∞'), t(`1 打の強さ ×（1 ＋ 約 ${Math.round(DI.power * 100)}%／Lv。上がるほど少しずつ鈍くなる）。Lv の上限なし・研究ポイントで上げる`, `Strike power × (1 + about ${Math.round(DI.power * 100)}% per level, tapering). No level cap · paid in RP`), ['u_dig_power2']),
-  inf_('u_dig_reach_inf', 'reach', t('掘る範囲 ∞', 'Dig reach ∞'), t(`発破が 1 回り大きく・ドリルが 1 層深くなる確率 +約 ${Math.round(DI.reach * 100)}%／Lv（上がるほど少しずつ鈍くなる。100% を超えたぶんは もう 1 つ）。Lv の上限なし・研究ポイントで上げる`, `Chance for a blast one size bigger and a drill one layer deeper +about ${Math.round(DI.reach * 100)}% per level (tapering; past 100% adds another). No level cap · paid in RP`), ['dig_blast', 'dig_drill']),
+  inf_('u_dig_reach_inf', 'reach', t('掘る範囲 ∞', 'Dig reach ∞'), t(`爆弾の爆発が 1 回り大きく・ドリルが 1 層深くなる確率 +約 ${Math.round(DI.reach * 100)}%／Lv（上がるほど少しずつ鈍くなる。100% を超えたぶんは もう 1 つ）。Lv の上限なし・研究ポイントで上げる`, `Chance for a blast one size bigger and a drill one layer deeper +about ${Math.round(DI.reach * 100)}% per level (tapering; past 100% adds another). No level cap · paid in RP`), ['dig_blast', 'dig_drill']),
 ];
 /**
  * 研究への寄付（お金パネル。発掘の枝の根もとの近く）：押すたびに G を払って RP を受け取る（回数の上限なし。値段は donateCost で上がる）。
@@ -2229,7 +2265,7 @@ export const INF_PANELS = INF_SKILLS.map((k) => k.id);
 // ---------------------------------------------------------------- スキルツリーの 2 区分（研究パネル・お金パネル）
 
 /**
- * お金パネル（資金で開く・Lv1〜5）：技を除く 7 本の枝 × 5 ランクに 1 枚ずつ（35 枚）と、発掘の枝の 17 枚（DIG_PANELS）・研究への寄付（DONATE。押すたびに RP を買う）。
+ * お金パネル（資金で開く・Lv1〜5）：技を除く 7 本の枝 × 5 ランクに 1 枚ずつ（35 枚）と、発掘の枝の 18 枚（DIG_PANELS）・研究への寄付（DONATE。押すたびに RP を買う）。
  * それ以外はすべて研究パネル（RP で開く・レベルなし。無限の強化パネル INF_SKILLS だけは Lv の上限なし）。
  * Common は仕様の 7 枚。Uncommon〜Legendary は「枝の根もと近く、Lv5 まであり、レベルを上げるほど素直に効く数字のパネル」＝
  * そのランク・その枝の追加のパネルの 1 枚目（`<ランク>_<枝>_1`。ロット・ブランド力のような最大 3 のパネルは無い）。
@@ -3080,8 +3116,6 @@ export const DIG_ODDS = DIG_BALANCE.odds;
 export const TABLET_LAYERS: Record<DigTier, number[]> = { C: [2], U: [1, 3], R: [1, 3], E: [2, 4] };
 /** 発掘隊（仕事「発掘」）：発掘作業のあいだだけ、適性の速さ 1.0 で 1 日に打つ回数（手で掘るほうが速い） */
 export const DIG_AUTO = { perDay: DIG_BALANCE.autoPerDay };
-/** 発破：Lv1 の火薬代（G。仮。Lv で安くなる：model.ts の blastCost） */
-export const BLAST = { cost: DIG_BALANCE.tree.blastCost[0] };
 
 /**
  * 研究ポイント（RP）の入り方（数字は仮）。研究レベルは Lv1〜5：Lv2・3・4・5 に上がるのに、重なりがそれぞれ 1・2・3・4 個要る。
@@ -3468,6 +3502,12 @@ export const SECTOR_CHIEF: Record<string, number> = {
   e2: 15011, // 卑弥呼（種と土への祈り・掘りすぎない約束）
   e3: 15027, // ガリレオ・ガリレイ（空を見上げ、霧の向こうへ灯を送る塔）
 };
+
+/**
+ * 段 DIG3：発掘隊（名前のない隊員・シャドーヒーロー）の仮の絵：セクター長と同じ区分（replica の Common：RepC）のヒーローを 5 人ぶん。
+ * 隊員 n 番の絵は [n]。差し替えはここだけ（docs/ISLAND_ART_TODO.md「発掘隊の隊員」）
+ */
+export const DIG_CREW_HEROES: number[] = [12013, 12002, 12017, 12040, 12037];
 
 /** 到着の案内の「この町の地層には[[〇〇]]が眠っているはず」（docs/ISLAND_PHASE1.md「お題・発表・調査依頼状」） */
 export const DIG_THEME: Record<string, string> = {

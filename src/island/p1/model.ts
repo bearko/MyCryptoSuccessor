@@ -667,6 +667,8 @@ export interface P1State {
   dig: DigState | null;
   /** 発掘作業（15 秒）の途中。月の締めは行うが、月末ポーズと月次報告の画面は作業のあとにまとめて（docs/ISLAND_PHASE1.md「15 秒の発掘」） */
   digRun?: DigRun | null;
+  /** 段 DIG3：古いセーブで発掘の担当だったヒーローの人数（そのぶんだけ発掘隊の隊員に。crewSize） */
+  digCrewOld?: number;
   /** 「名物店主」（以前の ✨）にしたお店（このセクタの uid） */
   dustShop?: number | null;
   /** きのう売れた数（商品ごと。POS レジで市場データに出す） */
@@ -1307,8 +1309,8 @@ export function assign(s: P1State, hero: number, task: Task | null, target: numb
   if (!st) return 'no-staff';
   // 修行中の職人は、修行が終わるまでほかの仕事に就けない
   if (st.task === 'train') return 'training';
-  // 発掘隊の人数の上限（発掘隊の役所）。古いセーブで上限を超えていたら、そのまま（新しくは付けられない）
-  if (task === 'dig' && st.task !== 'dig' && s.staff.filter((x) => x.task === 'dig').length >= crewCap(s)) return 'crew-full';
+  // 段 DIG3：発掘隊はシャドーヒーロー（研究パネル「発掘隊の手際」の Lv で人数）。ヒーローは発掘の担当にしない
+  if (task === 'dig') return 'no-task';
   unassign(s, st);
   if (task === 'craft') {
     const slot = s.slots[target as number];
@@ -1336,9 +1338,6 @@ export function assign(s: P1State, hero: number, task: Task | null, target: numb
     if (intelLv(s, r) >= INTEL.length) return 'done';
   } else if (task === 'side') {
     if (!s.rivals.some((x) => x.id === target)) return 'no-rival';
-  } else if (task === 'dig') {
-    // 発掘隊：荒れ地のあるセクタだけ（働くのは発掘作業のあいだだけ）
-    if (!s.dig) return 'no-site';
   }
   st.task = task;
   st.target = target;
@@ -2344,7 +2343,7 @@ function startTraining(s: P1State, id: string, st: Staff) {
 }
 
 /** セクタに属する仕事（セクタを離れるときに外し、戻ったら空いていれば元に戻す。land.ts の moveTo） */
-export const SECTOR_TASKS: readonly Task[] = ['craft', 'transport', 'shop', 'buy', 'intel', 'dig'];
+export const SECTOR_TASKS: readonly Task[] = ['craft', 'transport', 'shop', 'buy', 'intel'];
 /**
  * 段 UI5a：調達係の定員（調達の交代要員 +1）。買い付けに出るのは休んでいない調達係の 1 人
  * （1 人目が休む日は 2 人目が代わりに出る＝1 人がスタミナ切れでも調達が止まらない）。古いセーブ・パネルなしは 1 人
@@ -4083,13 +4082,10 @@ export function step(s: P1State): DayResult {
     }
   }
 
-  // 発掘隊：発掘作業のあいだは、同じ荒れ地を 1 日に数回ぶん打つ。作業していない日は働かない・スタミナも減らない
-  // （常駐（自動化）があれば、作業していない日も許可のある荒れ地を掘る。スタミナは減る）
-  for (const st of s.staff) {
-    if (st.task !== 'dig' || st.resting || !s.dig) continue;
-    if (!s.digRun && (!hasAuto(s) || standSite(s) < 0)) continue;
-    working.add(st.hero);
-    const hits = autoDig(s, st);
+  // 発掘隊（段 DIG3：シャドーヒーロー）：発掘作業のあいだは、同じ荒れ地を 1 日に数回ぶん打つ。作業していない日は働かない
+  // （常駐（自動化）があれば、作業していない日も許可のある荒れ地を掘る）。ヒーローではないので、スタミナは無い
+  {
+    const hits = crewDig(s);
     if (hits.length) (res.dug ??= []).push(...hits);
   }
 
@@ -5043,6 +5039,17 @@ export function deserializeP1(json: string): P1State | null {
     // 版 2 → 3：荒れ地 4 か所の発掘場に作り直す（研究ノート・RP・お題の発見はそのまま。1 か所目の許可は済み。ツルハシの回数は捨てる）
     // 版 4 → 5：上から掘る断面を、正面の壁で作り直す（掘りかけの進みは捨てる。許可・掘りきりの印はそのまま）
     ensureDig(s);
+    // 段 DIG3：発掘隊はシャドーヒーローに。発掘の担当だったヒーローは外して、いた人数ぶんだけ隊員にする（Lv は上げない。版は上げない）
+    {
+      const old = s.staff.filter((x) => x.task === 'dig');
+      if (old.length) {
+        s.digCrewOld = Math.max(s.digCrewOld ?? 0, old.length);
+        for (const x of old) {
+          x.task = null;
+          x.target = null;
+        }
+      }
+    }
     // 発掘作業の途中で閉じた：作業は終わり。月をまたいでいたら、月末ポーズから
     if (s.digRun) {
       if (s.reports.length > s.digRun.rep0) s.monthPause = true;
@@ -6049,6 +6056,17 @@ export interface DigLayout {
   topic: number | null;
   /** ダンジョンの壁（入るたびに作り直す。site は DUNGEON） */
   dungeon?: boolean;
+  /**
+   * 段 DIG3：地中に埋まっている爆弾の候補（並びの順に bombCount 個が生きている。中層以降・出土品と重ならない・マスは別々）。
+   * その層をはがすと爆発して、まわり blastSize × blastSize の層を bombPower 枚一度にはがす（費用なし）
+   */
+  bombs: DigBomb[];
+}
+/** 段 DIG3：埋まっている爆弾 1 つ（マス (x, y) の層 layer） */
+export interface DigBomb {
+  x: number;
+  y: number;
+  layer: number;
 }
 /** 荒れ地 1 か所の進み具合 */
 export interface DigSiteState {
@@ -6066,6 +6084,8 @@ export interface DigSiteState {
   homes?: number;
   /** 復興で通した小道（道路にしたマス。建物の入口を向けられる） */
   path?: [number, number][];
+  /** 段 DIG3：掘り出して爆発した爆弾（DigLayout.bombs の番号） */
+  boom?: number[];
 }
 /** ダンジョン（セクタで最後に掘りきった荒れ地の底。入るたびに壁を作り直す）：入り口の荒れ地・入った回数・最深記録（はがした層の数）・いまの壁の進み・見つけたエクステ */
 export interface DungeonState {
@@ -6087,6 +6107,8 @@ export interface DigState {
   topics: number[];
   /** 発掘隊の端数 */
   carry: number;
+  /** 段 DIG3：次に打つ隊員の番号（隊員が順に打つ） */
+  crewTurn?: number;
   /** 素材の選り分けの端数 */
   matCarry?: number;
   /** 打った数（会心の判定の種） */
@@ -6114,6 +6136,23 @@ export interface DigGot {
   cells: number;
   /** 開いた復刻品のレシピ（商品キー。以前の作業には無い） */
   recipes?: string[];
+  /** 段 DIG3：掘り出して爆発した爆弾の数 */
+  bombs?: number;
+  /** 段 DIG3：見つけた出土品（素材を除く。見つけた順。リザルトに札を並べる） */
+  finds?: DigFound[];
+}
+/** 段 DIG3：発掘作業で見つけた 1 つ（リザルトの札） */
+export interface DigFound {
+  item: DigItem;
+  /** 埋まっていた層 */
+  layer: number;
+  rp: number;
+  first?: boolean;
+  again?: boolean;
+  lv?: number;
+  /** 大きい演出だったもの（お題・2 × 2 の大きな遺物） */
+  big?: boolean;
+  recipe?: string;
 }
 /** 発掘作業（15 秒・現実の秒）。作業のあいだは時間が流れ、月をまたいでも月末ポーズと月次報告の画面は出さない */
 export interface DigRun {
@@ -6174,11 +6213,23 @@ export interface DigHit {
   matFull?: boolean;
   /** 広く掘る：隣のマスへの力で打ったマス */
   splash?: boolean;
-  /** 広く掘る：同じ 1 打で隣のマスにも当たった結果 */
+  /** 広く掘る：同じ 1 打で隣のマスにも当たった結果（段 DIG3：貫通で下の層に届いた結果・爆弾の爆発も） */
   extra?: DigHit[];
+  /** 段 DIG3：この打で減らした硬さ（打った力と残りの硬さの小さいほう。画面の数字の飛び） */
+  dmg?: number;
+  /** 段 DIG3：層がはがれたとき、層の硬さを超えて余った力（貫通で下の層へ持ち越す元。∞ の力では付かない） */
+  over?: number;
+  /** 段 DIG3：貫通で下の層を打った結果 */
+  pierce?: boolean;
+  /** 段 DIG3：この打で爆弾を掘り出した（爆発。まわりの結果は extra の blast） */
+  bomb?: boolean;
+  /** 段 DIG3：爆発ではがれた結果 */
+  blast?: boolean;
+  /** 段 DIG3：発掘隊（隊員 n 番）が打った結果 */
+  crew?: number;
 }
 /** 打てない理由。dug：いちばん奥まで掘った／deep：深い層の許可が要る（スキル → 発掘）／wait：2 × 2 のものの層を叩ききって、ほかのマスを待っている／no-drill：掘削ドリルが無い */
-export type DigErr = 'no-site' | 'no-run' | 'out' | 'dug' | 'deep' | 'wait' | 'no-blast' | 'no-drill' | 'money';
+export type DigErr = 'no-site' | 'no-run' | 'out' | 'dug' | 'deep' | 'wait' | 'no-drill' | 'money';
 
 /** 文字列の種（セクタの id → 発掘場の配置の種。同じセクタは何度遊んでも同じ配置） */
 function strSeed(x: string): number {
@@ -6370,7 +6421,7 @@ export function digLayouts(sector: string, round = 0): DigLayout[] {
     const cells: DigCell[] = [];
     for (let k = 0; k < D.w * D.h; k++) cells.push({ hard: D.layers.map((L) => L.hard[0] + Math.floor(r() * (L.hard[1] - L.hard[0] + 1))) });
     const tk = topicAt.get(sk);
-    const L: DigLayout = { sector, tier, site: sk, w: D.w, h: D.h, depth, cells, finds: [], at: new Array<number>(D.w * D.h * depth).fill(-1), topic: tk != null ? site.topics[tk] : null };
+    const L: DigLayout = { sector, tier, site: sk, w: D.w, h: D.h, depth, cells, finds: [], at: new Array<number>(D.w * D.h * depth).fill(-1), topic: tk != null ? site.topics[tk] : null, bombs: [] };
     // 空いている所（その層で、範囲のどのマスにもまだ何も無い）にランダムに
     const putSomewhere = (item: DigItem, layer: number) => {
       const [sw, sh] = findSize(item, tier);
@@ -6396,7 +6447,33 @@ export function digLayouts(sector: string, round = 0): DigLayout[] {
       }
     out.push(L);
   }
+  // 段 DIG3：爆弾の候補（4 か所の出土品を全部置いたあとに引くので、出土品の配置は前（v41 まで）と同じ）
+  for (const L of out) L.bombs = pickBombs(L, r);
   layoutCache.set(key, out);
+  return out;
+}
+/**
+ * 段 DIG3：埋める爆弾の候補 BOMB_MAX 個（並びの順に bombCount 個が生きる）：中層以降（(層の数 − 1) / 2 から奥。Common・Uncommon は 2 層目・Rare・Epic は 3 層目から）・出土品と重ならない層・マスは別々。
+ * 壁の種（r）の続きで決めるので、同じ壁はいつも同じ所
+ */
+export const BOMB_MAX = 12;
+function pickBombs(L: DigLayout, r: () => number): DigBomb[] {
+  const from = Math.floor((L.depth - 1) / 2);
+  const cand: DigBomb[] = [];
+  for (let k = 0; k < L.w * L.h; k++) for (let layer = from; layer < L.depth; layer++) if (L.at[k * L.depth + layer] < 0) cand.push({ x: k % L.w, y: Math.floor(k / L.w), layer });
+  for (let k = cand.length - 1; k > 0; k--) {
+    const m = Math.floor(r() * (k + 1));
+    [cand[k], cand[m]] = [cand[m], cand[k]];
+  }
+  const out: DigBomb[] = [];
+  const used = new Set<number>();
+  for (const b of cand) {
+    const k = b.y * L.w + b.x;
+    if (used.has(k)) continue;
+    used.add(k);
+    out.push(b);
+    if (out.length >= BOMB_MAX) break;
+  }
   return out;
 }
 /** 荒れ地 k の壁（無ければ null）。round：何周目の壁か */
@@ -6433,7 +6510,7 @@ export function dungeonLayout(sector: string, runs: number): DigLayout | null {
   const depth = D.layers.length;
   const cells: DigCell[] = [];
   for (let k = 0; k < D.w * D.h; k++) cells.push({ hard: D.layers.map((x) => x.hard[0] + Math.floor(r() * (x.hard[1] - x.hard[0] + 1))) });
-  const L: DigLayout = { sector, tier, site: DUNGEON, w: D.w, h: D.h, depth, cells, finds: [], at: new Array<number>(D.w * D.h * depth).fill(-1), topic: null, dungeon: true };
+  const L: DigLayout = { sector, tier, site: DUNGEON, w: D.w, h: D.h, depth, cells, finds: [], at: new Array<number>(D.w * D.h * depth).fill(-1), topic: null, dungeon: true, bombs: [] };
   const pools = DUNGEON_FINDS[sector] ?? {};
   for (let layer = 0; layer < depth; layer++) {
     const odds = B.rarity[tier][Math.min(B.rarity[tier].length - 1, layer)];
@@ -6460,6 +6537,7 @@ export function dungeonLayout(sector: string, runs: number): DigLayout | null {
       if (f.x + f.size[0] <= D.w && f.y + f.size[1] <= D.h && findCells(L, f).every((c) => L.at[c * depth + layer] < 0)) placeFind(L, item, f.x, f.y, layer);
     }
   }
+  L.bombs = pickBombs(L, r);
   // 古い壁は捨てる（いまの 1 枚と、その前の 1 枚だけ）
   for (const k of [...dungeonCache.keys()]) if (dungeonCache.size >= 4) dungeonCache.delete(k);
   dungeonCache.set(key, L);
@@ -6563,21 +6641,57 @@ export const deepMul = (s: P1State) => DT.deepMul[Math.min(5, lvOf(s, 'dig_study
 export const researchGain = (s: P1State, layer: number) => 1 + 0.25 * layer * deepMul(s);
 /** ランタンで見える深さ（段。無ければ 0） */
 export const lampRows = (s: P1State) => atLv(DT.lamp, lvOf(s, 'dig_lamp'));
-/** 発破の火薬代・大きさ（N × N） */
-export const blastCost = (s: P1State) => DT.blastCost[Math.max(0, Math.min(5, lvOf(s, 'dig_blast')) - 1)];
-export const blastSize = (s: P1State) => atLv(DT.blastSize, lvOf(s, 'dig_blast')) || 3;
+/**
+ * 段 DIG3：爆弾（研究パネル「発破」dig_blast）。荒れ地ごとに埋まっている数（Lv0 でも 1 個・Lv1〜5 で DT.bombs）・
+ * 威力（爆発ではがす層の数。DT.power の段：Lv0 は 1 枚）・範囲（N × N。DT.blastSize：Lv0 は 3）。費用はかからない
+ */
+export const bombCount = (s: Pick<P1State, 'skills' | 'skillLv'>, tier?: DigTier) => {
+  const lv = lvOf(s, 'dig_blast');
+  // Lv0 は 1 個。発破のパネルを開いたら、Lv の数に荒れ地の格のぶんを足す（硬い Rare・Epic の壁ほど多く埋まる。DT.bombTier）
+  return lv <= 0 ? 1 : Math.min(BOMB_MAX, atLv(DT.bombs, lv) + (tier ? DT.bombTier[tier] : 0));
+};
+export const bombPower = (s: Pick<P1State, 'skills' | 'skillLv'>) => atLv(DT.power, lvOf(s, 'dig_blast')) || 1;
+export const blastSize = (s: Pick<P1State, 'skills' | 'skillLv'>) => atLv(DT.blastSize, lvOf(s, 'dig_blast')) || 3;
+/** 荒れ地 k（DUNGEON ならダンジョン）に残っている爆弾（生きている候補のうち、まだ爆発していないもの。並びの番号つき） */
+export function bombsLeft(s: P1State, k: number): { i: number; b: DigBomb }[] {
+  const L = layoutOf(s, k);
+  const st = siteState(s, k);
+  if (!L || !st) return [];
+  const n = bombCount(s, L.tier);
+  return (L.bombs ?? []).slice(0, n).map((b, i) => ({ i, b })).filter(({ i }) => !(st.boom ?? []).includes(i));
+}
+/** マス k の層 layer に、生きている爆弾があれば その番号（無ければ -1） */
+function bombAt(s: P1State, L: DigLayout, st: DigSiteState, k: number, layer: number): number {
+  const n = bombCount(s, L.tier);
+  const bs = L.bombs ?? [];
+  for (let i = 0; i < Math.min(n, bs.length); i++) {
+    const b = bs[i];
+    if (b.y * L.w + b.x === k && b.layer === layer && !(st.boom ?? []).includes(i)) return i;
+  }
+  return -1;
+}
 /** 掘削ドリル：1 回で深さ方向に何マス（無ければ 0。いまの断面では「真下」）・燃料代 */
 export const drillLen = (s: P1State) => atLv(DT.drill, lvOf(s, 'dig_drill'));
 export const DRILL_FUEL = DT.drillFuel;
 export const hasDrill = (s: P1State) => lvOf(s, 'dig_drill') > 0;
 /** 発掘隊の人数の上限（発掘隊の役所：1 → 2・3・3・4・5） */
-export const crewCap = (s: P1State) => DT.office[Math.min(5, lvOf(s, 'dig_office'))];
-/** 発掘隊の 1 日に打つ回数の倍率（発掘隊の手際 +20%／Lv） */
-export const crewMul = (s: P1State) => 1 + fxSum(s, 'dig.crew');
+export const crewCap = (s: Pick<P1State, 'skills' | 'skillLv'>) => DT.office[Math.min(5, lvOf(s, 'dig_office'))];
+/** 段 DIG3：発掘隊（シャドーヒーロー）の 1 打の強さの倍率（発掘隊の手際 +20%／Lv。1 打の強さ digPower に掛ける） */
+export const crewMul = (s: Pick<P1State, 'skills' | 'skillLv'>) => 1 + fxSum(s, 'dig.crew');
+/**
+ * 段 DIG3：発掘隊の人数（名前のない隊員）：研究パネル「発掘隊の手際」の Lv（開くと Lv2 ＝ 2 人）か、古いセーブで発掘の担当だったヒーローの人数
+ * （digCrewOld。Lv は上げず、いた人数ぶんだけ隊員に）の大きいほう。上限は発掘隊の役所（crewCap）。Lv0 で誰もいなければ 0 人
+ */
+export const crewSize = (s: Pick<P1State, 'skills' | 'skillLv' | 'digCrewOld'>) => Math.min(crewCap(s), Math.max(lvOf(s, 'dig_crew'), s.digCrewOld ?? 0));
+/** 段 DIG3：発掘隊の行動規則の段（発掘隊の手際の Lv。0 は手前から順に） */
+export const crewRule = (s: Pick<P1State, 'skills' | 'skillLv'>) => lvOf(s, 'dig_crew');
 /** 常駐（自動化）：作業していない日も掘る */
 export const hasAuto = (s: P1State) => lvOf(s, 'u_dig_auto') > 0;
-/** 常駐の速さ（作業中の何割）：常駐の Lv の表 ×（1 ＋ 段取りの +10%／Lv） */
-export const autoRate = (s: P1State) => atLv(DT.auto, lvOf(s, 'u_dig_auto')) * (1 + fxSum(s, 'dig.autoSpeed'));
+/**
+ * 常駐の速さ（作業中の何割）：常駐の Lv の表 ×（1 ＋ 段取りの +10%／Lv）×（1 ＋ 交代制 +15%／Lv。
+ * 段 DIG3：隊員はシャドーヒーローでスタミナが無いので、交代制は常駐で働く日の打つ数の増しに）
+ */
+export const autoRate = (s: P1State) => atLv(DT.auto, lvOf(s, 'u_dig_auto')) * (1 + fxSum(s, 'dig.autoSpeed')) * (1 + fxSum(s, 'dig.relay'));
 /** そのマスは、いちばん奥まで掘りきった */
 export const isDug = (s: Pick<P1State, 'dig'>, x: number, y: number) => {
   const L = digSite(s);
@@ -6752,8 +6866,16 @@ function countLv(s: P1State) {
   s.dig!.month.lv++;
   if (s.digRun) s.digRun.got.lv++;
 }
-/** 層がはがれて、埋まっていたものが取れた：中身を受け取る（研究レベル・RP・素材・石板・お題） */
+/** 層がはがれて、埋まっていたものが取れた：中身を受け取る（研究レベル・RP・素材・石板・お題）。段 DIG3：見つけた順に got.finds に残す（リザルト） */
 function reveal(s: P1State, L: DigLayout, f: DigFind, hit: DigHit) {
+  const rp0 = hit.rp;
+  revealCore(s, L, f, hit);
+  const it = f.item;
+  if (it.kind === 'mat' || !s.digRun) return;
+  const big = (it.kind === 'ext' && !!it.topic) || f.size[0] * f.size[1] > 1;
+  (s.digRun.got.finds ??= []).push({ item: it, layer: f.layer, rp: hit.rp - rp0, ...(hit.first ? { first: true } : {}), ...(hit.again ? { again: true } : {}), ...(hit.lv ? { lv: hit.lv } : {}), ...(big ? { big: true } : {}), ...(hit.recipe ? { recipe: hit.recipe } : {}) });
+}
+function revealCore(s: P1State, L: DigLayout, f: DigFind, hit: DigHit) {
   const it = f.item;
   hit.item = it;
   const G = RP_GAIN[L.tier];
@@ -6866,10 +6988,14 @@ function strike(s: P1State, L: DigLayout, x: number, y: number, power: number): 
   const layer = st.depth[k];
   const hit: DigHit = { x, y, layer, broke: false, depth: layer, left: st.hp[k], item: null, rp: 0 };
   if (layer >= L.depth || st.hp[k] <= 0) return hit;
+  const before = st.hp[k];
   // 隣への力（広く掘る）は端数になるので、小数 2 桁で丸める
   st.hp[k] = Math.max(0, Math.round((st.hp[k] - power) * 100) / 100) || 0;
   hit.left = st.hp[k];
+  hit.dmg = Number.isFinite(power) ? Math.round(Math.min(power, before) * 100) / 100 : before;
   if (st.hp[k] > 0) return hit;
+  // 段 DIG3：層の硬さを超えて余った力（貫通で下の層へ）
+  if (Number.isFinite(power)) hit.over = Math.max(0, Math.round((power - before) * 100) / 100);
   const f = findAt(s, L, k, layer);
   if (f && f.size[0] * f.size[1] > 1) {
     // 大きいもの（2 × 2）：範囲の 4 マスとも、その層を叩いて 0 にするまで待つ
@@ -6906,6 +7032,15 @@ function strike(s: P1State, L: DigLayout, x: number, y: number, power: number): 
     const dd = Math.max(...(hit.span ? findCells(L, { x: hit.span.x, y: hit.span.y, size: [hit.span.w, hit.span.h] }) : [k]).map((c) => st.depth[c]));
     if (s.digRun) s.digRun.deep = Math.max(s.digRun.deep ?? 0, dd);
     s.dig.dungeon.best = Math.max(s.dig.dungeon.best, dd);
+  }
+  // 段 DIG3：はがした層に爆弾が埋まっていたら爆発（まわりを一度にはがす。爆発ではがした層に別の爆弾があれば連鎖）
+  for (const c of hit.span ? findCells(L, { x: hit.span.x, y: hit.span.y, size: [hit.span.w, hit.span.h] }) : [k]) {
+    const bi = bombAt(s, L, st, c, layer);
+    if (bi < 0) continue;
+    (st.boom ??= []).push(bi);
+    hit.bomb = true;
+    if (s.digRun) s.digRun.got.bombs = (s.digRun.got.bombs ?? 0) + 1;
+    explode(s, L, c % L.w, Math.floor(c / L.w), hit);
   }
   if (!st.done && st.depth.every((v) => v >= L.depth)) {
     st.done = true;
@@ -6949,14 +7084,56 @@ const REACH_DIRS: Record<'lr' | 'lrd' | 'all', [number, number][]> = {
     [0, 1],
   ],
 };
+/**
+ * 広く掘るの効く範囲（段 DIG3：なぞって掘るときの点線の枠。純粋な関数）：当てているマス (x, y) と、Lv の向きの隣（壁の中だけ）。
+ * Lv0 は当てているマスだけ（Lv1・2 で左右の 3 マス・Lv3 で左右と下の 4 マス・Lv4・5 で上下左右の 5 マス）
+ */
+export function reachCells(s: Pick<P1State, 'skills' | 'skillLv' | 'dig'>, x: number, y: number): [number, number][] {
+  const L = digSite(s);
+  const out: [number, number][] = [[x, y]];
+  const lv = lvOf(s, 'dig_reach');
+  if (!L || lv <= 0) return out;
+  for (const [dx, dy] of REACH_DIRS[DT.reachDir[Math.min(5, lv) - 1]]) {
+    const X = x + dx;
+    const Y = y + dy;
+    if (X >= 0 && Y >= 0 && X < L.w && Y < L.h) out.push([X, Y]);
+  }
+  return out;
+}
+/** 効く範囲のマスの数（スキルツリーの「3 マス → 5 マス」） */
+export const reachCount = (lv: number) => (lv <= 0 ? 1 : 1 + REACH_DIRS[DT.reachDir[Math.min(5, lv) - 1]].length);
 /** マス k のいまの層を打てる（いちばん奥まで掘っていない・掘ってよい層・待っていない） */
 const open1 = (s: P1State, L: DigLayout, st: DigSiteState, k: number) => st.depth[k] < L.depth && st.hp[k] > 0 && layerOpen(s, L, st.depth[k]);
-/** 1 打（会心・広く掘るを含む）：そのマスを power で打ち、隣のマスの いまの層 にも力の一部（掘ってよい層のマスだけ） */
+/** 段 DIG3：貫通（打った力が層の硬さを超えたぶんを、下の層へ持ち越す割合。Lv0 は 0） */
+export const pierceRate = (s: Pick<P1State, 'skills' | 'skillLv'>) => fxSum(s, 'dig.pierce');
+/**
+ * 段 DIG3：貫通。(x, y) の層がはがれて余った力 over のうち pierceRate を、同じマスの次の層へ（はがれればさらに次へ。持ち越しが 0.01 未満・
+ * 掘ってよい層でない・2 × 2 を待つ・掘りきったら止まる）。打った結果は hit.extra に（pierce）
+ */
+function pierce(s: P1State, L: DigLayout, x: number, y: number, hit: DigHit) {
+  const pr = pierceRate(s);
+  if (pr <= 0 || !hit.broke) return;
+  const st = siteState(s, L.site)!;
+  const k = y * L.w + x;
+  let over = hit.over ?? 0;
+  for (let guard = 0; guard < L.depth; guard++) {
+    const carry = Math.round(over * pr * 100) / 100;
+    if (carry < 0.01 || hit.done || !open1(s, L, st, k)) return;
+    const h2 = strike(s, L, x, y, carry);
+    h2.pierce = true;
+    (hit.extra ??= []).push(h2);
+    if (h2.done) hit.done = true;
+    if (!h2.broke) return;
+    over = h2.over ?? 0;
+  }
+}
+/** 1 打（会心・貫通・広く掘るを含む）：そのマスを power で打ち、余った力は下の層へ（貫通）、隣のマスの いまの層 にも力の一部（掘ってよい層のマスだけ） */
 function strikeAt(s: P1State, L: DigLayout, x: number, y: number, power: number): DigHit {
   const crit = rollCrit(s);
   const p = crit ? power * DT.critMul : power;
   const hit = strike(s, L, x, y, p);
   if (crit) hit.crit = true;
+  pierce(s, L, x, y, hit);
   const lv = lvOf(s, 'dig_reach');
   const r = fxSum(s, 'dig.reach');
   if (lv > 0 && r > 0) {
@@ -6979,32 +7156,47 @@ export function dig(s: P1State, x: number, y: number): DigHit | DigErr {
   if (e) return e;
   return strikeAt(s, digSite(s)!, x, y, digPower(s));
 }
-/** 発破が使えるか（スキル「発破」） */
-export const hasBlast = (s: P1State) => lvOf(s, 'dig_blast') > 0;
-/** 発破：火薬代で、(x, y) を真ん中に N × N マスの いまの層を 1 枚ずつ はがす（硬さに関係なく 1 枚。深い層の許可が無い層・待っているマスははがさない） */
-export function blast(s: P1State, x: number, y: number): DigHit[] | DigErr {
-  const e = digCheck(s, x, y);
-  // 真ん中のマスが掘りきっていても、まわりがはがせれば使える
-  if (e && e !== 'dug' && e !== 'deep' && e !== 'wait') return e;
-  if (!hasBlast(s)) return 'no-blast';
-  const L = digSite(s)!;
-  const st = curSite(s)!;
-  // 掘る範囲 ∞：確率で 1 回り大きく
+/**
+ * 段 DIG3：爆発。(x, y) を真ん中に N × N（blastSize ＋ 掘る範囲 ∞）の いまの層を、硬さに関係なく bombPower 枚はがす
+ * （深い層の許可が無い層・待っているマス・掘りきったマスははがさない。費用なし）。はがした結果は hit.extra に（blast。連鎖の爆発の結果もならす）
+ */
+function explode(s: P1State, L: DigLayout, x: number, y: number, hit: DigHit) {
+  const st = siteState(s, L.site)!;
   const n = blastSize(s) + reachBonus(s);
   const lo = -Math.floor((n - 1) / 2);
-  const targets: [number, number][] = [];
-  for (let dy = lo; dy < lo + n; dy++)
-    for (let dx = lo; dx < lo + n; dx++) {
-      const X = x + dx;
-      const Y = y + dy;
-      if (X >= 0 && Y >= 0 && X < L.w && Y < L.h && open1(s, L, st, Y * L.w + X)) targets.push([X, Y]);
-    }
-  if (!targets.length) return e ?? 'dug';
-  const cost = blastCost(s);
-  if (s.money < cost) return 'money';
-  s.money -= cost;
-  spend(s, 'build', cost);
-  return targets.map(([X, Y]) => strike(s, L, X, Y, Infinity));
+  for (let round = 0; round < bombPower(s); round++) {
+    let any = false;
+    for (let dy = lo; dy < lo + n; dy++)
+      for (let dx = lo; dx < lo + n; dx++) {
+        const X = x + dx;
+        const Y = y + dy;
+        if (X < 0 || Y < 0 || X >= L.w || Y >= L.h || !open1(s, L, st, Y * L.w + X)) continue;
+        const h2 = strike(s, L, X, Y, Infinity);
+        h2.blast = true;
+        any = true;
+        const more = h2.extra ?? [];
+        delete h2.extra;
+        (hit.extra ??= []).push(h2, ...more);
+        if (h2.done || more.some((m) => m.done)) hit.done = true;
+      }
+    if (!any) return;
+  }
+}
+/**
+ * 爆発を起こす（撮影・テスト用）：(x, y) に生きている爆弾があれば掘り出したことにして（数が減る）、無くてもその場で爆発させる。
+ * まわりの結果は返り値の extra（blast）。壁が無ければ null
+ */
+export function detonate(s: P1State, x: number, y: number): DigHit | null {
+  const L = digSite(s);
+  const st = curSite(s);
+  if (!L || !st) return null;
+  const k = y * L.w + x;
+  const bi = bombAt(s, L, st, k, st.depth[k]);
+  if (bi >= 0) (st.boom ??= []).push(bi);
+  const hit: DigHit = { x, y, layer: st.depth[k], broke: false, depth: st.depth[k], left: st.hp[k], item: null, rp: 0, bomb: true };
+  if (s.digRun) s.digRun.got.bombs = (s.digRun.got.bombs ?? 0) + 1;
+  explode(s, L, x, y, hit);
+  return hit;
 }
 /** 掘削ドリル：燃料代で、(x, y) のマス 1 つを 奥へ N 層 一気にはがす（深い層の許可が無い層・2 × 2 のものを待つところで止まる） */
 export function drill(s: P1State, x: number, y: number): DigHit[] | DigErr {
@@ -7041,11 +7233,13 @@ export function siteDiggable(s: P1State, k: number): boolean {
  * stand（常駐で働く日）は常駐の段取りで選び方が変わる（層の番号で）：Lv1 お題の気配のある所（お題の範囲の、お題の層まで）を先に・
  * Lv3 いまの層に研究 Lv の低いエクステがあるマスを先に・Lv5 研究 Lv の上限に達したエクステのマスを後回し
  */
-export function digNext(s: P1State, stand = false, noTopic = false): [number, number] | null {
+export function digNext(s: P1State, stand = false, noTopic = false, rule = 0): [number, number] | null {
   const L = digSite(s);
   const st = curSite(s);
   if (!L || !st) return null;
   const rl = stand ? lvOf(s, 'u_dig_route') : 0;
+  // 段 DIG3：発掘隊の行動規則（rule ＝ 発掘隊の手際の Lv）Lv4：爆弾の近く（生きている爆弾のマス）を先に
+  const bombCells = rule >= 4 ? new Set(bombsLeft(s, L.site).map(({ b }) => b.y * L.w + b.x)) : null;
   const bonus = new Map<number, number>();
   const add = (k: number, v: number) => bonus.set(k, Math.min(bonus.get(k) ?? 0, v));
   const skip = new Set<number>();
@@ -7070,7 +7264,17 @@ export function digNext(s: P1State, stand = false, noTopic = false): [number, nu
       const k = y * L.w + x;
       if (!open1(s, L, st, k) || skip.has(k)) continue;
       const d = st.depth[k];
-      let v = (bonus.get(k) ?? 0) + (st.hp[k] < L.cells[k].hard[d] ? -1e6 : 0) + d * 1000 + y * L.w + x;
+      // 段 DIG3 の規則 Lv5：深い層へ（深いマスを先に。Lv1 は手前から順に）
+      let v = (bonus.get(k) ?? 0) + (st.hp[k] < L.cells[k].hard[d] ? -1e6 : 0) + (rule >= 5 ? -d * 1000 : d * 1000) + y * L.w + x;
+      // 規則 Lv2：硬いマスを避ける（いまの層の硬さぶん後回し）
+      if (rule >= 2) v += L.cells[k].hard[d] * 200;
+      // 規則 Lv3：エクステ（出土品の気配）が見えたら優先して掘り当てる
+      if (rule >= 3) {
+        const pv = peekView(s, x, y);
+        if (pv && !pv.hint && pv.item.kind === 'ext') v -= 3e5;
+      }
+      // 規則 Lv4：爆弾の近く（そのマス）を先に
+      if (bombCells?.has(k)) v -= 4e5;
       const it = findAt(s, L, k, d)?.item;
       if (it?.kind === 'ext' && !it.topic) {
         // Lv3：研究 Lv の低いエクステほど先に（上限に達したものは数えない）・Lv5：上限に達したエクステは後回し
@@ -7099,11 +7303,13 @@ export function standSite(s: P1State): number {
   return ok.includes(d.cur) ? d.cur : ok[0];
 }
 /**
- * 発掘隊の 1 日：発掘作業のあいだは、適性の速さ × DIG_AUTO.perDay ×（発掘隊の手際）回ぶん同じ荒れ地を打つ（端数は持ち越す）。
- * 常駐（自動化）があれば、作業していない日も、許可のある荒れ地を その速さ × 常駐の割合で打つ
+ * 段 DIG3：発掘隊（シャドーヒーロー）の 1 日：発掘作業のあいだは、隊員 1 人につき DIG_BALANCE.tree.crewDay 回ぶん同じ荒れ地を打つ（端数は持ち越す）。
+ * 1 打の強さは digPower × 発掘隊の手際（crewMul）。打つマスは行動規則（crewRule）で digNext が選ぶ。
+ * 常駐（自動化）があれば、作業していない日も、許可のある荒れ地を その速さ × 常駐の割合（autoRate）で打つ。隊員がいなければ何もしない
  */
-export function autoDig(s: P1State, st: Staff): DigHit[] {
-  if (!s.dig) return [];
+export function crewDig(s: P1State): DigHit[] {
+  const n = crewSize(s);
+  if (!s.dig || n <= 0) return [];
   const stand = !s.digRun;
   if (stand) {
     if (!hasAuto(s)) return [];
@@ -7112,17 +7318,22 @@ export function autoDig(s: P1State, st: Staff): DigHit[] {
     s.dig.cur = k;
   }
   const out: DigHit[] = [];
-  s.dig.carry += DIG_AUTO.perDay * speed(st, 'dig', s) * crewMul(s) * (stand ? autoRate(s) : 1);
+  s.dig.carry += n * DT.crewDay * (stand ? autoRate(s) : 1);
   const L = digSite(s)!;
+  const rule = crewRule(s);
+  let who = (s.dig.crewTurn ?? 0) % n;
   while (s.dig.carry >= 1) {
-    const at = digNext(s, stand);
+    const at = digNext(s, stand, false, rule);
     if (!at) break;
-    const r = strikeAt(s, L, at[0], at[1], digPower(s));
+    const r = strikeAt(s, L, at[0], at[1], Math.round(digPower(s) * crewMul(s) * 100) / 100);
+    r.crew = who;
+    who = (who + 1) % n;
     out.push(r, ...(r.extra ?? []));
     s.dig.carry -= 1;
     if (siteState(s, L.site)?.done) break;
   }
   s.dig.carry = Math.min(1, s.dig.carry);
+  s.dig.crewTurn = who;
   return out;
 }
 

@@ -3,13 +3,14 @@
  * 画面は digui.ts。仕様は docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」の「15 秒の発掘」「発掘場の画面」「研究ノート」。
  */
 import { t } from '../../i18n';
-import { digRpLv, isResearch, rpCost, DIG, DIG_AUTO, DIG_BALANCE, DIG_PANELS, DIG_SITES, DUNGEON_FINDS, PRODUCT, isAntique, relicOf, relicSells, relicTier, RESEARCH_NEED, SKILL, TABLETS, levelCost, maxLv, type Skill, type Tablet, type Tier } from './data';
+import { digRpLv, isResearch, rpCost, DIG, DIG_BALANCE, DIG_CREW_HEROES, DIG_PANELS, DIG_SITES, DUNGEON_FINDS, PRODUCT, isAntique, relicOf, relicSells, relicTier, RESEARCH_NEED, SKILL, TABLETS, levelCost, maxLv, type Skill, type Tablet, type Tier } from './data';
 import { sectorDef } from './company';
 import {
   autoRate,
-  blastCost,
   crewCap,
   crewMul,
+  crewRule,
+  crewSize,
   deepLayers,
   digBranchOpen,
   digDepthLayer,
@@ -20,6 +21,7 @@ import {
   lvOf,
   researchCap,
   researchCapped,
+  reachCount,
   ringOpen,
   sessionSec,
   skillLock,
@@ -35,7 +37,6 @@ import {
   peekView,
   researchLeft,
   researchOf,
-  speed,
   topicProgress,
   siteProgress,
   depthLimit,
@@ -178,7 +179,11 @@ function recText(s: P1State, k: Skill, lv: number, cost: number): string {
       return p > digPower(s) ? t(`${head}で 1 打の強さ ${p} に`, `${head}: strike power ${p}`) : t(`${head}で 会心 ${Math.round(lvAt(TR.crit, lv) * 100)}%`, `${head}: ${Math.round(lvAt(TR.crit, lv) * 100)}% critical`);
     }
     case 'dig_speed':
-      return t(`${head}で 長押し ${DIG_BALANCE.repeatMs - lvAt(TR.repeat, lv)} ms ごとに`, `${head}: hold every ${DIG_BALANCE.repeatMs - lvAt(TR.repeat, lv)} ms`);
+      return t(`${head}で ${DIG_BALANCE.repeatMs - lvAt(TR.repeat, lv)} ms ごとに打つ`, `${head}: strike every ${DIG_BALANCE.repeatMs - lvAt(TR.repeat, lv)} ms`);
+    case 'dig_reach':
+      return t(`${head}で 効く範囲 ${reachCount(lv)} マス`, `${head}: ${reachCount(lv)} cells per strike`);
+    case 'dig_pierce':
+      return t(`${head}で 貫通 ${Math.round(lvAt(TR.pierce, lv) * 100)}%`, `${head}: pierce ${Math.round(lvAt(TR.pierce, lv) * 100)}%`);
     case 'dig_deep': {
       const tier = L?.tier ?? 'C';
       const n = Math.max(TR.deep[tier][Math.min(5, lv)], deepLayers(s, tier));
@@ -192,7 +197,7 @@ function recText(s: P1State, k: Skill, lv: number, cost: number): string {
     case 'dig_lamp':
       return t(`${head}で ${lvAt(TR.lamp, lv)} 枚手前から見える`, `${head}: glimpse finds ${lvAt(TR.lamp, lv)} layers ahead`);
     case 'dig_blast':
-      return lv === 1 ? t(`${head}で 発破が使える`, `${head}: unlock blasting`) : t(`${head}で 発破 ${lvAt(TR.blastSize, lv)} × ${lvAt(TR.blastSize, lv)}・${lvAt(TR.blastCost, lv).toLocaleString('en-US')} G`, `${head}: ${lvAt(TR.blastSize, lv)} × ${lvAt(TR.blastSize, lv)} blast for ${lvAt(TR.blastCost, lv).toLocaleString('en-US')} G`);
+      return t(`${head}で 爆弾 ${lvAt(TR.bombs, lv)} 個・威力 ${lvAt(TR.power, lv)}・${lvAt(TR.blastSize, lv)} × ${lvAt(TR.blastSize, lv)}`, `${head}: ${lvAt(TR.bombs, lv)} bombs, power ${lvAt(TR.power, lv)}, ${lvAt(TR.blastSize, lv)} × ${lvAt(TR.blastSize, lv)}`);
     case 'dig_drill':
       return t(`${head}で 奥へ ${lvAt(TR.drill, lv)} 層`, `${head}: ${lvAt(TR.drill, lv)} layers deeper`);
     default: {
@@ -259,6 +264,31 @@ export function runBar(s: Pick<P1State, 'digRun'>): { sec: string; frac: number;
   return { sec: (Math.ceil(sec * 10) / 10).toFixed(1), frac: r.total > 0 ? r.left / r.total : 0, warn: sec <= 5, tick: sec <= 3 };
 }
 
+// ---------------------------------------------------------------- なぞって掘る（段 DIG3）
+
+/** なぞって掘る：いま当てているマスと、次に打つ時刻（performance.now のミリ秒） */
+export interface Aim {
+  x: number;
+  y: number;
+  next: number;
+}
+/**
+ * 1 フレームぶん（純粋な関数）：hover（カーソル・指の下のマス）が無ければ止まる。マスが変わればすぐ 1 打、
+ * 同じマスなら repeatMs ごとに 1 打（Lv0 で 170 ms ＝ 0.5 秒に約 3 回）。strike が true のとき、そのマスを打つ
+ */
+export function aimStep(aim: Aim | null, hover: [number, number] | null, now: number, repeatMs: number): { aim: Aim | null; strike: boolean } {
+  if (!hover) return { aim: null, strike: false };
+  if (!aim || aim.x !== hover[0] || aim.y !== hover[1]) return { aim: { x: hover[0], y: hover[1], next: now + repeatMs }, strike: true };
+  if (now >= aim.next) return { aim: { x: aim.x, y: aim.y, next: Math.max(now, aim.next) + repeatMs }, strike: true };
+  return { aim, strike: false };
+}
+/** ポインタの下の要素 → 壁のマスの座標。マスでなければ null（閉じるボタン・帯・出土品の札・隊員の上では掘らない） */
+export function cellOf(el: Element | null): [number, number] | null {
+  const c = el?.closest?.('.isl-dig-cell') as HTMLElement | null;
+  if (!c || c.dataset.x == null || c.dataset.y == null) return null;
+  return [Number(c.dataset.x), Number(c.dataset.y)];
+}
+
 /** 発掘終了の札の行（今回の出土）：新発見・研究 Lv ↑・RP・素材・はがした層 */
 export function gotLines(g: DigGot): [string, string][] {
   return [
@@ -272,8 +302,8 @@ export function gotLines(g: DigGot): [string, string][] {
   ];
 }
 
-/** 打てない理由の文（画面に出す。選べないものには理由）。money は火薬代・燃料代（cost） */
-export function digErrText(e: DigErr, cost = DIG_BALANCE.tree.blastCost[0]): string {
+/** 打てない理由の文（画面に出す。選べないものには理由）。money は燃料代（cost） */
+export function digErrText(e: DigErr, cost = DRILL_FUEL): string {
   switch (e) {
     case 'no-run':
       return t('発掘作業は終わった。荒れ地をタップすると、もう一度掘れるよ', 'The dig is over. Tap a wasteland to dig again');
@@ -285,19 +315,15 @@ export function digErrText(e: DigErr, cost = DIG_BALANCE.tree.blastCost[0]): str
       return t('このセクタには荒れ地が無い（Rare 以降は準備中）', 'No wasteland in this sector (Rare and up: coming soon)');
     case 'deep':
       return t('この奥の層は国の許可が要る（スキル → 発掘の「深い層の許可」）', 'Deeper layers need a national permit (Skills → Digging: Deep-layer permit)');
-    case 'no-blast':
-      return t('発破が無い（スキル → 発掘の「発破」）', 'No blasting (Skills → Digging: Blasting)');
     case 'no-drill':
       return t('掘削ドリルが無い（スキル → 発掘の「掘削ドリル」）', 'No drill (Skills → Digging: Drill)');
     case 'money':
-      return t(`${cost === DRILL_FUEL ? '燃料代' : '火薬代'} ${cost.toLocaleString('en-US')} G が足りない`, `Not enough funds (${cost.toLocaleString('en-US')} G)`);
+      return t(`燃料代 ${cost.toLocaleString('en-US')} G が足りない`, `Not enough funds (${cost.toLocaleString('en-US')} G)`);
     case 'out':
       return '';
   }
   return '';
 }
-/** いまの発破の火薬代（スキルの Lv で安くなる） */
-export const blastPrice = (s: P1State) => blastCost(s);
 
 /** パネル全体で掘れない理由（掘れるなら null）：荒れ地が無い・発掘作業が終わった */
 export function digBlock(s: P1State): DigErr | null {
@@ -336,24 +362,38 @@ export function findLabel(hit: DigHit): string {
   return t('研究ノートへ', 'To the notebook');
 }
 
-/** 発掘隊（発掘の担当。発掘作業のあいだ手伝う）と、作業中の 1 日に打つ回数（適性の速さ × DIG_AUTO.perDay × 発掘隊の手際） */
-export function autoDiggers(s: P1State): { hero: number; perDay: number; resting: boolean }[] {
-  if (!s.dig) return [];
-  return s.staff.filter((x) => x.task === 'dig').map((x) => ({ hero: x.hero, perDay: Math.round(DIG_AUTO.perDay * speed(x, 'dig', s) * crewMul(s) * 10) / 10, resting: x.resting }));
-}
-/** 発掘隊の人数 / 上限（発掘隊の役所） */
-export const crewCount = (s: P1State): [number, number] => [s.staff.filter((x) => x.task === 'dig').length, crewCap(s)];
 /**
- * 常駐（自動化）：作業していない日に掘る荒れ地と、1 日に打つ数（休んでいない隊の合計 × 常駐の速さ）。
- * 常駐が無い・隊がいない・掘れる荒れ地が無ければ null
+ * 段 DIG3：発掘隊（シャドーヒーロー）の見え方：隊員の数と上限・1 打の強さ（digPower × 手際）・作業中の 1 日に打つ数（人数 × DIG_BALANCE.tree.crewDay）・
+ * 行動規則の段と一言・隊員の仮の絵（ヒーローの id。DIG_CREW_HEROES）
+ */
+export interface CrewInfo {
+  n: number;
+  cap: number;
+  power: number;
+  perDay: number;
+  rule: number;
+  ruleText: string;
+  heroes: number[];
+}
+export function crewInfo(s: P1State): CrewInfo {
+  const n = crewSize(s);
+  const rule = crewRule(s);
+  return { n, cap: crewCap(s), power: Math.round(digPower(s) * crewMul(s) * 100) / 100, perDay: Math.round(n * DIG_BALANCE.tree.crewDay * 10) / 10, rule, ruleText: CREW_RULE_TEXT()[Math.min(5, rule)], heroes: DIG_CREW_HEROES.slice(0, n) };
+}
+/** 発掘隊の行動規則の一言（Lv0〜5） */
+export const CREW_RULE_TEXT = () => [t('いない', 'none'), t('手前から順に', 'front first'), t('硬いマスを避ける', 'avoids hard cells'), t('出土品の気配を優先', 'goes for visible finds'), t('爆弾の近くを優先', 'goes for bombs'), t('深い層へ', 'digs deep')];
+/** 発掘隊の人数 / 上限（発掘隊の役所） */
+export const crewCount = (s: P1State): [number, number] => [crewSize(s), crewCap(s)];
+/**
+ * 常駐（自動化）：作業していない日に掘る荒れ地と、1 日に打つ数（隊員の数 × 常駐の速さ）。
+ * 常駐が無い・隊がいない・掘れる荒れ地が無ければ null。heroes は隊員の仮の絵（地図に描く）
  */
 export function standing(s: P1State): { site: number; perDay: number; heroes: number[] } | null {
   if (!s.dig || !hasAuto(s)) return null;
-  const crew = s.staff.filter((x) => x.task === 'dig' && !x.resting);
+  const n = crewSize(s);
   const k = standSite(s);
-  if (!crew.length || k < 0) return null;
-  const per = crew.reduce((v, x) => v + DIG_AUTO.perDay * speed(x, 'dig', s) * crewMul(s) * autoRate(s), 0);
-  return { site: k, perDay: Math.round(per * 10) / 10, heroes: crew.map((x) => x.hero) };
+  if (n <= 0 || k < 0) return null;
+  return { site: k, perDay: Math.round(n * DIG_BALANCE.tree.crewDay * autoRate(s) * 10) / 10, heroes: DIG_CREW_HEROES.slice(0, n) };
 }
 
 /** 研究 Lv の ★（★ が Lv、☆ が残り。5 つ） */

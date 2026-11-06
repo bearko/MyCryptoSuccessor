@@ -54,18 +54,17 @@ import {
   claim,
   craftDays,
   dig,
+  drill,
+  hasDrill,
   digNext,
   digPower,
   digSite,
-  blast,
-  blastCost,
   digLayouts,
   siteState,
   DUNGEON,
   autoExhibit,
   extRank,
   museumSlots,
-  hasBlast,
   findCells,
   layerOpen,
   clearGoal,
@@ -184,7 +183,7 @@ export const SIM_TIME = {
  * - digger：発掘隊（作業のあいだだけ手伝う）の担当（0＝置かない／1＝いつも 1 人）。
  * - tree（v10）：発掘の枝のパネルの上げ方。'deep'＝お題のための「深い層の許可」Lv1 だけ（最短）／'share'＝月末に、月の売上の share（20%）を積み立てた枠で（買ったあとも 1 万 G 残るとき。研究の目利き Lv2 を先に）
  *   発掘のパネルの安い順に（お題が許可の無い層に残っていれば深い層の許可を先に。通常）／'all'＝ほかのスキルと同じく安い順にまとめて全部 Lv5 まで（100%）。
- *   以前の道具（ツルハシ・ランタン・発破の道具）はパネルに移ったので、道具は買わない。発破は「発破」のパネルがあれば使う。
+ *   以前の道具（ツルハシ・ランタン・発破の道具）はパネルに移ったので、道具は買わない。段 DIG3（v42）：発破は地中に埋まった爆弾になった（掘り出すと勝手に爆発。費用なし）。打つ数は変えない。
  */
 export const SIM_DIG = {
   rta: { perMonth: null as number | null, pending: 0, target: 'know', permit: 2, digger: 0, tree: 'deep' as 'deep' | 'share' | 'all', share: 0, dungeon: 0, museum: null as number | null },
@@ -267,6 +266,8 @@ export interface DigRec {
   permits: number;
   auto: number;
   blast: number;
+  /** 調整 v44：掘削ドリルを使った回数（100%） */
+  drill?: number;
   rp: number;
   research: number;
   rpBlocked: number;
@@ -465,6 +466,8 @@ export function digSave(s: P1State): boolean {
 }
 /** 深い層の許可の次の Lv に要るもの（先に要るパネルが無ければ、その根もとから） */
 export const DEEP_CHAIN = ['dig_ext', 'dig_lamp', 'dig_deep'];
+/** 調整 v44（段 DIG3）：発掘隊の手際までの研究パネル（100% が先に開く） */
+export const CREW_CHAIN = ['dig_ext', 'dig_office', 'dig_crew'];
 /** 「@id:段」→ 設備投資の id と段 */
 const invOf = (x: string): { id: string; lv: number } | null => {
   if (!x.startsWith('@')) return null;
@@ -1988,7 +1991,7 @@ function knowTarget(s: P1State, c: Ctx): [number, number] | null {
 }
 
 /** 覗き見が出ているマス（お題 → 石板 → エクステ → 素材。手前のものほど先）→ 取りかけ・浅いマス（digNext） */
-function sweepTarget(s: P1State): [number, number] | null {
+function sweepTarget(s: P1State, rule = 0): [number, number] | null {
   const L = digSite(s);
   if (!L || !s.dig) return null;
   let best: [number, number] | null = null;
@@ -2007,7 +2010,7 @@ function sweepTarget(s: P1State): [number, number] | null {
       best = [x, y];
     }
   }
-  return best ?? digNext(s);
+  return best ?? digNext(s, false, false, rule);
 }
 
 /**
@@ -2033,25 +2036,33 @@ function deepTarget(s: P1State): [number, number] | null {
   }
   return best;
 }
-const digTarget = (s: P1State, c: Ctx) => (s.digRun?.site === DUNGEON ? deepTarget(s) : SIM_DIG[c.policy].target === 'know' ? knowTarget(s, c) : sweepTarget(s));
+// 調整 v44（段 DIG3）：100% は覗き見の無いときに埋まっている爆弾のマスを先に掘る（掘りきりまで待つ方針なので、爆発で壁をまとめて崩す。前は火薬代で発破を打っていた）
+const digTarget = (s: P1State, c: Ctx) => (s.digRun?.site === DUNGEON ? deepTarget(s) : SIM_DIG[c.policy].target === 'know' ? knowTarget(s, c) : sweepTarget(s, c.policy === 'full' ? 4 : 0));
 
-/** 手で n 回まで打つ（発破が使えれば、条件のときは発破）。打った数を返す */
-function handDig(s: P1State, c: Ctx, n: number, rec: DigRec, useBlast: () => boolean, spendTools: (v: number) => void): number {
+/**
+ * 手で n 回まで打つ（段 DIG3：爆弾を掘り出せば勝手に爆発する。爆発の数を rec.blast に）。打った数を返す。
+ * 調整 v44：100% は資金に余裕があれば（5 万 G より多い。前の発破と同じ目安）掘削ドリル（燃料代。そのマスを奥へ一気に）で打つ。
+ * 前は火薬代で発破を打っていた（お金で時間を買う手）。発破は無くなったので、残っているお金の手（ドリル）に置き換える
+ */
+function handDig(s: P1State, c: Ctx, n: number, rec: DigRec, spendTools: (v: number) => void): number {
   let k = 0;
   while (k < n && s.digRun) {
     const at = digTarget(s, c);
     if (!at) break;
-    if (hasBlast(s) && s.money >= blastCost(s) && useBlast()) {
-      const bc = blastCost(s);
-      const r = blast(s, at[0], at[1]);
-      if (typeof r !== 'string') {
-        rec.blast++;
-        spendTools(bc);
+    if (c.policy === 'full' && hasDrill(s) && s.money > 50000) {
+      const m0 = s.money;
+      const d = drill(s, at[0], at[1]);
+      if (typeof d !== 'string') {
+        rec.drill = (rec.drill ?? 0) + 1;
+        rec.blast += d.flatMap((h) => [h, ...(h.extra ?? [])]).filter((h) => h.bomb).length;
+        spendTools(m0 - s.money);
         k++;
         continue;
       }
     }
-    if (typeof dig(s, at[0], at[1]) === 'string') break;
+    const r = dig(s, at[0], at[1]);
+    if (typeof r === 'string') break;
+    rec.blast += [r, ...(r.extra ?? [])].filter((h) => h.bomb).length;
     k++;
   }
   return k;
@@ -2278,10 +2289,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       if (cur.topDay == null) cur.dig.talksTop++;
     }
     if (s.flags.digMeet && s.dig) {
-      const [got, all] = topicProgress(s);
-      const nextId = c.route[c.at + 1];
-      const needLetter = !!nextId && sectorDef(nextId).tier !== 'C' && !hasLetter(s, sectorDef(nextId).tier);
-      const waiting = !!s.cleared && needLetter && got < all;
+      const all = topicProgress(s)[1];
       const spendTools = (v: number) => (res.spend.tools += v);
       // v10：発掘の枝（以前の道具はパネルに移った）。最短：お題が許可の無い層に残っていれば、深い層の許可の次の Lv（根もとから）。
       // 通常：月末に、その月の売上の 20% までを、発掘のパネルの安い順に（お題が許可の無い層にあれば深い層の許可を先に）。100%：方針のスキルの一覧でまとめて
@@ -2308,6 +2316,9 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       // 通常・100%：掘れずに止まっている・お題が許可の無い層にあれば、深い層の許可を先に（売上の 20% の枠や、制覇のあと資金をためている月に関係なく。
       // 止まったままだと RP が入らず、研究パネルが開けなくなる）
       if (D.tree !== 'deep' && (blocked || topicLocked(s)) && lvOf(s, 'dig_deep') < 5) take(deepNext(), 10000);
+      // 調整 v44（段 DIG3）：100% は v41 までと同じく発掘隊を最初から使う（前は発掘の担当のヒーローを 1 人置いていた：D.digger）。
+      // 隊員はシャドーヒーローになったので、発掘隊の手際までの研究パネル（RP）を RP がたまりしだい先に開く
+      if (D.digger > 0 && lvOf(s, 'dig_crew') === 0) take(CREW_CHAIN.find((id) => lvOf(s, id) === 0) ?? 'dig_crew', 0);
       if (D.tree === 'share' && atPause) {
         // 枠は月の売上の 20% を積み立てる（使わなかったぶんは翌月へ。1 枚がその月の枠より高くても、たまれば買える）
         c.digBudget = (c.digBudget ?? 0) + (s.reports.at(-1)?.revenue ?? 0) * D.share;
@@ -2391,8 +2402,6 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
           cur.act++;
         }
       }
-      // 発破を使う（「発破」のパネルがあれば）：依頼状を待っていてお題が残っている（最短・通常）／資金に余裕がある（100%）
-      const useBlast = () => (p === 'full' ? s.money > 50000 : waiting && s.money > blastCost(s) + (p === 'rta' ? 3000 : 10000));
       // 発掘作業を始める：前の作業が終わっていて、今月の回数のめやすに届いていない（null は続けて）。通常は月の前半と後半に 1 回ずつ
       // v13：制覇に研究成果の発表が要るので、お題がまだのセクタでは作業の回数を増やす（通常：月 2 → 3 回。1 位を 2 か月続けて発表を待っているあいだは続けて掘る）
       const goal = clearGoal(s);
@@ -2420,7 +2429,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
         c.handCarry += runTaps(s) / runDays(p, s);
         const m = Math.floor(c.handCarry);
         c.handCarry -= m;
-        cur.dig.mid += handDig(s, c, m, cur.dig, useBlast, spendTools);
+        cur.dig.mid += handDig(s, c, m, cur.dig, spendTools);
       }
       if (cur.dig.topicsAt == null && topicProgress(s)[0] >= all && all > 0) cur.dig.topicsAt = cur.log.length;
       // お題がそろったら、町の長に発表する（会話）
@@ -3670,8 +3679,8 @@ export function tables(rep: Report2): string {
   const per = (p: PolicyId) => (SIM_DIG[p].perMonth == null ? `前の作業が終わったらすぐ次（続けて掘る。ひと月に ${(30 / runDays(p)).toFixed(1)} 回まで）` : `${SIM_DIG[p].perMonth} 回（月の前半と後半）。v13：発表がまだのセクタは ${SIM_DIG[p].perMonth + SIM_DIG[p].pending} 回、1 位を 2 か月続けて発表を待っているあいだは続けて掘る`);
   const tgt = (p: PolicyId) => (SIM_DIG[p].target === 'know' ? '配置を知っている：まだのお題のある荒れ地 → お題（無ければ石板・エクステ）の範囲を、取るまでの打つ回数が少ないものから手前の層へ' : 'v11：覗き見が出ているマス（お題 → 石板 → エクステ → 素材）→ 取りかけ・打ちかけ → 浅いマス（いまの荒れ地を掘りきるまで）→ お題の気配のある荒れ地');
   const pm = (p: PolicyId) => (p === 'rta' ? `まだのお題のある荒れ地だけ（申請料の ${SIM_DIG[p].permit} 倍＋5,000 G あれば。v13：作業のあいまにも。お金は投資の順番より先に残す）` : p === 'normal' ? `掘れる荒れ地が無くなったら次の 1 か所（申請料の ${SIM_DIG[p].permit} 倍＋5,000 G あれば）。v13：発表がまだで、許可のある荒れ地にお題が残っていなければ、お題のある荒れ地を先に` : `資金が申請料の ${SIM_DIG[p].permit} 倍＋5,000 G あれば、月末にあるだけ`);
-  const dg = (p: PolicyId) => (SIM_DIG[p].digger === 0 ? '置かない' : 'いつも 1 人');
-  const tl = (p: PolicyId) => (SIM_DIG[p].tree === 'deep' ? 'お題が許可の無い層に残っていれば、深い層の許可 Lv1（根もとの追加申請・ランタンから）だけ' : SIM_DIG[p].tree === 'share' ? `月末に、月の売上の ${Math.round(SIM_DIG[p].share * 100)}% を積み立てた枠で（買ったあとも 1 万 G 残るとき）研究の目利き Lv2 → 安い順に（掘れずに止まっている・お題が許可の無い層にあれば、枠に関係なく深い層の許可を先に）。発破を持っていて依頼状を待っていれば発破` : 'ほかのスキルと同じく安い順にまとめて全部 Lv5 まで（掘れずに止まっていれば、資金をためている月も深い層の許可を先に）。資金 5 万 G 以上なら発破');
+  const dg = (p: PolicyId) => (SIM_DIG[p].digger === 0 ? '手際は研究パネルの順のまま' : '発掘隊の手際（役所 → 手際）を RP がたまりしだい先に（v44。v41 までは担当のヒーローを 1 人）');
+  const tl = (p: PolicyId) => (SIM_DIG[p].tree === 'deep' ? 'お題が許可の無い層に残っていれば、深い層の許可 Lv1（根もとの追加申請・ランタンから）だけ' : SIM_DIG[p].tree === 'share' ? `月末に、月の売上の ${Math.round(SIM_DIG[p].share * 100)}% を積み立てた枠で（買ったあとも 1 万 G 残るとき）研究の目利き Lv2 → 安い順に（掘れずに止まっている・お題が許可の無い層にあれば、枠に関係なく深い層の許可を先に）` : 'ほかのスキルと同じく安い順にまとめて全部 Lv5 まで（掘れずに止まっていれば、資金をためている月も深い層の許可を先に）');
   for (const p of pols) out.push(`| ${POLICY_NAME[p]} | ${per(p)} | ${tgt(p)} | ${pm(p)} | ${dg(p)} | ${tl(p)} |`);
   return out.join('\n');
 }
@@ -3769,7 +3778,7 @@ export function digObservations(rep: Report2): string {
   const pols: PolicyId[] = ['rta', 'normal', 'full'];
   out.push('発掘と研究ポイント（v9。セクタごと・3 シードの平均。打った数は着いてから離れるまで。研究パネルは、そのセクタにいるあいだに開けた枚数。「RP 不足」は、詰まりの段に効く研究パネルがあるのにどれも RP が足りなかった月の締め。「お題」はお題がそろった月（着いてからの月の締め）、「依頼状待ち」は制覇のあと依頼状が無くて Uncommon へ移れなかった月。「掘りきり」は離れたときに掘りきった荒れ地の数（4 か所のうち））：');
   out.push('');
-  out.push('| 方針 | セクタ | 作業の回数 | 許可 | 手 | 発掘隊 | 発破 | 入った RP | 研究パネル | RP 不足の月 | お題 | 依頼状待ち | 掘りきり | 掘り残し（マス） |');
+  out.push('| 方針 | セクタ | 作業の回数 | 許可 | 手 | 発掘隊 | 爆発（ドリル） | 入った RP | 研究パネル | RP 不足の月 | お題 | 依頼状待ち | 掘りきり | 掘り残し（マス） |');
   out.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const p of pols) {
     const runs = rep.runs.filter((r) => r.policy === p);
@@ -3779,7 +3788,7 @@ export function digObservations(rep: Report2): string {
       const m = (f: (d: DigRec) => number) => Math.round(mean(rs.map((x) => f(x.dig))));
       const tops = rs.map((x) => x.dig.topicsAt).filter((v): v is number => v != null);
       out.push(
-        `| ${POLICY_NAME[p]} | ${sectorName(id)} | ${m((d) => d.runs)} | ${mean(rs.map((x) => x.dig.permits)).toFixed(1)} | ${m((d) => d.mid)} | ${m((d) => d.auto)} | ${m((d) => d.blast)} | ${m((d) => d.rp)} | ${m((d) => d.research)} | ${m((d) => d.rpBlocked)} | ${tops.length ? `${mean(tops).toFixed(1)}（${tops.length}/${rs.length}）` : '—'} | ${m((d) => d.letterWait)} | ${mean(rs.map((x) => x.dig.done)).toFixed(1)} | ${m((d) => d.left)} |`,
+        `| ${POLICY_NAME[p]} | ${sectorName(id)} | ${m((d) => d.runs)} | ${mean(rs.map((x) => x.dig.permits)).toFixed(1)} | ${m((d) => d.mid)} | ${m((d) => d.auto)} | ${m((d) => d.blast)}（${m((d) => d.drill ?? 0)}） | ${m((d) => d.rp)} | ${m((d) => d.research)} | ${m((d) => d.rpBlocked)} | ${tops.length ? `${mean(tops).toFixed(1)}（${tops.length}/${rs.length}）` : '—'} | ${m((d) => d.letterWait)} | ${mean(rs.map((x) => x.dig.done)).toFixed(1)} | ${m((d) => d.left)} |`,
       );
     }
   }

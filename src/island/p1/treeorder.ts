@@ -1,6 +1,7 @@
 /**
  * スキルツリーの並びの入れ替え（組の key → パネルの id の並び。treelayout.ts の POOLS）。
- * つながりの線が交わらないように選んだもの。tests/island-p1-treeorder.test.ts（ISLAND_TREE_OPT=1・ISLAND_TREE_LINKS=1）が書く。手で直さない。
+ * つながりの線が交わらないように選んだもの。tests/island-p1-treeorder.test.ts（ISLAND_TREE_OPT=1・ISLAND_TREE_LINKS=1）が書く。手で直さない
+ * （段 DIG3：発掘の枝に「貫通」を足したぶんは、R&D の組だけを総当たりで直した：研究の目利きを 4 段目・発掘隊の手際を 5 段目へ・外周の掘る力 ∞ と発掘の速さ ∞ を入れ替え）。
  */
 export const TREE_ORDER: Record<string, string[]> = {
   'marketing|C|0': ['d_ops'],
@@ -61,9 +62,9 @@ export const TREE_ORDER: Record<string, string[]> = {
   'rnd|C|0': ['dig_ext'],
   'rnd|C|1': ['dig_power', 'dig_lamp'],
   'rnd|C|2': ['dig_speed', 'dig_deep', 'dig_office'],
-  'rnd|C|3': ['dig_reach', 'dig_blast', 'dig_crew'],
-  'rnd|C|4': ['dig_drill', 'dig_study'],
-  'rnd|U': ['u_dig_power2', 'u_dig_reach_inf', 'u_dig_auto', 'u_dig_mat', 'u_dig_ext2', 'u_dig_speed_inf', 'u_dig_power_inf', 'u_dig_route', 'u_dig_relay'],
+  'rnd|C|3': ['dig_reach', 'dig_blast', 'dig_study'],
+  'rnd|C|4': ['dig_pierce', 'dig_drill', 'dig_crew'],
+  'rnd|U': ['u_dig_power2', 'u_dig_reach_inf', 'u_dig_auto', 'u_dig_mat', 'u_dig_ext2', 'u_dig_power_inf', 'u_dig_speed_inf', 'u_dig_route', 'u_dig_relay'],
   'legal|E': ['lg_counsel', 'lg_patent', 'lg_dd', 'lg_template'],
   'hr|C|0': ['hire'],
   'hr|C|1': ['slots', 'manual'],
