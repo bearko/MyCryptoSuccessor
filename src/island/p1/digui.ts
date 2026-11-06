@@ -6,7 +6,7 @@
  *   **発掘作業のあいだは時間を止めない**（憲章 1-2 の例外）。シート（screens.ts の open）ではなく、全部を覆う画面。
  * - 正面の壁（横 7 × 縦 9）：マスを叩くと手前の層から 1 枚ずつはがれる（どのマスも最初から叩ける。奥ほど硬い）。
  *   埋まっているものは、ひびの隙間から少しずつ見える（覗き見）。2 × 2 の大きいもの（Epic 以上）は 4 マスとも掘ると取れる。
- * - 片手のタップで 1 打、長押しで同じマスを連続で打つ（回数の制限は無い。打てるのは作業のあいだだけ）。
+ * - 段 DIG3：なぞって掘る。PC はカーソルを当てたマスを自動で打ち続け、スマホは指でなぞった所を掘る（回数の制限は無い。打てるのは作業のあいだだけ）。
  * - 時間切れか「発掘を終える」で、画面の中に「発掘終了」の札（今回の出土）。月をまたいでいたら、そのあと main.ts がまとめ報告を出す。
  * - 出土の演出は 1 つだけ大きく（憲章 3）：はがれたら小さく砕ける粒、エクステは画面の中央に大きく出て研究ノートのボタンへ吸い込まれる、
  *   お題と大きな遺物（2 × 2）は画面全体。石板は読み物の小さな窓。
@@ -823,6 +823,20 @@ const cellAt = (x: number, y: number) => {
 function showHits(hits: DigHit[], wasBlast: boolean, wasDrill = false) {
   const p = P!;
   const big = biggestFx(hits);
+  // 段 DIG3：数字の飛び（減らした硬さ。会心は金色で大きく・貫通は青・隣への力は小さく薄く）
+  hits.forEach((hit, n) => {
+    if (!hit.dmg || hit.dmg >= 1e6) return;
+    const c = cellAt(hit.x, hit.y);
+    if (!c) return;
+    const r = c.getBoundingClientRect();
+    const pr = p.el.getBoundingClientRect();
+    const f = h('b', `isl-dig-dmg ${hit.crit ? 'is-crit' : ''} ${hit.pierce ? 'is-pierce' : ''} ${hit.splash ? 'is-splash' : ''}`, `${hit.pierce ? '↓' : ''}${Math.round(hit.dmg * 10) / 10}`);
+    f.style.left = `${r.left - pr.left + r.width * (hit.pierce ? 0.72 : 0.5)}px`;
+    f.style.top = `${r.top - pr.top + r.height * (hit.pierce ? 0.55 : 0.35)}px`;
+    f.style.animationDelay = `${Math.min(3, n) * 40}ms`;
+    p.el.append(f);
+    window.setTimeout(() => f.remove(), 700);
+  });
   // 会心（2 倍）：マスの上に「会心！」
   for (const hit of hits.filter((x) => x.crit)) {
     const c = cellAt(hit.x, hit.y);

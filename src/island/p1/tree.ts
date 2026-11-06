@@ -304,7 +304,7 @@ function infText(s: P1State, k: Skill, lv: number): string {
   if (k.inf === 'power') return String(v);
   return `${Math.round(v * 100)}%`;
 }
-const INF_LABEL = { speed: () => t('長押しの間隔', 'Hold-strike interval'), power: () => t('1 打の強さ', 'Strike power'), reach: () => t('1 回り大きくなる確率', 'Chance of one size bigger') };
+const INF_LABEL = { speed: () => t('打つ間隔', 'Strike interval'), power: () => t('1 打の強さ', 'Strike power'), reach: () => t('1 回り大きくなる確率', 'Chance of one size bigger') };
 /** 足りないぶん（RP・資金）。RP は発掘でしか貯まらないので、どこで貯まるかも添える */
 const shortOf = (s: P1State, k: Skill) => (isResearch(k) ? t(`あと ${rpCost(k) - (s.rp ?? 0)} RP（発掘で貯まる）`, `${rpCost(k) - (s.rp ?? 0)} RP short (earn RP by digging)`) : t(`あと ${money(k.cost - s.money)} 足りない`, `${money(k.cost - s.money)} short`));
 /** 区分の 1 行：◇ 研究パネル（レベルなし。枝の色の 1 本の枠）／◈ お金パネル（Lv 3 / 5。金の二重の枠）。枠の印と文字で（色だけに頼らない） */

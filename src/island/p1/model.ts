@@ -6866,10 +6866,14 @@ function strike(s: P1State, L: DigLayout, x: number, y: number, power: number): 
   const layer = st.depth[k];
   const hit: DigHit = { x, y, layer, broke: false, depth: layer, left: st.hp[k], item: null, rp: 0 };
   if (layer >= L.depth || st.hp[k] <= 0) return hit;
+  const before = st.hp[k];
   // 隣への力（広く掘る）は端数になるので、小数 2 桁で丸める
   st.hp[k] = Math.max(0, Math.round((st.hp[k] - power) * 100) / 100) || 0;
   hit.left = st.hp[k];
+  hit.dmg = Number.isFinite(power) ? Math.round(Math.min(power, before) * 100) / 100 : before;
   if (st.hp[k] > 0) return hit;
+  // 段 DIG3：層の硬さを超えて余った力（貫通で下の層へ）
+  if (Number.isFinite(power)) hit.over = Math.max(0, Math.round((power - before) * 100) / 100);
   const f = findAt(s, L, k, layer);
   if (f && f.size[0] * f.size[1] > 1) {
     // 大きいもの（2 × 2）：範囲の 4 マスとも、その層を叩いて 0 にするまで待つ
@@ -6969,12 +6973,36 @@ export function reachCells(s: Pick<P1State, 'skills' | 'skillLv' | 'dig'>, x: nu
 export const reachCount = (lv: number) => (lv <= 0 ? 1 : 1 + REACH_DIRS[DT.reachDir[Math.min(5, lv) - 1]].length);
 /** マス k のいまの層を打てる（いちばん奥まで掘っていない・掘ってよい層・待っていない） */
 const open1 = (s: P1State, L: DigLayout, st: DigSiteState, k: number) => st.depth[k] < L.depth && st.hp[k] > 0 && layerOpen(s, L, st.depth[k]);
-/** 1 打（会心・広く掘るを含む）：そのマスを power で打ち、隣のマスの いまの層 にも力の一部（掘ってよい層のマスだけ） */
+/** 段 DIG3：貫通（打った力が層の硬さを超えたぶんを、下の層へ持ち越す割合。Lv0 は 0） */
+export const pierceRate = (s: Pick<P1State, 'skills' | 'skillLv'>) => fxSum(s, 'dig.pierce');
+/**
+ * 段 DIG3：貫通。(x, y) の層がはがれて余った力 over のうち pierceRate を、同じマスの次の層へ（はがれればさらに次へ。持ち越しが 0.01 未満・
+ * 掘ってよい層でない・2 × 2 を待つ・掘りきったら止まる）。打った結果は hit.extra に（pierce）
+ */
+function pierce(s: P1State, L: DigLayout, x: number, y: number, hit: DigHit) {
+  const pr = pierceRate(s);
+  if (pr <= 0 || !hit.broke) return;
+  const st = siteState(s, L.site)!;
+  const k = y * L.w + x;
+  let over = hit.over ?? 0;
+  for (let guard = 0; guard < L.depth; guard++) {
+    const carry = Math.round(over * pr * 100) / 100;
+    if (carry < 0.01 || hit.done || !open1(s, L, st, k)) return;
+    const h2 = strike(s, L, x, y, carry);
+    h2.pierce = true;
+    (hit.extra ??= []).push(h2);
+    if (h2.done) hit.done = true;
+    if (!h2.broke) return;
+    over = h2.over ?? 0;
+  }
+}
+/** 1 打（会心・貫通・広く掘るを含む）：そのマスを power で打ち、余った力は下の層へ（貫通）、隣のマスの いまの層 にも力の一部（掘ってよい層のマスだけ） */
 function strikeAt(s: P1State, L: DigLayout, x: number, y: number, power: number): DigHit {
   const crit = rollCrit(s);
   const p = crit ? power * DT.critMul : power;
   const hit = strike(s, L, x, y, p);
   if (crit) hit.crit = true;
+  pierce(s, L, x, y, hit);
   const lv = lvOf(s, 'dig_reach');
   const r = fxSum(s, 'dig.reach');
   if (lv > 0 && r > 0) {

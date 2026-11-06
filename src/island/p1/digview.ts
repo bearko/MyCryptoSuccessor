@@ -20,6 +20,7 @@ import {
   lvOf,
   researchCap,
   researchCapped,
+  reachCount,
   ringOpen,
   sessionSec,
   skillLock,
@@ -35,7 +36,6 @@ import {
   peekView,
   researchLeft,
   researchOf,
-  speed,
   topicProgress,
   siteProgress,
   depthLimit,
@@ -178,7 +178,11 @@ function recText(s: P1State, k: Skill, lv: number, cost: number): string {
       return p > digPower(s) ? t(`${head}で 1 打の強さ ${p} に`, `${head}: strike power ${p}`) : t(`${head}で 会心 ${Math.round(lvAt(TR.crit, lv) * 100)}%`, `${head}: ${Math.round(lvAt(TR.crit, lv) * 100)}% critical`);
     }
     case 'dig_speed':
-      return t(`${head}で 長押し ${DIG_BALANCE.repeatMs - lvAt(TR.repeat, lv)} ms ごとに`, `${head}: hold every ${DIG_BALANCE.repeatMs - lvAt(TR.repeat, lv)} ms`);
+      return t(`${head}で ${DIG_BALANCE.repeatMs - lvAt(TR.repeat, lv)} ms ごとに打つ`, `${head}: strike every ${DIG_BALANCE.repeatMs - lvAt(TR.repeat, lv)} ms`);
+    case 'dig_reach':
+      return t(`${head}で 効く範囲 ${reachCount(lv)} マス`, `${head}: ${reachCount(lv)} cells per strike`);
+    case 'dig_pierce':
+      return t(`${head}で 貫通 ${Math.round(lvAt(TR.pierce, lv) * 100)}%`, `${head}: pierce ${Math.round(lvAt(TR.pierce, lv) * 100)}%`);
     case 'dig_deep': {
       const tier = L?.tier ?? 'C';
       const n = Math.max(TR.deep[tier][Math.min(5, lv)], deepLayers(s, tier));
