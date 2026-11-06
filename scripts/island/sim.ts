@@ -1985,7 +1985,7 @@ function knowTarget(s: P1State, c: Ctx): [number, number] | null {
 }
 
 /** 覗き見が出ているマス（お題 → 石板 → エクステ → 素材。手前のものほど先）→ 取りかけ・浅いマス（digNext） */
-function sweepTarget(s: P1State): [number, number] | null {
+function sweepTarget(s: P1State, rule = 0): [number, number] | null {
   const L = digSite(s);
   if (!L || !s.dig) return null;
   let best: [number, number] | null = null;
@@ -2004,7 +2004,7 @@ function sweepTarget(s: P1State): [number, number] | null {
       best = [x, y];
     }
   }
-  return best ?? digNext(s);
+  return best ?? digNext(s, false, false, rule);
 }
 
 /**
@@ -2030,7 +2030,8 @@ function deepTarget(s: P1State): [number, number] | null {
   }
   return best;
 }
-const digTarget = (s: P1State, c: Ctx) => (s.digRun?.site === DUNGEON ? deepTarget(s) : SIM_DIG[c.policy].target === 'know' ? knowTarget(s, c) : sweepTarget(s));
+// 調整 v44（段 DIG3）：100% は覗き見の無いときに埋まっている爆弾のマスを先に掘る（掘りきりまで待つ方針なので、爆発で壁をまとめて崩す。前は火薬代で発破を打っていた）
+const digTarget = (s: P1State, c: Ctx) => (s.digRun?.site === DUNGEON ? deepTarget(s) : SIM_DIG[c.policy].target === 'know' ? knowTarget(s, c) : sweepTarget(s, c.policy === 'full' ? 4 : 0));
 
 /** 手で n 回まで打つ（段 DIG3：爆弾を掘り出せば勝手に爆発する。爆発の数を rec.blast に）。打った数を返す */
 function handDig(s: P1State, c: Ctx, n: number, rec: DigRec): number {
