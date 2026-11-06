@@ -2350,6 +2350,30 @@ for (const k of SKILLS) {
   if (r.length) k.requires = [...r];
   else delete k.requires;
 }
+/**
+ * 段 L0：序盤の自動化のパネル（リーダー・部長の代わりに、自分で取って回す仕組み）を取りやすく。値段を下げるだけ（上げない）。
+ * 研究パネルは RP（rp）・お金のパネルは G（cost）。前と後の表は docs/ISLAND_BALANCE.md の v45。
+ * 先に要るパネルは変えない（スキルツリーの線の交わりを 0 にした並び：treelinks.ts を崩さない）
+ */
+export const L0_PANELS: Record<string, { rp?: number; cost?: number }> = {
+  timetable: { rp: 30 },
+  relief: { rp: 30 },
+  abc: { rp: 40 },
+  pos: { cost: 4000 },
+  auto_order: { rp: 60 },
+  mgr: { rp: 80 },
+  flow: { rp: 50 },
+  u_dig_auto: { rp: 90 },
+};
+/** 段 L0 の前の値段（表・テスト用） */
+export const L0_PANELS_BEFORE: Record<string, { rp: number; cost: number }> = {};
+for (const [id, v] of Object.entries(L0_PANELS)) {
+  const k = SKILLS.find((x) => x.id === id);
+  if (!k) continue;
+  L0_PANELS_BEFORE[id] = { rp: k.rp ?? 0, cost: k.cost };
+  if (v.rp != null) k.rp = Math.min(k.rp ?? v.rp, v.rp);
+  if (v.cost != null) k.cost = Math.min(k.cost, v.cost);
+}
 /** 研究パネルの値段（RP。お金パネルは 0） */
 export const rpCost = (k: Skill) => (isResearch(k) ? (k.rp ?? 0) : 0);
 
@@ -3656,6 +3680,10 @@ export const MISSIONS: Mission[] = [
   { id: 'lantern50', from: t('駅長', 'Stationmaster'), title: t('夜道を明るく', 'Light up the night'), text: t('ひと月にランタンを 10 個売る', 'Sell 10 Lanterns in one month'), reward: 3000 },
   { id: 'uncommon', from: t('収集家', 'A collector'), title: t('めずらしい品を', 'Something rare'), text: t('アンコモンを合わせて 5 個売る', 'Sell 5 Uncommons in total'), reward: 5000, rp: 40 },
   { id: 'rank3', from: t('商店会', 'Merchants’ association'), title: t('エリアの顔に', 'Face of the area'), text: t('月の報告でエリア 3 位以内に入る', 'Finish a month in the area top 3'), reward: 5000, rp: 40 },
+  // 段 L0：序盤の自動化を自分で取って覚える依頼（リーダー・部長は Uncommon・Rare から。報酬は Common の依頼の段）
+  { id: 'm_edi', from: t('卸問屋', 'The wholesaler'), title: t('注文を待たずに', 'No more waiting on orders'), text: t('スキルツリーで「自動発注（EDI）」を研究する', 'Research “Auto-ordering (EDI)” in the skill tree'), reward: 3000 },
+  { id: 'm_relief', from: t('卸問屋', 'The wholesaler'), title: t('休みの日も買い付けを', 'Buying on days off too'), text: t('「調達の交代要員」を研究して、調達係を 2 人にする', 'Research “Relief buyer” and have 2 buyers'), reward: 3000 },
+  { id: 'm_timetable', from: t('荷車の親方', 'The cart master'), title: t('便を止めない', 'Keep the runs going'), text: t('「定期便の時刻表」を研究する', 'Research “Scheduled runs”'), reward: 2000 },
   // セクタの依頼（そのセクタでだけ受けられる。id はセーブと繋がる）
   // 湖・丘の依頼は、そのセクタの「まだ誰も売っていない」商品（ランタン・マレットは他店で供給が足りているので、ゴブレット・ナイフに）
   { id: 'c2_goblet', sector: 'c2', from: t('湖の宿', 'The lakeside inn'), title: t('湖畔で乾杯', 'A toast by the lake'), text: t('ひと月にゴブレットを 10 個売る', 'Sell 10 Goblets in one month'), reward: 4000, rp: 40 },

@@ -2652,6 +2652,13 @@ export function missionMet(s: P1State, id: string): boolean {
       return ADS.some((a) => (s.ads[a.id] ?? 0) > 0);
     case 'two_shops':
       return myShops(s).length >= 2;
+    // 段 L0：序盤の自動化を自分で取る依頼
+    case 'm_edi':
+      return has(s, 'auto_order');
+    case 'm_relief':
+      return has(s, 'relief') && s.staff.filter((x) => x.task === 'buy').length >= 2;
+    case 'm_timetable':
+      return has(s, 'timetable');
     case 'research':
       return Object.keys(s.intel).some((r) => intelLv(s, r) >= 1);
     case 'lantern50':
@@ -2713,6 +2720,8 @@ export function missionProgress(s: P1State, id: string): [number, number] | null
       return [Math.min(5, s.unitsU), 5];
     case 'two_shops':
       return [Math.min(2, myShops(s).length), 2];
+    case 'm_relief':
+      return [Math.min(2, s.staff.filter((x) => x.task === 'buy').length), 2];
     case 'c3_knife':
       return [Math.min(10, s.sector === 'c3' ? (s.monthUnits.Knife ?? 0) : 0), 10];
     case 'c2_goblet':

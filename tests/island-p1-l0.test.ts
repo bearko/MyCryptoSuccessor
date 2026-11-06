@@ -320,3 +320,45 @@ describe('地図の印（2）', () => {
     expect(tipPanels(s).has('display')).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------- 3. 序盤の自動化を「自分で取る」遊びに
+import { L0_PANELS, L0_PANELS_BEFORE, MISSIONS, SKILL } from '../src/island/p1/data';
+import { accept, missionMet, missionProgress } from '../src/island/p1/model';
+
+describe('序盤の自動化のパネル・依頼（3）', () => {
+  it('序盤の自動化のパネルは値段を下げるだけ（RP・G を上げない）。data.ts の 1 か所', () => {
+    expect(Object.keys(L0_PANELS).length).toBeGreaterThanOrEqual(5);
+    for (const [id, v] of Object.entries(L0_PANELS)) {
+      const k = SKILL[id];
+      const b = L0_PANELS_BEFORE[id];
+      expect(k, id).toBeTruthy();
+      expect(k.rp ?? 0).toBeLessThanOrEqual(b.rp);
+      expect(k.cost).toBeLessThanOrEqual(b.cost);
+      if (v.rp != null) expect(k.rp).toBe(v.rp);
+      if (v.cost != null) expect(k.cost).toBe(v.cost);
+    }
+  });
+  it('序盤の自動化を覚える依頼（自動発注・交代要員・定期便）：取ると達成。報酬は Common の依頼の段（3,000 G まで）', () => {
+    const ids = ['m_edi', 'm_relief', 'm_timetable'];
+    for (const id of ids) {
+      const m = MISSIONS.find((x) => x.id === id)!;
+      expect(m, id).toBeTruthy();
+      expect(m.reward).toBeLessThanOrEqual(3000);
+      expect(m.sector).toBeUndefined();
+    }
+    const s = newP1(1);
+    expect(missionMet(s, 'm_edi')).toBe(false);
+    s.skills.push('auto_order', 'timetable');
+    expect(missionMet(s, 'm_edi')).toBe(true);
+    expect(missionMet(s, 'm_timetable')).toBe(true);
+    s.skills.push('relief');
+    const [a, b] = s.staff;
+    a.task = 'buy';
+    expect(missionMet(s, 'm_relief')).toBe(false);
+    expect(missionProgress(s, 'm_relief')).toEqual([1, 2]);
+    b.task = 'buy';
+    expect(missionMet(s, 'm_relief')).toBe(true);
+    expect(accept(s, 'm_relief')).toBeNull();
+    expect(s.missions.m_relief).toBe('done');
+  });
+});
