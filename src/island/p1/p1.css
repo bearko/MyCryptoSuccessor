@@ -16866,3 +16866,146 @@ button.isl-dband-lead.is-on {
   margin: 2px 0 6px;
   font-size: 12px;
 }
+
+/* ================================================================ 段 MAP1：街づくりの見える化（文字より色・形・動き） */
+/* 1・2：地図の右下（ズームの下）の「🔗 流れ」「🏪 商圏」と凡例（赤＝自店の商圏・青＝他店・橙＝調達・青線＝輸送） */
+.isl-viz {
+  position: absolute;
+  right: calc(var(--rail-w, 0px) + 8px);
+  top: calc(46% + 96px);
+  z-index: 2;
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+.isl-viz[hidden] {
+  display: none !important;
+}
+.isl-viz .isl-btn {
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+.isl-viz .isl-btn.is-on {
+  opacity: 1;
+}
+.isl-viz-legend {
+  display: grid;
+  gap: 2px;
+  padding: 4px 8px;
+  border: 2px solid var(--isl-line);
+  background: var(--isl-panel);
+  font-size: 12px;
+}
+.isl-viz-legend[hidden] {
+  display: none;
+}
+.isl-viz-key {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.isl-viz-key i {
+  display: inline-block;
+  width: 18px;
+  height: 10px;
+}
+.isl-viz-key .isl-viz-mine {
+  background: rgba(240, 86, 90, 0.55);
+  border: 1px solid #f0565a;
+}
+.isl-viz-key .isl-viz-rival {
+  background: rgba(79, 143, 230, 0.45);
+  border: 1px solid #4f8fe6;
+}
+.isl-viz-key .isl-viz-supply {
+  height: 0;
+  border-top: 3px dashed #f39a3c;
+}
+.isl-viz-key .isl-viz-haul {
+  height: 0;
+  border-top: 3px dashed #7cc6f2;
+}
+@media (max-width: 599px) {
+  .isl-viz {
+    top: auto;
+    bottom: calc(var(--foot-h, 60px) + 100px);
+  }
+  .isl-viz-legend {
+    display: none;
+  }
+}
+/* 3：置くモードの固定バーの「見込み N 軒・被り N」「工房から N 日」 */
+.isl-place-heat {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.isl-place-heat b {
+  color: var(--isl-gold);
+}
+/* 4：吹き出し。アクションのボタンは下部に固定・大きく（中身だけスクロール）。PC では建物の左か右に出す */
+.isl-pop-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.isl-pop-acts-fix {
+  position: sticky;
+  bottom: 0;
+  flex: none;
+  display: grid;
+  gap: 6px;
+  padding: 8px 12px 10px;
+  border-top: 2px solid var(--isl-line);
+  background: rgba(29, 42, 68, 0.97);
+}
+.isl-pop-acts-fix[hidden] {
+  display: none;
+}
+.isl-pop-acts-fix .isl-pop-acts .isl-btn {
+  flex: 1 1 auto;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.isl-pop.is-side-l .isl-pop-tail,
+.isl-pop.is-side-r .isl-pop-tail {
+  top: 0;
+  margin-left: 0;
+  margin-top: -11px;
+  border: 11px solid transparent;
+  border-bottom: 11px solid transparent;
+}
+.isl-pop.is-side-r .isl-pop-tail {
+  left: -12px;
+  border-left: 0;
+  border-right: 12px solid var(--isl-line);
+}
+.isl-pop.is-side-l .isl-pop-tail {
+  left: auto;
+  right: -12px;
+  border-right: 0;
+  border-left: 12px solid var(--isl-line);
+}
+.isl-pop.is-side-r .isl-pop-tail::after,
+.isl-pop.is-side-l .isl-pop-tail::after {
+  left: auto;
+  top: -9px;
+  border: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+}
+.isl-pop.is-side-r .isl-pop-tail::after {
+  left: 3px;
+  border-left: 0;
+  border-right: 10px solid rgba(29, 42, 68, 0.97);
+}
+.isl-pop.is-side-l .isl-pop-tail::after {
+  right: 3px;
+  border-right: 0;
+  border-left: 10px solid rgba(29, 42, 68, 0.97);
+}
