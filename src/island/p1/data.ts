@@ -1147,7 +1147,7 @@ export type FxKind =
  * 発掘の枝の効き目（docs/ISLAND_PHASE1.md「発掘のスキルツリー」）。値はレベルごとの表（Fx.at）で書く（Lv で素直に比例しないため）。
  * fxSum で合計を読む（発掘作業の長さ・1 打の強さ・会心・長押しの間隔・隣への力・隊の速さ・常駐の速さ・交代制・素材）
  */
-export type DigFxKind = 'dig.sec' | 'dig.power' | 'dig.crit' | 'dig.repeat' | 'dig.reach' | 'dig.crew' | 'dig.autoSpeed' | 'dig.relay' | 'dig.mat';
+export type DigFxKind = 'dig.sec' | 'dig.power' | 'dig.crit' | 'dig.repeat' | 'dig.reach' | 'dig.pierce' | 'dig.crew' | 'dig.autoSpeed' | 'dig.relay' | 'dig.mat';
 export interface Fx {
   kind: FxKind;
   v: number;
@@ -1176,7 +1176,7 @@ export interface Shown {
 /** 数で足す効き目（ロット・ブランド力）：レベルで 1 ずつ（v × lv）。このパネルは最大 3 */
 export const FX_LIN: FxKind[] = ['lot', 'brand'];
 /** 下げる効き目（表示で −） */
-export const FX_DOWN: FxKind[] = ['craftDays', 'haulDays', 'matPrice', 'buyDays', 'stamina', 'wage', 'upkeep', 'rally', 'dig.relay'];
+export const FX_DOWN: FxKind[] = ['craftDays', 'haulDays', 'matPrice', 'buyDays', 'stamina', 'wage', 'upkeep', 'rally'];
 /** fx の種類の表示名 */
 export const FX_LABEL: Record<FxKind, string> = {
   pull: t('すべてのお店の売り場の強さ', 'All shops’ pull'),
@@ -1204,11 +1204,12 @@ export const FX_LABEL: Record<FxKind, string> = {
   'dig.sec': t('1 回の発掘作業', 'Each dig run'),
   'dig.power': t('1 打の強さ', 'Strike power'),
   'dig.crit': t('会心（2 倍）の確率', 'Critical (×2) chance'),
-  'dig.repeat': t('長押しの間隔', 'Hold-strike interval'),
+  'dig.repeat': t('打つ間隔', 'Strike interval'),
   'dig.reach': t('隣のマスへの力', 'Power to neighbours'),
-  'dig.crew': t('発掘隊の 1 日に打つ回数', 'Dig crew strikes a day'),
+  'dig.pierce': t('貫通（余った力を奥の層へ）', 'Pierce (spare power carries deeper)'),
+  'dig.crew': t('発掘隊の 1 打の強さ', 'Dig crew strike power'),
   'dig.autoSpeed': t('常駐の速さ', 'Standing crew speed'),
-  'dig.relay': t('常駐で働く日のスタミナの消耗', 'Stamina drain on standing days'),
+  'dig.relay': t('常駐で働く日の打つ数', 'Standing-day strikes'),
   'dig.mat': t('掘り出した素材', 'Materials dug up'),
 };
 /** 発掘の枝の効き目の単位（% でないもの）と、そのものの値で見せるもの（長押しの間隔：170 ms から引いた値） */
@@ -1764,7 +1765,7 @@ export const DIG_BALANCE: {
     rpLv: { lv: 2, keep: { dig_deep: 5, dig_study: 5, dig_office: 5 } },
     // 調整 v25c：Common の発掘のパネルの RP（前は Common の研究パネルの段 20〜80 で合計 550 → 合計 210）。
     // Common の RP をほかの研究に回せるように（v25b で Common が +9〜12% 遅くなった）。Uncommon の 6 枚は段の自動の値段（60〜180）のまま
-    rp: { dig_ext: 15, dig_lamp: 25, dig_deep: 40, dig_power: 10, dig_office: 15, dig_speed: 15, dig_blast: 20, dig_crew: 25, dig_reach: 30, dig_drill: 30, dig_study: 35 },
+    rp: { dig_ext: 15, dig_lamp: 25, dig_deep: 40, dig_power: 10, dig_office: 15, dig_speed: 15, dig_blast: 20, dig_crew: 25, dig_reach: 30, dig_pierce: 30, dig_drill: 30, dig_study: 35 },
   },
   // 発掘作業：15 秒（現実の秒）・長押し 0.17 秒ごと
   sessionSec: 15,
@@ -1981,7 +1982,12 @@ export const DIG_SKILLS: Skill[] = [
     requires: ['dig_ext'],
     show: [dShow(t('発掘隊の上限', 'Crew limit'), DT.office.slice(1).map((n) => t(`${n} 人`, `${n}`)))],
   }),
-  dig_('dig_crew', t('発掘隊の手際', 'Skilled crew'), t(`発掘隊の 1 日に打つ回数 +${pct(at1(DT.crew, 'dig_crew'))}%`, `Dig crew strikes a day +${pct(at1(DT.crew, 'dig_crew'))}%`), { requires: ['dig_office'], fx: [{ kind: 'dig.crew', v: DT.crew[0], at: DT.crew }] }),
+  // 段 DIG3：発掘隊はシャドーヒーロー（名前のない隊員）。このパネルの段で 人数（＝段。役所の上限まで）・1 打の強さ・行動規則
+  dig_('dig_crew', t('発掘隊の手際', 'Skilled crew'), t(`発掘隊（名前のない隊員）が作業のあいだ 1 人 1 日 3 打ぶん手伝う：隊員 ${rl('dig_crew')} 人・1 打の強さ +${pct(at1(DT.crew, 'dig_crew'))}%・行動規則「${CREW_RULE[rl('dig_crew')]}」`, `A crew of nameless diggers helps 3 strikes a day each while you dig: ${rl('dig_crew')} diggers, strike power +${pct(at1(DT.crew, 'dig_crew'))}%, behaviour “${CREW_RULE[rl('dig_crew')]}”`), {
+    requires: ['dig_office'],
+    fx: [{ kind: 'dig.crew', v: DT.crew[0], at: DT.crew }],
+    show: [dShow(t('隊員の数', 'Diggers'), [1, 2, 3, 4, 5].map((n) => t(`${n} 人`, `${n}`))), dShow(t('行動規則', 'Behaviour'), CREW_RULE.slice(1))],
+  }),
   // Uncommon の外周
   dig_('u_dig_ext2', t('長期の発掘許可', 'Long-term dig permit'), t(`1 回の発掘作業 さらに +${at1(DT.ext2, 'u_dig_ext2')} 秒（最大 ${DT.maxSec} 秒）`, `Each dig run +${at1(DT.ext2, 'u_dig_ext2')} s more (max ${DT.maxSec} s)`), { tier: 'U', emblem: 1, requires: ['dig_ext'], reqLv: { dig_ext: 5 }, fx: [{ kind: 'dig.sec', v: DT.ext2[0], at: DT.ext2 }] }),
   dig_('u_dig_auto', t('発掘隊の常駐（自動化）', 'Standing dig crew'), t(`作業していない日も、許可のある荒れ地を発掘隊が掘る（作業中の速さの ${pct(at1(DT.auto, 'u_dig_auto'))}%）。出土品・RP・研究は手で掘ったのと同じ。スタミナは減る`, `On days you are not digging, the crew digs permitted wastelands (${pct(at1(DT.auto, 'u_dig_auto'))}% of the in-run pace). Finds, RP and research count the same. They tire`), {
@@ -1998,12 +2004,13 @@ export const DIG_SKILLS: Skill[] = [
     fx: [{ kind: 'dig.autoSpeed', v: DT.autoSpeed[0], at: DT.autoSpeed }],
     show: [dShow(t('マスの選び方', 'Targeting'), [t('お題の気配を優先', 'targets first'), t('お題の気配を優先', 'targets first'), t('＋研究 Lv の低いもの', '+ low research'), t('＋研究 Lv の低いもの', '+ low research'), t('＋重なりを避ける', '+ avoid maxed')])],
   }),
-  dig_('u_dig_relay', t('常駐の交代制', 'Crew shifts'), t(`常駐で働く日のスタミナの消耗 −${pct(at1(DT.relay, 'u_dig_relay'))}%`, `Stamina drain on standing days −${pct(at1(DT.relay, 'u_dig_relay'))}%`), { tier: 'U', requires: ['u_dig_auto'], fx: [{ kind: 'dig.relay', v: DT.relay[0], at: DT.relay }] }),
+  // 段 DIG3：隊員はシャドーヒーローでスタミナが無いので、交代制は「常駐で働く日の打つ数 +15%／Lv」に
+  dig_('u_dig_relay', t('常駐の交代制', 'Crew shifts'), t(`交代で休みながら掘るので、常駐で働く日の打つ数 +${pct(at1(DT.relay, 'u_dig_relay'))}%`, `Working in shifts, the standing crew strikes +${pct(at1(DT.relay, 'u_dig_relay'))}% more on idle days`), { tier: 'U', requires: ['u_dig_auto'], fx: [{ kind: 'dig.relay', v: DT.relay[0], at: DT.relay }] }),
   dig_('u_dig_mat', t('素材の選り分け', 'Material sorting'), t(`掘り出した素材 +${pct(at1(DT.mat, 'u_dig_mat'))}%（端数は持ち越し）`, `Materials dug up +${pct(at1(DT.mat, 'u_dig_mat'))}% (fractions carry over)`), { tier: 'U', fx: [{ kind: 'dig.mat', v: DT.mat[0], at: DT.mat }] }),
 ];
 SKILLS.push(...DIG_SKILLS);
 /**
- * 発掘の枝のパネル（17 枚）。以前はお金パネル（Lv1〜5）だったが、ランクアップの災害でお金のパネルが未取得に戻って遊びにくいので、
+ * 発掘の枝のパネル（18 枚）。以前はお金パネル（Lv1〜5）だったが、ランクアップの災害でお金のパネルが未取得に戻って遊びにくいので、
  * **研究パネル（RP で開く・レベルなし）** にした（値段は同じランクの研究パネルの RP の段。下の RP の決め方）。
  * 効き目は決まった段（調整 v25c：ふつう Lv3・深い層の許可・研究の目利き・発掘隊の役所は Lv5。DT.rpLv）：開いたとき skillLv をその段にする（model.ts の gainSkill）。
  * 値段は DT.rp（Common は決め打ちで安く）。無限の強化パネル・研究への寄付・発掘許可・発破とドリルの毎回の代金は、そのままお金
@@ -3480,6 +3487,12 @@ export const SECTOR_CHIEF: Record<string, number> = {
   e2: 15011, // 卑弥呼（種と土への祈り・掘りすぎない約束）
   e3: 15027, // ガリレオ・ガリレイ（空を見上げ、霧の向こうへ灯を送る塔）
 };
+
+/**
+ * 段 DIG3：発掘隊（名前のない隊員・シャドーヒーロー）の仮の絵：セクター長と同じ区分（replica の Common：RepC）のヒーローを 5 人ぶん。
+ * 隊員 n 番の絵は [n]。差し替えはここだけ（docs/ISLAND_ART_TODO.md「発掘隊の隊員」）
+ */
+export const DIG_CREW_HEROES: number[] = [12013, 12002, 12017, 12040, 12037];
 
 /** 到着の案内の「この町の地層には[[〇〇]]が眠っているはず」（docs/ISLAND_PHASE1.md「お題・発表・調査依頼状」） */
 export const DIG_THEME: Record<string, string> = {

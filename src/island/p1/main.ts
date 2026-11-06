@@ -169,7 +169,7 @@ import { openPolicyView } from './policyui';
 // 段 K3：経営方針発表会のカードの場面（boardui.ts の BOARD_SCENES に登録する）
 import './policycardsui';
 import { tileContent } from './tile';
-import { closeDig, debugTablet, digOpen, digRect, extIcon, openDig, openNotes, refreshDig, refreshTimer, showEndCard } from './digui';
+import { closeDig, debugTablet, digOpen, digRect, extIcon, noteCrewHits, openDig, openNotes, refreshDig, refreshTimer, showEndCard } from './digui';
 import { MEET_FOUND, MEET_LINES, canPresent, chiefHome, digMet, chiefOf, digSummary, letterToGet, lettersLeft, meetReady, meetTip, presentAfter, presentPages } from './digmeet';
 import { BUDGET_TALK, CHIP_SRC, CLEAR_LINE, FOOT_TALK, HIRE_LINES, RP_LINE, DUNGEON_LINE, GATE_LINES, LAND_CLEAR_LINE, MUSEUM_LINE, RANK_LINES, RELIC_LINE, REVIVE_LINE, SIDE_LINES, TOUR, arrivalPages, bubbleKind, chipOf, deptTalkNext, introPages, needsIntro, talkWaits, type ArrivePage, type TalkUi, type TourEv, type TourPhase } from './mine';
 import type { Stage } from './model';
@@ -4727,6 +4727,8 @@ function advance(days: number) {
       sfx.play('done');
     }
     if (r.crafted.length) sfx.play('craft');
+    // 段 DIG3：発掘隊（シャドーヒーロー）が打った：発掘画面の隊員を動かす
+    if (r.dug?.length) noteCrewHits(r.dug);
     const wsb = myWorkshop(s);
     if (wsb) for (const m of r.made) anim.plus.push({ uid: wsb.uid, n: m.n, t: anim.clock });
     // 段 FX2：工房の上で槌の火花（同じ工房は 1 秒に 1 つ）

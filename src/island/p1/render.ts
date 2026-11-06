@@ -9,7 +9,7 @@ import { center, diamond, drawArt, drawBuilding, drawCell, image, type Camera, t
 import { cells, frontCell, type Dir } from '../sim';
 import { PRODUCT, skuParts, type Sku } from './data';
 import { COIN_KEEP, COIN_MS, PLUS_MS, along, drawRing, drawWalker, floatText, type Anim } from './anim';
-import { DUNGEON, craftDays, doorOf, facilityStatus, ground, isRoad, isVacant, myWorkshop, roadPath, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
+import { DUNGEON, craftDays, doorOf, facilityStatus, ground, isRoad, isVacant, myWorkshop, reachOf, roadPath, siteProgress, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
 import { areaPaint, companyColor } from './trade';
 import { bounds, cacheScale, covered, drawBorders, drawWorld, roadAt, type World } from './worldrender';
 import { standing } from './digview';
@@ -275,6 +275,9 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
     if (s.dig?.dungeon?.site === k) items.push({ depth: (i0 + j0 + 2) * 1000 + i0 + 0.4, draw: () => dungeonGate(ctx, i0, j0, t0, now, s.digRun?.site === DUNGEON) });
     if (!st?.permit || st.done || s.digRun?.site === k) return;
     items.push({ depth: (i0 + j0) * 1000 + i0 + 0.3, draw: () => wasteFlag(ctx, i0, j0, now) });
+    // 段 DIG3：荒れ地の上の進捗の札「⛏ N%」（R1 の「発掘の見える化」の先取り。発掘隊が掘った進みが地図で分かる）
+    const pct = Math.round(siteProgress(s, k) * 100);
+    if (pct > 0 && !overview) items.push({ depth: (i0 + j0 + 2) * 1000 + i0 + 0.35, draw: () => wasteBadge(ctx, i0, j0, pct) });
   });
   if (ghost) {
     const def = DEF[ghost.id];
@@ -1089,6 +1092,31 @@ function dungeonGate(ctx: CanvasRenderingContext2D, i: number, j: number, t0: nu
   ctx.stroke();
 }
 /** 発掘許可の小さな旗（荒れ地の奥の角） */
+/** 段 DIG3：荒れ地の進捗の札（仮：コード描画の小さな札。docs/ISLAND_ART_TODO.md） */
+function wasteBadge(ctx: CanvasRenderingContext2D, i: number, j: number, pct: number) {
+  const p = wastePt(i, j, 1, 1);
+  const text = `⛏ ${pct}%`;
+  ctx.save();
+  ctx.font = '700 15px sans-serif';
+  const w = Math.ceil(ctx.measureText(text).width) + 14;
+  const x = Math.round(p.x - w / 2);
+  const y = Math.round(p.y - 2);
+  ctx.fillStyle = 'rgba(29, 20, 16, 0.85)';
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, 22, 6);
+  ctx.fill();
+  ctx.strokeStyle = pct >= 100 ? '#ffdb57' : '#f2c86a';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  // 進みのバー（札の下の線）
+  ctx.fillStyle = '#f2c86a';
+  ctx.fillRect(x + 4, y + 18, Math.round((w - 8) * Math.min(1, pct / 100)), 2);
+  ctx.fillStyle = '#fff3d6';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, p.x, y + 10);
+  ctx.restore();
+}
 function wasteFlag(ctx: CanvasRenderingContext2D, i: number, j: number, now: number) {
   const p = wastePt(i, j, 0.22, 0.22);
   const wave = Math.sin(now / 300) * 3;

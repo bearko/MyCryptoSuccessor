@@ -3,13 +3,14 @@
  * 画面は digui.ts。仕様は docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」の「15 秒の発掘」「発掘場の画面」「研究ノート」。
  */
 import { t } from '../../i18n';
-import { digRpLv, isResearch, rpCost, DIG, DIG_AUTO, DIG_BALANCE, DIG_PANELS, DIG_SITES, DUNGEON_FINDS, PRODUCT, isAntique, relicOf, relicSells, relicTier, RESEARCH_NEED, SKILL, TABLETS, levelCost, maxLv, type Skill, type Tablet, type Tier } from './data';
+import { digRpLv, isResearch, rpCost, DIG, DIG_AUTO, DIG_BALANCE, DIG_CREW_HEROES, DIG_PANELS, DIG_SITES, DUNGEON_FINDS, PRODUCT, isAntique, relicOf, relicSells, relicTier, RESEARCH_NEED, SKILL, TABLETS, levelCost, maxLv, type Skill, type Tablet, type Tier } from './data';
 import { sectorDef } from './company';
 import {
   autoRate,
-  blastCost,
   crewCap,
   crewMul,
+  crewRule,
+  crewSize,
   deepLayers,
   digBranchOpen,
   digDepthLayer,

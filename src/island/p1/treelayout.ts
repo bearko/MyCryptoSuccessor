@@ -90,7 +90,7 @@ const INNER: Record<string, string[][]> = {
   'logistics:tech': [['t_wood'], ['t_paper', 't_metal'], ['t_clay', 't_glass'], ['t_textile', 't_jewel', 't_master']],
   'logistics:buy': [['stock1'], ['bulk', 'route_cloth'], ['abc', 'swift', 'route_paper'], ['bulk2', 'stock2', 'eye', 'scoutmap'], ['stock3', 'relief', 'route_gem']],
   systems: [['pos'], ['auto_order', 'inventory']],
-  rnd: [['dig_ext'], ['dig_power', 'dig_lamp'], ['dig_speed', 'dig_office', 'dig_deep'], ['dig_reach', 'dig_crew', 'dig_blast'], ['dig_study', 'dig_drill']],
+  rnd: [['dig_ext'], ['dig_power', 'dig_lamp'], ['dig_speed', 'dig_office', 'dig_deep'], ['dig_reach', 'dig_blast', 'dig_study'], ['dig_pierce', 'dig_drill', 'dig_crew']],
   // 段 E2：面談（OJT の先）・キャリアの道すじ（インセンティブの先）
   hr: [['hire'], ['manual', 'slots'], ['ojt', 'incentive'], ['hr_talk', 'hr_career']],
   general: [['lounge'], ['shift'], ['welfare']],
