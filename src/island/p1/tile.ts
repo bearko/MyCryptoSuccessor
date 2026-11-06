@@ -7,7 +7,7 @@ import { DEF } from '../defs';
 import { INTEL, INVEST, MATS, P1B, PRODUCT, SELF_RUN, rivalDef, sku, skuParts, type Sku } from './data';
 import { DUNGEON, dungeonDepth, museumMarks, museumOpen, museumSlots, museumValue, revivedSites, permitFee, permitLock, presentLock, presentRes, researchOf, runLock, sessionSec, siteProgress, siteTopic, topicProgress, topicsOf, wasteAt, wasteName, extName, gateToll, invLv, isGate, poolCap, poolUsed, allowedDirs, assign, demolish, ground, invest, myWorkshop, order as placeOrder, LOT, intelLv, moveCost, occupant, oneWay, myShops, refundOf, shopArea, sidePay, speed, staffOf, storageCap, roomOf, type P1State, type PBuilding } from './model';
 import { pickExt, pickHero } from './heroui';
-import { ackOf, benchToChange, craftable, fieldPick, inTut, mainCands, ordersOf, shelfPicks, swapGain, weakShelf, type Order, type OrderBox } from './orders';
+import { ackOf, benchToChange, craftable, directOrder, fieldPick, inTut, mainCands, ordersOf, shelfPicks, swapGain, weakShelf, type Order, type OrderBox } from './orders';
 import { stockMsg, stockPlan } from './moves';
 import { execute, quality, type PropAct } from './deleg';
 import { applyPlan, manualPlan, planOf } from './plan';
@@ -311,6 +311,17 @@ function runOrder(ctx: Ctx, box: OrderBox, o: Order, b: PBuilding, hooks: TileHo
       }
       if (!act) return;
       const st = box.hero != null ? s.staff.find((x) => x.hero === box.hero) : null;
+      const plan = planOf(s, [act], { hero: box.hero, q: st ? quality(st, 'logistics') : undefined, dept: 'logistics' });
+      // 段 L0：Rare より前は提案書を挟まず、押した手をそのまま行う（お金の確認は残す）
+      const res = directOrder(s, plan);
+      if (res) {
+        if (res.err === 'money') return short(ctx, s, res.need);
+        if (!res.ok) return ctx.toast(t('いまはできません', 'Can’t do that now'));
+        ctx.sfx?.('spend');
+        ack(ctx, box.hero, res.did[0] ?? say.replace(/\[\[|\]\]/g, ''));
+        done();
+        return;
+      }
       hooks.close();
       openProposal(ctx, planOf(s, [act], { hero: box.hero, q: st ? quality(st, 'logistics') : undefined, dept: 'logistics' }), { say, role: box.role.text, rec: !!o.rec, done: () => hooks.redraw() });
       return;
@@ -403,6 +414,18 @@ function runOrder(ctx: Ctx, box: OrderBox, o: Order, b: PBuilding, hooks: TileHo
   }
 }
 const matName = (m: string) => MATS[m as keyof typeof MATS]?.name ?? m;
+
+/**
+ * 段 L0：地図の印（mapmarks.ts）を押したとき、その建物の指示（k）をそのまま打つ（吹き出しを開かずに。既存の手のまま）。
+ * 指示が無い・打てない（off）なら false（呼び手が建物の吹き出しを開く）
+ */
+export function runOrderOf(ctx: Ctx, b: PBuilding, k: Order['k'], hooks: Pick<TileHooks, 'close' | 'redraw'>): boolean {
+  const box = ordersOf(ctx.s(), b);
+  const o = box?.orders.find((x) => x.k === k && !x.off);
+  if (!box || !o) return false;
+  runOrder(ctx, box, o, b, hooks as TileHooks);
+  return true;
+}
 
 /** 吹き出しのいちばん上：担当のヒーローの顔・名前・肩書き・ひと言と、指示のボタン（見込みつき） */
 function orderBox(ctx: Ctx, b: PBuilding, hooks: TileHooks): HTMLElement | null {

@@ -7,7 +7,7 @@
  * docs/ISLAND_PHASE1.md「スキルツリー」「部門」。
  */
 import { t } from '../../i18n';
-import { CS_SKILLS, DEPTS, DEPT_SKILLS, GA_SKILLS, MKT_SKILLS, POL_PANELS, SKILL, UI5_SKILLS, SKILLS, deptOf, isResearch, type Branch, type DeptId, type Skill, type Tier } from './data';
+import { CS_SKILLS, DEPTS, DEPT_SKILLS, GA_SKILLS, MKT_SKILLS, POL_PANELS, SKILL, UI5_SKILLS, L0_SKILLS, SKILLS, deptOf, isResearch, type Branch, type DeptId, type Skill, type Tier } from './data';
 import { ROW_CAP } from './skillsx';
 import { TREE_ORDER } from './treeorder';
 
@@ -89,7 +89,8 @@ const INNER: Record<string, string[][]> = {
   'logistics:craft': [['jig'], ['pot', 'five_s'], ['jig2', 'lot'], ['kaizen', 'chair']],
   'logistics:tech': [['t_wood'], ['t_paper', 't_metal'], ['t_clay', 't_glass'], ['t_textile', 't_jewel', 't_master']],
   'logistics:buy': [['stock1'], ['bulk', 'route_cloth'], ['abc', 'swift', 'route_paper'], ['bulk2', 'stock2', 'eye', 'scoutmap'], ['stock3', 'relief', 'route_gem']],
-  systems: [['pos'], ['auto_order', 'inventory']],
+  // 段 L0：序盤の手を減らす仕組み（製造計画・調達・勤務シフトの自動化）
+  systems: [['pos'], ['auto_order', 'inventory'], ['auto_lineup', 'auto_proc'], ['auto_rest']],
   rnd: [['dig_ext'], ['dig_power', 'dig_lamp'], ['dig_speed', 'dig_office', 'dig_deep'], ['dig_reach', 'dig_blast', 'dig_study'], ['dig_pierce', 'dig_drill', 'dig_crew']],
   // 段 E2：面談（OJT の先）・キャリアの道すじ（インセンティブの先）
   hr: [['hire'], ['manual', 'slots'], ['ojt', 'incentive'], ['hr_talk', 'hr_career']],
@@ -204,7 +205,7 @@ export let SLACK = 0;
       // 総務は段 F で足した 3 枚（GA_SKILLS）・マーケは段 G で足した 5 枚（MKT_SKILLS）を余りの数に入れない（ほかの枝の幅を前と変えない）。
       // カスタマーサポート（段 G。Uncommon の外周だけ）は営業・経理と同じく収まる幅だけ
       // 段 UI5a の調達の交代要員・調達チーム（UI5_SKILLS）も余りの数に入れない（ほかの枝の幅を前と変えない）。段 K の経営方針のパネル（POL_PANELS）も
-      items.push({ d: d.id, g, need: needOf(key, skills), n: NARROW.includes(d.id) ? 0 : skills.filter((k) => !GA_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id) && !POL_PANELS.includes(k.id)).length });
+      items.push({ d: d.id, g, need: needOf(key, skills), n: NARROW.includes(d.id) ? 0 : skills.filter((k) => !GA_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id) && !L0_SKILLS.includes(k.id) && !POL_PANELS.includes(k.id)).length });
     }
   }
   // 段 C：営業の枝（パネルの無い細い枝だったもの）が広がったぶんは、ほかのパネルの無い部門の枝から分けてもらう

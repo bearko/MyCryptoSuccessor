@@ -28,6 +28,7 @@ import { talkGain } from '../src/island/p1/hr';
 import { taxPlan } from '../src/island/p1/acct';
 import { deserializeP1, jamOf, myShops, newP1, serializeP1, staffOf, step, type P1State, type Report } from '../src/island/p1/model';
 import { runOnce } from '../scripts/island/sim';
+import { openTier } from './l0util';
 
 /** タオックスで ④ 販売が詰まっている月（自動プレイの最短の方針の写し） */
 let sellSave: string | null = null;
@@ -41,7 +42,8 @@ function sellJam(): P1State {
     });
   const s = deserializeP1(sellSave!)!;
   s.tut = 99;
-  return s;
+  // 段 L0：ヒーローからの提案・知らせのカードは Rare の町から（会社が Rare の町を開いた状態にする。いまの町はタオックスのまま）
+  return openTier(s, 'R');
 }
 const fakeReport = (s: P1State): Report => ({ ...(s.reports[s.reports.length - 1] ?? ({} as Report)), month: (s.reports[s.reports.length - 1]?.month ?? 0) + 1, comeback: undefined, rally: undefined });
 const draft = (hero: number | null, kind: string, src: Draft['src'] = 'quit'): Draft => ({ src, kind, hero, q: 0.8, dept: null, issue: { k: 'quit', days: 30 }, choices: [{ act: { k: 'skip' }, cost: 0 }], pri: 1 });

@@ -1,6 +1,6 @@
 // 段 UI6（docs/SUCCESSOR_ROADMAP.md「段 UI6 の実装」）：部門は「部長との会話」で動かす（話題の流れ・確認事項・部長がいないとき・
 // マインちゃんの一言）・トロフィー（判定・保存の失敗に強いこと）
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DELEG, DEPT_SKILLS, SKILL } from '../src/island/p1/data';
 import { deptLevel } from '../src/island/p1/dept';
 import { headOf, setHead } from '../src/island/p1/deleg';
@@ -27,14 +27,21 @@ import {
 import { TROPHIES, TROPHY_KEY, checkTrophies, emptyBook, globalId, loadTrophies, pendingSync, saveTrophies } from '../src/island/p1/trophy';
 import { SUB_ALIAS, SUB_DEFS } from '../src/island/p1/menus';
 import { landCleared, playable } from '../src/island/p1/land';
+import { BUDGET_OFF } from '../src/island/p1/budget';
+import { openTier } from './l0util';
 
 beforeAll(async () => {
   await loadVoice();
+  // 段 L0：部長は Rare の町から（town は Rare の町を開いた会社）。部長を置ける理解度の節目（8）を確かめるので、予算で任せる段 I1 は止める
+  BUDGET_OFF.on = true;
+});
+afterAll(() => {
+  BUDGET_OFF.on = false;
 });
 
 /** 2 か月目の締めのあと（チュートリアル済み）の町 */
 function town(): P1State {
-  const s = newP1(1);
+  const s = openTier(newP1(1), 'R');
   s.tut = 99;
   s.money = 1e6;
   s.day = 70;
@@ -202,6 +209,7 @@ describe('トロフィー', () => {
     expect(tr.test(s)).toBe(false);
     // Epic の町すべてで 👑（ほかのセクタの記録として）
     s.land = { cur: 'none', mine: [], recs: Object.fromEntries(playable('E').map((x) => [x.id, { snap: { cleared: true } }])) } as unknown as P1State['land'];
+    openTier(s, 'R');
     expect(landCleared(s, 'E')).toBe(true);
     expect(tr.test(s)).toBe(true);
     hrOpen(s);

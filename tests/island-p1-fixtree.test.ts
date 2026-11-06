@@ -17,6 +17,7 @@ import { charismaOf, charismaWays, hireEmptyLines, nearestWay } from '../src/isl
 import { cardsMonth, cardInbox } from '../src/island/p1/card';
 import { heroById } from '../src/game/catalog';
 import { runOnce } from '../scripts/island/sim';
+import { openTier } from './l0util';
 
 function put(s: P1State, id: string, skip = 0) {
   let n = 0;
@@ -270,7 +271,8 @@ describe('D. 人を雇う（Uncommon・採用のパネル・候補 0 人・提�
     expect(hireEmptyLines(s)).toEqual([]);
   });
   it('人手が足りなくて雇える候補がいるとき、人事の担当（いなければマインちゃん）から「雇う」の提案カードが出る', () => {
-    const s = sellJam();
+    // 段 L0：提案のカードは Rare の町から
+    const s = openTier(sellJam(), 'R');
     s.skills.push('hire');
     const free = s.slots.findIndex((x) => x.worker != null);
     expect(free).toBeGreaterThanOrEqual(0);

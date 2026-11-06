@@ -1357,6 +1357,10 @@ export const SKILLS: Skill[] = [
   { id: 'pos', branch: 'sys', name: t('POS レジ', 'POS registers'), note: t('市場データに商品ごとの「きのう売れた数」が出る・売り場の強さ +3%', 'Market data shows yesterday’s sales per item; pull +3%'), cost: 5000 },
   { id: 'auto_order', branch: 'sys', name: t('自動発注（EDI）', 'Auto-ordering (EDI)'), note: t('調達係の買い付けが毎日届く（往復なし）・注文の納期 −50%', 'Buyer purchases arrive daily (no round trip); order lead time −50%'), cost: 8000, requires: ['pos'] },
   { id: 'inventory', branch: 'sys', name: t('在庫管理システム', 'Inventory system'), note: t('お店の裏 +10・工房の物置 +20', 'Backrooms +10; workshop stockroom +20'), cost: 6000, requires: ['pos'] },
+  // 段 L0：序盤の手を減らす仕組み（リーダー・部長の代わりに、自分で取って回す。数字は L0_AUTO の 1 か所）
+  { id: 'auto_proc', branch: 'sys', name: t('調達の自動化', 'Auto-procurement'), note: t('調達の品目を作業台に合わせて自動でそろえ、素材が切れそうなら問屋に注文する', 'Keeps purchase items in step with the benches and orders lots before materials run out'), cost: 6000, requires: ['auto_order'] },
+  { id: 'auto_lineup', branch: 'sys', name: t('製造計画の自動化', 'Auto-production plan'), note: t('作業台の作るものを売れ筋に合わせて自動で切り替え（棚の品ぞろえも合わせる）、止まった作業台も素材が届けば再開する', 'Switches each bench to what sells (and the shelves with it) and restarts stalled benches once materials arrive'), cost: 6000, requires: ['inventory'] },
+  { id: 'auto_rest', branch: 'sys', name: t('勤務シフトの自動化', 'Auto-shift cover'), note: t('休む職人・店員の持ち場に待機中の人を自動で入れて、止まった作業台・お店をすぐ再開する（戻ったら返す）', 'Puts a free hero in for a resting crafter or clerk so the bench or shop restarts at once (hands it back on return)'), cost: 6000, requires: ['auto_lineup'] },
   { id: 'erp', branch: 'sys', name: t('ERP', 'ERP'), note: t('全段の「ひと月に流せる数」+5%（調達・製造・物流・販売）', 'Every stage’s monthly flow +5% (buy, craft, haul, sell)'), cost: 20000, requires: ['auto_order', 'inventory'], tier: 'U', emblem: 1 },
   { id: 'dyn', branch: 'sys', name: t('ダイナミックプライシング', 'Dynamic pricing'), note: t('需要が供給より多い商品（扱う他社が 1 社以下）の値段 +8%', 'Prices +8% where demand beats supply (1 rival or fewer)'), cost: 18000, requires: ['pos'], tier: 'U' },
   { id: 'flow', branch: 'sys', name: t('人流解析', 'Foot-traffic analytics'), note: t('建てるときにお客さんの多い区画（上位 20%）が光る・売り場の強さ +5%', 'Busiest blocks (top 20%) glow when placing; pull +5%'), cost: 15000, requires: ['inventory'], tier: 'U' },
@@ -2289,8 +2293,23 @@ export const START_RP = 30;
 /** 以前のゴールドダスト 1 つ ＝ RP（古いセーブの移し替え・依頼の報酬の置き換え） */
 export const RP_PER_DUST = 40;
 const RP_FIXED: Record<string, number> = { hire: START_RP };
+/**
+ * 段 L0：序盤の手を減らす仕組みのパネル（システムの枝・Common）。取ると、その業務を「仕組み」が毎日回す（deleg.ts の autoDuty。ヒーローのリーダー・部長がいればそちらが先）。
+ * duties：回す業務（DUTIES）・rp：研究の値段（同じ枝のほかのパネルの値段の割り振りに入れない）・q：仕組みの出来（見直しの間隔と読みの誤差。DELEG.q）
+ * 製造計画の自動化は、作るものを切り替えたら棚も合わせる（品出し。チュートリアルのあとは model.ts の syncShelves が毎日並べるので、その見届け）
+ */
+export const L0_AUTO: { q: number; panels: Record<string, { duties: DutyId[]; rp: number }> } = {
+  q: 0.9,
+  panels: {
+    auto_proc: { duties: ['order'], rp: 40 },
+    auto_lineup: { duties: ['craft', 'shelf'], rp: 40 },
+    auto_rest: { duties: ['rest'], rp: 50 },
+  },
+};
+/** 段 L0 で足した仕組みのパネル（スキルツリーの枝の幅の余りの数に入れない：treelayout.ts） */
+export const L0_SKILLS = Object.keys(L0_AUTO.panels);
 /** 段 UI5a で足した研究パネルの RP（決め打ち。同じ枝のほかの研究パネルの値段の割り振りに入れない） */
-const UI5_RP: Record<string, number> = { relief: 40 };
+const UI5_RP: Record<string, number> = { relief: 40, ...Object.fromEntries(Object.entries(L0_AUTO.panels).map(([id, x]) => [id, x.rp])) };
 /** 段 UI5a で足したパネル（スキルツリーの枝の幅の余りの数に入れない：treelayout.ts） */
 export const UI5_SKILLS = ['relief'];
 {
@@ -2349,6 +2368,31 @@ for (const k of SKILLS) {
   if (!r) continue;
   if (r.length) k.requires = [...r];
   else delete k.requires;
+}
+/**
+ * 段 L0：序盤の自動化のパネル（リーダー・部長の代わりに、自分で取って回す仕組み）を取りやすく。値段を下げるだけ（上げない）。
+ * 研究パネルは RP（rp）・お金のパネルは G（cost）。前と後の表は docs/ISLAND_BALANCE.md の v45。
+ * 先に要るパネルは変えない（スキルツリーの線の交わりを 0 にした並び：treelinks.ts を崩さない）
+ */
+export const L0_PANELS: Record<string, { rp?: number; cost?: number }> = {
+  timetable: { rp: 20 },
+  relief: { rp: 20 },
+  abc: { rp: 25 },
+  pos: { cost: 3000 },
+  auto_order: { rp: 40 },
+  shift: { rp: 25 },
+  mgr: { rp: 60 },
+  flow: { rp: 40 },
+  u_dig_auto: { rp: 70 },
+};
+/** 段 L0 の前の値段（表・テスト用） */
+export const L0_PANELS_BEFORE: Record<string, { rp: number; cost: number }> = {};
+for (const [id, v] of Object.entries(L0_PANELS)) {
+  const k = SKILLS.find((x) => x.id === id);
+  if (!k) continue;
+  L0_PANELS_BEFORE[id] = { rp: k.rp ?? 0, cost: k.cost };
+  if (v.rp != null) k.rp = Math.min(k.rp ?? v.rp, v.rp);
+  if (v.cost != null) k.cost = Math.min(k.cost, v.cost);
 }
 /** 研究パネルの値段（RP。お金パネルは 0） */
 export const rpCost = (k: Skill) => (isResearch(k) ? (k.rp ?? 0) : 0);
@@ -2516,6 +2560,19 @@ export const DELEG = {
   prop: { perMonth: 2, keep: 4, expire: 3, err: 1 },
   sector: { need: 3, ready: false, invest: 0.1, max: 2 },
 };
+/**
+ * 段 L0（ユーザーの声 2026-11-06「0 → 1 はプレイヤー」）：ヒーローの力を借りられるランク（会社が出店したことのある最高ランク。stage.ts の heroStage）。
+ * leaderFrom：チームリーダーを置ける（理解度 DELEG.leaderAt も要る）・headFrom：事業部長（経営企画の部長も）を置ける・
+ * propFrom：ヒーロー・部長からの提案（承認を求めるもの）が届く。届く前は地図の印（mapmarks.ts）で困りごとを見せる
+ */
+export const L0 = {
+  leaderFrom: 'U' as 'C' | 'U' | 'R',
+  headFrom: 'R' as 'C' | 'U' | 'R',
+  propFrom: 'R' as 'C' | 'U' | 'R',
+  /** 地図の印：持ち場の人のスタミナがこの割合を切ったら「疲れ」（灰）・同じ困りごとが何か月の締めで出たら、それを無くすパネルに「💡」 */
+  marks: { tired: 0.3, tipMonths: 2 },
+};
+
 /**
  * 段 I1：Rare からの「予算で任せる」（budget.ts・budgetui.ts。docs/SUCCESSOR_ROADMAP.md「段 I1 の実装」）。数字はここ 1 か所。
  * - from：会社がこのランクの町に出店したら開く（全部門に理解度に関係なく部長を置け、部長に月の予算を渡せる）。
@@ -3634,6 +3691,8 @@ export interface Mission {
   dig?: number;
   /** 受ける前の一言（段 UI1：中身と報酬は変えずに、気をつけることを添える） */
   note?: string;
+  /** 段 L0：序盤の自動化を覚える依頼（遊ぶ人に教えるもの。自動プレイは受けない） */
+  teach?: boolean;
 }
 export const MISSIONS: Mission[] = [
   { id: 'first_sale', from: t('町内会', 'Neighborhood council'), title: t('はじめての売上', 'First sale'), text: t('お店で商品を 1 つ売る', 'Sell one item in your shop'), reward: 1000 },
@@ -3644,6 +3703,10 @@ export const MISSIONS: Mission[] = [
   { id: 'lantern50', from: t('駅長', 'Stationmaster'), title: t('夜道を明るく', 'Light up the night'), text: t('ひと月にランタンを 10 個売る', 'Sell 10 Lanterns in one month'), reward: 3000 },
   { id: 'uncommon', from: t('収集家', 'A collector'), title: t('めずらしい品を', 'Something rare'), text: t('アンコモンを合わせて 5 個売る', 'Sell 5 Uncommons in total'), reward: 5000, rp: 40 },
   { id: 'rank3', from: t('商店会', 'Merchants’ association'), title: t('エリアの顔に', 'Face of the area'), text: t('月の報告でエリア 3 位以内に入る', 'Finish a month in the area top 3'), reward: 5000, rp: 40 },
+  // 段 L0：序盤の自動化を自分で取って覚える依頼（リーダー・部長は Uncommon・Rare から。報酬は Common の依頼の段）
+  { id: 'm_edi', from: t('卸問屋', 'The wholesaler'), title: t('注文を待たずに', 'No more waiting on orders'), text: t('スキルツリーで「自動発注（EDI）」を研究する', 'Research “Auto-ordering (EDI)” in the skill tree'), reward: 3000, teach: true },
+  { id: 'm_relief', from: t('卸問屋', 'The wholesaler'), title: t('休みの日も買い付けを', 'Buying on days off too'), text: t('「調達の交代要員」を研究して、調達係を 2 人にする', 'Research “Relief buyer” and have 2 buyers'), reward: 3000, teach: true },
+  { id: 'm_timetable', from: t('荷車の親方', 'The cart master'), title: t('便を止めない', 'Keep the runs going'), text: t('「定期便の時刻表」を研究する', 'Research “Scheduled runs”'), reward: 2000, teach: true },
   // セクタの依頼（そのセクタでだけ受けられる。id はセーブと繋がる）
   // 湖・丘の依頼は、そのセクタの「まだ誰も売っていない」商品（ランタン・マレットは他店で供給が足りているので、ゴブレット・ナイフに）
   { id: 'c2_goblet', sector: 'c2', from: t('湖の宿', 'The lakeside inn'), title: t('湖畔で乾杯', 'A toast by the lake'), text: t('ひと月にゴブレットを 10 個売る', 'Sell 10 Goblets in one month'), reward: 4000, rp: 40 },

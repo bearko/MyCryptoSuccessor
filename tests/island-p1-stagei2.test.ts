@@ -44,7 +44,7 @@ import { parseStyle, styleTags } from '../src/island/p1/voice';
 import fitJson from '../src/island/p1/heroes/fit.json';
 import { loadVoice } from '../src/island/p1/voice';
 
-/** 通常の自動プレイで、Rare の町に着いて 2 回目の締めのあとの写し（部長が予算で動いている） */
+/** 通常の自動プレイで、Rare の町に着いて 3 回目の締めのあとの写し（部長が予算で動いている。段 L0：部長は Rare の町に着いてから置くので、1 か月あとに） */
 let rare = '';
 /** 同じ通しの終わりの経営会議の数え（自動プレイは全部「推奨」） */
 let stat: ReturnType<typeof boardOf>['stat'] | null = null;
@@ -52,7 +52,7 @@ beforeAll(async () => {
   await loadVoice();
   const r = runOnce('normal', 1, {
     onMonth: (s, _sector, m) => {
-      if (!rare && s.tier === 'R' && m >= 2) rare = serializeP1(s);
+      if (!rare && s.tier === 'R' && m >= 3) rare = serializeP1(s);
     },
   });
   stat = r.v32 ?? null;
@@ -464,7 +464,8 @@ describe('段 I2b：判断できる報告（何もできなかった原因・来
     if (it.audit?.ask) expect(it.rec.budget).toBe(2);
     expect(causeChips(it.why!).join(' ')).toMatch(/26,000 G/);
     expect(reportLine(it)).toMatch(/テストの手/);
-    expect(budgetWhy(it, A.co)).toMatch(/余力/);
+    // 段 L0：写しの町で監査が要求の盛りを指摘したときは、理由の一行は監査の言い方（推奨は据え置き。上の if と同じ）
+    expect(budgetWhy(it, A.co)).toMatch(it.audit?.ask ? /監査/ : /余力/);
   });
 
   it('人手が足りない：従業員の上限の打ち手。承認で上限が上がる', () => {

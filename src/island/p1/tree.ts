@@ -22,6 +22,7 @@ import { FX_PAL, fxAtEl } from '../fx/layer';
 import { pickHero } from './heroui';
 import { halfOf, shapeOf, BOUNDS, DEPT_LAYOUT, EDGES, GROUP_STAGE, HUBPOS, KNOTPOS, LABEL_A, OUTER, PANEL, POS, R0, RING_EDGE, RING_OUT, STEP, UNIT, curveAt, curvePart, deptAngle, edgeBends, edgeEnd, groupOfBranch, polar, type Bend, type Group, type TreeEdge } from './treelayout';
 import { bar, btn, h, heroIcon, heroName, matIcon, money, plain, rich, skuIcon } from './ui';
+import { tipLine, tipPanels } from './mapmarks';
 
 /** ランドセクタの絵（はじまりの国 Lime） */
 const TIER_IMG: Record<Tier, string> = { C: '04_Lime_1_Common', U: '04_Lime_2_Uncommon', R: '04_Lime_3_Rare', E: '04_Lime_4_Epic', L: '04_Lime_5_Legendary' };
@@ -100,6 +101,10 @@ const ICON: Record<string, { b?: string; sku?: Sku; ext?: number; mat?: Mat; her
   swift: { b: 'station' },
   eye: { b: 'jewelry' },
   relief: { emoji: '🔁' },
+  // 段 L0：序盤の手を減らす仕組み（仮の絵：絵文字。docs/ISLAND_ART_TODO.md「段 L0」）
+  auto_proc: { emoji: '🧾' },
+  auto_lineup: { emoji: '🗓' },
+  auto_rest: { emoji: '🔄' },
   abc: { emoji: '📊' },
   contract: { emoji: '📜' },
   direct: { emoji: '🌾' },
@@ -470,6 +475,8 @@ function skillCard(s: P1State, k: Skill, tut = false): HTMLElement {
   c.append(top);
   if (st !== 'ring' && st !== 'sealed' && st !== 'soon') c.append(catLine(s, k, tut));
   if ((st !== 'ring' || isGoalTier(k)) && !k.sealed) c.append(h('p', '', k.note));
+  // 段 L0：地図の印によく出る困りごとを無くすパネル（1 行）
+  if (st !== 'done' && tipPanels(s).has(k.id)) c.append(h('small', 'isl-good isl-tree-tipline', tipLine()));
   c.append(...infoLines(s, k, st));
   if (st === 'ring' || st === 'sealed' || st === 'soon') return c;
   if (k.donate) {
@@ -1051,6 +1058,8 @@ export function openSkills(ctx: Ctx, focus?: string) {
       }
     // 外周の演出：開くランクのパネルを、枝の順に本社から飛び出させる
     const fxOrder = fx ? SKILLS.filter((k) => skillTier(k) === fx.tier) : [];
+    // 段 L0：地図の印に何度も出た困りごとを無くすパネル
+    const tips = tipPanels(s);
     if (!sealed)
       for (const k of SKILLS) {
         if (hidden(deptOf(k))) continue;
@@ -1125,6 +1134,8 @@ export function openSkills(ctx: Ctx, focus?: string) {
           n.append(pb);
         }
         if (st === 'done' && carriedRp(s, k.id)) n.classList.add('is-carried');
+        // 段 L0：地図の印に何度も出た困りごとを無くすパネル（まだ取っていない）に小さく「💡」
+        if (tips.has(k.id) && st !== 'done') n.append(h('span', 'isl-tree-hint', '💡'));
         if (target === k.id) n.classList.add('is-hot');
         if (justLearned?.id === k.id && performance.now() - justLearned.t < 1500) n.classList.add('is-learned');
         if (justLeveled?.id === k.id && performance.now() - justLeveled.t < 900) n.classList.add('is-lvup');
@@ -1177,6 +1188,8 @@ export function openSkills(ctx: Ctx, focus?: string) {
       if (st !== 'ring' && st !== 'sealed' && st !== 'soon') txt.append(catLine(s, sel, !!only));
       // 取ったパネルで数字の効果の行があるものは、説明の代わりに「いまの効果 → 次のレベル」を出す
       if ((st !== 'ring' || isGoalTier(sel)) && !sel.sealed && !(st === 'done' && !only && shownOf(sel).base.length)) txt.append(h('p', '', sel.note));
+      // 段 L0：地図の印によく出る困りごとを無くすパネル（1 行）
+      if (st !== 'done' && tips.has(sel.id)) txt.append(h('small', 'isl-good isl-tree-tipline', tipLine()));
       txt.append(...infoLines(s, sel, st));
       // チュートリアル中はレベルの段を出さない（案内の画面を変えない）
       if ((st === 'done' || (sel.branch === 'dig' && isResearch(sel) && !sel.inf && (st === 'open' || st === 'poor' || st === 'locked'))) && !only) {

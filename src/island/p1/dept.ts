@@ -5,8 +5,9 @@
  * 法務の理解度は、パネルに加えて契約・特許・M&A・裁判の経験（s.legal.xp）でも上がる（段 H2）。
  */
 import { t } from '../../i18n';
-import { DEPT, DEPTS, DEPT_GROUPS, DEPT_MARKS, DEPT_SKILLS, ROAD_NOW, deptMarkNote, isResearch, type DeptGroup, type DeptId, type RoadStage, type Tier } from './data';
+import { DELEG, L0, DEPT, DEPTS, DEPT_GROUPS, DEPT_MARKS, DEPT_SKILLS, ROAD_NOW, deptMarkNote, isResearch, type DeptGroup, type DeptId, type RoadStage, type Tier } from './data';
 import { lvOf, tiersEntered, type P1State } from './model';
+import { headsOpen, heroStage, leadersOpen, stageName } from './stage';
 
 const TIER_ORDER: Tier[] = ['C', 'U', 'R', 'E', 'L'];
 const TIER_NAME: Record<Tier, string> = { C: 'Common', U: 'Uncommon', R: 'Rare', E: 'Epic', L: 'Legendary' };
@@ -78,13 +79,26 @@ export function deptNews(s: P1State, now: RoadStage = ROAD_NOW): string[] {
     if (n > had) {
       marks[d.id] = n;
       const m = DEPT_MARKS[n - 1];
-      // チームリーダー（3）・事業部長（8）は段 D で置けるようになった。奥義は後の段（準備中）
+      // チームリーダー（3）・事業部長（8）は段 D で置けるようになった。奥義は後の段（準備中）。
+      // 段 L0：リーダーは Uncommon・部長は Rare の町を開くまでは置けない（そのときは「○○ の町を開くと置ける」）
+      const lock = n - 1 === 0 && !leadersOpen(s) ? L0.leaderFrom : n - 1 === 1 && !headsOpen(s) ? L0.headFrom : null;
       out.push(
-        n - 1 < 2
+        lock
+          ? t(`${d.name}の理解度が ${m.at} に！ ${m.name}は ${stageName(lock)} の町を開くと置ける（それまでは自分で回そう）`, `${d.name} understanding reached ${m.at}! ${m.name}s open with a ${stageName(lock)} town (run it yourself until then)`)
+          : n - 1 < 2
           ? t(`${d.name}の理解度が ${m.at} に！ ${m.name}を置けるようになった！（${deptMarkNote(n - 1)}。部門の画面の上の「担当」から）`, `${d.name} understanding reached ${m.at}! You can now place a ${m.name} (${deptMarkNote(n - 1)} — “Lead” on the department’s band)`)
           : t(`${d.name}の理解度が ${m.at} に！ ${m.name}（${deptMarkNote(n - 1)}）は準備中`, `${d.name} understanding reached ${m.at}! ${m.name} (${deptMarkNote(n - 1)}) is coming soon`),
       );
     }
+  }
+  // 段 L0：ランクの町を開いて、リーダー・部長を置けるようになった（理解度が届いている部門があるときだけ。1 回だけ）
+  const st = heroStage(s);
+  const was = s.flags.l0Stage ?? 'C';
+  if (st !== was) {
+    s.flags.l0Stage = st;
+    const lv = (at: number) => DEPTS.some((d) => d.id !== 'strategy' && menuDepts(s, now).includes(d.id) && deptLevel(s, d.id) >= at);
+    if (st === 'R' && was !== 'R') out.push(t('Rare の町！ 事業部長を置けるようになり、ヒーローからの提案も届くようになった（組織図から）', 'A Rare town! You can now place division heads, and heroes start bringing proposals (from the org chart)'));
+    else if (st === 'U' && was === 'C' && lv(DELEG.leaderAt)) out.push(t(`Uncommon の町！ 理解度 ${DELEG.leaderAt} の部門にチームリーダーを置けるようになった（部門の画面の上の「担当」から）`, `An Uncommon town! Departments at understanding ${DELEG.leaderAt} can now take team leaders (“Lead” on the department’s band)`));
   }
   return out;
 }
@@ -92,6 +106,7 @@ export function deptNews(s: P1State, now: RoadStage = ROAD_NOW): string[] {
 export function deptQuiet(s: P1State, now: RoadStage = ROAD_NOW) {
   s.flags.depts = menuDepts(s, now);
   s.flags.deptMarks = Object.fromEntries(DEPTS.map((d) => [d.id, marksReached(deptLevel(s, d.id))]));
+  s.flags.l0Stage = heroStage(s);
 }
 
 /**

@@ -5,7 +5,7 @@
  * ゲームの数値（data.ts・式）は変えない。ここは計測だけ。
  */
 import { writeFileSync } from 'node:fs';
-import { AD_TIER, HERO_GROWTH, HERO_RARITIES, aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, isAntique, areaTuneOf, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier, RARE_AREA, EPIC_RIVAL, ANTIQUE, BRAND_CAP } from '../../src/island/p1/data';
+import { AD_TIER, HERO_GROWTH, HERO_RARITIES, aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, isAntique, areaTuneOf, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier, RARE_AREA, EPIC_RIVAL, ANTIQUE, BRAND_CAP, L0_SKILLS } from '../../src/island/p1/data';
 import { managerApt, RUIN, sectorDef, type RuinLike } from '../../src/island/p1/company';
 import { crowned, moveFee, moveTo } from '../../src/island/p1/land';
 import { delegate, rankUpTier, repairAll, reviveView } from '../../src/island/p1/reset';
@@ -21,7 +21,8 @@ import { BOARD, LEGAL } from '../../src/island/p1/data';
 import { bonus as giveBonus, bonusCost, raise, raiseStep, setRest, wageMul } from '../../src/island/p1/model';
 import { CHARISMA, CS, CSM_RP, FATIGUE, FLAME, GRADE, GRADE_NAME, MORALE, PAY, TAX, deptOf } from '../../src/island/p1/data';
 // v22（段 G）：販売の枝に足したカスタマーサポート・マーケの研究パネル（CSM_RP）は、通常の「詰まりの段の枝の研究パネル」には数えない（売り場の段に効かない）
-import { approve, delegatedDuties, headDepts, headLeft, headOf, leaderLeft, leaderOf, quality, runnerOf, setHead, setLeader } from '../../src/island/p1/deleg';
+import { approve, autoDuty, delegatedDuties, headDepts, headLeft, headOf, leaderLeft, leaderOf, quality, runnerOf, setHead, setLeader } from '../../src/island/p1/deleg';
+import { propsOpen } from '../../src/island/p1/stage';
 import { DELEG, DEPTS, type DeptId, type DutyId } from '../../src/island/p1/data';
 import { deptLevel } from '../../src/island/p1/dept';
 import { BUDGET_OFF, budgetHeads, crewTotal, type BudgetStat } from '../../src/island/p1/budget';
@@ -29,7 +30,7 @@ import { BOARD_OFF, boardAuto, boardDue, type BoardStat } from '../../src/island
 import { POL_OFF, claimSlot, corpOf, deptPolicyOf, polAutoFill, presDepts, slotPending, slotsOf } from '../../src/island/p1/policy';
 import { LESSON, POL, POL_PANELS, POL_SKILLS } from '../../src/island/p1/data';
 import { BUDGET } from '../../src/island/p1/data';
-import { CARD_SRCS, SIM_CARD_TAKE, cardInbox, chooseCard, simTake, type Card, type CardSrc, type CardStat } from '../../src/island/p1/card';
+import { CARD_SRCS, SIM_CARD_TAKE, cardInbox, chooseCard, simMarkTake, simTake, type Card, type CardSrc, type CardStat } from '../../src/island/p1/card';
 import { EVENT_OFF, EV_KINDS, GOOD_KINDS, lightOpt, newEventStat, optName, type EvKind, type EventStat } from '../../src/island/p1/events';
 import { LAND_IDS, dipOpts, landName, newDipStat, type DipStat } from '../../src/island/p1/diplo';
 import { DIPLO, EVENT } from '../../src/island/p1/data';
@@ -398,8 +399,9 @@ export const SIM_RESET: Record<PolicyId, { donate: number; towns: number; fund: 
 const BRANCH_ORDER: Record<Stage, string[]> = {
   // v5：スキルツリー v2 の新しいパネル（ABC 分析・POS・自動発注・5S・ロット・カイゼン・定期便・配送ルート・VMD・ゴールデンゾーン など）。外周（U・R）は開いてから
   // 段 UI5a：調達の交代要員（大口契約のあと。調達係が休む日も止めない）
-  buy: ['stock1', 'bulk', 'abc', 'swift', '@stockroom:1', 'eye', 'pos', 'auto_order', 'stock2', 'relief', 'bulk2', '@rack:1', 'stock3', 'contract', 'b_partner', 'direct'],
-  craft: ['@bench:1', 'jig', 'five_s', 'chair', 'jig2', 'lot', 'kaizen', '@bench:2', 'pot', 'night', 'mold', 'line'],
+  // v45（段 L0）：仕組みのパネル（調達・製造計画・勤務シフトの自動化）を、それぞれの段の手の順に（先に要るパネルは missingPre が先に取る）
+  buy: ['stock1', 'bulk', 'abc', 'swift', '@stockroom:1', 'eye', 'pos', 'auto_order', 'auto_proc', 'stock2', 'relief', 'bulk2', '@rack:1', 'stock3', 'contract', 'b_partner', 'direct'],
+  craft: ['@bench:1', 'jig', 'five_s', 'auto_lineup', 'auto_rest', 'chair', 'jig2', 'lot', 'kaizen', '@bench:2', 'pot', 'night', 'mold', 'line'],
   haul: ['loading', '@carts:1', 'shortcut', 'timetable', '@backroom:1', 'route_opt', '@truck:1', '@carts:2', 'hub', 'joint', 'crossdock', 'fleet'],
   sell: ['@shelves:1', 'host', '@staffroom:1', 'display', 'vmd', 'hours', 'shop2', 'golden', 'pop', '@shelves:2', 'set', 'point', 'shop3', 'b_sign', 'order', 'fair', 'concierge', 'b_premium'],
 };
@@ -418,7 +420,7 @@ export const fullSkills = () => LEARNABLE().filter((k) => ['C', 'U'].includes(sk
 const RTA_SKILLS = [
   'hire', '@bench:1', 'pot', 'route_cloth', 'route_paper', '@shelves:1', 'host', '@carts:1', 'loading', 'stock1', 'jig', 'bulk', '@stockroom:1', 'b_sign', 'shop2', 'route_gem', '@truck:1', '@bench:2', 'jig2', 'stock2', '@shelves:2', 'display', '@staffroom:1', 'shortcut', '@backroom:1', 'chair', 'lounge', 'shop3', 'swift',
   // v5（スキルツリー v2）：売り場を強くする工夫 → ✨ 名物店主 → Uncommon の外周 → 製造・物流・調達の工夫
-  'vmd', 'golden', 'pos', 'point', 'set', 'd_shop', 'order', 'fair', 'flow', 'dyn', 'five_s', 'kaizen', 'lot', 'night', 'mold', 'timetable', 'route_opt', 'joint', 'abc', 'auto_order', 'inventory', 'erp', 'manual', 'incentive',
+  'vmd', 'golden', 'pos', 'point', 'set', 'd_shop', 'order', 'fair', 'flow', 'dyn', 'five_s', 'kaizen', 'lot', 'night', 'mold', 'timetable', 'route_opt', 'joint', 'abc', 'auto_order', 'inventory', 'auto_proc', 'auto_lineup', 'auto_rest', 'erp', 'manual', 'incentive',
 ];
 
 /**
@@ -669,6 +671,10 @@ export const SIM_AD: Record<PolicyId, boolean> = { rta: false, normal: false, fu
  * （3 シード）と目安（合計 ±3%・ランクごと ±5%）を超えたため。比べるときは SIM_RACK_FIRST=1
  */
 const SIM_RACK_FIRST = process.env.SIM_RACK_FIRST === '1';
+/**
+ * v18（段 D）：通常の方針だけ任せる。v45（段 L0）：リーダーは Uncommon の町から・部長と提案は Rare の町から（stage.ts の heroStage。
+ * delegPlace の leaderLeft・headLeft がランクで止める。Rare より前は部長の提案の承認・simTake もしない）
+ */
 export const SIM_DELEG: Record<PolicyId, { on: boolean; lead: Partial<Record<DeptId, DutyId>> }> = {
   rta: { on: false, lead: {} },
   normal: { on: true, lead: { logistics: 'shelf', hr: 'rest', rnd: 'dig', marketing: 'ads', sales: 'vacant', support: 'reply' } },
@@ -756,7 +762,9 @@ export function policy(s: P1State, c: Ctx): Action[] {
   // ---- 依頼：達成したら受け取る・空きがあれば受ける
   for (const m of MISSIONS) if (s.missions[m.id] === 'done') acts.push({ kind: 'claim', run: () => claim(s, m.id) });
   const accepted = MISSIONS.filter((m) => s.missions[m.id] === 'accepted').length;
-  if (accepted < 3) for (const m of offeredMissions(s).slice(0, 3 - accepted)) acts.push({ kind: 'accept', run: () => accept(s, m.id) });
+  // v45（段 L0）：序盤の自動化を覚える依頼（teach）は遊ぶ人に教えるもの。最短・通常は受けない（依頼の手は前のまま）。
+  // 100% は全部の依頼をこなす方針なので受ける（受けないと「全依頼」に届かず終わらない：計測 l0d の 100% +6.4%）
+  if (accepted < 3) for (const m of offeredMissions(s).filter((x) => c.policy === 'full' || !x.teach).slice(0, 3 - accepted)) acts.push({ kind: 'accept', run: () => accept(s, m.id) });
 
   // ---- 工房
   const wsAny = s.buildings.find((b) => b.owner === 'me' && b.id === 'workshop');
@@ -873,7 +881,8 @@ export function policy(s: P1State, c: Ctx): Action[] {
 
   // ---- 作るもの（月の締め・作業台が増えた・開発できた・セクタに着いたとき）
   // v18（段 D）：任せた業務は、手で決めない（リーダー・部長が回す。deleg.ts）
-  const dg = (d: DutyId) => SIM_DELEG[c.policy].on && !delegOff && !!runnerOf(s, d);
+  // v45（段 L0）：仕組みのパネル（調達・製造計画・勤務シフトの自動化）が回す業務も、手で決めない（どの方針でも）
+  const dg = (d: DutyId) => (SIM_DELEG[c.policy].on && !delegOff && !!runnerOf(s, d)) || autoDuty(s, d);
   if (dg('craft')) {
     // 作るものの選択を任せた：作業台でいま作っているもの（任された人が決める）
     c.lineup = s.slots.map((sl) => sl.sku).filter((x): x is Sku => !!x);
@@ -1287,6 +1296,16 @@ export function policy(s: P1State, c: Ctx): Action[] {
         }
         if (n > 0) break;
       }
+      // v45（段 L0）：Rare より前（リーダー・部長がまだで、品出し・作るもの・調達の品目・交代を自分で打つあいだ）は、仕組みのパネル（L0_SKILLS）を順に（先に要るものから）。
+      // 遊ぶ人は地図の印の 💡（同じ困りごとが 2 か月出たら、それを無くすパネル）を見て取る。自動プレイはチュートリアルの段のまま印が出ないので、決めた順で。
+      // 最初の町（タオックス）は資金と RP が細く、作る・売る力を先に取るので、2 つ目の町から（計測 l0f：タオックスで取ると制覇が 7.8 → 11.8 か月）
+      if (c.policy === 'normal' && !propsOpen(s) && (s.sector ?? 'c1') !== 'c1') {
+        // 先に要るものの鎖ごとに 1 歩ずつ（調達：POS レジ → 自動発注 → 調達の自動化／製造：在庫管理システム → 製造計画の自動化 → 勤務シフトの自動化）
+        for (const id0 of L0_SKILLS.filter((x) => !has(s, x) && !pending.has(x))) {
+          const id = learnable(id0) ? id0 : missingPre(id0);
+          if (id && can(id) && costOf(id) <= budget * 0.6) take(id, reserve);
+        }
+      }
       // v8：RP が残っていれば、詰まりの段の枝の研究パネルを説明の順（BRANCH_ORDER）→ 同じ枝の安い順に（見込みの手と合わせて RP_MOVES まで）
       if (c.policy === 'normal') {
         const ids = [...BRANCH_ORDER[bn].filter((id) => !invOf(id)), ...SKILLS.filter((k) => k.branch === STAGE_BRANCH[bn] && isResearch(k) && !k.big && CSM_RP[k.id] == null && !POL_PANELS.includes(k.id)).sort((a, b) => rpCost(a) - rpCost(b)).map((k) => k.id)];
@@ -1383,14 +1402,19 @@ export function policy(s: P1State, c: Ctx): Action[] {
   // v18（段 D）：任せ方の 4 段。理解度 3 の部門に順にリーダー（SIM_DELEG.lead の業務）・8 で部長（その部門のリーダーを昇進）。
   // 提案は月末に、見込みがプラスなら承認（お金が足りなければ資金不足で保留）
   if (SIM_DELEG[c.policy].on && !delegOff && !saving) delegPlace(s, c, acts, budget, reserve, hired, () => (hired = true));
-  if (SIM_DELEG[c.policy].on && !delegOff && c.monthEnd)
+  // v45（段 L0）：Common ではリーダーを置かない・Rare より前は部長を置かない（deleg.ts の leaderLeft・headLeft がランクで止める）。
+  // Rare より前は部長の提案を承認しない・ヒーローの提案のカードを受けない（simTake しない）。代わりに印の手（任せていない業務）を今どおり手で打つ
+  const props = propsOpen(s);
+  if (SIM_DELEG[c.policy].on && !delegOff && c.monthEnd && props)
     for (const pr of [...(s.deleg?.inbox ?? [])]) {
       if (pr.est <= 0) continue;
       acts.push({ kind: 'approve', run: () => (s.money - pr.cost < reserve ? 'none' : approve(s, pr.id) == null ? null : 'none') });
     }
   // v25（段 UI1）：ヒーローからの提案のカード（店員・職人・調達係・待機中の人）。部長の提案と同じ条件（見込みがプラス・払ったあとも手元に残すお金が残る）で、
   // おすすめ（金色）を受ける。最短・100% は手で（カードは使わない）。問い合わせ・炎上の予告・辞めたい・経理の助言・巻き返しは、いまの方針の手（SIM_CS・SIM_HR ほか）のまま
-  if (SIM_DELEG[c.policy].on && !delegOff && c.monthEnd && SIM_CARDS.on) acts.push({ kind: 'approve', run: () => (simTake(s, reserve) > 0 ? null : 'none') });
+  if (SIM_DELEG[c.policy].on && !delegOff && c.monthEnd && SIM_CARDS.on && props) acts.push({ kind: 'approve', run: () => (simTake(s, reserve) > 0 ? null : 'none') });
+  // v45（段 L0）：Rare より前は、地図の印の手（提案のカードと同じ下書きの元・同じ条件）を自分で打つ
+  if (SIM_DELEG[c.policy].on && !delegOff && c.monthEnd && SIM_CARDS.on && !props) acts.push({ kind: 'mark', run: () => (simMarkTake(s, reserve) > 0 ? null : 'none') });
   if (c.monthEnd && c.policy !== 'rta' && donateLock(s) !== 'hidden' && donateLock(s) !== 'closed') {
     const next = c.route[c.at + 1];
     // v14：次がランクアップの進出なら、費用も立ち上げの資金も要らない（お金は徴収される）

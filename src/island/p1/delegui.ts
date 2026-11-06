@@ -6,7 +6,7 @@ import { policySort } from './brief';
 import { policyCard } from './policyui';
 import { stockMsg, stockPlan } from './moves';
 import { t } from '../../i18n';
-import { DELEG, DEPT, DEPT_DUTIES, DUTY, deptAptName, type DeptId, type DutyId } from './data';
+import { DELEG, L0, DEPT, DEPT_DUTIES, DUTY, deptAptName, type DeptId, type DutyId } from './data';
 import { deptLevel } from './dept';
 import {
   actName,
@@ -22,6 +22,7 @@ import {
   heroNm,
   hold,
   leaderLeft,
+  autoDuty,
   leaderOf,
   propEst,
   propWhy,
@@ -53,6 +54,7 @@ import { cardInbox, starOf, withdrawStale } from './card';
 import { fitTag, sayToast } from './p2ui';
 import { lineOf } from './voice';
 import { budgetLine } from './budget';
+import { isLocked, rankLocked, rankLockText, stageName } from './stage';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 /** 役目の札（リーダー・部長・セクター長。形で見分ける：リーダーは角、部長は丸、セクター長は二重の枠） */
@@ -169,7 +171,8 @@ export function openDeleg(ctx: Ctx, dept: DeptId) {
     const lv = deptLevel(s, dept);
     body.classList.add('isl-dl');
     const intro = h('p', 'isl-dim');
-    intro.append(rich(t(`理解度 ${DELEG.leaderAt} で業務を 1 つずつ[[チームリーダー]]に、${DELEG.headAt} で部門を丸ごと[[事業部長]]に任せられます。任せたあとも、いつでも外して手に戻せます。`, `At understanding ${DELEG.leaderAt} you can hand single tasks to [[team leaders]]; at ${DELEG.headAt}, the whole department to a [[division head]]. You can take any of it back at any time.`)));
+    // 段 L0：リーダーは Uncommon の町から・部長は Rare の町から（それまでは自分で回す）
+    intro.append(rich(t(`${stageName(L0.leaderFrom)} の町を開くと、理解度 ${DELEG.leaderAt} で業務を 1 つずつ[[チームリーダー]]に、${stageName(L0.headFrom)} の町を開くと部門を丸ごと[[事業部長]]に任せられます。任せたあとも、いつでも外して手に戻せます。`, `From a ${stageName(L0.leaderFrom)} town, at understanding ${DELEG.leaderAt} you can hand single tasks to [[team leaders]]; from a ${stageName(L0.headFrom)} town, the whole department to a [[division head]]. You can take any of it back at any time.`)));
     body.append(intro);
     const top = h('div', 'isl-dl-lv');
     top.append(h('b', '', t(`理解度 ${lv}`, `Understanding ${lv}`)), h('small', 'isl-dim', bandText(s, dept).long));
@@ -181,21 +184,23 @@ export function openDeleg(ctx: Ctx, dept: DeptId) {
     hc.append(h('h3', '', t('事業部長（部門を丸ごと）', 'Division head (whole department)')));
     const hl = headLeft(s, dept) ?? 0;
     const H = headOf(s, dept);
-    if (hl > 0) hc.append(h('p', 'isl-dim', t(`🔒 理解度 ${DELEG.headAt} で置けます（いま ${lv}・あと ${hl}）`, `🔒 Opens at understanding ${DELEG.headAt} (now ${lv}, ${hl} to go)`)));
-    else if (H) {
+    if (H) {
       hc.append(personRow(H, dept));
       const n = (s.deleg?.inbox ?? []).filter((p) => p.dept === dept).length;
       const st = h('p', 'isl-dl-on');
       st.append(h('span', 'isl-tag is-good', t('部長におまかせ中', 'Run by the head')), h('span', '', t(`この部門の業務はすべて自動で回ります・今月の提案 ${n}`, `All tasks here run on their own · proposals ${n}`)));
       hc.append(st);
       const row = h('div', 'isl-row');
+      // 段 L0：古いセーブで Rare より前に置いてある部長は残す（外すと Rare の町まで置き直せない。替えるは出さない）
       row.append(
         btn(t('提案を見る', 'See proposals'), () => openProps(ctx), 'is-on'),
-        btn(t('替える', 'Change'), () => pickHead(ctx, dept, H.hero, (hero) => done(ctx, setHead(s, dept, hero), t(`${heroNm(hero)}を${d.name}部長にしました`, `${heroNm(hero)} now heads ${d.name}`)))),
+        ...(isLocked(hl) ? [] : [btn(t('替える', 'Change'), () => pickHead(ctx, dept, H.hero, (hero) => done(ctx, setHead(s, dept, hero), t(`${heroNm(hero)}を${d.name}部長にしました`, `${heroNm(hero)} now heads ${d.name}`))))]),
         btn(t('外す（手に戻す）', 'Dismiss (back to you)'), () => done(ctx, setHead(s, dept, null), t('部長を外しました。この部門は手で回します', 'Head dismissed. You run this department by hand'))),
       );
       hc.append(row);
-    } else {
+    } else if (rankLocked(hl)) hc.append(h('p', 'isl-dim isl-dl-rank', rankLockText(hl)));
+    else if (hl > 0) hc.append(h('p', 'isl-dim', t(`🔒 理解度 ${DELEG.headAt} で置けます（いま ${lv}・あと ${hl}）`, `🔒 Opens at understanding ${DELEG.headAt} (now ${lv}, ${hl} to go)`)));
+    else {
       const add = btn(t('＋ 部長を置く', '+ Place a head'), () => pickHead(ctx, dept, null, (hero) => done(ctx, setHead(s, dept, hero), t(`${heroNm(hero)}を${d.name}部長にしました！`, `${heroNm(hero)} now heads ${d.name}!`))), 'is-on isl-dl-add');
       hc.append(add);
     }
@@ -208,8 +213,9 @@ export function openDeleg(ctx: Ctx, dept: DeptId) {
     const duties = DEPT_DUTIES[dept];
     const ll = leaderLeft(s, dept) ?? 0;
     if (!duties.length) lc.append(h('p', 'isl-dim', t('この部門には、まだリーダーに任せられる業務がありません（部長の提案と補正だけ）。', 'No tasks to hand to leaders here yet (a head still brings proposals and a bonus).')));
+    else if (rankLocked(ll)) lc.append(h('p', 'isl-dim isl-dl-rank', rankLockText(ll)));
     else if (ll > 0) lc.append(h('p', 'isl-dim', t(`🔒 理解度 ${DELEG.leaderAt} で置けます（いま ${lv}・あと ${ll}）`, `🔒 Opens at understanding ${DELEG.leaderAt} (now ${lv}, ${ll} to go)`)));
-    for (const id of duties) lc.append(dutyCard(ctx, s, dept, id, ll > 0));
+    for (const id of duties) lc.append(dutyCard(ctx, s, dept, id, isLocked(ll)));
     body.append(lc);
   });
 }
@@ -242,6 +248,8 @@ function dutyCard(ctx: Ctx, s: P1State, dept: DeptId, id: DutyId, locked: boolea
   if (L) {
     c.append(personRow(L, dept, r?.q));
   } else if (r) c.append(h('p', 'isl-good', t(`部長（${heroNm(r.st.hero)}）がまとめて行っています（${qText(r.q)}）`, `The head (${heroNm(r.st.hero)}) handles it (${qText(r.q)})`)));
+  // 段 L0：仕組みのパネル（調達・製造計画・勤務シフトの自動化）が回している
+  else if (autoDuty(s, id)) c.append(h('p', 'isl-good', t('⚙ 仕組みで自動（スキルツリーのパネル）', '⚙ Runs on its own (skill-tree panel)')));
   else c.append(h('p', 'isl-dim', t('いまは手でやっています', 'You do this by hand now')));
   if (r && stat) c.append(h('small', 'isl-dl-stat', t(`今月：${dutyLine({ id, hero: r.st.hero, by: r.by, q: r.q, acts: stat.acts, miss: stat.miss, n: stat.n })}`, `This month: ${dutyLine({ id, hero: r.st.hero, by: r.by, q: r.q, acts: stat.acts, miss: stat.miss, n: stat.n })}`)));
   if (!locked) {

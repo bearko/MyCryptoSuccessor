@@ -53,6 +53,8 @@ import { applyDuo, duoDraft, duoDue, duoHead, duoOptSub, duoOptText, duoSay, typ
 import { voiceQuip, voiceSay } from './voice';
 import { numsOf, speakCore, type Spoken, type SummaryCore } from './summary';
 import { budgetOpen, budgetRetry, laborNeed, budgetDepts, deptBudget, nextUp, setBudget, setCrewCap, amountOf, crewWageMonth, lvName, type BudgetAsk, type BudgetLv } from './budget';
+import { propsOpen } from './stage';
+import { noteMarks } from './mapmarks';
 import { BUDGET } from './data';
 
 // ---------------------------------------------------------------- 型
@@ -257,7 +259,7 @@ export const cardStar = (s: P1State, c: Card): 1 | 2 | 3 | null => {
   return starOf(c.q, st.level ?? 1);
 };
 /** 任せられるか（★3 のヒーローの提案） */
-export const canTrust = (s: P1State, c: Card) => cardStar(s, c) === 3 && c.choices.some((x) => x.rec && x.act.k === 'do' || x.rec && x.act.k === 'approve');
+export const canTrust = (s: P1State, c: Card) => propsOpen(s) && cardStar(s, c) === 3 && c.choices.some((x) => x.rec && x.act.k === 'do' || x.rec && x.act.k === 'approve');
 export const trustKey = (hero: number, kind: string) => `${hero}:${kind}`;
 export const trusted = (s: P1State, c: Pick<Card, 'hero' | 'kind'>) => c.hero != null && (s.cards?.trust ?? []).includes(trustKey(c.hero, c.kind));
 
@@ -896,6 +898,16 @@ export function cardsMonth(s: P1State, r: Report) {
   // 段 UI4：突発のできごと（2〜3 か月に 1 回）。上限の枠を先に 1 つ使う（いつも時間を止めて出す）
   const ev = eventDue(s, C.mk);
   if (ev) enqueue(s, eventDraft(s, ev), rep);
+  // 段 L0：承認を求める提案（ヒーロー・部長・人事・知らせ・倉庫）は Rare から。それより前は地図の印（mapmarks.ts）で困りごとを見せる。
+  // できごと・組み合わせの会話・辞めたいの予告（本人の話）は今どおり
+  if (!propsOpen(s)) {
+    // 地図の印の数え（💡 の元）
+    noteMarks(s);
+    const dd0 = duoDue(s, C.popN, inTutorial(s));
+    if (dd0) enqueue(s, duoDraft(s, dd0), rep);
+    if (rep.made || rep.auto.length) r.cards = rep;
+    return;
+  }
   // 段 UI5a：流れが止まった月は、ほかの提案より先に「○○が止まっています」（いちばん上流の止まっている段）。お店の自走の提案（従業員）
   const stall = stallDraft(s, r);
   // 段 P2：ヒーローの組み合わせ（条件が初めてそろった締め。上限の残りがあるときだけ・1 つまで。流れが止まった月は次の締めへ）
@@ -1086,6 +1098,8 @@ export function cardsCompany(s: P1State) {
   const dp = diploCompany(s);
   if (dp) enqueue(s, diploDraft(s, dp));
   const { inQ, q } = quarterNow(s);
+  // 段 L0：経理の助言（寄付の承認を求める）も Rare から（決算の 1 か月前のお知らせ taxHint はテロップに今どおり）
+  if (!propsOpen(s)) return;
   if (!taxOn(s) || inQ !== 3 - TAX.hint + 1 || C.taxQ === q) return;
   C.taxQ = q;
   const p = taxPlan(s);
@@ -1473,6 +1487,8 @@ export function stageHand(s: P1State, stage: Stage): number | null {
  * （④ 販売は moves.ts の bestSell、ほかは whatIf）。話し手はその段の担当。打てる手が無ければ null
  */
 export function reportProposal(s: P1State, r: Report): { plan: Plan; say: string; role: string; speech?: Speech } | null {
+  // 段 L0：担当者からの提案（KPI ③）は Rare から
+  if (!propsOpen(s)) return null;
   const mk = (d0: Draft) => {
     // 段 UI7g：課題を解き推奨が承認になる手だけ（月のカードと同じふるい分け）
     const d = gateDraft(s, d0, issuesOf(s), { base: null });
@@ -1572,6 +1588,26 @@ export function simTake(s: P1State, keep: number): number {
     const ch = c.choices[k];
     if (s.money - ch.cost < keep || (ch.rp ?? 0) > (s.rp ?? 0)) continue;
     if (chooseCard(s, c.id, k).ok) n++;
+  }
+  return n;
+}
+
+/**
+ * 段 L0：自動プレイ（通常の方針）の Rare より前。提案のカードは出ないので、地図の印（同じ下書きの元）を見て、
+ * simTake と同じ手（棚を増やして並べる・設備・アルバイト・名物店主・発掘許可）を同じ条件で自分で打つ（提案書は挟まない。行動の数に入る）
+ */
+export function simMarkTake(s: P1State, keep: number): number {
+  if (propsOpen(s) || !myShops(s).length) return 0;
+  const iss = issuesOf(s);
+  const gb = { base: null as P1State | null };
+  let n = 0;
+  for (const d0 of heroDrafts(s)) {
+    const d = gateDraft(s, d0, iss, gb);
+    if (!d) continue;
+    const ch = d.choices.find((x) => x.rec && x.act.k === 'do' && SIM_TAKE(x.act.a) && (x.est ?? 0) > 0);
+    if (!ch || ch.act.k !== 'do') continue;
+    if (s.money - ch.cost < keep || (ch.rp ?? 0) > (s.rp ?? 0)) continue;
+    if (applyPlan(s, planOf(s, [ch.act.a], { hero: d.hero, q: d.q, dept: d.dept })).ok) n++;
   }
   return n;
 }

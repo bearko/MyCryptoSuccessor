@@ -12,7 +12,7 @@ import { isEn, t } from '../../i18n';
 import { meetHero, propErrK, readErr } from './lesson';
 import { heroById } from '../../game/catalog';
 import { DEF } from '../defs';
-import { ADS, CLEAR, DELEG, DEPT, DEPTS, DEPT_DUTIES, DEPT_SKILLS, isResearch, rpCost, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
+import { ADS, CLEAR, DELEG, L0, L0_AUTO, DEPT, DEPTS, DEPT_DUTIES, DEPT_SKILLS, isResearch, rpCost, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
 import { deptLevel, menuDepts } from './dept';
 import { fitDept } from './voice';
 import {
@@ -102,6 +102,7 @@ import { adGain, grossRate, sellMoves } from './moves';
 import { applyPlan, planOf, stepsOf } from './plan';
 import { amountOf, budgetOpen, budgetReport, budgetTry, costNeed, deptBudget, restOf, valG, type TryRes } from './budget';
 import { perHeadOf } from './board';
+import { headsOpen, isLocked, leadersOpen, propsOpen, rankLocked, rankLockText, type Left } from './stage';
 import { actTheme } from './brief';
 import { moneyGain, payOk } from './acctgain';
 import { polTouch, tiltOf } from './policy';
@@ -177,13 +178,19 @@ export function everyOf(q: number): number {
   return Math.max(E.fast, Math.round(E.slow - (E.slow - E.fast) * f));
 }
 
-/** リーダーを置けるまでの理解度の残り（置けるなら 0）。部門がメニューに無ければ null */
-export function leaderLeft(s: P1State, d: DeptId): number | null {
+/**
+ * リーダーを置けるまでの残り（置けるなら 0・理解度のあと N・ランクの町を開くまで 'U'。stage.ts の Left）。部門がメニューに無ければ null。
+ * 段 L0：チームリーダーは L0.leaderFrom（Uncommon）の町を開いてから（Common の空席は「🔒 Uncommon の町を開くと」）
+ */
+export function leaderLeft(s: P1State, d: DeptId): Left {
   if (!menuDepts(s).includes(d)) return null;
+  if (!leadersOpen(s)) return L0.leaderFrom;
   return Math.max(0, DELEG.leaderAt - deptLevel(s, d));
 }
-export function headLeft(s: P1State, d: DeptId): number | null {
+/** 段 L0：事業部長（経営企画の部長も）は L0.headFrom（Rare）の町を開いてから。それより前は 'R'（理解度に関係なく置けない） */
+export function headLeft(s: P1State, d: DeptId): Left {
   if (!menuDepts(s).includes(d)) return null;
+  if (!headsOpen(s)) return L0.headFrom;
   // 段 I1：会社が Rare に届いたら、理解度に関係なく全部門に部長を置ける（予算で任せる。経営企画は社長）
   if (d !== 'strategy' && budgetOpen(s)) return 0;
   return Math.max(0, DELEG.headAt - deptLevel(s, d));
@@ -218,7 +225,7 @@ export function setLeader(s: P1State, d: DutyId, hero: number | null): DelegErr 
   }
   const left = leaderLeft(s, DUTY[d].dept);
   if (left == null) return 'closed';
-  if (left > 0) return 'locked';
+  if (isLocked(left)) return 'locked';
   const st = staffOf(s, hero);
   const e = pickErr(st);
   if (e) return e;
@@ -252,7 +259,7 @@ export function setHead(s: P1State, d: DeptId, hero: number | null): DelegErr | 
   }
   const left = headLeft(s, d);
   if (left == null) return 'closed';
-  if (left > 0) return 'locked';
+  if (isLocked(left)) return 'locked';
   const st = staffOf(s, hero);
   if (!st) return 'no-staff';
   if (st.task === 'train') return 'training';
@@ -393,9 +400,24 @@ export const rndOf = (s: P1State, salt: number) => rng(s.seed + s.day * 7919 + s
 export const errMul = (r: () => number, q: number, k: number) => 1 + (r() * 2 - 1) * (1 - q) * k;
 
 /** 1 日の業務：任せた業務を、見直しの日に回す（採掘・交代の戻しは毎日）。採掘で打ったマスを返す（地図の演出用） */
+/**
+ * 段 L0：その業務を仕組みのパネル（data.ts の L0_AUTO）が回しているか（パネルを取っていて、ヒーローのリーダー・部長がいない）。
+ * 自動プレイも、仕組みが回す業務は手で決めない（scripts/island/sim.ts の dg）
+ */
+export function autoDuty(s: P1State, d: DutyId): boolean {
+  if (!s.skills?.length) return false;
+  for (const [id, x] of Object.entries(L0_AUTO.panels)) if (x.duties.includes(d) && has(s, id)) return !runnerOf(s, d);
+  return false;
+}
+/** 仕組みが回している業務（業務の画面・テスト用） */
+export const autoDuties = (s: P1State): DutyId[] => DUTIES.map((d) => d.id).filter((d) => autoDuty(s, d));
+/** 仕組みの回し手（ヒーローはいない。出来は L0_AUTO.q。業務の関数は r.q だけを見る：order・craft・shelf） */
+const AUTO_ST = { hero: -1 } as Staff;
+
 export function delegDay(s: P1State): ReturnType<typeof leadDigHits> {
   const any = s.staff.some((x) => x.task === 'lead' || !!x.heads?.length);
-  if (!any && !s.deleg?.cover.length && !Object.keys(s.deleg?.pend ?? {}).length) return [];
+  const autos = autoDuties(s);
+  if (!any && !autos.length && !s.deleg?.cover.length && !Object.keys(s.deleg?.pend ?? {}).length) return [];
   const st = D(s);
   let hits: ReturnType<typeof leadDigHits> = [];
   // 作るものの選択：ロットが終わった作業台を替える
@@ -417,7 +439,14 @@ export function delegDay(s: P1State): ReturnType<typeof leadDigHits> {
   }
   for (const d of DUTIES) {
     const r = runnerOf(s, d.id);
-    if (!r) continue;
+    if (!r) {
+      // 段 L0：仕組みのパネルが回す業務（記録は担当の報告に出さない：ヒーローがいないので）
+      if (!autos.includes(d.id)) continue;
+      if ((st.next[d.id] ?? 0) > s.day) continue;
+      st.next[d.id] = s.day + everyOf(L0_AUTO.q);
+      RUN[d.id](s, { st: AUTO_ST, q: L0_AUTO.q, by: 'leader' }, { acts: 0, miss: 0, n: 0 }, rndOf(s, d.id.length * 37 + d.id.charCodeAt(0)));
+      continue;
+    }
     const rec = (st.stat[d.id] ??= { acts: 0, miss: 0, n: 0 });
     rec.hero = r.st.hero;
     rec.q = r.q;
@@ -1062,7 +1091,10 @@ export function delegMonth(s: P1State, r: Report) {
   const ifs = ifsOf(s);
   const fresh: Proposal[] = [];
   const budgeted = budgetOpen(s);
+  // 段 L0：部長の提案は Rare から（古いセーブで Rare より前に置いてある部長は、業務を回すだけで提案は持ってこない）
+  const props = propsOpen(s);
   for (const d of heads) {
+    if (!props) continue;
     const H = headOf(s, d)!;
     const q = quality(H, d);
     const rnd = rndOf(s, d.length * 13 + d.charCodeAt(0) * 7 + r.month);
@@ -1586,12 +1618,17 @@ export function bandText(s: P1State, d: DeptId): { long: string; short: string; 
   // リーダーに任せる業務の無い部門（経営企画・システム）：事業部長だけ
   if (!duties.length) {
     const hl = headLeft(s, d) ?? 0;
+    // 段 L0：Rare の町を開くまでは置けない
+    if (rankLocked(hl)) return { long: t(`事業部長：${rankLockText(hl)}`, `Division head: ${rankLockText(hl)}`), short: `🔒 ${hl}`, on: false };
     return hl > 0
       ? { long: t(`事業部長：理解度 ${DELEG.headAt} から（あと ${hl}）`, `Division head: at understanding ${DELEG.headAt} (${hl} to go)`), short: t(`担当：あと ${hl}`, `Lead: ${hl} to go`), on: false }
       : { long: t('担当：事業部長を置けます', 'Lead: you can place a head'), short: t('担当：部長', 'Lead: head'), on: true };
   }
   const left = leaderLeft(s, d) ?? 0;
-  if (left > 0) return { long: t(`チームリーダー：理解度 ${DELEG.leaderAt} から（あと ${left}）`, `Team leader: at understanding ${DELEG.leaderAt} (${left} to go)`), short: t(`担当：あと ${left}`, `Lead: ${left} to go`), on: false };
+  const n0 = duties.filter((x) => leaderOf(s, x)).length;
+  // 段 L0：Uncommon の町を開くまでは置けない（古いセーブで置いてあるリーダーは残る：そのときは人数を出す）
+  if (rankLocked(left) && !n0) return { long: t(`チームリーダー：${rankLockText(left)}`, `Team leader: ${rankLockText(left)}`), short: `🔒 ${left}`, on: false };
+  if (typeof left === 'number' && left > 0) return { long: t(`チームリーダー：理解度 ${DELEG.leaderAt} から（あと ${left}）`, `Team leader: at understanding ${DELEG.leaderAt} (${left} to go)`), short: t(`担当：あと ${left}`, `Lead: ${left} to go`), on: false };
   const n = duties.filter((x) => leaderOf(s, x)).length;
   return { long: t(`担当：チームリーダー ${n} / ${duties.length}`, `Lead: team leaders ${n} / ${duties.length}`), short: t(`担当 ${n}/${duties.length}`, `Lead ${n}/${duties.length}`), on: true };
 }

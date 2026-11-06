@@ -22,6 +22,7 @@ import { cashGap, jamOf, myShops, whatIf, type FlowKey, type P1State, type Repor
 import { moveUp, sellBigUp } from './scm';
 import { bestSell } from './moves';
 import { reportProposal, stallSay, type Speech } from './card';
+import { propsOpen } from './stage';
 import type { Plan } from './plan';
 import { closeSheet, open, type Ctx } from './screens';
 import { btn, h, heroName, money, rich, select, signCls, signed } from './ui';
@@ -669,7 +670,8 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
           short.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。改善案：[[${best.label}]]（+${n} 個／月）`, `[[${STAGE_NAME[bn]}]] needs attention. Fix: [[${best.label}]] (+${n} / mo)`)));
           if (!prop) {
             hint.classList.add('has-go');
-            bestBtn = btn(t('担当者からの提案', 'Proposal from staff'), () => {
+            // 段 L0：Rare より前は担当者からの提案ではなく、自分で打つ改善（押すとその手・その画面へ）
+            bestBtn = btn(propsOpen(s) ? t('担当者からの提案', 'Proposal from staff') : t('▶ 自分で改善する', '▶ Fix it yourself'), () => {
               closeSheet();
               best.go();
             }, 'is-on isl-rp-best');

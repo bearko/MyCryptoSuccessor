@@ -15,6 +15,7 @@ import { setPolicy } from '../src/island/p1/policy';
 import { heroRarityOf } from '../src/island/p1/hero';
 import type { PropAct } from '../src/island/p1/deleg';
 import { runOnce } from '../scripts/island/sim';
+import { openTier } from './l0util';
 
 /** 通常の方針で最初の町を回し、お店のある月の締めの写し（2 か月目から） */
 const saves = new Map<number, string[]>();
@@ -29,7 +30,8 @@ function months(seed: number): string[] {
 const load = (x: string): P1State => {
   const s = deserializeP1(x)!;
   s.tut = 99;
-  return s;
+  // 段 L0：ヒーロー・部長からの提案は Rare の町から（会社が Rare の町を開いた状態にする。いまの町は最初の町のまま）
+  return openTier(s, 'R');
 };
 /** 写真の場面：販売がボトルネックで、雇える候補がいて、人事の担当が提案を持ってくる月 */
 function photo(): P1State {

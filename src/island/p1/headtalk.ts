@@ -13,6 +13,7 @@ import { t } from '../../i18n';
 import { DELEG, DEPT, DEPTS, type DeptId } from './data';
 import { deptLevel, menuDepts } from './dept';
 import { actName, headDepts, headLeft, headOf, heroNm, type Proposal } from './deleg';
+import { headsOpen } from './stage';
 import { cardInbox, hireOffer, inTutorial, sayOf, type Card } from './card';
 import { moraleAvg, wantsToQuit } from './hr';
 import { say, toneOf, type Tone } from './persona';
@@ -41,6 +42,8 @@ export type TalkMode = 'head' | 'mine';
 export function talkMode(s: P1State, d: DeptId): TalkMode | null {
   if (inTutorial(s) || !TALK_DEPTS.includes(d) || !menuDepts(s).includes(d)) return null;
   if (headOf(s, d)) return 'head';
+  // 段 L0：部長は Rare の町から（それまでは細かい操作の画面のまま。古いセーブで置いてある部長は上の 'head'）
+  if (!headsOpen(s)) return null;
   // 段 I1：Rare からは理解度に関係なく部長を置ける（deleg.ts の headLeft）
   return deptLevel(s, d) >= DELEG.headAt || headLeft(s, d) === 0 ? 'mine' : null;
 }
@@ -196,7 +199,8 @@ export function hireCard(s: P1State): Card | null {
  * 初めて部長を置けるようになったとき（どこかの部門の理解度が節目 8 に達し、まだ部長が 1 人もいない）。チュートリアルのあいだ・一言を見たあとは出さない
  */
 export function headTalkDue(s: P1State): DeptId | null {
-  if (inTutorial(s) || s.flags.headTalk || headDepts(s).length) return null;
+  // 段 L0：部長を置けるのは Rare の町から（それまでは出さない）
+  if (inTutorial(s) || s.flags.headTalk || headDepts(s).length || !headsOpen(s)) return null;
   const open = menuDepts(s);
   return DEPTS.find((d) => d.id !== 'strategy' && open.includes(d.id) && deptLevel(s, d.id) >= DELEG.headAt)?.id ?? null;
 }

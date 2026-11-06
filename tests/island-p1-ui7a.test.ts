@@ -7,6 +7,7 @@ import { deptLevel } from '../src/island/p1/dept';
 import { headOf, leaderOf, otherRole, othersCount, pickBest, pickList, quality, roleOf, setHead, setLeader, type PickRole } from '../src/island/p1/deleg';
 import { pickNote } from '../src/island/p1/delegui';
 import { newP1, staffOf, type P1State, type Staff } from '../src/island/p1/model';
+import { openTier } from './l0util';
 
 function setLevel(s: P1State, d: DeptId, n: number) {
   const ids = DEPT_SKILLS[d].filter((k) => !k.donate && !k.inf).map((k) => k.id);
@@ -16,7 +17,8 @@ function setLevel(s: P1State, d: DeptId, n: number) {
 }
 /** 8 人の会社：0〜2 は持ち場の仕事（製造・調達・バイト）、3 は物流部長、4 は物流のリーダー（発注）、5 はセクター長、6 は待機中、7 は物流のリーダー（品出し） */
 function company() {
-  const s = newP1(1);
+  // 段 L0：部長・リーダーは Rare の町から
+  const s = openTier(newP1(1), 'R');
   const base = s.staff[0];
   s.staff = Array.from({ length: 8 }, (_, i) => ({ ...structuredClone(base), hero: 10001 + i }) as Staff);
   for (const d of ['logistics', 'hr', 'marketing'] as DeptId[]) setLevel(s, d, DELEG.headAt);

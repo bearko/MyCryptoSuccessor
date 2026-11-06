@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { POL_PANELS, POL_PANEL_DEPT, DIG_PANELS, ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, UI5_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, REQUIRES_ORIG, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
+import { L0_PANELS_BEFORE, L0_SKILLS, POL_PANELS, POL_PANEL_DEPT, DIG_PANELS, ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, UI5_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, REQUIRES_ORIG, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
 import { deptLevel, deptNews, deptOpen, deptReady, menuDepts, menuLayout, nextMark } from '../src/island/p1/dept';
 import { deserializeP1, newP1, serializeP1 } from '../src/island/p1/model';
 import { DEPT_LAYOUT, EDGES, HUBPOS, HUB_BOX, KNOTPOS, POS, RING_OUT, SLACK, UNPLACED, groupOf } from '../src/island/p1/treelayout';
@@ -71,7 +71,8 @@ describe('パネルの部門の割り振り', () => {
     // 段 G のカスタマーサポート・マーケのパネル（CS_SKILLS・MKT_SKILLS）も除く
     // 段 H2 の法務のパネル（法務の枝）も除く。M&A の遊びに合わせて見直した Epic の 2 枚（M&A 部門・工芸の工房の買収）は効き目だけを比べから外す
     // 段 UI5a で足した調達の交代要員（UI5_SKILLS）も除く。段 DIG3 で足した発掘の「貫通」も除く
-    expect(SKILLS.filter((k) => k.branch !== 'sales' && k.branch !== 'legal' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id) && !POL_PANELS.includes(k.id) && k.id !== 'dig_pierce').map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
+    // 段 L0 で足した仕組みのパネル（L0_SKILLS：品出し・調達・製造計画の自動化）も除く
+    expect(SKILLS.filter((k) => k.branch !== 'sales' && k.branch !== 'legal' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id) && !L0_SKILLS.includes(k.id) && !POL_PANELS.includes(k.id) && k.id !== 'dig_pierce').map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
     for (const b of BEFORE) {
       const k = SKILL[b.id as string];
       // 段 UI5b：先に要るものは、つながりの見直し（treelinks.ts）の前のもの（REQUIRES_ORIG）で比べる。見直しは tests/island-p1-ui5b.test.ts
@@ -86,7 +87,10 @@ describe('パネルの部門の割り振り', () => {
       }
       // 調整 v25c：無限の強化パネルの「手前の Lv5」は、手前（手早い掘り方など）が研究パネル（レベルなし）になったので外した（持っていればよい）
       if (k.inf && k.branch === 'dig') expect(k.reqLv ?? null, k.id).toBeNull();
-      const now = { id: k.id, name: k.name, note: k.note, cost: k.cost, rp: rpCost(k), cat: k.cat, max: maxLv(k) === Infinity ? 'inf' : maxLv(k), lv5: maxLv(k) >= 5 && maxLv(k) !== Infinity ? levelCost(k, 5) : null, requires: REQUIRES_ORIG[k.id] ?? [], reqLv: k.inf && k.branch === 'dig' ? b.reqLv : (k.reqLv ?? null), anyOf: k.anyOf ?? null, brand: k.brand ?? null, tier: k.tier ?? 'C', emblem: k.emblem ?? null, big: !!k.big, train: k.train ?? null, fx: k.fx ?? null, up: k.up ?? null, shown: shownOf(k) };
+      // 段 L0：序盤の自動化のパネルは値段だけ下げた（data.ts の L0_PANELS）。ほかは前と同じことを、下げる前の値段で比べる
+      const l0 = L0_PANELS_BEFORE[k.id];
+      const k0 = l0 ? { ...k, cost: l0.cost, rp: l0.rp } : k;
+      const now = { id: k.id, name: k.name, note: k.note, cost: k0.cost, rp: rpCost(k0), cat: k.cat, max: maxLv(k) === Infinity ? 'inf' : maxLv(k), lv5: maxLv(k) >= 5 && maxLv(k) !== Infinity ? levelCost(k0, 5) : null, requires: REQUIRES_ORIG[k.id] ?? [], reqLv: k.inf && k.branch === 'dig' ? b.reqLv : (k.reqLv ?? null), anyOf: k.anyOf ?? null, brand: k.brand ?? null, tier: k.tier ?? 'C', emblem: k.emblem ?? null, big: !!k.big, train: k.train ?? null, fx: k.fx ?? null, up: k.up ?? null, shown: shownOf(k) };
       expect(JSON.parse(JSON.stringify(now)), k.id).toEqual(b);
     }
   });
@@ -176,11 +180,13 @@ describe('部門のお知らせ（トースト）', () => {
     const a = deptNews(s);
     expect(a).toHaveLength(1);
     expect(a[0]).toContain('物流の理解度が 3');
-    expect(a[0]).toContain('置けるようになった');
+    // 段 L0：チームリーダーは Uncommon の町から（Common の節目は「Uncommon の町を開くと置ける」）
+    expect(a[0]).toContain('Uncommon の町を開くと置ける');
     expect(deptNews(s)).toEqual([]);
-    // 新しく開いた部門（段 F ができて、Uncommon に出店した）
+    // 新しく開いた部門（段 F ができて、Uncommon に出店した）。段 L0：リーダーを置けるようになったお知らせも 1 回
     s.tier = 'U';
     const b = deptNews(s, 'F');
+    expect(b.join()).toContain('置けるようになった');
     expect(b.join()).toContain('新しい部門：総務');
     expect(b.join()).toContain('新しい部門：経理');
     expect(deptNews(s, 'F')).toEqual([]);

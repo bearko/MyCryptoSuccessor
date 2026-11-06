@@ -11,6 +11,7 @@ import { FOOT_TALK, TALK_MAX, deptTalkNext, talkLen } from '../src/island/p1/min
 import { TREE_LINKS } from '../src/island/p1/treelinks';
 import { groupOf } from '../src/island/p1/treelayout';
 import { SUB_ALIAS, SUB_DEFS, subCount } from '../src/island/p1/menus';
+import { openTier } from './l0util';
 
 /** その部門の理解度を n にする（お金パネルを Lv1 ずつ取る） */
 function setLevel(s: P1State, d: DeptId, n: number) {
@@ -63,7 +64,8 @@ describe('組織図（人事 → ヒーローの配置の中）', () => {
     expect(n.locked).toBeGreaterThan(0);
   });
   it('理解度が届くと空席（置ける）・置いた人は顔・★・士気つきで、持ち場からは外れる', () => {
-    const s = newP1(1);
+    // 段 L0：部長・リーダーの席は Rare の町から
+    const s = openTier(newP1(1), 'R');
     setLevel(s, 'logistics', DELEG.headAt);
     let o = orgChart(s);
     const lg = () => o.depts.find((d) => d.dept === 'logistics')!;
@@ -83,7 +85,7 @@ describe('組織図（人事 → ヒーローの配置の中）', () => {
     expect(o.idle).not.toContain(a);
   });
   it('部長は町の持ち場と兼ねてよい（部長の席と持ち場の両方に出る）', () => {
-    const s = newP1(1);
+    const s = openTier(newP1(1), 'R');
     setLevel(s, 'logistics', DELEG.headAt);
     const a = s.staff[0].hero;
     s.staff[0].task = 'craft';
@@ -169,7 +171,8 @@ describe('スキルツリーのつながりの見直し（線の交わり 0 の�
 
 describe('役職の決まり（組織図の追加の決まり。model.ts の roleCount・canHoldRole の 1 か所）', () => {
   const twoDepts = () => {
-    const s = newP1(1);
+    // 段 L0：部長は Rare の町から
+    const s = openTier(newP1(1), 'R');
     setLevel(s, 'logistics', DELEG.headAt);
     setLevel(s, 'hr', DELEG.headAt);
     return s;
