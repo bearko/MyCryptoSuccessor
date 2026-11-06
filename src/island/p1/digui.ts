@@ -15,7 +15,7 @@
 import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { icon } from '../../ui/dom';
-import { PRODUCT, TABLET, type Mat, type Tier } from './data';
+import { PRODUCT, TABLET, crewPaceText, type Mat, type Tier } from './data';
 import { RARITY_JA } from '../../game/catalog';
 import { blastSize, bombPower, bombsLeft, dig, digRepeatMs, digSite, drill, drillLen, DRILL_FUEL, extName, extRank, extRarity, hasDrill, layersOf, epicRelicsOpen, rareRelicsOpen, reachCells, sessionSec, type DigErr, type DigFound, type DigHit, type DigItem, type DigLayout, type RunEnd } from './model';
 import { bulletEl } from './chartkit';
@@ -512,7 +512,7 @@ export function refreshDig() {
     who.append(h('span', 'isl-dig-crewn', t(`⛏×${cw.n} 威力 ${cw.power}`, `⛏×${cw.n} power ${cw.power}`)), h('small', 'isl-dig-crewrule', cw.ruleText));
     who.setAttribute('aria-label', t(`発掘隊 ${cw.n} 人・威力 ${cw.power}・${cw.ruleText}`, `Dig crew ${cw.n}, power ${cw.power}, ${cw.ruleText}`));
   } else who.append(h('span', '', t('発掘隊（スキル → 発掘の「発掘隊の手際」）', 'Dig crew (Skills → Digging: Skilled crew)')));
-  who.title = t('発掘隊（名前のない隊員）が、作業のあいだ 1 人につき 1 日 3 打ぶん手伝う。スキル → 発掘の「発掘隊の手際」で人数・威力・行動規則', 'The crew (nameless diggers) helps 3 strikes a day each while you dig. Skills → Digging: Skilled crew sets size, power and behaviour');
+  who.title = t(`発掘隊（名前のない隊員）が、作業のあいだ 1 人につき ${crewPaceText()} ぶん手伝う。スキル → 発掘の「発掘隊の手際」で人数・威力・行動規則`, `The crew (nameless diggers) helps ${crewPaceText()} each while you dig. Skills → Digging: Skilled crew sets size, power and behaviour`);
   who.addEventListener('click', (e) => {
     e.stopPropagation();
     const go = p.hooks.skill;

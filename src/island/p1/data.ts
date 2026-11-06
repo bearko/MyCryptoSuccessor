@@ -1753,7 +1753,7 @@ export const DIG_BALANCE: {
     // 発破（段 DIG3：爆弾は地中に埋まっている。掘り出すと爆発。費用なし）：埋まっている数と範囲（N × N）。威力（はがす層の数）は power の段 1・1・2・2・3
     bombs: [2, 3, 4, 5, 6],
     // 調整 v44：Rare・Epic の荒れ地ほど多く埋まる（発破の火薬代で壁を崩していた 100% の手の代わり）
-    bombTier: { C: 0, U: 1, R: 3, E: 5 },
+    bombTier: { C: 1, U: 1, R: 3, E: 5 },
     blastSize: [3, 3, 3, 4, 5],
     // 掘削ドリル：押したマス 1 つを奥へ N 層・1 回の燃料代（G）
     drill: [3, 4, 5, 6, 7],
@@ -1761,8 +1761,8 @@ export const DIG_BALANCE: {
     // 発掘隊の役所：隊の人数の上限（Lv0〜5）・発掘隊の手際：1 日に打つ回数 +20%／Lv
     office: [1, 2, 3, 3, 4, 5],
     crew: [0.2, 0.4, 0.6, 0.8, 1.0],
-    // 調整 v44：隊員 1 人 1 日 1 打（v42 は 3 打。通常の Epic が −30% 縮んだ）
-    crewDay: 1,
+    // 調整 v44：隊員 1 人 1 日 0.5 打（v42 は 3 打。通常の Epic が −30% 縮んだ）
+    crewDay: 0.5,
     // 常駐（自動化）：作業していない日の速さ（作業中の何割）・段取り：速さ +10%／Lv・交代制：スタミナの消耗 −15%／Lv・素材の選り分け：+20%／Lv
     auto: [0.2, 0.4, 0.55, 0.7, 0.8],
     autoSpeed: [0.1, 0.2, 0.3, 0.4, 0.5],
@@ -1944,6 +1944,8 @@ const dig_ = (id: string, name: string, note: string, more: Partial<Skill> = {})
  * 説明の文はこの段の値で書く（研究パネルはレベルが無いので「／Lv」と書かない）
  */
 const rl = (id: string) => Math.min(5, DT.rpLv.keep[id] ?? DT.rpLv.lv);
+/** 段 DIG3（調整 v44）：隊員 1 人の、作業のあいだの打つ速さの一言（DT.crewDay。1 未満は「N 日に 1 打」） */
+export const crewPaceText = () => (DT.crewDay >= 1 ? t(`1 日 ${DT.crewDay} 打`, `${DT.crewDay} strikes a day`) : t(`${Math.round(1 / DT.crewDay)} 日に 1 打`, `1 strike every ${Math.round(1 / DT.crewDay)} days`));
 const at1 = <T,>(xs: T[], id: string): T => xs[rl(id) - 1];
 const at0 = <T,>(xs: T[], id: string): T => xs[rl(id)];
 const pct = (v: number) => Math.round(v * 100);
@@ -1996,7 +1998,7 @@ export const DIG_SKILLS: Skill[] = [
     show: [dShow(t('発掘隊の上限', 'Crew limit'), DT.office.slice(1).map((n) => t(`${n} 人`, `${n}`)))],
   }),
   // 段 DIG3：発掘隊はシャドーヒーロー（名前のない隊員）。このパネルの段で 人数（＝段。役所の上限まで）・1 打の強さ・行動規則
-  dig_('dig_crew', t('発掘隊の手際', 'Skilled crew'), t(`発掘隊（名前のない隊員）が作業のあいだ 1 人 1 日 3 打ぶん手伝う：隊員 ${rl('dig_crew')} 人・1 打の強さ +${pct(at1(DT.crew, 'dig_crew'))}%・行動規則「${CREW_RULE[rl('dig_crew')]}」`, `A crew of nameless diggers helps 3 strikes a day each while you dig: ${rl('dig_crew')} diggers, strike power +${pct(at1(DT.crew, 'dig_crew'))}%, behaviour “${CREW_RULE[rl('dig_crew')]}”`), {
+  dig_('dig_crew', t('発掘隊の手際', 'Skilled crew'), t(`発掘隊（名前のない隊員）が作業のあいだ 1 人 ${crewPaceText()} ぶん手伝う：隊員 ${rl('dig_crew')} 人・1 打の強さ +${pct(at1(DT.crew, 'dig_crew'))}%・行動規則「${CREW_RULE[rl('dig_crew')]}」`, `A crew of nameless diggers helps ${crewPaceText()} each while you dig: ${rl('dig_crew')} diggers, strike power +${pct(at1(DT.crew, 'dig_crew'))}%, behaviour “${CREW_RULE[rl('dig_crew')]}”`), {
     requires: ['dig_office'],
     fx: [{ kind: 'dig.crew', v: DT.crew[0], at: DT.crew }],
     show: [dShow(t('隊員の数', 'Diggers'), [1, 2, 3, 4, 5].map((n) => t(`${n} 人`, `${n}`))), dShow(t('行動規則', 'Behaviour'), CREW_RULE.slice(1))],

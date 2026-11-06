@@ -139,9 +139,8 @@ describe('上の 1 行と、打てない理由', () => {
   });
   it('発掘隊（段 DIG3：シャドーヒーロー）：人数・1 打の強さ・1 日の回数・行動規則の一言・仮の絵', () => {
     const s = site();
-    // 調整 v44：Lv0 でも 1 人
-    expect(crewInfo(s).n).toBe(1);
-    expect(crewInfo(s).heroes).toHaveLength(1);
+    expect(crewInfo(s).n).toBe(0);
+    expect(crewInfo(s).heroes).toEqual([]);
     // ヒーローは発掘の担当にできない
     expect(assign(s, s.staff[0].hero, 'dig', null)).toBe('no-task');
     setLevel(s, 'dig_office', 5);
