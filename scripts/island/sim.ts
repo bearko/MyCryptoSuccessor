@@ -420,9 +420,7 @@ export const fullSkills = () => LEARNABLE().filter((k) => ['C', 'U'].includes(sk
 const RTA_SKILLS = [
   'hire', '@bench:1', 'pot', 'route_cloth', 'route_paper', '@shelves:1', 'host', '@carts:1', 'loading', 'stock1', 'jig', 'bulk', '@stockroom:1', 'b_sign', 'shop2', 'route_gem', '@truck:1', '@bench:2', 'jig2', 'stock2', '@shelves:2', 'display', '@staffroom:1', 'shortcut', '@backroom:1', 'chair', 'lounge', 'shop3', 'swift',
   // v5（スキルツリー v2）：売り場を強くする工夫 → ✨ 名物店主 → Uncommon の外周 → 製造・物流・調達の工夫
-  'vmd', 'golden', 'pos', 'point', 'set', 'd_shop', 'order', 'fair', 'flow', 'dyn', 'five_s', 'kaizen', 'lot', 'night', 'mold', 'timetable', 'route_opt', 'joint', 'abc', 'auto_order', 'inventory', 'erp', 'manual', 'incentive',
-  // v45（段 L0）：仕組みのパネル（調達・製造計画・勤務シフトの自動化）は、作る・売る力を取り終えてから（計測 l0f：在庫管理システムのすぐあとだと最短 −6.0%）
-  'auto_proc', 'auto_lineup', 'auto_rest',
+  'vmd', 'golden', 'pos', 'point', 'set', 'd_shop', 'order', 'fair', 'flow', 'dyn', 'five_s', 'kaizen', 'lot', 'night', 'mold', 'timetable', 'route_opt', 'joint', 'abc', 'auto_order', 'inventory', 'auto_proc', 'auto_lineup', 'auto_rest', 'erp', 'manual', 'incentive',
 ];
 
 /**
