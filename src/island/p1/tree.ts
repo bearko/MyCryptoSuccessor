@@ -12,9 +12,9 @@ import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
 import { icon } from '../../ui/dom';
 import { TIER_NAME } from './company';
-import { DEPT, DEPTS, DIG_BALANCE, digRpLv, SKILL, SKILLS, TIERS, anyOfMet, deptOf, isResearch, maxLv, rpCost, shownOf, shownText, type DeptId, type FxKind, type Mat, type Skill, type Sku, type Tier } from './data';
+import { DEPT, DEPTS, DIG_BALANCE, digRpLv, SKILL, SKILLS, TIERS, deptOf, isResearch, maxLv, rpCost, shownOf, shownText, type DeptId, type FxKind, type Mat, type Skill, type Sku, type Tier } from './data';
 import { deptLevel, deptLockText, deptOpen } from './dept';
-import { affordableSkills, bestSkillMove, carriedRp, missingFront, digBranchOpen, donate, donateLock, donations, has, hqOpen, infAt, learn, LEARNABLE, levelLock, levelUp, lvOf, nextDonateCost, nextLevelCost, nextLevelRp, openHQ, openRing, ringOpen, ringsDue, skillLock, skillTier, trainDays, trainingOf, trainees, type P1State } from './model';
+import { affordableSkills, bestSkillMove, carriedRp, condsOf, missingFront, digBranchOpen, donate, donateLock, donations, has, hqOpen, infAt, learn, LEARNABLE, levelLock, levelUp, lvOf, nextDonateCost, nextLevelCost, nextLevelRp, openHQ, openRing, ringOpen, ringsDue, skillLock, skillTier, trainDays, trainingOf, trainees, type P1State } from './model';
 import { after, mineTip, open, type Ctx } from './screens';
 import { FX_PAL, fxAtEl } from '../fx/layer';
 import { pickHero } from './heroui';
@@ -373,7 +373,7 @@ const ringNeed = (k: Skill) => t(`${TIER_NAME[skillTier(k)]} のセクタに進�
 /** 「技を 3 つ」のような条件（anyOf）の札 */
 const anyNeed = (s: P1State, k: Skill) => {
   const got = k.anyOf ? k.anyOf.ids.filter((r) => has(s, r)).length : 0;
-  return t(`技を ${k.anyOf?.n} つ取ると開放できる（いま ${got}）`, `Unlocks after ${k.anyOf?.n} craft skills (now ${got})`);
+  return t(`${k.anyOf?.ids.length} 枚のうち ${k.anyOf?.n} 枚を取ると開放できる（いま ${got}）`, `Unlocks after any ${k.anyOf?.n} of ${k.anyOf?.ids.length} (now ${got})`);
 };
 /** 見えている名前（外周が閉じていれば「？」、封印は「???」） */
 const shownName = (s: P1State, k: Skill) => (k.sealed ? '???' : !ringOpen(s, skillTier(k)) && !isGoalTier(k) ? '?' : k.name);
@@ -433,8 +433,42 @@ function setBurst(el: HTMLElement, p: { x: number; y: number }, extra = 0) {
   el.style.setProperty('--d', `${(0.15 + extra + Math.hypot(p.x, p.y) * 0.11).toFixed(2)}s`);
 }
 
-/** パネルの説明の行（ホバーのカードと、下の説明の帯で同じもの） */
-function infoLines(s: P1State, k: Skill, st: State): HTMLElement[] {
+/**
+ * 段 ST1：先に要るものの札（全部要る＝requires・n 個要る＝anyOf）。満たしたものは緑の ✓、まだのものは灰色。
+ * go があれば札を押せる（そのパネルへ寄って光らせる）。判定は model.ts の condsOf の 1 か所
+ */
+function condRows(s: P1State, k: Skill, go?: (id: string) => void): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  const chip = (id: string, ok: boolean, lv = 1) => {
+    const c = h(go ? 'button' : 'span', `isl-tree-cond ${ok ? 'is-ok' : ''}`);
+    if (go) {
+      (c as HTMLButtonElement).type = 'button';
+      c.addEventListener('click', (e) => {
+        e.stopPropagation();
+        go(id);
+      });
+    }
+    c.style.setProperty('--br', SKILL[id] ? colorOf(SKILL[id]) : 'var(--isl-dim)');
+    c.append(h('i', 'isl-tree-cond-ok', ok ? '✓' : '·'), iconOf(id, 18), h('span', '', `${SKILL[id] ? shownName(s, SKILL[id]) : id}${lv > 1 ? ` Lv${lv}` : ''}`));
+    return c;
+  };
+  for (const c of condsOf(s, k)) {
+    if (c.kind === 'any') {
+      const row = h('div', `isl-tree-conds is-any ${c.ok ? 'is-ok' : ''}`);
+      row.append(h('small', 'isl-tree-conds-k', t(`${c.n} 個要る（${Math.min(c.got, c.n)}/${c.n}）`, `Any ${c.n} (${Math.min(c.got, c.n)}/${c.n})`)), ...c.ids.map((id) => chip(id, has(s, id))));
+      out.push(row);
+    }
+  }
+  const req = condsOf(s, k).filter((c): c is Extract<ReturnType<typeof condsOf>[number], { kind: 'req' }> => c.kind === 'req');
+  if (req.length) {
+    const row = h('div', `isl-tree-conds is-all ${req.every((c) => c.ok) ? 'is-ok' : ''}`);
+    row.append(h('small', 'isl-tree-conds-k', req.length > 1 ? t(`全部要る（${req.filter((c) => c.ok).length}/${req.length}）`, `All of (${req.filter((c) => c.ok).length}/${req.length})`) : t('先に要る', 'Needs')), ...req.map((c) => chip(c.id, c.ok, c.lv)));
+    out.unshift(row);
+  }
+  return out;
+}
+/** パネルの説明の行（ホバーのカードと、下の説明の帯で同じもの）。go：先に要るパネルの札を押したとき（詳細の帯だけ） */
+function infoLines(s: P1State, k: Skill, st: State, go?: (id: string) => void): HTMLElement[] {
   const out: HTMLElement[] = [];
   const tier = skillTier(k);
   if (st === 'ring' || st === 'sealed') {
@@ -443,12 +477,8 @@ function infoLines(s: P1State, k: Skill, st: State): HTMLElement[] {
   }
   if (tier !== 'C') out.push(h('span', 'isl-tag is-tier', tierArea(tier)));
   if (st === 'soon') out.push(h('small', 'isl-warn', t('準備中（まだ取れない）', 'Coming soon (not available yet)')));
-  if (k.requires?.length) {
-    // レベルが要るもの（reqLv）は「発掘隊の手際 Lv3」
-    const ok = (r: string) => has(s, r) && lvOf(s, r) >= (k.reqLv?.[r] ?? 1);
-    const need = k.requires.map((r) => (ok(r) ? '✓' : '· ') + (SKILL[r]?.name ?? r) + (k.reqLv?.[r] ? ` Lv${k.reqLv[r]}` : '')).join(t('　', '  '));
-    out.push(h('small', st === 'locked' && k.requires.some((r) => !ok(r)) ? 'isl-warn' : 'isl-dim', t(`先に要る：${need}`, `Needs: ${need}`)));
-  }
+  // 段 ST1：先に要るもの（全部要る・n 個要る）の札。レベルが要るもの（reqLv）は「発掘隊の手際 Lv3」
+  out.push(...condRows(s, k, go));
   // 引き継いだ研究パネル（ランクアップの災害で、お金のパネルだけが未取得に戻る。RP のパネルは残って、そのまま効く）
   if (st === 'done' && carriedRp(s, k.id)) {
     out.push(h('small', 'isl-good', t('取得済み（引き継ぎ）：いまも効いています', 'Unlocked (carried over): still active')));
@@ -458,7 +488,6 @@ function infoLines(s: P1State, k: Skill, st: State): HTMLElement[] {
   if (k.brand) out.push(h('small', (s.brand ?? 0) < k.brand ? 'isl-warn' : 'isl-good', brandNeed(s, k)));
   if (k.emblem) out.push(h('small', (s.emblem ?? 0) < k.emblem ? 'isl-warn' : 'isl-good', emblemNeed(s, k)));
   if (k.deptLv) out.push(h('small', deptLevel(s, deptOf(k)) < k.deptLv ? 'isl-warn' : 'isl-good', deptNeed(s, k)));
-  if (k.anyOf) out.push(h('small', anyOfMet(k, (r) => has(s, r)) ? 'isl-good' : 'isl-warn', anyNeed(s, k)));
   if (k.train && st !== 'done' && st !== 'training') out.push(h('small', 'isl-dim', trainNote(k)));
   const tb = trainBox(s, k);
   if (tb) out.push(tb);
@@ -1176,7 +1205,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       if ((st !== 'ring' || isGoalTier(sel)) && !sel.sealed && !(st === 'done' && !only && shownOf(sel).base.length)) txt.append(h('p', '', sel.note));
       // 段 L0：地図の印によく出る困りごとを無くすパネル（1 行）
       if (st !== 'done' && tips.has(sel.id)) txt.append(h('small', 'isl-good isl-tree-tipline', tipLine()));
-      txt.append(...infoLines(s, sel, st));
+      txt.append(...infoLines(s, sel, st, (id) => flashTo(id)));
       // チュートリアル中はレベルの段を出さない（案内の画面を変えない）
       if ((st === 'done' || (sel.branch === 'dig' && isResearch(sel) && !sel.inf && (st === 'open' || st === 'poor' || st === 'locked'))) && !only) {
         const eff = effLines(s, sel);
@@ -1558,6 +1587,39 @@ export function openSkills(ctx: Ctx, focus?: string) {
         place();
         if (k < 1) requestAnimationFrame(anim);
         else after(ctx);
+      };
+      requestAnimationFrame(anim);
+    }
+    /** 段 ST1：先に要るパネルの札を押した：そのパネルへ寄って光らせる（選んでいるパネルは変えない） */
+    function flashTo(id: string) {
+      const goTo = POS.get(id);
+      if (!goTo) return;
+      const t0 = performance.now();
+      const a = { x: view.x, y: view.y };
+      const lift = (vp.clientHeight * 0.12) / (UNIT * view.zoom);
+      const done = () => {
+        const n = nodeEls.get(id);
+        if (!n) return;
+        n.classList.remove('is-flash');
+        void n.offsetWidth;
+        n.classList.add('is-flash');
+        window.setTimeout(() => n.classList.remove('is-flash'), 1800);
+      };
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        view.x = goTo.x;
+        view.y = goTo.y + lift;
+        place();
+        return done();
+      }
+      const anim = (now: number) => {
+        if (!world.isConnected) return;
+        const k = Math.min(1, (now - t0) / 600);
+        const e = 1 - Math.pow(1 - k, 3);
+        view.x = a.x + (goTo.x - a.x) * e;
+        view.y = a.y + (goTo.y + lift - a.y) * e;
+        place();
+        if (k < 1) requestAnimationFrame(anim);
+        else done();
       };
       requestAnimationFrame(anim);
     }

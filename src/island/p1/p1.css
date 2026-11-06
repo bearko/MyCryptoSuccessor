@@ -17671,3 +17671,66 @@ button.isl-dband-lead.is-on {
     opacity: 0.12;
   }
 }
+/* 段 ST1：先に要るものの札（全部要る・n 個要る）。満たした＝緑の ✓・まだ＝灰色。押すとそのパネルへ寄って光る */
+.isl-tree-conds {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0;
+}
+.isl-tree-conds-k {
+  color: var(--isl-dim);
+  font-size: 12px;
+}
+.isl-tree-conds.is-ok .isl-tree-conds-k {
+  color: var(--isl-good);
+}
+.isl-tree-cond {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px 1px 3px;
+  border: 1px solid #5a6478;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--isl-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: default;
+}
+button.isl-tree-cond {
+  cursor: pointer;
+}
+.isl-tree-conds.is-any .isl-tree-cond {
+  border-style: dashed;
+}
+.isl-tree-cond.is-ok {
+  border-color: var(--isl-good);
+  color: var(--isl-good);
+}
+.isl-tree-cond-ok {
+  font-style: normal;
+  font-weight: 700;
+}
+.isl-tree-cond img,
+.isl-tree-cond .isl-ext,
+.isl-tree-cond .isl-tree-emoji {
+  width: 18px;
+  height: 18px;
+  font-size: 14px;
+}
+.isl-tree-node.is-flash {
+  animation: isl-tree-flash-node 0.6s ease-in-out 3;
+}
+@keyframes isl-tree-flash-node {
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 214, 90, 0.9), 0 0 26px rgba(255, 214, 90, 0.9);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .isl-tree-node.is-flash {
+    animation: none;
+    outline: 3px solid #ffd65a;
+    outline-offset: 3px;
+  }
+}

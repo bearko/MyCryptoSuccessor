@@ -12,13 +12,7 @@ import { EDGES, EDGE_CLEAR, LANES, POS, SQ_SIDE, PANEL, crossings, edgePoly, hal
 import { SKILL, SKILLS, isResearch } from '../src/island/p1/data';
 import { TREE_ORDER } from '../src/island/p1/treeorder';
 
-/**
- * 線どうしの交わりの上限（描く曲線どうし。端のパネルを共有する線は数えない）。放射状のときは段 UI5b でつながりを見直して 0。
- * 上から下へ流れる形（段 ST1）は、つながりを替えずに、レーンごとに段の並びを探して 0（重心法だけでは 2：R&D の「両方要る」の線）
- */
-export const CROSS_NOW = 0;
-/** 線がほかのパネルの下を通る数の上限 */
-export const HIT_NOW = 0;
+import { CROSS_NOW, HIT_NOW } from './st1util';
 
 describe.runIf(!!process.env.ISLAND_TREE_OPT)('並びを探す（ISLAND_TREE_OPT=1）', () => {
   it('レーンごとに並べ直して、treeorder.ts に書く', () => {

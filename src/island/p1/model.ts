@@ -2138,8 +2138,49 @@ export const LEARNABLE = () => SKILLS.filter((k) => !skillSoon(k) && !k.donate);
 export type SkillLock = 'done' | 'training' | 'hidden' | 'sealed' | 'soon' | 'ring' | 'requires' | 'dept' | 'brand' | 'emblem' | 'rp' | 'money' | 'donate';
 /** 段 K：部門の理解度の条件（経営方針のパネル。Skill.deptLv）がそろっている */
 export const deptLvMet = (s: Pick<P1State, 'skills' | 'skillLv' | 'legal'>, k: Skill) => !k.deptLv || deptLevel(s, deptOf(k)) >= k.deptLv;
-/** 先に要るパネル（requires と、そのレベル reqLv）がそろっている */
-export const requiresMet = (s: P1State, k: Skill) => !k.requires?.some((r) => !has(s, r) || lvOf(s, r) < (k.reqLv?.[r] ?? 1)) && anyOfMet(k, (r) => has(s, r));
+/**
+ * 段 ST1：パネルを取る条件の一覧（判定はここ 1 か所。スキルツリーの詳細の「全部要る・n 個要る」の札・目標の道・取るときの判定が使う）。
+ * 帯（ランク）・全部要る（requires と、そのレベル reqLv）・n 個要る（anyOf）・部門の理解度・ブランド力・エンブレム。
+ * 新しい複数条件は data.ts の requires・anyOf に書くだけでよい
+ */
+export type Cond =
+  | { kind: 'ring'; tier: Tier; ok: boolean }
+  | { kind: 'req'; id: string; lv: number; ok: boolean }
+  | { kind: 'any'; ids: string[]; n: number; got: number; ok: boolean }
+  | { kind: 'dept'; need: number; now: number; ok: boolean }
+  | { kind: 'brand'; need: number; now: number; ok: boolean }
+  | { kind: 'emblem'; need: number; now: number; ok: boolean };
+export function condsOf(s: P1State, k: Skill): Cond[] {
+  const out: Cond[] = [{ kind: 'ring', tier: skillTier(k), ok: ringOpen(s, skillTier(k)) }];
+  for (const r of k.requires ?? []) {
+    const lv = k.reqLv?.[r] ?? 1;
+    out.push({ kind: 'req', id: r, lv, ok: has(s, r) && lvOf(s, r) >= lv });
+  }
+  if (k.anyOf) {
+    const got = k.anyOf.ids.filter((r) => has(s, r)).length;
+    out.push({ kind: 'any', ids: k.anyOf.ids, n: k.anyOf.n, got, ok: anyOfMet(k, (r) => has(s, r)) });
+  }
+  if (k.deptLv) {
+    const now = deptLevel(s, deptOf(k));
+    out.push({ kind: 'dept', need: k.deptLv, now, ok: now >= k.deptLv });
+  }
+  if (k.brand) out.push({ kind: 'brand', need: k.brand, now: s.brand ?? 0, ok: (s.brand ?? 0) >= k.brand });
+  if (k.emblem) out.push({ kind: 'emblem', need: k.emblem, now: s.emblem ?? 0, ok: (s.emblem ?? 0) >= k.emblem });
+  return out;
+}
+/** 条件で止まっている理由（無ければ null）。帯 → 先に要るパネル（全部・n 個）→ 理解度 → ブランド力 → エンブレム の順 */
+export function prereqLock(s: P1State, k: Skill): 'ring' | 'requires' | 'dept' | 'brand' | 'emblem' | null {
+  const cs = condsOf(s, k);
+  const bad = (kinds: Cond['kind'][]) => cs.some((c) => kinds.includes(c.kind) && !c.ok);
+  if (bad(['ring'])) return 'ring';
+  if (bad(['req', 'any'])) return 'requires';
+  if (bad(['dept'])) return 'dept';
+  if (bad(['brand'])) return 'brand';
+  if (bad(['emblem'])) return 'emblem';
+  return null;
+}
+/** 先に要るパネル（requires と、そのレベル reqLv・n 個要る anyOf）がそろっている */
+export const requiresMet = (s: P1State, k: Skill) => condsOf(s, k).every((c) => (c.kind !== 'req' && c.kind !== 'any') || c.ok);
 /**
  * 引き継いだ研究パネルか（災害のとき持っていた RP のパネル。古いセーブで記録が無いときは、手前のパネルが外れている RP のパネル）。
  * 効き目は「持っているか」だけで決まる（手前のパネルがそろっているかは見ない）ので、引き継いだパネルはそのまま効く
@@ -2163,11 +2204,8 @@ export function skillLock(s: P1State, k: Skill): SkillLock | null {
   if (k.branch === 'dig' && !digBranchOpen(s)) return 'hidden';
   if (k.sealed) return 'sealed';
   if (skillSoon(k)) return 'soon';
-  if (!ringOpen(s, skillTier(k))) return 'ring';
-  if (!requiresMet(s, k)) return 'requires';
-  if (!deptLvMet(s, k)) return 'dept';
-  if (k.brand && (s.brand ?? 0) < k.brand) return 'brand';
-  if (k.emblem && (s.emblem ?? 0) < k.emblem) return 'emblem';
+  const pre = prereqLock(s, k);
+  if (pre) return pre;
   if (isResearch(k)) return (s.rp ?? 0) < rpCost(k) ? 'rp' : null;
   if (s.money < k.cost) return 'money';
   return null;
@@ -2186,11 +2224,8 @@ export function learn(s: P1State, id: string, hero?: number): string | null {
   if (k.branch === 'dig' && !digBranchOpen(s)) return 'hidden';
   if (k.sealed) return 'sealed';
   if (skillSoon(k)) return 'soon';
-  if (!ringOpen(s, skillTier(k))) return 'ring';
-  if (!requiresMet(s, k)) return 'requires';
-  if (!deptLvMet(s, k)) return 'dept';
-  if (k.brand && (s.brand ?? 0) < k.brand) return 'brand';
-  if (k.emblem && (s.emblem ?? 0) < k.emblem) return 'emblem';
+  const pre = prereqLock(s, k);
+  if (pre) return pre;
   let trainee: Staff | null = null;
   if (k.train) {
     if (s.training) return 'busy';

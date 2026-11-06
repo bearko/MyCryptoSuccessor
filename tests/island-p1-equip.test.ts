@@ -85,7 +85,8 @@ describe('設備投資（スキルツリーから移した設備）', () => {
     expect(SKILL.shop3.requires).toEqual(['shop2']);
     expect(SKILL.display.requires).toBeUndefined();
     // v2：物流拠点は定期便の時刻表のあと（docs/ISLAND_PHASE1.md「スキルツリー」）
-    expect(SKILL.hub.requires).toEqual(['timetable']);
+    // 段 ST1：複数条件の試し（定期便と配送ルートの最適化の両方）。定期便のあとなのは同じ
+    expect(SKILL.hub.requires).toEqual(['timetable', 'route_opt']);
   });
 
   it('工房：作業台・荷車・トラック・物置は、その工房の段で効く', () => {

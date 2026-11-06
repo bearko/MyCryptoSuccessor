@@ -2370,6 +2370,16 @@ for (const k of SKILLS) {
   else delete k.requires;
 }
 /**
+ * 段 ST1：複数条件（「両方要る」。スキルツリーでは実線が 2 本、詳細に「全部要る」の札）。値段（RP の深さ）を決めたあとで足す（値段は変えない）。
+ * 序盤〜中盤で「両方そろって自然」なもの：物流拠点＝定期便と配送ルートの最適化・年間契約＝大口契約と ABC 分析（使う量が読めてから年間で結ぶ）・キャリアの道すじ＝インセンティブと OJT。
+ * どれも同じ束の中（線の交わり 0 の並びを保つ）。Sim は docs/ISLAND_BALANCE.md の v46
+ */
+export const ST1_MULTI: Record<string, string[]> = { hub: ['route_opt'], stock3: ['abc'], hr_career: ['ojt'] };
+for (const [id, add] of Object.entries(ST1_MULTI)) {
+  const k = SKILLS.find((x) => x.id === id);
+  if (k) k.requires = [...new Set([...(k.requires ?? []), ...add])];
+}
+/**
  * 段 L0：序盤の自動化のパネル（リーダー・部長の代わりに、自分で取って回す仕組み）を取りやすく。値段を下げるだけ（上げない）。
  * 研究パネルは RP（rp）・お金のパネルは G（cost）。前と後の表は docs/ISLAND_BALANCE.md の v45。
  * 先に要るパネルは変えない（スキルツリーの線の交わりを 0 にした並び：treelinks.ts を崩さない）
