@@ -58,7 +58,8 @@ export default defineConfig({
   plugins: [pwa(), siteUrl()],
   test: {
     // CI の機械は手元より遅く、町を何年ぶんも回すテストが既定の 5 秒を超えることがある
-    testTimeout: 60_000,
+    // CI は 2 CPU で並列に回すので、性質のテスト（何か月も回す）が 60 秒を超えることがある
+    testTimeout: 180_000,
     // ほかの作業の一時的な worktree（.claude/worktrees）のテストを拾わない
     exclude: ['**/node_modules/**', '**/dist/**', '.claude/**'],
   },
