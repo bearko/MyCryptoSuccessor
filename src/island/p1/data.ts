@@ -2356,14 +2356,15 @@ for (const k of SKILLS) {
  * 先に要るパネルは変えない（スキルツリーの線の交わりを 0 にした並び：treelinks.ts を崩さない）
  */
 export const L0_PANELS: Record<string, { rp?: number; cost?: number }> = {
-  timetable: { rp: 30 },
-  relief: { rp: 30 },
-  abc: { rp: 40 },
-  pos: { cost: 4000 },
-  auto_order: { rp: 60 },
-  mgr: { rp: 80 },
-  flow: { rp: 50 },
-  u_dig_auto: { rp: 90 },
+  timetable: { rp: 20 },
+  relief: { rp: 20 },
+  abc: { rp: 25 },
+  pos: { cost: 3000 },
+  auto_order: { rp: 40 },
+  shift: { rp: 25 },
+  mgr: { rp: 60 },
+  flow: { rp: 40 },
+  u_dig_auto: { rp: 70 },
 };
 /** 段 L0 の前の値段（表・テスト用） */
 export const L0_PANELS_BEFORE: Record<string, { rp: number; cost: number }> = {};
