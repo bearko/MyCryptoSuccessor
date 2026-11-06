@@ -1218,6 +1218,7 @@ const DIG_UNIT: Partial<Record<FxKind, { suf?: string; pct?: boolean; disp?: (v:
   'dig.crit': { pct: true },
   'dig.repeat': { suf: ' ms', disp: (v) => 170 - v, bare: true },
   'dig.reach': { pct: true },
+  'dig.pierce': { pct: true },
   'dig.crew': { pct: true },
   'dig.autoSpeed': { pct: true },
   'dig.relay': { pct: true },
@@ -1700,6 +1701,7 @@ export const DIG_BALANCE: {
       dig_power: 4000,
       dig_speed: 5000,
       dig_reach: 8000,
+      dig_pierce: 9000,
       dig_lamp: 3000,
       dig_deep: 5000,
       dig_study: 6000,
@@ -1729,6 +1731,8 @@ export const DIG_BALANCE: {
     // 広く掘る：隣のマスへの力（打った強さの割合）と向き（lr 左右・lrd 左右と下・all 上下左右）
     reach: [0.25, 0.35, 0.45, 0.5, 0.6],
     reachDir: ['lr', 'lr', 'lrd', 'all', 'all'],
+    // 段 DIG3：貫通（超えた力の持ち越し）25 → 35・50・65・80%
+    pierce: [0.25, 0.35, 0.5, 0.65, 0.8],
     // 発掘のランタン：ひびの隙間から見え始める深さ（何枚手前から。ふだんは いまの層だけ）。Lv4 でお題の気配が さらに 2 枚先から、Lv5 で石板も
     lamp: [1, 2, 3, 3, 3],
     hint: 2,
@@ -1937,11 +1941,17 @@ export const DIG_SKILLS: Skill[] = [
       { kind: 'dig.crit', v: DT.crit[1], at: DT.crit },
     ],
   }),
-  dig_('dig_speed', t('手早い掘り方', 'Quick swings'), t(`長押しで続けて打つ間隔 170 → ${170 - at1(DT.repeat, 'dig_speed')} ms`, `Hold-strike interval 170 → ${170 - at1(DT.repeat, 'dig_speed')} ms`), { requires: ['dig_power'], fx: [{ kind: 'dig.repeat', v: DT.repeat[0], at: DT.repeat }] }),
+  dig_('dig_speed', t('手早い掘り方', 'Quick swings'), t(`なぞって掘るときに打つ間隔 170 → ${170 - at1(DT.repeat, 'dig_speed')} ms`, `Strike interval while digging 170 → ${170 - at1(DT.repeat, 'dig_speed')} ms`), { requires: ['dig_power'], fx: [{ kind: 'dig.repeat', v: DT.repeat[0], at: DT.repeat }] }),
   dig_('dig_reach', t('広く掘る', 'Wide digging'), t(`打ったマスの隣（${REACH_DIR[at1(DT.reachDir, 'dig_reach')]}）の、いまの層にも力の ${pct(at1(DT.reach, 'dig_reach'))}%（はがれたら中身も出る）`, `${pct(at1(DT.reach, 'dig_reach'))}% of each strike also hits the neighbours (${REACH_DIR[at1(DT.reachDir, 'dig_reach')]}) on the current layer (their contents come out too)`), {
     requires: ['dig_speed'],
     fx: [{ kind: 'dig.reach', v: DT.reach[0], at: DT.reach }],
-    show: [dShow(t('力が届く向き', 'Directions'), DT.reachDir.map((d) => REACH_DIR[d]))],
+    // 段 DIG3：スキルツリーの札に「範囲：3 マス → 5 マス」（なぞって掘るときの点線の枠の広さ）
+    show: [dShow(t('効く範囲', 'Cells hit'), DT.reachDir.map((d) => t(`${REACH_N[d]} マス`, `${REACH_N[d]} cells`))), dShow(t('力が届く向き', 'Directions'), DT.reachDir.map((d) => REACH_DIR[d]))],
+  }),
+  // 段 DIG3：貫通（打った力が層の硬さを超えたぶんを、下の層へ持ち越す）。Common の枝・広く掘るの先
+  dig_('dig_pierce', t('貫通', 'Pierce'), t(`打った力が層の硬さを超えたぶんの ${pct(at1(DT.pierce, 'dig_pierce'))}% を、同じマスの下の層へ持ち越す（奥まで一気に）`, `${pct(at1(DT.pierce, 'dig_pierce'))}% of the power left over after a layer breaks carries into the next layer of that cell`), {
+    requires: ['dig_reach'],
+    fx: [{ kind: 'dig.pierce', v: DT.pierce[0], at: DT.pierce }],
   }),
   dig_('dig_lamp', t('発掘のランタン', 'Dig lantern'), t(`ひびの隙間から、奥に埋まっているものがうっすら見える（ふだんは いまの層だけ → ${at1(DT.lamp, 'dig_lamp')} 枚手前から）${lampHint('dig_lamp')}`, `Faintly glimpse finds deeper in (normally only the current layer → ${at1(DT.lamp, 'dig_lamp')} layer(s) ahead)${lampHint('dig_lamp')}`), {
     requires: ['dig_ext'],
@@ -2229,7 +2239,7 @@ export const INF_PANELS = INF_SKILLS.map((k) => k.id);
 // ---------------------------------------------------------------- スキルツリーの 2 区分（研究パネル・お金パネル）
 
 /**
- * お金パネル（資金で開く・Lv1〜5）：技を除く 7 本の枝 × 5 ランクに 1 枚ずつ（35 枚）と、発掘の枝の 17 枚（DIG_PANELS）・研究への寄付（DONATE。押すたびに RP を買う）。
+ * お金パネル（資金で開く・Lv1〜5）：技を除く 7 本の枝 × 5 ランクに 1 枚ずつ（35 枚）と、発掘の枝の 18 枚（DIG_PANELS）・研究への寄付（DONATE。押すたびに RP を買う）。
  * それ以外はすべて研究パネル（RP で開く・レベルなし。無限の強化パネル INF_SKILLS だけは Lv の上限なし）。
  * Common は仕様の 7 枚。Uncommon〜Legendary は「枝の根もと近く、Lv5 まであり、レベルを上げるほど素直に効く数字のパネル」＝
  * そのランク・その枝の追加のパネルの 1 枚目（`<ランク>_<枝>_1`。ロット・ブランド力のような最大 3 のパネルは無い）。

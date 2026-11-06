@@ -1,6 +1,7 @@
 /**
  * スキルツリーの並びの入れ替え（組の key → パネルの id の並び。treelayout.ts の POOLS）。
- * つながりの線が交わらないように選んだもの。tests/island-p1-treeorder.test.ts（ISLAND_TREE_OPT=1・ISLAND_TREE_LINKS=1）が書く。手で直さない。
+ * つながりの線が交わらないように選んだもの。tests/island-p1-treeorder.test.ts（ISLAND_TREE_OPT=1・ISLAND_TREE_LINKS=1）が書く。手で直さない
+ * （段 DIG3：発掘の枝に「貫通」を足したぶんは、R&D の組だけを総当たりで直した：研究の目利きを 4 段目・発掘隊の手際を 5 段目へ・外周の掘る力 ∞ と発掘の速さ ∞ を入れ替え）。
  */
 export const TREE_ORDER: Record<string, string[]> = {
   'marketing|C|0': ['d_ops'],
