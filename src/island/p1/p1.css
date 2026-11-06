@@ -7903,8 +7903,10 @@ button.isl-mis {
   border-radius: 999px;
   background: #3a2c20;
   color: var(--isl-text);
-  font: 700 12px/1.4 inherit;
   font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 .isl-dig-lay i {
   width: 10px;
@@ -7947,8 +7949,11 @@ button.isl-mis {
   border-radius: 999px;
   background: #1f1712;
   color: var(--isl-text);
-  font: 700 12px/1 inherit;
   font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
 }
 .isl-dig-auto.is-empty {
@@ -9280,6 +9285,7 @@ small.isl-note-series.is-bad {
 /* 段 DIG3：見つけた瞬間の小さなトースト（マスの上。1 秒で消える） */
 .isl-dig-ping {
   position: absolute;
+  max-width: calc(100% - 24px);
   z-index: 6;
   display: inline-flex;
   align-items: center;
@@ -9359,8 +9365,10 @@ small.isl-note-series.is-bad {
   border-radius: 10px;
   background: #1f1712;
   color: var(--isl-text);
-  font: 700 11px/1.3 inherit;
   font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
   text-align: center;
   overflow: hidden;
   isolation: isolate;
@@ -9397,6 +9405,9 @@ small.isl-note-series.is-bad {
 .isl-dig-find-name {
   font-weight: 400;
   color: #d9c7a8;
+  /* 名前は 2 行まで折り返す（切らない） */
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 .isl-dig-find-recipe {
   color: #7fe0d0;
@@ -9412,6 +9423,11 @@ small.isl-note-series.is-bad {
   background: #c7463b;
   color: #fff;
   box-shadow: 0 0 0 3px rgba(199, 70, 59, 0.45);
+}
+/* 段 DIG3（調整）：発掘の画面のあいだは、提案のカード・経営会議を隠す（閉じると戻る） */
+body.isl-digging .isl-cardm,
+body.isl-digging .isl-board {
+  display: none !important;
 }
 /* 段 DIG3：発掘隊の札の行動規則（スマホでは出さない：帯が狭い） */
 .isl-dig-crewrule {
