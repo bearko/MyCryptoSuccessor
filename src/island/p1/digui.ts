@@ -232,6 +232,7 @@ export function openDig(ctx: Ctx, hooks: DigHooks, note?: string) {
   // なぞって掘る（段 DIG3）：効く範囲の点線の枠と、打っているマスのツルハシ（壁の上に重ねる。押せない）
   const reach = h('div', 'isl-dig-reach');
   const pick = h('i', 'isl-dig-pick', '⛏');
+  const crew = h('div', 'isl-dig-crew');
   bindWall(wall);
   // 4. 下の帯：ひとこと・道具・発掘隊・研究ノート
   const foot = h('div', 'isl-dig-foot');
@@ -277,6 +278,8 @@ function fitWall() {
   // 覗き見のアイコンの大きさが変わるので描き直す
   for (const c of p.cells) delete c.dataset.k;
   paintCells();
+  paintCrew();
+  paintAim();
 }
 
 function buildWall() {
@@ -304,8 +307,60 @@ function buildWall() {
       p.cells.push(b);
       p.wall.append(b);
     }
-  p.wall.append(p.reach, p.pick);
+  p.wall.append(p.reach, p.crew, p.pick);
+  p.crew.replaceChildren();
   stopAim(p);
+}
+
+// ---------------------------------------------------------------- 発掘隊（段 DIG3：シャドーヒーロー。壁の上を歩いて打つ）
+
+/** 隊員が最後に打ったマス（隊員の番号 → マス。画面を閉じても覚えておく） */
+const crewAt = new Map<number, [number, number]>();
+/** 1 日ごと（main.ts）：発掘隊が打った結果。隊員をそのマスへ動かして振る */
+export function noteCrewHits(hits: DigHit[]) {
+  const p = P;
+  let moved = false;
+  for (const x of hits) {
+    if (x.crew == null || x.splash || x.blast || x.pierce) continue;
+    crewAt.set(x.crew, [x.x, x.y]);
+    moved = true;
+    if (!p || p.over) continue;
+    const c = cellAt(x.x, x.y);
+    if (c) dust(c, x.broke ? 6 : 3, x.broke);
+    const man = p.crew.children[x.crew] as HTMLElement | undefined;
+    if (man) {
+      man.classList.remove('is-swing');
+      void man.offsetWidth;
+      man.classList.add('is-swing');
+    }
+  }
+  if (moved && p) paintCrew();
+}
+/** 隊員を描く（人数ぶん。最後に打ったマスの足もとへ。まだなら下の段に並ぶ） */
+function paintCrew() {
+  const p = P;
+  if (!p) return;
+  const s = p.ctx.s();
+  const L = digSite(s);
+  if (!L) return;
+  const cw = crewInfo(s);
+  while (p.crew.children.length > cw.n) p.crew.lastElementChild?.remove();
+  while (p.crew.children.length < cw.n) {
+    const n = p.crew.children.length;
+    const man = h('span', 'isl-dig-crewman');
+    man.append(heroIcon(cw.heroes[n] ?? cw.heroes[0], 32), h('i', 'isl-dig-crewpick', '⛏'));
+    man.title = t(`発掘隊 ${n + 1}`, `Crew ${n + 1}`);
+    p.crew.append(man);
+  }
+  for (let n = 0; n < cw.n; n++) {
+    const man = p.crew.children[n] as HTMLElement;
+    const at = crewAt.get(n) ?? [Math.min(L.w - 1, 1 + n * 2) % L.w, L.h - 1];
+    const c = cellAt(at[0], at[1]);
+    if (!c) continue;
+    man.style.left = `${c.offsetLeft + c.offsetWidth / 2}px`;
+    man.style.top = `${c.offsetTop + c.offsetHeight}px`;
+  }
+  p.crew.classList.toggle('is-idle', !s.digRun || p.over);
 }
 
 /** 層の並び（手前 → 奥。掘れない層は 🔒。押すと「深い層の許可が要る」） */
@@ -426,38 +481,37 @@ export function refreshDig() {
     }
     p.tools.append(b);
   }
-  const auto = autoDiggers(s);
-  const who = h('button', `isl-dig-auto ${auto.length ? '' : 'is-empty'}`);
+  // 段 DIG3：発掘隊はシャドーヒーロー（研究パネル「発掘隊の手際」の Lv で人数・威力・行動規則）。押すとそのパネルへ
+  const cw = crewInfo(s);
+  const who = h('button', `isl-dig-auto ${cw.n ? '' : 'is-empty'}`);
   who.type = 'button';
-  if (auto.length) {
-    for (const a of auto.slice(0, 2)) who.append(heroIcon(a.hero, 28));
-    const per = auto.reduce((v, a) => v + (a.resting ? 0 : a.perDay), 0);
-    const [cn, cap] = crewCount(s);
-    who.append(h('span', '', t(`発掘隊 ${cn}/${cap}・1 日 ${Math.round(per * 10) / 10} 打`, `Crew ${cn}/${cap} · ${Math.round(per * 10) / 10}/day`)));
-    if (auto.every((a) => a.resting)) who.append(h('small', 'isl-bad', t('休憩中', 'Resting')));
-  } else who.append(h('span', '', t('＋ 発掘隊', '+ Dig crew')));
+  if (cw.n) {
+    for (const id of cw.heroes.slice(0, 2)) who.append(heroIcon(id, 28));
+    who.append(h('span', '', t(`発掘隊 ${cw.n} 人・1 打 ${cw.power}・${cw.ruleText}`, `Crew ${cw.n} · power ${cw.power} · ${cw.ruleText}`)));
+  } else who.append(h('span', '', t('発掘隊（スキル → 発掘の「発掘隊の手際」）', 'Dig crew (Skills → Digging: Skilled crew)')));
+  who.title = t('発掘隊（名前のない隊員）が、作業のあいだ 1 人につき 1 日 3 打ぶん手伝う。スキル → 発掘の「発掘隊の手際」で人数・威力・行動規則', 'The crew (nameless diggers) helps 3 strikes a day each while you dig. Skills → Digging: Skilled crew sets size, power and behaviour');
   who.addEventListener('click', (e) => {
     e.stopPropagation();
-    pickDigger();
+    const go = p.hooks.skill;
+    if (!go) return;
+    closeDig();
+    go('dig_crew');
   });
   p.tools.append(who, p.notes);
+  paintCrew();
   // ひとこと：打てない理由（画面全体：作業が終わった など）・直前に押したマスの理由（数秒だけ）・道具の使い方・掘り方
   const block = p.over ? null : digBlock(s);
   const now = performance.now();
-  const bn = blastSize(s);
   const live = p.err && p.err.until > now;
   const msg = live
     ? p.err!.text
     : block
       ? digErrText(block)
-      : p.blastArm
-        ? t(`発破：マスを押すと、まわり ${bn} × ${bn} の いまの層が 1 枚ずつはがれる`, `Blast: tap a cell to peel one layer off the ${bn} × ${bn} around it`)
-        : p.drillArm
-          ? t(`ドリル：マスを押すと、そのマスが奥へ ${drillLen(s)} 層はがれる`, `Drill: tap a cell to peel ${drillLen(s)} layers off it`)
-          : t('マスにカーソルを当てる・指でなぞると掘れる（手前の層から 1 枚ずつ）', 'Hover a cell or drag your finger to dig (one layer at a time)');
+      : p.drillArm
+        ? t(`ドリル：マスを押すと、そのマスが奥へ ${drillLen(s)} 層はがれる`, `Drill: tap a cell to peel ${drillLen(s)} layers off it`)
+        : t('マスにカーソルを当てる・指でなぞると掘れる（手前の層から 1 枚ずつ）', 'Hover a cell or drag your finger to dig (one layer at a time)');
   p.why.textContent = msg;
   p.why.className = `isl-dig-why ${live && p.err!.good ? 'is-warn' : live || block ? 'is-bad' : ''}`;
-  p.el.classList.toggle('is-blast', p.blastArm);
   p.el.classList.toggle('is-drill', p.drillArm);
   paintLegend();
   paintCells();
