@@ -466,6 +466,8 @@ export function digSave(s: P1State): boolean {
 }
 /** 深い層の許可の次の Lv に要るもの（先に要るパネルが無ければ、その根もとから） */
 export const DEEP_CHAIN = ['dig_ext', 'dig_lamp', 'dig_deep'];
+/** 調整 v44（段 DIG3）：発掘隊の手際までの研究パネル（100% が先に開く） */
+export const CREW_CHAIN = ['dig_ext', 'dig_office', 'dig_crew'];
 /** 「@id:段」→ 設備投資の id と段 */
 const invOf = (x: string): { id: string; lv: number } | null => {
   if (!x.startsWith('@')) return null;
@@ -2314,6 +2316,9 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       // 通常・100%：掘れずに止まっている・お題が許可の無い層にあれば、深い層の許可を先に（売上の 20% の枠や、制覇のあと資金をためている月に関係なく。
       // 止まったままだと RP が入らず、研究パネルが開けなくなる）
       if (D.tree !== 'deep' && (blocked || topicLocked(s)) && lvOf(s, 'dig_deep') < 5) take(deepNext(), 10000);
+      // 調整 v44（段 DIG3）：100% は v41 までと同じく発掘隊を最初から使う（前は発掘の担当のヒーローを 1 人置いていた：D.digger）。
+      // 隊員はシャドーヒーローになったので、発掘隊の手際までの研究パネル（RP）を RP がたまりしだい先に開く
+      if (D.digger > 0 && lvOf(s, 'dig_crew') === 0) take(CREW_CHAIN.find((id) => lvOf(s, id) === 0) ?? 'dig_crew', 0);
       if (D.tree === 'share' && atPause) {
         // 枠は月の売上の 20% を積み立てる（使わなかったぶんは翌月へ。1 枚がその月の枠より高くても、たまれば買える）
         c.digBudget = (c.digBudget ?? 0) + (s.reports.at(-1)?.revenue ?? 0) * D.share;
@@ -3674,7 +3679,7 @@ export function tables(rep: Report2): string {
   const per = (p: PolicyId) => (SIM_DIG[p].perMonth == null ? `前の作業が終わったらすぐ次（続けて掘る。ひと月に ${(30 / runDays(p)).toFixed(1)} 回まで）` : `${SIM_DIG[p].perMonth} 回（月の前半と後半）。v13：発表がまだのセクタは ${SIM_DIG[p].perMonth + SIM_DIG[p].pending} 回、1 位を 2 か月続けて発表を待っているあいだは続けて掘る`);
   const tgt = (p: PolicyId) => (SIM_DIG[p].target === 'know' ? '配置を知っている：まだのお題のある荒れ地 → お題（無ければ石板・エクステ）の範囲を、取るまでの打つ回数が少ないものから手前の層へ' : 'v11：覗き見が出ているマス（お題 → 石板 → エクステ → 素材）→ 取りかけ・打ちかけ → 浅いマス（いまの荒れ地を掘りきるまで）→ お題の気配のある荒れ地');
   const pm = (p: PolicyId) => (p === 'rta' ? `まだのお題のある荒れ地だけ（申請料の ${SIM_DIG[p].permit} 倍＋5,000 G あれば。v13：作業のあいまにも。お金は投資の順番より先に残す）` : p === 'normal' ? `掘れる荒れ地が無くなったら次の 1 か所（申請料の ${SIM_DIG[p].permit} 倍＋5,000 G あれば）。v13：発表がまだで、許可のある荒れ地にお題が残っていなければ、お題のある荒れ地を先に` : `資金が申請料の ${SIM_DIG[p].permit} 倍＋5,000 G あれば、月末にあるだけ`);
-  const dg = (p: PolicyId) => (SIM_DIG[p].digger === 0 ? '置かない' : 'いつも 1 人');
+  const dg = (p: PolicyId) => (SIM_DIG[p].digger === 0 ? '手際は研究パネルの順のまま' : '発掘隊の手際（役所 → 手際）を RP がたまりしだい先に（v44。v41 までは担当のヒーローを 1 人）');
   const tl = (p: PolicyId) => (SIM_DIG[p].tree === 'deep' ? 'お題が許可の無い層に残っていれば、深い層の許可 Lv1（根もとの追加申請・ランタンから）だけ' : SIM_DIG[p].tree === 'share' ? `月末に、月の売上の ${Math.round(SIM_DIG[p].share * 100)}% を積み立てた枠で（買ったあとも 1 万 G 残るとき）研究の目利き Lv2 → 安い順に（掘れずに止まっている・お題が許可の無い層にあれば、枠に関係なく深い層の許可を先に）` : 'ほかのスキルと同じく安い順にまとめて全部 Lv5 まで（掘れずに止まっていれば、資金をためている月も深い層の許可を先に）');
   for (const p of pols) out.push(`| ${POLICY_NAME[p]} | ${per(p)} | ${tgt(p)} | ${pm(p)} | ${dg(p)} | ${tl(p)} |`);
   return out.join('\n');
