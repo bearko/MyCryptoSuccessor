@@ -4,7 +4,7 @@
  * 実行：`npm run island:sim`（tests/island-p1-sim.test.ts から呼ぶ。結果は console と docs/ISLAND_BALANCE.md）。
  * ゲームの数値（data.ts・式）は変えない。ここは計測だけ。
  */
-import { R2_OFF } from '../../src/island/p1/r2';
+import { R2_OFF, STUDY_KINDS, runStudy, studyCost, studyLock } from '../../src/island/p1/r2';
 import { writeFileSync } from 'node:fs';
 import { AD_TIER, HERO_GROWTH, HERO_RARITIES, aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, isAntique, areaTuneOf, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier, RARE_AREA, EPIC_RIVAL, ANTIQUE, BRAND_CAP, L0_SKILLS } from '../../src/island/p1/data';
 import { managerApt, RUIN, sectorDef, type RuinLike } from '../../src/island/p1/company';
@@ -18,7 +18,7 @@ import { fatigueAvg, fatigueMul, fatigueOf, gaOn } from '../../src/island/p1/ga'
 import { CS_OFF, apologize, bestReply, putLock, putOut, reply } from '../../src/island/p1/cs';
 import { copyIn, forecast, gradeOf, prLock, publish } from '../../src/island/p1/mkt';
 import { LEGAL_OFF, clauseSlots, dealOf, filePatent, guidePrice, infringers, keepRate, legalHere, maLock, offerChance, offerLock, openSuits, patentLock, patentOf, patentable, rivalSales, sendOffer, setLicense, settle, signSupply, startDD, startDeal, sueInfringer, suitChance, supplyLock, type Clauses, type OfferLevel } from '../../src/island/p1/legal';
-import { BOARD, LEGAL } from '../../src/island/p1/data';
+import { BOARD, LEGAL, R2_SET, r2Panel } from '../../src/island/p1/data';
 import { bonus as giveBonus, bonusCost, raise, raiseStep, setRest, wageMul } from '../../src/island/p1/model';
 import { CHARISMA, CS, CSM_RP, FATIGUE, FLAME, GRADE, GRADE_NAME, MORALE, PAY, TAX, deptOf } from '../../src/island/p1/data';
 // v22（段 G）：販売の枝に足したカスタマーサポート・マーケの研究パネル（CSM_RP）は、通常の「詰まりの段の枝の研究パネル」には数えない（売り場の段に効かない）
@@ -415,6 +415,8 @@ const DUST_OF: Record<Stage, string> = { buy: 'd_buy', craft: 'd_craft', haul: '
  * v8：先に要るパネルが準備中のものは、いまは取れないので数えない（「技能の大会」は先に要るものを Uncommon の技「伝統工芸の継承」に替えたので、いまは 0 件）
  */
 /** 100% のゴールのパネル（C・U の取れるパネル）。v14a：無限の強化パネル（Lv の上限なし）はゴールに入れない（余った RP の使い道。infSpend） */
+/** 100% のゴールの Lv：お金パネルは最大・段 R2 の研究パネルは開ければよい（Lv 2〜5 はゴールに入れない。100% の決め方は変えない） */
+export const goalLv = (k: Skill) => (r2Panel(k) ? 1 : maxLv(k));
 export const fullSkills = () => LEARNABLE().filter((k) => ['C', 'U'].includes(skillTier(k)) && !k.inf && !(k.requires ?? []).some((r) => SKILL[r] && skillSoon(SKILL[r])));
 
 /** 最短：知っている人の取り方（アンコモンへ一直線、そのあと売り場と運搬）。「@id:段」は設備投資 */
@@ -1430,6 +1432,16 @@ export function policy(s: P1State, c: Ctx): Action[] {
       for (let i = 0; i < n; i++) acts.push({ kind: 'donate', run: () => (typeof donate(s) === 'string' ? 'none' : null) });
     }
   }
+  // v46（段 ST1・R2）：研究の施策（出土品の整理・文献調査）：通常・100% は、資金に余裕のある月に（Rare より前。Rare から R&D 部長がいれば部長が予算で）。最短は打たない
+  if (c.monthEnd && c.policy !== 'rta' && !R2_OFF.on)
+    for (const k of STUDY_KINDS) {
+      const cost = studyCost(s, k);
+      if (studyLock(s, k) !== null || budget < cost + reserve + SIM_R2.studyKeep) continue;
+      spend(cost);
+      acts.push({ kind: 'skill', run: () => (typeof runStudy(s, k) === 'string' ? 'none' : null) });
+    }
+  // v46（段 ST1・R2）：研究パネルの Lv 2〜5（RP）。次に取るパネルの RP を残して、余った RP で次の Lv の安い順に。最短は時間が縮むものだけ
+  if (c.monthEnd && !R2_OFF.on) acts.push({ kind: 'skill', run: () => (r2Spend(s, c.policy) > 0 ? null : 'none') });
   // v33（段 K）：経営方針。標準の選び方（全社方針の空いた枠は開いた順・方針の無い部門は部長の推奨）と、経営方針のパネル（SIM_POL）
   // v34（段 K2）：全社方針の枠 +1（ランクアップの特別なパネル）は、受け取れるようになった日にすぐ受け取る（どの方針も）
   if ((c.monthEnd || slotPending(s) > 0) && !POL_OFF.on) acts.push({ kind: 'skill', run: () => simPolicy(s, c.policy) });
@@ -1475,6 +1487,43 @@ function simPolicy(s: P1State, p: PolicyId): string | null {
   polAutoFill(s);
   if (before !== `${corpOf(s).join()}|${presDepts(s).map((d) => deptPolicyOf(s, d)).join()}`) did = true;
   return did ? null : 'none';
+}
+/**
+ * v46（段 ST1・R2）：研究パネルの Lv（RP）と研究の施策の自動プレイ。
+ * - studyKeep：研究の施策は、施策の G ＋ いつもの残す資金 ＋ これ以上あるときだけ。
+ * - keepMul：Lv に使ってよいのは、まだ取っていない取れそうな研究パネル（帯が開いていて、先に要るものがそろったもの）のいちばん高い RP の keepMul 倍を超えたぶん
+ *   （通常・100% は今の取り方の延長：開放を先に。余った RP で Lv）。
+ * - rta：最短は時間が縮むもの（売上と流れに効く効き目）だけ。決まった順の研究パネルを取り切るまでは上げない。
+ * - full：100% は C・U の研究パネル（ゴール）を取り切るまで、その RP を残す（v46 の 1 回目の計測で Common が延びたため）
+ */
+export const SIM_R2 = {
+  studyKeep: 150000,
+  keepMul: 2,
+  rtaKinds: ['pull', 'price', 'demand', 'craftDays', 'haulDays', 'procCap', 'cartCap', 'display', 'flow', 'buyDays', 'matPrice', 'lot'] as string[],
+  rtaHand: ['display', 'vmd', 'golden', 'set', 'hours', 'b_sign', 'order', 'b_premium', 'concierge', 'five_s', 'jig2', 'kaizen', 'line', 'loading', 'route_opt', 'fleet', 'stock1', 'stock2', 'stock3', 'swift', 'erp', 'flow'],
+};
+/** 段 R2 の研究パネルの Lv を上げる（月末）。上げた数 */
+export function r2Spend(s: P1State, p: PolicyId): number {
+  if (R2_OFF.on) return 0;
+  // 最短：決まった順の研究パネルを取り切るまでは上げない（RP は順の先のパネルに残す）
+  if (p === 'rta' && [...RTA_SKILLS, ...RTA_MORE_U].some((id) => SKILL[id] && isResearch(SKILL[id]) && !has(s, id))) return 0;
+  const near = SKILLS.filter((k) => isResearch(k) && !k.inf && !k.donate && !has(s, k.id) && ['rp', null].includes(skillLock(s, k)));
+  // 100%：C・U の研究パネル（ゴール）をまだ取り切っていなければ、その RP を残す（今の取り方の延長：開放が先）
+  const goalRest = p === 'full' ? fullSkills().filter((k) => isResearch(k) && !k.inf && !has(s, k.id)).reduce((a, k) => a + rpCost(k), 0) : 0;
+  const keep = Math.max(SIM_R2.keepMul * Math.max(0, ...near.map(rpCost)), goalRest);
+  const ok = (k: Skill) => p !== 'rta' || SIM_R2.rtaHand.includes(k.id) || (!!k.fx?.length && SIM_R2.rtaKinds.includes(k.fx[0].kind));
+  let n = 0;
+  for (let guard = 0; guard < 200; guard++) {
+    const cand = [...R2_SET]
+      .map((id) => SKILL[id])
+      .filter((k) => has(s, k.id) && ok(k) && levelLock(s, k) === null)
+      .map((k) => ({ k, rp: nextLevelRp(s, k) }))
+      .filter((x) => (s.rp ?? 0) - x.rp >= keep)
+      .sort((a, b) => a.rp - b.rp || a.k.id.localeCompare(b.k.id))[0];
+    if (!cand || levelUp(s, cand.k.id) != null) break;
+    n++;
+  }
+  return n;
 }
 /** v33（段 K）：経営方針を止めて回す（効き目・提案の傾向・発表会なし＝段 K の前と同じ。比べるためだけ。終わったら戻す） */
 /** 段 ST1・R2：RP の入り口（追試・展示館・研究の施策）と研究パネルの Lv を止めて回す（前の main と同じ流れで比べるテストだけ。終わったら戻す） */
@@ -1855,7 +1904,8 @@ function byWhatIf(s: P1State, c: Ctx, bn: Stage, cap: number, k: WhatIfHooks): n
       cap -= SKILL[m.id].cost;
       n++;
     } else if (m.kind === 'level') {
-      // レベル上げ（v7）：見込みの大きい順に、開放と混ぜて
+      // レベル上げ（v7）：見込みの大きい順に、開放と混ぜて。v46：段 R2 の研究パネルの Lv（RP）は月末の r2Spend だけで上げる
+      if (R2_SET.has(m.id)) continue;
       if (m.cost > cap || k.budget() < m.cost + k.reserve / 2) continue;
       k.spend(m.cost);
       cap -= m.cost;
@@ -2661,7 +2711,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
         // 100%：全スキル・全依頼まで続ける
         const claimed = missionsOnRoute.filter((m) => s.missions[m.id] === 'claimed').length;
         // v8：C・U の取れるパネルをすべて開放（お金パネルは Lv 最大）
-        const got = fullSkills().filter((k) => lvOf(s, k.id) >= maxLv(k)).length;
+        const got = fullSkills().filter((k) => lvOf(s, k.id) >= goalLv(k)).length;
         if (got >= allSkills && claimed >= fullMissions) {
           res.done = true;
           break;
@@ -2669,7 +2719,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
         // v8：12 か月、パネルも依頼も進まなければ打ち切る（RP が足りない・掘る所が無い）
         if (got !== progress.got || claimed !== progress.claimed) progress = { got, claimed, day: s.day };
         if (s.day - progress.day > 30 * 12 || s.day - (cur.topDay ?? 0) > 30 * MONTH_CAP) {
-          const rest = fullSkills().filter((k) => lvOf(s, k.id) < maxLv(k));
+          const rest = fullSkills().filter((k) => lvOf(s, k.id) < goalLv(k));
           res.stop = `全スキル・全依頼に届かない（残り ${rest.length} 枚：研究パネル ${rest.filter(isResearch).length} 枚・RP ${rest.filter(isResearch).reduce((a, k) => a + rpCost(k), 0)} が要る・いま ${Math.round(s.rp ?? 0)} RP）`;
           break;
         }
@@ -2856,7 +2906,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
   res.research.U = SKILLS.filter((k) => skillTier(k) === 'U' && isResearch(k) && !k.inf && has(s, k.id)).length;
   if (p === 'full') {
     const crowns = SECTORS.filter((x) => c.route.includes(x.id)).filter((x) => crowned(s, x.id)).length;
-    res.goal = { crowns, skills: fullSkills().filter((k) => has(s, k.id)).length, maxed: fullSkills().filter((k) => lvOf(s, k.id) >= maxLv(k)).length, levels: fullSkills().reduce((a, k) => a + lvOf(s, k.id), 0), missions: MISSIONS.filter((m) => s.missions[m.id] === 'claimed').length, missing: MISSIONS.filter((m) => s.missions[m.id] !== 'claimed').map((m) => m.id) };
+    res.goal = { crowns, skills: fullSkills().filter((k) => has(s, k.id)).length, maxed: fullSkills().filter((k) => lvOf(s, k.id) >= goalLv(k)).length, levels: fullSkills().reduce((a, k) => a + Math.min(lvOf(s, k.id), goalLv(k)), 0), missions: MISSIONS.filter((m) => s.missions[m.id] === 'claimed').length, missing: MISSIONS.filter((m) => s.missions[m.id] !== 'claimed').map((m) => m.id) };
   }
   return res;
 }
@@ -3795,7 +3845,7 @@ export function observations(rep: Report2): string {
   out.push('');
   const fulls = rep.runs.filter((x) => x.policy === 'full');
   if (fulls.length) {
-    out.push(`100% のゴールの到達（${fulls.length} シード）：` + fulls.map((r) => `seed ${r.seed}：👑 ${r.goal?.crowns}/${routeOf('full').length}・スキル ${r.goal?.skills}/${fullSkills().length}（C・U の取れるパネル。大きめの研究パネル ${fullSkills().filter((k) => k.big).length} 枚を含む）・Lv 最大 ${r.goal?.maxed}/${fullSkills().length}（レベルの合計 ${r.goal?.levels}/${fullSkills().reduce((a, k) => a + maxLv(k), 0)}）・依頼 ${r.goal?.missions}/${MISSIONS.length}${r.goal?.missing?.length ? `（残り：${r.goal.missing.join('・')}）` : ''}${r.stop ? `（${r.stop}）` : ''}`).join('／'));
+    out.push(`100% のゴールの到達（${fulls.length} シード）：` + fulls.map((r) => `seed ${r.seed}：👑 ${r.goal?.crowns}/${routeOf('full').length}・スキル ${r.goal?.skills}/${fullSkills().length}（C・U の取れるパネル。大きめの研究パネル ${fullSkills().filter((k) => k.big).length} 枚を含む）・Lv 最大 ${r.goal?.maxed}/${fullSkills().length}（レベルの合計 ${r.goal?.levels}/${fullSkills().reduce((a, k) => a + goalLv(k), 0)}。段 R2 の研究パネルの Lv 2〜5 はゴールに入れない）・依頼 ${r.goal?.missions}/${MISSIONS.length}${r.goal?.missing?.length ? `（残り：${r.goal.missing.join('・')}）` : ''}${r.stop ? `（${r.stop}）` : ''}`).join('／'));
     out.push('');
   }
   const stops = rep.runs.filter((r) => r.stop && r.policy !== 'full');

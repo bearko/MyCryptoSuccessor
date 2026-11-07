@@ -17975,3 +17975,31 @@ button.isl-tree-cond {
 .isl-tree-studyb.is-can {
   border-color: var(--isl-good);
 }
+/* 段 ST1：上の帯（通貨・目標）の後ろに木が透けないように（固定した見出しはこの下。スマホは前から背景あり） */
+@media (min-width: 600px) {
+  .isl-tree-top {
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 6px 8px;
+    background: linear-gradient(#0f1626 82%, rgba(15, 22, 38, 0));
+  }
+}
+@media (max-width: 599px) {
+  .isl-tree-studyb b {
+    display: none;
+  }
+}
+.isl-tree-head-nm > span {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+/* 目標の道のパネルは、手前がまだでも暗くしすぎない（道が見えるように） */
+.isl-tree-node.is-path.is-locked {
+  filter: grayscale(0.4) brightness(0.85);
+}
+.isl-tree-heads .isl-tree-head.is-narrow .isl-tree-head-tx,
+.isl-tree-heads .isl-tree-head.is-narrow .isl-tree-head-n,
+.isl-tree-heads .isl-tree-head.is-narrow .isl-tree-head-lock {
+  display: none;
+}
