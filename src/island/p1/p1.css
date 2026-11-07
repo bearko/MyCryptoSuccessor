@@ -17191,78 +17191,7 @@ button.isl-dband-lead.is-on {
 }
 
 /* ================================================================ 段 MAP1：街づくりの見える化（文字より色・形・動き） */
-/* 1・2：地図の右下（ズームの下）の「🔗 流れ」「🏪 商圏」と凡例（赤＝自店の商圏・青＝他店・橙＝調達・青線＝輸送） */
-.isl-viz {
-  position: absolute;
-  right: calc(var(--rail-w, 0px) + 8px);
-  top: calc(46% + 96px);
-  z-index: 2;
-  display: grid;
-  justify-items: end;
-  gap: 4px;
-}
-.isl-viz[hidden] {
-  display: none !important;
-}
-.isl-viz .isl-btn {
-  min-height: 36px;
-  padding: 0 10px;
-  font-size: 13px;
-  font-weight: 700;
-  opacity: 0.8;
-}
-.isl-viz .isl-btn.is-on {
-  opacity: 1;
-}
-.isl-viz-legend {
-  display: grid;
-  gap: 2px;
-  padding: 4px 8px;
-  border: 2px solid var(--isl-line);
-  background: var(--isl-panel);
-  font-size: 12px;
-}
-.isl-viz-legend[hidden] {
-  display: none;
-}
-.isl-viz-key {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.isl-viz-key i {
-  display: inline-block;
-  width: 18px;
-  height: 10px;
-}
-.isl-viz-key .isl-viz-mine {
-  background: rgba(240, 86, 90, 0.55);
-  border: 1px solid #f0565a;
-}
-.isl-viz-key .isl-viz-rival {
-  background: rgba(79, 143, 230, 0.45);
-  border: 1px solid #4f8fe6;
-}
-.isl-viz-key .isl-viz-supply {
-  height: 0;
-  border-top: 3px dashed #f39a3c;
-}
-.isl-viz-key .isl-viz-haul {
-  height: 0;
-  border-top: 3px dashed #7cc6f2;
-}
-@media (max-width: 599px) {
-  .isl-viz {
-    top: auto;
-    bottom: calc(var(--foot-h, 60px) + 100px);
-    /* 段 L0：「❗ 印」を足して 3 つになったので、スマホは横に並べる（ズームの ＋／− に重ならない） */
-    grid-auto-flow: column;
-    align-items: end;
-  }
-  .isl-viz-legend {
-    display: none;
-  }
-}
+/* 段 UI10：地図の右下の「🔗 流れ」「🏪 商圏」「❗ 印」と凡例は外した（設定の「🗺 地図の表示」へ。mapset.css） */
 /* ================================================================ 段 L0：地図の印（困りごとのアイコン。文字なし・色と形。Rare より前） */
 /* 赤＝売れない・橙＝素材と製造・青＝人・灰＝疲れ・紫＝倉庫・黄＝お客さん（--mk。mapmarks.ts の MARK_KIND）。角は丸めない */
 /* 段 UI10：層は画面いっぱいなので、指を受けない（#isl-ui > * の pointer-events: auto に負けて、地図のピンチ・ドラッグ・タップを全部止めていた）。押せるのは印のボタンだけ */
@@ -17378,21 +17307,6 @@ button.isl-dband-lead.is-on {
   .isl-tree-hint {
     animation: none;
   }
-}
-/* 凡例の印の色 */
-.isl-viz-key .isl-viz-markdot {
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border: 1px solid var(--isl-line);
-  background: var(--mk);
-  font-size: 12px;
-  font-style: normal;
-  line-height: 1;
-}
-.isl-viz .isl-btn[hidden] {
-  display: none;
 }
 /* 3：置くモードの固定バーの「見込み N 軒・被り N」「工房から N 日」 */
 .isl-place-heat {

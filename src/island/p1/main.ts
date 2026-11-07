@@ -171,7 +171,7 @@ import { openPolicyView } from './policyui';
 // 段 K3：経営方針発表会のカードの場面（boardui.ts の BOARD_SCENES に登録する）
 import './policycardsui';
 import { runOrderOf, tileContent } from './tile';
-import { MARK_KIND, MARK_LEGEND, markTip, marksOf, marksOn, marksDue, type MapMark } from './mapmarks';
+import { MARK_KIND, markTip, marksOf, marksOn, type MapMark } from './mapmarks';
 import { closeDig, debugTablet, digOpen, digRect, extIcon, noteCrewHits, openDig, openNotes, refreshDig, refreshTimer, showEndCard } from './digui';
 import { MEET_FOUND, MEET_LINES, canPresent, chiefHome, digMet, chiefOf, digSummary, letterToGet, lettersLeft, meetReady, meetTip, presentAfter, presentPages } from './digmeet';
 import { BUDGET_TALK, CHIP_SRC, CLEAR_LINE, FOOT_TALK, HIRE_LINES, RP_LINE, DUNGEON_LINE, GATE_LINES, LAND_CLEAR_LINE, MUSEUM_LINE, RANK_LINES, RELIC_LINE, REVIVE_LINE, SIDE_LINES, TOUR, arrivalPages, bubbleKind, chipOf, deptTalkNext, introPages, needsIntro, talkWaits, type ArrivePage, type TalkUi, type TourEv, type TourPhase } from './mine';
@@ -187,6 +187,7 @@ import { landCleared, letterLockOf, letterLocked, playable } from './land';
 import { actOf, hlOf, pointOf, TUT, TUT_DONE, TUT_END, tutFix, tutOf, type TutGo, type TutPage, type TutStep } from './tut';
 import { btn, h, heroIcon, heroName, matIcon, money, plain, rich, signed, skuIcon, skuName } from './ui';
 import { mapGesture } from './gesture';
+import { mapSetOn, openMapSet } from './mapsetui';
 
 const q = new URLSearchParams(location.search);
 const TEST = q.get('test') === '2';
@@ -802,6 +803,7 @@ const SCREEN: Record<ScreenId, () => void> = {
   suit: () => openLegalScreen('suit'),
   invest: () => openInvest(ctx),
   settings: () => openSettings(),
+  mapset: () => openMapSet(ctx, () => (dirty = true)),
   pace: () => openPace(),
   save: () => openSaveMenu(),
   trophy: () => openTrophies(ctx),
@@ -3817,61 +3819,12 @@ const zoomBox = h('div', 'isl-zoom');
 zoomBox.append(btn('+', () => zoomStep(1)), btn('−', () => zoomStep(-1)));
 zoomBox.hidden = true;
 
-// ---------------------------------------------------------------- 段 MAP1：見える化の切り替え（地図の右下、ズームの隣）と凡例
+// ---------------------------------------------------------------- 段 MAP1：見える化（流れの線・商圏）
+// 段 UI10：地図の右下の「🔗 流れ」「❗ 印」「🏪 商圏」と凡例は外し、設定の画面の「🗺 地図の表示」（mapsetui.ts）で切り替える
 /** 流れの線（既定オン。flags に覚える。チュートリアルの流れの案内では強制オン） */
-const flowOn = () => s.flags.flowLines !== false || !!tour;
+const flowOn = () => mapSetOn(s, 'flow') || !!tour;
 /** 商圏（既定オフ。置くモードは常に・店を押したときはその店だけ） */
-const areaOn = () => !!s.flags.areaShow;
-const vizBox = h('div', 'isl-viz');
-const flowBtn = btn(t('🔗 流れ', '🔗 Flow'), () => {
-  s.flags.flowLines = !(s.flags.flowLines !== false);
-  save();
-  renderViz();
-  dirty = true;
-}, 'isl-viz-flow');
-const areaBtn = btn(t('🏪 商圏', '🏪 Areas'), () => {
-  s.flags.areaShow = !s.flags.areaShow;
-  save();
-  renderViz();
-  dirty = true;
-}, 'isl-viz-area');
-// 段 L0：地図の印（困りごと）のトグル（既定オン。Rare より前だけ出す）
-const marksBtn = btn(t('❗ 印', '❗ Alerts'), () => {
-  s.flags.issueMarks = !(s.flags.issueMarks !== false);
-  save();
-  renderViz();
-  dirty = true;
-}, 'isl-viz-marks');
-const vizLegend = h('div', 'isl-viz-legend');
-vizBox.append(flowBtn, marksBtn, areaBtn, vizLegend);
-vizBox.hidden = true;
-function renderViz() {
-  vizBox.hidden = !!placing || digOpen() || !!s.digRun;
-  flowBtn.classList.toggle('is-on', flowOn());
-  areaBtn.classList.toggle('is-on', areaOn());
-  marksBtn.hidden = !marksDue(s);
-  marksBtn.classList.toggle('is-on', marksOn(s));
-  const items: [string, string][] = [];
-  if (areaOn()) items.push(['isl-viz-mine', t('自店', 'Mine')], ['isl-viz-rival', t('他店', 'Rivals')]);
-  if (flowOn()) items.push(['isl-viz-supply', t('調達', 'Supply')], ['isl-viz-haul', t('輸送', 'Haul')]);
-  // 段 L0：印の色の意味（赤＝売れない・橙＝素材・青＝人・灰＝疲れ・紫＝倉庫・黄＝お客さん）
-  const marks = marksOn(s) ? MARK_LEGEND : [];
-  vizLegend.replaceChildren(
-    ...items.map(([cls, name]) => {
-      const x = h('span', 'isl-viz-key');
-      x.append(h('i', cls), h('small', '', name));
-      return x;
-    }),
-    ...marks.map((k) => {
-      const x = h('span', 'isl-viz-key is-mark');
-      const dot = h('i', 'isl-viz-markdot', MARK_KIND[k].icon);
-      dot.style.setProperty('--mk', MARK_KIND[k].color);
-      x.append(dot, h('small', '', MARK_KIND[k].name()));
-      return x;
-    }),
-  );
-  vizLegend.hidden = !items.length && !marks.length;
-}
+const areaOn = () => mapSetOn(s, 'area');
 /** いま地図に重ねるもの（毎フレーム。描くデータは mapviz.ts で memo） */
 function vizNow(): MapViz {
   const selShop = selected != null && !placing ? s.buildings.find((b) => b.uid === selected && b.owner === 'me' && P1B[b.id]?.kind === 'shop') : null;
@@ -4126,7 +4079,6 @@ function placeWorldUi() {
   const land = s.land;
   // 段 UX1（B-6）：ズームの ＋／− は最初の町でも出す（ホイール・ピンチのほかに拡大の手段が無かった）
   zoomBox.hidden = !!placing || digOpen();
-  renderViz();
   if (!land || worldBusy()) {
     worldUi.hidden = true;
     return;
@@ -4484,10 +4436,11 @@ function openTradeScreen() {
     },
   });
 }
-/** 地図の商圏の塗り分けを出しているあいだの札（押すと消す） */
+/** 地図の商圏の塗り分けを出しているあいだの札（押すと消す）。段 UI10：営業の画面の「地図で商圏を見る」で一時的に出したときだけ、地図の上に小さく「🏪 商圏を表示中 ✕」 */
 const areaPill = h('button', 'isl-area-pill');
 areaPill.type = 'button';
 areaPill.hidden = true;
+areaPill.setAttribute('aria-label', t('商圏の表示を消す', 'Hide trade areas'));
 areaPill.addEventListener('click', () => {
   areaOverlay.on = false;
   renderAreaPill();
@@ -4496,9 +4449,9 @@ areaPill.addEventListener('click', () => {
 function renderAreaPill() {
   areaPill.hidden = !areaOverlay.on || !s.area;
   if (!s.area) areaOverlay.on = false;
-  areaPill.replaceChildren(h('span', '', t('🗺 商圏を表示中（色＝お客さんが行く会社）', '🗺 Showing trade areas (color = where customers go)')), h('b', '', '✕'));
+  areaPill.replaceChildren(h('span', '', t('🏪 商圏を表示中', '🏪 Showing trade areas')), h('b', '', '✕'));
 }
-root.append(worldUi, issueEl, meetEl, chiefEl, hud, ticker.el, sectorPill, areaPill, zoomBox, vizBox, pointEl, missionBox, tourEl, toasts, advisor, nextBtn, placeBox, popEl, foot, selBox, ghostUi);
+root.append(worldUi, issueEl, meetEl, chiefEl, hud, ticker.el, sectorPill, areaPill, zoomBox, pointEl, missionBox, tourEl, toasts, advisor, nextBtn, placeBox, popEl, foot, selBox, ghostUi);
 resize();
 renderAll();
 // 始めたばかりなら、建築の一覧を開いておく

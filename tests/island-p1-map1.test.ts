@@ -66,8 +66,9 @@ describe('1. サプライチェーンの線', () => {
     expect(r.indexOf('drawRoutes(ctx, s, cam.zoom, now, visible)')).toBeLessThan(r.indexOf('type Item = { depth: number; draw: () => void }'));
     expect(r).toContain('const flow = !reducedMotion();');
     const m = src('main.ts');
-    expect(m).toContain('const flowOn = () => s.flags.flowLines !== false || !!tour;');
-    expect(m).toContain("btn(t('🔗 流れ', '🔗 Flow')");
+    // 段 UI10：切り替えは設定の「🗺 地図の表示」（mapsetui.ts）。地図の右下のボタンは外した
+    expect(m).toContain("const flowOn = () => mapSetOn(s, 'flow') || !!tour;");
+    expect(m).not.toContain("btn(t('🔗 流れ', '🔗 Flow')");
   });
 });
 
@@ -95,9 +96,9 @@ describe('2. お店の集客エリア', () => {
     const only = areaCells(s, { only: a.uid });
     expect(Math.max(...only.mine.values())).toBe(1);
   });
-  it('置くときは常に出し、ふだんは「🏪 商圏」（既定オフ）。店を押すとその店だけ', () => {
+  it('置くときは常に出し、ふだんは設定の「お店の商圏」（既定オフ）。店を押すとその店だけ', () => {
     const m = src('main.ts');
-    expect(m).toContain('const areaOn = () => !!s.flags.areaShow;');
+    expect(m).toContain("const areaOn = () => mapSetOn(s, 'area');");
     expect(m).toContain("area: placing ? (P1B[placing.id]?.kind === 'shop' ? { only: null } : null) : areaOn() ? { only: null } : selShop ? { only: selShop.uid } : null");
   });
 });
