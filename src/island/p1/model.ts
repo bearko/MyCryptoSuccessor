@@ -5489,6 +5489,45 @@ export function shopEstimates(s: P1State): Record<number, number> {
   return out;
 }
 
+/** 段 SALES1：お店 1 軒の売れ方の内訳（ひと月の個数）。sold：需要から取れる数（棚に並んでいるとして）・alone：自社のお店がこの 1 軒だけなら取れた数・lost：自社のほかのお店に取られた数（alone − sold） */
+export interface ShopSplit {
+  sold: number;
+  alone: number;
+  lost: number;
+}
+/**
+ * 段 SALES1：お店ごとの「自社どうしの取り合い」（uid → 内訳）。商品ごとに、自社の棚を全部並べたときの取り分と、
+ * そのお店の棚だけ（他社はそのまま）のときの取り分を比べる。店員がいる日（いつもの体制）として数える。純粋関数
+ */
+export function shopSplit(s: P1State): Record<number, ShopSplit> {
+  const out: Record<number, ShopSplit> = {};
+  for (const b of myShops(s)) if (s.shops[b.uid]) out[b.uid] = { sold: 0, alone: 0, lost: 0 };
+  for (const p of productsOf(s)) {
+    const mine = myOffers(s, p.key, false);
+    if (!mine.length) continue;
+    const rv = rivalOffers(s, p.key);
+    const all = capture(s, p.key, [...mine, ...rv]);
+    const uids = [...new Set(mine.map((o) => o.b.uid))];
+    for (const uid of uids) {
+      const own = mine.filter((o) => o.b.uid === uid);
+      const solo = uids.length > 1 ? capture(s, p.key, [...own, ...rv]) : null;
+      mine.forEach((o, n) => {
+        if (o.b.uid !== uid) return;
+        out[uid].sold += all[n];
+      });
+      out[uid].alone += solo ? own.reduce((a, _, n) => a + solo[n], 0) : own.reduce((a, o) => a + all[mine.indexOf(o)], 0);
+    }
+  }
+  for (const v of Object.values(out)) v.lost = Math.max(0, v.alone - v.sold);
+  return out;
+}
+/** 段 SALES1：自社どうしの取り合いの割合（取られた数 ÷ 1 軒だけなら取れた数の合計。お店が 1 軒なら 0） */
+export function cannibalRate(s: P1State, split = shopSplit(s)): number {
+  const v = Object.values(split);
+  const alone = v.reduce((a, x) => a + x.alone, 0);
+  return alone > 0 ? v.reduce((a, x) => a + x.lost, 0) / alone : 0;
+}
+
 // ---------------------------------------------------------------- ④ 販売の内訳（SCM ダッシュボード）
 
 /** 家から見て、自社のお店の届き方がこれより小さいと「遠くて届かない」（およそ 4 マス以上） */

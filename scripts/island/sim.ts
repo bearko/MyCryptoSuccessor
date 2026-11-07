@@ -19,7 +19,7 @@ import { CS_OFF, apologize, bestReply, putLock, putOut, reply } from '../../src/
 import { copyIn, forecast, gradeOf, prLock, publish } from '../../src/island/p1/mkt';
 import { LEGAL_OFF, clauseSlots, dealOf, filePatent, guidePrice, infringers, keepRate, legalHere, maLock, offerChance, offerLock, openSuits, patentLock, patentOf, patentable, rivalSales, sendOffer, setLicense, settle, signSupply, startDD, startDeal, sueInfringer, suitChance, supplyLock, type Clauses, type OfferLevel } from '../../src/island/p1/legal';
 import { BOARD, LEGAL, R2_SET, r2Panel } from '../../src/island/p1/data';
-import { bonus as giveBonus, bonusCost, raise, raiseStep, setRest, wageMul } from '../../src/island/p1/model';
+import { bonus as giveBonus, bonusCost, raise, raiseStep, setRest, wageMul, type DayResult } from '../../src/island/p1/model';
 import { CHARISMA, CS, CSM_RP, FATIGUE, FLAME, GRADE, GRADE_NAME, MORALE, PAY, TAX, deptOf } from '../../src/island/p1/data';
 // v22（段 G）：販売の枝に足したカスタマーサポート・マーケの研究パネル（CSM_RP）は、通常の「詰まりの段の枝の研究パネル」には数えない（売り場の段に効かない）
 import { approve, autoDuty, delegatedDuties, headDepts, headLeft, headOf, leaderLeft, leaderOf, quality, runnerOf, setHead, setLeader } from '../../src/island/p1/deleg';
@@ -2211,7 +2211,7 @@ export interface RunOpts {
   /** 月の締めごとに呼ぶ（調べもの用） */
   onMonth?: (s: P1State, sector: string, month: number) => void;
   /** 毎日の step のあとに呼ぶ（調べもの用） */
-  onDay?: (s: P1State, sector: string) => void;
+  onDay?: (s: P1State, sector: string, d: DayResult) => void;
 }
 
 /**
@@ -2532,7 +2532,7 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
     const d = step(s);
     // v32（段 I2）：経営会議は全部「推奨」で決める（画面の一括承認と同じ）
     if (boardDue(s)) boardAuto(s);
-    o.onDay?.(s, cur.id);
+    o.onDay?.(s, cur.id, d);
     cur.dig.auto += d.dug?.length ?? 0;
     // v18：任せ方の記録
     {
