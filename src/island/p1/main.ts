@@ -186,6 +186,7 @@ import { STRIP, corners, overviewScale, worldOf } from './worldrender';
 import { landCleared, letterLockOf, letterLocked, playable } from './land';
 import { actOf, hlOf, pointOf, TUT, TUT_DONE, TUT_END, tutFix, tutOf, type TutGo, type TutPage, type TutStep } from './tut';
 import { btn, h, heroIcon, heroName, matIcon, money, plain, rich, signed, skuIcon, skuName } from './ui';
+import { mapGesture } from './gesture';
 
 const q = new URLSearchParams(location.search);
 const TEST = q.get('test') === '2';
@@ -3908,10 +3909,7 @@ function seamless(to: string): boolean {
   const d = camShift(r.delta[0], r.delta[1], s.n);
   cam.x -= d.x;
   cam.y -= d.y;
-  if (drag) {
-    drag.cx -= d.x;
-    drag.cy -= d.y;
-  }
+  gesture.shift(d.x, d.y);
   if (tween) {
     tween.x0 -= d.x;
     tween.x1 -= d.x;
@@ -4508,9 +4506,6 @@ if (!s.buildings.some((b) => b.owner === 'me')) openBuildTab();
 
 // ---------------------------------------------------------------- 地図の操作
 
-const pts = new Map<number, { x: number; y: number }>();
-let drag: { x: number; y: number; cx: number; cy: number; moved: boolean } | null = null;
-let pinch: { d: number; zoom: number } | null = null;
 /** ホイールと「＋／−」の段。関所を開けたあとは、同じ階層の全セクタが入るところまで縮小できる */
 /** 段 MAP1：関所のあと（つながった地図）は、いちばん縮小から 0.25 までを 5 段に（最大と最小しか無かった） */
 const zoomSteps = () => {
@@ -4518,61 +4513,11 @@ const zoomSteps = () => {
   return s.land ? landZoomSteps(lo) : [...new Set([lo, 0.25, 0.5, 1, 2])].sort((a, b) => a - b);
 };
 const clampZoom = (z: number) => Math.max(minZoom(), Math.min(2, z));
-const local = (e: PointerEvent) => {
-  const r = canvas.getBoundingClientRect();
-  return pick(cam, W, H, e.clientX - r.left, e.clientY - r.top);
-};
-
-canvas.addEventListener('pointerdown', (e) => {
-  canvas.setPointerCapture(e.pointerId);
-  pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  tween = null;
-  if (pts.size === 2) {
-    const [a, b] = [...pts.values()];
-    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), zoom: cam.zoom };
-    drag = null;
-  } else drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, moved: false };
-});
-canvas.addEventListener('pointermove', (e) => {
-  if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pinch && pts.size === 2) {
-    const [a, b] = [...pts.values()];
-    cam.zoom = clampZoom((pinch.zoom * Math.hypot(a.x - b.x, a.y - b.y)) / pinch.d);
-    dirty = true;
-    if (placing) setGhost(...centerCell());
-    return;
-  }
-  if (drag) {
-    const dx = e.clientX - drag.x;
-    const dy = e.clientY - drag.y;
-    if (Math.hypot(dx, dy) > 6) drag.moved = true;
-    if (drag.moved) {
-      cam.x = drag.cx - dx / cam.zoom;
-      cam.y = drag.cy - dy / cam.zoom;
-      dirty = true;
-      // 置くときは、地図を動かすと建物が画面の真ん中のマスへ
-      if (placing) setGhost(...centerCell());
-    }
-    return;
-  }
-});
-canvas.addEventListener('pointerup', (e) => {
-  pts.delete(e.pointerId);
-  if (pinch) {
-    if (pts.size < 2) {
-      // ピンチで全体まで縮小したら、階層のまんなかへ寄せる（はじめから全体だったときは寄せない）
-      const wasOv = !!s.land && s.n * 200 * pinch.zoom < W * 0.6;
-      pinch = null;
-      centerOverview(wasOv);
-    }
-    return;
-  }
-  const d = drag;
-  drag = null;
-  if (!d || d.moved) return;
+/** 地図のマスを押した（1 本の指・マウスで canvas を押して、動かさずに離した） */
+function tapMap(x: number, y: number) {
   // 発掘作業のあいだは、地図のマスを押しても吹き出しを出さない
   if (s.digRun) return busyDig();
-  const [i, j] = local(e);
+  const [i, j] = pick(cam, W, H, x, y);
   if (placing) {
     // 置いている建物のマスをもう一度押すと建てる。ほかのマスなら、そこを真ん中にして建物を動かす
     if (placing.i === i && placing.j === j) tryPlace();
@@ -4608,12 +4553,72 @@ canvas.addEventListener('pointerup', (e) => {
   }
   openPop(ti, tj);
   renderAll();
+}
+/** 段 UI10：地図の指の操作（gesture.ts）。canvas だけでなく、地図の上の印・札・吹き出しの上から始めた指も数える（2 本でピンチ） */
+const gesture = mapGesture({
+  cam,
+  size: () => ({ W, H }),
+  clampZoom,
+  moved: () => {
+    dirty = true;
+    if (placing) setGhost(...centerCell());
+  },
+  tap: (x, y) => tapMap(x, y),
+  pinchEnd: (zoom0) => {
+    // ピンチで全体まで縮小したら、階層のまんなかへ寄せる（はじめから全体だったときは寄せない）
+    centerOverview(!!s.land && s.n * 200 * zoom0 < W * 0.6);
+  },
+  touched: () => {
+    tween = null;
+  },
 });
-canvas.addEventListener('pointercancel', (e) => {
-  pts.delete(e.pointerId);
-  drag = null;
-  pinch = null;
-});
+/** 地図の上に重ねている層（印・札・町の長・手紙・吹き出し）。ここから始めた指もピンチに数える */
+const MAP_LAYERS = '.isl-marks, .isl-world, .isl-meet, .isl-chief, .isl-pop';
+const onMapLayer = (e: Event) => {
+  const el = e.target as Element | null;
+  return !!el && (el === canvas || (el instanceof Element && !!el.closest(MAP_LAYERS) && root.contains(el)));
+};
+const mapXY = (e: PointerEvent) => {
+  const r = canvas.getBoundingClientRect();
+  return [e.clientX - r.left, e.clientY - r.top] as const;
+};
+// 窓で先に受ける（印や札のボタンが指を受けても、地図の操作に数える）
+addEventListener(
+  'pointerdown',
+  (e) => {
+    if (!onMapLayer(e)) return;
+    const onCanvas = e.target === canvas;
+    if (onCanvas) canvas.setPointerCapture(e.pointerId);
+    gesture.down(e.pointerId, ...mapXY(e), onCanvas);
+  },
+  true,
+);
+addEventListener(
+  'pointermove',
+  (e) => {
+    gesture.move(e.pointerId, ...mapXY(e));
+  },
+  true,
+);
+addEventListener(
+  'pointerup',
+  (e) => {
+    gesture.up(e.pointerId, ...mapXY(e));
+  },
+  true,
+);
+addEventListener('pointercancel', (e) => gesture.cancel(e.pointerId), true);
+// ピンチのあいだと直後は、印・札・吹き出しのボタンを押した扱いにしない
+addEventListener(
+  'click',
+  (e) => {
+    if (gesture.quiet() && onMapLayer(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  },
+  true,
+);
 canvas.addEventListener(
   'wheel',
   (e) => {

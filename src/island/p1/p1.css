@@ -17265,11 +17265,12 @@ button.isl-dband-lead.is-on {
 }
 /* ================================================================ 段 L0：地図の印（困りごとのアイコン。文字なし・色と形。Rare より前） */
 /* 赤＝売れない・橙＝素材と製造・青＝人・灰＝疲れ・紫＝倉庫・黄＝お客さん（--mk。mapmarks.ts の MARK_KIND）。角は丸めない */
+/* 段 UI10：層は画面いっぱいなので、指を受けない（#isl-ui > * の pointer-events: auto に負けて、地図のピンチ・ドラッグ・タップを全部止めていた）。押せるのは印のボタンだけ */
 .isl-marks {
   position: absolute;
   inset: 0;
   z-index: 1;
-  pointer-events: none;
+  pointer-events: none !important;
 }
 .isl-marks[hidden] {
   display: none;
