@@ -73,7 +73,7 @@ export interface ProductDef {
  * walk：通りがかりの客の割合（自社のお店が 2 軒以上のとき、お客さんのこの割合は、お店ごとに「そのお店だけ」と他社で分ける＝自社どうしで取り合わない）。
  * どちらも自社のお店が 1 軒なら効かない（前の売れ方のまま）。model.ts の splitHome
  */
-export const SALES1 = { units: 20, price: 0.05, overlap: 0, walk: 0 };
+export const SALES1 = { units: 20, price: 0.05, overlap: 0.5, walk: 0.3 };
 /** 個数で数える数を SALES1 の倍率に（棚・品出し・荷車・依頼など） */
 export const unitsX = (n: number) => n * SALES1.units;
 /** 段 SALES1 の前の値段（必要なお金を前のままにするところ：商品開発の費用など） */
@@ -2107,7 +2107,7 @@ export const DONATE: Skill = {
 export const SALES_SKILLS: Skill[] = [
   { id: 'sa_survey', branch: 'sales', tier: 'R', name: t('立地調査', 'Site survey'), note: t('営業の画面の「出店の候補地」と、お店を置くときの下見に、取れる取り分の予測（％）が出る', 'Shows the predicted share (%) at candidate sites and when placing a shop'), cost: 0 },
   { id: 'sa_local', branch: 'sales', tier: 'R', name: t('地域密着', 'Local roots'), note: t('Rare の町の自社のお店の引き +10%（商圏の取り分が増える）', 'Your shops’ pull in Rare towns +10% (bigger trade-area share)'), cost: 60000, requires: ['sa_survey'], show: [{ label: t('自社の店の引き', 'Your store pull'), v: 0.1, unit: '%' }] },
-  { id: 'sa_dominant', branch: 'sales', tier: 'R', name: t('ドミナント出店', 'Dominant clustering'), note: t('同じ町の自社のお店どうしの商圏が重なっても取り合わない（重なった所のお客さんは、自社の店の引きの合計で選ぶ）', 'Your shops in the same town stop competing where their trade areas overlap (customers there weigh your shops’ combined pull)'), cost: 0, requires: ['sa_survey'] },
+  { id: 'sa_dominant', branch: 'sales', tier: 'R', name: t('ドミナント出店', 'Dominant clustering'), note: t(`同じ町の自社のお店どうしの商圏が重なっても取り合わない（重なった所のお客さんは、自社の店の引きの合計で選ぶ。ふだんは引きの ${Math.round(SALES1.overlap * 100)}% だけ足し合わせる）`, `Your shops in the same town stop competing where their trade areas overlap (customers there weigh your shops’ full combined pull; normally only ${Math.round(SALES1.overlap * 100)}% of it adds up)`), cost: 0, requires: ['sa_survey'] },
   { id: 'sa_road', branch: 'sales', tier: 'R', name: t('ロードサイド', 'Roadside stores'), note: t('Rare の町の自社のお店の商圏（お客さんが来る距離）+15%', 'Your shops’ trade-area reach in Rare towns +15%'), cost: 90000, requires: ['sa_local'], show: [{ label: t('商圏の距離', 'Reach'), v: 0.15, unit: '%' }] },
   { id: 'sa_nego', branch: 'sales', tier: 'R', name: t('撤退の交渉', 'Exit negotiations'), note: t('撤退した店の跡（空き店舗）に自社が入る費用 −20%', 'Moving into a vacant store costs 20% less'), cost: 80000, requires: ['sa_dominant'], show: [{ label: t('空き店舗に入る費用', 'Vacant-store cost'), v: 0.2, unit: '%', down: true }] },
   { id: 'sa_edge', branch: 'sales', tier: 'R', name: t('差別化の売り場', 'Differentiated floors'), note: t('Rare の町の他社の店の引き −6%（商品と売り場で差をつけ、他社のお客さんを奪う）', 'Rival stores’ pull in Rare towns −6% (stand out to win their customers)'), cost: 130000, requires: ['sa_road'], show: [{ label: t('他社の店の引き', 'Rival store pull'), v: 0.06, unit: '%', down: true }] },

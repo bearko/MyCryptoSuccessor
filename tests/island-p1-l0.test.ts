@@ -167,6 +167,11 @@ describe('提案は Rare から（2）', () => {
     const clerk = s.shops[shop.uid].staff;
     if (clerk != null) assign(s, clerk, null);
     s.shops[shop.uid].part = 0;
+    // 段 SALES1：写しの月が 1 位争い（2 位以内・1 位の続き）だと、できごとは控える（events.ts の contestingTop）。落ち着いた月にして確かめる
+    s.topStreak = 0;
+    s.comeback = null;
+    const last = s.reports[s.reports.length - 1];
+    if (last) last.rank = 9;
     let ev = 0;
     for (let k = 0; k < 8; k++) {
       const r = fakeReport(s);
