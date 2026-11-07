@@ -8,6 +8,7 @@
  * 同じ種類は続けない。乱数はセーブの種（s.seed）と締めの回数で決まる（自動プレイのシードで再現できる。ほかの乱数は使わない）。
  * 仕様は docs/ISLAND_PHASE1.md「突発のできごと」。数字は data.ts の EVENT。
  */
+import { noteRp } from './r2';
 import { t } from '../../i18n';
 import { EVENT, MATS, PRODUCT, SECTOR_CHIEF, skuParts, type Mat, type Sku, type Tier } from './data';
 import { book, brandAdd } from './company';
@@ -408,7 +409,10 @@ export function applyEvent(s: P1State, d: EvData, k: number): string | null {
   }
   for (const f of o.fx) E.fx.push({ k: f.k, ...(f.key ? { key: f.key } : {}), mul: f.mul, until: s.day + f.days, sector: s.sector ?? 'c1', ev: d.kind });
   if (o.brand) brandAdd(s, o.brand, t(`できごと：${evTitle(d)}`, `Event: ${evTitle(d)}`));
-  if (o.rp) s.rp = (s.rp ?? 0) + o.rp;
+  if (o.rp) {
+    s.rp = (s.rp ?? 0) + o.rp;
+    noteRp(s, 'other', o.rp);
+  }
   if (o.morale) for (const st of s.staff) moraleAdd(s, st, o.morale);
   if (o.moraleHero && d.who === 'hero' && d.hero != null) {
     const st = staffOf(s, d.hero);

@@ -19,6 +19,7 @@ import { PRODUCT, TABLET, crewPaceText, type Mat, type Tier } from './data';
 import { RARITY_JA } from '../../game/catalog';
 import { blastSize, bombPower, bombsLeft, dig, digRepeatMs, digSite, drill, drillLen, DRILL_FUEL, extName, extRank, extRarity, hasDrill, layersOf, epicRelicsOpen, rareRelicsOpen, reachCells, sessionSec, type DigErr, type DigFound, type DigHit, type DigItem, type DigLayout, type RunEnd } from './model';
 import { bulletEl } from './chartkit';
+import { rpStackEl, studyEl } from './r2ui';
 import { DEEP_LOCK, DUNGEON_TAB, EPIC_VALUE_TEXT, RARE_RELIC_NOTE, seriesTag, aimStep, anyPeek, biggestFx, cellOf, cellView, crewInfo, digBlock, digErrText, digRec, digSpec, digSpecText, digStatus, dungeonNotes, findLabel, fxOf, gotLines, lockedLayer, nextLvText, noteEntries, noteTablets, noteTabs, noteTotals, relicLine, runBar, stars, type Aim, type CellView } from './digview';
 import { AGAIN_TIP, DEEP_TIP, MEET_WALL, PEEK_TIP } from './digmeet';
 import { polSync, tabletKnow } from './policy';
@@ -1183,6 +1184,8 @@ export function openNotes(ctx: Ctx, o: { fromDig?: DigHooks; sector?: string } =
         bulletEl({ label: t('石板', 'Tablets'), v: tot.tablets, target: tot.allTablets, tName: '', fmt: (x) => t(`${x} 枚`, `${x}`), over: 'progress' }),
       );
       body.append(sum);
+      // 段 R2：月の研究ポイントの入り方（入り口ごとの縦の積み上げ棒）と、研究の施策（出土品の整理・文献調査）
+      body.append(rpStackEl(s), studyEl(s, { done: () => refreshSheet(), toast: ctx.toast, sfx: (k) => ctx.sfx?.(k) }));
       const row = h('div', 'isl-note-tabs');
       for (const x of tabs) {
         const b = btn(`${x.here ? '📍 ' : ''}${x.name}`, () => {

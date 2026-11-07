@@ -43,9 +43,10 @@ describe('パネルのレベル', () => {
     expect(lvOf(s, 'host')).toBe(1);
   });
 
-  it('最大レベル：お金パネル 5・研究パネル（解放型・以前の ✨ も）1・準備中 1', () => {
+  it('最大レベル：お金パネル 5・研究パネル（解放型・以前の ✨ も）1・準備中 1。段 ST1・R2：+N% 型の研究パネルは 5', () => {
     for (const id of ['host', 'jig', 'shortcut', 'bulk', 'manual', 'budget', 'pos', 'u_shop_1']) expect(maxLv(SKILL[id]), id).toBe(5);
-    for (const id of ['d_shop', 'hub', 'pot', 'shop2', 'route_cloth', 'hire', 't_wood', 'golden', 'u_shop_2']) expect(maxLv(SKILL[id]), id).toBe(1);
+    for (const id of ['d_shop', 'hub', 'pot', 'shop2', 'route_cloth', 'hire', 't_wood']) expect(maxLv(SKILL[id]), id).toBe(1);
+    for (const id of ['golden', 'u_shop_2']) expect(maxLv(SKILL[id]), id).toBe(5);
     expect(maxLv(SKILL.t_rare)).toBe(1);
     // 研究パネルには Lv2 からの効果は無い（説明に「Lv2〜」が出ない）
     for (const id of ['hub', 'pot', 'shop2', 'route_cloth', 'hire', 't_wood', 'timetable', 'pace1']) {
@@ -54,12 +55,18 @@ describe('パネルのレベル', () => {
     }
   });
 
-  it('研究パネルはレベルを上げられない（開けたら完了）', () => {
+  it('解放型の研究パネル・大きめの研究パネルはレベルを上げられない（開けたら完了）。段 ST1・R2：+N% 型は RP で上げる（お金は使わない）', () => {
     const s = rich();
-    s.skills.push('d_shop', 'golden');
+    s.skills.push('d_shop', 'golden', 'shop2');
     expect(levelUp(s, 'd_shop')).toBe('max');
-    expect(levelUp(s, 'golden')).toBe('max');
+    expect(levelUp(s, 'shop2')).toBe('max');
+    s.rp = 0;
+    expect(levelUp(s, 'golden')).toBe('rp');
     expect(lvOf(s, 'golden')).toBe(1);
+    s.rp = 10_000;
+    const m0 = s.money;
+    expect(levelUp(s, 'golden')).toBeNull();
+    expect([lvOf(s, 'golden'), s.money]).toEqual([2, m0]);
   });
 
   it('Common の内側のお金パネル 1 つなら、1 セクタの利益で Lv5 まで届く（Lv1〜最大の合計 ≤ 400,000 G）', () => {
@@ -111,10 +118,10 @@ describe('汎用の効き目（fx）', () => {
     expect(fxSum(s, 'pull')).toBeCloseTo(k.fx![0].v * 2, 6);
   });
 
-  it('ロット・ブランド力は数で足す（v × レベル）。そのパネルは研究パネルなので Lv1 の値', () => {
+  it('ロット・ブランド力は数で足す（v × レベル）。そのパネルは研究パネルなので取ったときは Lv1 の値（段 ST1・R2 で RP で Lv5 まで）', () => {
     const s = rich();
     const lot = SKILLS.find((k) => k.tier === 'U' && k.fx?.[0].kind === 'lot')!;
-    expect(maxLv(lot)).toBe(1);
+    expect(maxLv(lot)).toBe(5);
     s.skills.push(lot.id);
     expect(fxSum(s, 'lot')).toBe(lot.fx![0].v);
     // 仕組み（監査・テストの setLevel）：数で足す効き目は v × レベル

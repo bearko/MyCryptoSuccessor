@@ -4,10 +4,10 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { L0_PANELS_BEFORE, L0_SKILLS, POL_PANELS, POL_PANEL_DEPT, DIG_PANELS, ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, UI5_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, REQUIRES_ORIG, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf } from '../src/island/p1/data';
+import { L0_PANELS_BEFORE, L0_SKILLS, POL_PANELS, POL_PANEL_DEPT, DIG_PANELS, ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, UI5_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, REQUIRES_ORIG, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf, r2Panel } from '../src/island/p1/data';
 import { deptLevel, deptNews, deptOpen, deptReady, menuDepts, menuLayout, nextMark } from '../src/island/p1/dept';
 import { deserializeP1, newP1, serializeP1 } from '../src/island/p1/model';
-import { DEPT_LAYOUT, EDGES, HUBPOS, HUB_BOX, KNOTPOS, POS, RING_OUT, SLACK, UNPLACED, groupOf } from '../src/island/p1/treelayout';
+import { BOUNDS, DEPT_LAYOUT, EDGES, HUBPOS, HUB_BOX, KNOTPOS, POS, UNPLACED, groupOf } from '../src/island/p1/treelayout';
 import { TUT } from '../src/island/p1/tut';
 /** 段 K の経営方針のパネル（POL_SKILLS）は別に数える（tests/island-p1-stagek.test.ts） */
 const noPol = <T extends { id: string }>(xs: T[]) => xs.filter((k) => !POL_PANELS.includes(k.id));
@@ -90,7 +90,9 @@ describe('パネルの部門の割り振り', () => {
       // 段 L0：序盤の自動化のパネルは値段だけ下げた（data.ts の L0_PANELS）。ほかは前と同じことを、下げる前の値段で比べる
       const l0 = L0_PANELS_BEFORE[k.id];
       const k0 = l0 ? { ...k, cost: l0.cost, rp: l0.rp } : k;
-      const now = { id: k.id, name: k.name, note: k.note, cost: k0.cost, rp: rpCost(k0), cat: k.cat, max: maxLv(k) === Infinity ? 'inf' : maxLv(k), lv5: maxLv(k) >= 5 && maxLv(k) !== Infinity ? levelCost(k0, 5) : null, requires: REQUIRES_ORIG[k.id] ?? [], reqLv: k.inf && k.branch === 'dig' ? b.reqLv : (k.reqLv ?? null), anyOf: k.anyOf ?? null, brand: k.brand ?? null, tier: k.tier ?? 'C', emblem: k.emblem ?? null, big: !!k.big, train: k.train ?? null, fx: k.fx ?? null, up: k.up ?? null, shown: shownOf(k) };
+      // 段 ST1・R2：+N% 型の研究パネルは Lv 1〜5 になった（RP で上げる）。割り振りの前と同じかは、レベルなし（1）として比べる
+      const mx = r2Panel(k) ? 1 : maxLv(k);
+      const now = { id: k.id, name: k.name, note: k.note, cost: k0.cost, rp: rpCost(k0), cat: k.cat, max: mx === Infinity ? 'inf' : mx, lv5: mx >= 5 && mx !== Infinity ? levelCost(k0, 5) : null, requires: REQUIRES_ORIG[k.id] ?? [], reqLv: k.inf && k.branch === 'dig' ? b.reqLv : (k.reqLv ?? null), anyOf: k.anyOf ?? null, brand: k.brand ?? null, tier: k.tier ?? 'C', emblem: k.emblem ?? null, big: !!k.big, train: k.train ?? null, fx: k.fx ?? null, up: k.up ?? null, shown: shownOf(k) };
       expect(JSON.parse(JSON.stringify(now)), k.id).toEqual(b);
     }
   });
@@ -218,53 +220,50 @@ describe('セーブ（版 11）', () => {
   });
 });
 
-describe('スキルツリー：11 本の部門の枝', () => {
-  it('どのパネルも並んでいて、部門の枝（束）の中にある。枝の幅は足りている（余り ≥ 0）', () => {
+describe('スキルツリー：11 本の部門の列（段 ST1：上から下へ流れる形）', () => {
+  it('どのパネルも並んでいて、部門の列（束）の中にある。列は左から下の帯のタブの順（マーケ・物流・営業・CS・システム・R&D・法務・人事・総務・経理・経営企画）', () => {
     expect(UNPLACED).toEqual([]);
-    expect(SLACK).toBeGreaterThanOrEqual(0);
     for (const k of SKILLS) expect(groupOf(k.id)?.dept, k.id).toBe(deptOf(k));
     expect(Object.keys(DEPT_LAYOUT).sort()).toEqual(DEPTS.map((d) => d.id).sort());
     expect(HUBPOS.size).toBe(11);
-    // パネルの数が多い部門ほど枝が広い（物流がいちばん広い・パネルの無い部門がいちばん細い）
-    const w = (d: keyof typeof DEPT_LAYOUT) => DEPT_LAYOUT[d].w;
+    const xs = DEPTS.map((d) => DEPT_LAYOUT[d.id].cx);
+    expect([...xs].sort((a, b) => a - b)).toEqual(xs);
+    for (let i = 1; i < DEPTS.length; i++) expect(DEPT_LAYOUT[DEPTS[i].id].x0, DEPTS[i].id).toBeGreaterThan(DEPT_LAYOUT[DEPTS[i - 1].id].x1);
+    // パネルの数が多い部門ほど列が広い（物流がいちばん広い・パネルの少ない部門は細い）
+    const w = (d: keyof typeof DEPT_LAYOUT) => DEPT_LAYOUT[d].x1 - DEPT_LAYOUT[d].x0;
     for (const d of DEPTS) if (d.id !== 'logistics') expect(w('logistics')).toBeGreaterThan(w(d.id));
-    for (const d of ['accounting', 'support', 'legal'] as const) for (const x of ['hr', 'marketing', 'systems', 'strategy', 'rnd'] as const) expect(w(d)).toBeLessThan(w(x));
-    expect(RING_OUT.L).toBeLessThanOrEqual(21);
+    for (const d of ['accounting', 'support', 'legal', 'sales'] as const) for (const x of ['hr', 'marketing', 'systems', 'strategy', 'rnd'] as const) expect(w(d)).toBeLessThan(w(x));
+    expect(BOUNDS.x1 - BOUNDS.x0).toBeLessThanOrEqual(84);
   });
 
-  it('パネルは自分の部門の枝の角度の中（隣の枝にはみ出さない）', () => {
+  it('パネルは自分の部門の列の中（隣の列にはみ出さない）・自分の束（レーン）の中', () => {
     for (const k of SKILLS) {
       const g = groupOf(k.id)!;
       const p = POS.get(k.id)!;
-      const a = Math.atan2(p.y, p.x);
-      const d = Math.abs(Math.atan2(Math.sin(a - g.a), Math.cos(a - g.a)));
-      // 大きめの研究パネル（根もとの近く）は束の幅を少し出てよい
-      expect(d, k.id).toBeLessThanOrEqual(g.w / 2 + (k.big || k.donate ? 0.12 : 1e-6));
+      expect(p.x, k.id).toBeGreaterThanOrEqual(g.x0 - 1e-9);
+      expect(p.x, k.id).toBeLessThanOrEqual(g.x1 + 1e-9);
+      expect(p.x, k.id).toBeGreaterThanOrEqual(DEPT_LAYOUT[deptOf(k)].x0 - 1e-9);
+      expect(p.x, k.id).toBeLessThanOrEqual(DEPT_LAYOUT[deptOf(k)].x1 + 1e-9);
     }
   });
 
-  it('根もとの札どうしは重ならない（1 行の札の大きさ）。束の節もパネルと重ならない', () => {
+  it('見出しどうしは重ならない（列の真ん中・同じ高さ）。束の札もパネルと重ならない', () => {
     const hubs = [...HUBPOS.entries()];
     for (let i = 0; i < hubs.length; i++)
       for (let j = i + 1; j < hubs.length; j++) {
         const [a, b] = [hubs[i][1], hubs[j][1]];
-        const over = Math.abs(a.x - b.x) < HUB_BOX.w + 0.06 && Math.abs(a.y - b.y) < HUB_BOX.h + 0.06;
-        expect(over, `${hubs[i][0]}–${hubs[j][0]}`).toBe(false);
+        expect(a.y).toBe(b.y);
+        expect(Math.abs(a.x - b.x), `${hubs[i][0]}–${hubs[j][0]}`).toBeGreaterThan(HUB_BOX.w * 0.9);
       }
     expect(KNOTPOS.size).toBe(5);
     for (const [g, p] of KNOTPOS) for (const [id, q] of POS) expect(Math.hypot(p.x - q.x, p.y - q.y), `${g}–${id}`).toBeGreaterThan(0.75);
   });
 
-  it('線は 11 本の枝のどれかの束から。先に要るパネルが別の部門の線は、隣どうしの部門だけ', () => {
-    const order = DEPTS.map((d) => d.id);
-    const near = (a: string, b: string) => {
-      const i = order.indexOf(a as (typeof order)[number]);
-      const j = order.indexOf(b as (typeof order)[number]);
-      return Math.min((i - j + order.length) % order.length, (j - i + order.length) % order.length) <= 1;
-    };
+  it('線は 11 本の列のどれかの束から。先に要るパネルは同じ部門（ほかの部門をまたぐ線はいまは無い。あれば細い点線）', () => {
     for (const e of EDGES) {
       expect(groupOf(e.to)?.key).toBe(e.g);
-      if (e.from) expect(near(deptOf(SKILL[e.from]), e.br), `${e.from} → ${e.to}`).toBe(true);
+      if (e.from) expect(deptOf(SKILL[e.from]) === e.br || !!e.cross, `${e.from} → ${e.to}`).toBe(true);
     }
+    expect(EDGES.filter((e) => e.cross)).toEqual([]);
   });
 });

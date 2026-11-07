@@ -1,75 +1,73 @@
 /**
- * スキルツリーの配置（DOM なし。tree.ts とテストが使う）。
- * 段 B（部門の土台）：本社から 11 本の部門の枝。枝の角度の幅は、その部門のパネルが収まる幅（内側の段・外周の段のどれもが隣の枝と重ならない幅）
- * に、残りの角度をパネルの数に応じて足して決める。パネルの無い部門（営業・カスタマーサポート・法務・経理）は細い枝で、鍵の札だけ。
- * 物流の枝は、もとの 5 本（④ 販売の売り場の運営・③ 運搬・② 製造・技・① 調達）を小さな束（グループ）として並べる。
- * 内側（Common）の段を根もとから外へ、外周（U・R・E・L）は前と同じ半径の同心円に並べる。
- * docs/ISLAND_PHASE1.md「スキルツリー」「部門」。
+ * スキルツリーの配置（DOM なし。tree.ts・テスト・scripts/island/treeopt.ts が使う）。段 ST1：上から下へ流れる形。
+ *
+ * - いちばん上に本社。その下に部門の列を左から右へ（DEPTS の順＝下の帯のタブの並び：マーケ・物流・営業・CS・システム・R&D・法務・人事・総務・経理・経営企画）。
+ *   物流は 5 つの束（④ 販売・③ 運搬・② 製造・技・① 調達）を、列の中の小さな列（レーン）として並べる。ほかの部門は 1 レーン。
+ * - 縦はランクの帯（Common・Uncommon・Rare・Epic・Legendary。BANDS）。帯の中は、前提の深さ（同じ帯の中の「先に要る」の最長の段数）の順に下へ。
+ *   1 段に CAP 枚を超えるときは、段を分けて下へ積む（前提の深さの順は崩さない）。帯の高さは、どのレーンでもそろえる（帯の境の横線と札）。
+ * - 線はどれも上から下へ（先に要るパネル → パネル）。2 段以上をまたぐ線は、あいだの段に「通り道」（DUMMY_W の幅の空き）を取って、パネルの下を通らない。
+ *   線の形は、通る点を縦の向きのなめらかな曲線（3 次ベジェ。端で縦向き）でつなぐ。
+ * - 先に要るものが無いパネル：Common の帯は列の根もと（部門の札か、物流の束の札）から。Uncommon より下の帯は、その帯の入口（帯の境の小さな点。GATES：帯が開くと通れる）から。
+ * - 「n 個要る」（anyOf）は点線で、パネルの上の頂点に集まる。そのすぐ上（JUNCTIONS）に「2/3」のような札（tree.ts）。
+ * - 段の中の並び：レーンごとに、線の交わりが少なくなるように並べる（重心法で上下に何度も並べ替え → 隣どうしの入れ替え）。
+ *   TREE_ORDER（treeorder.ts。scripts/island/treeopt.ts が探して書く）に段の並びがあれば、それを使う。
+ * docs/ISLAND_PHASE1.md「スキルツリー」「部門」、docs/ISLAND_UX_CHARTER.md「線の種類と帯」。
  */
 import { t } from '../../i18n';
-import { CS_SKILLS, DEPTS, DEPT_SKILLS, GA_SKILLS, MKT_SKILLS, POL_PANELS, SKILL, UI5_SKILLS, L0_SKILLS, SKILLS, deptOf, isResearch, type Branch, type DeptId, type Skill, type Tier } from './data';
-import { ROW_CAP } from './skillsx';
+import { DEPTS, DEPT_SKILLS, SKILL, SKILLS, isResearch, type Branch, type DeptId, type Skill, type Tier } from './data';
 import { TREE_ORDER } from './treeorder';
 
-/** スキルのランク（外周）。無ければ C */
+export type P = { x: number; y: number };
+
+/** スキルのランク（帯）。無ければ C */
 const tierOf = (k: { tier?: Tier }): Tier => k.tier ?? 'C';
-/** 置く外周（段 K：法務の「経営方針」パネルは Epic のパネルだが、Epic の外周に入る幅が無いので Rare の外周の位置に置く＝Skill.ring） */
-const ringOf = (k: { tier?: Tier; ring?: Tier }): Tier => k.ring ?? tierOf(k);
+/** 帯の順（上から） */
+export const BAND_TIERS: Tier[] = ['C', 'U', 'R', 'E', 'L'];
+const bandIx = (k: Skill) => BAND_TIERS.indexOf(tierOf(k));
 
 export const UNIT = 96;
 /**
- * パネルの大きさ（単位：UNIT）：どのパネルも同じ大きさのひし形（正方形を 45° 回す）。PANEL はひし形の外接の幅（角から角まで。64px）。
- * 中のアイコンは正立のまま、ひし形の内側に収まる正方形（幅の半分＝32px。64×64 のエクステの絵はちょうど 1/2）
+ * パネルの大きさ（単位：UNIT）：お金のパネルは菱形（正方形を 45° 回す。PANEL は外接の幅＝64px）、研究ポイント（RP）のパネルは四角（辺は SQ_SIDE）。
+ * 中のアイコンは正立のまま。線がパネルの下を通らないかの判定は、四角は L∞・菱形は L1
  */
 export const PANEL = 2 / 3;
-/**
- * パネルの形は **払うもので決まる**：研究ポイント（RP）で開くパネルは **四角**（辺は SQ_SIDE。傾けない）、お金（資金）で開くパネルは **菱形**（PANEL）。
- * 四角の辺は菱形の外接の幅の 0.78 倍（50px。見た目の大きさをそろえる）。線がパネルの下を通らないかの判定は、四角は L∞（四角そのもの）・菱形は L1
- */
 export const SQ_SIDE = PANEL * 0.78;
 export type PanelShape = 'square' | 'diamond';
 export const shapeOf = (k: { id: string; cat?: string }): PanelShape => (isResearch(k as never) ? 'square' : 'diamond');
 export const shapeById = (id: string): PanelShape => (SKILL[id] ? shapeOf(SKILL[id]) : 'diamond');
-/** パネルの形の半分の大きさ（線との距離の判定に使う。余白は含まない）：四角は辺の半分（L∞）・菱形は外接の幅の半分（L1） */
+/** パネルの形の半分の大きさ（線との距離の判定。余白は含まない） */
 export const halfOf = (id: string) => (shapeById(id) === 'square' ? SQ_SIDE / 2 : PANEL / 2);
-/** 内側（Common）の段：1 段目の半径・段の間・パネルの間（弧の長さ）。パネルのすき間はひし形の幅の 0.8〜1 枚分 */
-export const R0 = 3.6;
-export const STEP = 1.3;
+/** 横のパネルの間（中心どうし）・縦の段の間。すき間はひし形の幅の 0.8〜1 枚分 */
 export const GAP = 1.22;
-/** 枝の根もと（ハブ。部門の名前と理解度の札）の距離。隣の札と近い枝は少し外へずらす（hubR） */
-export const HUB = 1.55;
-/** 札の大きさ（単位：UNIT。1 行の札「物流 12」）。隣の札と重なるときは外へ（HUB2） */
-export const HUB_BOX = { w: 0.82, h: 0.34 };
-/**
- * つながりの線が下を通らないようにする札の大きさ（単位：UNIT。日本語・英語の長いほうが入る大きさ）：
- * 1 行の札「システム 12」・2 行の札（開くランクに達していないあいだ「総務 0／🔒 Uncommon で開く」）
- */
-export const HUB_CLEAR: Record<'C' | 'U' | 'RE', { w: number; h: number }> = { C: { w: 1.0, h: 0.32 }, U: { w: 1.47, h: 0.43 }, RE: { w: 1.12, h: 0.43 } };
-export const hubClear = (d: DeptId) => {
-  const o = DEPTS.find((x) => x.id === d)?.opens ?? 'C';
-  return HUB_CLEAR[o === 'C' ? 'C' : o === 'U' ? 'U' : 'RE'];
-};
-export const HUB2 = 2.05;
-/** 物流のように束（グループ）が複数ある部門：束の根もと（小さな節）の距離 */
-export const KNOT = 2.1;
-/** 大きめの研究パネル（以前の ✨）・研究への寄付：根もとの近く（束の向きから少し横へ） */
-export const DUST_R = 2.6;
-/** 根もとの近くのパネルの、束の向きからのずれ（ラジアン。0.15〜DUST_A のうち、ほかのパネル・札からいちばん離れる所） */
-export const DUST_A = 0.32;
-/** パネルの無い部門の枝の札の距離（細い枝の先。隣どうしは互い違い） */
-export const EMPTY_R = [4.7, 6.3];
-/** パネルの無い部門の枝の幅（ラジアン） */
-export const EMPTY_W = 0.2;
-/** 隣の枝のパネルとのすき間（弧の長さ。ひし形どうしの中心の距離がひし形の幅の 1.6 倍を超える） */
-const EDGE_PAD = 1.08;
-/** もとの 8 本の枝の幅（度）。外周の段の半径は、ROW_CAP 枚がこの幅に収まる大きさから（前と同じ半径） */
-export const WEDGE = 41.75;
+export const STEP = 1.3;
+/** 線の通り道（あいだの段をまたぐ線のために空ける幅）・帯の入口の点の幅 */
+export const DUMMY_W = 0.42;
+const GATE_W = 0.7;
+/** 1 段に並べるパネルの数の上限（超えたら段を分ける） */
+export const CAP = 4;
+/** レーンのあいだ（同じ部門の束どうし）・部門の列のあいだ（余白。単位：UNIT） */
+const LANE_PAD = 0.45;
+const DEPT_PAD = 0.95;
+/** 部門の列の最小の幅（見出しの札が入る幅） */
+const COL_MIN = 1.7;
+/** 縦の位置：本社・部門の見出し・物流の束の札・Common の帯の 1 段目 */
+export const HQ_Y = 0;
+export const HEAD_Y = 1.7;
+export const KNOT_Y = HEAD_Y + 0.85;
+const BAND0_Y = HEAD_Y + 2.15;
+/** 帯の境：前の帯の最後の段から次の帯の 1 段目まで。境の横線は 1 段目の LINE_DY 上、帯の入口の点は GATE_DY 上 */
+const BAND_GAP = 2.2;
+export const LINE_DY = 1.1;
+export const GATE_DY = 0.62;
+/** 「n 個要る」の合流点の札：パネルの JUNC_DY 上（線はパネルの上の頂点に集まる） */
+export const JUNC_DY = 0.66;
+/** 部門の見出しの札の大きさ（単位：UNIT。2 行の札「🔒 Uncommon で開く」も入る大きさ） */
+export const HUB_BOX = { w: 1.5, h: 0.5 };
+export const hubClear = (_d: DeptId) => HUB_BOX;
 
-/** 物流の枝の真ん中の向き（度）。札が横に並ぶ下側に、間の狭い部門が来ないように */
-export const LOGI_AT = -168;
-/** 物流の枝の中の束（もとの枝）。並びは角度の順（マーケの側から） */
+/** 物流の列の中の束（もとの枝）。並びは左から */
 const LOGI_ORDER: Branch[] = ['shop', 'logi', 'craft', 'tech', 'buy'];
-/** 束の名前（詳細カードの「（物流・② 製造）」） */
+/** 束の名前（詳細カードの「（物流・② 製造）」・束の札） */
 export const GROUP_STAGE: Partial<Record<Branch, string>> = {
   shop: t('④ 販売', '④ Sell'),
   logi: t('③ 運搬', '③ Haul'),
@@ -77,490 +75,571 @@ export const GROUP_STAGE: Partial<Record<Branch, string>> = {
   tech: t('技', 'Crafts'),
   buy: t('① 調達', '① Buy'),
 };
-/**
- * 内側（Common）の段（根もとから外へ。束ごと）。並べ忘れは UNPLACED（テストで 0 件）。
- * 段の中の並びは、角度の小さい側（反時計回り）から
- */
-const INNER: Record<string, string[][]> = {
-  // マーケの 1 段目は、もとの経営の枝の大きめの研究パネル（ブランド戦略室。先に要るものが無い）
-  marketing: [['d_ops'], ['vmd', 'pop'], ['golden', 'point'], ['set']],
-  'logistics:shop': [['host'], ['display', 'shop2'], ['hours', 'shop3']],
-  'logistics:logi': [['loading'], ['shortcut', 'timetable'], ['route_opt', 'hub']],
-  'logistics:craft': [['jig'], ['pot', 'five_s'], ['jig2', 'lot'], ['kaizen', 'chair']],
-  'logistics:tech': [['t_wood'], ['t_paper', 't_metal'], ['t_clay', 't_glass'], ['t_textile', 't_jewel', 't_master']],
-  'logistics:buy': [['stock1'], ['bulk', 'route_cloth'], ['abc', 'swift', 'route_paper'], ['bulk2', 'stock2', 'eye', 'scoutmap'], ['stock3', 'relief', 'route_gem']],
-  // 段 L0：序盤の手を減らす仕組み（製造計画・調達・勤務シフトの自動化）
-  systems: [['pos'], ['auto_order', 'inventory'], ['auto_lineup', 'auto_proc'], ['auto_rest']],
-  rnd: [['dig_ext'], ['dig_power', 'dig_lamp'], ['dig_speed', 'dig_office', 'dig_deep'], ['dig_reach', 'dig_blast', 'dig_study'], ['dig_pierce', 'dig_drill', 'dig_crew']],
-  // 段 E2：面談（OJT の先）・キャリアの道すじ（インセンティブの先）
-  hr: [['hire'], ['manual', 'slots'], ['ojt', 'incentive'], ['hr_talk', 'hr_career']],
-  general: [['lounge'], ['shift'], ['welfare']],
-  strategy: [['pace1'], ['budget', 'pace2'], ['pdca']],
-};
 
-/** 部門の枝の中の束（物流は 5 つ、ほかは 1 つ。パネルの無い部門は 0） */
+/** 部門の列の中の束（レーン。物流は 5 つ、ほかは 1 つ） */
 export interface Group {
   key: string;
   dept: DeptId;
   branch?: Branch;
-  /** 束の向き（ラジアン）と幅 */
-  a: number;
-  w: number;
   skills: Skill[];
+  /** レーンの左右の端と真ん中（単位：UNIT。本社が x = 0） */
+  x0: number;
+  x1: number;
+  cx: number;
 }
 export interface DeptLayout {
-  /** 枝の向き（度。0 = 右、90 = 下）・幅（ラジアン）・色 */
-  angle: number;
-  w: number;
   color: string;
   groups: Group[];
-  /** 根もとの札の距離 */
-  hubR: number;
+  /** 列の左右の端と真ん中 */
+  x0: number;
+  x1: number;
+  cx: number;
 }
-
 /**
- * 外周（ランクのエリア）：束ごとに、そのランクのパネルを内側の段から外へ、段の半径で入るだけ並べる（Common の内側と同じ流儀）。
- * 段の数と半径は前の 9 本の枝のときと同じ（もとの枝ごとの ROW_CAP 枚で数える）。ランクのあいだに境目の円（RING_EDGE）。
+ * つながりの線：from（先に要るパネル。null は根もと＝列の根もとの札か、帯の入口）→ to。
+ * kind：all＝全部要る（requires。実線）・any＝n 個要る（anyOf。点線で合流点へ）。gate：帯の入口から（Uncommon より下の帯の、先に要るものが無いパネル）。
+ * cross：ほかのレーン（ほかの部門）のパネルが先に要る線（細い点線。いまは無い）。pts：線が通る点（上から下へ）
  */
-export const OUTER: Tier[] = ['U', 'R', 'E', 'L'];
-/** ランクごとの段の半径（内側から） */
-export const RING_ROWS = {} as Record<Tier, number[]>;
-/** ランクのいちばん内側の段（RING_R）と、いちばん外の段（RING_OUT）・境目の円（RING_EDGE） */
-export const RING_R = { C: 0 } as Record<Tier, number>;
-export const RING_OUT = { C: R0 + STEP * (Math.max(...Object.values(INNER).map((x) => x.length)) - 1) } as Record<Tier, number>;
-export const RING_EDGE = { C: 0 } as Record<Tier, number>;
-/** 外周のパネルの並び（既存のパネル → 追加のパネル → 大きめの研究パネル） */
-/**
- * 外周の並びの入れ替え（id → 並びの何番目に置くか）。根もとから線が伸びるパネル（先に要るものが無い）を、
- * 内側のパネルを横切らない場所へ
- */
-// 段 G：マーケの Uncommon の外周にパネルが増えたので、ブランドの看板（物流の Rare の外周へ線が伸びる）を物流の側の端へ（線がマーケのパネルを横切らないように）
-const OUTER_AT: Record<string, number> = { u_dig_mat: 3, b_sign: 3 };
-function outerOf(list: Skill[], tier: Tier): Skill[] {
-  const out = [...list.filter((k) => ringOf(k) === tier && !k.big && !k.donate), ...list.filter((k) => ringOf(k) === tier && k.big)];
-  for (const [id, at] of Object.entries(OUTER_AT)) {
-    const i = out.findIndex((k) => k.id === id);
-    if (i >= 0) out.splice(at, 0, ...out.splice(i, 1));
-  }
-  return out;
-}
-{
-  // 段の数は、もとの 9 本の枝（発掘は 1 段 3 枚）で数える（半径を前と変えない）
-  const OLD_BR: Branch[] = ['shop', 'craft', 'logi', 'buy', 'people', 'ops', 'sys', 'tech', 'dig'];
-  let r = 9.0;
-  const SPAN = (WEDGE * Math.PI) / 180;
-  for (const tier of OUTER) {
-    const cap = ROW_CAP[tier as Exclude<Tier, 'C'>];
-    r = Math.max(r, (GAP * (cap - 1) + 1.15) / SPAN);
-    // 段 G で販売の枝に足したカスタマーサポート・マーケのパネルは数えない（半径を前と変えない。部門の枝の幅で収める）
-    const rows = Math.max(1, ...OLD_BR.map((br) => Math.ceil(outerOf(SKILLS.filter((k) => k.branch === br && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !POL_PANELS.includes(k.id)), tier).length / (br === 'dig' ? 3 : cap))));
-    RING_EDGE[tier] = r - 0.85;
-    RING_R[tier] = r;
-    RING_ROWS[tier] = Array.from({ length: rows }, (_, k) => r + STEP * k);
-    RING_OUT[tier] = RING_ROWS[tier][rows - 1];
-    r = RING_OUT[tier] + 1.6;
-  }
-}
-export const polar = (a: number, r: number) => ({ x: Math.cos(a) * r, y: Math.sin(a) * r });
-/** 幅 w の束の、半径 r の段に並べられる枚数 */
-const capAt = (w: number, r: number) => Math.max(1, Math.floor((w * r - EDGE_PAD) / GAP + 1e-9) + 1);
-/** 束に要る幅（内側の段・外周の各ランクの段のどれもが収まる） */
-function needOf(key: string, list: Skill[]): number {
-  let w = 0;
-  (INNER[key] ?? []).forEach((ids, k) => {
-    if (ids.length) w = Math.max(w, (GAP * (ids.length - 1) + EDGE_PAD) / (R0 + STEP * k));
-  });
-  // 大きめの研究パネル（根もとの近く）
-  if (list.some((k) => tierOf(k) === 'C' && (k.big || k.donate) && !Object.values(INNER).flat(2).includes(k.id))) w = Math.max(w, EDGE_PAD / DUST_R);
-  for (const tier of OUTER) {
-    const n = outerOf(list, tier).length;
-    if (!n) continue;
-    let lo = w;
-    while (RING_ROWS[tier].reduce((a, r) => a + capAt(lo, r), 0) < n) lo += 0.005;
-    w = Math.max(w, lo);
-  }
-  return w;
-}
+export type TreeEdge = { from: string | null; to: string; br: DeptId; g: string; kind: 'all' | 'any'; gate?: Tier; cross?: boolean; pts: P[] };
 
-/** 外周だけにパネルのある、あとから足した部門（収まる幅だけ。余りの角度を取らない） */
-const NARROW: DeptId[] = ['sales', 'accounting', 'support', 'legal'];
-/** 部門の枝の配置 */
-export const DEPT_LAYOUT = {} as Record<DeptId, DeptLayout>;
 export const GROUPS: Group[] = [];
 const GROUP_OF = new Map<string, Group>();
-/** 枝の幅の余り（パネルの数に応じて足した角度の合計。テスト用：0 以上） */
-export let SLACK = 0;
-{
-  const items: { d: DeptId; g: Group | null; need: number; n: number }[] = [];
-  for (const d of DEPTS) {
-    const list = DEPT_SKILLS[d.id];
-    if (!list.length) {
-      items.push({ d: d.id, g: null, need: EMPTY_W, n: 0 });
-      continue;
-    }
-    const parts: [string, Branch | undefined, Skill[]][] = d.id === 'logistics' ? LOGI_ORDER.map((b) => [`logistics:${b}`, b, list.filter((k) => k.branch === b)]) : [[d.id, undefined, list]];
-    for (const [key, branch, skills] of parts) {
-      const g: Group = { key, dept: d.id, branch, a: 0, w: 0, skills };
-      // 営業（段 C。Rare の外周だけ）・経理（段 F。Uncommon の外周だけ）は、収まる幅だけ（余りの角度を取らない＝ほかの枝の幅を前と変えない）。
-      // 総務は段 F で足した 3 枚（GA_SKILLS）・マーケは段 G で足した 5 枚（MKT_SKILLS）を余りの数に入れない（ほかの枝の幅を前と変えない）。
-      // カスタマーサポート（段 G。Uncommon の外周だけ）は営業・経理と同じく収まる幅だけ
-      // 段 UI5a の調達の交代要員・調達チーム（UI5_SKILLS）も余りの数に入れない（ほかの枝の幅を前と変えない）。段 K の経営方針のパネル（POL_PANELS）も
-      items.push({ d: d.id, g, need: needOf(key, skills), n: NARROW.includes(d.id) ? 0 : skills.filter((k) => !GA_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id) && !L0_SKILLS.includes(k.id) && !POL_PANELS.includes(k.id)).length });
-    }
-  }
-  // 段 C：営業の枝（パネルの無い細い枝だったもの）が広がったぶんは、ほかのパネルの無い部門の枝から分けてもらう
-  // （パネルのある部門の枝の幅・角度を前と変えない）。段 F の経理も同じ
-  // 段 H2：法務にもパネルができた（Epic の外周だけ）。段 G のときの法務の幅（下の「2 本ぶんの幅」から CS の幅を引いた残り）を下限にして、
-  // パネルが収まる幅がそれより広いぶんだけ、ほかの枝の余りの角度から分けてもらう
-  const lg = items.find((x) => x.d === 'legal' && x.g);
-  const grown = items.filter((x) => NARROW.includes(x.d) && x.d !== 'support' && x.d !== 'legal' && x.g).reduce((a, x) => a + (x.need - EMPTY_W), 0);
-  const empty = items.filter((x) => !x.g || x === lg);
-  // 段 G：カスタマーサポートにパネルができて、パネルの無い枝は法務だけになった。段 F のとき（パネルの無い 2 本で分けた細さ）の 2 本ぶんの幅を、
-  // カスタマーサポート（収まる幅）と法務（残り）で分ける（ほかの部門の枝の幅・角度を前と変えない）
-  const cs = items.find((x) => x.d === 'support' && x.g);
-  const pair = 2 * Math.max(0.08, EMPTY_W - grown / 2);
-  if (grown > 0 && empty.length) for (const x of empty) x.need = Math.max(x === lg ? x.need : 0.08, (cs ? pair - cs.need : pair / 2) / (cs ? empty.length : 1));
-  const total = items.reduce((a, x) => a + x.need, 0);
-  SLACK = Math.PI * 2 - total;
-  const nAll = items.reduce((a, x) => a + x.n, 0);
-  // 物流の真ん中が左（LOGI_AT）に来るように回す
-  let a = 0;
-  for (const x of items) {
-    const w = x.need + (Math.max(0, SLACK) * x.n) / nAll;
-    if (x.g) {
-      x.g.a = a + w / 2;
-      x.g.w = w;
-      GROUPS.push(x.g);
-      GROUP_OF.set(x.g.key, x.g);
-    }
-    const L = (DEPT_LAYOUT[x.d] ??= { angle: 0, w: 0, color: DEPTS.find((y) => y.id === x.d)!.color, groups: [], hubR: HUB });
-    if (!L.w) L.angle = a;
-    L.w += w;
-    if (x.g) L.groups.push(x.g);
-    a += w;
-  }
-  const logi = DEPT_LAYOUT.logistics;
-  const rot = (LOGI_AT * Math.PI) / 180 - (logi.angle + logi.w / 2);
-  for (const g of GROUPS) g.a += rot;
-  for (const L of Object.values(DEPT_LAYOUT)) L.angle = ((L.angle + L.w / 2 + rot) * 180) / Math.PI;
-  // 段 G：法務（パネルの無い枝）の札は、段 F のときと同じ向きに残す（カスタマーサポートが広がったぶん、法務の枝の真ん中が隣の人事へ寄って、札がパネルに近づかないように）
-  if (cs && grown > 0) for (const x of empty) if (!x.g) DEPT_LAYOUT[x.d].angle -= (((cs.need - pair / 2) / 2) * 180) / Math.PI;
-  // パネルの無い部門は、細い枝の先に札（隣どうしは互い違いの距離）
-  let k = 0;
-  for (const d of DEPTS) {
-    const L = DEPT_LAYOUT[d.id];
-    if (!L.groups.length) L.hubR = EMPTY_R[k++ % 2];
-    else k = 0;
-  }
-  // 札どうしが重なる（隣の枝の根もとの札と、札の箱が重なる）ときは、少し外へ（HUB2）
-  const ids = DEPTS.map((d) => d.id);
-  const boxAt = (d: DeptId, r: number) => polar(((DEPT_LAYOUT[d].angle * Math.PI) / 180), r);
-  const clash = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.abs(a.x - b.x) < HUB_BOX.w + 0.06 && Math.abs(a.y - b.y) < HUB_BOX.h + 0.06;
-  for (let i = 0; i < ids.length; i++) {
-    const L = DEPT_LAYOUT[ids[i]];
-    if (!L.groups.length) continue;
-    // ひとつ前の、パネルのある部門（あいだのパネルの無い部門は細い枝なので、その先の札とも重なりうる。段 C の営業とシステム）
-    let P = ids[(i + ids.length - 1) % ids.length];
-    for (let k = 1; k < ids.length && !DEPT_LAYOUT[P].groups.length; k++) P = ids[(i + ids.length - 1 - k) % ids.length];
-    if (P === ids[i] || DEPT_LAYOUT[P].hubR !== HUB || !clash(boxAt(ids[i], HUB), boxAt(P, HUB))) continue;
-    // 外へずらすのは、根もとの近くに大きめの研究パネルが無いほう
-    const bigAt = (d: DeptId) => DEPT_SKILLS[d].some((k) => tierOf(k) === 'C' && (k.big || k.donate));
-    if (bigAt(ids[i]) && !bigAt(P)) DEPT_LAYOUT[P].hubR = HUB2;
-    else L.hubR = HUB2;
-  }
-  // 段 F：内側（Common）のパネルが無い細い枝（経理）の札が、まだほかの札と重なるときは、さらに外へ（内側の段の手前まで）
-  for (const d of ids) {
-    const L = DEPT_LAYOUT[d];
-    if (!L.groups.length || DEPT_SKILLS[d].some((k) => tierOf(k) === 'C')) continue;
-    const hit = () => ids.some((e) => e !== d && clash(boxAt(d, L.hubR), boxAt(e, DEPT_LAYOUT[e].hubR)));
-    for (let r = L.hubR; hit() && r < R0 - 0.5; r += 0.25) L.hubR = r + 0.25;
+export const DEPT_LAYOUT = {} as Record<DeptId, DeptLayout>;
+for (const d of DEPTS) {
+  const list = DEPT_SKILLS[d.id];
+  const parts: [string, Branch | undefined, Skill[]][] = d.id === 'logistics' ? LOGI_ORDER.map((b) => [`logistics:${b}`, b, list.filter((k) => k.branch === b)]) : [[d.id, undefined, list]];
+  DEPT_LAYOUT[d.id] = { color: d.color, groups: [], x0: 0, x1: 0, cx: 0 };
+  for (const [key, branch, skills] of parts) {
+    if (!skills.length) continue;
+    const g: Group = { key, dept: d.id, branch, skills, x0: 0, x1: 0, cx: 0 };
+    GROUPS.push(g);
+    GROUP_OF.set(key, g);
+    DEPT_LAYOUT[d.id].groups.push(g);
   }
 }
-/** 部門の枝の真ん中の向き（ラジアン） */
-export const deptAngle = (d: DeptId) => (DEPT_LAYOUT[d].angle * Math.PI) / 180;
-/** パネルの束 */
-export const groupOf = (id: string) => GROUP_BY_ID.get(id) ?? null;
 const GROUP_BY_ID = new Map<string, Group>();
 for (const g of GROUPS) for (const k of g.skills) GROUP_BY_ID.set(k.id, g);
+/** パネルの束（レーン） */
+export const groupOf = (id: string) => GROUP_BY_ID.get(id) ?? null;
 /** もとの枝（SCM ダッシュボードの「スキルツリーで見る」）の束 */
 export const groupOfBranch = (br: string) => GROUPS.find((g) => g.branch === br) ?? GROUPS.find((g) => g.skills.some((k) => k.branch === br)) ?? null;
 
-/** エリアの札を置く向き（パネルの無い部門の枝：営業とカスタマーサポートのあいだ） */
-export const LABEL_A = (deptAngle('sales') + deptAngle('support')) / 2;
-/** 木の上の位置（単位：UNIT）。本社が (0, 0) */
-export const POS = new Map<string, { x: number; y: number }>();
-/** 部門の根もとの札 */
-export const HUBPOS = new Map<DeptId, { x: number; y: number }>();
-/** 束の根もとの節（物流のように束が複数ある部門だけ） */
-export const KNOTPOS = new Map<string, { x: number; y: number }>();
-/**
- * パネルを置く場所（段）ごとの組：同じ段（内側の 1 段・束のあるランクの外周）のパネルと、その段の場所の並び。
- * 並びの入れ替え（TREE_ORDER。線が交わらないように選んだもの）は、同じ組の中でだけ（内側は同じ段の中・外周は束とランクの中）
- */
-export interface Pool {
-  key: string;
-  /** 初めの並び（根もとから外へ・角度の小さい側から） */
-  ids: string[];
-  /** 場所（ids と同じ数） */
-  slots: { x: number; y: number }[];
-}
-export const POOLS: Pool[] = [];
-/**
- * 段 K：外周の組を、枝の真ん中から横へ寄せる（弧の長さ。UNIT）。法務の Rare の外周は「経営方針」パネル 1 枚だけで、
- * 真ん中に置くと、根もとから Epic の外周へ伸びる「契約の雛形」の線が、よけて曲がり、隣の R&D の線と交わる
- */
-export const OUTER_NUDGE: Record<string, number> = { 'legal|R': 0.5 };
-for (const d of DEPTS) {
-  const L = DEPT_LAYOUT[d.id];
-  HUBPOS.set(d.id, polar(deptAngle(d.id), L.hubR));
-  for (const g of L.groups) {
-    if (L.groups.length > 1) KNOTPOS.set(g.key, polar(g.a, KNOT));
-    const row = (n: number, r: number) => Array.from({ length: n }, (_, i) => polar(g.a + ((i - (n - 1) / 2) * GAP) / r, r));
-    (INNER[g.key] ?? []).forEach((ids, k) => POOLS.push({ key: `${g.key}|C|${k}`, ids, slots: row(ids.length, R0 + STEP * k) }));
-    for (const tier of OUTER) {
-      const ids = outerOf(g.skills, tier).map((k) => k.id);
-      if (!ids.length) continue;
-      let at = 0;
-      const slots: { x: number; y: number }[] = [];
-      const nudge = (OUTER_NUDGE[`${g.key}|${tier}`] ?? 0) / RING_ROWS[tier][0];
-      for (const r of RING_ROWS[tier]) {
-        const c = capAt(g.w, r);
-        slots.push(...row(ids.slice(at, at + c).length, r).map((p) => polar(Math.atan2(p.y, p.x) + nudge, r)));
-        at += c;
-      }
-      POOLS.push({ key: `${g.key}|${tier}`, ids, slots });
-    }
+/** 先に要るもの（同じ帯の深さ・線）：全部要る（requires）と n 個要る（anyOf）。封印のパネルは、ひとつ上の帯のまんなかのパネルから */
+function predsOf(k: Skill, g: Group): { id: string; kind: 'all' | 'any' }[] {
+  if (k.sealed) {
+    const inner = g.skills.filter((x) => !x.big && bandIx(x) === bandIx(k) - 1);
+    return inner.length ? [{ id: inner[Math.floor(inner.length / 2)].id, kind: 'all' }] : [];
   }
+  return [...(k.requires ?? []).map((id) => ({ id, kind: 'all' as const })), ...(k.anyOf?.ids ?? []).filter((id) => !(k.requires ?? []).includes(id)).map((id) => ({ id, kind: 'any' as const }))];
 }
-/** 並びの表から、組の並びを決める（表が無い・パネルが変わっていれば、初めの並び） */
-export const orderOf = (p: Pool, table: Record<string, string[]> = TREE_ORDER) => {
-  const o = table[p.key];
-  return o && o.length === p.ids.length && p.ids.every((id) => o.includes(id)) ? o : p.ids;
-};
-for (const p of POOLS) orderOf(p).forEach((id, i) => POS.set(id, p.slots[i]));
-// 大きめの研究パネル・研究への寄付：根もとの近くの横（束の向きから左右どちらか。ほかのパネル・札からいちばん離れる側）
-// （先に置いた枝の側に寄らないように、3 回置き直す。内側の段に並べたものは除く）
-const INNER_IDS = new Set(Object.values(INNER).flat(2));
-for (let pass = 0; pass < 3; pass++)
-  for (const g of GROUPS)
-    for (const k of g.skills) {
-      if (!((k.big || k.donate) && tierOf(k) === 'C') || INNER_IDS.has(k.id)) continue;
-      POS.delete(k.id);
-      const far = (p: { x: number; y: number }) => Math.min(...[...POS.values(), ...HUBPOS.values(), ...KNOTPOS.values()].map((q) => Math.hypot(p.x - q.x, p.y - q.y)));
-      const cand: number[] = [];
-      for (let d = 0.15; d <= DUST_A + 1e-9; d += 0.01) cand.push(d, -d);
-      POS.set(k.id, cand.map((d) => polar(g.a + d, DUST_R)).sort((a, b) => far(b) - far(a))[0]);
-    }
-// 並べ忘れたスキルは、本社に（テストで 0 件を確かめる）
-export const UNPLACED = SKILLS.filter((k) => !POS.has(k.id)).map((k) => k.id);
-for (const id of UNPLACED) POS.set(id, { x: 0, y: 0 });
-/** パネルの位置（テスト用：重なっていないか） */
-export const treePos = (id: string) => POS.get(id) ?? null;
 
-/**
- * つながりの線：from（先に要るパネル。null は束の根もと＝ハブか節）→ to。先に要るものが無ければ根もとから。
- * 封印（sealed）は、ひとつ内側の外周のまんなかのパネル（無ければ根もと）から。
- * br は線の先（to）の部門・g はその束（根もとの位置と色）。部門をまたぐ線（販売 → マーケなど）もある
- */
-export type TreeEdge = { from: string | null; to: string; br: DeptId; g: string };
-export const EDGES: TreeEdge[] = [];
-for (const g of GROUPS) {
-  for (const k of g.skills) {
-    const br = deptOf(k);
-    if (k.sealed) {
-      const tier = tierOf(k);
-      const inner = g.skills.filter((x) => !x.big && OUTER.indexOf(tierOf(x)) === OUTER.indexOf(tier) - 1);
-      EDGES.push({ from: inner.length ? inner[Math.floor(inner.length / 2)].id : null, to: k.id, br, g: g.key });
+// ---------------------------------------------------------------- レーンの段（行）と並び
+
+/** レーンの 1 段：y（本社からの縦の位置。帯の高さをそろえる前は帯の中の番号）と、並び（パネル・通り道・帯の入口・根もと） */
+interface Row {
+  band: number;
+  /** 帯の中の段の番号（-1：帯の入口の段・-2：根もとの段） */
+  at: number;
+  items: string[];
+}
+/** 段の中のものの id：パネルの id・根もと「@h」・帯の入口「@g:C」など・通り道「~from>to」 */
+const HEAD = '@h';
+const gateId = (tier: Tier) => `@g:${tier}`;
+/** 通り道は、同じパネルから出る線どうしで 1 つ（束ねる。下の段で分かれる） */
+const dummyId = (from: string, r: number) => `~${from}#${r}`;
+const isDummy = (id: string) => id.startsWith('~');
+const widthOf = (id: string) => (isDummy(id) ? DUMMY_W : id.startsWith('@g') ? GATE_W : id === HEAD ? 0 : GAP);
+
+/** レーンの組み立て（段・線の通る点）。order：段の並びの表（無ければ重心法で並べる） */
+export interface LaneBuild {
+  g: Group;
+  rows: Row[];
+  /** 線（from は、根もとなら HEAD、帯の入口なら gateId） */
+  links: { from: string; to: string; kind: 'all' | 'any'; chain: string[] }[];
+  /** 段ごとの帯の中の段の数（帯の高さをそろえるのに使う） */
+  bandRows: number[];
+}
+/** 段の中の位置の表（row → id → 何番目） */
+const posMap = (rows: Row[]) => rows.map((r) => new Map(r.items.map((id, i) => [id, i] as const)));
+
+export function buildLane(g: Group): LaneBuild {
+  const ids = new Set(g.skills.map((k) => k.id));
+  // 帯の中の深さ（同じレーン・同じ帯の先に要るもの）
+  const depth = new Map<string, number>();
+  const dep = (id: string, stack: string[] = []): number => {
+    if (depth.has(id)) return depth.get(id)!;
+    if (stack.includes(id)) throw new Error(`skill tree cycle: ${[...stack, id].join(' -> ')}`);
+    const k = SKILL[id];
+    const ps = predsOf(k, g).filter((p) => ids.has(p.id) && bandIx(SKILL[p.id]) === bandIx(k));
+    const d = ps.length ? 1 + Math.max(...ps.map((p) => dep(p.id, [...stack, id]))) : 0;
+    depth.set(id, d);
+    return d;
+  };
+  for (const k of g.skills) dep(k.id);
+  const rows: Row[] = [{ band: -1, at: -2, items: [HEAD] }];
+  const rowOf = new Map<string, number>();
+  rowOf.set(HEAD, 0);
+  const bandRows: number[] = [];
+  const childIn = (id: string) => g.skills.some((x) => predsOf(x, g).some((p) => p.id === id) && bandIx(x) === bandIx(SKILL[id]));
+  for (let b = 0; b < BAND_TIERS.length; b++) {
+    const tier = BAND_TIERS[b];
+    const ks = g.skills.filter((k) => bandIx(k) === b);
+    if (!ks.length) {
+      bandRows.push(0);
       continue;
     }
-    if (k.requires?.length) for (const r of k.requires) EDGES.push({ from: r, to: k.id, br, g: g.key });
-    else EDGES.push({ from: null, to: k.id, br, g: g.key });
-  }
-}
-/** 束の根もと（節があれば節、無ければ部門の札） */
-export const rootOf = (g: string) => KNOTPOS.get(g) ?? HUBPOS.get(GROUP_OF.get(g)?.dept ?? (g as DeptId))!;
-/** 線の端の位置（木の上。null は束の根もと） */
-export const edgeEnd = (id: string | null, g: string) => (id ? POS.get(id)! : rootOf(g));
-/**
- * 線をパネルのひし形の縁で切る：中心 c から向き (ux, uy) に進んで、ひし形（L1 の半径 r）の縁に着くまでの距離。
- * ひし形は |x| + |y| ≤ r なので、r / (|ux| + |uy|)
- */
-export const rimDist = (ux: number, uy: number, r = PANEL / 2) => r / Math.max(1e-6, Math.abs(ux) + Math.abs(uy));
-/**
- * 線の曲げ方（どれも 3 次ベジェで描く。制御点は線を 3 等分した点から横へずらす。線の向きには進むだけなので、弧が線の上で折り返さない）。
- * - 数 m：左右対称のゆるい弧（2 次ベジェの制御点を真ん中から横へ m×2 と同じ。いちばん膨らむ所で線から m。正は進む向きの左。0 はまっすぐ）
- * - { h1, h2 }：根もと側・先側の制御点を、それぞれ横へ h1・h2 ずらした弧（左右で膨らみが違う弧や、ゆるい S 字）。
- *   左右対称の弧ではどう曲げてもほかのパネルを横切る線だけ、パネルのすき間を縫うのに使う
- */
-export type Bend = number | { h1: number; h2: number };
-/** 曲げの大きさの上限（弧が、まっすぐな線からいちばん離れる所の距離。単位：UNIT） */
-export const BEND_MAX = 1.6;
-/** 線とパネルのすき間：ひし形（L1 の半径 PANEL / 2）のまわりに、この余白を足した形を横切らない */
-export const EDGE_CLEAR = 0.06;
-/** 弧の横のずれ（線からの距離。t は 0〜1） */
-const sideAt = (h1: number, h2: number, t: number) => 3 * (1 - t) * t * ((1 - t) * h1 + t * h2);
-/** 弧が、まっすぐな線からいちばん離れる所の距離 */
-export const bendSize = (m: Bend) => {
-  if (typeof m === 'number') return Math.abs(m);
-  let d = 0;
-  for (let i = 1; i < 40; i++) d = Math.max(d, Math.abs(sideAt(m.h1, m.h2, i / 40)));
-  return d;
-};
-/** 左右で違う弧の候補（膨らみの小さい順。同じなら左右の差の小さい順）。左右対称の弧（h1 = h2）は先に試すので除く */
-const TWO: { h1: number; h2: number }[] = [];
-for (let i = -12; i <= 12; i++) for (let j = -12; j <= 12; j++) if (i !== j) TWO.push({ h1: i / 5, h2: j / 5 });
-const TWO_OK = TWO.map((m) => ({ m, d: bendSize(m) }))
-  .filter((x) => x.d <= BEND_MAX + 1e-9)
-  .sort((x, y) => x.d - y.d || Math.abs(x.m.h1 - x.m.h2) - Math.abs(y.m.h1 - y.m.h2))
-  .map((x) => x.m);
-/**
- * 線が、ほかのパネルの上を横切るときは、ゆるい弧にする（曲げ方。横切るパネルが無ければ 0）。
- * 1. 左右対称の弧：曲げる量を 0.1 刻みで左右交互に試し、横切るパネルが 0 になる最小の曲げ。
- * 2. それでも横切るなら、左右で膨らみの違う弧（TWO_OK）を膨らみの小さい順に試し、横切るパネルが 0 になる最初のもの。
- * どれでも横切るなら、左右対称の弧のうち横切るパネルがいちばん少ないもの（テストで 0 本を確かめる）
- */
-export function edgeBend(a: { x: number; y: number }, b: { x: number; y: number }, skip: (id: string) => boolean, hubs: HubBox[] = [], at: Map<string, { x: number; y: number }> = POS): Bend {
-  // 近くのパネルだけ調べる（弧は線から BEND_MAX より離れない。その外＋ひし形の半分は見ない）。at：パネルの位置（並びを探すとき・段 UI5b のつながりの見直しは、試しの位置で）
-  const pad = BEND_MAX + PANEL;
-  const near = [...at].filter(([id, p]) => !skip(id) && p.x > Math.min(a.x, b.x) - pad && p.x < Math.max(a.x, b.x) + pad && p.y > Math.min(a.y, b.y) - pad && p.y < Math.max(a.y, b.y) + pad);
-  const nearHubs = hubs.filter((p) => p.x > Math.min(a.x, b.x) - pad - p.w && p.x < Math.max(a.x, b.x) + pad + p.w && p.y > Math.min(a.y, b.y) - pad - p.h && p.y < Math.max(a.y, b.y) + pad + p.h);
-  // 判定はテスト（折れ線にして 120 区間）よりほんの少し広い余白で（細かさの違いで、かすめる線を見落とさない）
-  const rOf = (id: string) => halfOf(id) + EDGE_CLEAR + 0.005;
-  const sq = (id: string) => shapeById(id) === 'square';
-  // パネルを横切らないのが先（札の下を通るのは、パネルを横切るより軽い）
-  const hits = (m: Bend) => {
-    const pts = curvePoly(a, b, m);
-    return near.filter(([id, p]) => polyNear(pts, p, rOf(id), sq(id))).length * 10 + nearHubs.filter((p) => polyInBox(pts, p, p)).length;
-  };
-  let bestN = hits(0);
-  if (!bestN) return 0;
-  let best: Bend = 0;
-  for (let k = 1; k <= BEND_MAX * 10 + 1e-9; k++)
-    for (const m of [k / 10, -k / 10]) {
-      const n = hits(m);
-      if (!n) return m;
-      if (n < bestN) {
-        best = m;
-        bestN = n;
+    // 帯の入口（Uncommon より下の帯で、先に要るものが無いパネルがあれば）
+    const roots = ks.filter((k) => !predsOf(k, g).some((p) => ids.has(p.id)));
+    if (b > 0 && roots.length) {
+      rows.push({ band: b, at: -1, items: [gateId(tier)] });
+      rowOf.set(gateId(tier), rows.length - 1);
+    }
+    let n = 0;
+    const maxD = Math.max(...ks.map((k) => depth.get(k.id)!));
+    for (let d = 0; d <= maxD; d++) {
+      const at = ks.filter((k) => depth.get(k.id) === d);
+      const parts = Math.ceil(at.length / CAP);
+      if (!parts) continue;
+      // 段を分けるとき：この帯の中に子があるパネルを後ろの段へ（子に近く）。ほかは前の段から順に
+      const sorted = [...at.filter((k) => !childIn(k.id)), ...at.filter((k) => childIn(k.id))];
+      const per = Math.ceil(at.length / parts);
+      for (let p = 0; p < parts; p++) {
+        const chunk = sorted.slice(p * per, (p + 1) * per);
+        rows.push({ band: b, at: n++, items: chunk.map((k) => k.id) });
+        for (const k of chunk) rowOf.set(k.id, rows.length - 1);
       }
     }
-  for (const m of TWO_OK) {
-    const pts = curvePoly(a, b, m);
-    if (!near.some(([id, p]) => polyNear(pts, p, rOf(id), sq(id))) && !nearHubs.some((p) => polyInBox(pts, p, p))) return m;
+    bandRows.push(n);
+  }
+  // 線と通り道（あいだの段に 1 つずつ）
+  const links: LaneBuild['links'] = [];
+  for (const k of g.skills) {
+    const ps = predsOf(k, g).filter((p) => ids.has(p.id));
+    const list = ps.length ? ps.map((p) => ({ from: p.id, kind: p.kind })) : [{ from: bandIx(k) === 0 ? HEAD : gateId(tierOf(k)), kind: 'all' as const }];
+    for (const { from, kind } of list) {
+      const r0 = rowOf.get(from)!;
+      const r1 = rowOf.get(k.id)!;
+      if (!(r1 > r0)) throw new Error(`skill tree edge goes up: ${from} -> ${k.id}`);
+      const chain = [from];
+      for (let r = r0 + 1; r < r1; r++) {
+        const dmy = dummyId(from, r);
+        if (!rows[r].items.includes(dmy)) rows[r].items.push(dmy);
+        chain.push(dmy);
+      }
+      chain.push(k.id);
+      links.push({ from, to: k.id, kind, chain });
+    }
+  }
+  return { g, rows, links, bandRows };
+}
+
+/** 隣の段どうしの線の区間（上の段の id・下の段の id）。段 r と r + 1 のあいだ */
+function segsOf(L: LaneBuild): [string, string][][] {
+  const out: [string, string][][] = L.rows.map(() => []);
+  const rowIx = new Map<string, number>();
+  L.rows.forEach((r, i) => r.items.forEach((id) => rowIx.set(id, i)));
+  for (const l of L.links) for (let i = 1; i < l.chain.length; i++) out[rowIx.get(l.chain[i - 1])!].push([l.chain[i - 1], l.chain[i]]);
+  return out;
+}
+/** 段 r と r + 1 のあいだの交わりの数（並びの入れ替わり。端を共有する区間は数えない） */
+function crossAt(segs: [string, string][], up: Map<string, number>, dn: Map<string, number>): number {
+  let n = 0;
+  for (let i = 0; i < segs.length; i++)
+    for (let j = i + 1; j < segs.length; j++) {
+      const a = (up.get(segs[i][0])! - up.get(segs[j][0])!) * (dn.get(segs[i][1])! - dn.get(segs[j][1])!);
+      if (a < 0) n++;
+    }
+  return n;
+}
+/** レーンの交わりの合計（並びの数え方） */
+export function laneCross(L: LaneBuild): number {
+  const segs = segsOf(L);
+  const pm = posMap(L.rows);
+  let n = 0;
+  for (let r = 0; r + 1 < L.rows.length; r++) n += crossAt(segs[r], pm[r], pm[r + 1]);
+  return n;
+}
+/** 段の並びの表の key（レーン・帯・帯の中の段） */
+export const rowKey = (g: string, r: Row) => `${g}|${BAND_TIERS[r.band] ?? 'H'}|${r.at}`;
+/** 乱数（並びを探すとき。固定の種） */
+export function mulberry(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let x = a;
+    x = Math.imul(x ^ (x >>> 15), x | 1);
+    x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/**
+ * 並べる（重心法 → 隣どうしの入れ替え）。rnd があれば、はじめの並びを混ぜる（並びを探すとき）。
+ * いちばん交わりの少なかった並びを L.rows に残し、その交わりの数を返す
+ */
+export function orderLane(L: LaneBuild, rnd?: () => number): number {
+  const segs = segsOf(L);
+  const R = L.rows;
+  if (rnd) for (const r of R) for (let i = r.items.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [r.items[i], r.items[j]] = [r.items[j], r.items[i]];
+  }
+  const ups = R.map(() => new Map<string, string[]>());
+  const dns = R.map(() => new Map<string, string[]>());
+  segs.forEach((ss, r) => {
+    for (const [a, b] of ss) {
+      (dns[r].get(a) ?? dns[r].set(a, []).get(a)!).push(b);
+      (ups[r + 1].get(b) ?? ups[r + 1].set(b, []).get(b)!).push(a);
+    }
+  });
+  const total = () => laneCross(L);
+  let best = total();
+  let snap = R.map((r) => [...r.items]);
+  const sortRow = (r: number, nb: Map<string, string[]>, other: Map<string, number>) => {
+    const cur = new Map(R[r].items.map((id, i) => [id, i] as const));
+    const key = (id: string) => {
+      const ns = nb.get(id);
+      if (!ns?.length) return cur.get(id)!;
+      return ns.reduce((a, x) => a + other.get(x)!, 0) / ns.length;
+    };
+    const ks = new Map(R[r].items.map((id) => [id, key(id)] as const));
+    R[r].items.sort((a, b) => ks.get(a)! - ks.get(b)! || cur.get(a)! - cur.get(b)!);
+  };
+  for (let it = 0; it < 24 && best > 0; it++) {
+    for (let r = 1; r < R.length; r++) sortRow(r, ups[r], new Map(R[r - 1].items.map((id, i) => [id, i] as const)));
+    for (let r = R.length - 2; r >= 0; r--) sortRow(r, dns[r], new Map(R[r + 1].items.map((id, i) => [id, i] as const)));
+    const n = total();
+    if (n < best) {
+      best = n;
+      snap = R.map((r) => [...r.items]);
+    }
+  }
+  R.forEach((r, i) => (r.items = snap[i]));
+  // 隣どうしの入れ替え（上下の段との交わりが減るなら）
+  const local = (r: number) => {
+    const pm = new Map(R[r].items.map((id, i) => [id, i] as const));
+    let n = 0;
+    if (r > 0) n += crossAt(segs[r - 1], new Map(R[r - 1].items.map((id, i) => [id, i] as const)), pm);
+    if (r + 1 < R.length) n += crossAt(segs[r], pm, new Map(R[r + 1].items.map((id, i) => [id, i] as const)));
+    return n;
+  };
+  for (let pass = 0; pass < 12; pass++) {
+    let better = false;
+    for (let r = 0; r < R.length; r++) {
+      const it = R[r].items;
+      for (let i = 0; i + 1 < it.length; i++) {
+        const before = local(r);
+        [it[i], it[i + 1]] = [it[i + 1], it[i]];
+        if (local(r) < before) better = true;
+        else [it[i], it[i + 1]] = [it[i + 1], it[i]];
+      }
+    }
+    if (!better) break;
+  }
+  return total();
+}
+/** 表の並びを使う（同じものがそろっている段だけ） */
+function applyTable(L: LaneBuild, table: Record<string, string[]>): boolean {
+  let all = true;
+  for (const r of L.rows) {
+    const o = table[rowKey(L.g.key, r)];
+    if (o && o.length === r.items.length && r.items.every((id) => o.includes(id))) r.items = [...o];
+    else all = false;
+  }
+  return all;
+}
+
+// ---------------------------------------------------------------- 横の位置
+
+/** 単調な回帰（隣どうしの順を守って、望む位置にいちばん近く） */
+function isotonic(v: number[]): number[] {
+  const blocks: { s: number; n: number }[] = [];
+  for (const x of v) {
+    blocks.push({ s: x, n: 1 });
+    while (blocks.length > 1 && blocks[blocks.length - 2].s / blocks[blocks.length - 2].n > blocks[blocks.length - 1].s / blocks[blocks.length - 1].n) {
+      const b = blocks.pop()!;
+      blocks[blocks.length - 1].s += b.s;
+      blocks[blocks.length - 1].n += b.n;
+    }
+  }
+  return blocks.flatMap((b) => Array(b.n).fill(b.s / b.n));
+}
+/** レーンの中の横の位置（レーンの左端から）。幅は、いちばん広い段 */
+function placeLane(L: LaneBuild): { w: number; x: Map<string, number> } {
+  const w = Math.max(COL_MIN / Math.max(1, DEPT_LAYOUT[L.g.dept].groups.length), ...L.rows.map((r) => r.items.reduce((a, id) => a + widthOf(id), 0)));
+  const x = new Map<string, number>();
+  const offs = (r: Row) => {
+    const o: number[] = [];
+    let acc = 0;
+    r.items.forEach((id, i) => {
+      if (i) acc += (widthOf(r.items[i - 1]) + widthOf(id)) / 2;
+      o.push(acc);
+    });
+    return o;
+  };
+  const fit = (r: Row, want: number[]) => {
+    const o = offs(r);
+    const lo = widthOf(r.items[0]) / 2;
+    const hi = w - widthOf(r.items[r.items.length - 1]) / 2 - o[o.length - 1];
+    const y = isotonic(want.map((v, i) => v - o[i])).map((v) => Math.max(lo, Math.min(hi, v)));
+    r.items.forEach((id, i) => x.set(id, y[i] + o[i]));
+  };
+  // はじめは段ごとに真ん中寄せ
+  for (const r of L.rows) {
+    if (r.items[0] === HEAD) {
+      x.set(HEAD, w / 2);
+      continue;
+    }
+    const o = offs(r);
+    const left = (w - (o[o.length - 1] ?? 0)) / 2;
+    r.items.forEach((id, i) => x.set(id, left + o[i]));
+  }
+  // つながっている上下のものの平均へ寄せる（上から・下から 6 回ずつ）
+  const nb = new Map<string, string[]>();
+  for (const l of L.links)
+    for (let i = 1; i < l.chain.length; i++) {
+      (nb.get(l.chain[i]) ?? nb.set(l.chain[i], []).get(l.chain[i])!).push(l.chain[i - 1]);
+      (nb.get(l.chain[i - 1]) ?? nb.set(l.chain[i - 1], []).get(l.chain[i - 1])!).push(l.chain[i]);
+    }
+  for (let it = 0; it < 12; it++) {
+    const rs = it % 2 ? [...L.rows].reverse() : L.rows;
+    for (const r of rs) {
+      if (r.items[0] === HEAD) continue;
+      // 通り道は上下の点をまっすぐ結ぶ所へ・パネルは、上のつながり（親）の平均を重く
+      fit(
+        r,
+        r.items.map((id) => {
+          const ns = nb.get(id) ?? [];
+          return ns.length ? ns.reduce((a, q) => a + x.get(q)!, 0) / ns.length : x.get(id)!;
+        }),
+      );
+    }
+  }
+  return { w, x };
+}
+
+// ---------------------------------------------------------------- 全体の組み立て
+
+/** パネルの位置（単位：UNIT。本社が (0, 0)。下が +y） */
+export const POS = new Map<string, P>();
+/** 部門の見出しの札（列の上） */
+export const HUBPOS = new Map<DeptId, P>();
+/** 物流の束の札（④ 販売 … ① 調達） */
+export const KNOTPOS = new Map<string, P>();
+/** 帯の入口（key：束の key|ランク） */
+export const GATES = new Map<string, P>();
+/** 「n 個要る」の合流点（パネルの id → 合流点の位置） */
+export const JUNCTIONS = new Map<string, P>();
+/** 帯：1 段目の y・境の横線の y・段の数（どのレーンでもそろえる） */
+export const BANDS = {} as Record<Tier, { y: number; line: number; rows: number; bottom: number }>;
+export const EDGES: TreeEdge[] = [];
+/** レーンの組み立て（テスト・並びを探すスクリプトが見る） */
+export const LANES: LaneBuild[] = [];
+/** 並べたあとの交わり（並びの数え方。テストの上限と比べる） */
+export let ORDER_CROSS = 0;
+
+/** 組み立てる（読み込んだときに 1 回。table：段の並びの表） */
+export function layoutTree(table: Record<string, string[]> = TREE_ORDER) {
+  POS.clear();
+  HUBPOS.clear();
+  KNOTPOS.clear();
+  GATES.clear();
+  JUNCTIONS.clear();
+  EDGES.length = 0;
+  LANES.length = 0;
+  ORDER_CROSS = 0;
+  const builds = GROUPS.map((g) => {
+    const L = buildLane(g);
+    if (!applyTable(L, table)) orderLane(L);
+    ORDER_CROSS += laneCross(L);
+    LANES.push(L);
+    return L;
+  });
+  // 帯の高さ（どのレーンでもそろえる）
+  let y = BAND0_Y;
+  BAND_TIERS.forEach((tier, b) => {
+    const rows = Math.max(1, ...builds.map((L) => L.bandRows[b] ?? 0));
+    BANDS[tier] = { y, line: y - LINE_DY, rows, bottom: y + (rows - 1) * STEP };
+    y += (rows - 1) * STEP + BAND_GAP;
+  });
+  const rowY = (r: Row) => (r.at === -2 ? 0 : r.at === -1 ? BANDS[BAND_TIERS[r.band]].y - GATE_DY : BANDS[BAND_TIERS[r.band]].y + r.at * STEP);
+  // 横：レーンを左から並べる（部門の列のあいだは広く）
+  let x = 0;
+  const placed = builds.map((L) => placeLane(L));
+  let prev: DeptId | null = null;
+  builds.forEach((L, i) => {
+    const g = L.g;
+    if (prev) x += prev === g.dept ? LANE_PAD : DEPT_PAD;
+    prev = g.dept;
+    g.x0 = x;
+    g.x1 = x + placed[i].w;
+    g.cx = (g.x0 + g.x1) / 2;
+    x = g.x1;
+  });
+  // 本社が x = 0 になるように、全体の真ん中へ寄せる
+  const mid = x / 2;
+  for (const g of GROUPS) {
+    g.x0 -= mid;
+    g.x1 -= mid;
+    g.cx -= mid;
+  }
+  for (const d of DEPTS) {
+    const L = DEPT_LAYOUT[d.id];
+    L.x0 = Math.min(...L.groups.map((g) => g.x0));
+    L.x1 = Math.max(...L.groups.map((g) => g.x1));
+    L.cx = (L.x0 + L.x1) / 2;
+    HUBPOS.set(d.id, { x: L.cx, y: HEAD_Y });
+    if (L.groups.length > 1) for (const g of L.groups) KNOTPOS.set(g.key, { x: g.cx, y: KNOT_Y });
+  }
+  builds.forEach((L, i) => {
+    const g = L.g;
+    const at = new Map<string, P>();
+    for (const r of L.rows)
+      for (const id of r.items) {
+        const p = { x: g.x0 + placed[i].x.get(id)!, y: rowY(r) };
+        at.set(id, p);
+        if (id === HEAD) continue;
+        if (id.startsWith('@g:')) GATES.set(`${g.key}|${id.slice(3)}`, p);
+        else if (!isDummy(id)) POS.set(id, p);
+      }
+    // 根もと：物流は束の札・ほかは部門の見出し
+    at.set(HEAD, KNOTPOS.get(g.key) ?? HUBPOS.get(g.dept)!);
+    for (const l of L.links) {
+      // 「n 個要る」の線も、パネルの上の頂点に集まる（合流点の札はそのすぐ上）
+      const end = at.get(l.to)!;
+      if (l.kind === 'any') JUNCTIONS.set(l.to, { x: end.x, y: end.y - JUNC_DY });
+      const from = l.from === HEAD || l.from.startsWith('@g:') ? null : l.from;
+      EDGES.push({ from, to: l.to, br: g.dept, g: g.key, kind: l.kind, ...(l.from.startsWith('@g:') ? { gate: l.from.slice(3) as Tier } : {}), pts: [...l.chain.slice(0, -1).map((id) => at.get(id)!), end] });
+    }
+  });
+  // ほかのレーンのパネルが先に要る線（いまは無い。あれば細い点線で、まっすぐ下へ）
+  for (const k of SKILLS) {
+    const g = groupOf(k.id);
+    if (!g) continue;
+    for (const p of predsOf(k, g))
+      if (groupOf(p.id) !== g && POS.has(p.id)) EDGES.push({ from: p.id, to: k.id, br: g.dept, g: g.key, kind: p.kind, cross: true, pts: [POS.get(p.id)!, POS.get(k.id)!] });
+  }
+  for (const k of SKILLS) if (!POS.has(k.id)) POS.set(k.id, { x: 0, y: 0 });
+  const xs = [...POS.values(), ...HUBPOS.values()];
+  BOUNDS.x0 = Math.min(...xs.map((p) => p.x)) - GAP / 2;
+  BOUNDS.x1 = Math.max(...xs.map((p) => p.x)) + GAP / 2;
+  BOUNDS.y0 = HQ_Y - 0.6;
+  BOUNDS.y1 = Math.max(...xs.map((p) => p.y)) + 0.6;
+}
+export const BOUNDS = { x0: 0, x1: 0, y0: 0, y1: 0 };
+layoutTree();
+/** 並べ忘れたスキル（テストで 0 件） */
+export const UNPLACED = SKILLS.filter((k) => !groupOf(k.id)).map((k) => k.id);
+/** パネルの位置（テスト用） */
+export const treePos = (id: string) => POS.get(id) ?? null;
+/** 束の根もと（物流は束の札、ほかは部門の見出し） */
+export const rootOf = (g: string) => KNOTPOS.get(g) ?? HUBPOS.get(GROUP_OF.get(g)?.dept ?? (g as DeptId))!;
+/** 線の端の位置（null は束の根もと） */
+export const edgeEnd = (id: string | null, g: string) => (id ? POS.get(id)! : rootOf(g));
+/** 部門の列の真ん中（見出しの下の、Common の帯の 2 段目あたり）。チップ・「この部門のパネルを見る」から飛ぶ先 */
+export const deptCenter = (d: DeptId): P => ({ x: DEPT_LAYOUT[d].cx, y: BANDS.C.y + STEP });
+/** 束の真ん中 */
+export const groupCenter = (g: Group): P => ({ x: g.cx, y: BANDS.C.y + STEP });
+/** いま見ている x がどの部門の列か（列のあいだは近いほう） */
+export function deptAtX(x: number): DeptId {
+  let best: DeptId = DEPTS[0].id;
+  let bd = Infinity;
+  for (const d of DEPTS) {
+    const L = DEPT_LAYOUT[d.id];
+    const dd = x < L.x0 ? L.x0 - x : x > L.x1 ? x - L.x1 : 0;
+    if (dd < bd) {
+      bd = dd;
+      best = d.id;
+    }
   }
   return best;
 }
-/** 部門の札の位置と大きさ */
-export type HubBox = { d: DeptId; x: number; y: number; w: number; h: number };
-/** 線の下に来ないようにする、ほかの部門の札（根もと（札・束の節）から出る線の、その部門の札は除く） */
-export function hubsAround(e: TreeEdge): HubBox[] {
-  const own = e.from == null ? (GROUP_OF.get(e.g)?.dept ?? (e.g as DeptId)) : null;
-  return [...HUBPOS].filter(([d]) => d !== own).map(([d, p]) => ({ d, ...p, ...hubClear(d) }));
+
+// ---------------------------------------------------------------- 線の形
+
+/** 2 点を、端で縦向きのなめらかな曲線でつなぐ 3 次ベジェの制御点 */
+export function segCtrl(a: P, b: P) {
+  const m = (b.y - a.y) / 2;
+  return { c1: { x: a.x, y: a.y + m }, c2: { x: b.x, y: b.y - m } };
 }
-let bends: Map<TreeEdge, Bend> | null = null;
-/** 並びを探すとき（scripts・テスト）：弧のキャッシュを捨てる */
-export const resetBends = () => {
-  bends = null;
-};
-/** どの線をどれだけ曲げるか（配置は変わらないので、はじめて使うときに 1 回だけ数える） */
-export function edgeBends(): Map<TreeEdge, Bend> {
-  if (bends) return bends;
-  bends = new Map();
-  for (const e of EDGES) {
-    const m = edgeBend(edgeEnd(e.from, e.g), edgeEnd(e.to, e.g), (id) => id === e.from || id === e.to, hubsAround(e));
-    if (m) bends.set(e, m);
+/** 3 次ベジェの点 */
+export function bez(a: P, c1: P, c2: P, b: P, t0: number): P {
+  const u = 1 - t0;
+  return { x: u * u * u * a.x + 3 * u * u * t0 * c1.x + 3 * u * t0 * t0 * c2.x + t0 * t0 * t0 * b.x, y: u * u * u * a.y + 3 * u * u * t0 * c1.y + 3 * u * t0 * t0 * c2.y + t0 * t0 * t0 * b.y };
+}
+/** 線（通る点）を細かい折れ線に（区間ごとに n 等分） */
+export function edgePoly(pts: P[], n = 24): P[] {
+  const out: P[] = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const { c1, c2 } = segCtrl(pts[i - 1], pts[i]);
+    for (let k = 1; k <= n; k++) out.push(bez(pts[i - 1], c1, c2, pts[i], k / n));
   }
-  return bends;
+  return out;
 }
-/** 弧の 2 つの制御点（3 次ベジェ）。左右対称の弧 m は、h1 = h2 = m × 4/3（2 次ベジェの制御点を真ん中から横へ m×2 と同じ形） */
-export function curveCtrl(a: { x: number; y: number }, b: { x: number; y: number }, m: Bend) {
-  const h1 = typeof m === 'number' ? (m * 4) / 3 : m.h1;
-  const h2 = typeof m === 'number' ? (m * 4) / 3 : m.h2;
-  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-  const nx = -(b.y - a.y) / len;
-  const ny = (b.x - a.x) / len;
-  return {
-    c1: { x: a.x + (b.x - a.x) / 3 + nx * h1, y: a.y + (b.y - a.y) / 3 + ny * h1 },
-    c2: { x: b.x - (b.x - a.x) / 3 + nx * h2, y: b.y - (b.y - a.y) / 3 + ny * h2 },
-  };
+/** 線の SVG の道（px：木の上の位置 → 画面の位置）。端はパネルの縁で切る（上の端は下へ a0、下の端は上へ b0 だけ縮める） */
+export function edgePath(pts: P[], px: (p: P) => P, a0 = 0, b0 = 0): string {
+  const q = pts.map((p) => ({ ...p }));
+  q[0] = { x: q[0].x, y: q[0].y + a0 };
+  q[q.length - 1] = { x: q[q.length - 1].x, y: q[q.length - 1].y - b0 };
+  const P0 = px(q[0]);
+  let d = `M${P0.x.toFixed(1)} ${P0.y.toFixed(1)}`;
+  for (let i = 1; i < q.length; i++) {
+    const { c1, c2 } = segCtrl(q[i - 1], q[i]);
+    const [C1, C2, B] = [px(c1), px(c2), px(q[i])];
+    d += Math.abs(q[i].x - q[i - 1].x) < 1e-6 ? `L${B.x.toFixed(1)} ${B.y.toFixed(1)}` : `C${C1.x.toFixed(1)} ${C1.y.toFixed(1)} ${C2.x.toFixed(1)} ${C2.y.toFixed(1)} ${B.x.toFixed(1)} ${B.y.toFixed(1)}`;
+  }
+  return d;
 }
-/** 弧の上の点（t は 0〜1） */
-export function curveAt(a: { x: number; y: number }, b: { x: number; y: number }, m: Bend, t: number) {
-  const { c1, c2 } = curveCtrl(a, b, m);
-  const u = 1 - t;
-  const w0 = u * u * u;
-  const w1 = 3 * u * u * t;
-  const w2 = 3 * u * t * t;
-  const w3 = t * t * t;
-  return { x: w0 * a.x + w1 * c1.x + w2 * c2.x + w3 * b.x, y: w0 * a.y + w1 * c1.y + w2 * c2.y + w3 * b.y };
-}
-/** 弧の [t0, t1] の部分（3 次ベジェの 4 点。縁で切った線を描く） */
-export function curvePart(a: { x: number; y: number }, b: { x: number; y: number }, m: Bend, t0: number, t1: number) {
-  const { c1, c2 } = curveCtrl(a, b, m);
-  // blossom：P(u, v, w) = 3 次ベジェの極形式。部分の制御点は P(t0,t0,t0)・P(t0,t0,t1)・P(t0,t1,t1)・P(t1,t1,t1)
-  const P = (u: number, v: number, w: number) => {
-    const q = [a, c1, c2, b];
-    const lerp = (p: { x: number; y: number }, r: { x: number; y: number }, t: number) => ({ x: p.x + (r.x - p.x) * t, y: p.y + (r.y - p.y) * t });
-    const l1 = [lerp(q[0], q[1], u), lerp(q[1], q[2], u), lerp(q[2], q[3], u)];
-    const l2 = [lerp(l1[0], l1[1], v), lerp(l1[1], l1[2], v)];
-    return lerp(l2[0], l2[1], w);
-  };
-  return [P(t0, t0, t0), P(t0, t0, t1), P(t0, t1, t1), P(t1, t1, t1)];
-}
-/** 点 p と線分 q0–q1 の L1 の距離（L1 の距離は線分の上で凸の折れ線なので、両端と折れ目だけ調べる） */
-function l1Seg(p: { x: number; y: number }, q0: { x: number; y: number }, q1: { x: number; y: number }) {
+/** 線の長さ（折れ線で。伸びる演出） */
+export const polyLen = (pts: P[]) => pts.reduce((a, p, i) => (i ? a + Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) : 0), 0);
+
+// ---------------------------------------------------------------- 判定（テスト・並びを探すスクリプト）
+
+/** 点 p と線分 q0–q1 の L1 の距離（菱形） */
+export function l1Seg(p: P, q0: P, q1: P) {
   const dx = q1.x - q0.x;
   const dy = q1.y - q0.y;
   let best = Math.min(Math.abs(q0.x - p.x) + Math.abs(q0.y - p.y), Math.abs(q1.x - p.x) + Math.abs(q1.y - p.y));
-  for (const t of [dx ? (p.x - q0.x) / dx : -1, dy ? (p.y - q0.y) / dy : -1]) if (t > 0 && t < 1) best = Math.min(best, Math.abs(q0.x + dx * t - p.x) + Math.abs(q0.y + dy * t - p.y));
+  for (const tt of [dx ? (p.x - q0.x) / dx : -1, dy ? (p.y - q0.y) / dy : -1]) if (tt > 0 && tt < 1) best = Math.min(best, Math.abs(q0.x + dx * tt - p.x) + Math.abs(q0.y + dy * tt - p.y));
   return best;
 }
-/** 弧を 60 区間の折れ線に */
-export function curvePoly(a: { x: number; y: number }, b: { x: number; y: number }, m: Bend) {
-  const { c1, c2 } = curveCtrl(a, b, m);
-  const pts = [a];
-  for (let i = 1; i <= 60; i++) {
-    const t = i / 60;
-    const u = 1 - t;
-    pts.push({ x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x, y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y });
-  }
-  return pts;
-}
-/** 折れ線が、点 p のひし形（L1 の半径 r）に入るか（区間ごとに。区間の箱から離れていれば調べない） */
-export function polyNear(pts: { x: number; y: number }[], p: { x: number; y: number }, r: number, square = false) {
-  for (let i = 1; i < pts.length; i++) {
-    const q0 = pts[i - 1];
-    const q1 = pts[i];
-    if (p.x + r < Math.min(q0.x, q1.x) || p.x - r > Math.max(q0.x, q1.x) || p.y + r < Math.min(q0.y, q1.y) || p.y - r > Math.max(q0.y, q1.y)) continue;
-    if ((square ? linfSeg(p, q0, q1) : l1Seg(p, q0, q1)) < r) return true;
-  }
-  return false;
-}
-/** 点 p と線分 q0–q1 の L∞ の距離（四角のパネル。|dx| と |dy| が等しくなる所と両端を調べる） */
-export function linfSeg(p: { x: number; y: number }, q0: { x: number; y: number }, q1: { x: number; y: number }) {
+/** 点 p と線分 q0–q1 の L∞ の距離（四角のパネル） */
+export function linfSeg(p: P, q0: P, q1: P) {
   const dx = q1.x - q0.x;
   const dy = q1.y - q0.y;
-  const f = (t: number) => Math.max(Math.abs(q0.x + dx * t - p.x), Math.abs(q0.y + dy * t - p.y));
+  const f = (tt: number) => Math.max(Math.abs(q0.x + dx * tt - p.x), Math.abs(q0.y + dy * tt - p.y));
   let best = Math.min(f(0), f(1));
-  // |q.x − p.x| = |q.y − p.y| になる t（4 通り）
   const ax = q0.x - p.x;
   const ay = q0.y - p.y;
   for (const sg of [1, -1]) {
     const den = dx - sg * dy;
     if (Math.abs(den) > 1e-12) {
-      const t = -(ax - sg * ay) / den;
-      if (t > 0 && t < 1) best = Math.min(best, f(t));
+      const tt = -(ax - sg * ay) / den;
+      if (tt > 0 && tt < 1) best = Math.min(best, f(tt));
     }
     const den2 = dx + sg * dy;
     if (Math.abs(den2) > 1e-12) {
-      const t = -(ax + sg * ay) / den2;
-      if (t > 0 && t < 1) best = Math.min(best, f(t));
+      const tt = -(ax + sg * ay) / den2;
+      if (tt > 0 && tt < 1) best = Math.min(best, f(tt));
     }
   }
   return best;
 }
-/** 折れ線が、中心 c・大きさ box の札（長方形）の中を通るか（区間ごとに、長方形で切り取って調べる） */
-export function polyInBox(pts: { x: number; y: number }[], c: { x: number; y: number }, box: { w: number; h: number }) {
+/** 線とパネルのすき間 */
+export const EDGE_CLEAR = 0.06;
+/** 折れ線が、パネル id（位置 p）の形（余白つき）に入るか */
+export function polyHits(pts: P[], id: string, p: P, pad = EDGE_CLEAR) {
+  const r = halfOf(id) + pad;
+  const sq = shapeById(id) === 'square';
+  for (let i = 1; i < pts.length; i++) {
+    const q0 = pts[i - 1];
+    const q1 = pts[i];
+    if (p.x + r < Math.min(q0.x, q1.x) || p.x - r > Math.max(q0.x, q1.x) || p.y + r < Math.min(q0.y, q1.y) || p.y - r > Math.max(q0.y, q1.y)) continue;
+    if ((sq ? linfSeg(p, q0, q1) : l1Seg(p, q0, q1)) < r) return true;
+  }
+  return false;
+}
+/** 折れ線が、中心 c・大きさ box の札（長方形）の中を通るか */
+export function polyInBox(pts: P[], c: P, box: { w: number; h: number }) {
   const x0 = c.x - box.w / 2;
   const x1 = c.x + box.w / 2;
   const y0 = c.y - box.h / 2;
@@ -582,15 +661,34 @@ export function polyInBox(pts: { x: number; y: number }[], c: { x: number; y: nu
         if (d < 0) ok = false;
         continue;
       }
-      const t = d / q;
-      if (q < 0) lo = Math.max(lo, t);
-      else hi = Math.min(hi, t);
+      const tt = d / q;
+      if (q < 0) lo = Math.max(lo, tt);
+      else hi = Math.min(hi, tt);
     }
     if (ok && lo <= hi) return true;
   }
   return false;
 }
-/** 弧が、点 p のひし形（L1 の半径 r）に入るか（弧を 60 区間の折れ線にして、区間ごとに調べる。点だけで調べると、ひし形の角をかすめる線を見落とす） */
-export const curveNear = (a: { x: number; y: number }, b: { x: number; y: number }, m: Bend, p: { x: number; y: number }, r: number) => polyNear(curvePoly(a, b, m), p, r);
-
-export const BOUNDS = [...POS.values()].reduce((b, p) => ({ x0: Math.min(b.x0, p.x), x1: Math.max(b.x1, p.x), y0: Math.min(b.y0, p.y), y1: Math.max(b.y1, p.y) }), { x0: 0, x1: 0, y0: 0, y1: 0 });
+/** 線分どうしが交わるか（端の重なりは数えない） */
+const orient = (p: P, q: P, r: P) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+export const segX = (a: P, b: P, c: P, d: P) => orient(c, d, a) * orient(c, d, b) < -1e-12 && orient(a, b, c) * orient(a, b, d) < -1e-12;
+/** 線どうしの交わり（描く曲線どうし。端のパネルを共有する線は数えない）。組の一覧 */
+export function crossings(edges: TreeEdge[] = EDGES): string[] {
+  const polys = edges.map((e) => {
+    const pts = edgePoly(e.pts, 16);
+    const xs = pts.map((p) => p.x);
+    return { e, pts, x0: Math.min(...xs), x1: Math.max(...xs), y0: pts[0].y, y1: pts[pts.length - 1].y };
+  });
+  const out: string[] = [];
+  const shareEnd = (A: TreeEdge, B: TreeEdge) => (A.from == null ? B.from == null && A.g === B.g && A.gate === B.gate : A.from === B.from) || A.to === B.to || (A.from != null && A.from === B.to) || (B.from != null && A.to === B.from);
+  for (let i = 0; i < polys.length; i++)
+    for (let j = i + 1; j < polys.length; j++) {
+      const A = polys[i];
+      const B = polys[j];
+      if (A.x1 < B.x0 || B.x1 < A.x0 || A.y1 < B.y0 || B.y1 < A.y0 || shareEnd(A.e, B.e)) continue;
+      let hit = false;
+      for (let a = 1; a < A.pts.length && !hit; a++) for (let b = 1; b < B.pts.length; b++) if (segX(A.pts[a - 1], A.pts[a], B.pts[b - 1], B.pts[b])) hit = true;
+      if (hit) out.push(`${A.e.from ?? '(root)'}->${A.e.to} x ${B.e.from ?? '(root)'}->${B.e.to}`);
+    }
+  return out;
+}

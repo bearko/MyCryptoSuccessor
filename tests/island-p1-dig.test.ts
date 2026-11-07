@@ -5,7 +5,7 @@
  * 正面の壁（v11。手前から奥へ・2 × 2 の大きいもの・覗き見）は tests/island-p1-dig2w.test.ts。
  */
 import { describe, expect, it } from 'vitest';
-import { POL_PANELS, ACCT_MONEY, GA_MONEY, HR_MONEY, DIG, DIG_BALANCE, DIG_PANELS, DIG_SITES, MISSIONS, MONEY_PANELS, RESEARCH_NEED, RP_GAIN, RP_PER_DUST, SECTORS, SKILL, SKILLS, START_RP, TABLETS, TIERS, WASTE, aptitude, isResearch, levelCost, maxLv, rpCost, researchLv, CS_MONEY, MKT_MONEY } from '../src/island/p1/data';
+import { POL_PANELS, ACCT_MONEY, GA_MONEY, HR_MONEY, DIG, DIG_BALANCE, DIG_PANELS, DIG_SITES, MISSIONS, MONEY_PANELS, RESEARCH_NEED, RP_GAIN, RP_PER_DUST, SECTORS, SKILL, SKILLS, START_RP, TABLETS, TIERS, WASTE, aptitude, isResearch, levelCost, maxLv, rpCost, researchLv, CS_MONEY, MKT_MONEY, r2Panel } from '../src/island/p1/data';
 import { moveTo } from '../src/island/p1/land';
 import {
   allowedDirs,
@@ -662,8 +662,9 @@ describe('スキルツリーの 2 区分', () => {
         expect(SKILL[id].branch).not.toBe('tech');
       }
     }
+    // 段 ST1・R2：+N% 型の研究パネルは Lv 1〜5（RP で上げる）。ほかの研究パネルはレベルなし（1）
     for (const k of SKILLS.filter(isResearch)) {
-      expect(maxLv(k), k.id).toBe(k.inf ? Infinity : 1);
+      expect(maxLv(k), k.id).toBe(k.inf ? Infinity : r2Panel(k) ? 5 : 1);
       expect(rpCost(k), k.id).toBeGreaterThan(0);
     }
     expect(SKILLS.filter((k) => k.inf).length).toBe(3);
@@ -710,7 +711,14 @@ describe('スキルツリーの 2 区分', () => {
     expect(levelUp(s, 'host')).toBeNull();
     expect(lvOf(s, 'host')).toBe(2);
     expect(s.money).toBe(m0 - SKILL.host.cost - levelCost(SKILL.host, 2));
-    expect(levelUp(s, 'display')).toBe('max');
+    // 段 ST1・R2：品出しの名人（+N% 型）は RP で Lv2 へ（お金は減らない）。解放型の研究パネルはレベルなし
+    expect(levelUp(s, 'display')).toBe('rp');
+    s.rp = 1000;
+    const m1 = s.money;
+    expect(levelUp(s, 'display')).toBeNull();
+    expect(s.money).toBe(m1);
+    s.skills.push('shop2');
+    expect(levelUp(s, 'shop2')).toBe('max');
     s.money = 0;
     expect(learn(s, 'jig')).toBe('money');
   });
