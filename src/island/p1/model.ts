@@ -5917,7 +5917,7 @@ export function nextJam(s: P1State, caps = stageCaps(s)): { bn: Stage; next: Sta
 export type StageMove =
   | { kind: 'invest'; id: string; uid: number; cost: number }
   | { kind: 'skill'; id: string; cost: number; rp?: number }
-  | { kind: 'level'; id: string; lv: number; cost: number }
+  | { kind: 'level'; id: string; lv: number; cost: number; rp?: number }
   | { kind: 'person'; task: Task; hero: number; hire: boolean; replace: number | null; target: number | string | null; cost: number }
   | { kind: 'build'; id: string; cost: number }
   | { kind: 'sell'; w: WhatIf };
@@ -6013,12 +6013,12 @@ export function whatIf(s: P1State, stage: Stage): StageIf[] {
     const research = isResearch(k);
     tryMove({ kind: 'skill', id: k.id, cost: research ? 0 : k.cost, rp: research ? rpCost(k) : undefined }, (c) => gainSkill(c, k.id));
   }
-  // レベル上げ：いま上げられるもの（お金パネル。資金だけが足りないものも）
+  // レベル上げ：いま上げられるもの（お金パネル。資金だけが足りないものも）。段 R2 の研究パネルは RP で（お金は 0）
   for (const k of SKILLS) {
     const e = levelLock(s, k);
     if (e !== null && e !== 'money') continue;
     const lv = lvOf(s, k.id) + 1;
-    tryMove({ kind: 'level', id: k.id, lv, cost: levelCost(k, lv) }, (c) => setLevel(c, k.id, lv));
+    tryMove(R2_SET.has(k.id) ? { kind: 'level', id: k.id, lv, cost: 0, rp: r2Rp(k, lv) } : { kind: 'level', id: k.id, lv, cost: levelCost(k, lv) }, (c) => setLevel(c, k.id, lv));
   }
   // 人を置く：空いた作業台・運搬係をもう 1 人・調達係（いなければ置く、いれば能力の高い人に替える）
   const TASK: Record<Exclude<Stage, 'sell'>, Task> = { buy: 'buy', craft: 'craft', haul: 'transport' };

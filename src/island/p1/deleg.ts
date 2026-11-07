@@ -901,7 +901,7 @@ function fromIf(s: P1State, w: StageIf, margin: number, keep: (dept: DeptId | nu
   const real = w.units * margin;
   if (m.kind === 'invest' && keep(null, 'invest')) return { act: { k: 'invest', id: m.id, uid: m.uid }, real, unit: 'G', cost: m.cost, units: w.units, stage: w.stage };
   if (m.kind === 'skill' && keep(deptOf(SKILL[m.id]), 'skill')) return { act: { k: 'skill', id: m.id }, real, unit: 'G', cost: m.cost, rp: m.rp, units: w.units, stage: w.stage };
-  if (m.kind === 'level' && keep(deptOf(SKILL[m.id]), 'level')) return { act: { k: 'level', id: m.id }, real, unit: 'G', cost: m.cost, units: w.units, stage: w.stage };
+  if (m.kind === 'level' && keep(deptOf(SKILL[m.id]), 'level')) return { act: { k: 'level', id: m.id }, real, unit: 'G', cost: m.cost, ...(m.rp ? { rp: m.rp } : {}), units: w.units, stage: w.stage };
   if (m.kind === 'build' && keep(null, 'build')) {
     const lot = findLot(s, m.id);
     if (lot) return { act: { k: 'build', id: m.id, i: lot[0], j: lot[1], dir: lot[2] }, real, unit: 'G', cost: m.cost, units: w.units, stage: w.stage };

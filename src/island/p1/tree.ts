@@ -609,6 +609,8 @@ function currencyBar(s: P1State): HTMLElement {
 
 /** スキルツリーを開く。focus：その枝を真ん中に（SCM ダッシュボード・チュートリアルから） */
 export function openSkills(ctx: Ctx, focus?: string) {
+  // 段 ST1：パネル・部門へ寄るときは、引いた大きさ（「全体」のあと）のままにしない
+  if (focus) view.zoom = Math.max(view.zoom > 0 ? view.zoom : 0, innerWidth < 600 ? 0.72 : 0.85);
   if (focus && SKILL[focus] && POS.has(focus)) {
     // スキルのパネルを真ん中に、選んだ状態で（市場データ・マインちゃんの助言から）
     const p = POS.get(focus)!;
@@ -765,7 +767,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
       const go = h('button', 'isl-tree-goal-go');
       go.type = 'button';
       go.style.setProperty('--br', colorOf(gk));
-      go.append(h('span', '', '🎯'), iconOf(goal, 22), h('b', '', gk.name));
+      go.append(h('span', '', '🎯'), iconOf(goal, 22), h('b', '', shownName(s, gk)));
       go.title = t('目標のパネルへ', 'Go to the goal panel');
       go.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1691,6 +1693,8 @@ export function openSkills(ctx: Ctx, focus?: string) {
         el.style.left = `${l}px`;
         el.style.top = `${yHead}px`;
         el.hidden = r - l < 30;
+        // 画面の端で狭くなった見出しは、アイコンと棒だけ（字がはみ出さない）
+        el.classList.toggle('is-narrow', r - l < 90);
       }
       for (const { tier, el } of bandLabs) {
         const y = sy(BANDS[tier].line);
