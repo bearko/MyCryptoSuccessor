@@ -171,7 +171,7 @@ import { openPolicyView } from './policyui';
 // 段 K3：経営方針発表会のカードの場面（boardui.ts の BOARD_SCENES に登録する）
 import './policycardsui';
 import { runOrderOf, tileContent } from './tile';
-import { MARK_KIND, MARK_LEGEND, markTip, marksOf, marksOn, marksDue, type MapMark } from './mapmarks';
+import { MARK_KIND, markTip, marksOf, marksOn, type MapMark } from './mapmarks';
 import { closeDig, debugTablet, digOpen, digRect, extIcon, noteCrewHits, openDig, openNotes, refreshDig, refreshTimer, showEndCard } from './digui';
 import { MEET_FOUND, MEET_LINES, canPresent, chiefHome, digMet, chiefOf, digSummary, letterToGet, lettersLeft, meetReady, meetTip, presentAfter, presentPages } from './digmeet';
 import { BUDGET_TALK, CHIP_SRC, CLEAR_LINE, FOOT_TALK, HIRE_LINES, RP_LINE, DUNGEON_LINE, GATE_LINES, LAND_CLEAR_LINE, MUSEUM_LINE, RANK_LINES, RELIC_LINE, REVIVE_LINE, SIDE_LINES, TOUR, arrivalPages, bubbleKind, chipOf, deptTalkNext, introPages, needsIntro, talkWaits, type ArrivePage, type TalkUi, type TourEv, type TourPhase } from './mine';
@@ -186,6 +186,8 @@ import { STRIP, corners, overviewScale, worldOf } from './worldrender';
 import { landCleared, letterLockOf, letterLocked, playable } from './land';
 import { actOf, hlOf, pointOf, TUT, TUT_DONE, TUT_END, tutFix, tutOf, type TutGo, type TutPage, type TutStep } from './tut';
 import { btn, h, heroIcon, heroName, matIcon, money, plain, rich, signed, skuIcon, skuName } from './ui';
+import { mapGesture } from './gesture';
+import { mapSetOn, openMapSet } from './mapsetui';
 
 const q = new URLSearchParams(location.search);
 const TEST = q.get('test') === '2';
@@ -801,6 +803,7 @@ const SCREEN: Record<ScreenId, () => void> = {
   suit: () => openLegalScreen('suit'),
   invest: () => openInvest(ctx),
   settings: () => openSettings(),
+  mapset: () => openMapSet(ctx, () => (dirty = true)),
   pace: () => openPace(),
   save: () => openSaveMenu(),
   trophy: () => openTrophies(ctx),
@@ -3816,61 +3819,12 @@ const zoomBox = h('div', 'isl-zoom');
 zoomBox.append(btn('+', () => zoomStep(1)), btn('−', () => zoomStep(-1)));
 zoomBox.hidden = true;
 
-// ---------------------------------------------------------------- 段 MAP1：見える化の切り替え（地図の右下、ズームの隣）と凡例
+// ---------------------------------------------------------------- 段 MAP1：見える化（流れの線・商圏）
+// 段 UI10：地図の右下の「🔗 流れ」「❗ 印」「🏪 商圏」と凡例は外し、設定の画面の「🗺 地図の表示」（mapsetui.ts）で切り替える
 /** 流れの線（既定オン。flags に覚える。チュートリアルの流れの案内では強制オン） */
-const flowOn = () => s.flags.flowLines !== false || !!tour;
+const flowOn = () => mapSetOn(s, 'flow') || !!tour;
 /** 商圏（既定オフ。置くモードは常に・店を押したときはその店だけ） */
-const areaOn = () => !!s.flags.areaShow;
-const vizBox = h('div', 'isl-viz');
-const flowBtn = btn(t('🔗 流れ', '🔗 Flow'), () => {
-  s.flags.flowLines = !(s.flags.flowLines !== false);
-  save();
-  renderViz();
-  dirty = true;
-}, 'isl-viz-flow');
-const areaBtn = btn(t('🏪 商圏', '🏪 Areas'), () => {
-  s.flags.areaShow = !s.flags.areaShow;
-  save();
-  renderViz();
-  dirty = true;
-}, 'isl-viz-area');
-// 段 L0：地図の印（困りごと）のトグル（既定オン。Rare より前だけ出す）
-const marksBtn = btn(t('❗ 印', '❗ Alerts'), () => {
-  s.flags.issueMarks = !(s.flags.issueMarks !== false);
-  save();
-  renderViz();
-  dirty = true;
-}, 'isl-viz-marks');
-const vizLegend = h('div', 'isl-viz-legend');
-vizBox.append(flowBtn, marksBtn, areaBtn, vizLegend);
-vizBox.hidden = true;
-function renderViz() {
-  vizBox.hidden = !!placing || digOpen() || !!s.digRun;
-  flowBtn.classList.toggle('is-on', flowOn());
-  areaBtn.classList.toggle('is-on', areaOn());
-  marksBtn.hidden = !marksDue(s);
-  marksBtn.classList.toggle('is-on', marksOn(s));
-  const items: [string, string][] = [];
-  if (areaOn()) items.push(['isl-viz-mine', t('自店', 'Mine')], ['isl-viz-rival', t('他店', 'Rivals')]);
-  if (flowOn()) items.push(['isl-viz-supply', t('調達', 'Supply')], ['isl-viz-haul', t('輸送', 'Haul')]);
-  // 段 L0：印の色の意味（赤＝売れない・橙＝素材・青＝人・灰＝疲れ・紫＝倉庫・黄＝お客さん）
-  const marks = marksOn(s) ? MARK_LEGEND : [];
-  vizLegend.replaceChildren(
-    ...items.map(([cls, name]) => {
-      const x = h('span', 'isl-viz-key');
-      x.append(h('i', cls), h('small', '', name));
-      return x;
-    }),
-    ...marks.map((k) => {
-      const x = h('span', 'isl-viz-key is-mark');
-      const dot = h('i', 'isl-viz-markdot', MARK_KIND[k].icon);
-      dot.style.setProperty('--mk', MARK_KIND[k].color);
-      x.append(dot, h('small', '', MARK_KIND[k].name()));
-      return x;
-    }),
-  );
-  vizLegend.hidden = !items.length && !marks.length;
-}
+const areaOn = () => mapSetOn(s, 'area');
 /** いま地図に重ねるもの（毎フレーム。描くデータは mapviz.ts で memo） */
 function vizNow(): MapViz {
   const selShop = selected != null && !placing ? s.buildings.find((b) => b.uid === selected && b.owner === 'me' && P1B[b.id]?.kind === 'shop') : null;
@@ -3908,10 +3862,7 @@ function seamless(to: string): boolean {
   const d = camShift(r.delta[0], r.delta[1], s.n);
   cam.x -= d.x;
   cam.y -= d.y;
-  if (drag) {
-    drag.cx -= d.x;
-    drag.cy -= d.y;
-  }
+  gesture.shift(d.x, d.y);
   if (tween) {
     tween.x0 -= d.x;
     tween.x1 -= d.x;
@@ -4128,7 +4079,6 @@ function placeWorldUi() {
   const land = s.land;
   // 段 UX1（B-6）：ズームの ＋／− は最初の町でも出す（ホイール・ピンチのほかに拡大の手段が無かった）
   zoomBox.hidden = !!placing || digOpen();
-  renderViz();
   if (!land || worldBusy()) {
     worldUi.hidden = true;
     return;
@@ -4486,10 +4436,11 @@ function openTradeScreen() {
     },
   });
 }
-/** 地図の商圏の塗り分けを出しているあいだの札（押すと消す） */
+/** 地図の商圏の塗り分けを出しているあいだの札（押すと消す）。段 UI10：営業の画面の「地図で商圏を見る」で一時的に出したときだけ、地図の上に小さく「🏪 商圏を表示中 ✕」 */
 const areaPill = h('button', 'isl-area-pill');
 areaPill.type = 'button';
 areaPill.hidden = true;
+areaPill.setAttribute('aria-label', t('商圏の表示を消す', 'Hide trade areas'));
 areaPill.addEventListener('click', () => {
   areaOverlay.on = false;
   renderAreaPill();
@@ -4498,9 +4449,9 @@ areaPill.addEventListener('click', () => {
 function renderAreaPill() {
   areaPill.hidden = !areaOverlay.on || !s.area;
   if (!s.area) areaOverlay.on = false;
-  areaPill.replaceChildren(h('span', '', t('🗺 商圏を表示中（色＝お客さんが行く会社）', '🗺 Showing trade areas (color = where customers go)')), h('b', '', '✕'));
+  areaPill.replaceChildren(h('span', '', t('🏪 商圏を表示中', '🏪 Showing trade areas')), h('b', '', '✕'));
 }
-root.append(worldUi, issueEl, meetEl, chiefEl, hud, ticker.el, sectorPill, areaPill, zoomBox, vizBox, pointEl, missionBox, tourEl, toasts, advisor, nextBtn, placeBox, popEl, foot, selBox, ghostUi);
+root.append(worldUi, issueEl, meetEl, chiefEl, hud, ticker.el, sectorPill, areaPill, zoomBox, pointEl, missionBox, tourEl, toasts, advisor, nextBtn, placeBox, popEl, foot, selBox, ghostUi);
 resize();
 renderAll();
 // 始めたばかりなら、建築の一覧を開いておく
@@ -4508,9 +4459,6 @@ if (!s.buildings.some((b) => b.owner === 'me')) openBuildTab();
 
 // ---------------------------------------------------------------- 地図の操作
 
-const pts = new Map<number, { x: number; y: number }>();
-let drag: { x: number; y: number; cx: number; cy: number; moved: boolean } | null = null;
-let pinch: { d: number; zoom: number } | null = null;
 /** ホイールと「＋／−」の段。関所を開けたあとは、同じ階層の全セクタが入るところまで縮小できる */
 /** 段 MAP1：関所のあと（つながった地図）は、いちばん縮小から 0.25 までを 5 段に（最大と最小しか無かった） */
 const zoomSteps = () => {
@@ -4518,61 +4466,11 @@ const zoomSteps = () => {
   return s.land ? landZoomSteps(lo) : [...new Set([lo, 0.25, 0.5, 1, 2])].sort((a, b) => a - b);
 };
 const clampZoom = (z: number) => Math.max(minZoom(), Math.min(2, z));
-const local = (e: PointerEvent) => {
-  const r = canvas.getBoundingClientRect();
-  return pick(cam, W, H, e.clientX - r.left, e.clientY - r.top);
-};
-
-canvas.addEventListener('pointerdown', (e) => {
-  canvas.setPointerCapture(e.pointerId);
-  pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  tween = null;
-  if (pts.size === 2) {
-    const [a, b] = [...pts.values()];
-    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), zoom: cam.zoom };
-    drag = null;
-  } else drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, moved: false };
-});
-canvas.addEventListener('pointermove', (e) => {
-  if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pinch && pts.size === 2) {
-    const [a, b] = [...pts.values()];
-    cam.zoom = clampZoom((pinch.zoom * Math.hypot(a.x - b.x, a.y - b.y)) / pinch.d);
-    dirty = true;
-    if (placing) setGhost(...centerCell());
-    return;
-  }
-  if (drag) {
-    const dx = e.clientX - drag.x;
-    const dy = e.clientY - drag.y;
-    if (Math.hypot(dx, dy) > 6) drag.moved = true;
-    if (drag.moved) {
-      cam.x = drag.cx - dx / cam.zoom;
-      cam.y = drag.cy - dy / cam.zoom;
-      dirty = true;
-      // 置くときは、地図を動かすと建物が画面の真ん中のマスへ
-      if (placing) setGhost(...centerCell());
-    }
-    return;
-  }
-});
-canvas.addEventListener('pointerup', (e) => {
-  pts.delete(e.pointerId);
-  if (pinch) {
-    if (pts.size < 2) {
-      // ピンチで全体まで縮小したら、階層のまんなかへ寄せる（はじめから全体だったときは寄せない）
-      const wasOv = !!s.land && s.n * 200 * pinch.zoom < W * 0.6;
-      pinch = null;
-      centerOverview(wasOv);
-    }
-    return;
-  }
-  const d = drag;
-  drag = null;
-  if (!d || d.moved) return;
+/** 地図のマスを押した（1 本の指・マウスで canvas を押して、動かさずに離した） */
+function tapMap(x: number, y: number) {
   // 発掘作業のあいだは、地図のマスを押しても吹き出しを出さない
   if (s.digRun) return busyDig();
-  const [i, j] = local(e);
+  const [i, j] = pick(cam, W, H, x, y);
   if (placing) {
     // 置いている建物のマスをもう一度押すと建てる。ほかのマスなら、そこを真ん中にして建物を動かす
     if (placing.i === i && placing.j === j) tryPlace();
@@ -4608,12 +4506,72 @@ canvas.addEventListener('pointerup', (e) => {
   }
   openPop(ti, tj);
   renderAll();
+}
+/** 段 UI10：地図の指の操作（gesture.ts）。canvas だけでなく、地図の上の印・札・吹き出しの上から始めた指も数える（2 本でピンチ） */
+const gesture = mapGesture({
+  cam,
+  size: () => ({ W, H }),
+  clampZoom,
+  moved: () => {
+    dirty = true;
+    if (placing) setGhost(...centerCell());
+  },
+  tap: (x, y) => tapMap(x, y),
+  pinchEnd: (zoom0) => {
+    // ピンチで全体まで縮小したら、階層のまんなかへ寄せる（はじめから全体だったときは寄せない）
+    centerOverview(!!s.land && s.n * 200 * zoom0 < W * 0.6);
+  },
+  touched: () => {
+    tween = null;
+  },
 });
-canvas.addEventListener('pointercancel', (e) => {
-  pts.delete(e.pointerId);
-  drag = null;
-  pinch = null;
-});
+/** 地図の上に重ねている層（印・札・町の長・手紙・吹き出し）。ここから始めた指もピンチに数える */
+const MAP_LAYERS = '.isl-marks, .isl-world, .isl-meet, .isl-chief, .isl-pop';
+const onMapLayer = (e: Event) => {
+  const el = e.target as Element | null;
+  return !!el && (el === canvas || (el instanceof Element && !!el.closest(MAP_LAYERS) && root.contains(el)));
+};
+const mapXY = (e: PointerEvent) => {
+  const r = canvas.getBoundingClientRect();
+  return [e.clientX - r.left, e.clientY - r.top] as const;
+};
+// 窓で先に受ける（印や札のボタンが指を受けても、地図の操作に数える）
+addEventListener(
+  'pointerdown',
+  (e) => {
+    if (!onMapLayer(e)) return;
+    const onCanvas = e.target === canvas;
+    if (onCanvas) canvas.setPointerCapture(e.pointerId);
+    gesture.down(e.pointerId, ...mapXY(e), onCanvas);
+  },
+  true,
+);
+addEventListener(
+  'pointermove',
+  (e) => {
+    gesture.move(e.pointerId, ...mapXY(e));
+  },
+  true,
+);
+addEventListener(
+  'pointerup',
+  (e) => {
+    gesture.up(e.pointerId, ...mapXY(e));
+  },
+  true,
+);
+addEventListener('pointercancel', (e) => gesture.cancel(e.pointerId), true);
+// ピンチのあいだと直後は、印・札・吹き出しのボタンを押した扱いにしない
+addEventListener(
+  'click',
+  (e) => {
+    if (gesture.quiet() && onMapLayer(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  },
+  true,
+);
 canvas.addEventListener(
   'wheel',
   (e) => {

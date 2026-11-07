@@ -1,0 +1,94 @@
+/* ================================================================ 段 UI10：設定の「🗺 地図の表示」（名前・説明・色の見本・オン／オフ）。角は丸めない・字は 12px 以上 */
+.isl-mapset {
+  display: grid;
+  gap: 10px;
+}
+.isl-mapset-item {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 2px solid var(--isl-line);
+  background: rgba(15, 22, 38, 0.55);
+}
+.isl-mapset-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.isl-mapset-name {
+  font-size: 15px;
+}
+.isl-mapset-sw {
+  flex: 0 0 auto;
+  min-width: 72px;
+  min-height: 40px;
+}
+.isl-mapset-sw:not(.is-on) {
+  background: #5b6475;
+  color: #eef1f7;
+}
+.isl-mapset-sw:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.isl-mapset-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.isl-mapset-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+}
+.isl-mapset-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.isl-mapset-key i {
+  display: inline-block;
+  font-style: normal;
+}
+/* 線：点線（地図の線と同じ形） */
+.isl-mapset-line {
+  width: 28px;
+  height: 0;
+  border-top: 4px dashed;
+}
+/* 面：半透明の塗りとふち（地図の商圏と同じ） */
+.isl-mapset-area {
+  width: 26px;
+  height: 16px;
+  border: 2px solid var(--c);
+  background: color-mix(in srgb, var(--c) 50%, transparent);
+}
+/* 印：色の四角い札とアイコン（地図の印と同じ） */
+.isl-mapset-mark {
+  display: grid !important;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--isl-line);
+  background: var(--mk);
+  font-size: 13px;
+  line-height: 1;
+}
+.isl-mapset-when {
+  color: var(--isl-dim);
+  font-size: 12px;
+}
+/* オフ：見本を薄く。Rare からの印：灰色 */
+.isl-mapset-item.is-off .isl-mapset-legend {
+  opacity: 0.55;
+}
+.isl-mapset-item.is-locked {
+  filter: grayscale(1);
+  opacity: 0.75;
+}
+.isl-mapset-item.is-locked .isl-mapset-when {
+  color: #eef1f7;
+  font-weight: 700;
+}

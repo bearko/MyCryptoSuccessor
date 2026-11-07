@@ -47,6 +47,7 @@ export type ScreenId =
   | 'suit'
   | 'invest'
   | 'settings'
+  | 'mapset'
   | 'pace'
   | 'save'
   | 'trophy'
@@ -120,7 +121,8 @@ export const SUB_DEFS = (): Record<DeptId, SubDef[]> => ({
   systems: [
     d('invest', t('設備投資', 'Investment'), t('設備', 'Upgrades'), t('建物ごとの設備', 'Per-building upgrades'), ['invest'], 'workshop'),
     // 段 UI6：トロフィー（実績）の一覧も設定の画面にまとめる（サブタブは増やさない）
-    d('settings', t('設定', 'Settings'), t('設定', 'Settings'), t('速さ・言語・音・セーブ・トロフィー', 'Speed, language, sound, save, trophies'), ['settings', 'pace', 'save', 'trophy']),
+    // 段 UI10：地図の表示（流れの線・困りごとの印・商圏）の切り替えも設定の画面にまとめる（地図の右下のボタンは外した）
+    d('settings', t('設定', 'Settings'), t('設定', 'Settings'), t('速さ・言語・音・地図の表示・セーブ・トロフィー', 'Speed, language, sound, map display, save, trophies'), ['settings', 'mapset', 'pace', 'save', 'trophy']),
   ],
 });
 
@@ -156,6 +158,7 @@ export const SUB_ALIAS: Record<string, { m: DeptId; key: string; part: ScreenId 
   'marketing:outlook': { m: 'marketing', key: 'data', part: 'outlook' },
   'marketing:pr': { m: 'marketing', key: 'ranking', part: 'pr' },
   'support:sat': { m: 'support', key: 'inbox', part: 'sat' },
+  'systems:mapset': { m: 'systems', key: 'settings', part: 'mapset' },
   'systems:pace': { m: 'systems', key: 'settings', part: 'pace' },
   'systems:save': { m: 'systems', key: 'settings', part: 'save' },
   'systems:trophy': { m: 'systems', key: 'settings', part: 'trophy' },
