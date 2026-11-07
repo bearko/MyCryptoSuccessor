@@ -168,6 +168,8 @@ export interface Ctx {
   delegated?: (id: string) => void;
   /** 研究ポイントの増えた知らせ（「研究ポイント +N」のトースト）を済みにする（その画面が自分でトーストを出したとき。研究への寄付） */
   rpNoted?: () => void;
+  /** 段 SALES1：札を閉じて、そのお店の吹き出しを開く（地図でそのお店の商圏が光る） */
+  showShop?: (uid: number) => void;
 }
 
 /**

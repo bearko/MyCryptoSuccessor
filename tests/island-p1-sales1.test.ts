@@ -5,7 +5,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { PRODUCTS, SALES1, MATS, UNCOMMON, basePrice, sku, skuPrice, unitsX, type Mat, type Sku } from '../src/island/p1/data';
+import { PRODUCTS, SALES1, SALES1_UI, MATS, UNCOMMON, basePrice, sku, skuPrice, unitsX, type Mat, type Sku } from '../src/island/p1/data';
 import {
   allowedDirs,
   assign,
@@ -191,6 +191,41 @@ describe('段 SALES1：自社どうしの取り合いを減らす', () => {
     d.skills.push('sa_dominant');
     expect(cannibalRate(d)).toBeLessThan(r0 - 0.02);
     expect(salesPotential(d)).toBeGreaterThan(u0 * 1.02);
+  });
+});
+
+describe('段 SALES1：お店ごとの縦の積み上げ棒（販売管理）', () => {
+  it('棚に並べているお店ごとに、売れた・自店に取られた・逃した（1 日）。取り合いが SALES1_UI.hot 以上のお店に印', async () => {
+    const { shopBars } = await import('../src/island/p1/sales');
+    const { s, uid } = running(1);
+    const one = shopBars(s);
+    expect(one).toHaveLength(1);
+    expect(one[0].lost).toBe(0);
+    expect(one[0].hot).toBe(false);
+    expect(one[0].sold).toBeGreaterThan(0);
+    // すぐ隣に 2 軒目・3 軒目：取り合いが大きく、印が付く
+    const b = myShops(s)[0];
+    addShop(s, b.i + 1, b.j, uid);
+    addShop(s, b.i, b.j + 1, uid);
+    for (let k = 0; k < 6; k++) step(s);
+    const two = shopBars(s);
+    expect(two).toHaveLength(3);
+    for (const x of two) {
+      expect(x.lost).toBeGreaterThan(0);
+      expect(x.share).toBeCloseTo(x.lost / (x.sold + x.lost), 9);
+      expect(x.hot).toBe(x.share >= SALES1_UI.hot);
+      expect(x.miss).toBeGreaterThanOrEqual(0);
+    }
+    expect(two.some((x) => x.hot)).toBe(true);
+  });
+  it('お店の月の数（売れた・逃した・日数）は締めで先月へ移り、今月は 0 から', () => {
+    const { s, uid } = running(2);
+    const sh = s.shops[uid];
+    expect(sh.mu!.days).toBeGreaterThan(0);
+    for (let k = 0; k < 40 && !sh.muLast; k++) step(s);
+    expect(sh.muLast).toBeTruthy();
+    expect(sh.mu!.days).toBeLessThan(sh.muLast!.days + 1);
+    expect(sh.mu!.sold).toBeLessThanOrEqual(sh.muLast!.sold + 1e9);
   });
 });
 

@@ -7125,6 +7125,78 @@ button.isl-mis {
   width: 56px;
   height: 7px;
 }
+/* 段 SALES1：お店ごとの 1 日の数（縦の積み上げ棒。下から 売れた・自店に取られた・逃した）。角は丸めない・字は 12px 以上 */
+.isl-s1-bars {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 0 4px;
+}
+.isl-s1-col {
+  flex: 1 0 64px;
+  max-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 4px 6px;
+  border: 2px solid transparent;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.isl-s1-col:hover,
+.isl-s1-col:focus-visible {
+  border-color: #6b5524;
+}
+.isl-s1-col.is-hot {
+  border-color: #e8885a;
+  background: rgba(232, 136, 90, 0.12);
+}
+.isl-s1-top {
+  font-size: 13px;
+  color: #f2b544;
+}
+.isl-s1-stack {
+  width: 28px;
+  height: 120px;
+  display: flex;
+  flex-direction: column-reverse;
+  background: rgba(255, 255, 255, 0.06);
+}
+.isl-s1-seg {
+  display: block;
+  width: 100%;
+  min-height: 0;
+}
+.isl-s1-seg.is-sold {
+  background: #f2b544;
+}
+.isl-s1-seg.is-lost {
+  background: #e8885a;
+}
+.isl-s1-seg.is-miss,
+.isl-cv-key.isl-s1-k-miss > i {
+  background: repeating-linear-gradient(45deg, #8f9bb8 0 3px, #16213a 3px 6px) !important;
+}
+.isl-cv-key.isl-s1-k-lost > i {
+  background: #e8885a !important;
+}
+.isl-s1-name {
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.isl-s1-hot {
+  font-size: 12px;
+  color: #ffb08a;
+  font-weight: 700;
+}
 @media (max-width: 899px) {
   .isl-sales-row {
     grid-template-columns: 1fr auto auto;

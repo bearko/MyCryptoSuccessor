@@ -403,6 +403,16 @@ const ctx: Ctx = {
   },
   skills: (focus) => openSkills(ctx, focus),
   rpNoted: () => (rpSeen = s.rp ?? 0),
+  // 段 SALES1：販売管理の積み上げ棒を押した：札を閉じて、そのお店の吹き出しを開く（選んだお店の商圏が地図で光る）
+  showShop: (uid) => {
+    const b = s.buildings.find((x) => x.uid === uid);
+    if (!b) return;
+    closeSheet();
+    menu = null;
+    sub = null;
+    openPop(b.i, b.j);
+    renderAll();
+  },
   step: () => (tutOf(s) < TUT_DONE ? (TUT[tutOf(s)]?.id ?? null) : null),
   dismissed: () => {
     menu = null;

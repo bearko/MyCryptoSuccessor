@@ -74,6 +74,8 @@ export interface ProductDef {
  * どちらも自社のお店が 1 軒なら効かない（前の売れ方のまま）。model.ts の splitHome
  */
 export const SALES1 = { units: 20, price: 0.05, overlap: 0.5, walk: 0.3 };
+/** 段 SALES1 の画面（販売管理の積み上げ棒）：hot＝取り合いの印を付ける割合・minDays＝今月の数で描くのに要る日数（足りなければ先月） */
+export const SALES1_UI = { hot: 0.25, minDays: 5 };
 /** 個数で数える数を SALES1 の倍率に（棚・品出し・荷車・依頼など） */
 export const unitsX = (n: number) => n * SALES1.units;
 /** 段 SALES1 の前の値段（必要なお金を前のままにするところ：商品開発の費用など） */

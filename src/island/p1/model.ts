@@ -261,8 +261,16 @@ export interface ShopState {
   offLast?: number;
   /** 段 UI5c：お店の方針「在庫を優先して売りさばく」の値引きの段（CLEAR.cuts の番号）。無い＝方針はオフ */
   clear?: number;
+  /** 段 SALES1：今月の売れた数・棚が空（品出しが追いつかない）で逃した数（見込み）・数えた日数。muLast は先月（締めで移す）。以前のセーブには無い */
+  mu?: ShopUnits;
+  muLast?: ShopUnits | null;
 }
-
+/** 段 SALES1：お店 1 軒の月の数（売れた・逃した・日数） */
+export interface ShopUnits {
+  sold: number;
+  miss: number;
+  days: number;
+}
 
 export interface Trip {
   hauler: number;
@@ -4288,6 +4296,8 @@ export function step(s: P1State): DayResult {
       }
     }
     sh.dcarry = moved > 0 ? Math.min(0.99, cap - Math.floor(cap)) : 0;
+    // 段 SALES1：お店の月の数（売れた・逃した）を数えた日数
+    (sh.mu ??= { sold: 0, miss: 0, days: 0 }).days++;
     const open = (st && !st.resting) || sh.part > 0;
     // 段 UI5a（お店の自走）：店長が休んだ日。従業員が 2 人以上なら従業員で営業、足りなければ閉まる（1 人ならレジの手伝いだけ）
     if (st && st.resting) {
@@ -4314,9 +4324,14 @@ export function step(s: P1State): DayResult {
     const mine = s.holdSales ? [] : myOffers(s, p.key, true);
     const rv = rivalOffers(s, p.key);
     const month = capture(s, p.key, [...mine, ...rv]);
+    // 段 SALES1：棚が空の棚に来るはずだったお客さん（逃した数の見込み。売れ方は変えない・お店の吹き出しと販売管理の棒だけ）
+    if (!s.holdSales) missEmpty(s, p.key, rv);
     mine.forEach((o, n) => {
       const want = month[n] / DAYS + (o.sh.carry[o.x] ?? 0);
       const sold = Math.min(Math.floor(want), o.sh.shelf[o.x] ?? 0);
+      const mu = (o.sh.mu ??= { sold: 0, miss: 0, days: 0 });
+      mu.sold += sold;
+      if (Math.floor(want) > sold) mu.miss += Math.floor(want) - sold;
       o.sh.carry[o.x] = Math.min(1, want - sold);
       o.sh.shelf[o.x] = (o.sh.shelf[o.x] ?? 0) - sold;
       const unit = priceAt(s, o.x, o.sh);
@@ -4734,6 +4749,9 @@ export function endMonth(s: P1State): Report {
   s.proc.bought = 0;
   for (const sh of Object.values(s.shops)) {
     sh.rev = 0;
+    // 段 SALES1：お店の月の数（売れた・逃した）を先月へ
+    sh.muLast = sh.mu ?? null;
+    sh.mu = { sold: 0, miss: 0, days: 0 };
     // お店の自走の数え（月次の提案「休む日に店を回す人がいません」は締めのあとのカード。cardsMonth が先に読む）
     sh.selfLast = sh.self ?? 0;
     sh.offLast = sh.off ?? 0;
@@ -5598,6 +5616,17 @@ export function cannibalRate(s: P1State, split = shopSplit(s)): number {
   const v = Object.values(split);
   const alone = v.reduce((a, x) => a + x.alone, 0);
   return alone > 0 ? v.reduce((a, x) => a + x.lost, 0) / alone : 0;
+}
+
+/** 段 SALES1：その日、棚が空の自社の棚（店員がいる日として）に来るはずだったお客さんを、そのお店の「逃した数」に足す（売れ方は変えない） */
+function missEmpty(s: P1State, key: string, rv: Offer[]) {
+  const all = myOffers(s, key, false);
+  if (!all.some((o) => (o.sh.shelf[o.x] ?? 0) <= 0)) return;
+  const m = capture(s, key, [...all, ...rv]);
+  all.forEach((o, n) => {
+    if ((o.sh.shelf[o.x] ?? 0) > 0) return;
+    (o.sh.mu ??= { sold: 0, miss: 0, days: 0 }).miss += m[n] / DAYS;
+  });
 }
 
 // ---------------------------------------------------------------- ④ 販売の内訳（SCM ダッシュボード）
