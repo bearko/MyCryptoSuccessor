@@ -196,7 +196,12 @@ const rate = (rev: number, cost: number) => (rev > 0 ? `${Math.round(((rev - cos
 
 // ---------------------------------------------------------------- 担当のヒーローへの指示（段 UI3）
 
-const unitsText = (u: number) => t(`+${Math.max(0, Math.round(u * 10) / 10)} 個／月`, `+${Math.max(0, Math.round(u * 10) / 10)}/mo`);
+// 段 SALES1：個数が 20 倍になったので、10 個以上は整数で（10 未満は小数 1 桁）
+const unitsN = (u: number) => {
+  const v = Math.max(0, u);
+  return v >= 10 ? Math.round(v).toLocaleString('en-US') : String(Math.round(v * 10) / 10);
+};
+const unitsText = (u: number) => t(`+${unitsN(u)} 個／月`, `+${unitsN(u)}/mo`);
 /** 指示を受けた担当のひと言をトーストで（「ガリレオ「承知！鋏に切り替えます」」） */
 function ack(ctx: Ctx, hero: number | null, core: string) {
   if (hero == null) return ctx.toast(core);

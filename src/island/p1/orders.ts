@@ -255,7 +255,12 @@ export interface OrderBox {
 }
 
 const fmt = (v: number) => `${Math.round(v).toLocaleString('en-US')} G`;
-const pm = (u: number) => t(`+${Math.max(0, Math.round(u * 10) / 10)} 個／月`, `+${Math.max(0, Math.round(u * 10) / 10)}/mo`);
+// 段 SALES1：個数が 20 倍になったので、10 個以上は整数で（10 未満は小数 1 桁）
+const unitsN = (u: number) => {
+  const v = Math.max(0, u);
+  return v >= 10 ? Math.round(v).toLocaleString('en-US') : String(Math.round(v * 10) / 10);
+};
+const pm = (u: number) => t(`+${unitsN(u)} 個／月`, `+${unitsN(u)}/mo`);
 const SEP = () => t('・', ' · ');
 const STAGE_NM: Record<Stage, () => string> = { buy: () => t('① 調達', '① Buy'), craft: () => t('② 製造', '② Craft'), haul: () => t('③ 物流', '③ Haul'), sell: () => t('④ 販売', '④ Sell') };
 

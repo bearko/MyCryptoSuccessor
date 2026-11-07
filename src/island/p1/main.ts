@@ -166,7 +166,7 @@ import { IslandSfx } from './sfx';
 import { boardDue, boardOf, boardQuarter, closeText } from './board';
 import { openBoard, type BoardHooks } from './boardui';
 import { KNOW_TALK, SLOT_TALK, slotNews, slotsOf, takePolNews } from './policy';
-import { POLICY_OF } from './data';
+import { POLICY_OF, unitsX } from './data';
 import { openPolicyView } from './policyui';
 // 段 K3：経営方針発表会のカードの場面（boardui.ts の BOARD_SCENES に登録する）
 import './policycardsui';
@@ -1627,9 +1627,11 @@ function siteCard(id: string, i: number, j: number, dir: Dir, move?: number): HT
     row(t('近くの家', 'Homes nearby'), t(`${info.homes} 軒`, `${info.homes}`));
     // 営業の立地調査（Rare の町）：この店の商圏の取り分の予測
     if (s.area && surveyed(s) && info.share != null) row(t('商圏の取り分（予測）', 'Trade-area share (forecast)'), `${Math.round(info.share * 1000) / 10}%`, 'is-good');
-    if (info.fromRivals >= 0.5) row(t('他社から奪う', 'Taken from rivals'), t(`${info.fromRivals.toFixed(1)} 個`, `${info.fromRivals.toFixed(1)}`), 'is-good');
+    // 段 SALES1：個数は 20 倍（10 個以上は整数で）
+    const nU = (v: number) => (v >= 10 ? Math.round(v).toLocaleString('en-US') : v.toFixed(1));
+    if (info.fromRivals >= unitsX(0.5)) row(t('他社から奪う', 'Taken from rivals'), t(`${nU(info.fromRivals)} 個`, `${nU(info.fromRivals)}`), 'is-good');
     if (info.rivals) row(t('近くの競合', 'Rivals nearby'), t(`${info.rivals} 社`, `${info.rivals}`), 'is-warn');
-    if (info.fromMine >= 0.5) row(t('自社の店と取り合い', 'Cannibalized'), t(`−${info.fromMine.toFixed(1)} 個`, `−${info.fromMine.toFixed(1)}`), 'is-bad');
+    if (info.fromMine >= unitsX(0.5)) row(t('自社の店と取り合い', 'Cannibalized'), t(`−${nU(info.fromMine)} 個`, `−${nU(info.fromMine)}`), 'is-bad');
     row(t('工房から', 'From workshop'), info.days < 0.5 ? t('すぐ近く', 'Right nearby') : t(`片道 ${info.days.toFixed(1)} 日`, `${info.days.toFixed(1)} d one way`), info.days > 2.5 ? 'is-warn' : '');
     c.append(rows);
     return [c];

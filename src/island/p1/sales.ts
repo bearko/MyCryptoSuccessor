@@ -122,6 +122,11 @@ export function shopBars(s: P1State): ShopBar[] {
     const share = sold + lost > 0 ? lost / (sold + lost) : 0;
     out.push({ uid: b.uid, name: DEF[b.id].name, sold, lost, miss, share, hot: share >= SALES1_UI.hot, src: cur ? 'now' : use ? 'last' : 'est' });
   }
+  // 同じ建物のお店が 2 軒以上なら、建てた順に番号を付けて見分ける（よろず屋 1・よろず屋 2）
+  const count: Record<string, number> = {};
+  for (const x of out) count[x.name] = (count[x.name] ?? 0) + 1;
+  const seen: Record<string, number> = {};
+  for (const x of out) if (count[x.name] > 1) x.name = `${x.name} ${(seen[x.name] = (seen[x.name] ?? 0) + 1)}`;
   return out;
 }
 const n1 = (v: number) => (v >= 10 ? `${Math.round(v)}` : v.toFixed(1));
