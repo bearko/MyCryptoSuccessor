@@ -6,7 +6,7 @@
  */
 import { R2_OFF, STUDY_KINDS, runStudy, studyCost, studyLock } from '../../src/island/p1/r2';
 import { writeFileSync } from 'node:fs';
-import { AD_TIER, HERO_GROWTH, HERO_RARITIES, aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, isAntique, areaTuneOf, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier, RARE_AREA, EPIC_RIVAL, ANTIQUE, BRAND_CAP, L0_SKILLS } from '../../src/island/p1/data';
+import { SALES1, unitsX, AD_TIER, HERO_GROWTH, HERO_RARITIES, aptitude, anyOfMet, ADS, RESET, RARE_RIVAL, RIVAL_TUNE, fundsOf, DIG_BALANCE, DIG_PANELS, INF_PANELS, infCost, INVEST, MISSIONS, P1B, PRODUCT, PRODUCTS, relicSells, isAntique, areaTuneOf, SECTORS, SKILL, SKILLS, donateCost, isResearch, maxLv, rpCost, type Skill, TIERS, UNCOMMON, UNCOMMON_RIVAL, sku, skuParts, techSkill, type Mat, type Sku, type Task, type Tier, RARE_AREA, EPIC_RIVAL, ANTIQUE, BRAND_CAP, L0_SKILLS } from '../../src/island/p1/data';
 import { managerApt, RUIN, sectorDef, type RuinLike } from '../../src/island/p1/company';
 import { crowned, moveFee, moveTo } from '../../src/island/p1/land';
 import { delegate, rankUpTier, repairAll, reviveView } from '../../src/island/p1/reset';
@@ -541,7 +541,8 @@ function pickLot(s: P1State, id: string, first: boolean): [number, number, (type
         for (const d of allowedDirs(s, id, i, j)) {
           const si = siteInfo(s, id, i, j, d);
           if (!si) continue;
-          const v = si.units - 0.5 * si.fromMine - 1.5 * si.days;
+          // 段 SALES1：個数は SALES1.units 倍なので、日数の重みも同じだけ掛ける（判断は前のまま）
+          const v = si.units - 0.5 * si.fromMine - unitsX(1.5) * si.days;
           if (v > score) {
             score = v;
             best = [i, j, d];
@@ -592,7 +593,7 @@ function chooseLineup(s: P1State, c: Ctx): Sku[] {
     if (!relicSells(p, tier)) continue;
     for (const r of p.relic ? [p.relic.rank] : (['C', 'U'] as const)) {
       // 売れる見込み：飽和（他店で供給が足りている）を入れた見込み
-      const est = Math.max(r === 'U' ? 4 : 1, sellEstimate(s, p.key, r));
+      const est = Math.max(unitsX(r === 'U' ? 4 : 1), sellEstimate(s, p.key, r));
       const x = sku(p.key, r);
       if (!routesOk(s, x)) continue;
       if (r === 'U' && (p.relic ? nU === 0 : !has(s, 'pot') || !s.dev.includes(p.key) || nU === 0)) continue;
@@ -1868,7 +1869,7 @@ function byWhatIf(s: P1State, c: Ctx, bn: Stage, cap: number, k: WhatIfHooks): n
   let n = 0;
   // 1 個あたりの粗利（先月の売上 ÷ 売れた数 − 素材代）。月々の費用（維持費・給料・アルバイト代）が、増える粗利より大きい手は取らない
   const r = c.monthEnd;
-  const price = r && r.flow && r.flow.sold > 0 ? r.revenue / r.flow.sold : 1000;
+  const price = r && r.flow && r.flow.sold > 0 ? r.revenue / r.flow.sold : 1000 * SALES1.price;
   const xs = s.slots.map((x) => x.sku).filter((x): x is Sku => !!x);
   const margin = price - (xs.length ? xs.reduce((a, x) => a + unitCost(s, x), 0) / xs.length : 0);
   const monthly = (w: (typeof list)[number]): number => {
@@ -2011,7 +2012,7 @@ function routeChain(m: Mat): string[] {
 /** アンコモンのひと月の粗利の目安（作業台 1 つ） */
 function uValue(s: P1State, key: string) {
   const x = sku(key, 'U');
-  const units = Math.min(Math.max(4, sellEstimate(s, key, 'U')) * UNCOMMON.pull, ((30 * 0.85) / craftDays(s, x)) * batchOf(x));
+  const units = Math.min(Math.max(unitsX(4), sellEstimate(s, key, 'U')) * UNCOMMON.pull, ((30 * 0.85) / craftDays(s, x)) * batchOf(x));
   return units * (priceOf(s, x) - unitCost(s, x));
 }
 

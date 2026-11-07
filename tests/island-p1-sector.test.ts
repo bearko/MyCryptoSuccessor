@@ -1,6 +1,6 @@
 import { withoutPol } from '../scripts/island/sim';
 import { describe, expect, it } from 'vitest';
-import { MATS, MISSIONS, PRODUCT, RIVALS, SECTORS, TIERS, UNCOMMON_RIVAL, rivalDef } from '../src/island/p1/data';
+import { MATS, MISSIONS, PRODUCT, RIVALS, SECTORS, TIERS, UNCOMMON_RIVAL, rivalDef, MISSION_UNITS } from '../src/island/p1/data';
 import { sectorProfile } from '../src/island/p1/company';
 import { crowned, landCleared, lastRank, moveTo, playable } from '../src/island/p1/land';
 import { accept, adBoost, areaRanking, legDays, matPrice, newP1, offeredMissions, openGate, runAd, step } from '../src/island/p1/model';
@@ -123,7 +123,7 @@ describe('セクタの依頼とランド制覇', () => {
     expect(offered.slice(0, 2)).toEqual(['c2_goblet', 'c2_top']);
     expect(accept(s, 'c2_goblet')).toBeNull();
     expect(s.missions.c2_goblet).toBe('accepted');
-    s.monthUnits.Goblet = 10;
+    s.monthUnits.Goblet = MISSION_UNITS.c2_goblet;
     step(s);
     expect(s.missions.c2_goblet).toBe('done');
   });

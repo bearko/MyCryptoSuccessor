@@ -11,7 +11,7 @@
  */
 import { isEn, t } from '../../i18n';
 import { meetHero, propErrK, readErr } from './lesson';
-import { ADS, CARD, CLEAR, DELEG, DEPT, INVEST, skuParts, MATS, MORALE, P1B, PAY, POLICY, PRODUCT, SELF_RUN, SKILL, TAX, aptitude, deptOf, type DeptId, type InqKind, type ReplyKind, type Sku, type Task } from './data';
+import { ADS, CARD, CLEAR, CS, DELEG, DEPT, INVEST, skuParts, MATS, MORALE, P1B, PAY, POLICY, PRODUCT, SELF_RUN, SKILL, TAX, aptitude, deptOf, type DeptId, type InqKind, type ReplyKind, type Sku, type Task, unitsX } from './data';
 import {
   actOk,
   actName,
@@ -696,7 +696,7 @@ function hrSell(s: P1State): Choice[] {
     .sort((a, b) => aptitude(a.st.stats, 'shop') - aptitude(b.st.stats, 'shop'))[0];
   if (weak) put('shop', weak.uid, aptitude(weak.st.stats, 'shop'));
   // お店の従業員（アルバイト）を増やす
-  const part = sellMoves(s).find((m) => m.kind === 'part' && m.act && m.units > 0.5);
+  const part = sellMoves(s).find((m) => m.kind === 'part' && m.act && m.units > unitsX(0.5));
   const c = part ? fromSell(part) : null;
   if (c) out.push(c);
   return out;
@@ -708,7 +708,7 @@ function hrStage(s: P1State, bn: Stage): Choice[] {
   return whatIf(s, bn)
     .filter((w) => w.move.kind === 'person' && w.move.replace == null)
     .map((w) => fromWhatIf(s, { ...w, units: flowGain(s, bn, w.units, caps) }, margin, null))
-    .filter((x): x is Choice => !!x && (x.units ?? 0) > 0.05);
+    .filter((x): x is Choice => !!x && (x.units ?? 0) > unitsX(0.05));
 }
 
 /**
@@ -1630,7 +1630,7 @@ function core(s: P1State, c: Card, pick?: number): string {
     case 'sell': {
       const wari = Math.max(1, Math.round(i.share * 10));
       const pct = Math.round(i.share * 100);
-      return i.pile >= 10
+      return i.pile >= unitsX(10)
         ? t(`[[お客さんの ${wari} 割]]しか来ず、在庫が工房に[[ ${i.pile} 個]]たまっている`, `only [[${pct}% of customers]] come in, and [[${i.pile}]] items pile up in the workshop`)
         : t(`この売り場には[[お客さんの ${wari} 割]]しか来ない`, `only [[${pct}% of customers]] come to our shops`);
     }
@@ -1956,8 +1956,8 @@ export function coreOfCard(s: P1State, c: Card, pick?: number): SummaryCore | nu
     case 'sell': {
       const pct = Math.round(i.share * 100);
       const why = sellCause(c, act);
-      const ev = i.pile >= 10 ? t(`来店はお客様全体の[[ ${pct}%]]にとどまり、工房には[[ ${i.pile} 個]]の在庫が滞留しています。${loss}`, `Only [[${pct}%]] of customers come in, and [[${i.pile}]] items sit in the workshop.${loss}`) : t(`来店はお客様全体の[[ ${pct}%]]にとどまっています。${loss}`, `Only [[${pct}%]] of customers come in.${loss}`);
-      const cause = i.pile >= 10 ? t(`製造や輸送ではなく、[[${why}]]が原因と考えます。`, `Not crafting or hauling: the cause is [[${why}]].`) : t(`製造と輸送は追いついており、[[${why}]]が原因と考えます。`, `Crafting and hauling keep up; the cause is [[${why}]].`);
+      const ev = i.pile >= unitsX(10) ? t(`来店はお客様全体の[[ ${pct}%]]にとどまり、工房には[[ ${i.pile} 個]]の在庫が滞留しています。${loss}`, `Only [[${pct}%]] of customers come in, and [[${i.pile}]] items sit in the workshop.${loss}`) : t(`来店はお客様全体の[[ ${pct}%]]にとどまっています。${loss}`, `Only [[${pct}%]] of customers come in.${loss}`);
+      const cause = i.pile >= unitsX(10) ? t(`製造や輸送ではなく、[[${why}]]が原因と考えます。`, `Not crafting or hauling: the cause is [[${why}]].`) : t(`製造と輸送は追いついており、[[${why}]]が原因と考えます。`, `Crafting and hauling keep up; the cause is [[${why}]].`);
       return mk(bn('sell'), ev, cause);
     }
     case 'craft': {
@@ -2347,7 +2347,7 @@ export function choiceText(s: P1State, c: Card, ch: Choice): { icon: string; lab
       const nm = a.r === 'swap' ? t('代わりの品を渡す', 'Give a substitute') : a.r === 'refund' ? t('返金する', 'Refund') : t('謝る', 'Apologize');
       const lock = replyLock(s, a.r);
       const item = a.r === 'swap' ? swapItem(s) : null;
-      const what = a.r === 'refund' ? g(ch.cost) : a.r === 'swap' ? (item ? t(`在庫の${goodsName(item)} 2 個`, `2 × ${goodsName(item)} from stock`) : t('在庫なし', 'no stock')) : t('費用なし', 'free');
+      const what = a.r === 'refund' ? g(ch.cost) : a.r === 'swap' ? (item ? t(`在庫の${goodsName(item)} ${CS.swapUnits} 個`, `${CS.swapUnits} × ${goodsName(item)} from stock`) : t('在庫なし', 'no stock')) : t('費用なし', 'free');
       const sub = t(`満足度 +${Math.round(est)} ・ ${what}${lock === 'money' ? '（資金不足）' : ''}`, `Satisfaction +${Math.round(est)} · ${what}${lock === 'money' ? ' (short of funds)' : ''}`);
       return { icon: a.r === 'swap' ? '🎁' : a.r === 'refund' ? '💴' : '🙇', label: nm, sub };
     }

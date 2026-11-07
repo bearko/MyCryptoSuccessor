@@ -2,7 +2,7 @@
  * 設備投資（建物ごと＝セクタごと）・制覇（2 か月続けて 1 位）・他社の反撃（docs/ISLAND_PHASE1.md「設備投資」「制覇」「他社の反撃」）。
  */
 import { describe, expect, it } from 'vitest';
-import { INVEST, MARKET, SKILL, SKILLS, SKILL_TO_INVEST, STORE, TRANSPORT, TOP_STREAK } from '../src/island/p1/data';
+import { INVEST, MARKET, SKILL, SKILLS, SKILL_TO_INVEST, STORE, TRANSPORT, TOP_STREAK, unitsX } from '../src/island/p1/data';
 import { crowned, moveTo, recOf } from '../src/island/p1/land';
 import {
   accept,
@@ -132,9 +132,10 @@ describe('設備投資（スキルツリーから移した設備）', () => {
     expect(partMax(s, uid)).toBe(3);
     expect(setPart(s, uid, 3)).toBe(true);
     expect(s.shops[uid].part).toBe(3);
-    expect(storageCap(b)).toBe(20);
+    // 段 SALES1：裏の倉庫は unitsX(20)、1 段 +unitsX(20)
+    expect(storageCap(b)).toBe(unitsX(20));
     invest(s, uid, 'backroom');
-    expect(storageCap(b)).toBe(40);
+    expect(storageCap(b)).toBe(unitsX(40));
     // 2 軒目は、まだ何も付いていない
     const two = build(s, 'general_store', ...lot(s, 'general_store'));
     if (typeof two === 'string') throw new Error(two);

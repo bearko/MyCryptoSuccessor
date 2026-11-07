@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { unitsX } from '../src/island/p1/data';
 import {
   allowedDirs,
   assign,
@@ -115,18 +116,18 @@ describe('打ち手ごとの見込み（sellWhatIf）', () => {
       expect(salesPotential(near) - base).toBeLessThan(w.units);
     }
   });
-  it('効き目の大きい順で、+2 個未満は ok=false', () => {
+  it('効き目の大きい順で、+2 個未満（段 SALES1 で unitsX(2) 個未満）は ok=false', () => {
     const { s } = running(1);
     const ws = sellWhatIf(s);
     for (let k = 1; k < ws.length; k++) expect(ws[k - 1].units).toBeGreaterThanOrEqual(ws[k].units);
-    for (const w of ws) expect(w.ok).toBe(w.units >= 2);
+    for (const w of ws) expect(w.ok).toBe(w.units >= unitsX(2));
   });
 });
 
 describe('お店の処理力（品出し）の制限', () => {
   it('需要が処理力を超えると、販売の数字は処理力で頭打ち（why=capacity）。アルバイト・什器が効く', () => {
     const { s, uid } = running(1);
-    s.demand.Sensu = 5000;
+    s.demand.Sensu = unitsX(5000);
     const c = stageCaps(s).sell;
     expect(c.why).toBe('capacity');
     expect(c.perMonth).toBe(Math.round(displayCap(s)));

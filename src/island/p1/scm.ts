@@ -5,7 +5,7 @@
  */
 import { t } from '../../i18n';
 import { DEF } from '../defs';
-import { INVEST, MAT_KEYS, MATS, MARKET, PRODUCT, SKILL, SKILLS, TRANSPORT, isResearch, rpCost, skuPrice, type Mat, type Sku } from './data';
+import { INVEST, MAT_KEYS, MATS, MARKET, PRODUCT, SKILL, SKILLS, TRANSPORT, isResearch, rpCost, skuPrice, unitsX, type Mat, type Sku } from './data';
 import { clearGoal, has, invest, MAX_HAULERS, skillLock, type PBuilding, jamOf, hasRoute, oneWay, shopArea, craftCheck, craftDays, learn, matDays, monthRevenue, myShops, myWorkshop, nextJam, poolCap, poolFree, poolUsed, sellInfo, speed, stageCaps, staffOf, storageCap, assign, whatIf, type GoodsWhy, type P1State, type SellInfo, type SellWhy, type Stage, type StageIf, type WhatIf } from './model';
 import { pickHero, slot, TASK_NAME } from './heroui';
 import { clearCondText } from './digmeet';
@@ -414,7 +414,7 @@ function sellBreakdown(ctx: Ctx, s: P1State, info: SellInfo, ws: WhatIf[], openN
     return b;
   };
   okW.slice(0, 3).forEach((w, k) => list.append(row(w, k)));
-  if (!okW.length) list.append(h('p', 'isl-dim', t('いまの候補では、どれも +2 個／月に届きません。まずは月が進むのを待つか、下の表で商品とお店を見直しましょう。', 'No move adds 2+ / mo right now. Check the items and shops below.')));
+  if (!okW.length) list.append(h('p', 'isl-dim', t(`いまの候補では、どれも +${unitsX(2)} 個／月に届きません。まずは月が進むのを待つか、下の表で商品とお店を見直しましょう。`, `No move adds ${unitsX(2)}+ / mo right now. Check the items and shops below.`)));
   box.append(list);
   const off = [...okW.slice(3), ...ws.filter((w) => !w.ok)];
   if (off.length) {

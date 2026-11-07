@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { brandPull } from '../src/island/p1/company';
-import { ADS, BRANCHES, DEPOT, MARKET, MISSIONS, P1B, SKILL, SKILLS, SHOP, STORE, TOP_STREAK, sku } from '../src/island/p1/data';
+import { ADS, BRANCHES, DEPOT, MARKET, MISSIONS, P1B, SKILL, SKILLS, SHOP, STORE, TOP_STREAK, sku, skuPrice, unitsX } from '../src/island/p1/data';
 import {
   adCost,
   batchOf,
@@ -192,13 +192,13 @@ describe('新しいパネルの効き目', () => {
     expect(craftDays(s, x)).toBeCloseTo(d0 * 0.95 * 0.9, 6);
   });
 
-  it('ロットの改善：基礎の商品だけ 1 ロット +1。共通の型：アンコモン +1', () => {
+  it('ロットの改善：基礎の商品だけ 1 ロット +1。共通の型：アンコモン +1（段 SALES1 で個数は unitsX 倍）', () => {
     const s = rich();
-    expect(batchOf(sku('Sensu', 'C'), s)).toBe(4);
+    expect(batchOf(sku('Sensu', 'C'), s)).toBe(unitsX(4));
     s.skills.push('lot', 'mold');
-    expect(batchOf(sku('Sensu', 'C'), s)).toBe(5);
-    expect(batchOf(sku('Knife', 'C'), s)).toBe(4);
-    expect(batchOf(sku('Sensu', 'U'), s)).toBe(3);
+    expect(batchOf(sku('Sensu', 'C'), s)).toBe(unitsX(5));
+    expect(batchOf(sku('Knife', 'C'), s)).toBe(unitsX(4));
+    expect(batchOf(sku('Sensu', 'U'), s)).toBe(unitsX(3));
   });
 
   it('ABC 分析・長期契約・産地との直接取引・商社との提携（✨）：素材の値段', () => {
@@ -220,12 +220,12 @@ describe('新しいパネルの効き目', () => {
     expect(depotLink(s)).toBe(0.2);
   });
 
-  it('在庫管理システム：お店の裏 +10', () => {
+  it('在庫管理システム：お店の裏 +10（段 SALES1 で unitsX(10)）', () => {
     const s = rich();
     const [b] = shopOf(s, [null]);
     expect(storageCap(b, s)).toBe(SHOP.storageCap);
     s.skills.push('inventory');
-    expect(storageCap(b, s)).toBe(SHOP.storageCap + 10);
+    expect(storageCap(b, s)).toBe(SHOP.storageCap + unitsX(10));
     expect(STORE.base).toBeGreaterThan(0);
   });
 
@@ -235,8 +235,8 @@ describe('新しいパネルの効き目', () => {
     const x = sku('Sensu', 'C');
     const [, one] = shopOf(s, [x]);
     const [, two] = shopOf(s, [x, sku('Scissors', 'C')]);
-    expect(priceAt(s, x, one)).toBe(900);
-    expect(priceAt(s, x, two)).toBe(Math.round(900 * 1.05));
+    expect(priceAt(s, x, one)).toBe(skuPrice(x));
+    expect(priceAt(s, x, two)).toBe(Math.round(skuPrice(x) * 1.05));
   });
 
   it('予算管理：維持費 −10%・季節の催事：宣伝 −30%・需要予測 AI：認知 0.5 から', () => {

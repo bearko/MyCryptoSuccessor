@@ -3,7 +3,7 @@
  * 技は職人が修行して身につける・新しい商品は知られるまで売れにくい・独り占めの商品には他社が追随する。
  */
 import { describe, expect, it } from 'vitest';
-import { AWARE_GOODS, ENTRY_AFTER, MARKET, SKILL, aptitude } from '../src/island/p1/data';
+import { AWARE_GOODS, ENTRY_AFTER, MARKET, SKILL, aptitude, unitsX } from '../src/island/p1/data';
 import { moveTo } from '../src/island/p1/land';
 import {
   allowedDirs,
@@ -46,7 +46,7 @@ function shopWith(s: P1State, x: `${string}:${'C' | 'U'}`) {
   for (let k = 0; k < 5; k++) step(s);
   assign(s, 10002, 'shop', shop.uid);
   setShelf(s, shop.uid, 0, x);
-  s.shops[shop.uid].shelf[x] = 10;
+  s.shops[shop.uid].shelf[x] = unitsX(10);
   return shop.uid;
 }
 

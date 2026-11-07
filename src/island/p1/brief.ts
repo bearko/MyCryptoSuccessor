@@ -13,7 +13,7 @@
 import { isEn, t } from '../../i18n';
 import { readErr } from './lesson';
 import { DEF } from '../defs';
-import { ADS, BRAND, CS, MORALE, DEPT, DIG_BALANCE, INVEST, MATS, P1B, POLICY, SKILL, deptOf, type DeptId, type PolicyId, type Sku, type ValueKey } from './data';
+import { ADS, BRAND, CS, MORALE, DEPT, DIG_BALANCE, INVEST, MATS, P1B, POLICY, SKILL, deptOf, type DeptId, type PolicyId, type Sku, type ValueKey, unitsX } from './data';
 import { DAYS, LOT, bottleneck, crewMul, fxSum, has, lvMul, lvOf, poolCap, poolUsed, stageCaps, stockAll, unitCost, type P1State, type Stage } from './model';
 import { brandCap } from './company';
 import { careMul, centerRate, csOn } from './cs';
@@ -1017,7 +1017,7 @@ function projWhy(P: Proj, M: number): string {
   }
   const u = P.use;
   if (u) {
-    const per = u.sold.slice(1).find((n) => n > 0.05) ?? 0;
+    const per = u.sold.slice(1).find((n) => n > unitsX(0.05)) ?? 0;
     const pn = per < 1 ? per.toFixed(1) : `${Math.round(per)}`;
     const sell = per > 0.05 ? t(`月 ${pn} 個ほど売れていく`, `sell about ${pn} a month`) : t('空いた棚が無いので、作り終えたあとは売れ残る', 'stay unsold once done (no free shelf)');
     bits.push(t(`いまの素材で作るのは 1 回きり：作業台 ${u.slot + 1} は${goodsName(u.x)} ${u.units} 個を作る ${Math.ceil(u.days)} 日だけ作り、そのあと元の商品に戻る。作った品は材料費 0 で、${sell}`, `Crafting from stock is one-off: bench ${u.slot + 1} makes ${u.units} ${goodsName(u.x)} for ${Math.ceil(u.days)} days, then returns to its product. The goods cost nothing more and ${sell}`));
@@ -1164,7 +1164,7 @@ export function bgOf(s: P1State, p: Plan, b: Pick<Brief, 'now' | 'vals' | 'theme
       // 売れていない商品（棚に並んでいるのに月 0 個）
       if (sells) {
         const f = flowOf(s);
-        const zero = f.goods.filter((x) => x.units < 0.5);
+        const zero = f.goods.filter((x) => x.units < unitsX(0.5));
         if (zero.length) {
           const nm = zero
             .slice(0, 2)
@@ -1299,8 +1299,8 @@ export function riskList(s: P1State, p: Plan, b: Brief, base: P1State, after: P1
     );
   }
   // 新しく作る商品のうち、売れる見込みが小さいもの
-  const thin = (p.goods ?? []).filter((x) => (b.after.goods.find((y) => y.x === x)?.units ?? 0) < 3);
-  if (thin.length) push(t(`新しい商品（${thin.map((x) => goodsName(x)).join('・')}）は売れ方の予測が難しい（月 3 個未満の見込み）`, `New items (${thin.map((x) => goodsName(x)).join(', ')}) are hard to read (<3/mo)`), 2, 'stock');
+  const thin = (p.goods ?? []).filter((x) => (b.after.goods.find((y) => y.x === x)?.units ?? 0) < unitsX(3));
+  if (thin.length) push(t(`新しい商品（${thin.map((x) => goodsName(x)).join('・')}）は売れ方の予測が難しい（月 ${unitsX(3)} 個未満の見込み）`, `New items (${thin.map((x) => goodsName(x)).join(', ')}) are hard to read (<${unitsX(3)}/mo)`), 2, 'stock');
   // ほかの部門への影響（製造の切り替え・人の移動・依頼する手）
   for (const st of p.steps) {
     if (st.k === 'make') {

@@ -4,8 +4,8 @@
  * グラフの数字が提案書の中身（Brief）の数字と一致すること。仕様は docs/ISLAND_PHASE1.md「スライド型の提案書（段 UI7d）」。
  */
 import { describe, expect, it } from 'vitest';
-import { CLEAR, POLICY, PRODUCTS, sku, type Sku } from '../src/island/p1/data';
-import { deserializeP1, madeSkus, myShops, poolCap, poolRate, poolUsed, serializeP1, syncShelves, type P1State } from '../src/island/p1/model';
+import { CLEAR, POLICY, PRODUCTS, sku, SALES1, type Sku } from '../src/island/p1/data';
+import { deserializeP1, madeSkus, myShops, poolCap, goodsRoom, poolRate, poolUsed, serializeP1, syncShelves, type P1State } from '../src/island/p1/model';
 import { afterOf, baseOf, planOf, planRows } from '../src/island/p1/plan';
 import { askGroups, briefOf, pitchOf } from '../src/island/p1/brief';
 import { budgetBar, fallOf, kpisOf, longLine, metersOf, profitBars, roomKpi, slideKinds, smallBrief, srcOfPlan, stageMap, topRisks } from '../src/island/p1/slides';
@@ -120,10 +120,11 @@ describe('倉庫の提案の選び方（素材で埋まっているとき）', (
     empty(s);
     const x = notMade(s);
     s.mats.wood = Math.ceil(poolCap(s) * 0.7);
-    s.stock[x] = Math.ceil(poolCap(s) * 0.2);
+    // 段 SALES1：商品は goodsRoom（SALES1.units 個で 1 枠）。置き場所の 2 割ぶんの在庫品
+    s.stock[x] = Math.ceil(poolCap(s) * 0.2) * SALES1.units;
     const info = clearInfo(s);
     expect(info.pooled).toBe(s.stock[x]);
-    expect(info.pooled / poolUsed(s)).toBeGreaterThanOrEqual(0.1);
+    expect(goodsRoom(info.pooled) / poolUsed(s)).toBeGreaterThanOrEqual(0.1);
     expect(clearFrees(info)).toBe(true);
     const d = stockDraft(s)!;
     expect(d.choices.some((c) => c.act.k === 'do' && c.act.a.k === 'clear')).toBe(true);

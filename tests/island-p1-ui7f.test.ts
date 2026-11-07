@@ -1,7 +1,7 @@
 // 段 UI7f（docs/ISLAND_PHASE1.md「倉庫があふれる先の見込み（段 UI7f）」）：月末の倉庫の中身を記録し、同じペースで伸ばして
 // あふれる日を見込む。見積もり（このままの線があふれる日から下がる）・ヒーローの言葉・グラフの数字がそろう。予測が当たるか（自動で日を進めた実際の日との差）
 import { describe, expect, it } from 'vitest';
-import { MATS, PRODUCTS, sku, type Mat, type Sku } from '../src/island/p1/data';
+import { MATS, PRODUCTS, sku, SALES1, type Mat, type Sku } from '../src/island/p1/data';
 import { deserializeP1, madeSkus, myShops, poolCap, poolUsed, procMats, recipeOf, serializeP1, step, type P1State } from '../src/island/p1/model';
 import { planOf } from '../src/island/p1/plan';
 import { briefOf } from '../src/island/p1/brief';
@@ -224,7 +224,7 @@ describe('提案書の「いま」の一言は、その提案書の手に合わ�
         const s = town(3);
         const made = madeSkus(s);
         const x = PRODUCTS.filter((p) => !p.tech && !p.relic && (p.tier ?? 'C') === 'C').map((p) => sku(p.key, 'C')).find((y) => !made.includes(y))! as Sku;
-        s.stock[x] = Math.round(poolCap(s) * 0.9 - poolUsed(s));
+        s.stock[x] = Math.round(poolCap(s) * 0.9 - poolUsed(s)) * SALES1.units;
         scenes.push(s);
       }
       let n = 0;

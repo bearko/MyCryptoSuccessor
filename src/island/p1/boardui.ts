@@ -8,7 +8,7 @@
  * - 会議室の絵（壁・長い机・座る部長）は CSS の仮の絵（docs/ISLAND_ART_TODO.md に PixelLab への指示）。
  */
 import { t } from '../../i18n';
-import { BOARD, DEPT } from './data';
+import { BOARD, DEPT, unitsX } from './data';
 import {
   askLine,
   auditLines,
@@ -467,7 +467,7 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
       big.append(h('b', 'isl-bm-lname', t(`『${L.nm}』${L.lv ? 'の強化' : ''}`, `“${L.nm}”${L.lv ? ' upgrade' : ''}`)));
       const num = h('div', 'isl-bm-lnum');
       // 段 I2c：税・経費の手は、月の減り（税・経費の内訳）を大きく
-      if (L.save && L.units < 0.5)
+      if (L.save && L.units < unitsX(0.5))
         num.append(
           h('b', '', t(`税・経費 −${g(L.save.total)}/月`, `Tax & costs −${g(L.save.total)}/mo`)),
           h('small', '', [L.save.tax > 0 ? t(`税 −${g(L.save.tax)}`, `tax −${g(L.save.tax)}`) : '', L.save.cost > 0 ? t(`経費 −${g(L.save.cost)}（税引き後で合計）`, `costs −${g(L.save.cost)} (total after tax)`) : ''].filter(Boolean).join(t('・', ' · ')) + t('（直近の決算と帳簿から）', ' (from recent quarters and books)')),

@@ -37,6 +37,7 @@ import {
   seriesOf,
   skuPrice,
   DIG_THEME,
+  unitsX,
 } from '../src/island/p1/data';
 import { RUIN, brandAdd, brandCap, sectorDef, sectorState } from '../src/island/p1/company';
 import { letterLock, letterLockOf, letterLocked, moveTo, recOf } from '../src/island/p1/land';
@@ -362,7 +363,7 @@ describe('4. Epic の復刻品', () => {
     st.stats = { ...st.stats, phy: 45, int: 45, agi: 45 };
     // Rare の復刻品は作れる適性（40 以上）でも、Epic の復刻品は 1 段上（48）
     expect(craftCheck(e, x, st.hero)).toBe('skill');
-    expect(e.demand[`Relic-${ext}`]).toBeCloseTo(DIG_BALANCE.relic.demandBase * TIERS.E.demand * 1.1, 6);
+    expect(e.demand[`Relic-${ext}`]).toBeCloseTo(unitsX(DIG_BALANCE.relic.demandBase) * TIERS.E.demand * 1.1, 6);
     // Epic の町の Epic の復刻品の札
     expect(seriesTag(ext, 'E')).toEqual(['Epic の町で売れる', true]);
     // Rare の町では Epic の復刻品は売れない（シリーズが Rare の荒れ地と同じでも）
@@ -400,7 +401,7 @@ describe('5. 骨董の需要', () => {
     expect(isAntique(relicOf(dungeonRare), 'R')).toBe(false);
     expect(antiqueHere(e, key)).toBe(true);
     expect(unsellableHere(e, key)).toBe(false);
-    expect(e.demand[key]).toBeCloseTo(DIG_BALANCE.relic.demandBase * TIERS.E.demand * 1.1 * ANTIQUE.demand, 6);
+    expect(e.demand[key]).toBeCloseTo(unitsX(DIG_BALANCE.relic.demandBase) * TIERS.E.demand * 1.1 * ANTIQUE.demand, 6);
     expect(seriesTag(dungeonRare, 'E')).toEqual([expect.stringContaining('骨董として人気'), true]);
     put(e, 'workshop');
     const b = put(e, 'general_store', 3);

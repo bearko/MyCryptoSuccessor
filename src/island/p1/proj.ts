@@ -11,7 +11,7 @@
  *   作り直す在庫として 1 個の材料費で数える（在庫を食いつぶして利益が増えたように見せない。あふれる前の作れる数 prod0 との差）
  * 仕様は docs/ISLAND_PHASE1.md「使い切りの手の見積もり（段 UI7e）」。
  */
-import { POLICY, type Mat, type Sku } from './data';
+import { POLICY, type Mat, type Sku, unitsX } from './data';
 import { DAYS, batchOf, craftDays, lotsHave, poolCap, poolUsed, recipeOf, speed, stageCaps, staffOf, steadySkus, stockAll, syncShelves, unitCost, uptime, myShops, type P1State } from './model';
 import { flowOf, type FlowNow, type Plan, type Step } from './plan';
 import { poolNow, storeFc } from './storefc';
@@ -313,9 +313,9 @@ export function projOf(s: P1State, p: Pick<Plan, 'steps'>, base: P1State, after:
       return g && g.units > 0 ? (g.perDay * DAYS) / g.units : 0;
     })();
     // 並ぶお店：作っているあいだ（作っている商品として）と、作り終えたあと（在庫品として）
-    const later = sold.slice(1).some((n) => n > 0.05);
+    const later = sold.slice(1).some((n) => n > unitsX(0.05));
     const shops = myShops(last)
-      .filter((b) => (sold[0] > 0.05 && after.shops[b.uid]?.shelves.includes(u.x)) || (later && last.shops[b.uid]?.shelves.includes(u.x)))
+      .filter((b) => (sold[0] > unitsX(0.05) && after.shops[b.uid]?.shelves.includes(u.x)) || (later && last.shops[b.uid]?.shelves.includes(u.x)))
       .map((b) => b.uid);
     use = { ...u, sold, yen: sold.reduce((a, n) => a + n, 0) * price, price, shops };
   }

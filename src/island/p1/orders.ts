@@ -6,7 +6,7 @@
  * 仕様は docs/ISLAND_PHASE1.md「画面の並び（UI3）」の「建物の吹き出しの指示」。
  */
 import { t } from '../../i18n';
-import { ADS, INVEST, MATS, P1B, PRODUCTS, SELF_RUN, SHOP, sku, skuParts, techSkill, type Mat, type Sku } from './data';
+import { ADS, INVEST, MATS, P1B, PRODUCTS, SELF_RUN, SHOP, sku, skuParts, techSkill, type Mat, type Sku, unitsX } from './data';
 import { madeSkus, partMax, recipeOf, adCost, adPick, bottleneck, stageCaps, type Stage, craftCheck, fullUse, has, hasRoute, investCost, invLv, leadDays, matPrice, myWorkshop, openRelics, procCap, procMats, relicSku, sellNow, tierOk, unsellableHere, whatIf, LOT, type P1State, type PBuilding } from './model';
 import { adGain, supplyFor } from './moves';
 import { toneOf, type Tone } from './persona';
@@ -178,7 +178,7 @@ export function shopInvestOrder(s: P1State, b: PBuilding): { id: string; units: 
     .map((x) => x.id);
   const xs = ids.map((id, k) => ({ id, k, units: investGain(s, b, id) }));
   return xs
-    .map((x) => ({ ...x, weak: x.units < 0.5 }))
+    .map((x) => ({ ...x, weak: x.units < unitsX(0.5) }))
     .sort((a, b2) => Number(a.weak) - Number(b2.weak) || b2.units - a.units || a.k - b2.k)
     .map(({ id, units, weak }) => ({ id, units, weak }));
 }
@@ -355,7 +355,7 @@ function shopBox(s: P1State, uid: number): OrderBox {
     orders.push({ k: 'staff', label: t('従業員を増やす', 'Add staff'), sub: [t(`いま ${sh.part} 人`, `${sh.part} now`), sh.part >= SELF_RUN.min ? t('休む日も従業員で営業', 'open on days off') : t('休む日は閉まる', 'closes on days off'), t(`毎月 +${fmt((want - sh.part) * SHOP.partTimeWage * 30)}`, `+${fmt((want - sh.part) * SHOP.partTimeWage * 30)}/mo`)].join(SEP()), off: !can });
   }
   // いちばん効く指示（金色）：見込みのいちばん大きいもの
-  const best = orders.filter((o) => !o.off && (o.units ?? 0) > 0.5).sort((a, b) => (b.units ?? 0) - (a.units ?? 0))[0];
+  const best = orders.filter((o) => !o.off && (o.units ?? 0) > unitsX(0.5)).sort((a, b) => (b.units ?? 0) - (a.units ?? 0))[0];
   if (best && hero != null) best.rec = true;
   return { place: 'shop', hero, role, greet: hero != null ? greetOf(hero) : t('店長がいません。', 'No manager here.'), status, orders };
 }
@@ -367,7 +367,7 @@ export function mainCands(s: P1State, uid: number): Sku[] {
 }
 /** 現場からの提言：そのお店に並べると、いちばん売れそうな新しい商品（作り手のいるもの。空き棚が無ければ棚の増設とセット） */
 export function fieldPick(s: P1State, uid: number): ShelfPick | null {
-  return shelfPicks(s, uid).find((p) => p.ok && p.units > 0.5) ?? null;
+  return shelfPicks(s, uid).find((p) => p.ok && p.units > unitsX(0.5)) ?? null;
 }
 
 /** 工房の職人への指示：作る物を変える・作業台を足す・空いた作業台に職人を置く */
