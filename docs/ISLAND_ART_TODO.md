@@ -40,6 +40,17 @@
 | panel_auto_proc・panel_auto_lineup・panel_auto_rest | 仕組みのパネルの札 3 枚（調達の自動化・製造計画の自動化・勤務シフトの自動化） | スキルツリーのシステムの枝（Common の 3・4 段目。`tree.ts` の `ICON`）・詳細カード | 絵文字 🧾・🗓・🔄 | 32×32（札の中）・36（詳細） | 3 small pixel-art icons on transparent background, dark 1px outline: a purchase order slip with a small gear (auto-procurement), a calendar page with a small gear and a hammer (auto-production plan), a two-person shift rotation arrows with a small gear (auto-shift cover). Same style as the other skill-tree emoji-replacement icons |
 | mark_tip | 「💡」の札 | 印の左上の小さな札（何度も出た困りごとを無くすパネルへの近道。`.isl-mark-tip`）・スキルツリーのパネルの角（`tree.ts`） | 絵文字 💡 を金色の四角に | 30×30（パネルの角は 18） | a tiny glowing light bulb icon on a gold square, pixel art, transparent background |
 
+### 段 TRADE1a（となり町の取り寄せ・関税・境の拠点。2026-11-08）
+
+| id | 名前 | 使う場所 | いまの状態 | 大きさ | PixelLab への指示 |
+|---|---|---|---|---|---|
+| border_gate | 境の番所（遮断機と小屋） | 地図の境界の道（となり町ごとに、取り寄せの道が境界をこえる所。`render.ts` の `borderGate`・`main.ts` の `tradeAnim`）。荷が通るあいだ遮断機が上がる | コードで描いた四角い小屋（茶色の壁・赤い三角屋根・黄色の窓）と、赤白の縞の棒（上がると斜め上へ回す） | 1 マスの 3 割ほど（小屋 60×70・棒は道幅） | a tiny wooden border booth beside a road with a red tiled roof and a small lit window, plus a red-and-white striped barrier pole across the road, isometric pixel art, transparent background; 2 frames: barrier down (closed) and barrier raised up (open). Same scale as the walking heroes |
+| toll_coin | 関税の金貨のアイコン | 荷が境界を通った瞬間に弾ける「−58 G」の横（`render.ts` の `tollCoin`）。帳簿・月次報告の「🛃 関税」の行（いまは絵文字 🛃） | コードで描いた金の丸と四角い穴 ＋ 絵文字 🛃 | 16×16（行）・36×36（地図の弾ける金貨） | a small gold coin with a customs stamp mark (a simple gate icon) on it, dark 1px outline, pixel art, transparent background; a 16px version for text rows and a 36px version with a little shine frame |
+| panel_customs・panel_bonded・panel_lane | 関税を下げるパネル 3 枚（通関の手続き・保税の置き場・関所の優先レーン） | スキルツリーの物流の ③ 運搬の束（`tree.ts` の `ICON`：Common の物流拠点のあと・Uncommon・Rare の外周）・詳細カード | 絵文字 🛃・📦・🚧 | 32×32（札の中）・36（詳細） | 3 small pixel-art icons on transparent background, dark 1px outline: a stamped document with a gate icon (customs paperwork), a sealed crate inside a locked cage (bonded storage), a raised barrier pole with a green arrow lane (priority border lane). Same style as the other skill-tree emoji-replacement icons |
+| courier_import（いまは問屋の人を流用） | となり町の問屋の人（荷を担いで境界をこえてくる） | 地図（`main.ts` の `tradeAnim` → `render.ts` の couriers）。隣の問屋から境界をこえて工房（か境の拠点）まで歩く | この町の卸問屋の人（`COURIERS` のヒーロー）と素材のアイコンをそのまま流用 | 歩く人の大きさ | a traveling porter in a straw hat and travel cloak carrying a large bundle on the back, pixel art, 4-direction walk (2 frames), so imports from the next town look different from local deliveries |
+| tradecmp_tag | 「🗺 となり町」の札 | 卸問屋の吹き出しの指示・調達の画面の素材の行（`tariffui.ts` の `tradeCmpEl`・`p1.css` の `.isl-tradecmp`） | 橙の四角い札に絵文字 🗺 | 16×16（札の 12px の字の横） | a tiny folded map icon with an orange route line crossing a dashed border, dark 1px outline, pixel art, transparent background |
+| border_hub（いまは物流拠点のまま） | 境の拠点（境界から 3 マス以内の物流拠点） | 置くときの下見の「🛃 境の拠点」の行（`main.ts` の siteCard）。地図の絵は物流拠点のまま（見分けは吹き出しと下見だけ） | 物流拠点（logistics）の絵をそのまま | 1 マス | 物流拠点の差分：add a small border booth with a striped barrier and a stack of crates with customs seals beside the hub building（次の段 TRADE1b の輸入でも使う） |
+
 ## 優先度 中（コードで描いた小物。いまのままでも遊べる）
 
 | 素材 | 使う場所 | いまの状態 | 大きさ | メモ |

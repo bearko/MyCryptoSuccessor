@@ -17990,3 +17990,111 @@ button.isl-tree-cond {
 .isl-tree-heads .isl-tree-head.is-narrow .isl-tree-head-lock {
   display: none;
 }
+
+/* ---------------------------------------------------------------- 段 TRADE1a：となり町の取り寄せ（「となり町」の札。角は丸めない・字は 12px 以上） */
+.isl-tradecmp {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  margin-top: 4px;
+  padding: 4px 6px;
+  border: 2px solid #f39a3c;
+  background: rgba(15, 22, 38, 0.55);
+  font-size: 12px;
+}
+.isl-tradecmp-tag {
+  justify-self: start;
+  padding: 0 6px;
+  background: #f39a3c;
+  color: #1d1a24;
+  font-weight: 700;
+  font-size: 12px;
+}
+.isl-tradecmp-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+  padding: 1px 4px;
+  border: 2px solid transparent;
+}
+.isl-tradecmp-row.is-win {
+  border-color: var(--isl-gold);
+  background: rgba(255, 214, 90, 0.12);
+}
+.isl-tradecmp-who {
+  min-width: 3.5em;
+  color: var(--isl-dim);
+  font-size: 12px;
+}
+.isl-tradecmp-calc {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 2px;
+  font-size: 12px;
+}
+.isl-tradecmp-duty {
+  color: #ffb27a;
+}
+.isl-tradecmp-sum {
+  font-size: 13px;
+}
+.isl-tradecmp-win {
+  margin-left: auto;
+  padding: 0 6px;
+  background: var(--isl-gold);
+  color: #1d1a24;
+  font-size: 12px;
+}
+.isl-order .isl-tradecmp-foot,
+.isl-tradecmp-foot {
+  color: var(--isl-dim);
+  font-size: 12px;
+}
+.isl-trade {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+.isl-trade-row {
+  display: grid;
+  gap: 4px;
+}
+.isl-trade-src.is-on {
+  border-color: #f39a3c;
+}
+.isl-rp-duty {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+.isl-rp-duty b {
+  color: #ffb27a;
+}
+.isl-site-border {
+  display: grid;
+  gap: 2px;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border: 2px solid #f39a3c;
+  background: rgba(243, 154, 60, 0.12);
+  font-size: 12px;
+}
+.isl-site-border b {
+  color: #ffd2a0;
+  font-size: 13px;
+}
+.isl-trade-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 2px solid var(--isl-gold);
+  background: rgba(255, 214, 90, 0.1);
+  font-size: 13px;
+}
+.isl-trade-head span {
+  flex: 1 1 160px;
+  min-width: 0;
+}

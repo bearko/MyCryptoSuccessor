@@ -188,6 +188,8 @@ import { actOf, hlOf, pointOf, TUT, TUT_DONE, TUT_END, tutFix, tutOf, type TutGo
 import { btn, h, heroIcon, heroName, matIcon, money, plain, rich, signed, skuIcon, skuName } from './ui';
 import { mapGesture } from './gesture';
 import { mapSetOn, openMapSet } from './mapsetui';
+import { borderAt, crossRoute, tradeNeighbors } from './tariff';
+import { TRADE } from './data';
 
 const q = new URLSearchParams(location.search);
 const TEST = q.get('test') === '2';
@@ -1650,6 +1652,13 @@ function siteCard(id: string, i: number, j: number, dir: Dir, move?: number): HT
       rows.append(r);
     }
     c.append(rows);
+    // 段 TRADE1a：境界から 3 マス以内なら「境の拠点」（関税 −2 ポイント・隣町からの荷はここに届く）
+    const border = borderAt(s, i, j, dir);
+    if (border.length) {
+      const b = h('div', 'isl-site-border');
+      b.append(h('b', '', t('🛃 境の拠点', '🛃 Border hub')), h('span', '', t(`関税 −${Math.round(TRADE.border * 100)} ポイント・隣町（${border.map((x) => x.name).join('・')}）からの荷はここに届く`, `Duty −${Math.round(TRADE.border * 100)} pts; goods from ${border.map((x) => x.name).join(', ')} arrive here`)));
+      c.append(b);
+    }
     return [c];
   }
   return [];
@@ -4815,11 +4824,12 @@ function tickAnim(dtGame: number) {
     const path = pathOf(doorOf(wh), doorOf(ws));
     if (path)
       for (const o of s.orders) {
-        if (o.left > walk) continue;
+        if (o.from || o.left > walk) continue;
         const f = Math.max(0, Math.min(1, (walk - o.left + acc / dayMs()) / walk));
         anim.couriers.push({ hero: o.courier, path, f, carry: o.m });
       }
   }
+  tradeAnim();
   // 流れの案内：卸問屋から工房へ、素材を届ける人
   if (tour?.deliver && ws && wh) {
     const path = pathOf(doorOf(ws), doorOf(wh));
@@ -4827,7 +4837,42 @@ function tickAnim(dtGame: number) {
     if (path) anim.buyer = { hero: tour.deliver.hero, path, k: 0.5 + f * 0.5, carry: tour.deliver.mat };
   }
 }
-const animating = () => !!anim.mark || anim.crowd.length > 0 || anim.walkers.length > 0 || !!anim.buyer || s.trips.length > 0 || !!s.orders?.length || anim.plus.length > 0 || s.slots.some((sl) => sl.running) || [...anim.coins.values()].some((l) => l.some((c) => anim.clock - c.t < 2600));
+/**
+ * 段 TRADE1a：となり町からの取り寄せ。問屋の人は隣の問屋から境界をこえて工房（か境の拠点）へ歩く（支度の 1 日のあと）。
+ * 境界の番所の遮断機は荷が通るあいだ上がり、通った瞬間に関税の金貨「−58 G」が弾ける（reduced-motion では弾けない）
+ */
+const tollSeen = new Map<number, number>();
+function tradeAnim(walk = true) {
+  const gates: NonNullable<typeof anim.gates> = [];
+  const nbs = s.land && myWorkshop(s) ? tradeNeighbors(s) : [];
+  const still = new Set<number>();
+  for (const nb of nbs) {
+    const r = crossRoute(s, nb.id);
+    if (!r) continue;
+    const [gi, gj] = r.cells[r.at];
+    let up = false;
+    for (const o of s.orders ?? []) {
+      if (o.from !== nb.id) continue;
+      const walkD = Math.max(1, o.total - 1);
+      const f = Math.max(0, Math.min(1, (walkD - o.left + acc / dayMs()) / walkD));
+      if (o.left > walkD) continue;
+      if (walk) anim.couriers!.push({ hero: o.courier, path: r.cells, f, carry: o.m });
+      const fc = r.at / Math.max(1, r.cells.length - 1);
+      const span = 1.2 / Math.max(1, r.cells.length - 1);
+      if (Math.abs(f - fc) < span) up = true;
+      still.add(o.id);
+      const prev = tollSeen.get(o.id) ?? 0;
+      if (walk && prev < fc && f >= fc && !reduceMotion() && (o.duty ?? 0) > 0) (anim.tolls ??= []).push({ i: gi, j: gj, amt: o.duty ?? 0, t: anim.clock });
+      if (walk) tollSeen.set(o.id, f);
+    }
+    gates.push({ i: gi, j: gj, d: nb.delta, up });
+  }
+  if (walk) for (const k of [...tollSeen.keys()]) if (!still.has(k)) tollSeen.delete(k);
+  anim.gates = gates;
+  if (anim.tolls) anim.tolls = anim.tolls.filter((x) => anim.clock - x.t < 1600);
+}
+const reduceMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const animating = () => !!anim.mark || !!anim.tolls?.length || anim.crowd.length > 0 || anim.walkers.length > 0 || !!anim.buyer || s.trips.length > 0 || !!s.orders?.length || anim.plus.length > 0 || s.slots.some((sl) => sl.running) || [...anim.coins.values()].some((l) => l.some((c) => anim.clock - c.t < 2600));
 let lastDraw = 0;
 let last = performance.now();
 let lastWater = -1;
@@ -4927,6 +4972,11 @@ function advance(days: number) {
     }
     // 注文が届いた：問屋の人が工房に入って在庫になり、卸問屋へ帰っていく
     for (const o of r.orders ?? []) {
+      // 段 TRADE1a：となり町からの取り寄せ「ユーホタウンから ガラス 10 個（関税 58 G）」
+      if (o.from) {
+        news(t(`${sectorDef(o.from).name}から ${MATS[o.m].name} ${o.qty} 個（関税 ${money(o.duty ?? 0)}）`, `${o.qty} ${MATS[o.m].name} from ${sectorDef(o.from).name} (duty ${money(o.duty ?? 0)})`), { kind: 'logi' });
+        continue;
+      }
       news(t(`${heroName(o.courier)}が${MATS[o.m].name} ${o.qty} 個を届けてくれました`, `${heroName(o.courier)} delivered ${o.qty} ${MATS[o.m].name}`), { kind: 'logi', group: 'delivered', name: MATS[o.m].name, value: o.qty });
       const ws2 = myWorkshop(s);
       const wh2 = wholesaler(s);
@@ -5182,6 +5232,8 @@ function frame(now: number) {
   }
   if (!held) acc += dt * speed;
   if (!held && speed > 0) tickAnim(dt * speed);
+  // 段 TRADE1a：止めているあいだも境界の番所は描く（問屋の人は動かさない）
+  else if (s.land && (s.orders?.length || !anim.gates)) tradeAnim(false);
   anim.frac = held || speed === 0 ? anim.frac : Math.min(1, acc / dayMs());
   anim.speed = speed || 1;
   anim.dayMs = dayMs();

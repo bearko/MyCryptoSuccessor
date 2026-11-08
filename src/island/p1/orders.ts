@@ -7,7 +7,7 @@
  */
 import { t } from '../../i18n';
 import { ADS, INVEST, MATS, P1B, PRODUCTS, SELF_RUN, SHOP, sku, skuParts, techSkill, type Mat, type Sku, unitsX } from './data';
-import { madeSkus, partMax, recipeOf, adCost, adPick, bottleneck, stageCaps, type Stage, craftCheck, fullUse, has, hasRoute, investCost, invLv, leadDays, matPrice, myWorkshop, openRelics, procCap, procMats, relicSku, sellNow, tierOk, unsellableHere, whatIf, LOT, type P1State, type PBuilding } from './model';
+import { madeSkus, partMax, recipeOf, adCost, adPick, bottleneck, stageCaps, type Stage, craftCheck, fullUse, has, hasRoute, investCost, invLv, leadDays, matPrice, unitPrice, myWorkshop, openRelics, procCap, procMats, relicSku, sellNow, tierOk, unsellableHere, whatIf, LOT, type P1State, type PBuilding } from './model';
 import { adGain, supplyFor } from './moves';
 import { toneOf, type Tone } from './persona';
 import { inTutorial } from './card';
@@ -15,6 +15,9 @@ import { clearInfo, cutName, storeFull } from './stock';
 import { DEF } from '../defs';
 import { propsOpen } from './stage';
 import { applyPlan, planCost, type Plan, type PlanRes } from './plan';
+import { bestImport, cheapAt, dutyText, headSuggest, importLead } from './tariff';
+import { sectorDef } from './company';
+import type { TradeCmp } from './tariffui';
 
 
 /** チュートリアル（タオックスの 1 か月目）のあいだ：指示の箱は出さない */
@@ -222,7 +225,7 @@ export function lowMat(s: P1State): Mat | null {
 
 // ---------------------------------------------------------------- 担当と指示
 
-export type OrderKind = 'shelf' | 'swap' | 'ad' | 'clerk' | 'make' | 'bench' | 'crafter' | 'order' | 'buyopen' | 'buyer' | 'main' | 'tidy' | 'field' | 'staff' | 'clear';
+export type OrderKind = 'shelf' | 'swap' | 'ad' | 'clerk' | 'make' | 'bench' | 'crafter' | 'order' | 'buyopen' | 'buyer' | 'main' | 'tidy' | 'field' | 'staff' | 'clear' | 'import' | 'source';
 export interface Order {
   k: OrderKind;
   label: string;
@@ -240,6 +243,9 @@ export interface Order {
   m?: Mat;
   /** 段 UI5a：棚を整える（設備投資の id） */
   inv?: string;
+  /** 段 TRADE1a：となり町から取り寄せる（取り寄せ先のセクタ）と、ここ／となり町の値段の比べ（「となり町」の札） */
+  from?: string;
+  cmp?: TradeCmp;
 }
 export type OrderPlace = 'shop' | 'workshop' | 'wholesale';
 export interface OrderBox {
@@ -412,8 +418,32 @@ function wholesaleBox(s: P1State): OrderBox {
   if (hero == null) orders.push({ k: 'buyer', label: t('担当を置く', 'Assign a buyer'), sub: t('自動の買い付けが止まっている', 'Automatic buying is off'), rec: true });
   const m = lowMat(s);
   if (m) orders.push({ k: 'order', label: t('素材を注文する', 'Order materials'), sub: [t(`${MATS[m].name} ${LOT} 個`, `${LOT} ${MATS[m].name}`), fmt(matPrice(s, m) * LOT), t(`${leadDays(s)} 日で届く`, `in ${leadDays(s)} d`)].join(SEP()), m, cost: matPrice(s, m) * LOT, rec: hero != null });
+  // 段 TRADE1a：となり町の問屋から取り寄せる（関税込みの合計と、ここの値段を並べる。押すと 1 ロット）
+  const im = m ? importOrderOf(s, m) : null;
+  if (im) orders.push(im);
+  // 段 TRADE1a：Rare から、物流の部長の提案「〇〇は隣町で買うと月 −N G」（承認で調達係の仕入れ先が替わる）
+  const hs = headSuggest(s, procMats(s).map((x) => x.m))[0];
+  if (hs) orders.push({ k: 'source', label: t(`部長の提案：${MATS[hs.m].name}は${sectorDef(hs.from).name}で`, `Head’s pick: ${MATS[hs.m].name} from ${sectorDef(hs.from).name}`), sub: t(`月 −${fmt(hs.save)}・承認で調達係が取り寄せる`, `−${fmt(hs.save)}/mo; approve to have the buyer import`), m: hs.m, from: hs.from, rec: true });
   orders.push({ k: 'buyopen', label: t('調達を開く', 'Open buying'), sub: t('月の量・作りたい物', 'Monthly amounts, targets') });
   return { place: 'wholesale', hero, role, greet: hero != null ? greetOf(hero) : t('調達係がいません。', 'No buyer yet.'), status, orders };
+}
+
+/** 段 TRADE1a：素材 m を、いちばん安いとなり町から 1 ロット取り寄せる指示（となり町が無ければ null） */
+export function importOrderOf(s: P1State, m: Mat): Order | null {
+  const b = bestImport(s, m);
+  if (!b) return null;
+  const here = unitPrice(s, m);
+  const name = sectorDef(b.id).name;
+  const days = importLead(s, b.id);
+  return {
+    k: 'import',
+    label: t(`${name}から取り寄せる`, `Import from ${name}`),
+    sub: [t(`${MATS[m].name} ${LOT} 個`, `${LOT} ${MATS[m].name}`), fmt(b.unit * LOT), t(`${days} 日で届く`, `in ${days} d`)].join(SEP()),
+    m,
+    from: b.id,
+    cost: b.unit * LOT,
+    cmp: { name, here, base: b.base, duty: b.duty, rate: dutyText(s, b.id), days, cheap: cheapAt(b.id, m) },
+  };
 }
 
 /** 建物の指示の箱（自社の工房・お店・卸問屋）。それ以外は null */

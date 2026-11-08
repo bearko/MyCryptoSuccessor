@@ -368,6 +368,13 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
         items.push({ depth: (i + j) * 1000 + i + 0.6, draw: () => digWorker(ctx, hero, i, j, ph) });
       });
     }
+    // 段 TRADE1a：境界の番所（遮断機。荷が通るあいだ上がる。仮の絵：コードで描いた小屋と遮断機。docs/ISLAND_ART_TODO.md「段 TRADE1a」）
+    for (const g of anim.gates ?? []) {
+      const gi = g.i + g.d[0] * 0.5;
+      const gj = g.j + g.d[1] * 0.5;
+      if (!visible(Math.round(gi), Math.round(gj))) continue;
+      items.push({ depth: (gi + gj) * 1000 + gi + 0.55, draw: () => borderGate(ctx, g.i, g.j, g.d, g.up) });
+    }
     const by = anim.buyer;
     if (by && by.path.length > 1) {
       // 行き（0〜0.5）は工房から卸問屋へ、帰り（0.5〜1）は荷物を持って戻る
@@ -380,6 +387,8 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
   }
   items.sort((a, b) => a.depth - b.depth);
   for (const it of items) it.draw();
+  // 段 TRADE1a：荷が境界を通ったときの関税の金貨「−58 G」（上へ弾けて消える。reduced-motion では作らない：main.ts）
+  if (anim && !overview) for (const x of anim.tolls ?? []) tollCoin(ctx, x.i, x.j, x.amt, (anim.clock - x.t) / 1600, cam.zoom);
   // 発掘との出会い：光らせる荒れ地のふちを、建物の上にも金色で（手前の家に隠れないように）
   if (anim?.wasteGlow != null && wastes[anim.wasteGlow]) {
     const [i0, j0] = wastes[anim.wasteGlow];
@@ -754,6 +763,83 @@ function drawRoutes(ctx: CanvasRenderingContext2D, s: P1State, zoom: number, now
     ctx.fillStyle = '#ffffff';
     ctx.fillText(label, c.x, c.y + 1);
   }
+  ctx.restore();
+}
+
+/**
+ * 段 TRADE1a：境界の番所。i, j は境界のいまの町の側の道路のマス・d はとなり町の向き。道の脇に小屋、道をふさぐ赤白の遮断機（up で上がる）。
+ * 仮の絵（コードで描く）。docs/ISLAND_ART_TODO.md「段 TRADE1a：境の番所」
+ */
+function borderGate(ctx: CanvasRenderingContext2D, i: number, j: number, d: [number, number], up: boolean) {
+  // 境界の線の上（道の真ん中）と、道を横切る向き
+  const p: [number, number] = [Math.abs(d[1]), Math.abs(d[0])];
+  const ei = i + d[0] * 0.5;
+  const ej = j + d[1] * 0.5;
+  const hut = center(ei - p[0] * 0.62, ej - p[1] * 0.62);
+  const pivot = center(ei - p[0] * 0.38, ej - p[1] * 0.38);
+  const tip = center(ei + p[0] * 0.42, ej + p[1] * 0.42);
+  ctx.save();
+  // 小屋（1 マスの 3 割ほど）
+  ctx.fillStyle = '#1d1a24';
+  ctx.fillRect(hut.x - 26, hut.y - 58, 52, 50);
+  ctx.fillStyle = '#c98a4a';
+  ctx.fillRect(hut.x - 23, hut.y - 46, 46, 36);
+  ctx.fillStyle = '#7a3b2a';
+  ctx.beginPath();
+  ctx.moveTo(hut.x - 32, hut.y - 44);
+  ctx.lineTo(hut.x, hut.y - 70);
+  ctx.lineTo(hut.x + 32, hut.y - 44);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#ffd65a';
+  ctx.fillRect(hut.x - 8, hut.y - 38, 16, 12);
+  // 柱
+  ctx.fillStyle = '#1d1a24';
+  ctx.fillRect(pivot.x - 6, pivot.y - 34, 12, 34);
+  // 遮断機（赤白。上がると斜め上へ）
+  const ax = pivot.x;
+  const ay = pivot.y - 28;
+  const len = Math.hypot(tip.x - pivot.x, tip.y - pivot.y);
+  const ang = up ? -Math.PI / 2.6 : Math.atan2(tip.y - pivot.y, tip.x - pivot.x);
+  ctx.translate(ax, ay);
+  ctx.rotate(ang);
+  ctx.fillStyle = '#1d1a24';
+  ctx.fillRect(-2, -8, len + 4, 16);
+  const seg = len / 6;
+  for (let k = 0; k < 6; k++) {
+    ctx.fillStyle = k % 2 ? '#ffffff' : '#e8473f';
+    ctx.fillRect(k * seg, -5, seg, 10);
+  }
+  ctx.restore();
+}
+/** 段 TRADE1a：関税の金貨（k は 0〜1 の進み。上へ弾けて薄くなる。字は画面で 13px 以上） */
+function tollCoin(ctx: CanvasRenderingContext2D, i: number, j: number, amt: number, k: number, zoom: number) {
+  if (k < 0 || k > 1) return;
+  const c = center(i, j);
+  const y = c.y - 90 - 120 * (1 - (1 - k) * (1 - k));
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, Math.min(1, (1 - k) / 0.35));
+  const r = 18;
+  ctx.fillStyle = '#1d1a24';
+  ctx.beginPath();
+  ctx.arc(c.x - 46, y, r + 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#ffd65a';
+  ctx.beginPath();
+  ctx.arc(c.x - 46, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#b8862a';
+  ctx.fillRect(c.x - 50, y - 9, 8, 18);
+  const fs = Math.max(30, 13 / Math.max(0.05, zoom));
+  ctx.font = `900 ${fs}px ${FONT}`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  const label = `−${Math.round(amt).toLocaleString('en-US')} G`;
+  ctx.lineWidth = Math.max(5, fs * 0.18);
+  ctx.strokeStyle = '#0f1626';
+  ctx.strokeText(label, c.x - 22, y);
+  ctx.fillStyle = '#ffd65a';
+  ctx.fillText(label, c.x - 22, y);
   ctx.restore();
 }
 

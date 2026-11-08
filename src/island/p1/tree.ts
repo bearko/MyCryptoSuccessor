@@ -89,6 +89,10 @@ const ICON: Record<string, { b?: string; sku?: Sku; ext?: number; mat?: Mat; her
   crossdock: { b: 'warehouse' },
   joint: { emoji: '🤝' },
   fleet: { emoji: '🚚' },
+  // 段 TRADE1a：関税を下げるパネル（仮の絵：絵文字。docs/ISLAND_ART_TODO.md「段 TRADE1a」）
+  customs: { emoji: '🛃' },
+  bonded: { emoji: '📦' },
+  lane: { emoji: '🚧' },
   d_logi: { b: 'harbor' },
   route_cloth: { mat: 'cloth' },
   route_paper: { mat: 'paper' },
