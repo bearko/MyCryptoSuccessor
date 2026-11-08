@@ -48,6 +48,8 @@ export function costParts(c: Report['costs']): Part[] {
     ['upkeep', t('維持費', 'Upkeep')],
     ['build', t('建物とスキル', 'Buildings & skills')],
     ['ads', t('宣伝', 'Ads')],
+    // 段 TRADE1a：となり町から取り寄せた素材の関税
+    ['duty', t('関税', 'Duty')],
   ];
   // 色と模様は科目で決める（月が変わっても同じ科目は同じ見た目）
   return xs

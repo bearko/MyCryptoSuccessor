@@ -28,6 +28,7 @@ import { closeSheet, open, type Ctx } from './screens';
 import { btn, h, heroName, money, rich, select, signCls, signed } from './ui';
 import { ZERO_LINE } from './mine';
 import { arw, candleEl, candleLegend, cvBox, donutEl, fallEl, fallLegend, legendEl, pctBarEl, rankBarsEl, shortN, trendEl, trendLegend, type TSer } from './chartkit';
+import { dutyText, tradeNeighbors } from './tariff';
 import { costParts, monHead, monLab, monthFall, moneyCandles, rankRows, salesParts } from './dash';
 
 const STAGE_NAME: Record<Stage, string> = { buy: t('① 調達', '① Buy'), craft: t('② 製造', '② Craft'), haul: t('③ 物流', '③ Haul'), sell: t('④ 販売', '④ Sell') };
@@ -236,6 +237,14 @@ function flowRow(s: P1State, r: Report): HTMLElement {
     row.append(c);
   });
   return row;
+}
+
+/** 段 TRADE1a：月次報告の「関税」の行（となり町ごとのいまの率） */
+function dutyLine(s: P1State, duty: number): HTMLElement {
+  const p = h('p', 'isl-rp-duty');
+  const rates = tradeNeighbors(s).map((nb) => `${nb.name} ${dutyText(s, nb.id)}`);
+  p.append(h('span', '', t('🛃 関税 ', '🛃 Duty ')), h('b', '', money(duty)), h('small', 'isl-dim', rates.length ? t(`（${rates.join('・')}）`, ` (${rates.join(', ')})`) : ''));
+  return p;
 }
 
 /** カードの見出し行：種別チップ＋見出し＋右端に導線のボタン */
@@ -479,6 +488,8 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       if (r.relic) left.append(h('small', 'isl-rp-relic', t(`うち復刻品 ${money(r.relic)}`, `incl. revivals ${money(r.relic)}`)));
       grid.append(left, right);
       c1.append(grid);
+      // 段 TRADE1a：となり町から取り寄せた素材の関税（売上原価）と、いまの率（「関税 12% → 9%」）
+      if ((r.costs.duty ?? 0) > 0) c1.append(dutyLine(s, r.costs.duty ?? 0));
       // 月次 PDCA（スキル）：来月の見込み
       if (r.forecast) {
         const fc = h('p', 'isl-rp-fc');

@@ -56,6 +56,12 @@ export interface Anim {
   wasteGlow?: number | null;
   /** 復興・ダンジョンの見つかった演出：荒れ地の番号と始まった時刻（performance.now）。土 → 草地（ダンジョンは入り口が地面から現れる） */
   revive?: { site: number; t0: number } | null;
+  /**
+   * 段 TRADE1a：境界の番所（遮断機）。i, j は境界のいまの町の側のマス・d はとなり町の向き・up は荷が通っているあいだ上がる。
+   * tolls：荷が境界を通ったときに弾ける関税の金貨（「−58 G」。t は clock）。reduced-motion では作らない
+   */
+  gates?: { i: number; j: number; d: [number, number]; up: boolean }[];
+  tolls?: { i: number; j: number; amt: number; t: number }[];
 }
 
 export const newAnim = (): Anim => ({ clock: 0, frac: 0, speed: 1, dayMs: 1200, walkers: [], crowd: [], buyer: null, coins: new Map(), plus: [] });

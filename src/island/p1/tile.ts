@@ -5,7 +5,9 @@
 import { t } from '../../i18n';
 import { DEF } from '../defs';
 import { INTEL, INVEST, MATS, P1B, PRODUCT, SELF_RUN, rivalDef, sku, skuParts, type Sku } from './data';
-import { DUNGEON, dungeonDepth, museumMarks, museumOpen, museumSlots, museumValue, revivedSites, permitFee, permitLock, presentLock, presentRes, researchOf, runLock, sessionSec, siteProgress, siteTopic, topicProgress, topicsOf, wasteAt, wasteName, extName, gateToll, invLv, isGate, poolCap, poolUsed, allowedDirs, assign, demolish, ground, invest, myWorkshop, order as placeOrder, LOT, intelLv, moveCost, occupant, oneWay, myShops, refundOf, shopArea, sidePay, speed, staffOf, storageCap, roomOf, type P1State, type PBuilding } from './model';
+import { tradeCmpEl } from './tariffui';
+import { setSource } from './tariff';
+import { DUNGEON, dungeonDepth, museumMarks, museumOpen, museumSlots, museumValue, revivedSites, permitFee, permitLock, presentLock, presentRes, researchOf, runLock, sessionSec, siteProgress, siteTopic, topicProgress, topicsOf, wasteAt, wasteName, extName, gateToll, invLv, isGate, poolCap, poolUsed, allowedDirs, assign, demolish, ground, invest, myWorkshop, order as placeOrder, orderFrom, LOT, intelLv, moveCost, occupant, oneWay, myShops, refundOf, shopArea, sidePay, speed, staffOf, storageCap, roomOf, type P1State, type PBuilding } from './model';
 import { pickExt, pickHero } from './heroui';
 import { ackOf, benchToChange, craftable, directOrder, fieldPick, inTut, mainCands, ordersOf, shelfPicks, swapGain, weakShelf, type Order, type OrderBox } from './orders';
 import { stockMsg, stockPlan } from './moves';
@@ -401,6 +403,27 @@ function runOrder(ctx: Ctx, box: OrderBox, o: Order, b: PBuilding, hooks: TileHo
       done();
       return;
     }
+    // 段 TRADE1a：となり町から 1 ロット取り寄せる
+    case 'import': {
+      if (!o.m || !o.from) return;
+      const e = orderFrom(s, o.m, 1, o.from);
+      if (e === 'money') return short(ctx, s, o.cost ?? 0);
+      if (e === 'storage') return ctx.toast(t('置き場所がありません（倉庫を建てるか、お店へ運びましょう）', 'No storage room (build a warehouse or haul to shops)'));
+      if (e === 'cap') return ctx.toast(t('今月の調達の上限です', 'This month’s buying limit is reached'));
+      if (e) return;
+      ctx.sfx?.('spend');
+      ack(ctx, box.hero, t(`${matName(o.m)}を取り寄せます`, `importing ${matName(o.m)}`));
+      done();
+      return;
+    }
+    // 段 TRADE1a：物流の部長の提案を承認（調達係の仕入れ先をとなり町に）
+    case 'source': {
+      if (!o.m || !o.from) return;
+      setSource(s, o.m, o.from);
+      ack(ctx, box.hero, t(`${matName(o.m)}は取り寄せます`, `importing ${matName(o.m)}`));
+      done();
+      return;
+    }
     case 'buyopen':
       hooks.close();
       openBuy(ctx);
@@ -454,6 +477,8 @@ function orderBox(ctx: Ctx, b: PBuilding, hooks: TileHooks): HTMLElement | null 
     bt.dataset.order = o.k;
     bt.disabled = !!o.off;
     bt.append(recLine(o.label, o.rec), h('small', '', o.sub));
+    // 段 TRADE1a：「となり町」の札（ここ／となり町の値段。安いほうに印）
+    if (o.cmp) bt.append(tradeCmpEl(o.cmp));
     bt.addEventListener('click', (e) => {
       e.stopPropagation();
       runOrder(ctx, box, o, b, hooks);

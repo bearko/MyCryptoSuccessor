@@ -1187,7 +1187,14 @@ export function staleWhy(s: P1State, c: Card, iss: CoIssue[] = issuesOf(s), base
   if (c.iss && c.issues && !iss.some((x) => x.key === c.iss!.key)) return { why: 'solved', act: acts[0] };
   const I = issuesOfCard(s, c, iss);
   let first: { why: GoneWhy; act: PropAct } | null = null;
+  // 段 TRADE1a の計測で見つけた食い違い：推奨の付け直し（shownRec）は、いまの資金・研究ポイントで払えない手を外す。
+  // 取り下げも同じに（払えない手しか残らないカードは「資金が減った」で取り下げる。推奨が見送りのカードを社長の前に出さない）
+  const short = new Set(c.choices.filter((x) => (x.cost ?? 0) > s.money || (x.rp ?? 0) > (s.rp ?? 0)).map((x) => (x.act.k === 'do' ? x.act.a : x.act.k === 'approve' ? s.deleg?.inbox.find((p) => p.id === (x.act as { pid: number }).pid)?.act : undefined)));
   for (const a of acts) {
+    if (short.has(a)) {
+      first ??= { why: 'money', act: a };
+      continue;
+    }
     base ??= baseOf(s);
     const j = judgeOf(s, planOf(s, [a], { hero: c.hero, q: c.q, dept: c.dept }), I, base);
     if (j.rec === 'ok') return null;

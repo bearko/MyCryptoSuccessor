@@ -16,6 +16,7 @@ import { centerRate, inquiriesFor, newCs, putPower, refundCost, repeatMul } from
 import { gradeBrand, horizon, prGain } from '../../src/island/p1/mkt';
 import { clauseSlots, ddDays, keepRate, offerChance, patentDays, suitChance } from '../../src/island/p1/legal';
 import { emptyLedger } from '../../src/island/p1/company';
+import { dutyRateOf } from '../../src/island/p1/tariff';
 import { POL_OFF, openPolicies, policyOfPanel } from '../../src/island/p1/policy';
 import { areaShares, deserializeP1 as fromSave, newP1 as freshTown, newStorePull, rivalStores, serializeP1 as toSave, vacantCost } from '../../src/island/p1/model';
 import { R2_SET, POL_PANELS, HERO_GROWTH, ADS, DIG_BALANCE, DIG_SITES, HIRE_POOL, INVEST, INVESTS, MONEY_PANELS, P1B, PRODUCT, RESEARCH_NEED, SKILL, aptitude, isResearch, relicKey, sku, skuParts, type DigFxKind, type FxKind, type Mat, type Skill, type Sku, type Task } from '../../src/island/p1/data';
@@ -508,6 +509,10 @@ export const SKILL_SPEC: Record<string, SkillSpec> = {
   swift: { expect: ['buy'], base: 'j_trip', note: '往復で運べる量が詰まりのとき' },
   eye: { expect: ['buy'], days: 120, note: '調達ランクが早く上がる（上限が伸びる）。120 日で測る' },
   scoutmap: { expect: [], check: 'probe', probe: { name: 'ルートの開拓の日数（布）', f: (s) => scoutMul(s) * 10, better: 'down' }, note: '開拓の日数' },
+  // 段 TRADE1a：関税を下げるパネル（となり町の取り寄せ。出店済みの隣・境の拠点なしの率）
+  customs: { expect: [], check: 'probe', probe: { name: 'となり町の関税（0.1% 単位・出店済み）', f: (s) => Math.round(dutyRateOf(s, true, false) * 1000), better: 'down' }, note: '12% → 9%' },
+  bonded: { expect: [], check: 'probe', probe: { name: 'となり町の関税（0.1% 単位・出店済み）', f: (s) => Math.round(dutyRateOf(s, true, false) * 1000), better: 'down' }, note: 'さらに −3 ポイント' },
+  lane: { expect: [], check: 'probe', probe: { name: 'となり町の関税（0.1% 単位・出店済み）', f: (s) => Math.round(dutyRateOf(s, true, false) * 1000), better: 'down' }, note: 'さらに −2 ポイント・境界の外を歩く日数 −20% も' },
   abc: { expect: [], check: 'profit', note: '素材の値段 −5%・買いすぎなし → 利益' },
   relief: { expect: [], check: 'probe', probe: { name: '調達係の定員（交代要員）', f: (s) => buyCap(s), better: 'up' }, note: '1 人目が休む日に 2 人目が買い付けへ（段 UI5a）' },
   // 段 L0：序盤の手を減らす仕組み（取ると、その業務を毎日回す。deleg.ts の autoDuty）

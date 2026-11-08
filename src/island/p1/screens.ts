@@ -87,6 +87,7 @@ import {
   type PBuilding,
   batchOf,
   order as placeOrder,
+  orderFrom,
   LOT,
   leadDays,
   walkDays,
@@ -128,6 +129,9 @@ import {
   relicMinCraft,
   MAX_HAULERS,
 } from './model';
+import { canImport, cheapAt, dutyText, headSuggest, importLead, importPrice, setSource, sourceOf, tradeNeighbors } from './tariff';
+import { sectorDef as secDef } from './company';
+import { tradeCmpEl } from './tariffui';
 import { sectorDef, sectorProfile } from './company';
 import { UNSELLABLE_TEXT, seriesTag } from './digview';
 import { applyPlan, manualPlan } from './plan';
@@ -1318,9 +1322,66 @@ export function openBuy(ctx: Ctx) {
           card.append(r);
         }
       }
+      // 段 TRADE1a：となり町の問屋（ここ／となり町の値段・1 ロット取り寄せる・調達係の仕入れ先）
+      tradeRows(ctx, s, m, card, !!sel);
       body.append(card);
     }
   });
+}
+
+/**
+ * 段 TRADE1a：調達の画面の素材の行の「となり町」。取り寄せられるとなり町ごとに、ここ／となり町の値段（安いほうに印）・
+ * 「1 ロット取り寄せる」・調達係の仕入れ先（ここ／この町）。仕入れ先は手で選んだものだけ続く（Common・Uncommon。Rare からは物流の部長も提案する）
+ */
+function tradeRows(ctx: Ctx, s: P1State, m: Mat, card: HTMLElement, picked: boolean) {
+  const nbs = tradeNeighbors(s).filter((nb) => canImport(s, m, nb.id));
+  if (!nbs.length) return;
+  const box = h('div', 'isl-trade');
+  const src = sourceOf(s, m);
+  // Rare から：物流の部長の提案「〇〇は隣町で買うと月 −N G」（承認で調達係の仕入れ先が替わる）
+  const hs = headSuggest(s, [m])[0];
+  if (hs) {
+    const nm = secDef(hs.from).name;
+    const say = h('div', 'isl-imp-head');
+    say.append(heroIcon(hs.hero, 36), h('span', 'isl-imp-say', t(`${heroName(hs.hero)}（物流の部長）「${MATS[m].name}は${nm}で買うと月 −${money(hs.save)}」`, `${heroName(hs.hero)} (Logistics head): “Buying ${MATS[m].name} in ${nm} saves ${money(hs.save)} a month”`)));
+    say.append(
+      btn(t('承認', 'Approve'), () => {
+        setSource(s, m, hs.from);
+        ctx.toast(t(`${MATS[m].name}は、調達係が${nm}から取り寄せます`, `The buyer will import ${MATS[m].name} from ${nm}`));
+        after(ctx);
+      }, 'is-on'),
+    );
+    box.append(say);
+  }
+  for (const nb of nbs) {
+    const p = importPrice(s, m, nb.id);
+    const days = importLead(s, nb.id);
+    const row = h('div', 'isl-imp-row');
+    row.append(tradeCmpEl({ name: nb.name, here: unitPrice(s, m), base: p.base, duty: p.duty, rate: dutyText(s, nb.id), days, cheap: cheapAt(nb.id, m) }));
+    const acts = h('div', 'isl-row');
+    const b = btn(t(`1 ロット取り寄せる（${money(p.unit * LOT)}）`, `Import 1 lot (${money(p.unit * LOT)})`), () => {
+      const e = orderFrom(s, m, 1, nb.id);
+      if (e === 'money') ctx.toast(t('資金が足りません', 'Not enough funds'));
+      else if (e === 'cap') ctx.toast(t('今月の調達の上限を超えます', 'Over this month’s buying limit'));
+      else if (e === 'storage') ctx.toast(t('置き場所がありません（倉庫を建てましょう）', 'No storage room (build a warehouse)'));
+      else if (!e) ctx.toast(t(`${nb.name}から${MATS[m].name}を ${LOT} 個取り寄せます（${days} 日後に届きます）`, `Importing ${LOT} ${MATS[m].name} from ${nb.name} (arrives in ${days} days)`));
+      after(ctx);
+    }, p.unit < unitPrice(s, m) ? 'is-on' : '');
+    b.disabled = s.money < p.unit * LOT || procLeft(s) < LOT || poolFree(s) < LOT;
+    acts.append(b);
+    if (picked || src === nb.id) {
+      const on = src === nb.id;
+      const c = btn(on ? t(`✓ 調達係は${nb.name}で買う`, `✓ Buyer buys in ${nb.name}`) : t(`調達係を${nb.name}で買わせる`, `Have the buyer buy in ${nb.name}`), () => {
+        setSource(s, m, on ? null : nb.id);
+        ctx.toast(on ? t(`${MATS[m].name}は、この町の卸問屋で買います`, `${MATS[m].name} will be bought here`) : t(`${MATS[m].name}は、調達係が${nb.name}から取り寄せます`, `The buyer will import ${MATS[m].name} from ${nb.name}`));
+        after(ctx);
+      }, on ? 'is-on isl-trade-src' : 'isl-trade-src');
+      acts.append(c);
+    }
+    row.append(acts);
+    box.append(row);
+  }
+  card.append(box);
 }
 
 // ---------------------------------------------------------------- 従業員
