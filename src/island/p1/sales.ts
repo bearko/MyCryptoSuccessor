@@ -5,13 +5,13 @@
  * docs/ISLAND_PHASE1.md「販売管理」。
  */
 import { t } from '../../i18n';
-import { bubbleEl, cvBox } from './chartkit';
+import { bubbleEl, cvBox, legendEl } from './chartkit';
 import { shopBubbles } from './dash';
 import { DEF } from '../defs';
-import { aptitude, SHOP, skuParts, type Sku } from './data';
+import { aptitude, SALES1_UI, SHOP, skuParts, type Sku } from './data';
 import { UNSELLABLE_TEXT } from './digview';
 import { pickExt, rankEl } from './heroui';
-import { assign, myShops, partMax, setPart, setShelf, shopArea, shopEstimates, staffOf, unsellableHere, type P1State, type PBuilding, type Staff } from './model';
+import { DAYS, assign, myShops, partMax, setPart, setShelf, shopArea, shopEstimates, shopSplit, staffOf, unsellableHere, type P1State, type PBuilding, type Staff } from './model';
 import { openSupply } from './scm';
 import { after, craftable, mineTip, open, openShop, pickClerk, pickShelf, shelfMoved, type Ctx } from './screens';
 import { bar, btn, h, heroIcon, heroName, money, skuIcon, skuName } from './ui';
@@ -88,6 +88,96 @@ export function salesRows(s: P1State, sort: SalesSort = 'rev'): SalesRow[] {
     });
   const key = (r: SalesRow) => (sort === 'rev' ? r.rev : sort === 'est' ? r.est : r.aw);
   return rows.sort((a, b) => key(b) - key(a) || b.homes - a.homes || a.uid - b.uid);
+}
+
+// ---------------------------------------------------------------- 段 SALES1：お店ごとの 1 日の数（売れた・自店に取られた・逃した）
+
+export interface ShopBar {
+  uid: number;
+  name: string;
+  /** 1 日あたり：売れた数（今月。5 日に満たなければ先月・無ければ見込み）・自社のほかのお店に取られた数（見込みの割合 × 売れた数）・棚が空で逃した数 */
+  sold: number;
+  lost: number;
+  miss: number;
+  /** 取り合いの割合（取られた ÷（売れた ＋ 取られた））と、印を付けるか（SALES1_UI.hot 以上） */
+  share: number;
+  hot: boolean;
+  /** 数の出どころ：今月・先月・見込み */
+  src: 'now' | 'last' | 'est';
+}
+/** 段 SALES1：販売管理の縦の積み上げ棒（純粋関数。棚に何か並べているお店だけ・左から建てた順） */
+export function shopBars(s: P1State): ShopBar[] {
+  const split = shopSplit(s);
+  const out: ShopBar[] = [];
+  for (const b of myShops(s)) {
+    const sh = s.shops[b.uid];
+    if (!sh || !sh.shelves.some((x) => x)) continue;
+    const v = split[b.uid] ?? { sold: 0, alone: 0, lost: 0 };
+    const cur = sh.mu && sh.mu.days >= SALES1_UI.minDays ? sh.mu : null;
+    const use = cur ?? (sh.muLast && sh.muLast.days > 0 ? sh.muLast : null);
+    const sold = use ? use.sold / use.days : v.sold / DAYS;
+    const miss = use ? use.miss / use.days : 0;
+    const k = v.sold > 0 ? v.lost / v.sold : 0;
+    const lost = sold * k;
+    const share = sold + lost > 0 ? lost / (sold + lost) : 0;
+    out.push({ uid: b.uid, name: DEF[b.id].name, sold, lost, miss, share, hot: share >= SALES1_UI.hot, src: cur ? 'now' : use ? 'last' : 'est' });
+  }
+  // 同じ建物のお店が 2 軒以上なら、建てた順に番号を付けて見分ける（よろず屋 1・よろず屋 2）
+  const count: Record<string, number> = {};
+  for (const x of out) count[x.name] = (count[x.name] ?? 0) + 1;
+  const seen: Record<string, number> = {};
+  for (const x of out) if (count[x.name] > 1) x.name = `${x.name} ${(seen[x.name] = (seen[x.name] ?? 0) + 1)}`;
+  return out;
+}
+const n1 = (v: number) => (v >= 10 ? `${Math.round(v)}` : v.toFixed(1));
+/** 段 SALES1：お店ごとの縦の積み上げ棒（下から 売れた・自店に取られた・逃した）。押すとそのお店の商圏を地図で見る */
+export function shopBarsEl(ctx: Ctx, bars: ShopBar[]): HTMLElement {
+  const box = cvBox(t('お店ごとの 1 日の数', 'Daily units by shop'), t('棒の高さ＝来るはずのお客さん。押すと商圏を地図で見る', 'Bar height = would-be customers. Tap to see the trade area'), 'isl-s1-box');
+  const max = Math.max(1, ...bars.map((x) => x.sold + x.lost + x.miss));
+  const row = h('div', 'isl-s1-bars');
+  row.setAttribute('role', 'list');
+  for (const x of bars) {
+    const col = h('button', `isl-s1-col ${x.hot ? 'is-hot' : ''}`);
+    col.type = 'button';
+    col.setAttribute('role', 'listitem');
+    col.setAttribute('aria-label', t(`${x.name}：売れた ${n1(x.sold)}・自店に取られた ${n1(x.lost)}・逃した ${n1(x.miss)}（1 日）`, `${x.name}: sold ${n1(x.sold)}, taken by own shops ${n1(x.lost)}, missed ${n1(x.miss)} (a day)`));
+    const top = h('b', 'isl-s1-top', n1(x.sold));
+    const stack = h('div', 'isl-s1-stack');
+    const seg = (cls: string, v: number) => {
+      const e = h('i', `isl-s1-seg ${cls}`);
+      e.style.height = `${(v / max) * 100}%`;
+      return e;
+    };
+    // 下から：売れた（金）・自店に取られた（橙）・逃した（灰の斜線）。column-reverse で下から積む
+    stack.append(seg('is-sold', x.sold), seg('is-lost', x.lost), seg('is-miss', x.miss));
+    const name = h('small', 'isl-s1-name', x.name);
+    col.append(top, stack, name);
+    if (x.hot) col.append(h('small', 'isl-s1-hot', t(`取り合い ${Math.round(x.share * 100)}%`, `Overlap ${Math.round(x.share * 100)}%`)));
+    col.addEventListener('click', () => {
+      ctx.sfx?.('tap');
+      ctx.showShop?.(x.uid);
+    });
+    row.append(col);
+  }
+  box.body.append(
+    row,
+    legendEl([
+      { cls: 'is-bar is-gold', name: t('売れた', 'Sold') },
+      { cls: 'is-bar isl-s1-k-lost', name: t('自店に取られた', 'Taken by own shops') },
+      { cls: 'is-bar isl-s1-k-miss', name: t('棚が空で逃した', 'Missed (empty shelf)') },
+    ]),
+  );
+  const hot = bars.filter((x) => x.hot);
+  box.body.append(
+    h(
+      'p',
+      'isl-cv-line1',
+      hot.length
+        ? t(`橙の枠：自店どうしの取り合いが ${Math.round(SALES1_UI.hot * 100)}% 以上（${hot.map((x) => x.name).join('・')}）。離して建てるか、営業の「ドミナント出店」で減らせます`, `Orange frame: ${Math.round(SALES1_UI.hot * 100)}%+ lost to your own shops (${hot.map((x) => x.name).join(', ')}). Build farther apart, or take Dominant clustering`)
+        : t('自店どうしの取り合いは少なめ', 'Little overlap between your shops'),
+    ),
+  );
+  return box.el;
 }
 
 // ---------------------------------------------------------------- 一括の操作（純粋な操作。s を書き換えて、変えた数を返す）
@@ -189,6 +279,9 @@ export function openSales(ctx: Ctx) {
       );
       body.append(box.el);
     }
+    // 段 SALES1：お店ごとの 1 日の数（縦の積み上げ棒）
+    const sb = shopBars(s);
+    if (sb.length) body.append(shopBarsEl(ctx, sb));
 
     // 一括の操作
     const bulk = h('div', 'isl-card2 isl-sales-bulk');

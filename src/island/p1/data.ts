@@ -59,7 +59,29 @@ export interface ProductDef {
   relic?: { ext: number; rank: Rar; rare?: boolean; epic?: boolean };
 }
 
-export const PRODUCTS: ProductDef[] = [
+/**
+ * 段 SALES1：販売のテコ入れ（docs/ISLAND_PHASE1.md「売れ方（単価・個数・取り合い）」・docs/ISLAND_BALANCE.md の v47）。
+ * エクステの 1 個の値段を price 倍に下げ、そのぶん 1 日に売れる個数を units 倍に増やす（price × units ＝ 1。1 店・1 棚の 1 日の売上（G）は前のまま）。
+ * 個数で数えるものは全部 units 倍：商品の需要・1 ロットでできる数（ロットの改善などの足し分も）・棚と裏に置ける数・品出しの数・荷車に積める数・依頼の個数。
+ * 素材の量（1 ロットのレシピ）は前のままなので、1 個あたりの素材代も price 倍になり、粗利の率は前のまま。工房の物置・倉庫では、商品は units 個で 1 枠（素材は 1 個で 1 枠）。
+ * 必要なお金（建物・パネル・商品開発・ゴール）は前のまま（商品開発の費用は前の値段で数える：basePrice）。
+ * 下調べ（v47）：前は 1 店 1 日およそ 0.3〜1 個（タオックスで 0.3〜0.5 個・Common の終わりで 1 個）だったので、units は 20 にした
+ */
+/**
+ * overlap：自社のお店どうしの商圏が重なった所で、引きを足し合わせる割合（0＝いちばん来やすい 1 軒ぶんだけ＝前の取り合い・1＝全部足す＝ドミナント出店）。
+ * 序盤から少し足し合わせて、自社どうしの取り合いを減らす（ドミナント出店のパネルで 1 になり、取り合わなくなる）。
+ * walk：通りがかりの客の割合（自社のお店が 2 軒以上のとき、お客さんのこの割合は、お店ごとに「そのお店だけ」と他社で分ける＝自社どうしで取り合わない）。
+ * どちらも自社のお店が 1 軒なら効かない（前の売れ方のまま）。model.ts の splitHome
+ */
+export const SALES1 = { units: 20, price: 0.05, overlap: 0.5, walk: 0.3 };
+/** 段 SALES1 の画面（販売管理の積み上げ棒）：hot＝取り合いの印を付ける割合・minDays＝今月の数で描くのに要る日数（足りなければ先月） */
+export const SALES1_UI = { hot: 0.25, minDays: 5 };
+/** 個数で数える数を SALES1 の倍率に（棚・品出し・荷車・依頼など） */
+export const unitsX = (n: number) => n * SALES1.units;
+/** 段 SALES1 の前の値段（必要なお金を前のままにするところ：商品開発の費用など） */
+export const basePrice = (p: { price: number }) => p.price / SALES1.price;
+/** 商品の定義（段 SALES1 の前の数字）。PRODUCTS は値段・需要・1 ロットの数に SALES1 を掛けたもの */
+const PRODUCTS0: ProductDef[] = [
   // 基礎の 5 つ（最初から作れる。最初の町タオックスで売れる）
   { key: 'Sensu', name: t('センス', 'Sensu'), ext: { C: 1032, U: 2032 }, price: 900, batch: 4, days: 3, recipe: { C: { wood: 6 }, U: { wood: 6, paper: 4 } }, demand: 20 },
   { key: 'Mallet', name: t('マレット', 'Mallet'), ext: { C: 1073, U: 2073 }, price: 1100, batch: 4, days: 4, recipe: { C: { wood: 4, iron: 2 }, U: { wood: 4, iron: 4, gem: 1 } }, demand: 12 },
@@ -80,6 +102,8 @@ export const PRODUCTS: ProductDef[] = [
   { key: 'Quill', name: t('ペン', 'Quill'), ext: { C: 1003, U: 2003 }, price: 800, batch: 4, days: 3, recipe: { C: { paper: 4, iron: 1 }, U: { paper: 4, iron: 1, gem: 1 } }, demand: 24, tech: 'paper' },
   { key: 'MusicBox', name: t('オルゴール', 'Music Box'), ext: { C: 1165, U: 2165 }, price: 2600, batch: 3, days: 4, recipe: { C: { wood: 4, iron: 3, gem: 1 }, U: { wood: 4, iron: 3, gem: 1, paper: 2 } }, demand: 6, tech: 'jewel', tier: 'U' },
 ];
+/** 段 SALES1：値段 × price・需要と 1 ロットの数 × units */
+export const PRODUCTS: ProductDef[] = PRODUCTS0.map((p) => ({ ...p, price: Math.round(p.price * SALES1.price), batch: unitsX(p.batch), demand: unitsX(p.demand) }));
 /**
  * 商品の定義（キー → 定義）。いまの 17 商品に、復刻品（RELICS。下の「復刻品」）も入る。
  * 商品を引くときは productOf（ここ 1 か所の入口）。会社で開いた復刻品だけの一覧は model.ts の productsOf
@@ -957,7 +981,8 @@ export const WAGE_PER_STAT = 3;
 // ---------------------------------------------------------------- 運搬・お店
 
 /** 荷車は 1 日に道を cellsPerDay マス（遠いお店ほど運ぶ日数がかかる）。調達係は歩いて walkPerDay マス */
-export const TRANSPORT = { cap: 10, cellsPerDay: 2.5, walkPerDay: 8 };
+/** 荷車に積める数は段 SALES1 の units 倍（unitsX） */
+export const TRANSPORT = { cap: unitsX(10), cellsPerDay: 2.5, walkPerDay: 8 };
 
 /**
  * 商圏（docs/ISLAND_PHASE1.md「商圏と出店」）。
@@ -999,7 +1024,8 @@ export const TOP_STREAK = 2;
 export const LETTER_NEED = 2;
 /** 物流拠点：工房 → 拠点はトラックの定期便（距離 × link）、拠点 → お店は荷車 */
 export const DEPOT = { link: 0.3 };
-export const SHOP = { shelfCap: 10, storageCap: 20, displayPerDay: 6, partTimeDisplay: 4, partTimeWage: 30, partTimeMax: 1, noStaff: 0 };
+/** 棚・裏に置ける数と品出しの数は段 SALES1 の units 倍（unitsX） */
+export const SHOP = { shelfCap: unitsX(10), storageCap: unitsX(20), displayPerDay: unitsX(6), partTimeDisplay: unitsX(4), partTimeWage: 30, partTimeMax: 1, noStaff: 0 };
 /**
  * 段 UI5a：お店の自走。店長（お店の担当のヒーロー）が休んでいる日は、店長が管理する従業員（アルバイト）が店を回す：
  * 従業員が min 人以上いれば、売り場の強さは 1 人 per（店長がいる日の手伝いは 1 人 0.15）・上限 cap（店長がいる日はおよそ 1）。
@@ -1229,7 +1255,8 @@ const DIG_UNIT: Partial<Record<FxKind, { suf?: string; pct?: boolean; disp?: (v:
 export const fxShown = (f: Fx): Shown => {
   const d = DIG_UNIT[f.kind];
   if (d) return { label: FX_LABEL[f.kind], v: f.v, unit: d.pct ? '%' : '', down: FX_DOWN.includes(f.kind) && !d.bare, at: f.at?.map(d.disp ?? ((v) => v)), suf: d.suf, bare: d.bare };
-  return { label: FX_LABEL[f.kind], v: f.v, unit: f.kind === 'apt' || f.kind === 'brand' || f.kind === 'lot' ? '' : '%', down: FX_DOWN.includes(f.kind), lin: FX_LIN.includes(f.kind) };
+  // 段 SALES1：ロットの足し分は SALES1.units 倍で効く（model.ts の batchOf）
+  return { label: FX_LABEL[f.kind], v: f.kind === 'lot' ? unitsX(f.v) : f.v, unit: f.kind === 'apt' || f.kind === 'brand' || f.kind === 'lot' ? '' : '%', down: FX_DOWN.includes(f.kind), lin: FX_LIN.includes(f.kind) };
 };
 
 /** レベルのコストの倍率（Lv1〜5。合計 20）。docs/ISLAND_PHASE1.md「パネルのレベル」 */
@@ -1284,7 +1311,7 @@ export const SKILLS: Skill[] = [
   { id: 'golden', branch: 'shop', name: t('ゴールデンゾーンの棚割', 'Golden-zone planogram'), note: t('各お店の 1 番目の棚（主力商品）の売り場の強さ +12%', 'Pull +12% for each shop’s first shelf (main product)'), cost: 6000, requires: ['vmd'] },
   { id: 'set', branch: 'shop', name: t('セット販売', 'Bundle sales'), note: t('2 種類以上並べているお店の商品の値段 +5%', 'Prices +5% at shops stocking 2+ kinds'), cost: 7000, requires: ['golden'] },
   { id: 'point', branch: 'shop', name: t('ポイントカード', 'Loyalty cards'), note: t('他社の反撃の効き目が半分（他社の売り場の強さ ×1.25 → ×1.12）', 'Rival counterattacks hit half as hard (rival pull ×1.25 → ×1.12)'), cost: 8000, requires: ['pop'] },
-  { id: 'hours', branch: 'shop', name: t('営業時間の延長', 'Longer opening hours'), note: t('棚に並べる数 +2／日（お店ごと）・店員のスタミナの消耗 +20%', 'Shelve +2 a day per shop; clerks tire 20% faster'), cost: 4500, requires: ['display'] },
+  { id: 'hours', branch: 'shop', name: t('営業時間の延長', 'Longer opening hours'), note: t(`棚に並べる数 +${unitsX(2)}／日（お店ごと）・店員のスタミナの消耗 +20%`, `Shelve +${unitsX(2)} a day per shop; clerks tire 20% faster`), cost: 4500, requires: ['display'] },
   { id: 'shop2', branch: 'shop', name: t('輸入品店', 'Import store'), note: t('棚 2 の輸入品店を建てられる（売り場の強さ ×1.15）', 'Unlocks the import store (2 shelves, pull ×1.15)'), cost: 6000, requires: ['host'] },
   { id: 'shop3', branch: 'shop', name: t('ブティック', 'Boutique'), note: t('売り場が強いブティックを建てられる（棚 2・売り場の強さ ×1.35）', 'Unlocks the boutique (2 shelves, pull ×1.35)'), cost: 14000, requires: ['shop2'] },
   { id: 'b_sign', branch: 'shop', name: t('ブランドの看板', 'Brand signboards'), note: t('すべてのお店の売り場の強さ +25%', 'All shops’ pull +25%'), cost: 12000, requires: ['host'], brand: 30, tier: 'U', emblem: 1 },
@@ -1298,11 +1325,11 @@ export const SKILLS: Skill[] = [
   { id: 'pot', branch: 'craft', name: t('魔法の釜', 'Magic pot'), note: t('「商品開発」でアンコモンを開発できる（作るには製造の適性 31 以上の職人）', 'Develop Uncommons in Product development (crafting them needs aptitude 31+)'), cost: 10000 },
   { id: 'five_s', branch: 'craft', name: t('5S（整理・整頓）', '5S (sort and tidy)'), note: t('クラフトの日数 −5%・職人のスタミナの消耗 −10%', 'Crafting −5% days; crafters tire 10% slower'), cost: 3000 },
   { id: 'jig2', branch: 'craft', name: t('型の工夫', 'Better molds'), note: t('クラフトの日数 −15%', 'Crafting −15% days'), cost: 7000, requires: ['jig'] },
-  { id: 'lot', branch: 'craft', name: t('ロットの改善', 'Bigger lots'), note: t('基礎の商品（技なし）の 1 ロット +1 個', 'Basic goods (no craft skill) +1 per lot'), cost: 6000, requires: ['jig'] },
+  { id: 'lot', branch: 'craft', name: t('ロットの改善', 'Bigger lots'), note: t(`基礎の商品（技なし）の 1 ロット +${unitsX(1)} 個`, `Basic goods (no craft skill) +${unitsX(1)} per lot`), cost: 6000, requires: ['jig'] },
   { id: 'chair', branch: 'craft', name: t('職人の椅子', 'Crafter chairs'), note: t('職人のスタミナの消耗 −30%', 'Crafters tire 30% slower'), cost: 3000, requires: ['five_s'] },
   { id: 'kaizen', branch: 'craft', name: t('カイゼン提案箱', 'Kaizen suggestion box'), note: t('クラフトの日数 −10%', 'Crafting −10% days'), cost: 9000, requires: ['five_s', 'jig2'] },
   { id: 'night', branch: 'craft', name: t('夜間稼働', 'Night shifts'), note: t('クラフトの日数 −15%・職人のスタミナの消耗 +20%', 'Crafting −15% days; crafters tire 20% faster'), cost: 12000, requires: ['kaizen'], tier: 'U', emblem: 1 },
-  { id: 'mold', branch: 'craft', name: t('共通の型', 'Shared molds'), note: t('アンコモンの 1 ロット +1 個', 'Uncommons +1 per lot'), cost: 15000, requires: ['pot'], tier: 'U' },
+  { id: 'mold', branch: 'craft', name: t('共通の型', 'Shared molds'), note: t(`アンコモンの 1 ロット +${unitsX(1)} 個`, `Uncommons +${unitsX(1)} per lot`), cost: 15000, requires: ['pot'], tier: 'U' },
   { id: 'line', branch: 'craft', name: t('自動化ライン', 'Automated line'), note: t('クラフトの日数 −20%', 'Crafting −20% days'), cost: 40000, requires: ['night'], tier: 'R', emblem: 3 },
   { id: 'd_craft', branch: 'craft', name: t('名工の作業台', 'Master’s workbench'), note: t('全員の製造の適性 +15', 'Everyone’s crafting aptitude +15'), cost: 0, big: true },
   // ---------------------------------------------------------------- ③ 物流
@@ -1361,7 +1388,7 @@ export const SKILLS: Skill[] = [
   // ---------------------------------------------------------------- システム
   { id: 'pos', branch: 'sys', name: t('POS レジ', 'POS registers'), note: t('市場データに商品ごとの「きのう売れた数」が出る・売り場の強さ +3%', 'Market data shows yesterday’s sales per item; pull +3%'), cost: 5000 },
   { id: 'auto_order', branch: 'sys', name: t('自動発注（EDI）', 'Auto-ordering (EDI)'), note: t('調達係の買い付けが毎日届く（往復なし）・注文の納期 −50%', 'Buyer purchases arrive daily (no round trip); order lead time −50%'), cost: 8000, requires: ['pos'] },
-  { id: 'inventory', branch: 'sys', name: t('在庫管理システム', 'Inventory system'), note: t('お店の裏 +10・工房の物置 +20', 'Backrooms +10; workshop stockroom +20'), cost: 6000, requires: ['pos'] },
+  { id: 'inventory', branch: 'sys', name: t('在庫管理システム', 'Inventory system'), note: t(`お店の裏 +${unitsX(10)}・工房の物置 +20`, `Backrooms +${unitsX(10)}; workshop stockroom +20`), cost: 6000, requires: ['pos'] },
   // 段 L0：序盤の手を減らす仕組み（リーダー・部長の代わりに、自分で取って回す。数字は L0_AUTO の 1 か所）
   { id: 'auto_proc', branch: 'sys', name: t('調達の自動化', 'Auto-procurement'), note: t('調達の品目を作業台に合わせて自動でそろえ、素材が切れそうなら問屋に注文する', 'Keeps purchase items in step with the benches and orders lots before materials run out'), cost: 6000, requires: ['auto_order'] },
   { id: 'auto_lineup', branch: 'sys', name: t('製造計画の自動化', 'Auto-production plan'), note: t('作業台の作るものを売れ筋に合わせて自動で切り替え（棚の品ぞろえも合わせる）、止まった作業台も素材が届けば再開する', 'Switches each bench to what sells (and the shelves with it) and restarts stalled benches once materials arrive'), cost: 6000, requires: ['inventory'] },
@@ -1406,7 +1433,7 @@ const LEVELS: Record<string, Partial<Skill>> = {
   golden: { show: [up_(t('1 番目の棚の売り場の強さ', 'Pull of each first shelf'), 0.12)] },
   set: { show: [up_(t('2 種類以上並べたお店の値段', 'Prices at shops with 2+ kinds'), 0.05)] },
   point: { show: [dn_(FX_LABEL.rally, 0.5)] },
-  hours: { show: [nm_(t('棚に並べる数（1 日・お店ごと）', 'Shelved a day per shop'), 2)] },
+  hours: { show: [nm_(t('棚に並べる数（1 日・お店ごと）', 'Shelved a day per shop'), unitsX(2))] },
   shop2: { max: 3, upShow: [up_(t('輸入品店の売り場の強さ', 'Import stores’ pull'), 0.1)] },
   shop3: { max: 3, upShow: [up_(t('ブティックの売り場の強さ', 'Boutiques’ pull'), 0.1)] },
   b_sign: { show: [up_(PULL_, 0.25)] },
@@ -1419,11 +1446,11 @@ const LEVELS: Record<string, Partial<Skill>> = {
   pot: { max: 3, upShow: [dn_(t('商品開発の日数', 'Development days'), 0.2)] },
   five_s: { show: [dn_(CRAFT_, 0.05), dn_(t('職人のスタミナの消耗', 'Crafter stamina drain'), 0.1)] },
   jig2: { show: [dn_(CRAFT_, 0.15)] },
-  lot: { max: 3, show: [nm_(FX_LABEL.lot, 1, true)] },
+  lot: { max: 3, show: [nm_(FX_LABEL.lot, unitsX(1), true)] },
   chair: { show: [dn_(t('職人のスタミナの消耗', 'Crafter stamina drain'), 0.3)] },
   kaizen: { show: [dn_(CRAFT_, 0.1)] },
   night: { show: [dn_(CRAFT_, 0.15)] },
-  mold: { max: 3, show: [nm_(t('アンコモンのロット', 'Uncommons per lot'), 1, true)] },
+  mold: { max: 3, show: [nm_(t('アンコモンのロット', 'Uncommons per lot'), unitsX(1), true)] },
   line: { show: [dn_(CRAFT_, 0.2)] },
   d_craft: { show: [nm_(t('全員の製造の適性', 'Everyone’s crafting aptitude'), 15)] },
   loading: { show: [up_(FX_LABEL.cartCap, 0.3)] },
@@ -1475,7 +1502,7 @@ const LEVELS: Record<string, Partial<Skill>> = {
   d_ops: { show: [up_(t('ブランド力の効き目', 'Brand effect'), 1)] },
   pos: { show: [up_(PULL_, 0.03)] },
   auto_order: { max: 2, up: [{ kind: 'procCap', v: 0.1 }] },
-  inventory: { show: [nm_(t('お店の裏', 'Backroom'), 10), nm_(t('工房の物置', 'Stockroom'), 20)] },
+  inventory: { show: [nm_(t('お店の裏', 'Backroom'), unitsX(10)), nm_(t('工房の物置', 'Stockroom'), 20)] },
   erp: { show: [up_(FX_LABEL.flow, 0.05)] },
   dyn: { show: [up_(t('競合の少ない商品の値段', 'Prices with little competition'), 0.08)] },
   flow: { show: [up_(PULL_, 0.05)] },
@@ -1485,8 +1512,8 @@ const LEVELS: Record<string, Partial<Skill>> = {
   t_master: { show: [up_(t('技の商品の売り場の強さ', 'Pull for craft-skill goods'), 0.15)] },
   t_rare: { max: 1 },
 };
-// 技：Lv2 から、その技の商品のロット +1（最大 3）
-for (const k of SKILLS) if (k.branch === 'tech' && k.train) LEVELS[k.id] = { max: 3, upShow: [nm_(t(`${k.name}の商品のロット`, `${k.name} goods per lot`), 1)] };
+// 技：Lv2 から、その技の商品のロット +1（最大 3。段 SALES1 で 1 段 +unitsX(1) 個）
+for (const k of SKILLS) if (k.branch === 'tech' && k.train) LEVELS[k.id] = { max: 3, upShow: [nm_(t(`${k.name}の商品のロット`, `${k.name} goods per lot`), unitsX(1))] };
 for (const k of SKILLS) Object.assign(k, LEVELS[k.id] ?? {});
 // 外周（U・R・E・L）のパネル：汎用の効き目（fx）で書いた追加のパネル
 SKILLS.push(...OUTER_SKILLS);
@@ -2082,7 +2109,7 @@ export const DONATE: Skill = {
 export const SALES_SKILLS: Skill[] = [
   { id: 'sa_survey', branch: 'sales', tier: 'R', name: t('立地調査', 'Site survey'), note: t('営業の画面の「出店の候補地」と、お店を置くときの下見に、取れる取り分の予測（％）が出る', 'Shows the predicted share (%) at candidate sites and when placing a shop'), cost: 0 },
   { id: 'sa_local', branch: 'sales', tier: 'R', name: t('地域密着', 'Local roots'), note: t('Rare の町の自社のお店の引き +10%（商圏の取り分が増える）', 'Your shops’ pull in Rare towns +10% (bigger trade-area share)'), cost: 60000, requires: ['sa_survey'], show: [{ label: t('自社の店の引き', 'Your store pull'), v: 0.1, unit: '%' }] },
-  { id: 'sa_dominant', branch: 'sales', tier: 'R', name: t('ドミナント出店', 'Dominant clustering'), note: t('同じ町の自社のお店どうしの商圏が重なっても取り合わない（重なった所のお客さんは、自社の店の引きの合計で選ぶ）', 'Your shops in the same town stop competing where their trade areas overlap (customers there weigh your shops’ combined pull)'), cost: 0, requires: ['sa_survey'] },
+  { id: 'sa_dominant', branch: 'sales', tier: 'R', name: t('ドミナント出店', 'Dominant clustering'), note: t(`同じ町の自社のお店どうしの商圏が重なっても取り合わない（重なった所のお客さんは、自社の店の引きの合計で選ぶ。ふだんは引きの ${Math.round(SALES1.overlap * 100)}% だけ足し合わせる）`, `Your shops in the same town stop competing where their trade areas overlap (customers there weigh your shops’ full combined pull; normally only ${Math.round(SALES1.overlap * 100)}% of it adds up)`), cost: 0, requires: ['sa_survey'] },
   { id: 'sa_road', branch: 'sales', tier: 'R', name: t('ロードサイド', 'Roadside stores'), note: t('Rare の町の自社のお店の商圏（お客さんが来る距離）+15%', 'Your shops’ trade-area reach in Rare towns +15%'), cost: 90000, requires: ['sa_local'], show: [{ label: t('商圏の距離', 'Reach'), v: 0.15, unit: '%' }] },
   { id: 'sa_nego', branch: 'sales', tier: 'R', name: t('撤退の交渉', 'Exit negotiations'), note: t('撤退した店の跡（空き店舗）に自社が入る費用 −20%', 'Moving into a vacant store costs 20% less'), cost: 80000, requires: ['sa_dominant'], show: [{ label: t('空き店舗に入る費用', 'Vacant-store cost'), v: 0.2, unit: '%', down: true }] },
   { id: 'sa_edge', branch: 'sales', tier: 'R', name: t('差別化の売り場', 'Differentiated floors'), note: t('Rare の町の他社の店の引き −6%（商品と売り場で差をつけ、他社のお客さんを奪う）', 'Rival stores’ pull in Rare towns −6% (stand out to win their customers)'), cost: 130000, requires: ['sa_road'], show: [{ label: t('他社の店の引き', 'Rival store pull'), v: 0.06, unit: '%', down: true }] },
@@ -2881,7 +2908,7 @@ export const BOARD = {
   morale: { per10: 5, eased: 0.4, cut: 3, up: 2, upMax: 4, hit: 4, miss: -3 },
   audit: { see: { 1: 0.15, 2: 0.08, 3: 0.03 } as Record<1 | 2 | 3, number> },
   heroAt: 8,
-  lever: { few: 2, evals: 10, minUnits: 0.5, later: 0.35, cash: 0.25, rp: 0.6, slackUp: 0.5, pad: 0.15, crew: 0.6 },
+  lever: { few: 2, evals: 10, minUnits: unitsX(0.5), later: 0.35, cash: 0.25, rp: 0.6, slackUp: 0.5, pad: 0.15, crew: 0.6 },
 };
 /**
  * 提案・報告のカード（段 UI1。card.ts・cardui.ts。docs/ISLAND_PHASE1.md「提案・報告のカード」）：時間を止めて選ばせるカードの出る数と、
@@ -2927,7 +2954,7 @@ export const EVENT = {
   conv: { demand: 1, price: 1, haul: 0.3, craft: 0.3 },
   val: { brand: 0.003, rp: 0.0004, morale: 0.0006 },
   /** 大口の注文の上乗せ（1 個あたり）と、在庫から渡す数（今月売れた数の割合・最低 5 個） */
-  order: { premium: 0.25, share: 0.2, min: 5 },
+  order: { premium: 0.25, share: 0.2, min: unitsX(5) },
   /** ランクごとの研究ポイントとブランド力の量（ひらめき・旅人・有名人など） */
   rp: { C: 60, U: 120, R: 240, E: 600, L: 900 } as Record<Tier, number>,
   brand: { C: 4, U: 5, R: 6, E: 8, L: 10 } as Record<Tier, number>,
@@ -3006,8 +3033,8 @@ export const DIPLO = {
   nextMonths: 3,
   every: 2,
   rel: { kept: 3, missed: -6, done: 10, late: -8, decline: -3, host: 8, sign: 5 },
-  trade: { grace: 60, share: 0.08, min: 3, bonus: 0.2, bonusRel: 0.002, months: 4, penalty: 0.1, penaltyMax: 30000 },
-  req: { share: 0.15, min: 4, days: 40, reward: 0.5, rewardRel: 0.01, rp: 300 },
+  trade: { grace: 60, share: 0.08, min: unitsX(3), bonus: 0.2, bonusRel: 0.002, months: 4, penalty: 0.1, penaltyMax: 30000 },
+  req: { share: 0.15, min: unitsX(4), days: 40, reward: 0.5, rewardRel: 0.01, rp: 300 },
   host: { share: 0.01, min: 20000 },
   open: 80,
 };
@@ -3081,7 +3108,7 @@ export const INVESTS: Invest[] = [
   { id: 'sign', kind: 'shop', name: t('看板を出す', 'Signboard'), note: t('このお店の売り場の強さ +10%（1 段ごと）', 'This shop’s pull +10% per level'), cost: [2000, 4000, 8000] },
   { id: 'staffroom', kind: 'shop', name: t('アルバイトの控室', 'Part-timer room'), note: t('このお店のアルバイトの上限 +2', 'This shop can take 2 more part-timers'), cost: [2500] },
   { id: 'fixtures', kind: 'shop', name: t('陳列の什器', 'Display fixtures'), note: t('棚に並べる速さ +30%（1 段ごと）', 'Shelving speed +30% per level'), cost: [2500, 5000] },
-  { id: 'backroom', kind: 'shop', name: t('裏の倉庫を広げる', 'Bigger backroom'), note: t('裏に置ける数 +20（1 段ごと）', 'Backroom +20 per level'), cost: [1500, 3000, 4000] },
+  { id: 'backroom', kind: 'shop', name: t('裏の倉庫を広げる', 'Bigger backroom'), note: t(`裏に置ける数 +${unitsX(20)}（1 段ごと）`, `Backroom +${unitsX(20)} per level`), cost: [1500, 3000, 4000] },
   { id: 'bench', kind: 'workshop', name: t('作業台を増やす', 'More workbenches'), note: t('作業台 +1（1 段ごと。2 段目は工場にして、クラフトの日数 −20% も）', 'Workbench +1 per level (level 2 also cuts crafting days by 20%)'), cost: [5000, 22000] },
   { id: 'carts', kind: 'workshop', name: t('荷車を増やす', 'More carts'), note: t('運搬係 1 人が同時に出せる便 +1（1 段ごと）', 'Each hauler runs one more trip at once per level'), cost: [3000, 7000] },
   { id: 'truck', kind: 'workshop', name: t('小型トラック', 'Small truck'), note: t('積める数 ×2.5・運ぶ速さ ×1.5', 'Load ×2.5, hauling speed ×1.5'), cost: [8000] },
@@ -3397,7 +3424,7 @@ export function epicRelicRecipe(ext: number): Partial<Record<Mat, number>> {
   return out;
 }
 /** 同じランクのいまの商品の平均の値段（Common の商品。アンコモンは SKU の値段で ×UNCOMMON.price） */
-const AVG_PRICE = PRODUCTS.filter((p) => !p.tier).reduce((a, p) => a + p.price, 0) / PRODUCTS.filter((p) => !p.tier).length;
+const AVG_PRICE = PRODUCTS0.filter((p) => !p.tier).reduce((a, p) => a + p.price, 0) / PRODUCTS0.filter((p) => !p.tier).length;
 /** 復刻品 1 つの定義（遺物の id・出たセクタのランク） */
 function relicDef(ext: number, rank: Rar, rare = false, epic = false): ProductDef {
   const hsh = relicHash(ext);
@@ -3406,10 +3433,11 @@ function relicDef(ext: number, rank: Rar, rare = false, epic = false): ProductDe
   // 値段：平均 × 1.25 を中心に ±10%（遺物ごとに少しずつ違う）。Rare の復刻品は SKU（アンコモンの格）の ×UNCOMMON.price に加えて、合わせて ×rare.price になるように。
   // Epic の復刻品（段 H1）は合わせて ×epic.price
   const mul = epic ? B.epic.price / UNCOMMON.price : rare ? B.rare.price / UNCOMMON.price : 1;
-  const price = Math.round((AVG_PRICE * B.priceMul * mul * (0.9 + 0.1 * (hsh % 3))) / 10) * 10;
+  // 段 SALES1：前の値段（10 G 刻み）を数えてから SALES1.price を掛ける（AVG_PRICE は段 SALES1 の前の値段の平均）
+  const price = Math.round(Math.round((AVG_PRICE * B.priceMul * mul * (0.9 + 0.1 * (hsh % 3))) / 10) * 10 * SALES1.price);
   const recipe = epic ? epicRelicRecipe(ext) : rare ? rareRelicRecipe(ext) : relicRecipe(ext, rank);
   const days = epic ? B.epic.days : rare ? B.rare.days : B.days;
-  return { key: relicKey(ext), name: t(`復刻 ${ja}`, `Revival ${en}`), ext: { C: ext, U: ext }, price, batch: B.batch, days: days[(hsh >>> 3) % days.length], recipe: { C: recipe, U: recipe }, demand: B.demandBase, relic: { ext, rank, ...(rare ? { rare: true } : {}), ...(epic ? { epic: true } : {}) } };
+  return { key: relicKey(ext), name: t(`復刻 ${ja}`, `Revival ${en}`), ext: { C: ext, U: ext }, price, batch: unitsX(B.batch), days: days[(hsh >>> 3) % days.length], recipe: { C: recipe, U: recipe }, demand: unitsX(B.demandBase), relic: { ext, rank, ...(rare ? { rare: true } : {}), ...(epic ? { epic: true } : {}) } };
 }
 /**
  * 復刻品（発掘で出るエクステ 1 つにつき 1 つ。DIG_SITES の全セクタの topics と finds）。ランクは出たセクタのランク。
@@ -3741,14 +3769,17 @@ export interface Mission {
   /** 段 L0：序盤の自動化を覚える依頼（遊ぶ人に教えるもの。自動プレイは受けない） */
   teach?: boolean;
 }
+/** 段 SALES1：個数で決まる依頼の目標（個。前の数 × SALES1.units） */
+export const MISSION_UNITS = { sensu100: unitsX(15), lantern50: unitsX(10), uncommon: unitsX(5), c2_goblet: unitsX(10), c3_knife: unitsX(10) };
+const MU = MISSION_UNITS;
 export const MISSIONS: Mission[] = [
   { id: 'first_sale', from: t('町内会', 'Neighborhood council'), title: t('はじめての売上', 'First sale'), text: t('お店で商品を 1 つ売る', 'Sell one item in your shop'), reward: 1000 },
-  { id: 'sensu100', from: t('近所の住民', 'A neighbor'), title: t('夏祭りにセンスを', 'Fans for the festival'), text: t('ひと月にセンスを 15 個売る', 'Sell 15 Sensu in one month'), reward: 3000 },
+  { id: 'sensu100', from: t('近所の住民', 'A neighbor'), title: t('夏祭りにセンスを', 'Fans for the festival'), text: t(`ひと月にセンスを ${MU.sensu100} 個売る`, `Sell ${MU.sensu100} Sensu in one month`), reward: 3000 },
   { id: 'ad', from: t('町内会', 'Neighborhood council'), title: t('お店を知ってほしい', 'Let people know'), text: t('宣伝広報をする', 'Run an ad'), reward: 1000 },
   { id: 'two_shops', from: t('商店会', 'Merchants’ association'), title: t('通りににぎわいを', 'Liven up the street'), text: t('お店を 2 軒にする', 'Open a second shop'), reward: 3000, note: t('近くに建てると、自社のお店どうしでお客さんを食い合います。維持費とアルバイト代が毎月かかります（よろず屋は月 2,100 G）。', 'Built close by, your shops split the same customers. Upkeep and part-time pay cost every month (2,100 G for a general store).') },
   { id: 'research', from: t('商店会', 'Merchants’ association'), title: t('ライバルを知る', 'Know your rivals'), text: t('他社のお店を調査する', 'Research a rival store'), reward: 1500 },
-  { id: 'lantern50', from: t('駅長', 'Stationmaster'), title: t('夜道を明るく', 'Light up the night'), text: t('ひと月にランタンを 10 個売る', 'Sell 10 Lanterns in one month'), reward: 3000 },
-  { id: 'uncommon', from: t('収集家', 'A collector'), title: t('めずらしい品を', 'Something rare'), text: t('アンコモンを合わせて 5 個売る', 'Sell 5 Uncommons in total'), reward: 5000, rp: 40 },
+  { id: 'lantern50', from: t('駅長', 'Stationmaster'), title: t('夜道を明るく', 'Light up the night'), text: t(`ひと月にランタンを ${MU.lantern50} 個売る`, `Sell ${MU.lantern50} Lanterns in one month`), reward: 3000 },
+  { id: 'uncommon', from: t('収集家', 'A collector'), title: t('めずらしい品を', 'Something rare'), text: t(`アンコモンを合わせて ${MU.uncommon} 個売る`, `Sell ${MU.uncommon} Uncommons in total`), reward: 5000, rp: 40 },
   { id: 'rank3', from: t('商店会', 'Merchants’ association'), title: t('エリアの顔に', 'Face of the area'), text: t('月の報告でエリア 3 位以内に入る', 'Finish a month in the area top 3'), reward: 5000, rp: 40 },
   // 段 L0：序盤の自動化を自分で取って覚える依頼（リーダー・部長は Uncommon・Rare から。報酬は Common の依頼の段）
   { id: 'm_edi', from: t('卸問屋', 'The wholesaler'), title: t('注文を待たずに', 'No more waiting on orders'), text: t('スキルツリーで「自動発注（EDI）」を研究する', 'Research “Auto-ordering (EDI)” in the skill tree'), reward: 3000, teach: true },
@@ -3756,9 +3787,9 @@ export const MISSIONS: Mission[] = [
   { id: 'm_timetable', from: t('荷車の親方', 'The cart master'), title: t('便を止めない', 'Keep the runs going'), text: t('「定期便の時刻表」を研究する', 'Research “Scheduled runs”'), reward: 2000, teach: true },
   // セクタの依頼（そのセクタでだけ受けられる。id はセーブと繋がる）
   // 湖・丘の依頼は、そのセクタの「まだ誰も売っていない」商品（ランタン・マレットは他店で供給が足りているので、ゴブレット・ナイフに）
-  { id: 'c2_goblet', sector: 'c2', from: t('湖の宿', 'The lakeside inn'), title: t('湖畔で乾杯', 'A toast by the lake'), text: t('ひと月にゴブレットを 10 個売る', 'Sell 10 Goblets in one month'), reward: 4000, rp: 40 },
+  { id: 'c2_goblet', sector: 'c2', from: t('湖の宿', 'The lakeside inn'), title: t('湖畔で乾杯', 'A toast by the lake'), text: t(`ひと月にゴブレットを ${MU.c2_goblet} 個売る`, `Sell ${MU.c2_goblet} Goblets in one month`), reward: 4000, rp: 40 },
   { id: 'c2_top', sector: 'c2', from: t('ユーホタウンの町内会', 'Yuho Town council'), title: t('湖の一番店', 'Top shop on the lake'), text: t('ユーホタウンで 2 か月続けて 1 位になる', 'Become #1 in Yuho Town two months in a row'), reward: 10000, rp: 40 },
-  { id: 'c3_knife', sector: 'c3', from: t('丘の上の大工さん', 'A hilltop carpenter'), title: t('ナイフを 10 本', 'Ten Knives'), text: t('ひと月にナイフを 10 本売る', 'Sell 10 Knives in one month'), reward: 4000, rp: 40 },
+  { id: 'c3_knife', sector: 'c3', from: t('丘の上の大工さん', 'A hilltop carpenter'), title: t(`ナイフを ${MU.c3_knife} 本`, `${MU.c3_knife} Knives`), text: t(`ひと月にナイフを ${MU.c3_knife} 本売る`, `Sell ${MU.c3_knife} Knives in one month`), reward: 4000, rp: 40 },
   { id: 'c3_top', sector: 'c3', from: t('リデル・ヒルズの町内会', 'Riddle Hills council'), title: t('丘の一番店', 'Top shop on the hill'), text: t('リデル・ヒルズで 2 か月続けて 1 位になる', 'Become #1 in Riddle Hills two months in a row'), reward: 10000, rp: 40 },
   { id: 'c4_top', sector: 'c4', from: t('キッチョムシティの町内会', 'Kitchom City council'), title: t('町いちばんの店', 'Top shop in town'), text: t('キッチョムシティで 2 か月続けて 1 位になる', 'Become #1 in Kitchom City two months in a row'), reward: 10000, rp: 40 },
   { id: 'c5_top', sector: 'c5', from: t('お祭りの実行委員会', 'The festival committee'), title: t('お祭りの顔に', 'Face of the festival'), text: t('オマツリタウンで 2 か月続けて 1 位になる', 'Become #1 in Omatsuri Town two months in a row'), reward: 10000, rp: 40 },
@@ -4054,10 +4085,10 @@ export const CS = {
   good: 6,
   ok: 1,
   ignore: -3,
-  refundUnits: 2,
+  refundUnits: unitsX(2),
   refundMin: 300,
   policyCut: 0.4,
-  swapUnits: 2,
+  swapUnits: unitsX(2),
   up: 0.06,
   down: 0.04,
   survey: 1.5,

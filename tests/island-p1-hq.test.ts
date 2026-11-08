@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { deserializeP1, hqOpen, newP1, openHQ, serializeP1 } from '../src/island/p1/model';
+import { unitsX } from '../src/island/p1/data';
 
 describe('スキルツリーの本社', () => {
   it('はじめは閉じていて、開放すると開く（2 回目は何もしない）', () => {
@@ -66,13 +67,14 @@ describe('作る数（自動製造でないとき）', () => {
     M.assign(s, 10003, 'craft', 0);
     s.slots[0].sku = 'Sensu:C';
     s.mats = Object.fromEntries(Object.entries(M.recipeOf('Sensu:C')).map(([m, q]) => [m, (q ?? 0) * 3])) as never;
-    M.setCraftPlan(s, 0, 8); // 2 ロット
+    // 段 SALES1：1 ロットは unitsX(4) 個
+    M.setCraftPlan(s, 0, unitsX(8)); // 2 ロット
     expect(s.slots[0].running).toBe(true);
-    expect(s.slots[0].left).toBe(4);
+    expect(s.slots[0].left).toBe(unitsX(4));
     for (let k = 0; k < 40; k++) M.step(s);
     expect(s.slots[0].running).toBe(false);
     expect(s.slots[0].left).toBe(0);
-    expect(s.stock['Sensu:C']).toBe(8);
+    expect(s.stock['Sensu:C']).toBe(unitsX(8));
     M.setAutoCraft(s, 0, true);
     expect(s.slots[0].running).toBe(true);
     expect(s.slots[0].repeat).toBe(true);

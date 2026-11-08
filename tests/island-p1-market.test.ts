@@ -15,7 +15,7 @@ describe('商圏：お客さんの住む場所とお店の距離', () => {
     const u = spots(s, 'general_store').map(([i, j]) => sum(capture(s, 'Sensu', [me(i, j)])));
     expect(Math.max(...u)).toBeGreaterThan(Math.min(...u) * 1.5);
   });
-  it('自社のお店を隣に固めてもお客さんはほとんど増えず、離して出すと増える', () => {
+  it('自社のお店を隣に固めると取り合いで 1 軒ぶんの 2 倍にはならず、離して出すほうが増える（段 SALES1：固めても少しは増える）', () => {
     const s = newP1(7);
     const all = spots(s, 'general_store');
     const [a] = [...all].sort((x, y) => sum(capture(s, 'Sensu', [me(y[0], y[1])])) - sum(capture(s, 'Sensu', [me(x[0], x[1])])));
@@ -23,8 +23,10 @@ describe('商圏：お客さんの住む場所とお店の距離', () => {
     const near = [...all].filter((p) => p[0] !== a[0] || p[1] !== a[1]).sort((x, y) => Math.abs(x[0] - a[0]) + Math.abs(x[1] - a[1]) - (Math.abs(y[0] - a[0]) + Math.abs(y[1] - a[1])))[0];
     const adj = sum(capture(s, 'Sensu', [me(a[0], a[1]), me(near[0], near[1])])) - one;
     const spread = Math.max(...all.map((p) => sum(capture(s, 'Sensu', [me(a[0], a[1]), me(p[0], p[1])])) - one));
-    expect(adj).toBeLessThan(one * 0.15);
-    expect(spread).toBeGreaterThan(adj * 3);
+    // 段 SALES1：重なりの足し合わせ（SALES1.overlap）・通りがかりの客（SALES1.walk）で、隣に固めても増えるが、取り合いのぶん 1 軒ぶんには届かない
+    expect(adj).toBeGreaterThan(0);
+    expect(adj).toBeLessThan(one * 0.75);
+    expect(spread).toBeGreaterThan(adj * 1.1);
   });
   it('他社の近くで同じ商品を売ると、他社の売上を奪う（離れていれば奪わない）', () => {
     const s = newP1(7);

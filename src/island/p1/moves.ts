@@ -6,7 +6,7 @@
  */
 import { t } from '../../i18n';
 import { DEF } from '../defs';
-import { ADS, INVEST, P1B, PRODUCT, SHOP, SKILL, isResearch, rpCost, sku, skuParts, type Rar, type Sku } from './data';
+import { ADS, INVEST, P1B, PRODUCT, SHOP, SKILL, isResearch, rpCost, sku, skuParts, type Rar, type Sku, unitsX } from './data';
 import { DAYS, adBoostAt, adCost, adPick, adWide, allowedDirs, batchOf, canBuild, craftCheck, has, hasRoute, investCost, myShops, recipeOf, sellNow, sellWhatIf, skillLock, type P1State, type WhatIf, type WhatIfKind } from './model';
 import type { Mat } from './data';
 
@@ -205,7 +205,7 @@ export function sellMoves(s: P1State): SellMove[] {
       if (!canTake(s, id)) continue;
       const after = sellNow({ ...s, skills: [...s.skills, id] });
       const units = after.units - base.units;
-      if (units <= 0.05) continue;
+      if (units <= unitsX(0.05)) continue;
       push({ kind: id, act: { k: 'skill', id }, units, gross: Math.round((after.yen - base.yen) * gr), monthly: 0, ...priceOfSkill(id) });
     }
     // 名物店主：取っていなければ取って、いちばん売れるお店に。取ってあって選んでいなければ選ぶだけ
@@ -215,7 +215,7 @@ export function sellMoves(s: P1State): SellMove[] {
         const after = sellNow({ ...s, skills: has(s, 'd_shop') ? s.skills : [...s.skills, 'd_shop'], dustShop: b.uid });
         if (!best || after.units > best.units) best = { uid: b.uid, units: after.units, yen: after.yen };
       }
-      if (best && best.units - base.units > 0.05)
+      if (best && best.units - base.units > unitsX(0.05))
         push({ kind: 'famous', act: { k: 'famous', uid: best.uid }, units: best.units - base.units, gross: Math.round((best.yen - base.yen) * gr), monthly: 0, uid: best.uid, ...(has(s, 'd_shop') ? { cost: 0 } : priceOfSkill('d_shop')) });
     }
   }
@@ -231,7 +231,7 @@ export function sellMoves(s: P1State): SellMove[] {
 }
 /** いちばん見込みの大きい販売の手（毎月の費用を引いた利益がプラスで、打てるもの。無ければ打てるものの先頭） */
 export function bestSell(s: P1State, list = sellMoves(s)): SellMove | null {
-  return list.find((m) => m.net > 0 && m.units > 0.5) ?? null;
+  return list.find((m) => m.net > 0 && m.units > unitsX(0.5)) ?? null;
 }
 /** 品の名前（商品の key か Sku） */
 export const goodsName = (key: string) => PRODUCT[skuParts(key as Sku)[0]]?.name ?? PRODUCT[key]?.name ?? key;

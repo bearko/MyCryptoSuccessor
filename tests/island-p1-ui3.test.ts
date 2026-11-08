@@ -167,7 +167,7 @@ describe('建物の吹き出し：担当のヒーローへの指示', () => {
     expect(s.slots.some((sl) => sl.worker === ws.hero)).toBe(true);
     expect(ws.orders.map((o) => o.k)).toEqual(expect.arrayContaining(['make', 'bench']));
     const bench = ws.orders.find((o) => o.k === 'bench')!;
-    if (!bench.off) expect(bench.sub).toMatch(/製造 \+[\d.]+ 個／月/);
+    if (!bench.off) expect(bench.sub).toMatch(/製造 \+[\d.,]+ 個／月/);
     // 販売が詰まりの月は、作業台を足しても売上は増えない（いちばん効く手にしない・詰まりの段を添える）
     expect(bench.rec).toBeFalsy();
     expect(bench.sub).toContain('④ 販売');

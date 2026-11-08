@@ -11,8 +11,8 @@
  * 仕様は docs/ISLAND_PHASE1.md「倉庫があふれる先の見込み（段 UI7f）」。
  */
 import { t } from '../../i18n';
-import { STORE_FC } from './data';
-import { DAYS, batchOf, date, poolCap, poolUsed, procMats, recipeOf, steadySkus, type P1State } from './model';
+import { SALES1, STORE_FC } from './data';
+import { DAYS, batchOf, date, goodsRoom, poolCap, poolUsed, procMats, recipeOf, steadySkus, type P1State } from './model';
 
 /** 月末の倉庫の記録（Report.pool） */
 export interface PoolRec {
@@ -26,7 +26,7 @@ const sum = (o: Partial<Record<string, number>>) => Object.values(o).reduce<numb
 /** いまの倉庫の中身（素材は運んでいる・注文中を含む） */
 export function poolNow(s: P1State): { mats: number; goods: number; used: number; cap: number } {
   const used = poolUsed(s);
-  const goods = sum(s.stock);
+  const goods = Math.ceil(goodsRoom(sum(s.stock)) - 1e-9);
   return { mats: used - goods, goods, used, cap: poolCap(s) };
 }
 /** この町の月末の記録（古い順。いちばん新しいものから n 件。ほかの町の記録・記録の無い月で切れる） */
@@ -64,7 +64,7 @@ export interface StoreFc {
   src: 'hist' | 'flow' | 'none';
   /** あふれるまでの日数（もうあふれていれば 0。増えていなければ null） */
   days: number | null;
-  /** あふれたあと、作る数が月にいくつ減るか（商品の増えのぶん） */
+  /** あふれたあと、作る数が月にいくつ減るか（商品の増えのぶん。個） */
   cut: number;
   /** あふれたあと、調達する素材の置き場所がなくなるまでの日数（素材が増えていなければ null） */
   ramp: number | null;
@@ -97,7 +97,7 @@ export function storeFc(s: P1State, o: { cap?: number; mats?: number; goods?: nu
     if (f) {
       const mpu = matsPerUnit(s);
       matsDay = (f.bought - f.made * mpu) / DAYS;
-      goodsDay = (f.made - f.hauled) / DAYS;
+      goodsDay = goodsRoom(f.made - f.hauled) / DAYS;
       src = 'flow';
     }
   }
@@ -111,7 +111,8 @@ export function storeFc(s: P1State, o: { cap?: number; mats?: number; goods?: nu
   const pm = new Set<string>(procMats(s).map((x) => x.m));
   const live = (Object.entries(s.mats) as [string, number][]).reduce((a, [m, n]) => a + (pm.has(m) ? n ?? 0 : 0), 0) + (s.buyTrip ? sum(s.buyTrip.cargo) : 0) + (s.orders ?? []).reduce((a, o) => a + o.qty, 0);
   const ramp = matsDay > FLAT ? Math.max(1, live / matsDay) : null;
-  return { hist, mats, goods, used, cap, perDay, matsDay, goodsDay, src, days, cut: Math.max(0, goodsDay) * DAYS, ramp };
+  // 段 SALES1：goodsDay は枠（goodsRoom）なので、作る数（個）に直すときは SALES1.units を掛ける
+  return { hist, mats, goods, used, cap, perDay, matsDay, goodsDay, src, days, cut: Math.max(0, goodsDay) * DAYS * SALES1.units, ramp };
 }
 
 /** あふれるまでの言い方（45 日まで「あと 23 日で」、ほかは「3 か月後に」） */

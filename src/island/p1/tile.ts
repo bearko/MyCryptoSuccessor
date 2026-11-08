@@ -21,7 +21,7 @@ import { DEEP_LOCK, standing } from './digview';
 import { repairCostOf, repairDaysOf } from './company';
 import { clearRuin, isRuin, repair, repairAll, repairAllCost, repairLock, ruinsOf } from './reset';
 import { areaShares, isVacant, newStorePull, storeRisk, takeVacant, vacantCost, vacantErr } from './model';
-import { RARE_AREA } from './data';
+import { RARE_AREA, SALES1 } from './data';
 import { refillHint, storeName, surveyed } from './trade';
 import { MA_LOCK_TEXT, dealOf, guidePrice, legalHere } from './legal';
 import { maTileLock } from './legalui';
@@ -160,7 +160,7 @@ export interface TileHooks {
 }
 
 const DESC: Record<string, string> = {
-  warehouse: t('素材と、お店へ運ぶ前の商品をしまっておく倉庫。1 棟で置き場所が 200 個ふえ、強化（設備投資）で 1 棟を 500 個まで広げられます。倉庫が無いと、工房の物置（80 個）を超えては調達できません。', 'Stores materials and goods waiting to be hauled. Each adds 200 spaces, and upgrades take one up to 500; without one you can only stock 80 in the workshop.'),
+  warehouse: t(`素材と、お店へ運ぶ前の商品をしまっておく倉庫。1 棟で置き場所が 200 個ふえ、強化（設備投資）で 1 棟を 500 個まで広げられます。倉庫が無いと、工房の物置（80 個）を超えては調達できません。商品は ${SALES1.units} 個で 1 個ぶんの場所です。`, `Stores materials and goods waiting to be hauled. Each adds 200 spaces, and upgrades take one up to 500; without one you can only stock 80 in the workshop. ${SALES1.units} goods take one space.`),
   wholesale: t('素材を卸している問屋。調達係は工房からここまで歩いて買い付けに来ます。', 'The wholesaler that sells materials. Your buyer walks here from the workshop.'),
   workshop: t('先代から引き継いだ本店。作業台で商品をクラフトし、できた商品を倉庫に置きます。', 'Your head office, inherited from your predecessor. Crafters make goods here and store them.'),
   general_store: t('小さな物販店。最初は棚 1 つ。店員かアルバイトがいると開店します。', 'A small retail shop with one shelf to start. Opens when a clerk or part-timer is there.'),
@@ -196,7 +196,12 @@ const rate = (rev: number, cost: number) => (rev > 0 ? `${Math.round(((rev - cos
 
 // ---------------------------------------------------------------- 担当のヒーローへの指示（段 UI3）
 
-const unitsText = (u: number) => t(`+${Math.max(0, Math.round(u * 10) / 10)} 個／月`, `+${Math.max(0, Math.round(u * 10) / 10)}/mo`);
+// 段 SALES1：個数が 20 倍になったので、10 個以上は整数で（10 未満は小数 1 桁）
+const unitsN = (u: number) => {
+  const v = Math.max(0, u);
+  return v >= 10 ? Math.round(v).toLocaleString('en-US') : String(Math.round(v * 10) / 10);
+};
+const unitsText = (u: number) => t(`+${unitsN(u)} 個／月`, `+${unitsN(u)}/mo`);
 /** 指示を受けた担当のひと言をトーストで（「ガリレオ「承知！鋏に切り替えます」」） */
 function ack(ctx: Ctx, hero: number | null, core: string) {
   if (hero == null) return ctx.toast(core);

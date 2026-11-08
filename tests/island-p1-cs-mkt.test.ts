@@ -109,9 +109,9 @@ describe('返事と顧客満足度', () => {
     expect([a.kind, b.kind, c.kind]).toEqual(['out', 'closed', 'out']);
     // 品切れに「代わりの品」：在庫が無ければ選べない
     expect(reply(s, a.id, 'swap')).toBe('stock');
-    s.stock['Sensu:C'] = 10;
+    s.stock['Sensu:C'] = CS.swapUnits + 8;
     expect(reply(s, a.id, 'swap')).toBeNull();
-    expect(s.stock['Sensu:C']).toBe(10 - CS.swapUnits);
+    expect(s.stock['Sensu:C']).toBe(8);
     expect(satOf(s)).toBe(CS.start + CS.good);
     // 閉まっていたに「謝る」（合う）・品切れに「返金」（合わない）
     expect(reply(s, b.id, 'sorry')).toBeNull();

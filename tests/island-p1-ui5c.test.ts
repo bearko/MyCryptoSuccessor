@@ -3,7 +3,7 @@
  * 仕様は docs/ISLAND_PHASE1.md「在庫の売りさばき（段 UI5c）」。
  */
 import { describe, expect, it } from 'vitest';
-import { CARD, CLEAR, PRODUCTS, SKILL, sku, type Sku } from '../src/island/p1/data';
+import { CARD, CLEAR, PRODUCTS, SKILL, sku, type Sku, unitsX } from '../src/island/p1/data';
 import {
   batchOf,
   clearCut,
@@ -83,7 +83,7 @@ describe('お店の方針「在庫を優先して売りさばく」', () => {
     const b = myShops(s)[0];
     const sh = s.shops[b.uid];
     const x = notMade(s);
-    s.stock[x] = 20;
+    s.stock[x] = unitsX(20);
     // 棚 1 段：オフなら作っている商品、オンなら在庫品
     sh.shelves = [sh.shelves.find((y) => !!y) ?? madeSkus(s)[0]];
     syncShelves(s);
@@ -101,7 +101,7 @@ describe('お店の方針「在庫を優先して売りさばく」', () => {
     const b = myShops(s)[0];
     const sh = s.shops[b.uid];
     const x = notMade(s);
-    s.stock[x] = 40;
+    s.stock[x] = unitsX(40);
     const made = steadySkus(s)[0];
     setClear(s, b.uid, 0);
     expect(sh.shelves).toContain(x);
@@ -134,12 +134,12 @@ describe('お店の方針「在庫を優先して売りさばく」', () => {
     const b = myShops(s)[0];
     const x = notMade(s);
     empty(s);
-    s.stock[x] = 12;
+    s.stock[x] = unitsX(12);
     const box = ordersOf(s, s.buildings.find((y) => y.uid === b.uid)!)!;
     const o = box.orders.find((y) => y.k === 'clear')!;
     expect(o.label).toBe('在庫を優先して売りさばく');
     expect(o.sub).toContain('オフ');
-    expect(o.sub).toContain('在庫品 12 個');
+    expect(o.sub).toContain(`在庫品 ${unitsX(12)} 個`);
     expect(o.rec).toBeFalsy();
     s.mats.wood = (s.mats.wood ?? 0) + poolCap(s);
     const box2 = ordersOf(s, s.buildings.find((y) => y.uid === b.uid)!)!;
@@ -149,7 +149,7 @@ describe('お店の方針「在庫を優先して売りさばく」', () => {
   it('提案書：As-Is ／ To-Be に売り方と倉庫の行。承認で全部のお店がオンに', () => {
     const s = base();
     const x = notMade(s);
-    s.stock[x] = 30;
+    s.stock[x] = unitsX(30);
     const plan = planOf(s, [{ k: 'clear', uid: -1, cut: 1 }]);
     expect(plan.steps.filter((y) => y.k === 'clear').length).toBe(myShops(s).length);
     expect(planTitle(s, plan)).toContain('在庫を優先して売りさばく（1 割引）');
@@ -157,7 +157,7 @@ describe('お店の方針「在庫を優先して売りさばく」', () => {
     const sell = rows.find((r) => r.label.startsWith('売り方'))!;
     expect(sell.asIs.text).toBe('作っている商品から並べる');
     expect(sell.toBe.text).toContain('在庫品を先に');
-    expect(rows.find((r) => r.label === '倉庫')!.asIs.text).toContain('在庫品 30 個');
+    expect(rows.find((r) => r.label === '倉庫')!.asIs.text).toContain(`在庫品 ${unitsX(30)} 個`);
     expect(planCost(s, plan).money).toBe(0);
     expect(applyPlan(s, plan).ok).toBe(true);
     for (const b of myShops(s)) expect(s.shops[b.uid].clear).toBe(1);
@@ -278,7 +278,7 @@ describe('倉庫が埋まりそうな月の提案（店長から）', () => {
     const s = base();
     const x = notMade(s);
     empty(s);
-    s.stock[x] = 20;
+    s.stock[x] = unitsX(20);
     expect(stockDraft(s)).toBeNull();
     s.mats.wood = Math.ceil(poolCap(s) * 0.5);
     s.mats.iron = Math.ceil(poolCap(s) * 0.2);
@@ -299,7 +299,7 @@ describe('倉庫が埋まりそうな月の提案（店長から）', () => {
 
   it('月の締めに受け箱へ。選ぶと提案書（売りさばき ＋ 使い切りの製造）、承認で一気に変わる。ほかのカードを押し出さない', () => {
     const s = base();
-    s.stock[notMade(s)] = 20;
+    s.stock[notMade(s)] = unitsX(20);
     s.mats.wood = (s.mats.wood ?? 0) + Math.ceil(poolCap(s) * 0.9);
     const C = cardsOf(s);
     C.inbox = [];
@@ -316,7 +316,7 @@ describe('倉庫が埋まりそうな月の提案（店長から）', () => {
     for (const b of myShops(s)) expect(s.shops[b.uid].clear).toBe(CLEAR.def);
     // 受け箱が CARD.keep 枚でも出す。受け箱の枚数に数えないので、ほかのカードは押し出されない
     const t2 = base();
-    t2.stock[notMade(t2)] = 20;
+    t2.stock[notMade(t2)] = unitsX(20);
     t2.mats.wood = (t2.mats.wood ?? 0) + Math.ceil(poolCap(t2) * 0.9);
     const C2 = cardsOf(t2);
     const ids = Array.from({ length: CARD.keep }, (_, i) => 1000 + i);

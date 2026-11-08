@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { L0_PANELS_BEFORE, L0_SKILLS, POL_PANELS, POL_PANEL_DEPT, DIG_PANELS, ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, UI5_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, REQUIRES_ORIG, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf, r2Panel } from '../src/island/p1/data';
+import { L0_PANELS_BEFORE, L0_SKILLS, POL_PANELS, POL_PANEL_DEPT, DIG_PANELS, ACCT_SKILLS, CS_SKILLS, LEGAL_SKILLS, GA_SKILLS, MKT_SKILLS, UI5_SKILLS, DEPT, DEPTS, HR_SKILLS, DEPT_MARKS, DEPT_SKILLS, REQUIRES_ORIG, SKILL, SKILLS, deptOf, levelCost, maxLv, rpCost, shownOf, r2Panel, unitsX } from '../src/island/p1/data';
 import { deptLevel, deptNews, deptOpen, deptReady, menuDepts, menuLayout, nextMark } from '../src/island/p1/dept';
 import { deserializeP1, newP1, serializeP1 } from '../src/island/p1/model';
 import { BOUNDS, DEPT_LAYOUT, EDGES, HUBPOS, HUB_BOX, KNOTPOS, POS, UNPLACED, groupOf } from '../src/island/p1/treelayout';
@@ -73,7 +73,20 @@ describe('パネルの部門の割り振り', () => {
     // 段 UI5a で足した調達の交代要員（UI5_SKILLS）も除く。段 DIG3 で足した発掘の「貫通」も除く
     // 段 L0 で足した仕組みのパネル（L0_SKILLS：品出し・調達・製造計画の自動化）も除く
     expect(SKILLS.filter((k) => k.branch !== 'sales' && k.branch !== 'legal' && !HR_SKILLS.includes(k) && !ACCT_SKILLS.includes(k) && !GA_SKILLS.includes(k) && !CS_SKILLS.includes(k) && !MKT_SKILLS.includes(k) && !UI5_SKILLS.includes(k.id) && !L0_SKILLS.includes(k.id) && !POL_PANELS.includes(k.id) && k.id !== 'dig_pierce').map((k) => k.id)).toEqual(BEFORE.map((x) => x.id));
-    for (const b of BEFORE) {
+    // 段 SALES1：個数で書いたパネル（棚に並べる数・ロット・お店の裏）は、個数が SALES1.units 倍。割り振り前の数字を倍にして比べる
+    const SALES1_NOTE: Record<string, [string, string][]> = {
+      hours: [['+2／日', `+${unitsX(2)}／日`]],
+      lot: [['+1 個', `+${unitsX(1)} 個`]],
+      mold: [['+1 個', `+${unitsX(1)} 個`]],
+      inventory: [['お店の裏 +10', `お店の裏 +${unitsX(10)}`]],
+    };
+    const SALES1_LABEL = ['棚に並べる数（1 日・お店ごと）', '基礎の商品のロット', 'アンコモンのロット', 'お店の裏'];
+    type Shown = { label: string; v: number };
+    const scaled = (xs: Shown[] = []) => xs.map((x) => (SALES1_LABEL.includes(x.label) || x.label.endsWith('の商品のロット') ? { ...x, v: unitsX(x.v) } : x));
+    for (const b0 of BEFORE) {
+      const sh = b0.shown as { base?: Shown[]; up?: Shown[] } | undefined;
+      const note = (SALES1_NOTE[b0.id as string] ?? []).reduce((n, [x, y]) => n.replace(x, y), b0.note as string);
+      const b: Record<string, unknown> = { ...b0, note, ...(sh ? { shown: { ...sh, base: scaled(sh.base), up: scaled(sh.up) } } : {}) };
       const k = SKILL[b.id as string];
       // 段 UI5b：先に要るものは、つながりの見直し（treelinks.ts）の前のもの（REQUIRES_ORIG）で比べる。見直しは tests/island-p1-ui5b.test.ts
       // 発掘の枝の 17 枚は研究パネル（RP）になった（2026-11-03）：区分・値段・Lv が変わるので、名前・先に要るもの・ランクだけ比べる

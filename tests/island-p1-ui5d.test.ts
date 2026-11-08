@@ -3,7 +3,7 @@
  * 仕様は docs/ISLAND_PHASE1.md「倉庫の強化と物流拠点の保管・棚が 1 段のお店の 3 択（段 UI5d）」。
  */
 import { describe, expect, it } from 'vitest';
-import { CARD, CLEAR, INVEST, P1B, PRODUCTS, STORE, sku, type Sku } from '../src/island/p1/data';
+import { CARD, CLEAR, INVEST, P1B, PRODUCTS, STORE, sku, type Sku, unitsX } from '../src/island/p1/data';
 import {
   build,
   deserializeP1,
@@ -190,7 +190,7 @@ describe('倉庫の提案のカード（UI5c の 8 割を作り直す）', () =>
     const s = base();
     const x = notMade(s);
     fill(s, 0.85);
-    s.stock[x] = 10;
+    s.stock[x] = unitsX(10);
     expect(poolRate(s)).toBeGreaterThanOrEqual(CLEAR.warn);
     const d = stockDraft(s)!;
     const kinds = d.choices.map((c) => (c.act.k === 'do' ? c.act.a.k : c.act.k));
@@ -210,7 +210,7 @@ describe('倉庫の提案のカード（UI5c の 8 割を作り直す）', () =>
     // 倉庫があれば「倉庫を強化しよう（1/3 段目）」
     const w = buildNow(s, 'warehouse');
     fill(s, 0.9);
-    s.stock[x] = 10;
+    s.stock[x] = unitsX(10);
     const d2 = stockDraft(s)!;
     const a = d2.choices[0].act;
     expect(a.k === 'do' && a.a.k === 'invest' && a.a.id === 'rack' && a.a.uid === w.uid).toBe(true);
@@ -225,7 +225,7 @@ describe('倉庫の提案のカード（UI5c の 8 割を作り直す）', () =>
     const s = base();
     const x = notMade(s);
     fill(s, 0.9);
-    s.stock[x] = 10;
+    s.stock[x] = unitsX(10);
     s.money = 100;
     const d = stockDraft(s)!;
     expect(d.choices[0].act.k === 'do' && storeAct(d.choices[0].act.a)).toBe(true);
@@ -259,7 +259,7 @@ describe('倉庫の提案のカード（UI5c の 8 割を作り直す）', () =>
     const w = buildNow(s, 'warehouse');
     fill(s, 0.8);
     // 段 UI7d：売りさばきは、倉庫の在庫品が埋まりの 1 割以上のときだけ出る（素材で埋まっているなら出さない）
-    s.stock[x] = Math.ceil(poolCap(s) * 0.15);
+    s.stock[x] = unitsX(Math.ceil(poolCap(s) * 0.15));
     const d = stockDraft(s)!;
     const c = enqueue(s, d)!;
     const plan = planOfChoice(s, c, 0)!;
@@ -282,7 +282,7 @@ describe('倉庫の提案のカード（UI5c の 8 割を作り直す）', () =>
   it('建てる手の提案書：毎月の維持費と工期・置き場所 +200。承認で建て始める', () => {
     const s = base();
     fill(s, 0.9);
-    s.stock[notMade(s)] = 10;
+    s.stock[notMade(s)] = unitsX(10);
     const c = enqueue(s, stockDraft(s)!)!;
     const plan = planOfChoice(s, c, 0)!;
     const cost = planCost(s, plan);
@@ -300,7 +300,7 @@ describe('棚が 1 段のお店で売りさばきを選んだとき（3 択）',
     const s = base();
     const b = shop1(s);
     const x = notMade(s);
-    s.stock[x] = 12;
+    s.stock[x] = unitsX(12);
     return { s, b, x, main: s.shops[b.uid].shelves[0]! };
   };
 
@@ -370,7 +370,7 @@ describe('棚が 1 段のお店で売りさばきを選んだとき（3 択）',
   it('倉庫の提案の「売りさばき」（全部のお店）も、棚が 1 段のお店は 3 択の対象', () => {
     const { s, b } = prep();
     fill(s, 0.9);
-    s.stock[notMade(s)] = 12;
+    s.stock[notMade(s)] = unitsX(12);
     const c = enqueue(s, stockDraft(s)!)!;
     const k = c.choices.findIndex((y) => y.act.k === 'do' && y.act.a.k === 'clear');
     const plan = planOfChoice(s, c, k)!;
@@ -404,7 +404,7 @@ describe('推奨の札（決まり）', () => {
   it('提案のカード（倉庫・UI1 の手）は推奨がちょうど 1 つ', () => {
     const s = base();
     fill(s, 0.9);
-    s.stock[notMade(s)] = 10;
+    s.stock[notMade(s)] = unitsX(10);
     expect(stockDraft(s)!.choices.filter((c) => c.rec)).toHaveLength(1);
   });
 

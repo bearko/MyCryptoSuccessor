@@ -10,7 +10,7 @@
 import { t } from '../../i18n';
 import { readErr } from './lesson';
 import { DEF } from '../defs';
-import { ADS, CLEAR, DELEG, INVEST, MATS, P1B, PRODUCT, SKILL, isResearch, rpCost, sku, type DeptId, type Mat, type Sku } from './data';
+import { ADS, CLEAR, DELEG, INVEST, MATS, P1B, PRODUCT, SKILL, isResearch, rpCost, sku, type DeptId, type Mat, type Sku, unitsX } from './data';
 import {
   DAYS,
   LOT,
@@ -733,7 +733,7 @@ export function planRows(s: P1State, p: Plan, after = afterOf(s, p)): { rows: Ro
       kind: 'buy',
       label: t('倉庫', 'Storage'),
       asIs: { text: t(`${Math.round(poolRate(s) * 100)}%（${poolUsed(s)} / ${poolCap(s)} 個）・在庫品 ${n0} 個`, `${Math.round(poolRate(s) * 100)}% (${poolUsed(s)} / ${poolCap(s)}) · ${n0} stock items`) },
-      toBe: { text: [matsUse > 0 ? t(`素材 −${matsUse} 個（商品にする）`, `−${matsUse} materials (made into goods)`) : '', sellOut > 0.5 ? t(`在庫品が月 ${Math.round(sellOut)} 個ほど売れていく`, `~${Math.round(sellOut)} stock items sell a month`) : ''].filter(Boolean).join(t('・', ' · ')) || t('—', '—'), plus: true },
+      toBe: { text: [matsUse > 0 ? t(`素材 −${matsUse} 個（商品にする）`, `−${matsUse} materials (made into goods)`) : '', sellOut > unitsX(0.5) ? t(`在庫品が月 ${Math.round(sellOut)} 個ほど売れていく`, `~${Math.round(sellOut)} stock items sell a month`) : ''].filter(Boolean).join(t('・', ' · ')) || t('—', '—'), plus: true },
       changed: true,
     });
   }
@@ -768,8 +768,8 @@ export function planRows(s: P1State, p: Plan, after = afterOf(s, p)): { rows: Ro
   const so = stockPlan(p);
   const f0 = flowOf(s, 0, so);
   const f1 = flowOf(after, 0, so);
-  const k0 = new Set(f0.goods.filter((x) => x.units > 0.05).map((x) => x.x));
-  const k1 = new Set(f1.goods.filter((x) => x.units > 0.05).map((x) => x.x));
+  const k0 = new Set(f0.goods.filter((x) => x.units > unitsX(0.05)).map((x) => x.x));
+  const k1 = new Set(f1.goods.filter((x) => x.units > unitsX(0.05)).map((x) => x.x));
   for (const x of madeSkus(after)) k1.add(x);
   // 作っているがまだ売れていない商品は、As-Is にも同じく入れる（変わっていないのに「＋」と出さない）
   for (const x of madeSkus(s)) if (k1.has(x)) k0.add(x);

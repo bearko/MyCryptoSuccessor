@@ -5,7 +5,7 @@
  * Rare の復刻品（Rare 進出後に研究 Lv3 で開く・Uncommon より高い）・Rare の他社・古いセーブ。
  */
 import { describe, expect, it } from 'vitest';
-import { DIG_BALANCE, DIG_SITES, DIG_THEME, DUNGEON_FINDS, MARKET_SERIES, PRODUCTS, RARE_RIVAL, RELICS, RESEARCH_NEED, RESET, RP_GAIN, SECTORS, TABLETS, TIERS, UNCOMMON, fundsOf, grantOf, relicOf, relicSells, rivalsOf, seriesOf, sku, skuPrice } from '../src/island/p1/data';
+import { DIG_BALANCE, DIG_SITES, DIG_THEME, DUNGEON_FINDS, MARKET_SERIES, PRODUCTS, RARE_RIVAL, RELICS, RESEARCH_NEED, RESET, RP_GAIN, SECTORS, TABLETS, TIERS, UNCOMMON, fundsOf, grantOf, relicOf, relicSells, rivalsOf, seriesOf, sku, skuPrice, unitsX } from '../src/island/p1/data';
 import { sectorProfile } from '../src/island/p1/company';
 import { RUIN, sectorState } from '../src/island/p1/company';
 import { letterLock, letterLockOf, letterLocked, moveTo, recOf } from '../src/island/p1/land';
@@ -266,7 +266,7 @@ describe('4. Rare の復刻品', () => {
     st.stats = { ...st.stats, phy: 10, int: 10, agi: 10 };
     expect(craftCheck(r, x, st.hero)).toBe('skill');
     // Rare の町の需要（ランクの需要 ×3）
-    expect(r.demand[`Relic-${ext}`]).toBe(DIG_BALANCE.relic.demandBase * TIERS.R.demand);
+    expect(r.demand[`Relic-${ext}`]).toBe(unitsX(DIG_BALANCE.relic.demandBase) * TIERS.R.demand);
   });
 });
 
@@ -344,7 +344,7 @@ describe('6. 売れるシリーズ（Rare の町では新しいシリーズ。�
     syncRelics(s);
     const key = `Relic-${ext}`;
     expect(relicSells(relicOf(ext), 'R')).toBe(true);
-    expect(s.demand[key]).toBe(DIG_BALANCE.relic.demandBase * TIERS.R.demand * (sectorProfile(s)?.homes ?? 1));
+    expect(s.demand[key]).toBe(unitsX(DIG_BALANCE.relic.demandBase) * TIERS.R.demand * (sectorProfile(s)?.homes ?? 1));
     put(s, 'workshop');
     const b = put(s, 'general_store', 3);
     expect(setShelf(s, b.uid, 0, relicSku(key))).toBe(true);

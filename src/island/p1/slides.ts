@@ -7,7 +7,7 @@
 import { t } from '../../i18n';
 import { ADS, DEPT, POLICY, type DeptId, type ValueKey } from './data';
 import { METRIC_TEXT, actNoun, judgeOf, type Ask, type Brief, type Risk } from './brief';
-import { SKILL, isResearch, rpCost } from './data';
+import { SKILL, isResearch, rpCost, unitsX } from './data';
 import { isEn } from '../../i18n';
 import { DAYS, adPick, skillLock, whatIf, type P1State, type Stage } from './model';
 import { planCost, planOf, type Plan } from './plan';
@@ -288,7 +288,7 @@ export function projLines(b: Pick<Brief, 'vals'>, name: (x: string) => string, s
   const n1 = (v: number) => (v > 0 && v < 9.95 ? (Math.round(v * 10) / 10).toString() : Math.round(v).toLocaleString('en-US'));
   const u = P.use;
   if (u) {
-    const per = u.sold.slice(1).find((v) => v > 0.05) ?? 0;
+    const per = u.sold.slice(1).find((v) => v > unitsX(0.05)) ?? 0;
     const where = u.shops.length ? t(`（${u.shops.map(shop).join('・')}）`, ` (${u.shops.map(shop).join(', ')})`) : '';
     const later = per > 0.05 ? t(`そのあと月 ${n1(per)} 個`, `then ${n1(per)}/mo`) : t('そのあとは空いた棚が無く売れ残る', 'then unsold (no free shelf)');
     out.push(t(`🧪 ${name(u.x)} ${u.units} 個（1 個 ${Math.round(u.price).toLocaleString('en-US')} G）：作業台 ${u.slot + 1} で ${Math.ceil(u.days)} 日 → 来月 ${n1(u.sold[0])} 個売れる・${later}${where}`, `🧪 ${u.units} ${name(u.x)} (${Math.round(u.price).toLocaleString('en-US')} G each): bench ${u.slot + 1} for ${Math.ceil(u.days)} days → ${n1(u.sold[0])} sell next month, ${later}${where}`));

@@ -4,7 +4,7 @@
  * 独占の 4 か月は他社が来ない・切れたら後追い・ニュース・市場データの組み立て・セーブの読み書き。
  */
 import { describe, expect, it } from 'vitest';
-import { DIG, DIG_BALANCE, DIG_SITES, DUNGEON_FINDS, ENTRY_AFTER, PRODUCT, PRODUCTS, RELICS, RESEARCH_NEED, TIERS, isRelic, relicKey, relicOf, relicRecipe, skuParts, skuPrice, type Mat } from '../src/island/p1/data';
+import { DIG, DIG_BALANCE, DIG_SITES, DUNGEON_FINDS, ENTRY_AFTER, PRODUCT, PRODUCTS, RELICS, RESEARCH_NEED, TIERS, isRelic, relicKey, relicOf, relicRecipe, skuParts, skuPrice, type Mat, unitsX } from '../src/island/p1/data';
 import { relicLine } from '../src/island/p1/digview';
 import { relicEnding } from '../src/island/p1/digmeet';
 import {
@@ -138,7 +138,7 @@ describe('レシピの開き方', () => {
     expect(openRelics(s).map((p) => p.key)).toEqual([KEY]);
     expect(productsOf(s).map((p) => p.key)).toEqual([...PRODUCTS.map((p) => p.key), KEY]);
     // 開いたら、このセクタの需要が入る（ランクの需要 × 町の大きさ）
-    expect(s.demand[KEY]).toBe(DIG_BALANCE.relic.demandBase * TIERS.C.demand);
+    expect(s.demand[KEY]).toBe(unitsX(DIG_BALANCE.relic.demandBase) * TIERS.C.demand);
   });
 
   it('掘って研究 Lv3 になると、打った結果と発掘作業の出土に「新しいレシピ」。お題は掘った時点で Lv5 なので即', () => {

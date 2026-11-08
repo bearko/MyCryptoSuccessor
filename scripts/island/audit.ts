@@ -612,10 +612,10 @@ export const SKILL_SPEC: Record<string, SkillSpec> = {
   t_master: { expect: ['sell'], setup: (s) => (gainSkill(s, 't_metal'), second('Knife:C')(s)), note: '技の商品（ナイフ）を並べているとき' },
   // 営業（段 C）：Rare の町の商圏にだけ効く（Common の基準の SCM の段には出ない）。Rare の町（グリーン・マウス）で、他社の店のとなりに自社の店 2 軒を置いたときの取り分で測る
   sa_survey: { expect: [], out: '表示（出店の候補地と下見に取り分の予測が出る。tests/island-p1-sales.test.ts で確認）' },
-  sa_local: { expect: [], check: 'probe', probe: { name: 'Rare の町の自社の取り分（0.1% 単位）', f: (s) => Math.round(rareShare(s) * 1000), better: 'up' }, note: 'Rare の町（他社の店のとなりに自社の店 2 軒）' },
-  sa_dominant: { expect: [], check: 'probe', probe: { name: 'Rare の町の自社の取り分（0.1% 単位）', f: (s) => Math.round(rareShare(s) * 1000), better: 'up' }, note: 'Rare の町（となりどうしの自社の店 2 軒）' },
-  sa_road: { expect: [], check: 'probe', probe: { name: 'Rare の町の自社の取り分（0.1% 単位）', f: (s) => Math.round(rareShare(s) * 1000), better: 'up' }, note: 'Rare の町（他社の店のとなりに自社の店 2 軒）' },
-  sa_edge: { expect: [], check: 'probe', probe: { name: 'Rare の町の自社の取り分（0.1% 単位）', f: (s) => Math.round(rareShare(s) * 1000), better: 'up' }, note: 'Rare の町（他社の店のとなりに自社の店 2 軒）' },
+  sa_local: { expect: [], check: 'probe', probe: { name: 'Rare の町の自社の取り分（0.01% 単位。段 SALES1：取り分が小さいので細かく）', f: (s) => Math.round(rareShare(s) * 10000), better: 'up' }, note: 'Rare の町（他社の店のとなりに自社の店 2 軒）' },
+  sa_dominant: { expect: [], check: 'probe', probe: { name: 'Rare の町の自社の取り分（0.01% 単位。段 SALES1：取り分が小さいので細かく）', f: (s) => Math.round(rareShare(s) * 10000), better: 'up' }, note: 'Rare の町（となりどうしの自社の店 2 軒）' },
+  sa_road: { expect: [], check: 'probe', probe: { name: 'Rare の町の自社の取り分（0.01% 単位。段 SALES1：取り分が小さいので細かく）', f: (s) => Math.round(rareShare(s) * 10000), better: 'up' }, note: 'Rare の町（他社の店のとなりに自社の店 2 軒）' },
+  sa_edge: { expect: [], check: 'probe', probe: { name: 'Rare の町の自社の取り分（0.01% 単位。段 SALES1：取り分が小さいので細かく）', f: (s) => Math.round(rareShare(s) * 10000), better: 'up' }, note: 'Rare の町（他社の店のとなりに自社の店 2 軒）' },
   sa_nego: { expect: [], check: 'probe', probe: { name: '空き店舗に入る費用（G）', f: (s) => vacantCost(s), better: 'down' } },
   // 法務（段 H2）：Epic の町の M&A・契約・特許・争い（SCM の段には出ない数。legal.ts）。M&A の遊びに合わせて見直した Epic の 2 枚（M&A 部門・工芸の工房の買収）も
   lg_template: { expect: [], check: 'probe', probe: { name: '通せる契約の条項の数', f: (s) => clauseSlots(s), better: 'up' } },

@@ -33,6 +33,7 @@ import {
   lotsHave,
   openRelics,
   poolCap,
+  goodsRoom,
   poolRate,
   poolUsed,
   priceOf,
@@ -253,7 +254,8 @@ export const CLEAR_POOL = 0.1;
  * 段 UI7d：売りさばきで倉庫が空くか。倉庫を埋めているのが素材（例：素材 1820・商品 0）なら、在庫品を売りさばいても倉庫は空かないので
  * 倉庫の提案に「在庫を優先して売りさばく」を出さない（倉庫の強化・いまの素材で作る、を出す）
  */
-export const clearFrees = (info: Pick<ClearInfo, 'pooled' | 'used'>) => info.pooled > 0 && info.pooled >= info.used * CLEAR_POOL;
+/** 段 SALES1：在庫品の数は個数、used は枠（商品は goodsRoom） */
+export const clearFrees = (info: Pick<ClearInfo, 'pooled' | 'used'>) => info.pooled > 0 && goodsRoom(info.pooled) >= info.used * CLEAR_POOL;
 /** 倉庫が埋まりそう（CLEAR.warn を超えた） */
 export const storeFull = (s: P1State) => poolRate(s) >= CLEAR.warn;
 /** 値引きの段の名前（0：値引きなし） */

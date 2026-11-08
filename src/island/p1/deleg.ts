@@ -12,7 +12,7 @@ import { isEn, t } from '../../i18n';
 import { meetHero, propErrK, readErr } from './lesson';
 import { heroById } from '../../game/catalog';
 import { DEF } from '../defs';
-import { ADS, CLEAR, DELEG, L0, L0_AUTO, DEPT, DEPTS, DEPT_DUTIES, DEPT_SKILLS, isResearch, rpCost, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task } from './data';
+import { ADS, CLEAR, DELEG, L0, L0_AUTO, DEPT, DEPTS, DEPT_DUTIES, DEPT_SKILLS, isResearch, rpCost, DUTIES, DUTY, HERO_GROWTH, INVEST, LEGAL, P1B, PASSIVES, PRODUCT, rivalDef, SKILL, TIERS, UNCOMMON, DIG_BALANCE, aptitude, deptApt, deptOf, relicSells, sku, skuParts, techSkill, type DeptId, type DutyId, type Mat, type Sku, type Task, SALES1, unitsX } from './data';
 import { deptLevel, menuDepts } from './dept';
 import { fitDept } from './voice';
 import {
@@ -882,7 +882,7 @@ function doVacant(s: P1State, r: Runner, rec: DutyStat, rnd: () => number) {
 export function unitMargin(s: P1State): number {
   const last = s.reports[s.reports.length - 1];
   const sold = last?.flow?.sold ?? 0;
-  if (last && sold > 0) return Math.max(100, (last.revenue - (last.costs.materials ?? 0)) / sold);
+  if (last && sold > 0) return Math.max(100 * SALES1.price, (last.revenue - (last.costs.materials ?? 0)) / sold);
   const xs = myShops(s).flatMap((b) => s.shops[b.uid]?.shelves ?? []).filter((x): x is Sku => !!x);
   if (!xs.length) return 600;
   return Math.max(100, xs.reduce((a, x) => a + priceOf(s, x) - unitCost(s, x), 0) / xs.length);
@@ -944,7 +944,7 @@ export function candidates(s: P1State, d: DeptId, ifs: () => StageIf[]): Cand[] 
       if (myShops(s).length) {
         const jam = bottleneck(stageCaps(s)) === 'sell';
         for (const m of sellMoves(s)) {
-          if (!m.act || m.act.k === 'ad' || m.units <= 0.5) continue;
+          if (!m.act || m.act.k === 'ad' || m.units <= unitsX(0.5)) continue;
           if (!(jam ? HEAD_SELL : ['shelf', 'fixtures']).includes(m.kind)) continue;
           // 棚 +1 は、いままでどおり設備投資だけ（並べる商品は品出し・店員の提案で。作るものを替えない）
           const act: PropAct = m.kind === 'shelf' && m.uid != null ? { k: 'invest', id: 'shelves', uid: m.uid } : (m.act as PropAct);

@@ -9,6 +9,10 @@ import { cells, type Dir } from '../sim';
 import { book, brandAdd, brandCap, brandPull, emptyLedger, newBooks, newLand, reviveMonth, reviveScale, ruinCount, runSector, sectorDef, sectorProfile, type BrandEv, type Books, type Land, type LedgerKey, type ReviveMonth, type RuinLike } from './company';
 import {
   ADS,
+  MISSION_UNITS,
+  SALES1,
+  basePrice,
+  unitsX,
   AD_TIER,
   type Ad,
   deptOf,
@@ -257,6 +261,15 @@ export interface ShopState {
   offLast?: number;
   /** 段 UI5c：お店の方針「在庫を優先して売りさばく」の値引きの段（CLEAR.cuts の番号）。無い＝方針はオフ */
   clear?: number;
+  /** 段 SALES1：今月の売れた数・棚が空（品出しが追いつかない）で逃した数（見込み）・数えた日数。muLast は先月（締めで移す）。以前のセーブには無い */
+  mu?: ShopUnits;
+  muLast?: ShopUnits | null;
+}
+/** 段 SALES1：お店 1 軒の月の数（売れた・逃した・日数） */
+export interface ShopUnits {
+  sold: number;
+  miss: number;
+  days: number;
 }
 
 export interface Trip {
@@ -1784,7 +1797,7 @@ export function invest(s: P1State, uid: number, id: string): string | null {
 }
 
 /** お店の裏に置ける数（そのお店の設備投資「裏の倉庫を広げる」） */
-export const storageCap = (b: PBuilding, s?: P1State) => SHOP.storageCap + 20 * invLv(b, 'backroom') + (s ? Math.round(10 * lvMul(s, 'inventory')) : 0);
+export const storageCap = (b: PBuilding, s?: P1State) => SHOP.storageCap + unitsX(20) * invLv(b, 'backroom') + (s ? Math.round(unitsX(10) * lvMul(s, 'inventory')) : 0);
 
 // ---------------------------------------------------------------- 保管（工房の物置と倉庫）
 
@@ -1805,8 +1818,10 @@ export function poolParts(s: P1State): { base: number; warehouse: number; depot:
   return { base: poolCap(s) - wh - dp, warehouse: wh, depot: dp };
 }
 const sum = (o: Partial<Record<string, number>>) => Object.values(o).reduce<number>((a, n) => a + (n ?? 0), 0);
-/** いま置いている数（買い付けて運んでいる素材も含む） */
-export const poolUsed = (s: P1State) => sum(s.mats) + sum(s.stock) + (s.buyTrip ? sum(s.buyTrip.cargo) : 0) + (s.orders ?? []).reduce((a, o) => a + o.qty, 0);
+/** 段 SALES1：工房の物置・倉庫で、商品 n 個が使う枠（商品は SALES1.units 個で 1 枠。素材は 1 個で 1 枠） */
+export const goodsRoom = (n: number) => n / SALES1.units;
+/** いま置いている数（枠。買い付けて運んでいる素材も含む。商品は goodsRoom の切り上げ）。extra：さらに置く商品の数（できる 1 ロットなど） */
+export const poolUsed = (s: P1State, extra = 0) => sum(s.mats) + Math.ceil(goodsRoom(sum(s.stock) + extra) - 1e-9) + (s.buyTrip ? sum(s.buyTrip.cargo) : 0) + (s.orders ?? []).reduce((a, o) => a + o.qty, 0);
 export const poolFree = (s: P1State) => Math.max(0, poolCap(s) - poolUsed(s));
 
 /** 区画の道路を通る道のり（入口の前のマスから入口の前のマスまで。見つからなければ null） */
@@ -2507,7 +2522,8 @@ export function craftCheck(s: P1State, x: Sku, worker: number | null, useUp = fa
   // できた商品を置く場所（素材を使ったぶんは空く）
   const freed = Object.values(recipeOf(x)).reduce<number>((a, q) => a + (q ?? 0), 0);
   // 段 UI5c：使い切りの製造は、置いている数が増えない（素材のほうが多い）なら、置き場所がいっぱいでも作れる（倉庫を空ける手）
-  if (poolUsed(s) - freed + batchOf(x, s) > poolCap(s) && !(useUp && batchOf(x, s) <= freed)) return 'full';
+  // 段 SALES1：商品は goodsRoom（SALES1.units 個で 1 枠）
+  if (poolUsed(s, batchOf(x, s)) - freed > poolCap(s) && !(useUp && poolUsed(s, batchOf(x, s)) <= poolUsed(s) + freed)) return 'full';
   return null;
 }
 
@@ -2556,11 +2572,12 @@ export function setAutoCraft(s: P1State, slot: number, on: boolean): void {
 /** 1 ロットでできる数。s を渡すとスキル（ロットの改善：基礎の商品 +1・共通の型：アンコモン +1）も入る */
 export const batchOf = (x: Sku, s?: P1State) => {
   const [k, r] = skuParts(x);
-  const base = r === 'U' ? Math.ceil(PRODUCT[k].batch / 2) : PRODUCT[k].batch;
+  // 段 SALES1：1 ロットの数は SALES1.units 倍（アンコモンは前の数の半分を切り上げてから掛ける）
+  const base = r === 'U' ? unitsX(Math.ceil(PRODUCT[k].batch / SALES1.units / 2)) : PRODUCT[k].batch;
   if (!s) return base;
   const tech = PRODUCT[k].tech;
-  // ロットの改善・汎用のロット（基礎の商品）・共通の型（アンコモン）・技の Lv2 から（その技の商品）
-  return base + (r === 'C' && !tech ? lvOf(s, 'lot') + Math.round(fxSum(s, 'lot')) : 0) + (r === 'U' ? lvOf(s, 'mold') : 0) + (tech ? upOf(s, techSkill(tech), 1) : 0);
+  // ロットの改善・汎用のロット（基礎の商品）・共通の型（アンコモン）・技の Lv2 から（その技の商品）。足し分も SALES1.units 倍
+  return base + unitsX((r === 'C' && !tech ? lvOf(s, 'lot') + Math.round(fxSum(s, 'lot')) : 0) + (r === 'U' ? lvOf(s, 'mold') : 0) + (tech ? upOf(s, techSkill(tech), 1) : 0));
 };
 
 export const craftDays = (s: P1State, x: Sku) =>
@@ -2575,7 +2592,8 @@ export const unitCost = (s: P1State, x: Sku) => Object.entries(recipeOf(x)).redu
 
 // ---------------------------------------------------------------- 商品開発
 
-export const devCost = (key: string) => Math.round(PRODUCT[key].price * DEV.rate);
+/** 商品開発の費用（段 SALES1 の前の値段で数える：必要なお金は前のまま） */
+export const devCost = (key: string) => Math.round(basePrice(PRODUCT[key]) * DEV.rate);
 /** 商品開発の日数（魔法の釜の Lv2 から −20% ずつ） */
 export const devDays = (s: P1State) => Math.max(1, Math.round(DEV.days * Math.max(0.2, 1 - upOf(s, 'pot', 0.2))));
 export function develop(s: P1State, key: string): string | null {
@@ -2703,7 +2721,7 @@ export function missionMet(s: P1State, id: string): boolean {
     case 'first_sale':
       return Object.values(s.monthUnits).some((n) => (n ?? 0) > 0) || s.reports.some((r) => r.revenue > 0);
     case 'sensu100':
-      return (s.monthUnits.Sensu ?? 0) >= 15;
+      return (s.monthUnits.Sensu ?? 0) >= MISSION_UNITS.sensu100;
     case 'ad':
       return ADS.some((a) => (s.ads[a.id] ?? 0) > 0);
     case 'two_shops':
@@ -2718,9 +2736,9 @@ export function missionMet(s: P1State, id: string): boolean {
     case 'research':
       return Object.keys(s.intel).some((r) => intelLv(s, r) >= 1);
     case 'lantern50':
-      return (s.monthUnits.Lantern ?? 0) >= 10;
+      return (s.monthUnits.Lantern ?? 0) >= MISSION_UNITS.lantern50;
     case 'uncommon':
-      return s.unitsU >= 5;
+      return s.unitsU >= MISSION_UNITS.uncommon;
     case 'rank3':
       return s.reports.some((r) => r.rank <= 3);
   }
@@ -2732,9 +2750,9 @@ export function missionMet(s: P1State, id: string): boolean {
   if (m?.dig != null) return (s.research?.[m.dig] ?? 0) >= 1;
   switch (id) {
     case 'c3_knife':
-      return (s.monthUnits.Knife ?? 0) >= 10;
+      return (s.monthUnits.Knife ?? 0) >= MISSION_UNITS.c3_knife;
     case 'c2_goblet':
-      return (s.monthUnits.Goblet ?? 0) >= 10;
+      return (s.monthUnits.Goblet ?? 0) >= MISSION_UNITS.c2_goblet;
     case 'u1_dev':
       return s.dev.length >= 1;
     case 'u3_ads':
@@ -2769,19 +2787,19 @@ export function accept(s: P1State, id: string): string | null {
 export function missionProgress(s: P1State, id: string): [number, number] | null {
   switch (id) {
     case 'sensu100':
-      return [Math.min(15, s.monthUnits.Sensu ?? 0), 15];
+      return [Math.min(MISSION_UNITS.sensu100, s.monthUnits.Sensu ?? 0), MISSION_UNITS.sensu100];
     case 'lantern50':
-      return [Math.min(10, s.monthUnits.Lantern ?? 0), 10];
+      return [Math.min(MISSION_UNITS.lantern50, s.monthUnits.Lantern ?? 0), MISSION_UNITS.lantern50];
     case 'uncommon':
-      return [Math.min(5, s.unitsU), 5];
+      return [Math.min(MISSION_UNITS.uncommon, s.unitsU), MISSION_UNITS.uncommon];
     case 'two_shops':
       return [Math.min(2, myShops(s).length), 2];
     case 'm_relief':
       return [Math.min(2, s.staff.filter((x) => x.task === 'buy').length), 2];
     case 'c3_knife':
-      return [Math.min(10, s.sector === 'c3' ? (s.monthUnits.Knife ?? 0) : 0), 10];
+      return [Math.min(MISSION_UNITS.c3_knife, s.sector === 'c3' ? (s.monthUnits.Knife ?? 0) : 0), MISSION_UNITS.c3_knife];
     case 'c2_goblet':
-      return [Math.min(10, s.sector === 'c2' ? (s.monthUnits.Goblet ?? 0) : 0), 10];
+      return [Math.min(MISSION_UNITS.c2_goblet, s.sector === 'c2' ? (s.monthUnits.Goblet ?? 0) : 0), MISSION_UNITS.c2_goblet];
   }
   return null;
 }
@@ -3228,8 +3246,9 @@ export interface Offer {
 
 /**
  * 商品 key について、お店ごとのひと月に来るお客さんの数（個）。
- * 住む場所ごとに、会社ごとの「いちばん来やすいお店」の強さで会社を選び（同じ会社のお店が近くに何軒あっても強さは足されない）、
- * 選んだ会社のお店のあいだでは、来やすさに応じて分かれる。だから同じ所に自社のお店を固めても、お客さんは増えず取り合いになる。
+ * 住む場所ごとに、会社ごとの「いちばん来やすいお店」の強さで会社を選び、選んだ会社のお店のあいだでは、来やすさに応じて分かれる。
+ * 段 SALES1：自社のお店が 2 軒以上なら、重なった所の引きを SALES1.overlap だけ足し合わせ（ドミナント出店で全部）、通りがかりの客（SALES1.walk）は
+ * お店ごとに他社とだけ比べる（splitHome）。同じ所に自社のお店を固めると取り合いは残るが、前（いちばん来やすい 1 軒ぶんだけ）よりは増える。
  */
 export function capture(s: P1State, key: string, offers: Offer[]): number[] {
   // Rare の町 ②：店ごとの商圏（距離の重みが強く、その商品を売らない他社の店もお客さんを引き寄せる）
@@ -3245,6 +3264,11 @@ export function capture(s: P1State, key: string, offers: Offer[]): number[] {
   const meMul = (1 + 0.1 * lvMul(s, 'order') + fxSum(s, 'demand')) * visitMul(s);
   const w = offers.map(() => 0);
   const groups = [...new Set(offers.map((o) => o.g))];
+  // 段 SALES1：自社のお店どうしの商圏の重なりは、引きを overlap だけ足し合わせる（同じお店の棚は 1 軒ぶん）・通りがかりの客（walk）は取り合わない
+  const ov = overlapOf(s);
+  const walk = SALES1.walk;
+  const ml = meLocs(offers);
+  const H = homeBuf(offers.length, ml.n);
   for (const k of list) {
     const dk = (demand * k.pop) / total;
     offers.forEach((o, n) => {
@@ -3252,23 +3276,85 @@ export function capture(s: P1State, key: string, offers: Offer[]): number[] {
       // EC サイト：自社のお店は遠いお客さんにも届く（届き方が最低 ecFloor）
       w[n] = o.w * (o.g === 'me' && ec ? Math.max(ecFloor, r0) : r0);
     });
-    let sum = MARKET.outside;
-    const gmax: Record<string, number> = {};
-    const gsum: Record<string, number> = {};
-    for (const g of groups) {
-      gmax[g] = 0;
-      gsum[g] = 0;
-    }
+    splitHome(offers, w, groups, ml, ov, walk, H);
     offers.forEach((o, n) => {
-      gmax[o.g] = Math.max(gmax[o.g], w[n]);
-      gsum[o.g] += w[n];
-    });
-    for (const g of groups) sum += gmax[g];
-    offers.forEach((o, n) => {
-      if (gsum[o.g] > 0) out[n] += ((dk * gmax[o.g]) / sum) * (w[n] / gsum[o.g]) * (o.g === 'me' ? meMul : 1);
+      if (H.frac[n] > 0) out[n] += dk * H.frac[n] * (o.g === 'me' ? meMul : 1);
     });
   }
   return out;
+}
+
+/**
+ * 段 SALES1：自社のお店どうしの商圏の重なりで、引きをどれだけ足し合わせるか（0＝いちばん来やすい 1 軒ぶんだけ＝前の取り合い・1＝全部足す）。
+ * ふだんは SALES1.overlap（序盤から少し足し合わせる）。ドミナント出店（sa_dominant）で 1（取り合わない）
+ */
+export const overlapOf = (s: P1State) => (has(s, 'sa_dominant') ? 1 : SALES1.overlap);
+/** 自社の offers の場所の番号（同じマスの棚は同じお店＝1 軒として数える。他社は −1）と、場所の数 */
+function meLocs(offers: Offer[]): { loc: number[]; n: number } {
+  const ids = new Map<string, number>();
+  const loc = offers.map((o) => {
+    if (o.g !== 'me') return -1;
+    const key = `${o.i},${o.j}`;
+    let v = ids.get(key);
+    if (v == null) ids.set(key, (v = ids.size));
+    return v;
+  });
+  return { loc, n: ids.size };
+}
+/** 1 つの住む場所を分けるときの作業用の入れ物（offers ごとの割合・会社ごと・自社のお店ごと） */
+interface HomeBuf {
+  frac: number[];
+  gmax: Record<string, number>;
+  gsum: Record<string, number>;
+  locMax: number[];
+  locSum: number[];
+}
+const homeBuf = (n: number, locs: number): HomeBuf => ({ frac: new Array<number>(n).fill(0), gmax: {}, gsum: {}, locMax: new Array<number>(locs).fill(0), locSum: new Array<number>(locs).fill(0) });
+/**
+ * 段 SALES1：1 つの住む場所のお客さんを、お店（offers）ごとに分ける割合（H.frac。合計は 1 − 買わない）。w：来やすさ × 強さ。
+ * - 争う客（1 − walk）：会社ごとの強さで会社を選び、会社の中は来やすさで分ける。他社の強さはいちばん来やすい店、
+ *   自社の強さは「いちばん来やすいお店 ＋ ov ×（お店ごとのいちばん強い棚の合計 − いちばん来やすいお店）」（同じお店の棚は 1 軒ぶん）。
+ * - 通りがかりの客（walk）：自社のお店ごとに、そのお店だけを他社と比べる（自社のほかのお店とは取り合わない）。他社の取り分は、自社のいちばん来やすいお店と比べたとき。
+ * 自社のお店が 1 軒（か無い）なら、どちらも前の式（会社ごとのいちばん来やすい店で選ぶ）とまったく同じ
+ */
+function splitHome(offers: Offer[], w: number[], groups: string[], ml: { loc: number[]; n: number }, ov: number, walk: number, H: HomeBuf) {
+  const { frac, gmax, gsum, locMax, locSum } = H;
+  for (const g of groups) gmax[g] = gsum[g] = 0;
+  for (let n = 0; n < offers.length; n++) {
+    const g = offers[n].g;
+    if (w[n] > gmax[g]) gmax[g] = w[n];
+    gsum[g] += w[n];
+  }
+  const m = gmax.me ?? 0;
+  const many = ml.n > 1 && m > 0;
+  let meStr = m;
+  if (many) {
+    locMax.fill(0);
+    locSum.fill(0);
+    for (let n = 0; n < offers.length; n++) {
+      const L = ml.loc[n];
+      if (L < 0) continue;
+      if (w[n] > locMax[L]) locMax[L] = w[n];
+      locSum[L] += w[n];
+    }
+    let all = 0;
+    for (const v of locMax) all += v;
+    meStr = m + ov * (all - m);
+  }
+  let others = MARKET.outside;
+  for (const g of groups) if (g !== 'me') others += gmax[g];
+  const sum = others + meStr;
+  const wk = many ? walk : 0;
+  for (let n = 0; n < offers.length; n++) {
+    const g = offers[n].g;
+    frac[n] = 0;
+    if (gsum[g] <= 0) continue;
+    if (g === 'me') {
+      frac[n] = (1 - wk) * (meStr / sum) * (w[n] / gsum.me);
+      const L = ml.loc[n];
+      if (wk > 0 && locSum[L] > 0) frac[n] += wk * (locMax[L] / (locMax[L] + others)) * (w[n] / locSum[L]);
+    } else frac[n] = ((1 - wk) * (gmax[g] / sum) + wk * (gmax[g] / (m + others))) * (w[n] / gsum[g]);
+  }
 }
 
 /** Uncommon・Rare の他社の強さ（発掘 v2 の 8 段目・Rare の町 ①。data.ts の RIVAL_TUNE）。Common（と、まだ雲の向こうの上のランク）は null＝今までどおり */
@@ -3392,14 +3478,18 @@ function areaFrac(s: P1State, offers: AreaOffer[]): number[] {
   const out = offers.map(() => 0);
   if (!offers.length) return out;
   const { list, total } = sources(s);
-  const dom = has(s, 'sa_dominant');
+  // 段 SALES1：自社のお店どうしの重なりは overlap だけ足し合わせる（ドミナント出店で 1＝全部）・通りがかりの客は取り合わない
+  const ov = overlapOf(s);
+  const walk = SALES1.walk;
+  const ml = meLocs(offers);
+  const H = homeBuf(offers.length, ml.n);
   const ec = has(s, 'ec');
   const ecFloor = Math.min(1, MARKET_EC.floor * lvMul(s, 'ec'));
   const road = roadMul(s);
   const d0 = AR(s).d0;
   // 同じ入力（お客さんの住む場所・店の位置と強さ・ドミナント・EC・ロードサイド）なら同じ答え：覚えておく（経営会議の打ち手の見込みで、
   // パネルを 1 枚ずつ写しに当てるとき、売り場に効かないパネルは同じ計算になる）。答えはまったく同じ
-  const key = !AREA_MEMO.on ? '' : `${+dom}${+ec}|${ecFloor}|${road}|${d0}|${offers.map((o) => `${o.i},${o.j},${o.w},${o.g}`).join(';')}`;
+  const key = !AREA_MEMO.on ? '' : `${ov}|${walk}|${+ec}|${ecFloor}|${road}|${d0}|${offers.map((o) => `${o.i},${o.j},${o.w},${o.g}`).join(';')}`;
   let memo = AREA_MEMO.on ? fracMemo.get(list) : undefined;
   if (AREA_MEMO.on && !memo) fracMemo.set(list, (memo = new Map()));
   const hit = memo?.get(key);
@@ -3408,25 +3498,14 @@ function areaFrac(s: P1State, offers: AreaOffer[]): number[] {
   memo?.set(key, out);
   const w = offers.map(() => 0);
   const groups = [...new Set(offers.map((o) => o.g))];
-  const gmax: Record<string, number> = {};
-  const gsum: Record<string, number> = {};
   for (const k of list) {
     offers.forEach((o, n) => {
       const d = Math.abs(o.i - k.i) + Math.abs(o.j - k.j);
       const r0 = reachR(o.g === 'me' ? d / road : d, d0);
       w[n] = o.w * (o.g === 'me' && ec ? Math.max(ecFloor, r0) : r0);
     });
-    for (const g of groups) gmax[g] = gsum[g] = 0;
-    offers.forEach((o, n) => {
-      gmax[o.g] = Math.max(gmax[o.g], w[n]);
-      gsum[o.g] += w[n];
-    });
-    const str = (g: string) => (g === 'me' && dom ? gsum[g] : gmax[g]);
-    let sum = MARKET.outside;
-    for (const g of groups) sum += str(g);
-    offers.forEach((o, n) => {
-      if (gsum[o.g] > 0) out[n] += (k.pop / total) * (str(o.g) / sum) * (w[n] / gsum[o.g]);
-    });
+    splitHome(offers, w, groups, ml, ov, walk, H);
+    for (let n = 0; n < offers.length; n++) if (H.frac[n] > 0) out[n] += (k.pop / total) * H.frac[n];
   }
   return out.slice();
 }
@@ -3982,7 +4061,7 @@ export function step(s: P1State): DayResult {
   // （数えるのは、どこかのお店の棚に並べている商品だけ。並べなくなった商品の売れ残りでは止めない）
   const onShelf = new Set(myShops(s).flatMap((b) => s.shops[b.uid]?.shelves ?? []));
   const waiting = (Object.entries(s.stock) as [Sku, number][]).reduce((a, [x, n]) => a + (onShelf.has(x) ? n ?? 0 : 0), 0);
-  const backlog = waiting >= Math.max(20, 2 * cartCap(s) * cartsOf(s) * Math.max(1, haulersN));
+  const backlog = waiting >= Math.max(unitsX(20), 2 * cartCap(s) * cartsOf(s) * Math.max(1, haulersN));
   if (!s.buyTrip && ws0 && shopB && !backlog) {
     const st = s.staff.find((x) => x.task === 'buy' && !x.resting);
     const days = st ? buyDays(s, st) : null;
@@ -4217,6 +4296,8 @@ export function step(s: P1State): DayResult {
       }
     }
     sh.dcarry = moved > 0 ? Math.min(0.99, cap - Math.floor(cap)) : 0;
+    // 段 SALES1：お店の月の数（売れた・逃した）を数えた日数
+    (sh.mu ??= { sold: 0, miss: 0, days: 0 }).days++;
     const open = (st && !st.resting) || sh.part > 0;
     // 段 UI5a（お店の自走）：店長が休んだ日。従業員が 2 人以上なら従業員で営業、足りなければ閉まる（1 人ならレジの手伝いだけ）
     if (st && st.resting) {
@@ -4243,9 +4324,14 @@ export function step(s: P1State): DayResult {
     const mine = s.holdSales ? [] : myOffers(s, p.key, true);
     const rv = rivalOffers(s, p.key);
     const month = capture(s, p.key, [...mine, ...rv]);
+    // 段 SALES1：棚が空の棚に来るはずだったお客さん（逃した数の見込み。売れ方は変えない・お店の吹き出しと販売管理の棒だけ）
+    if (!s.holdSales) missEmpty(s, p.key, rv);
     mine.forEach((o, n) => {
       const want = month[n] / DAYS + (o.sh.carry[o.x] ?? 0);
       const sold = Math.min(Math.floor(want), o.sh.shelf[o.x] ?? 0);
+      const mu = (o.sh.mu ??= { sold: 0, miss: 0, days: 0 });
+      mu.sold += sold;
+      if (Math.floor(want) > sold) mu.miss += Math.floor(want) - sold;
       o.sh.carry[o.x] = Math.min(1, want - sold);
       o.sh.shelf[o.x] = (o.sh.shelf[o.x] ?? 0) - sold;
       const unit = priceAt(s, o.x, o.sh);
@@ -4482,7 +4568,7 @@ export function endMonth(s: P1State): Report {
   };
   // 段 UI7f：月末の倉庫の中身（倉庫があふれる先の見込み・倉庫の提案のグラフ）
   {
-    const goods = sum(s.stock);
+    const goods = Math.ceil(goodsRoom(sum(s.stock)) - 1e-9);
     report.pool = { mats: Math.round(poolUsed(s) - goods), goods: Math.round(goods), cap: poolCap(s), day: s.day, at: s.sector ?? 'c1' };
   }
   // 被災した町の復興（ほかのセクタ。まだ廃墟が残っている町と、先月に直し終えた町）
@@ -4663,6 +4749,9 @@ export function endMonth(s: P1State): Report {
   s.proc.bought = 0;
   for (const sh of Object.values(s.shops)) {
     sh.rev = 0;
+    // 段 SALES1：お店の月の数（売れた・逃した）を先月へ
+    sh.muLast = sh.mu ?? null;
+    sh.mu = { sold: 0, miss: 0, days: 0 };
     // お店の自走の数え（月次の提案「休む日に店を回す人がいません」は締めのあとのカード。cardsMonth が先に読む）
     sh.selfLast = sh.self ?? 0;
     sh.offLast = sh.off ?? 0;
@@ -5395,7 +5484,8 @@ export function sellEstimate(s: P1State, key: string, r: Rar = 'C'): number {
 
 /**
  * 需要から取れる数（並べている商品ごとに、エリアの需要を家ごとに自社と他社で取り合った自社の取り分の合計）。
- * capture は家ごとに「自社のいちばん来やすいお店 1 軒」の強さで会社を選ぶので、同じ商圏に同じ商品のお店・棚を足しても増えない。
+ * capture は家ごとに「自社のいちばん来やすいお店」の強さで会社を選ぶので、同じお店に同じ商品の棚を足しても増えない（段 SALES1：別のお店なら
+ * 重なりの足し合わせ・通りがかりの客のぶん増える）。
  * mul：自社の売り場の強さに掛ける倍率（打ち手の見込み用）
  */
 function potentialOf(s: P1State, mul = 1) {
@@ -5457,7 +5547,7 @@ function displayRate(s: P1State, b: PBuilding, sh: ShopState, clerk: Staff | nul
   const base = (clerk ? SHOP.displayPerDay * speed(clerk, 'shop', s) * u : 0) + sh.part * SHOP.partTimeDisplay;
   // 開いている日の割合（アルバイトがいればいつも。店員だけなら稼働率）
   const open = sh.part > 0 ? 1 : clerk ? u : 0;
-  return base * (1 + 0.3 * invLv(b, 'fixtures')) * (1 + 0.5 * lvMul(s, 'display') + fxSum(s, 'display')) + 2 * lvMul(s, 'hours') * open;
+  return base * (1 + 0.3 * invLv(b, 'fixtures')) * (1 + 0.5 * lvMul(s, 'display') + fxSum(s, 'display')) + unitsX(2) * lvMul(s, 'hours') * open;
 }
 /** お店 1 軒の 1 日の品出しの数（いつもの体制：店員は稼働率ぶん。uptime） */
 export function displayPerDayOf(s: P1State, b: PBuilding): number {
@@ -5487,6 +5577,56 @@ export function shopEstimates(s: P1State): Record<number, number> {
     out[b.uid] = Math.round(Math.min(n, cap));
   }
   return out;
+}
+
+/** 段 SALES1：お店 1 軒の売れ方の内訳（ひと月の個数）。sold：需要から取れる数（棚に並んでいるとして）・alone：自社のお店がこの 1 軒だけなら取れた数・lost：自社のほかのお店に取られた数（alone − sold） */
+export interface ShopSplit {
+  sold: number;
+  alone: number;
+  lost: number;
+}
+/**
+ * 段 SALES1：お店ごとの「自社どうしの取り合い」（uid → 内訳）。商品ごとに、自社の棚を全部並べたときの取り分と、
+ * そのお店の棚だけ（他社はそのまま）のときの取り分を比べる。店員がいる日（いつもの体制）として数える。純粋関数
+ */
+export function shopSplit(s: P1State): Record<number, ShopSplit> {
+  const out: Record<number, ShopSplit> = {};
+  for (const b of myShops(s)) if (s.shops[b.uid]) out[b.uid] = { sold: 0, alone: 0, lost: 0 };
+  for (const p of productsOf(s)) {
+    const mine = myOffers(s, p.key, false);
+    if (!mine.length) continue;
+    const rv = rivalOffers(s, p.key);
+    const all = capture(s, p.key, [...mine, ...rv]);
+    const uids = [...new Set(mine.map((o) => o.b.uid))];
+    for (const uid of uids) {
+      const own = mine.filter((o) => o.b.uid === uid);
+      const solo = uids.length > 1 ? capture(s, p.key, [...own, ...rv]) : null;
+      mine.forEach((o, n) => {
+        if (o.b.uid !== uid) return;
+        out[uid].sold += all[n];
+      });
+      out[uid].alone += solo ? own.reduce((a, _, n) => a + solo[n], 0) : own.reduce((a, o) => a + all[mine.indexOf(o)], 0);
+    }
+  }
+  for (const v of Object.values(out)) v.lost = Math.max(0, v.alone - v.sold);
+  return out;
+}
+/** 段 SALES1：自社どうしの取り合いの割合（取られた数 ÷ 1 軒だけなら取れた数の合計。お店が 1 軒なら 0） */
+export function cannibalRate(s: P1State, split = shopSplit(s)): number {
+  const v = Object.values(split);
+  const alone = v.reduce((a, x) => a + x.alone, 0);
+  return alone > 0 ? v.reduce((a, x) => a + x.lost, 0) / alone : 0;
+}
+
+/** 段 SALES1：その日、棚が空の自社の棚（店員がいる日として）に来るはずだったお客さんを、そのお店の「逃した数」に足す（売れ方は変えない） */
+function missEmpty(s: P1State, key: string, rv: Offer[]) {
+  const all = myOffers(s, key, false);
+  if (!all.some((o) => (o.sh.shelf[o.x] ?? 0) <= 0)) return;
+  const m = capture(s, key, [...all, ...rv]);
+  all.forEach((o, n) => {
+    if ((o.sh.shelf[o.x] ?? 0) > 0) return;
+    (o.sh.mu ??= { sold: 0, miss: 0, days: 0 }).miss += m[n] / DAYS;
+  });
 }
 
 // ---------------------------------------------------------------- ④ 販売の内訳（SCM ダッシュボード）
@@ -5613,7 +5753,7 @@ export interface WhatIf {
   /** 販売の数字（需要から取れる数と処理力の小さいほう）の増え方（個／月）と、売上の増え方（G／月） */
   units: number;
   yen: number;
-  /** 効き目が +2 個以上（それ未満は「いまは効かない」） */
+  /** 効き目が +2 個以上（段 SALES1 で unitsX(2)。それ未満は「いまは効かない」） */
   ok: boolean;
   /** goods：並べる商品・お店・棚（replace：入れ替え） */
   key?: string;
@@ -5646,7 +5786,7 @@ export function sellWhatIf(s: P1State): WhatIf[] {
   const out: WhatIf[] = [];
   const add = (w: Omit<WhatIf, 'units' | 'yen' | 'ok'>, after: { units: number; yen: number }) => {
     const units = after.units - base.units;
-    out.push({ ...w, units, yen: after.yen - base.yen, ok: units >= 2 });
+    out.push({ ...w, units, yen: after.yen - base.yen, ok: units >= unitsX(2) });
   };
   const shops = myShops(s).filter((b) => s.shops[b.uid]?.shelves.some((x) => x));
   const served = shops.filter((b) => s.shops[b.uid].staff != null || s.shops[b.uid].part > 0);
@@ -5752,7 +5892,8 @@ export function buyTripMonth(s: P1State, st: Staff): number {
   const cap = poolCap(s);
   const used = new Set(procMats(s).map((o) => o.m));
   const dead = (Object.entries(s.mats) as [Mat, number][]).reduce((a, [m, n]) => a + (used.has(m) ? 0 : n ?? 0), 0);
-  const perTrip = Math.max(0, (cap - dead - Math.min(cap / 2, cartCap(s))) / 2);
+  // 段 SALES1：出荷待ちの商品（荷車 1 便ぶん）は goodsRoom の枠で数える
+  const perTrip = Math.max(0, (cap - dead - Math.min(cap / 2, goodsRoom(cartCap(s)))) / 2);
   // 1 往復の量が置き場所で頭打ちのときは、休む前に休むあいだのぶんを先に買っておけないので、休みのぶん回数が減る（稼働率）
   return (uptime(s, st) * DAYS * perTrip) / days;
 }
@@ -5866,10 +6007,10 @@ export function stallOf(s: P1State): Stall | null {
       if (!bs.length) return { stage: 'buy', why: 'none' };
       if (bs.every((x) => x.resting)) return { stage: 'buy', why: 'rest', hero: bs[0].hero };
       if ([...need].some((m) => !hasRoute(s, m) && (s.mats[m] ?? 0) <= 0)) return { stage: 'buy', why: 'route' };
-      if (poolFree(s) <= 0) return goods > poolCap(s) * 0.3 && (!haulers.length || haulers.every((x) => x.resting)) ? { stage: 'haul', why: haulers.length ? 'rest' : 'none', hero: haulers[0]?.hero } : { stage: 'buy', why: 'full' };
+      if (poolFree(s) <= 0) return goodsRoom(goods) > poolCap(s) * 0.3 && (!haulers.length || haulers.every((x) => x.resting)) ? { stage: 'haul', why: haulers.length ? 'rest' : 'none', hero: haulers[0]?.hero } : { stage: 'buy', why: 'full' };
       if (s.money < cheapest) return { stage: 'buy', why: 'money' };
       if (procLeft(s) <= 0) return { stage: 'buy', why: 'cap' };
-      if (goods >= 20 && (!haulers.length || haulers.every((x) => x.resting))) return { stage: 'haul', why: haulers.length ? 'rest' : 'none', hero: haulers[0]?.hero };
+      if (goods >= unitsX(20) && (!haulers.length || haulers.every((x) => x.resting))) return { stage: 'haul', why: haulers.length ? 'rest' : 'none', hero: haulers[0]?.hero };
       // できた品が運ばれずにたまって、調達係が買い付けを控えている（運ぶのが追いつかない）
       if (goods >= 20) return { stage: 'haul', why: 'backlog' };
       return null;
@@ -5926,7 +6067,7 @@ export interface StageIf {
   move: StageMove;
   /** その段の数字（ひと月に流せる数）の増え方 */
   units: number;
-  /** 効き目が +1 個以上 */
+  /** 効き目が +1 個以上（段 SALES1 で unitsX(1)） */
   ok: boolean;
 }
 
@@ -5982,7 +6123,7 @@ export function whatIf(s: P1State, stage: Stage): StageIf[] {
     apply(c);
     const a = stageCaps(c, true, true)[stage];
     const units = (a.stopped ? 0 : a.perMonth) - b0;
-    if (units > 0.05) out.push({ stage, move, units, ok: units >= 1 });
+    if (units > unitsX(0.05)) out.push({ stage, move, units, ok: units >= unitsX(1) });
   };
   // 設備投資：その段に効く建物ごとに、段がいちばん低いものの次の段（作業台は、増えた台に人を置く）
   for (const x of Object.values(INVEST)) {
