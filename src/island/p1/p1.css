@@ -18057,7 +18057,7 @@ button.isl-tree-cond {
   gap: 6px;
   margin-top: 6px;
 }
-.isl-trade-row {
+.isl-imp-row {
   display: grid;
   gap: 4px;
 }
@@ -18084,7 +18084,7 @@ button.isl-tree-cond {
   color: #ffd2a0;
   font-size: 13px;
 }
-.isl-trade-head {
+.isl-imp-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -18094,7 +18094,10 @@ button.isl-tree-cond {
   background: rgba(255, 214, 90, 0.1);
   font-size: 13px;
 }
-.isl-trade-head span {
+.isl-imp-head > .isl-hero {
+  flex: 0 0 auto;
+}
+.isl-imp-head > .isl-imp-say {
   flex: 1 1 160px;
   min-width: 0;
 }

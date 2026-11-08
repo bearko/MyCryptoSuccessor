@@ -1342,8 +1342,8 @@ function tradeRows(ctx: Ctx, s: P1State, m: Mat, card: HTMLElement, picked: bool
   const hs = headSuggest(s, [m])[0];
   if (hs) {
     const nm = secDef(hs.from).name;
-    const say = h('div', 'isl-trade-head');
-    say.append(heroIcon(hs.hero, 36), h('span', '', t(`${heroName(hs.hero)}（物流の部長）「${MATS[m].name}は${nm}で買うと月 −${money(hs.save)}」`, `${heroName(hs.hero)} (Logistics head): “Buying ${MATS[m].name} in ${nm} saves ${money(hs.save)} a month”`)));
+    const say = h('div', 'isl-imp-head');
+    say.append(heroIcon(hs.hero, 36), h('span', 'isl-imp-say', t(`${heroName(hs.hero)}（物流の部長）「${MATS[m].name}は${nm}で買うと月 −${money(hs.save)}」`, `${heroName(hs.hero)} (Logistics head): “Buying ${MATS[m].name} in ${nm} saves ${money(hs.save)} a month”`)));
     say.append(
       btn(t('承認', 'Approve'), () => {
         setSource(s, m, hs.from);
@@ -1356,7 +1356,7 @@ function tradeRows(ctx: Ctx, s: P1State, m: Mat, card: HTMLElement, picked: bool
   for (const nb of nbs) {
     const p = importPrice(s, m, nb.id);
     const days = importLead(s, nb.id);
-    const row = h('div', 'isl-trade-row');
+    const row = h('div', 'isl-imp-row');
     row.append(tradeCmpEl({ name: nb.name, here: unitPrice(s, m), base: p.base, duty: p.duty, rate: dutyText(s, nb.id), days, cheap: cheapAt(nb.id, m) }));
     const acts = h('div', 'isl-row');
     const b = btn(t(`1 ロット取り寄せる（${money(p.unit * LOT)}）`, `Import 1 lot (${money(p.unit * LOT)})`), () => {
