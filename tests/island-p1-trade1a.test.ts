@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { SKILL, TRADE } from '../src/island/p1/data';
 import { pl, emptyLedger } from '../src/island/p1/company';
 import { costParts } from '../src/island/p1/dash';
-import { allowedDirs, assign, build, deserializeP1, newP1, openGate, orderFrom, serializeP1, setShelf, startCraft, step, unitPrice, type P1State } from '../src/island/p1/model';
+import { allowedDirs, assign, build, poolCap, poolFree, deserializeP1, newP1, openGate, orderFrom, serializeP1, setShelf, startCraft, step, unitPrice, type P1State } from '../src/island/p1/model';
 import { borderAt, borderDepot, cheapAt, crossRoute, dutyRate, dutyRateOf, headSuggest, importLead, importPrice, setSource, sourceCands, sourceOf, tradeNeighbors } from '../src/island/p1/tariff';
 
 function lot(s: P1State, id: string, ok: (i: number, j: number) => boolean = () => true): [number, number, 'rd' | 'ld' | 'lu' | 'ru'] {
@@ -214,6 +214,27 @@ describe('調達係（0 → 1 はプレイヤー）', () => {
     setSource(s, 'glass', c!.from);
     expect(sourceOf(s, 'glass')).toBe('c2');
     expect(sourceCands(s, ['glass'])).toEqual([]);
+  });
+});
+
+describe('置き場所', () => {
+  it('取り寄せ（納期が長いぶん量が多い）は、置き場所の空きを 1 日の量の割合までしか取らない（ほかの素材が買えなくならない）', () => {
+    const s = shop();
+    setSource(s, 'glass', 'c2');
+    s.mats = { glass: 0, iron: 0 };
+    s.orders = [];
+    // 物置の空きを 40 にする（使わない素材で埋める）
+    s.mats.paper = poolCap(s) - 40 - (poolCap(s) - poolFree(s) - (s.mats.glass ?? 0));
+    const free0 = poolFree(s);
+    expect(free0).toBeGreaterThan(0);
+    expect(free0).toBeLessThanOrEqual(40);
+    step(s);
+    const glass = (s.orders ?? []).filter((o) => o.from === 'c2' && o.m === 'glass').reduce((a, o) => a + o.qty, 0);
+    expect(glass).toBeGreaterThan(0);
+    // ランタンは鉄 2・ガラス 3：ガラスは空きの 6 割まで
+    expect(glass).toBeLessThanOrEqual(Math.ceil(free0 * 0.6));
+    // 鉄（この町の卸問屋）のぶんの空きが残る
+    expect(free0 - glass).toBeGreaterThan(0);
   });
 });
 

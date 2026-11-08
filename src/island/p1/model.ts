@@ -4128,15 +4128,19 @@ export function step(s: P1State): DayResult {
         // 段 TRADE1a：仕入れ先がとなり町の素材は、取り寄せの納期のぶんも先に（届くまでもつように）
         const src = sourceOf(s, m);
         const span = src ? importLead(s, src) + days + rest : 2 * days + rest;
-        return { m, src, want: Math.max(0, daily * span + lots - onHand) + (s.proc.carry[m] ?? 0) };
+        return { m, src, daily, want: Math.max(0, daily * span + lots - onHand) + (s.proc.carry[m] ?? 0) };
       });
-      for (const { m, src, want } of wants) {
+      // 段 TRADE1a：取り寄せは納期が長いぶん量が多いので、置き場所の空きは 1 日の量の割合までしか取らない
+      // （1 つの素材で物置が埋まり、ほかの素材が買えずに工房が止まらないように）
+      const free0 = free;
+      const dayAll = wants.reduce((a, x) => a + x.daily, 0);
+      for (const { m, src, daily, want } of wants) {
         let n = Math.floor(want);
         s.proc.carry[m] = want - n;
         // 段 TRADE1a：となり町の素材は問屋に取り寄せを頼む（荷は問屋の人が運んでくる。調達係は運ばない）
         if (src) {
           const p = importPrice(s, m, src);
-          n = Math.min(n, procLeft(s), free, Math.floor(s.money / Math.max(1, p.base + p.duty)));
+          n = Math.min(n, procLeft(s), free, Math.floor((free0 * daily) / Math.max(1e-9, dayAll)), Math.floor(s.money / Math.max(1, p.base + p.duty)));
           if (n <= 0 || importOrder(s, m, n, src, sp)) continue;
           free -= n;
           continue;
