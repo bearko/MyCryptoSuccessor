@@ -12,6 +12,7 @@ import { crowned, moveFee, moveTo } from '../../src/island/p1/land';
 import { delegate, rankUpTier, repairAll, reviveView } from '../../src/island/p1/reset';
 import { MEET_IDLE_DAYS } from '../../src/island/p1/digmeet';
 import { siteCandidates } from '../../src/island/p1/trade';
+import { cheaperImport, setSource, sourceOf } from '../../src/island/p1/tariff';
 import { HR_OFF, baseWage, charismaOf, moraleOf, payroll, talk, toMarket } from '../../src/island/p1/hr';
 import { ACCT_OFF, quarterNow, taxPlan, taxOn } from '../../src/island/p1/acct';
 import { fatigueAvg, fatigueMul, fatigueOf, gaOn } from '../../src/island/p1/ga';
@@ -379,6 +380,11 @@ export interface RunResult {
   v33?: { held: number; changed: number; slots: number; corp: number; dept: number; open: number; panels: number; slotLv: number };
   /** v37（段 S1：教え）：受け継いだ教えの数（型ごと）・提案の結果で残った数 */
   v37?: { n: number; prop: number; by: Record<string, number> };
+  /**
+   * v48（段 TRADE1a：となり町の取り寄せ）：ランクごとの取り寄せた数・届いた回数・払った関税・ここで買うのとの差（浮いたぶん）・
+   * その町の月の締めの素材代（素材 ＋ 関税）・仕入れ先をとなり町にした数
+   */
+  v48?: { byTier: Partial<Record<Tier, { qty: number; n: number; duty: number; save: number; mats: number }>>; src: number };
 }
 
 /**
@@ -664,6 +670,8 @@ const ok = (r: unknown) => r === null || r === true || (typeof r === 'object' &&
  */
 /** v25（段 UI1）：通常の方針がヒーローからの提案のカードを受ける（比べるときだけ止める） */
 export const SIM_CARDS = { on: true };
+/** v48（段 TRADE1a）：関税込みで安ければ、調達係の仕入れ先をとなり町に（off で段 TRADE1a の前と同じ通し：比べる用） */
+export const SIM_TRADE = { on: true };
 /**
  * 段 M1：宣伝のはしご。自動の判断（部長の提案・カード・いちばん効く宣伝・販売の手）に、解禁した上の段（駅のサイネージから）を出すか。
  * 通常・最短は段 1〜3 のまま（Sim の時間を変えない）。100% だけ解禁した段も候補に
@@ -1021,6 +1029,16 @@ export function policy(s: P1State, c: Ctx): Action[] {
       }
     }
   }
+
+  // ---- v48（段 TRADE1a）：関税込みでとなり町のほうが安い素材は、調達係の仕入れ先をとなり町に（安くなくなったら戻す）。
+  // c1 でガラス（ユーホタウン）・鉄（リデル・ヒルズ）、r2 で木材など。Common・Uncommon でもプレイヤーの手として打つ
+  if (SIM_TRADE.on && hasBuyer)
+    for (const { m } of procMats(s)) {
+      const cur = sourceOf(s, m);
+      const b = cheaperImport(s, m);
+      if (!cur && b) acts.push({ kind: 'trade', run: () => (setSource(s, m, b.id), null) });
+      else if (cur && (!b || b.id !== cur)) acts.push({ kind: 'trade', run: () => (setSource(s, m, b?.id ?? null), null) });
+    }
 
   // ---- 倉庫：置き場所が 85% を超えたら（2 棟まで）
   // v31（段 UI5d）：SIM_RACK_FIRST なら、建てる前にいまある倉庫を強化する（倉庫の提案の推奨と同じ。1 か月に 1 段。強化しきってから 2 棟目）
@@ -1528,6 +1546,15 @@ export function r2Spend(s: P1State, p: PolicyId): number {
 }
 /** v33（段 K）：経営方針を止めて回す（効き目・提案の傾向・発表会なし＝段 K の前と同じ。比べるためだけ。終わったら戻す） */
 /** 段 ST1・R2：RP の入り口（追試・展示館・研究の施策）と研究パネルの Lv を止めて回す（前の main と同じ流れで比べるテストだけ。終わったら戻す） */
+/** v48（段 TRADE1a）：となり町の取り寄せの手（関税込みで安ければ仕入れ先をとなり町に）を止めて回す（段 TRADE1a の前と同じ通し） */
+export function withoutTrade<T>(f: () => T): T {
+  SIM_TRADE.on = false;
+  try {
+    return f();
+  } finally {
+    SIM_TRADE.on = true;
+  }
+}
 export function withoutR2<T>(f: () => T): T {
   R2_OFF.on = true;
   try {
@@ -2533,6 +2560,21 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
     const d = step(s);
     // v32（段 I2）：経営会議は全部「推奨」で決める（画面の一括承認と同じ）
     if (boardDue(s)) boardAuto(s);
+    // v48（段 TRADE1a）：となり町の取り寄せの記録（届いた注文・月の締めの素材代）
+    {
+      const v = (res.v48 ??= { byTier: {}, src: 0 });
+      const tr = s.tier ?? 'C';
+      const x = (v.byTier[tr] ??= { qty: 0, n: 0, duty: 0, save: 0, mats: 0 });
+      for (const o of d.orders ?? [])
+        if (o.from) {
+          x.qty += o.qty;
+          x.n++;
+          x.duty += o.duty ?? 0;
+          x.save += o.save ?? 0;
+        }
+      if (d.report) x.mats += (d.report.costs.materials ?? 0) + (d.report.costs.duty ?? 0);
+      v.src = Math.max(v.src, Object.values(s.proc.from ?? {}).reduce((a, r) => a + Object.keys(r).length, 0));
+    }
     o.onDay?.(s, cur.id, d);
     cur.dig.auto += d.dug?.length ?? 0;
     // v18：任せ方の記録
@@ -3209,6 +3251,28 @@ export function tables(rep: Report2): string {
       if (!runs.length) continue;
       const v = (f: (x: NonNullable<RunResult['v37']>) => number) => mean(runs.map((r) => (r.v37 ? f(r.v37) : 0))).toFixed(1);
       out.push(`| ${POLICY_NAME[p]} | ${v((x) => x.n)} | ${v((x) => x.prop)} | ${LESSON_TYPES.map((k) => v((x) => x.by[k] ?? 0)).join(' | ')} |`);
+    }
+    out.push('');
+  }
+  // v48（段 TRADE1a）：となり町の取り寄せ
+  if (rep.runs.some((r) => r.v48)) {
+    out.push('### 表 28：となり町の取り寄せ（v48。段 TRADE1a）');
+    out.push('');
+    out.push(`シード ${seeds.join('・')} の平均と、シード 1。ランクごとに、となり町から届いた素材の数・払った関税・ここ（その町の卸問屋）で買ったときとの差（浮いたぶん）・その町の月の締めの素材代（素材 ＋ 関税）。「下がった割合」＝ 浮いたぶん ÷（素材代 ＋ 浮いたぶん）。自動プレイは関税込みで安い素材だけ、調達係の仕入れ先をとなり町にする（v48）。`);
+    out.push('');
+    out.push('| 方針 | ランク | 届いた数（回） | 関税（G） | 浮いたぶん（G） | 素材代（G） | 下がった割合 | シード 1：浮いたぶん／素材代（割合） |');
+    out.push('|---|---|---|---|---|---|---|---|');
+    const f = (v: number) => Math.round(v).toLocaleString('en-US');
+    const pct = (save: number, mats: number) => (mats + save > 0 ? `${((save / (mats + save)) * 100).toFixed(1)}%` : '—');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p && r.v48);
+      if (!runs.length) continue;
+      for (const tier of ['C', 'U', 'R', 'E'] as Tier[]) {
+        const g = (k: 'qty' | 'n' | 'duty' | 'save' | 'mats') => mean(runs.map((r) => r.v48?.byTier[tier]?.[k] ?? 0));
+        if (!g('mats') && !g('qty')) continue;
+        const one = runs.find((r) => r.seed === 1)?.v48?.byTier[tier];
+        out.push(`| ${POLICY_NAME[p]} | ${tier} | ${f(g('qty'))}（${g('n').toFixed(1)}） | ${f(g('duty'))} | ${f(g('save'))} | ${f(g('mats'))} | ${pct(g('save'), g('mats'))} | ${one ? `${f(one.save)}／${f(one.mats)}（${pct(one.save, one.mats)}）` : '—'} |`);
+      }
     }
     out.push('');
   }
