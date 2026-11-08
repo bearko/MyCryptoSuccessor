@@ -54,6 +54,8 @@ export interface Ledger {
   sales: number;
   /** 素材（売上原価） */
   mats: number;
+  /** 段 TRADE1a：となり町から取り寄せた素材の関税（売上原価に入れる。以前の帳簿には無い） */
+  duty?: number;
   wages: number;
   part: number;
   upkeep: number;
@@ -82,7 +84,7 @@ export interface Ledger {
   ma?: number;
 }
 export type LedgerKey = keyof Ledger;
-export const emptyLedger = (): Ledger => ({ sales: 0, mats: 0, wages: 0, part: 0, upkeep: 0, ads: 0, build: 0, fees: 0, side: 0, other: 0, managed: 0, museum: 0, levy: 0, grant: 0, tax: 0, legal: 0, ma: 0 });
+export const emptyLedger = (): Ledger => ({ sales: 0, mats: 0, duty: 0, wages: 0, part: 0, upkeep: 0, ads: 0, build: 0, fees: 0, side: 0, other: 0, managed: 0, museum: 0, levy: 0, grant: 0, tax: 0, legal: 0, ma: 0 });
 
 /** 月末の貸借対照表の材料 */
 export interface Balance {
@@ -124,7 +126,9 @@ export interface PL {
   l: Ledger;
 }
 export function pl(l: Ledger): PL {
-  const gross = l.sales - l.mats;
+  // 段 TRADE1a：関税は売上原価（素材 ＋ 関税）
+  const cogs = l.mats + (l.duty ?? 0);
+  const gross = l.sales - cogs;
   const sga = l.wages + l.part + l.upkeep + l.ads;
   const op = gross - sga;
   // 段 H2：法務の収支（使用料・賠償金 − 調査料・出願料・違約金・和解）も営業外
@@ -133,7 +137,7 @@ export function pl(l: Ledger): PL {
   // 段 H2：M&A の買収額も特別な支出（投資）
   const special = l.build + l.fees + (l.levy ?? 0) - (l.grant ?? 0) + (l.ma ?? 0);
   const tax = l.tax ?? 0;
-  return { sales: l.sales, cogs: l.mats, gross, sga, op, nonop, special, tax, net: op + nonop - special - tax, l };
+  return { sales: l.sales, cogs, gross, sga, op, nonop, special, tax, net: op + nonop - special - tax, l };
 }
 export function sumLedger(ls: Ledger[]): Ledger {
   const out = emptyLedger();

@@ -1024,6 +1024,25 @@ export const TOP_STREAK = 2;
 export const LETTER_NEED = 2;
 /** 物流拠点：工房 → 拠点はトラックの定期便（距離 × link）、拠点 → お店は荷車 */
 export const DEPOT = { link: 0.3 };
+/**
+ * 段 TRADE1a：となり町の問屋から素材を取り寄せる（関税・境の拠点）。数字はここ 1 か所。docs/ISLAND_PHASE1.md「となり町の取り寄せ」。
+ * - 取り寄せ先は同じ階層の上下左右の隣（出店済み・開放済み）。値段は相手の町の値段（相手の特産なら 20% 引き）×（1 ＋ 関税）。
+ * - 関税：出店済みの隣は base（12%）・まだ出店していない隣は unopened（18%）。パネル（cut）と境の拠点（border）で下げ、
+ *   下限は floor（2%。未出店は floor ＋（unopened − base）＝ 8%：未出店のほうが常に高い）。
+ * - 境の拠点：境界から edge マス以内の物流拠点。隣町からの荷はここに届き、境界から先は定期便のトラック（depotLink）。
+ * - lane：関所の優先レーン（Rare）で、境界の外を歩く日数 ×0.8。
+ * - rp：パネルの研究ポイント（近くのパネルに合わせる：物流拠点・クロスドッキング・自社トラック網と同じ。ほかのパネルの割り振りに入れない）。
+ */
+export const TRADE = {
+  base: 0.12,
+  unopened: 0.18,
+  floor: 0.02,
+  cut: { customs: 0.03, bonded: 0.03, lane: 0.02 } as Record<'customs' | 'bonded' | 'lane', number>,
+  border: 0.02,
+  edge: 3,
+  lane: 0.8,
+  near: { customs: 'hub', bonded: 'crossdock', lane: 'fleet' } as Record<'customs' | 'bonded' | 'lane', string>,
+};
 /** 棚・裏に置ける数と品出しの数は段 SALES1 の units 倍（unitsX） */
 export const SHOP = { shelfCap: unitsX(10), storageCap: unitsX(20), displayPerDay: unitsX(6), partTimeDisplay: unitsX(4), partTimeWage: 30, partTimeMax: 1, noStaff: 0 };
 /**
@@ -1341,6 +1360,10 @@ export const SKILLS: Skill[] = [
   { id: 'crossdock', branch: 'logi', name: t('クロスドッキング', 'Cross-docking'), note: t('工房 → 拠点の日数 ×0.3 → ×0.2', 'Workshop → hub days ×0.3 → ×0.2'), cost: 12000, requires: ['hub'], tier: 'U', emblem: 1 },
   { id: 'joint', branch: 'logi', name: t('共同配送', 'Shared deliveries'), note: t('運搬係 1 人が同時に出せる便 +1', 'Each hauler runs one more trip at once'), cost: 15000, requires: ['route_opt'], tier: 'U' },
   { id: 'fleet', branch: 'logi', name: t('自社トラック網', 'Own truck fleet'), note: t('運ぶ速さ ×1.3', 'Hauling speed ×1.3'), cost: 40000, requires: ['crossdock'], tier: 'R', emblem: 3 },
+  // 段 TRADE1a：関税を下げるパネル（となり町からの取り寄せ。数字は TRADE）
+  { id: 'customs', branch: 'logi', name: t('通関の手続き', 'Customs paperwork'), note: t('となり町から取り寄せる素材の関税 −3 ポイント（12% → 9%）', 'Duty on materials from next towns −3 points (12% → 9%)'), cost: 6000, requires: ['hub'] },
+  { id: 'bonded', branch: 'logi', name: t('保税の置き場', 'Bonded storage'), note: t('となり町から取り寄せる素材の関税 さらに −3 ポイント', 'Duty on materials from next towns another −3 points'), cost: 15000, requires: ['crossdock'], tier: 'U' },
+  { id: 'lane', branch: 'logi', name: t('関所の優先レーン', 'Priority border lane'), note: t('関税 さらに −2 ポイント・境界の外を歩く日数 −20%', 'Duty another −2 points; days walked outside the border −20%'), cost: 60000, requires: ['fleet'], tier: 'R' },
   { id: 'd_logi', branch: 'logi', name: t('配送センター', 'Distribution center'), note: t('運ぶ日数 −30%', 'Hauling −30% days'), cost: 0, big: true },
   // ---------------------------------------------------------------- ① 調達
   { id: 'route_cloth', branch: 'buy', name: t('布のルート', 'Cloth route'), note: t('布を買えるようになる', 'Lets you buy cloth'), cost: 2000 },
@@ -2367,7 +2390,7 @@ export const UI5_SKILLS = ['relief'];
     const P = RP_PRICE[tier];
     const round = (v: number) => Math.max(P.step, Math.round(v / P.step) * P.step);
     for (const b of new Set(SKILLS.map((k) => k.branch))) {
-      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && HR_RP[k.id] == null && ACCT_RP[k.id] == null && CSM_RP[k.id] == null && LEGAL_RP[k.id] == null && DT.rp[k.id] == null && UI5_RP[k.id] == null && POL_RP[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
+      const list = SKILLS.filter((k) => tierOf(k) === tier && k.branch === b && k.cat === 'research' && !k.big && !k.inf && !(k.id in TRADE.near) && HR_RP[k.id] == null && ACCT_RP[k.id] == null && CSM_RP[k.id] == null && LEGAL_RP[k.id] == null && DT.rp[k.id] == null && UI5_RP[k.id] == null && POL_RP[k.id] == null).sort((x, y) => dep(x) - dep(y) || x.cost - y.cost);
       list.forEach((k, i) => (k.rp = round(P.lo + ((P.hi - P.lo) * (list.length > 1 ? i : 0)) / Math.max(1, list.length - 1))));
       // 1 枚だけの枝は真ん中の値段
       if (list.length === 1) list[0].rp = round((P.lo + P.hi) / 2);
@@ -2375,6 +2398,8 @@ export const UI5_SKILLS = ['relief'];
     for (const k of SKILLS) if (tierOf(k) === tier && k.big) k.rp = P.big;
   }
   for (const [id, v] of Object.entries({ ...RP_FIXED, ...HR_RP, ...ACCT_RP, ...CSM_RP, ...LEGAL_RP, ...DT.rp, ...UI5_RP, ...POL_RP })) if (byId.get(id)) byId.get(id)!.rp = v;
+  // 段 TRADE1a：関税のパネルは近くのパネルと同じ研究ポイント（物流拠点・クロスドッキング・自社トラック網）
+  for (const [id, near] of Object.entries(TRADE.near)) if (byId.get(id) && byId.get(near)) byId.get(id)!.rp = byId.get(near)!.rp;
   // 発掘の枝の研究パネルはレベルが無い（開いたときの段は決まっている）ので、「先に要る Lv」（長期の発掘許可＝追加申請 Lv5 など）は外す。持っていればよい
   for (const k of SKILLS)
     if (k.reqLv) {

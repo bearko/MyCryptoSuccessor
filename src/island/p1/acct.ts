@@ -108,7 +108,7 @@ export function panelKind(id: string): DedKind {
  */
 export function monthBase(s: Pick<P1State, 'tier'>, l: Ledger | undefined, managedU = 0): number {
   if (!l) return managedU;
-  const here = (s.tier ?? 'C') !== 'C' ? l.sales - l.mats - l.wages - l.part - l.upkeep - l.ads + l.side + l.other + (l.museum ?? 0) + (l.legal ?? 0) : 0;
+  const here = (s.tier ?? 'C') !== 'C' ? l.sales - l.mats - (l.duty ?? 0) - l.wages - l.part - l.upkeep - l.ads + l.side + l.other + (l.museum ?? 0) + (l.legal ?? 0) : 0;
   return here + managedU;
 }
 /**
@@ -281,6 +281,8 @@ export function costRank(s: P1State, l: Ledger): CostRow[] {
   const sales = l.sales || 0;
   const rows: { key: string; name: string; v: number }[] = [
     { key: 'mats', name: t('素材（売上原価）', 'Materials (COGS)'), v: l.mats },
+    // 段 TRADE1a：となり町から取り寄せた素材の関税（売上原価）
+    { key: 'duty', name: t('関税（売上原価）', 'Duty (COGS)'), v: l.duty ?? 0 },
     { key: 'wages', name: t('給料', 'Wages'), v: l.wages },
     ...upkeepSplit(s).map((x) => ({ key: x.key, name: x.name, v: Math.round(l.upkeep * x.w) })),
     { key: 'part', name: t('アルバイト', 'Part-timers'), v: l.part },

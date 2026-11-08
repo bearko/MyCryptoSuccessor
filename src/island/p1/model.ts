@@ -138,6 +138,7 @@ import { cardsCompany, cardsDay, cardsMonth, type CardReport, type CardState } f
 import { acctMonth, deduct, panelKind, priceMul, type AcctState, type TaxRec } from './acct';
 import { fatigueMul } from './ga';
 import { csDay, csMonth, visitMul, type CsReport, type CsState } from './cs';
+import { canImport, importLead, importPrice, sourceOf } from './tariff';
 import { gradeArea, gradeHire, prNews } from './mkt';
 import { acqMonth, boughtHere, legalDay, legalMonth, maClose, noteGranted, patentBlocks, patentStopped, supplyCut, type LegalDay, type LegalReport, type LegalState, type TownMA } from './legal';
 import { evMul, evSales, takeEvYen, takeEventLog, activeFx, type ActiveFx, type EvLog, type EventState } from './events';
@@ -341,7 +342,8 @@ export interface Report {
   /** 段 R2：この月に入った RP（入り口ごと。研究ノートの縦の積み上げ棒。前の報告には無い） */
   rpSrc?: Partial<Record<RpSrc, number>>;
   bySeries: Partial<Record<string, number>>;
-  costs: { materials: number; wages: number; part: number; upkeep: number; build: number; ads: number };
+  /** duty：段 TRADE1a のとなり町の取り寄せの関税（取り寄せた月だけ。以前の報告には無い） */
+  costs: { materials: number; wages: number; part: number; upkeep: number; build: number; ads: number; duty?: number };
   profit: number;
   area: Rank[];
   rank: number;
@@ -841,6 +843,13 @@ export interface Order {
   total: number;
   /** 運んでくる問屋の人（ヒーロー） */
   courier: number;
+  /**
+   * 段 TRADE1a：となり町の問屋から取り寄せた注文（取り寄せ先のセクタ・払った関税・ここで買うのとの差（得したぶん。G））。
+   * 以前の注文には無い（この町の卸問屋から）
+   */
+  from?: string;
+  duty?: number;
+  save?: number;
 }
 
 export interface BuyTrip {
@@ -859,6 +868,11 @@ export interface Proc {
   extra: Mat[];
   qty: Partial<Record<Mat, { n: number; auto: boolean }>>;
   carry: Partial<Record<Mat, number>>;
+  /**
+   * 段 TRADE1a：調達係の仕入れ先（セクタ → 素材 → となり町のセクタ）。手で選んだものだけ（無ければこの町の卸問屋）。
+   * 町ごとに隣が違うのでセクタで分ける。以前のセーブには無い
+   */
+  from?: Record<string, Partial<Record<Mat, string>>>;
 }
 
 export const START_MONEY = 30000;
@@ -1958,13 +1972,16 @@ export function fitEquipment(s: P1State) {
 
 /** このセクタの特産（20% 安い素材） */
 export const isCheap = (s: P1State, m: Mat) => !!sectorProfile(s).cheap?.includes(m);
+/** 素材の値段の、会社のスキルで下がったぶんまで（特産・この町の仕入れの契約の前。丸めない）。段 TRADE1a：となり町の値段も同じ式から */
+export const matBase = (s: P1State, m: Mat) =>
+  MATS[m].price *
+  Math.max(
+    0.2,
+    cut(s, 'bulk', 0.15) * cut(s, 'bulk2', 0.1) * cut(s, 'b_partner', 0.15) * cut(s, 'abc', 0.05) * cut(s, 'contract', 0.05) * cut(s, 'direct', 0.1) * cut(s, 'd_buy', 0.1) * Math.max(0.2, 1 - upOf(s, `route_${m}`, 0.08)) * fxCut(s, 'matPrice'),
+  );
 export const matPrice = (s: P1State, m: Mat) =>
   Math.round(
-    MATS[m].price *
-      Math.max(
-        0.2,
-        cut(s, 'bulk', 0.15) * cut(s, 'bulk2', 0.1) * cut(s, 'b_partner', 0.15) * cut(s, 'abc', 0.05) * cut(s, 'contract', 0.05) * cut(s, 'direct', 0.1) * cut(s, 'd_buy', 0.1) * Math.max(0.2, 1 - upOf(s, `route_${m}`, 0.08)) * fxCut(s, 'matPrice'),
-      ) *
+    matBase(s, m) *
       (isCheap(s, m) ? CHEAP_RATE : 1) *
       // 段 H2：仕入れの契約（Epic の町。期間で −4〜10%・独占で −3% 足す）
       (1 - supplyCut(s)),
@@ -1978,7 +1995,7 @@ export const procBonus = (s: P1State) =>
 export const procLeft = (s: P1State) => Math.max(0, procCap(s) - s.proc.bought);
 
 /** 経験値を足して、ランクを上げる。上がったら新しいランクを返す */
-function procExp(s: P1State, exp: number): number | null {
+export function procExp(s: P1State, exp: number): number | null {
   const p = s.proc;
   const before = p.lv;
   p.exp += exp;
@@ -2062,6 +2079,33 @@ export function order(s: P1State, m: Mat, lots: number): string | null {
   return null;
 }
 
+/**
+ * 段 TRADE1a：となり町（from）の問屋に qty 個（ロットでなくてよい：調達係の分）取り寄せる。代金（相手の町の値段）と関税はいま払い、
+ * 納期（隣の問屋 → 境界 → 工房か境の拠点：trade.ts の importLead）に届く。月の上限・置き場所はこの町の注文と同じ。
+ * 関税は帳簿の duty（売上原価）。得したぶん（ここで買うのとの差）は注文に残す（自動プレイの記録・ニュース）
+ */
+export function importOrder(s: P1State, m: Mat, qty: number, from: string, gain = 1): string | null {
+  qty = Math.max(0, Math.round(qty));
+  if (!canImport(s, m, from)) return 'route';
+  if (qty <= 0) return null;
+  if (qty > procLeft(s)) return 'cap';
+  if (qty > poolFree(s)) return 'storage';
+  const p = importPrice(s, m, from);
+  const cost = (p.base + p.duty) * qty;
+  if (cost > s.money) return 'money';
+  s.money -= cost;
+  spend(s, 'materials', p.base * qty);
+  if (p.duty > 0) spend(s, 'duty', p.duty * qty);
+  s.proc.bought += qty;
+  procExp(s, (qty * gain + PROC.perBuy) * (1 + 0.5 * lvMul(s, 'eye')));
+  const days = importLead(s, from);
+  const id = (s.orders ?? []).reduce((a, o) => Math.max(a, o.id), 0) + 1;
+  (s.orders ??= []).push({ id, m, qty, left: days, total: days, courier: COURIERS[(id - 1) % COURIERS.length], from, duty: p.duty * qty, save: (unitPrice(s, m) - p.base - p.duty) * qty });
+  return null;
+}
+/** 段 TRADE1a：となり町に lots ロット取り寄せる（手の注文） */
+export const orderFrom = (s: P1State, m: Mat, lots: number, from: string) => importOrder(s, m, Math.max(0, Math.round(lots)) * LOT, from);
+
 /** 作りたいエクステ（指定が無ければ、作業台で作っているもの） */
 export const procItems = (s: P1State): Sku[] => (s.proc.items.length ? s.proc.items : [...new Set(s.slots.map((sl) => sl.sku).filter((x): x is Sku => !!x))]);
 
@@ -2070,7 +2114,8 @@ export function procMats(s: P1State): { m: Mat; from: 'item' | 'extra' }[] {
   const out: { m: Mat; from: 'item' | 'extra' }[] = [];
   for (const x of procItems(s)) for (const m of Object.keys(recipeOf(x)) as Mat[]) if (!out.some((o) => o.m === m)) out.push({ m, from: 'item' });
   for (const m of s.proc.extra) if (!out.some((o) => o.m === m)) out.push({ m, from: 'extra' });
-  return out.filter((o) => hasRoute(s, o.m));
+  // 段 TRADE1a：ルートが無くても、仕入れ先に選んだとなり町で買えれば（特産でルートが最初から開いている町）
+  return out.filter((o) => hasRoute(s, o.m) || !!sourceOf(s, o.m));
 }
 
 /**
@@ -4080,11 +4125,22 @@ export function step(s: P1State): DayResult {
         const manual = s.proc.qty[m] && !s.proc.qty[m]!.auto;
         const daily = (manual ? procQty(s, m) : Math.max(procQty(s, m), full[m] ?? 0)) / DAYS;
         const lots = s.slots.reduce((a, sl) => a + (sl.sku && sl.worker != null ? recipeOf(sl.sku)[m] ?? 0 : 0), 0);
-        return { m, want: Math.max(0, daily * (2 * days + rest) + lots - onHand) + (s.proc.carry[m] ?? 0) };
+        // 段 TRADE1a：仕入れ先がとなり町の素材は、取り寄せの納期のぶんも先に（届くまでもつように）
+        const src = sourceOf(s, m);
+        const span = src ? importLead(s, src) + days + rest : 2 * days + rest;
+        return { m, src, want: Math.max(0, daily * span + lots - onHand) + (s.proc.carry[m] ?? 0) };
       });
-      for (const { m, want } of wants) {
+      for (const { m, src, want } of wants) {
         let n = Math.floor(want);
         s.proc.carry[m] = want - n;
+        // 段 TRADE1a：となり町の素材は問屋に取り寄せを頼む（荷は問屋の人が運んでくる。調達係は運ばない）
+        if (src) {
+          const p = importPrice(s, m, src);
+          n = Math.min(n, procLeft(s), free, Math.floor(s.money / Math.max(1, p.base + p.duty)));
+          if (n <= 0 || importOrder(s, m, n, src, sp)) continue;
+          free -= n;
+          continue;
+        }
         n = Math.min(n, procLeft(s), free, Math.floor(s.money / Math.max(1, matPrice(s, m))));
         if (n <= 0) continue;
         if (buy(s, m, n, sp)) continue;
