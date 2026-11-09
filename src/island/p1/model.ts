@@ -4147,16 +4147,16 @@ export function step(s: P1State): DayResult {
         // 段 TRADE1a：仕入れ先がとなり町の素材は、取り寄せの納期のぶんも先に（届くまでもつように）
         const src = sourceOf(s, m);
         const span = src ? importLead(s, src) + days + rest : 2 * days + rest;
-        return { m, src, daily, want: Math.max(0, daily * span + lots - onHand) + (s.proc.carry[m] ?? 0) };
+        return { m, src, daily, have: onHand, want: Math.max(0, daily * span + lots - onHand) + (s.proc.carry[m] ?? 0) };
       });
       // 段 TRADE1a：取り寄せは納期が長いぶん量が多いので、置き場所の空きは 1 日の量の割合までしか取らない
       // （1 つの素材で物置が埋まり、ほかの素材が買えずに工房が止まらないように）
       const free0 = free;
       const dayAll = wants.reduce((a, x) => a + x.daily, 0);
-      // 段 TRADE1b：欲しい量の合計が置き場所の空きを超えるときは、この町の卸問屋の素材も 1 日の量の割合までにする
-      // （先に並んだ素材だけで物置が埋まり、ほかの素材が買えずに工房が止まらないように。計測 trade1b の 100% のシード 7 で、
+      // 段 TRADE1b：欲しい量の合計が置き場所の空きを超え、しかも手元に 1 個も無い素材があるときは、この町の卸問屋の素材も 1 日の量の割合までにする
+      // （先に並んだ素材だけで物置が埋まり、無い素材が買えずに工房が止まらないように。計測 trade1b の 100% のシード 7 で、
       // グリーン・マウスで木材・ガラス・鉄が物置を埋め、布・紙・宝石が買えずに 120 か月止まった）
-      const short = wants.reduce((a, x) => a + Math.floor(x.want), 0) > free0;
+      const short = wants.reduce((a, x) => a + Math.floor(x.want), 0) > free0 && wants.some((x) => x.want >= 1 && x.have < 1);
       for (const { m, src, daily, want } of wants) {
         let n = Math.floor(want);
         s.proc.carry[m] = want - n;
