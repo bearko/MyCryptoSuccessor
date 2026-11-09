@@ -1042,6 +1042,16 @@ export const TRADE = {
   edge: 3,
   lane: 0.8,
   near: { customs: 'hub', bonded: 'crossdock', lane: 'fleet' } as Record<'customs' | 'bonded' | 'lane', string>,
+  /**
+   * 段 TRADE1b：隣町の工房の商品を、境の拠点へ輸入する（feed.ts。docs/ISLAND_PHASE1.md「商品の輸入」）。
+   * - share：相手の町の離れた月の出来高（商品ごとの月の数）のうち、輸入できる割合（30%）。出したぶん相手の町の売上を減らす
+   * - goods：商品の関税（その商品の値段 × 8%）。素材と同じパネル（cut）・境の拠点（border）で下げ、下限 floor。未出店の隣は unopened − base だけ高い
+   * - labor：仕入れ値の「作業」のぶん（その商品の値段の 10%）。仕入れ値 ＝ 相手の町の素材代 ＋ 作業（相手の利益は入れない）
+   * - every：トラックが着く間隔（日）。1 回に受け取れる数は、境の拠点の置き場所（roomOf）まで
+   * - max：境の拠点 1 つ（となり町 1 つ）につき選べる品の数
+   * - swap：Rare の物流の部長が入れ替えを提案する差（いまの品より 1.2 倍以上この町で売れるとき）
+   */
+  feed: { share: 0.3, goods: 0.08, labor: 0.1, every: 7, max: 2, swap: 1.2 },
 };
 /** 棚・裏に置ける数と品出しの数は段 SALES1 の units 倍（unitsX） */
 export const SHOP = { shelfCap: unitsX(10), storageCap: unitsX(20), displayPerDay: unitsX(6), partTimeDisplay: unitsX(4), partTimeWage: 30, partTimeMax: 1, noStaff: 0 };

@@ -158,7 +158,8 @@ export function moveTo(s: P1State, target: string, manager: number | null): Move
   rec.manager = manager;
   // 離れたときの売上と費用（最後の月の報告）。まだ締めが無ければ、マネージャーの売上は 0
   const last = s.reports[s.reports.length - 1];
-  rec.base = last && last.revenue > 0 ? { rev: last.revenue, matRate: ((last.costs.materials ?? 0) + (last.costs.duty ?? 0)) / last.revenue, fixed: (last.costs.upkeep ?? 0) + (last.costs.part ?? 0) + (last.costs.ads ?? 0) } : undefined;
+  // 段 TRADE1b：離れた月の出来高（商品ごとの月の数）も覚える（となりの町が輸入するときの元。以前の報告には無い＝輸入の相手になれない）
+  rec.base = last && last.revenue > 0 ? { rev: last.revenue, matRate: ((last.costs.materials ?? 0) + (last.costs.duty ?? 0)) / last.revenue, fixed: (last.costs.upkeep ?? 0) + (last.costs.part ?? 0) + (last.costs.ads ?? 0), ...(last.units ? { units: { ...last.units } } : {}) } : undefined;
   if (!business) rec.base = undefined;
   // 段 M1：ランド・全店に効く宣伝は会社のもの（町の写しに入れず、行き先へ持っていく）
   const wide: Record<string, number> = {};

@@ -171,8 +171,11 @@ export interface SectorRec {
   manager?: number | null;
   /** 利益のうちそのセクタへ回す割合 */
   invest: number;
-  /** 離れたときの月の売上と費用（素材の割合・決まった費用） */
-  base?: { rev: number; matRate: number; fixed: number };
+  /**
+   * 離れたときの月の売上と費用（素材の割合・決まった費用）。
+   * units：段 TRADE1b の離れた月の出来高（商品ごとの月の数。月の報告の units。以前の記録には無い＝輸入の相手になれない）
+   */
+  base?: { rev: number; matRate: number; fixed: number; units?: Partial<Record<string, number>> };
   /** 回した投資の合計 */
   capital: number;
   /** マネージャーの月ごとの結果（新しいものが後ろ） */
@@ -184,6 +187,11 @@ export interface SectorRec {
   revive?: { fund: number; all: number; months: number; spent: number; doneAt?: number; out?: boolean; last?: number };
   /** セクター長の任せきり（段 D）：先月の会社の締めで、部長たちの提案を自分で承認した数と、投資に回した額（deleg.ts の sectorApprove） */
   heads?: { n: number; invest: number };
+  /**
+   * 段 TRADE1b：この町の工房の商品を、となりの町（to）の境の拠点へ輸入している品（feed.ts の FeedEntry：相手の町・商品・出した数・割合）。
+   * 出したぶん、この町の runSector の売上を減らす。以前の記録には無い
+   */
+  feed?: { to: string; sku: string; sent?: number; rep?: { n: number; duty: number }; share?: number }[];
 }
 
 export interface Land {
@@ -222,7 +230,7 @@ export const managerRate = (apt: number) => Math.max(MANAGER.min, Math.min(MANAG
  * セクタマネージャーのひと月：売上は離れたときの売上 × 適性の倍率 × ゆらぎ。費用は素材（売上に比例）と決まった費用。
  * 利益が出たら、invest の割合をそのセクタへ投資（以後の売上が伸びる）、残りを本社へ。赤字はそのまま本社が負う。
  */
-export function runSector(rec: SectorRec, st: Stats | null, m: number, rnd: () => number, bonus: { rate?: number; profit?: number; scale?: number } = {}): { rev: number; profit: number; invest: number; toHQ: number } {
+export function runSector(rec: SectorRec, st: Stats | null, m: number, rnd: () => number, bonus: { rate?: number; profit?: number; scale?: number; feed?: number } = {}): { rev: number; profit: number; invest: number; toHQ: number } {
   const base = rec.base;
   if (!base) return { rev: 0, profit: 0, invest: 0, toHQ: 0 };
   // 被災した町（発掘 v2 の 7 段目）：直ったお店の割合ぶんだけ（売上も決まった費用も）。全部直ったら 1
@@ -230,7 +238,9 @@ export function runSector(rec: SectorRec, st: Stats | null, m: number, rnd: () =
   // スキル：マネージャー研修（倍率 +0.1）
   const rate = (st ? managerRate(managerApt(st)) : MANAGER.none) + (bonus.rate ?? 0);
   const grow = 1 + (rec.capital * MANAGER.roi) / Math.max(1, base.rev);
-  const rev = Math.round(base.rev * scale * rate * grow * (1 + (rnd() * 2 - 1) * MANAGER.noise));
+  // 段 TRADE1b：となりの町へ輸入で出した割合だけ、売上が減る（向こうで売るはずだった品。素材の費用も売上に比例して減る）
+  const feed = Math.max(0, Math.min(0.9, bonus.feed ?? 0));
+  const rev = Math.round(base.rev * scale * rate * grow * (1 + (rnd() * 2 - 1) * MANAGER.noise) * (1 - feed));
   const raw = rev - rev * base.matRate - base.fixed * scale;
   // スキル：持株会社（利益 +10%。赤字には掛けない）
   const profit = Math.round(raw > 0 ? raw * (bonus.profit ?? 1) : raw);
