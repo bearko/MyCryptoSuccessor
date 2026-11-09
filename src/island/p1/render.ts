@@ -392,13 +392,6 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
       items.push({ depth: (p.i + p.j) * 1000 + p.i + 0.6, draw: () => drawWalker(ctx, by.hero, p.i, p.j, back ? -p.di : p.di, back ? -p.dj : p.dj, anim.clock / 90, 1, carry) });
     }
   }
-  // 段 TRADE1b：縮小した地図では、町と町のあいだをトラックが往復する（人・荷車は描かないが、輸入の幹線は見せる）
-  if (anim && overview)
-    for (const tk of anim.trucks ?? []) {
-      const p = along(tk.path, tk.f);
-      const c = center(p.i, p.j);
-      items.push({ depth: (p.i + p.j) * 1000 + p.i + 0.75, draw: () => truck(ctx, c.x, c.y + 10, tk.back ? -p.di : p.di, tk.back ? -p.dj : p.dj, !tk.back, Math.max(1, Math.min(4, 0.35 / Math.max(0.05, cam.zoom)))) });
-    }
   items.sort((a, b) => a.depth - b.depth);
   for (const it of items) it.draw();
   // 段 TRADE1a：荷が境界を通ったときの関税の金貨「−58 G」（上へ弾けて消える。reduced-motion では作らない：main.ts）
@@ -422,6 +415,13 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
     drawWorld(ctx, s, world, 'front', visible, regionVis, now, overview, cacheScale(cam.zoom, dpr));
     drawBorders(ctx, s, world, cam.zoom);
   }
+  // 段 TRADE1b：縮小した地図では、町と町のあいだをトラックが往復する（人・荷車は描かないが、輸入の幹線は見せる。隣の町の絵に隠れないように、いちばん上に）
+  if (anim && overview)
+    for (const tk of anim.trucks ?? []) {
+      const p = along(tk.path, tk.f);
+      const c = center(p.i, p.j);
+      truck(ctx, c.x, c.y + 10, tk.back ? -p.di : p.di, tk.back ? -p.dj : p.dj, !tk.back, Math.max(1, Math.min(10, 0.6 / Math.max(0.02, cam.zoom))));
+    }
   if (anim?.mark) {
     // 段 UX1（B-2）：金色の輪は建物（ゴースト）の上に描く（ゴーストがその場所に重なると地面の塗りは見えない）
     markRing(ctx, anim.mark.i, anim.mark.j, cam.zoom, now);
