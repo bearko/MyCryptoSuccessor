@@ -139,6 +139,7 @@ import { acctMonth, deduct, panelKind, priceMul, type AcctState, type TaxRec } f
 import { fatigueMul } from './ga';
 import { csDay, csMonth, visitMul, type CsReport, type CsState } from './cs';
 import { canImport, importLead, importPrice, sourceOf } from './tariff';
+import { feedCut, feedDay, feedReady, feedReport, type FeedArrival } from './feed';
 import { gradeArea, gradeHire, prNews } from './mkt';
 import { acqMonth, boughtHere, legalDay, legalMonth, maClose, noteGranted, patentBlocks, patentStopped, supplyCut, type LegalDay, type LegalReport, type LegalState, type TownMA } from './legal';
 import { evMul, evSales, takeEvYen, takeEventLog, activeFx, type ActiveFx, type EvLog, type EventState } from './events';
@@ -427,6 +428,10 @@ export interface Report {
    * 倉庫があふれる先の見込みと、倉庫の提案のグラフ（storefc.ts）が使う。以前の報告には無い（記録なしから始める）
    */
   pool?: { mats: number; goods: number; cap: number; day: number; at: string };
+  /** 段 TRADE1b：この月に売れた数（商品ごと）。離れるときの出来高（SectorRec.base.units）の元。以前の報告には無い */
+  units?: Partial<Record<string, number>>;
+  /** 段 TRADE1b：この月に輸入した商品（どこから・何を・数・関税）。月次報告の「📦 輸入」と「🛃 関税」の内訳。以前の報告には無い */
+  imports?: { from: string; sku: Sku; n: number; duty: number }[];
 }
 
 export interface Flags {
@@ -1643,7 +1648,8 @@ export function canBuild(s: P1State, id: string): PlaceErr | null {
   if (b.soon) return 'soon';
   if (b.requires && !has(s, b.requires)) return 'locked';
   if (b.kind === 'workshop' && s.buildings.some((x) => x.owner === 'me' && x.id === 'workshop')) return 'limit';
-  if (b.kind !== 'workshop' && !s.buildings.some((x) => x.owner === 'me' && x.id === 'workshop')) return 'locked';
+  // 段 TRADE1b：工房を建てる前でも、となり町の工房の商品を輸入できる町なら、物流拠点とお店は建てられる（新しい町の最初の一手）
+  if (b.kind !== 'workshop' && !s.buildings.some((x) => x.owner === 'me' && x.id === 'workshop') && !((b.kind === 'depot' || b.kind === 'shop') && feedReady(s).length)) return 'locked';
   // 遺物の展示館：会社で 1 つ・復興した土地があるセクタだけ
   if (b.kind === 'museum') {
     if (s.museum?.at) return 'limit';
@@ -3835,7 +3841,15 @@ export const scoutMul = (s: P1State) => cut(s, 'scoutmap', 0.4);
 export const myDepots = (s: P1State) => s.buildings.filter((b) => b.owner === 'me' && P1B[b.id]?.kind === 'depot' && b.left <= 0);
 /** お店まで片道の日数と、どこから出すか（工房か、近い物流拠点。拠点までは定期便で速い） */
 export function oneWay(s: P1State, shop: PBuilding, ws = myWorkshop(s), depots = myDepots(s)): { days: number; from: PBuilding | null } {
-  if (!ws) return { days: 0, from: null };
+  if (!ws) {
+    // 段 TRADE1b：工房を建てる前（境の拠点に輸入の商品が届く町）：いちばん近い物流拠点から荷車で
+    let best: { days: number; from: PBuilding | null } = { days: 0, from: null };
+    for (const d of depots) {
+      const days = legDays(s, pathLen(s, d, shop)) * Math.max(0.2, 1 - upOf(s, 'hub', 0.1));
+      if (!best.from || days < best.days) best = { days, from: d };
+    }
+    return best;
+  }
   let best = { days: legDays(s, pathLen(s, ws, shop)), from: ws as PBuilding | null };
   for (const d of depots) {
     // 物流拠点の Lv2 から：拠点 → お店 −10% ずつ
@@ -3977,6 +3991,8 @@ export interface DayResult {
   diplo?: { done: Req[]; late: Req[] };
   /** 段 UI5a（お店の自走）：今日、店長が休んで従業員もいないので閉まったお店（uid） */
   closed?: number[];
+  /** 段 TRADE1b：今日、境の拠点に着いた輸入の商品（どこから・何を・数・関税・拠点） */
+  feeds?: FeedArrival[];
 }
 
 // ---------------------------------------------------------------- ヒーローの育成（段 E1。hero.ts・docs/ISLAND_PHASE1.md「ヒーローの育成」）
@@ -4079,6 +4095,9 @@ export function step(s: P1State): DayResult {
     }
     s.orders = s.orders.filter((x) => x.left > 0);
   }
+  // 段 TRADE1b：毎週、となり町の工房の商品がトラックで境の拠点に着く（運ぶ前の商品に入る。お店へは荷車）
+  const fa = feedDay(s);
+  if (fa.length) res.feeds = fa;
   // 調達：調達係が工房から卸問屋まで歩いて行き、次の買い付けが届くまでもつ量を買って帰る（月の上限・資金・置き場所の中で）
   const ws0 = myWorkshop(s);
   const shopB = wholesaler(s);
@@ -4128,12 +4147,16 @@ export function step(s: P1State): DayResult {
         // 段 TRADE1a：仕入れ先がとなり町の素材は、取り寄せの納期のぶんも先に（届くまでもつように）
         const src = sourceOf(s, m);
         const span = src ? importLead(s, src) + days + rest : 2 * days + rest;
-        return { m, src, daily, want: Math.max(0, daily * span + lots - onHand) + (s.proc.carry[m] ?? 0) };
+        return { m, src, daily, have: onHand, want: Math.max(0, daily * span + lots - onHand) + (s.proc.carry[m] ?? 0) };
       });
       // 段 TRADE1a：取り寄せは納期が長いぶん量が多いので、置き場所の空きは 1 日の量の割合までしか取らない
       // （1 つの素材で物置が埋まり、ほかの素材が買えずに工房が止まらないように）
       const free0 = free;
       const dayAll = wants.reduce((a, x) => a + x.daily, 0);
+      // 段 TRADE1b：欲しい量の合計が置き場所の空きを超え、しかも手元に 1 個も無い素材があるときは、この町の卸問屋の素材も 1 日の量の割合までにする
+      // （先に並んだ素材だけで物置が埋まり、無い素材が買えずに工房が止まらないように。計測 trade1b の 100% のシード 7 で、
+      // グリーン・マウスで木材・ガラス・鉄が物置を埋め、布・紙・宝石が買えずに 120 か月止まった）
+      const short = wants.reduce((a, x) => a + Math.floor(x.want), 0) > free0 && wants.some((x) => x.want >= 1 && x.have < 1);
       for (const { m, src, daily, want } of wants) {
         let n = Math.floor(want);
         s.proc.carry[m] = want - n;
@@ -4146,6 +4169,7 @@ export function step(s: P1State): DayResult {
           continue;
         }
         n = Math.min(n, procLeft(s), free, Math.floor(s.money / Math.max(1, matPrice(s, m))));
+        if (short) n = Math.min(n, Math.floor((free0 * daily) / Math.max(1e-9, dayAll)));
         if (n <= 0) continue;
         if (buy(s, m, n, sp)) continue;
         free -= n;
@@ -4193,8 +4217,8 @@ export function step(s: P1State): DayResult {
     }
   });
 
-  // 運搬：運搬係ごとに、荷車の数まで便を出す
-  if (ws) {
+  // 運搬：運搬係ごとに、荷車の数まで便を出す（段 TRADE1b：工房を建てる前でも、物流拠点があれば輸入の商品を運ぶ）
+  if (ws || myDepots(s).length) {
     for (const st of s.staff) {
       if (st.task !== 'transport' || st.resting) continue;
       const mine = s.trips.filter((t) => t.hauler === st.hero);
@@ -4608,12 +4632,16 @@ export function endMonth(s: P1State): Report {
   }
   const rpSrc = s.rpSrc;
   s.rpSrc = {};
+  // 段 TRADE1b：この月に輸入した商品（読んだら 0 に戻す）
+  const imports = feedReport(s);
   const report: Report = {
     month,
     ...(rpSrc && Object.keys(rpSrc).length ? { rpSrc } : {}),
     revenue: Math.round(revenue),
     ...(relicRev > 0 ? { relic: Math.round(relicRev) } : {}),
     bySeries: { ...s.monthSales },
+    ...(Object.keys(s.monthUnits).length ? { units: { ...s.monthUnits } } : {}),
+    ...(imports.length ? { imports } : {}),
     costs,
     profit: Math.round(revenue - Object.values(costs).reduce<number>((a, v) => a + v, 0)),
     area,
@@ -4957,7 +4985,7 @@ export function closeCompanyMonth(s: P1State): CompanyMonth {
       }
       // マネージャー研修：売上の倍率 +0.1・持株会社：利益 +10%。被災した町は直った割合ぶん
       // 段 M1：ランド・全店に効く宣伝は、任せている町の売上の倍率にも足す（adBoostAt。半分の効き）
-      const r = runSector(rec, st?.stats ?? null, m, rng(s.seed + s.day * 31 + id.length * 7 + id.charCodeAt(1)), { rate: 0.1 * lvMul(s, 'mgr') + fxSum(s, 'manager') + (st ? passiveSum(st, 'manage') + fitSector(st.hero) + sectorPush(s, id) : 0) + headFx(s, 'strategy') + adBoostAt(s, id), profit: 1 + 0.1 * lvMul(s, 'holding'), scale: reviveScale(rec) });
+      const r = runSector(rec, st?.stats ?? null, m, rng(s.seed + s.day * 31 + id.length * 7 + id.charCodeAt(1)), { rate: 0.1 * lvMul(s, 'mgr') + fxSum(s, 'manager') + (st ? passiveSum(st, 'manage') + fitSector(st.hero) + sectorPush(s, id) : 0) + headFx(s, 'strategy') + adBoostAt(s, id), profit: 1 + 0.1 * lvMul(s, 'holding'), scale: reviveScale(rec), feed: feedCut(rec) });
       // セクター長の任せきり（段 D）：部長たちの提案を自分で承認して、そのセクタへ投資
       rec.heads = undefined;
       if (st) sectorApprove(s, rec, r);

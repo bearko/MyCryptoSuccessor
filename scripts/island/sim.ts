@@ -12,7 +12,9 @@ import { crowned, moveFee, moveTo } from '../../src/island/p1/land';
 import { delegate, rankUpTier, repairAll, reviveView } from '../../src/island/p1/reset';
 import { MEET_IDLE_DAYS } from '../../src/island/p1/digmeet';
 import { siteCandidates } from '../../src/island/p1/trade';
-import { cheaperImport, setSource, sourceOf } from '../../src/island/p1/tariff';
+import { borderAt, cheaperImport, setSource, sourceOf } from '../../src/island/p1/tariff';
+import { feedItems, feedNeighbors, feedReady, toggleFeed } from '../../src/island/p1/feed';
+import { TRADE } from '../../src/island/p1/data';
 import { HR_OFF, baseWage, charismaOf, moraleOf, payroll, talk, toMarket } from '../../src/island/p1/hr';
 import { ACCT_OFF, quarterNow, taxPlan, taxOn } from '../../src/island/p1/acct';
 import { fatigueAvg, fatigueMul, fatigueOf, gaOn } from '../../src/island/p1/ga';
@@ -245,6 +247,8 @@ export interface SectorRun {
   relicRRev: number;
   /** v23（段 H1）：うち Epic の復刻品・骨董（その町で骨董として売れた復刻品） */
   relicERev?: number;
+  /** v49（段 TRADE1b）：着いてから初めて売れた日までの日数（立ち上がり） */
+  sale1?: number;
   antRev?: number;
   /** v9：発掘（打った数：手・自動（発掘隊）・発破、作業の回数・許可の数、入った RP、研究パネルを開けた枚数、RP が足りなくて止まった月） */
   dig: DigRec;
@@ -385,6 +389,8 @@ export interface RunResult {
    * その町の月の締めの素材代（素材 ＋ 関税）・仕入れ先をとなり町にした数
    */
   v48?: { byTier: Partial<Record<Tier, { qty: number; n: number; duty: number; save: number; mats: number }>>; src: number };
+  /** v49（段 TRADE1b：商品の輸入）：ランクごとの輸入した数・トラックの着いた回数・払った関税・仕入れ値・選んだ品の数（最大） */
+  v49?: { byTier: Partial<Record<Tier, { qty: number; n: number; duty: number }>>; picks: number };
 }
 
 /**
@@ -564,6 +570,13 @@ function pickLot(s: P1State, id: string, first: boolean): [number, number, (type
   return null;
 }
 
+/** v49（段 TRADE1b）：となり町 id の境の拠点になる物流拠点の場所（境界から 3 マス以内。道に面した最初の空き地） */
+function feedLot(s: P1State, id: string): [number, number, (typeof DIRS)[number]] | null {
+  for (let j = 0; j < s.n; j++)
+    for (let i = 0; i < s.n; i++)
+      for (const d of allowedDirs(s, 'logistics', i, j)) if (borderAt(s, i, j, d).some((x) => x.id === id)) return [i, j, d];
+  return null;
+}
 /** その商品の素材のルートが全部ある（会社のルート ∪ セクタの特産） */
 const routesOk = (s: P1State, x: Sku) => Object.keys(recipeOf(x)).every((m) => hasRoute(s, m as Mat));
 /** その商品の技がある（技が要らない基礎の商品も true） */
@@ -672,6 +685,8 @@ const ok = (r: unknown) => r === null || r === true || (typeof r === 'object' &&
 export const SIM_CARDS = { on: true };
 /** v48（段 TRADE1a）：関税込みで安ければ、調達係の仕入れ先をとなり町に（off で段 TRADE1a の前と同じ通し：比べる用） */
 export const SIM_TRADE = { on: true };
+/** v49（段 TRADE1b）：各階層の 2 町目以降で、隣の工房の売れ筋を境の拠点で輸入する（off で段 TRADE1b の前と同じ通し：比べる用） */
+export const SIM_FEED = { on: process.env.SIM_FEED !== '0' };
 /**
  * 段 M1：宣伝のはしご。自動の判断（部長の提案・カード・いちばん効く宣伝・販売の手）に、解禁した上の段（駅のサイネージから）を出すか。
  * 通常・最短は段 1〜3 のまま（Sim の時間を変えない）。100% だけ解禁した段も候補に
@@ -1039,6 +1054,30 @@ export function policy(s: P1State, c: Ctx): Action[] {
       if (!cur && b) acts.push({ kind: 'trade', run: () => (setSource(s, m, b.id), null) });
       else if (cur && (!b || b.id !== cur)) acts.push({ kind: 'trade', run: () => (setSource(s, m, b?.id ?? null), null) });
     }
+
+  // ---- v49（段 TRADE1b）：各階層の 2 町目以降に入ったら、隣の工房の売れ筋を境の拠点で輸入する（この町の需要の倍率が高い品から）。
+  // 境の拠点が無ければ、まず境界のそば（3 マス以内）に物流拠点を建てる（物流拠点のパネルがあって、資金に余裕があるとき）。品は手で選ぶ（入れ替えない）
+  if (SIM_FEED.on && s.land && !saving) {
+    const live = feedNeighbors(s);
+    if (live.length) {
+      for (const nb of live) {
+        const items = feedItems(s, nb.id).sort((a, b) => b.demand + (b.gap ? 1 : 0) - (a.demand + (a.gap ? 1 : 0)) || b.week - a.week);
+        const picked = items.filter((x) => x.on).length;
+        for (const it of items.filter((x) => !x.on).slice(0, Math.max(0, TRADE.feed.max - picked))) acts.push({ kind: 'feed', run: () => toggleFeed(s, nb.id, it.sku) });
+      }
+    } else if (!has(s, 'hub') && feedReady(s).length) {
+      // 物流拠点のパネルがまだなら先に取る（先に要るパネルがあればそちらから）
+      const id = learnable('hub') ? 'hub' : missingPre('hub');
+      if (id) take(id);
+    } else if (has(s, 'hub') && !s.buildings.some((b) => b.owner === 'me' && P1B[b.id]?.kind === 'depot' && b.left > 0) && budget > P1B.logistics.cost + reserve) {
+      const nb = feedReady(s)[0];
+      const lot = nb ? feedLot(s, nb.id) : null;
+      if (lot) {
+        spend(P1B.logistics.cost);
+        acts.push({ kind: 'build', run: () => build(s, 'logistics', ...lot) });
+      }
+    }
+  }
 
   // ---- 倉庫：置き場所が 85% を超えたら（2 棟まで）
   // v31（段 UI5d）：SIM_RACK_FIRST なら、建てる前にいまある倉庫を強化する（倉庫の提案の推奨と同じ。1 か月に 1 段。強化しきってから 2 棟目）
@@ -1553,6 +1592,16 @@ export function withoutTrade<T>(f: () => T): T {
     return f();
   } finally {
     SIM_TRADE.on = true;
+  }
+}
+/** v49（段 TRADE1b）：商品の輸入の手を止めて回す（段 TRADE1b の前と同じ通し。比べるためだけ。終わったら戻す） */
+export function withoutFeed<T>(f: () => T): T {
+  const was = SIM_FEED.on;
+  SIM_FEED.on = false;
+  try {
+    return f();
+  } finally {
+    SIM_FEED.on = was;
   }
 }
 export function withoutR2<T>(f: () => T): T {
@@ -2575,6 +2624,18 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       if (d.report) x.mats += (d.report.costs.materials ?? 0) + (d.report.costs.duty ?? 0);
       v.src = Math.max(v.src, Object.values(s.proc.from ?? {}).reduce((a, r) => a + Object.keys(r).length, 0));
     }
+    // v49（段 TRADE1b）：商品の輸入の記録（着いたトラック・関税・仕入れ値）と、その町の初めての売上の日
+    if (d.feeds?.length) {
+      const v = (res.v49 ??= { byTier: {}, picks: 0 });
+      const x = (v.byTier[s.tier ?? 'C'] ??= { qty: 0, n: 0, duty: 0 });
+      for (const f of d.feeds) {
+        x.qty += f.n;
+        x.n++;
+        x.duty += f.duty;
+      }
+      v.picks = Math.max(v.picks, Object.values(s.land?.recs ?? {}).reduce((a, r) => a + (r.feed?.length ?? 0), 0));
+    }
+    if (cur.sale1 == null && d.sales.length) cur.sale1 = s.day - cur.arrived;
     o.onDay?.(s, cur.id, d);
     cur.dig.auto += d.dug?.length ?? 0;
     // v18：任せ方の記録
@@ -3272,6 +3333,31 @@ export function tables(rep: Report2): string {
         if (!g('mats') && !g('qty')) continue;
         const one = runs.find((r) => r.seed === 1)?.v48?.byTier[tier];
         out.push(`| ${POLICY_NAME[p]} | ${tier} | ${f(g('qty'))}（${g('n').toFixed(1)}） | ${f(g('duty'))} | ${f(g('save'))} | ${f(g('mats'))} | ${pct(g('save'), g('mats'))} | ${one ? `${f(one.save)}／${f(one.mats)}（${pct(one.save, one.mats)}）` : '—'} |`);
+      }
+    }
+    out.push('');
+  }
+  // v49（段 TRADE1b）：商品の輸入
+  if (rep.runs.some((r) => r.v49 || r.sectors.some((x) => x.sale1 != null))) {
+    out.push('### 表 29：商品の輸入（v49。段 TRADE1b）');
+    out.push('');
+    out.push(`シード ${seeds.join('・')} の平均と、シード 1。ランクごとに、隣町の工房から境の拠点へ着いた商品の数（トラックの回数）・払った関税、各階層の 2 町目以降で着いてから初めて売れるまでの日数（立ち上がり）。自動プレイは 2 町目以降で、境の拠点を建てて、この町の需要の倍率が高い品から ${TRADE.feed.max} 品まで輸入する（v49。量は相手の出来高の ${Math.round(TRADE.feed.share * 100)}%・関税は値段の ${Math.round(TRADE.feed.goods * 100)}% から）。`);
+    out.push('');
+    out.push('| 方針 | ランク | 着いた数（回） | 関税（G） | 2 町目以降の立ち上がり（日） | 2 町目以降の制覇までの月数 | シード 1：着いた数／町ごとの立ち上がり（日）・制覇までの月数 |');
+    out.push('|---|---|---|---|---|---|---|');
+    const f = (v: number) => Math.round(v).toLocaleString('en-US');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      for (const tier of ['C', 'U', 'R', 'E'] as Tier[]) {
+        const g = (k: 'qty' | 'n' | 'duty') => mean(runs.map((r) => r.v49?.byTier[tier]?.[k] ?? 0));
+        const later = (r: RunResult) => r.sectors.filter((x) => x.tier === tier).slice(1).filter((x) => x.sale1 != null);
+        const ups = runs.flatMap((r) => later(r).map((x) => x.sale1 ?? 0));
+        if (!g('qty') && !ups.length) continue;
+        const one = runs.find((r) => r.seed === 1);
+        const oneUp = one ? later(one).map((x) => `${x.id} ${x.sale1}日・${x.months ?? '—'}か月`).join('・') : '';
+        const mos = runs.flatMap((r) => r.sectors.filter((x) => x.tier === tier).slice(1).filter((x) => x.months != null).map((x) => x.months ?? 0));
+        out.push(`| ${POLICY_NAME[p]} | ${tier} | ${f(g('qty'))}（${g('n').toFixed(1)}） | ${f(g('duty'))} | ${ups.length ? mean(ups).toFixed(1) : '—'} | ${mos.length ? mean(mos).toFixed(2) : '—'} | ${one ? `${f(one.v49?.byTier[tier]?.qty ?? 0)}／${oneUp || '—'}` : '—'} |`);
       }
     }
     out.push('');

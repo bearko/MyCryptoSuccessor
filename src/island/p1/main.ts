@@ -189,6 +189,7 @@ import { btn, h, heroIcon, heroName, matIcon, money, plain, rich, signed, skuIco
 import { mapGesture } from './gesture';
 import { mapSetOn, openMapSet } from './mapsetui';
 import { borderAt, crossRoute, tradeNeighbors } from './tariff';
+import { activeFeeds, feedNext, feedPrice, feedReady, feedRoute, feedSkus, weekPlan } from './feed';
 import { TRADE } from './data';
 
 const q = new URLSearchParams(location.search);
@@ -1657,6 +1658,17 @@ function siteCard(id: string, i: number, j: number, dir: Dir, move?: number): HT
     if (border.length) {
       const b = h('div', 'isl-site-border');
       b.append(h('b', '', t('🛃 境の拠点', '🛃 Border hub')), h('span', '', t(`関税 −${Math.round(TRADE.border * 100)} ポイント・隣町（${border.map((x) => x.name).join('・')}）からの荷はここに届く`, `Duty −${Math.round(TRADE.border * 100)} pts; goods from ${border.map((x) => x.name).join(', ')} arrive here`)));
+      // 段 TRADE1b：出店済みで工房のある隣町なら、その工房の商品を輸入できる（品の名前）
+      const ready = feedReady(s).filter((x) => border.some((y) => y.id === x.id));
+      const goods = [...new Set(ready.flatMap((x) => feedSkus(s, x.id)))];
+      if (goods.length) {
+        const f = h('div', 'isl-feed-site');
+        f.append(h('b', '', t('📦 輸入', '📦 Imports')), h('span', '', t(`隣の工房の商品を輸入できる（${goods.map((x) => skuName(x)).join('・')}）`, `Can import the next town’s workshop goods (${goods.map((x) => skuName(x)).join(', ')})`)));
+        const icons = h('span', 'isl-feed-site-icons');
+        for (const x of goods.slice(0, 4)) icons.append(skuIcon(x, 24));
+        f.append(icons);
+        b.append(f);
+      }
       c.append(b);
     }
     return [c];
@@ -4004,21 +4016,34 @@ function badgeEl(b: SectorBadge, mini: boolean): HTMLElement {
     for (const x of b.items.slice(0, mini ? 1 : 3)) row.append(skuIcon(x, sz));
     if (b.state === 'here') row.append(h('span', 'isl-wbadge-here', mini ? '📍' : t('📍 いまここ', '📍 Here')));
     else if (b.manager != null) row.append(heroIcon(b.manager, sz));
+    // 段 TRADE1b：輸入中の品（相手の町は「→ 品」・いまの町は「📦 品」）。木箱は仮の絵（docs/ISLAND_ART_TODO.md「段 TRADE1b」）
+    if (b.feeds?.length) {
+      const f = h('span', `isl-feed-badge ${b.state === 'here' ? 'is-in' : 'is-out'}`);
+      f.append(h('span', 'isl-feed-crate', b.state === 'here' ? '📦' : '→'));
+      for (const x of b.feeds.slice(0, mini ? 1 : 2)) f.append(skuIcon(x, sz));
+      if (!mini) f.append(h('small', '', b.state === 'here' ? t('輸入中', 'Importing') : t('輸入中の品', 'Exporting')));
+      el.append(row);
+      el.append(f);
+      if (!mini && b.lastRev != null && !gray) el.append(h('small', 'isl-wbadge-rev', t(`先月 ${money(b.lastRev)}`, `Last month ${money(b.lastRev)}`)));
+      el.addEventListener('click', () => badgeClick(b));
+      return el;
+    }
   } else if (b.state === 'open' && letterLocked(s, b.id)) row.append(h('span', 'isl-wbadge-note', mini ? '🔒' : letterLockOf(s, b.id)));
   else if (b.state === 'open') row.append(h('span', 'isl-wbadge-note', mini ? t('未進出', 'New') : t(`未進出・入国料 ${money(b.fee)}`, `Not yet · permit ${money(b.fee)}`)));
   else row.append(h('span', 'isl-wbadge-note', mini ? '🔒' : `🔒 ${needLine(s, sectorDef(b.id)) ?? ''}`));
   el.append(row);
   if (!mini && b.lastRev != null && !gray) el.append(h('small', 'isl-wbadge-rev', t(`先月 ${money(b.lastRev)}`, `Last month ${money(b.lastRev)}`)));
-  el.addEventListener('click', () => {
-    if (b.state === 'mine') goSector(b.id);
-    else if (b.state === 'open' && letterLocked(s, b.id)) toast(letterLockOf(s, b.id));
-    else if (b.state === 'open') openSectorCard(b.id);
-    else if (b.state === 'here') {
-      const c = (s.n - 1) / 2;
-      tween = { x0: cam.x, y0: cam.y, x1: 0, y1: c * 110, t0: performance.now(), z0: cam.zoom, z1: innerWidth < 600 ? 0.3 : 0.5, dur: 600 };
-    } else toast(needLine(s, sectorDef(b.id)) ?? '');
-  });
+  el.addEventListener('click', () => badgeClick(b));
   return el;
+}
+function badgeClick(b: SectorBadge) {
+  if (b.state === 'mine') goSector(b.id);
+  else if (b.state === 'open' && letterLocked(s, b.id)) toast(letterLockOf(s, b.id));
+  else if (b.state === 'open') openSectorCard(b.id);
+  else if (b.state === 'here') {
+    const c = (s.n - 1) / 2;
+    tween = { x0: cam.x, y0: cam.y, x1: 0, y1: c * 110, t0: performance.now(), z0: cam.zoom, z1: innerWidth < 600 ? 0.3 : 0.5, dur: 600 };
+  } else toast(needLine(s, sectorDef(b.id)) ?? '');
 }
 
 /**
@@ -4867,12 +4892,49 @@ function tradeAnim(walk = true) {
     }
     gates.push({ i: gi, j: gj, d: nb.delta, up });
   }
+  // 段 TRADE1b：輸入の幹線。週の到着の日にトラックが隣町の工房から境界の番所を通って境の拠点へ（通る瞬間に遮断機が上がり、関税の金貨）。
+  // 縮小した地図では、町と町のあいだをトラックが往復し続ける
+  const trucks: NonNullable<typeof anim.trucks> = [];
+  const ov = overviewOn();
+  const tday = feedNext({ day: s.day + 1 }) === 0;
+  const act = activeFeeds(s);
+  for (const id of new Set(act.map((a) => a.from))) {
+    const r = feedRoute(s, id);
+    const nb = tradeNeighbors(s).find((x) => x.id === id);
+    if (!r || !nb || r.cells.length < 2) continue;
+    const [gi, gj] = r.cells[r.at];
+    const fc = r.at / Math.max(1, r.cells.length - 1);
+    const span = 1.2 / Math.max(1, r.cells.length - 1);
+    let up = false;
+    if (ov) {
+      const k = (performance.now() / 12000) % 1;
+      trucks.push({ path: r.cells, f: k < 0.5 ? k * 2 : (1 - k) * 2, back: k >= 0.5 });
+    } else if (tday) {
+      const f = Math.max(0, Math.min(1, acc / dayMs()));
+      trucks.push({ path: r.cells, f });
+      if (Math.abs(f - fc) < span) up = true;
+      const key = -(s.day * 8 + (id.charCodeAt(1) % 8));
+      const prev = tollSeen.get(key) ?? 0;
+      if (walk && prev < fc && f >= fc && !reduceMotion()) {
+        const skus = act.filter((a) => a.from === id).map((a) => a.e.sku);
+        const plan = weekPlan(s, id, skus);
+        const amt = skus.reduce((a, x) => a + (plan.get(x) ?? 0) * feedPrice(s, id, x).duty, 0);
+        if (amt > 0) (anim.tolls ??= []).push({ i: gi, j: gj, amt, t: anim.clock });
+      }
+      if (walk) tollSeen.set(key, f);
+      still.add(key);
+    }
+    const same = gates.find((g) => g.i === gi && g.j === gj);
+    if (same) same.up = same.up || up;
+    else gates.push({ i: gi, j: gj, d: nb.delta, up });
+  }
+  anim.trucks = trucks;
   if (walk) for (const k of [...tollSeen.keys()]) if (!still.has(k)) tollSeen.delete(k);
   anim.gates = gates;
   if (anim.tolls) anim.tolls = anim.tolls.filter((x) => anim.clock - x.t < 1600);
 }
 const reduceMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-const animating = () => !!anim.mark || !!anim.tolls?.length || anim.crowd.length > 0 || anim.walkers.length > 0 || !!anim.buyer || s.trips.length > 0 || !!s.orders?.length || anim.plus.length > 0 || s.slots.some((sl) => sl.running) || [...anim.coins.values()].some((l) => l.some((c) => anim.clock - c.t < 2600));
+const animating = () => !!anim.mark || !!anim.tolls?.length || !!anim.trucks?.length || anim.crowd.length > 0 || anim.walkers.length > 0 || !!anim.buyer || s.trips.length > 0 || !!s.orders?.length || anim.plus.length > 0 || s.slots.some((sl) => sl.running) || [...anim.coins.values()].some((l) => l.some((c) => anim.clock - c.t < 2600));
 let lastDraw = 0;
 let last = performance.now();
 let lastWater = -1;
@@ -4971,6 +5033,8 @@ function advance(days: number) {
       else companyNews(c);
     }
     // 注文が届いた：問屋の人が工房に入って在庫になり、卸問屋へ帰っていく
+    // 段 TRADE1b：輸入のトラックが境の拠点に着いた「ユーホタウンから ゴブレット 40 個（関税 58 G）」
+    for (const f of r.feeds ?? []) news(t(`${sectorDef(f.from).name}から ${skuName(f.sku)} ${f.n} 個（関税 ${money(f.duty)}）`, `${f.n} ${skuName(f.sku)} from ${sectorDef(f.from).name} (duty ${money(f.duty)})`), { kind: 'logi' });
     for (const o of r.orders ?? []) {
       // 段 TRADE1a：となり町からの取り寄せ「ユーホタウンから ガラス 10 個（関税 58 G）」
       if (o.from) {
@@ -5233,7 +5297,8 @@ function frame(now: number) {
   if (!held) acc += dt * speed;
   if (!held && speed > 0) tickAnim(dt * speed);
   // 段 TRADE1a：止めているあいだも境界の番所は描く（問屋の人は動かさない）
-  else if (s.land && (s.orders?.length || !anim.gates)) tradeAnim(false);
+  // 段 TRADE1b：縮小した地図のトラックは止めているあいだも往復する
+  else if (s.land && (s.orders?.length || !anim.gates || overviewOn())) tradeAnim(false);
   anim.frac = held || speed === 0 ? anim.frac : Math.min(1, acc / dayMs());
   anim.speed = speed || 1;
   anim.dayMs = dayMs();
@@ -5277,6 +5342,8 @@ function frame(now: number) {
   if (!held && speed > 0 && now - lastDraw > 33 && animating()) dirty = true;
   // 段 UX1（B-2）：「ここに建ててみて！」の金色の輪は、時間を止めていても脈打つ
   if (anim.mark && now - lastDraw > 33) dirty = true;
+  // 段 TRADE1b：縮小した地図の輸入のトラックは、時間を止めていても往復する
+  if (anim.trucks?.length && overviewOn() && now - lastDraw > 33) dirty = true;
   lastWater = wf;
   // 発掘作業のあいだは画面全体が発掘画面なので、町（地図・人・荷車・建物）は描かない（ゲームの計算は上で進めている）
   if (dirty && !digOpen()) {

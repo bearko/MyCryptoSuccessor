@@ -11,6 +11,7 @@ import { MARKET, P1B, skuParts, type Sku } from './data';
 import { allowedDirs, depotLink, doorOf, isVacant, legDays, myDepots, myShops, myWorkshop, oneWay, pathLen, roadPath, sources, walkDays, wholesaler, type P1State, type PBuilding } from './model';
 import type { Dir } from '../sim';
 import { crossRoute } from './tariff';
+import { activeFeeds, feedNext, feedRoute } from './feed';
 
 /** 色の意味（docs/ISLAND_UX_CHARTER.md「色の意味」）。CSS のトークンと同じ値 */
 export const MAPVIZ_COLOR = {
@@ -47,6 +48,8 @@ export interface RouteLine {
   moving: boolean;
   /** 段 TRADE1a：となり町からの取り寄せ（取り寄せ先のセクタ。線は境界をこえて隣の問屋まで伸びる） */
   cross?: string;
+  /** 段 TRADE1b：輸入の幹線（隣町の工房 → 境界 → 境の拠点。太い青の線） */
+  feed?: boolean;
 }
 
 const dist = (a: [number, number], b: [number, number]) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
@@ -55,7 +58,7 @@ const pathOf = (s: P1State, a: [number, number], b: [number, number]): [number, 
 let routeMemo: { key: string; lines: RouteLine[] } | null = null;
 /** 線の形（建物・道路・スキルが変わったときだけ作り直す。moving は毎回見る） */
 export function routeKey(s: P1State): string {
-  return `${s.seed}:${s.sector ?? ''}:${s.buildings.length}:${s.nextUid}:${s.skills.length}:${s.day}:${(s.orders ?? []).filter((o) => o.from).map((o) => o.from).join(',')}`;
+  return `${s.seed}:${s.sector ?? ''}:${s.buildings.length}:${s.nextUid}:${s.skills.length}:${s.day}:${(s.orders ?? []).filter((o) => o.from).map((o) => o.from).join(',')}:${activeFeeds(s).map((a) => a.from + a.e.sku).join(',')}`;
 }
 /** 流れの線（工房が無ければ空） */
 export function routeLines(s: P1State): RouteLine[] {
@@ -63,7 +66,8 @@ export function routeLines(s: P1State): RouteLine[] {
   if (routeMemo?.key !== key) routeMemo = { key, lines: buildRoutes(s) };
   const walk = walkDays(s);
   for (const l of routeMemo.lines) {
-    if (l.cross) l.moving = (s.orders ?? []).some((o) => o.from === l.cross);
+    if (l.feed) l.moving = feedNext({ day: s.day + 1 }) === 0;
+    else if (l.cross) l.moving = (s.orders ?? []).some((o) => o.from === l.cross);
     else if (l.kind === 'supply') l.moving = !!s.buyTrip || (s.orders ?? []).some((o) => !o.from && o.left <= walk);
     else if (l.kind === 'haul') l.moving = s.trips.some((t) => t.to === l.shop);
     else l.moving = s.trips.some((t) => t.from != null && t.from !== myWorkshop(s)?.uid);
@@ -72,8 +76,21 @@ export function routeLines(s: P1State): RouteLine[] {
 }
 function buildRoutes(s: P1State): RouteLine[] {
   const ws = myWorkshop(s);
-  if (!ws) return [];
-  const out: RouteLine[] = [];
+  // 段 TRADE1b：輸入中のとなり町ごとに、隣町の工房 → 境界 → 境の拠点の太い青の線（工房を建てる前でも）
+  const feeds: RouteLine[] = [];
+  for (const id of new Set(activeFeeds(s).map((a) => a.from))) {
+    const r = feedRoute(s, id);
+    if (r) feeds.push({ kind: 'trunk', cells: r.cells, days: 0, moving: false, cross: id, feed: true });
+  }
+  if (!ws) {
+    // 工房が無い町：境の拠点からお店への輸送の線だけ
+    for (const shop of myShops(s)) {
+      const way = oneWay(s, shop, null);
+      if (way.from) feeds.push({ kind: 'haul', cells: pathOf(s, doorOf(way.from), doorOf(shop)), days: way.days, shop: shop.uid, moving: false });
+    }
+    return feeds;
+  }
+  const out: RouteLine[] = [...feeds];
   const wh = wholesaler(s);
   if (wh) out.push({ kind: 'supply', cells: pathOf(s, doorOf(wh), doorOf(ws)), days: walkDays(s), moving: false });
   // 段 TRADE1a：取り寄せ中のとなり町ごとに、隣の問屋 → 境界 → 工房（か境の拠点）の橙の点線
