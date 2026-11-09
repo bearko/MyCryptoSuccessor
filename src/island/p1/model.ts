@@ -4153,6 +4153,10 @@ export function step(s: P1State): DayResult {
       // （1 つの素材で物置が埋まり、ほかの素材が買えずに工房が止まらないように）
       const free0 = free;
       const dayAll = wants.reduce((a, x) => a + x.daily, 0);
+      // 段 TRADE1b：欲しい量の合計が置き場所の空きを超えるときは、この町の卸問屋の素材も 1 日の量の割合までにする
+      // （先に並んだ素材だけで物置が埋まり、ほかの素材が買えずに工房が止まらないように。計測 trade1b の 100% のシード 7 で、
+      // グリーン・マウスで木材・ガラス・鉄が物置を埋め、布・紙・宝石が買えずに 120 か月止まった）
+      const short = wants.reduce((a, x) => a + Math.floor(x.want), 0) > free0;
       for (const { m, src, daily, want } of wants) {
         let n = Math.floor(want);
         s.proc.carry[m] = want - n;
@@ -4165,6 +4169,7 @@ export function step(s: P1State): DayResult {
           continue;
         }
         n = Math.min(n, procLeft(s), free, Math.floor(s.money / Math.max(1, matPrice(s, m))));
+        if (short) n = Math.min(n, Math.floor((free0 * daily) / Math.max(1e-9, dayAll)));
         if (n <= 0) continue;
         if (buy(s, m, n, sp)) continue;
         free -= n;
