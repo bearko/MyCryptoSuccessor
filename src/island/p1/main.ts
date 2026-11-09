@@ -5342,6 +5342,8 @@ function frame(now: number) {
   if (!held && speed > 0 && now - lastDraw > 33 && animating()) dirty = true;
   // 段 UX1（B-2）：「ここに建ててみて！」の金色の輪は、時間を止めていても脈打つ
   if (anim.mark && now - lastDraw > 33) dirty = true;
+  // 段 TRADE1b：縮小した地図の輸入のトラックは、時間を止めていても往復する
+  if (anim.trucks?.length && overviewOn() && now - lastDraw > 33) dirty = true;
   lastWater = wf;
   // 発掘作業のあいだは画面全体が発掘画面なので、町（地図・人・荷車・建物）は描かない（ゲームの計算は上で進めている）
   if (dirty && !digOpen()) {

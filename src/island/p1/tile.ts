@@ -829,7 +829,8 @@ function mine(ctx: Ctx, b: PBuilding, body: HTMLElement, hooks: TileHooks): HTML
   const acts = h('div', 'isl-row isl-pop-acts');
   if (kind === 'warehouse') acts.append(btn(t('調達を開く', 'Open buying'), () => openBuy(ctx), 'is-on'));
   else if (kind === 'museum') acts.append(btn(t('🏛 展示を見る', '🏛 View exhibits'), () => hooks.museum?.(), `is-on ${museumOpen(s) && !(s.museum?.items ?? []).some((x) => x != null) ? 'is-guide' : ''}`));
-  else {
+  // 段 TRADE1b：物流拠点には「お店を開く」を出さない（拠点の中の画面は無い。輸入は上の「📦 輸入」）
+  else if (kind !== 'depot') {
     // チュートリアル：建物の中の画面は、ここから開くと覚えてもらう
     const step = ctx.step?.();
     const guide = step === 'craft' && kind === 'workshop';
