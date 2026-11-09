@@ -9,7 +9,7 @@ import { center, diamond, drawArt, drawBuilding, drawCell, image, type Camera, t
 import { cells, frontCell, type Dir } from '../sim';
 import { PRODUCT, skuParts, type Sku } from './data';
 import { COIN_KEEP, COIN_MS, PLUS_MS, along, drawRing, drawWalker, floatText, type Anim } from './anim';
-import { DUNGEON, craftDays, doorOf, facilityStatus, ground, isRoad, isVacant, myWorkshop, roadPath, siteProgress, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
+import { DUNGEON, craftDays, doorOf, facilityStatus, ground, isRoad, isVacant, myDepots, myWorkshop, roadPath, siteProgress, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
 import { areaPaint, companyColor } from './trade';
 import { bounds, cacheScale, covered, drawBorders, drawWorld, roadAt, type World } from './worldrender';
 import { standing } from './digview';
@@ -296,8 +296,8 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
       },
     });
   }
-  // 運搬中の荷車：工房（か物流拠点）からお店へ、道路をたどって行き来する
-  const ws = overview ? null : myWorkshop(s);
+  // 運搬中の荷車：工房（か物流拠点）からお店へ、道路をたどって行き来する（段 TRADE1b：工房を建てる前は物流拠点から）
+  const ws = overview ? null : myWorkshop(s) ?? myDepots(s)[0] ?? null;
   if (ws) {
     for (const t of s.trips) {
       const to = s.buildings.find((b) => b.uid === t.to);
@@ -368,6 +368,13 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
         items.push({ depth: (i + j) * 1000 + i + 0.6, draw: () => digWorker(ctx, hero, i, j, ph) });
       });
     }
+    // 段 TRADE1b：輸入の幹線のトラック（隣町の工房 → 境界 → 境の拠点。週の到着の日に走る。仮の絵：コードの四角。docs/ISLAND_ART_TODO.md「段 TRADE1b」）
+    for (const tk of anim.trucks ?? []) {
+      const p = along(tk.path, tk.f);
+      if (!visible(Math.round(p.i), Math.round(p.j))) continue;
+      const c = center(p.i, p.j);
+      items.push({ depth: (p.i + p.j) * 1000 + p.i + 0.75, draw: () => truck(ctx, c.x, c.y + 10, tk.back ? -p.di : p.di, tk.back ? -p.dj : p.dj, !tk.back, 1) });
+    }
     // 段 TRADE1a：境界の番所（遮断機。荷が通るあいだ上がる。仮の絵：コードで描いた小屋と遮断機。docs/ISLAND_ART_TODO.md「段 TRADE1a」）
     for (const g of anim.gates ?? []) {
       const gi = g.i + g.d[0] * 0.5;
@@ -385,6 +392,13 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
       items.push({ depth: (p.i + p.j) * 1000 + p.i + 0.6, draw: () => drawWalker(ctx, by.hero, p.i, p.j, back ? -p.di : p.di, back ? -p.dj : p.dj, anim.clock / 90, 1, carry) });
     }
   }
+  // 段 TRADE1b：縮小した地図では、町と町のあいだをトラックが往復する（人・荷車は描かないが、輸入の幹線は見せる）
+  if (anim && overview)
+    for (const tk of anim.trucks ?? []) {
+      const p = along(tk.path, tk.f);
+      const c = center(p.i, p.j);
+      items.push({ depth: (p.i + p.j) * 1000 + p.i + 0.75, draw: () => truck(ctx, c.x, c.y + 10, tk.back ? -p.di : p.di, tk.back ? -p.dj : p.dj, !tk.back, Math.max(1, Math.min(4, 0.35 / Math.max(0.05, cam.zoom)))) });
+    }
   items.sort((a, b) => a.depth - b.depth);
   for (const it of items) it.draw();
   // 段 TRADE1a：荷が境界を通ったときの関税の金貨「−58 G」（上へ弾けて消える。reduced-motion では作らない：main.ts）
@@ -733,10 +747,16 @@ function drawRoutes(ctx: CanvasRenderingContext2D, s: P1State, zoom: number, now
     ctx.strokeStyle = 'rgba(15,22,38,0.55)';
     ctx.lineWidth = lw + 4;
     ctx.stroke();
-    ctx.setLineDash([lw * 3, lw * 2]);
-    ctx.lineDashOffset = l.moving && flow ? -(now / 18) % (lw * 5) : 0;
+    // 段 TRADE1b：輸入の幹線（隣町の工房 → 境の拠点）は太い青の線
+    const w0 = l.feed ? lw * 2 : lw;
+    if (l.feed) {
+      ctx.lineWidth = w0 + 4;
+      ctx.stroke();
+    }
+    ctx.setLineDash([w0 * 3, w0 * 2]);
+    ctx.lineDashOffset = l.moving && flow ? -(now / 18) % (w0 * 5) : 0;
     ctx.strokeStyle = l.kind === 'supply' ? MAPVIZ_COLOR.supply : MAPVIZ_COLOR.haul;
-    ctx.lineWidth = lw;
+    ctx.lineWidth = w0;
     ctx.stroke();
   }
   ctx.setLineDash([]);
@@ -810,6 +830,42 @@ function borderGate(ctx: CanvasRenderingContext2D, i: number, j: number, d: [num
     ctx.fillStyle = k % 2 ? '#ffffff' : '#e8473f';
     ctx.fillRect(k * seg, -5, seg, 10);
   }
+  ctx.restore();
+}
+/**
+ * 段 TRADE1b：幹線のトラック（仮の絵：コードの四角。荷台に木箱・前に運転席）。di, dj は進む向き・full は荷を積んでいる・k は大きさの倍率。
+ * docs/ISLAND_ART_TODO.md「段 TRADE1b：幹線のトラック」
+ */
+function truck(ctx: CanvasRenderingContext2D, x: number, y: number, di: number, dj: number, full: boolean, k: number) {
+  // 画面の上で右へ進むか（i が増える・j が減る向きは右）
+  const right = di - dj >= 0;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(right ? k : -k, k);
+  ctx.fillStyle = '#1d1a24';
+  ctx.fillRect(-34, -40, 70, 34);
+  // 荷台（青）
+  ctx.fillStyle = '#2f5fae';
+  ctx.fillRect(-31, -37, 42, 28);
+  ctx.fillStyle = '#7cc6f2';
+  ctx.fillRect(-31, -37, 42, 6);
+  if (full) {
+    ctx.fillStyle = '#c98a4a';
+    ctx.fillRect(-27, -50, 15, 14);
+    ctx.fillRect(-10, -50, 15, 14);
+    ctx.fillStyle = '#7a4f2a';
+    ctx.fillRect(-27, -44, 15, 2);
+    ctx.fillRect(-10, -44, 15, 2);
+  }
+  // 運転席
+  ctx.fillStyle = '#e8eef7';
+  ctx.fillRect(13, -33, 20, 24);
+  ctx.fillStyle = '#4f8fe6';
+  ctx.fillRect(22, -30, 9, 9);
+  // 車輪
+  ctx.fillStyle = '#1d1a24';
+  ctx.fillRect(-24, -9, 12, 12);
+  ctx.fillRect(16, -9, 12, 12);
   ctx.restore();
 }
 /** 段 TRADE1a：関税の金貨（k は 0〜1 の進み。上へ弾けて薄くなる。字は画面で 13px 以上） */

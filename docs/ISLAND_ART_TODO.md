@@ -51,6 +51,14 @@
 | tradecmp_tag | 「🗺 となり町」の札 | 卸問屋の吹き出しの指示・調達の画面の素材の行（`tariffui.ts` の `tradeCmpEl`・`p1.css` の `.isl-tradecmp`） | 橙の四角い札に絵文字 🗺 | 16×16（札の 12px の字の横） | a tiny folded map icon with an orange route line crossing a dashed border, dark 1px outline, pixel art, transparent background |
 | border_hub（いまは物流拠点のまま） | 境の拠点（境界から 3 マス以内の物流拠点） | 置くときの下見の「🛃 境の拠点」の行（`main.ts` の siteCard）。地図の絵は物流拠点のまま（見分けは吹き出しと下見だけ） | 物流拠点（logistics）の絵をそのまま | 1 マス | 物流拠点の差分：add a small border booth with a striped barrier and a stack of crates with customs seals beside the hub building（次の段 TRADE1b の輸入でも使う） |
 
+### 段 TRADE1b（隣町の工房の商品を境の拠点へ輸入する。2026-11-09）
+
+| id | 名前 | 使う場所 | いまの状態 | 大きさ | PixelLab への指示 |
+|---|---|---|---|---|---|
+| border_hub（TRADE1a の行と同じ） | 境の拠点の差分（番所と積み替えの荷台） | 地図の物流拠点（境界から 3 マス以内）・拠点の吹き出しの「📦 輸入」（`feedui.ts`）・置くときの下見の「📦 輸入」（`main.ts` の siteCard・`.isl-feed-site`） | 物流拠点（logistics）の絵をそのまま。見分けは吹き出しと下見と、境界をこえる太い青の線だけ | 1 マス | isometric pixel-art logistics hub building with a small customs booth, a red-and-white barrier and a loading platform with stacked wooden crates on one side, transparent background, same scale and palette as the existing logistics hub tile |
+| trunk_truck | 幹線のトラック（輸入の便） | 地図：週の到着の日に隣町の工房 → 境界の番所 → 境の拠点を走る（`render.ts` の `truck`・`main.ts` の `tradeAnim`）。縮小した地図では町と町のあいだを往復する | コードで描いた四角（青い荷台・白い運転席・黒い車輪。荷を積んでいる行きは木箱を 2 つ載せる）。左右の 2 向きだけ（斜めの向きは無い） | 荷車の 2 倍ほど（70×50） | a small blue cargo truck with a white cab and two wooden crates on the flatbed, isometric pixel art, transparent background; 2 diagonal directions (down-right and up-right; mirror for the others), loaded and empty variants |
+| feed_crate | 輸入中の木箱のアイコン | 縮小した地図の町の札の「📦 輸入中」「→ 品」（`main.ts` の badgeEl・`.isl-feed-badge`）・拠点の吹き出しの見出し・月次報告の「📦 輸入」の行（`report.ts` の importLine） | 絵文字 📦 と「→」の字 | 16×16（札・行）・24×24（吹き出しの見出し） | a tiny wooden shipping crate with a blue arrow stamp pointing right, dark 1px outline, pixel art, transparent background; 16px and 24px versions |
+
 ## 優先度 中（コードで描いた小物。いまのままでも遊べる）
 
 | 素材 | 使う場所 | いまの状態 | 大きさ | メモ |
