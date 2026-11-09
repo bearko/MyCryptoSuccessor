@@ -25,7 +25,8 @@ import { reportProposal, stallSay, type Speech } from './card';
 import { propsOpen } from './stage';
 import type { Plan } from './plan';
 import { closeSheet, open, type Ctx } from './screens';
-import { btn, h, heroName, money, rich, select, signCls, signed } from './ui';
+import { btn, h, heroName, money, rich, select, signCls, signed, skuIcon, skuName } from './ui';
+import { sectorDef } from './company';
 import { ZERO_LINE } from './mine';
 import { arw, candleEl, candleLegend, cvBox, donutEl, fallEl, fallLegend, legendEl, pctBarEl, rankBarsEl, shortN, trendEl, trendLegend, type TSer } from './chartkit';
 import { dutyText, tradeNeighbors } from './tariff';
@@ -239,11 +240,25 @@ function flowRow(s: P1State, r: Report): HTMLElement {
   return row;
 }
 
-/** 段 TRADE1a：月次報告の「関税」の行（となり町ごとのいまの率） */
-function dutyLine(s: P1State, duty: number): HTMLElement {
+/** 段 TRADE1a：月次報告の「関税」の行（となり町ごとのいまの率）。段 TRADE1b：素材と商品の内訳 */
+function dutyLine(s: P1State, duty: number, goods = 0): HTMLElement {
   const p = h('p', 'isl-rp-duty');
   const rates = tradeNeighbors(s).map((nb) => `${nb.name} ${dutyText(s, nb.id)}`);
-  p.append(h('span', '', t('🛃 関税 ', '🛃 Duty ')), h('b', '', money(duty)), h('small', 'isl-dim', rates.length ? t(`（${rates.join('・')}）`, ` (${rates.join(', ')})`) : ''));
+  p.append(h('span', '', t('🛃 関税 ', '🛃 Duty ')), h('b', '', money(duty)));
+  if (goods > 0) p.append(h('small', '', t(`（素材 ${money(Math.max(0, duty - goods))}・商品 ${money(goods)}）`, ` (materials ${money(Math.max(0, duty - goods))}, goods ${money(goods)})`)));
+  p.append(h('small', 'isl-dim', rates.length ? t(`（${rates.join('・')}）`, ` (${rates.join(', ')})`) : ''));
+  return p;
+}
+/** 段 TRADE1b：月次報告の「📦 輸入」の行（品・数・どこから） */
+function importLine(r: Report): HTMLElement | null {
+  const xs = r.imports ?? [];
+  if (!xs.length) return null;
+  const p = h('p', 'isl-feed-rp');
+  p.append(h('span', '', t('📦 輸入 ', '📦 Imports ')));
+  xs.forEach((x, k) => {
+    if (k) p.append(h('span', '', t('・', ', ')));
+    p.append(skuIcon(x.sku, 20), h('b', '', t(`${skuName(x.sku)} ${x.n} 個`, `${x.n} ${skuName(x.sku)}`)), h('small', 'isl-dim', t(`（${sectorDef(x.from).name}から）`, ` (from ${sectorDef(x.from).name})`)));
+  });
   return p;
 }
 
@@ -489,7 +504,10 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
       grid.append(left, right);
       c1.append(grid);
       // 段 TRADE1a：となり町から取り寄せた素材の関税（売上原価）と、いまの率（「関税 12% → 9%」）
-      if ((r.costs.duty ?? 0) > 0) c1.append(dutyLine(s, r.costs.duty ?? 0));
+      // 段 TRADE1b：輸入した商品（品・数・どこから）と、関税の素材・商品の内訳
+      const im = importLine(r);
+      if (im) c1.append(im);
+      if ((r.costs.duty ?? 0) > 0) c1.append(dutyLine(s, r.costs.duty ?? 0, (r.imports ?? []).reduce((a, x) => a + x.duty, 0)));
       // 月次 PDCA（スキル）：来月の見込み
       if (r.forecast) {
         const fc = h('p', 'isl-rp-fc');

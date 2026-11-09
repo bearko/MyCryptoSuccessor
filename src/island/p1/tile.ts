@@ -6,6 +6,7 @@ import { t } from '../../i18n';
 import { DEF } from '../defs';
 import { INTEL, INVEST, MATS, P1B, PRODUCT, SELF_RUN, rivalDef, sku, skuParts, type Sku } from './data';
 import { tradeCmpEl } from './tariffui';
+import { feedBox } from './feedui';
 import { setSource } from './tariff';
 import { DUNGEON, dungeonDepth, museumMarks, museumOpen, museumSlots, museumValue, revivedSites, permitFee, permitLock, presentLock, presentRes, researchOf, runLock, sessionSec, siteProgress, siteTopic, topicProgress, topicsOf, wasteAt, wasteName, extName, gateToll, invLv, isGate, poolCap, poolUsed, allowedDirs, assign, demolish, ground, invest, myWorkshop, order as placeOrder, orderFrom, LOT, intelLv, moveCost, occupant, oneWay, myShops, refundOf, shopArea, sidePay, speed, staffOf, storageCap, roomOf, type P1State, type PBuilding } from './model';
 import { pickExt, pickHero } from './heroui';
@@ -789,6 +790,12 @@ function mine(ctx: Ctx, b: PBuilding, body: HTMLElement, hooks: TileHooks): HTML
       body.append(goods, h('small', 'isl-dim', t(`裏に置ける数 ${storageCap(b, s)}・利益率は維持費も含めた月の数字（今月の粗利率は素材代とアルバイト代だけ）`, `Backroom ${storageCap(b, s)}. Last month’s margin includes upkeep; this month’s counts materials and part-timers only.`)));
     }
   } else if (kind === 'depot') {
+    // 段 TRADE1b：境の拠点なら「📦 輸入」（となり町の工房の商品の札。押すと選ぶ・もう一度で外す）
+    const fb = feedBox(s, b, (msg) => {
+      if (msg) ctx.toast(msg);
+      redo();
+    });
+    if (fb) body.insertBefore(fb, body.firstChild);
     const served = myShops(s).filter((x) => oneWay(s, x).from?.uid === b.uid);
     stat(grid, t('ここから運ぶお店', 'Shops served from here'), served.length ? served.map((x) => DEF[x.id].name).join(t('・', ', ')) : t('なし（工房からのほうが近い）', 'None (the workshop is closer)'), 'is-wide');
     // 段 UI5d：物流拠点も倉庫の代わりに置ける（置き場所の合計に入る）

@@ -11,6 +11,7 @@ import { TIER_NAME, sectorDef, sectorState, type SectorState } from './company';
 import { crowned, hasBusiness, lastRank, letterLocked, moveTo, townSeed, type MoveErr } from './land';
 import { rankUpTier } from './reset';
 import { clearWaiting, newP1, staffOf, type P1State, type PBuilding, type Report, type ShopState } from './model';
+import { activeFeeds } from './feed';
 
 // ---------------------------------------------------------------- 階層と隣
 
@@ -194,6 +195,8 @@ export interface SectorBadge {
   fee: number;
   /** まだ行けないときの条件 */
   need: string | null;
+  /** 段 TRADE1b：輸入中の品（いまの町は届いている品・相手の町はいまの町へ出している品）。無ければ無い */
+  feeds?: Sku[];
 }
 
 function mainItems(buildings: PBuilding[], shops: Record<number, ShopState> | undefined): Sku[] {
@@ -219,13 +222,17 @@ export function sectorBadges(s: P1State): SectorBadge[] {
   const land = s.land;
   if (!land) return [];
   const cur = sectorDef(land.cur);
+  // 段 TRADE1b：輸入中の品（相手の町ごと）
+  const act = activeFeeds(s);
+  const fin = [...new Set(act.map((a) => a.e.sku as Sku))];
+  const fout = (id: string) => [...new Set(act.filter((a) => a.from === id).map((a) => a.e.sku as Sku))];
   return layerOf(cur.tier).map((d) => {
     const state = sectorState(land, d.id);
     const delta = gridDelta(cur.id, d.id) ?? [0, 0];
     const base = { id: d.id, name: d.name, tier: d.tier, delta, state, fee: d.fee, rank: null, crown: false, items: [], manager: null, lastRev: null, need: null };
     if (state === 'here') {
       const last = s.reports[s.reports.length - 1];
-      return { ...base, rank: last?.rank ?? null, crown: !!s.cleared, wait: clearWaiting(s), items: mainItems(s.buildings, s.shops), lastRev: last ? last.revenue : null };
+      return { ...base, rank: last?.rank ?? null, crown: !!s.cleared, wait: clearWaiting(s), items: mainItems(s.buildings, s.shops), lastRev: last ? last.revenue : null, ...(fin.length ? { feeds: fin } : {}) };
     }
     if (state === 'mine') {
       const rec = land.recs[d.id];
@@ -233,7 +240,7 @@ export function sectorBadges(s: P1State): SectorBadge[] {
       const m = rec?.manager != null ? staffOf(s, rec.manager) : undefined;
       const log = rec?.log[rec.log.length - 1];
       const rep = snap?.reports?.[snap.reports.length - 1];
-      return { ...base, rank: lastRank(s, d.id), crown: crowned(s, d.id), items: snap ? mainItems(snap.buildings, snap.shops) : [], manager: m && m.task === 'manager' ? m.hero : null, lastRev: log ? log.rev : rep ? rep.revenue : null };
+      return { ...base, rank: lastRank(s, d.id), crown: crowned(s, d.id), items: snap ? mainItems(snap.buildings, snap.shops) : [], manager: m && m.task === 'manager' ? m.hero : null, lastRev: log ? log.rev : rep ? rep.revenue : null, ...(fout(d.id).length ? { feeds: fout(d.id) } : {}) };
     }
     if (state === 'open') return base;
     return { ...base, need: needLine(s, d) };

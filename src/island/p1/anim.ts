@@ -62,6 +62,8 @@ export interface Anim {
    */
   gates?: { i: number; j: number; d: [number, number]; up: boolean }[];
   tolls?: { i: number; j: number; amt: number; t: number }[];
+  /** 段 TRADE1b：輸入の幹線のトラック（道のり・進み 0〜1・帰り）。週の到着の日に走る（縮小した地図では往復し続ける） */
+  trucks?: { path: [number, number][]; f: number; back?: boolean }[];
 }
 
 export const newAnim = (): Anim => ({ clock: 0, frac: 0, speed: 1, dayMs: 1200, walkers: [], crowd: [], buyer: null, coins: new Map(), plus: [] });
