@@ -1594,6 +1594,16 @@ export function withoutTrade<T>(f: () => T): T {
     SIM_TRADE.on = true;
   }
 }
+/** v49（段 TRADE1b）：商品の輸入の手を止めて回す（段 TRADE1b の前と同じ通し。比べるためだけ。終わったら戻す） */
+export function withoutFeed<T>(f: () => T): T {
+  const was = SIM_FEED.on;
+  SIM_FEED.on = false;
+  try {
+    return f();
+  } finally {
+    SIM_FEED.on = was;
+  }
+}
 export function withoutR2<T>(f: () => T): T {
   R2_OFF.on = true;
   try {
