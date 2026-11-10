@@ -1,0 +1,144 @@
+/* 段 FACTORY1a：工房の建て替え（町工場 1×2・大工場 2×2）。class は isl-fac-*（p1.css とぶつけない）。角は丸めない・文字は 12px 以上 */
+.isl-fac-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 2px solid var(--isl-line);
+  background: rgba(15, 22, 38, 0.45);
+}
+.isl-fac-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.isl-fac-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 64px;
+  padding: 4px 6px;
+  border: 2px solid transparent;
+  color: var(--isl-dim);
+}
+.isl-fac-step small {
+  font-size: 12px;
+  line-height: 1.2;
+}
+.isl-fac-step.is-cur {
+  border-color: var(--isl-gold);
+  color: var(--isl-gold);
+  background: rgba(242, 181, 68, 0.12);
+}
+.isl-fac-step.is-next {
+  border-color: rgba(124, 198, 242, 0.7);
+  border-style: dashed;
+  color: #bfe8ff;
+}
+.isl-fac-step.is-done {
+  color: var(--isl-text);
+}
+.isl-fac-arrow {
+  font-size: 14px;
+  color: var(--isl-dim);
+}
+/* 段の形：1×1・1×2・2×2 のマス（菱形にせず、四角で形だけ） */
+.isl-fac-shape {
+  display: grid;
+  gap: 2px;
+  height: 26px;
+  align-content: center;
+  justify-content: center;
+}
+.isl-fac-shape.is-s0 {
+  grid-template-columns: 12px;
+}
+.isl-fac-shape.is-s1 {
+  grid-template-columns: 12px 12px;
+}
+.isl-fac-shape.is-s2 {
+  grid-template-columns: 12px 12px;
+  grid-template-rows: 12px 12px;
+}
+.isl-fac-shape i {
+  display: block;
+  width: 12px;
+  height: 12px;
+  background: currentColor;
+  opacity: 0.35;
+}
+.isl-fac-shape.is-cur i,
+.isl-fac-shape.is-done i {
+  opacity: 1;
+}
+.isl-fac-shape.is-next i {
+  opacity: 0.6;
+  background: transparent;
+  outline: 2px dashed currentColor;
+  outline-offset: -2px;
+}
+.isl-fac-go {
+  align-self: stretch;
+  font-size: 14px;
+}
+.isl-fac-why {
+  font-size: 12px;
+  color: #ffd27a;
+}
+.isl-fac-prog {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.isl-fac-prog .isl-bar {
+  flex: 1 1 80px;
+  min-width: 80px;
+}
+.isl-fac-tip {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  margin: 0;
+  padding: 6px 8px;
+  border-left: 4px solid #ff9fc6;
+  background: rgba(255, 159, 198, 0.1);
+  font-size: 13px;
+}
+.isl-fac-tip b {
+  flex: none;
+  color: #ff9fc6;
+}
+/* 工房の画面：建て替えで増えた作業台（一度だけ） */
+.isl-fac-newtag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--isl-ink);
+  background: var(--isl-gold);
+  vertical-align: middle;
+}
+.isl-fac-new {
+  border-color: var(--isl-gold);
+  box-shadow: 0 0 0 2px rgba(242, 181, 68, 0.35);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .isl-fac-new {
+    animation: isl-fac-glow 1.4s ease-out 2;
+  }
+}
+@keyframes isl-fac-glow {
+  0% {
+    box-shadow: 0 0 0 6px rgba(242, 181, 68, 0.75);
+  }
+  100% {
+    box-shadow: 0 0 0 2px rgba(242, 181, 68, 0.35);
+  }
+}

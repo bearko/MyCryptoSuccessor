@@ -6,12 +6,11 @@
  * 縮小したときは、セクタごとに一度だけ小さな canvas に描いて使い回す（重くならないように）。
  * docs/ISLAND_PHASE1.md「つながった地図」。
  */
-import { DEF } from '../defs';
-import { center, drawBuilding, drawCell, image, loading } from '../render';
+import { center, depthOf, drawBuilding, drawCell, image, loading } from '../render';
 import { cells, frontCell } from '../sim';
 import { TIERS, type Tier } from './data';
 import { sectorDef, sectorState } from './company';
-import { groundOf, type Ground, type P1State, type PBuilding } from './model';
+import { defOf, groundOf, type Ground, type P1State, type PBuilding } from './model';
 import { ghostTown, gridDelta, layerOf, snapOf } from './world';
 
 /** 外周の何マスを見せるか */
@@ -210,15 +209,16 @@ function drawRegion(ctx: CanvasRenderingContext2D, s: P1State, w: World, r: Regi
   // 建物（未出店・まだ行けないセクタは外周 3 マスの中だけ）
   const items: { depth: number; b: PBuilding }[] = [];
   for (const b of r.buildings) {
-    const def = DEF[b.id];
+    // 段 FACTORY1a：工房は段の形（町工場 1×2・大工場 2×2）
+    const def = defOf(b);
     const [fi, fj] = frontCell(def, b.i, b.j, b.dir);
     if (r.kind !== 'mine' && !cells(def, b.i, b.j, b.dir).every(([x, y]) => edgeDist(r, x, y) < STRIP)) continue;
     if (!vis(fi + r.oi, fj + r.oj)) continue;
-    items.push({ depth: (fi + fj) * 1000 + fi, b });
+    items.push({ depth: depthOf(def, b.i, b.j, b.dir), b });
   }
   items.sort((a, b) => a.depth - b.depth);
   for (const { b } of items) {
-    const def = DEF[b.id];
+    const def = defOf(b);
     const at = { ...b, i: b.i + r.oi, j: b.j + r.oj };
     // 廃墟（ランクアップの災害。発掘 v2 の 7 段目）：となりの町からも、暗く色あせて見える（仮の絵）
     if (b.owner === 'ruin') {
