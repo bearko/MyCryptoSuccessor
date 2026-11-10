@@ -19,6 +19,8 @@ export function image(path: string): HTMLImageElement {
 const ok = (im: HTMLImageElement) => im.complete && im.naturalWidth > 0;
 
 export const art = (id: string, dir: Dir) => image(`b/${artId(id)}/${dir === 'rd' || dir === 'ld' ? 'rd' : 'lu'}.png`);
+/** 建物の絵（段で絵が替わる建物は def.art。段 FACTORY1a） */
+export const artOf = (def: Def, dir: Dir) => image(`b/${def.art ?? artId(def.id)}/${dir === 'rd' || dir === 'ld' ? 'rd' : 'lu'}.png`);
 export const mirrored = (dir: Dir) => dir === 'ld' || dir === 'ru';
 
 export interface Camera {
@@ -52,16 +54,27 @@ export function pick(cam: Camera, w: number, h: number, sx: number, sy: number):
   return [Math.round(u), Math.round(v)];
 }
 
+/** 2×2 の絵の幅（docs/ISLAND_MVP.md。基準点は手前の角＝横の真ん中 200） */
+export const ART_W4 = 400;
+
 /** 絵を基準点で置く。dir が左下・右上なら左右反転 */
 export function drawArt(ctx: CanvasRenderingContext2D, im: HTMLImageElement, def: Def, b: { i: number; j: number; dir: Dir }, sx = 0, sw?: number) {
   if (!ok(im)) return;
   const w = sw ?? im.naturalWidth;
   const h = im.naturalHeight;
+  // 段 FACTORY1a：2×2 の建物に 2×2 の絵がまだ無い（1×2 の絵を借りている）ときは、1×2 の絵を奥と手前に 2 棟並べる（仮の絵。docs/ISLAND_ART_TODO.md）
+  if (def.size === 4 && w < ART_W4) {
+    const half: Def = { ...def, size: 2 };
+    const along = b.dir === 'rd' || b.dir === 'lu';
+    drawArt(ctx, im, half, b, sx, sw);
+    drawArt(ctx, im, half, along ? { ...b, i: b.i + 1 } : { ...b, j: b.j + 1 }, sx, sw);
+    return;
+  }
   const [fi, fj] = frontCell(def, b.i, b.j, b.dir);
   const c = center(fi, fj);
   const flip = mirrored(b.dir);
-  // 2 マスの絵は、手前のマスが左（反転すると右）にある
-  const ax = def.size === 2 ? (flip ? w - 100 : 100) : 100;
+  // 2 マスの絵は、手前のマスが左（反転すると右）にある。2×2 は手前の角が横の真ん中
+  const ax = def.size === 4 ? w / 2 : def.size === 2 ? (flip ? w - 100 : 100) : 100;
   const x = c.x - ax;
   const y = c.y + 55 - (h - 31);
   if (flip) {
@@ -71,6 +84,16 @@ export function drawArt(ctx: CanvasRenderingContext2D, im: HTMLImageElement, def
     ctx.drawImage(im, sx, 0, w, h, 0, 0, w, h);
     ctx.restore();
   } else ctx.drawImage(im, sx, 0, w, h, x, y, w, h);
+}
+
+/**
+ * 描く順の深さ（奥から手前へ）：手前のマスの (i+j)×1000+i。2×2（段 FACTORY1a）は真ん中で数える
+ * （手前のマスで数えると、横の 2 マスの前に建つ同じ列の建物・人より後に描いて、前後が崩れる）
+ */
+export function depthOf(def: Def, i: number, j: number, dir: Dir): number {
+  if (def.size === 4) return (i + j + 1) * 1000 + i + 0.5;
+  const [fi, fj] = frontCell(def, i, j, dir);
+  return (fi + fj) * 1000 + fi;
 }
 
 /** 1 マスの絵（土台・足場・キラキラ）をマスに置く */
@@ -85,9 +108,17 @@ const SCAFFOLD_FRAMES = { 3: 9, 4: 12, 5: 15 } as const;
 const SPARKLE_FRAMES = 18;
 const SPARKLE_MS = 70;
 
-function levels(def: Def): 3 | 4 | 5 {
+export function levels(def: Def): 3 | 4 | 5 {
   if (def.tall) return 5;
-  return def.size === 2 ? 4 : 3;
+  return def.size === 1 ? 3 : 4;
+}
+/** 工事の足場の今のコマ（k：0〜1 の進み） */
+export function scaffoldAt(ctx: CanvasRenderingContext2D, def: Def, i: number, j: number, k: number) {
+  const lv = levels(def);
+  const total = SCAFFOLD_FRAMES[lv];
+  const frame = Math.max(0, Math.min(total - 1, Math.floor(k * total)));
+  drawCell(ctx, image('fx/lot.png'), i, j);
+  drawCell(ctx, image(`fx/scaffold${lv}.png`), i, j, frame);
 }
 
 export function diamond(ctx: CanvasRenderingContext2D, i: number, j: number, fill: string) {
@@ -174,19 +205,13 @@ export function draw(ctx: CanvasRenderingContext2D, s: State, cam: Camera, w: nu
 export function drawBuilding(ctx: CanvasRenderingContext2D, b: Pick<Building, 'uid' | 'id' | 'i' | 'j' | 'dir' | 'left'>, def: Def, now: number, effect?: Effect) {
   if (b.left > 0) {
     // 工事中：更地の上に、進み具合に合わせた段まで足場を組む
-    const lv = levels(def);
-    const total = SCAFFOLD_FRAMES[lv];
-    const frame = Math.min(total - 1, Math.floor((1 - b.left / def.days) * total));
-    for (const [x, y] of cells(def, b.i, b.j, b.dir)) {
-      drawCell(ctx, image('fx/lot.png'), x, y);
-      drawCell(ctx, image(`fx/scaffold${lv}.png`), x, y, frame);
-    }
+    for (const [x, y] of cells(def, b.i, b.j, b.dir)) scaffoldAt(ctx, def, x, y, 1 - b.left / def.days);
     return;
   }
   const f = effect ? Math.floor((now - effect.start) / SPARKLE_MS) : -1;
   const sparkle = f >= 0 && f < SPARKLE_FRAMES;
   if (sparkle) for (const [x, y] of cells(def, b.i, b.j, b.dir)) drawCell(ctx, image('fx/sparkle_back.png'), x, y, f);
-  drawArt(ctx, art(b.id, b.dir), def, b);
+  drawArt(ctx, def.art ? artOf(def, b.dir) : art(b.id, b.dir), def, b);
   if (sparkle) for (const [x, y] of cells(def, b.i, b.j, b.dir)) drawCell(ctx, image('fx/sparkle_front.png'), x, y, f);
 }
 

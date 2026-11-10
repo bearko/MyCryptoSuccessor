@@ -4,7 +4,7 @@
  */
 import { t } from '../../i18n';
 import { allSeries, heroById } from '../../game/catalog';
-import { DEF } from '../defs';
+import { DEF, type Def } from '../defs';
 import { cells, type Dir } from '../sim';
 import { book, brandAdd, brandCap, brandPull, emptyLedger, newBooks, newLand, reviveMonth, reviveScale, ruinCount, runSector, sectorDef, sectorProfile, type BrandEv, type Books, type Land, type LedgerKey, type ReviveMonth, type RuinLike } from './company';
 import {
@@ -78,6 +78,8 @@ import {
   LETTER_NEED,
   MISSIONS,
   MOVE,
+  FACTORY,
+  type FacLv,
   PAY,
   MORALE,
   ENV_INVESTS,
@@ -167,6 +169,13 @@ export interface PBuilding {
   owner: Owner;
   /** 設備投資の段（自社の建物だけ） */
   inv?: Partial<Record<string, number>>;
+  /** 段 FACTORY1a：工房の段（1：町工場 1×2・2：大工場 2×2。無ければ 0＝工房 1×1）。工房だけが持つ */
+  lv?: 1 | 2;
+  /**
+   * 段 FACTORY1a：建て替えの途中（新しい段・置き場所・向き・残りの日数・工期）。そのあいだも前の形で作り続け、
+   * 新しい形のマスは足場で予約する（ほかの建物を置けない）。終わった日に形と台の数が替わる（移転を兼ねるなら前のマスが空く）
+   */
+  up?: { lv: 1 | 2; i: number; j: number; dir: Dir; left: number; days: number };
 }
 
 export interface Staff {
@@ -453,6 +462,8 @@ export interface Flags {
   craftTalk?: boolean;
   /** チュートリアル：建ててもらう場所（工房とお店。運ぶ様子が見えるよう、少し離す） */
   spots?: Record<string, [number, number, Dir]>;
+  /** 段 FACTORY1a：建て替えで増えた作業台の番号（工房の画面で「NEW」を一度だけ出す。見たら消す） */
+  facNew?: number[];
   /** 「人材の募集」を開放したあと、人事タブで人材登用のアンロックの演出を見た */
   hireUnlocked?: boolean;
   /** 段 UI7c：マインちゃんが経営方針を聞いた（1 回だけ） */
@@ -943,8 +954,31 @@ export const isRoad = (s: P1State, i: number, j: number) => ground(s, i, j) === 
 /** 入口の向き → 前のマスへのずれ */
 export const FRONT: Record<Dir, [number, number]> = { rd: [1, 0], ld: [0, 1], lu: [-1, 0], ru: [0, -1] };
 
+/** 段 FACTORY1a：段ごとの工房の形（DEF.workshop の size と絵を替えたもの） */
+const WS_DEF: Def[] = FACTORY.size.map((size, k) => (k ? { ...DEF.workshop, size, ...(FACTORY.art[k] ? { art: FACTORY.art[k]! } : {}) } : DEF.workshop));
+/** 工房の段の形（段 0 は DEF.workshop そのもの） */
+export const wsDef = (lv: number) => WS_DEF[Math.max(0, Math.min(2, lv | 0))];
+/**
+ * 段 FACTORY1a：建物の形・絵（cells・frontCell・描画はこれを通す）。工房だけ段（lv）で 1×1 → 1×2 → 2×2 に替わる。
+ * 島づくり（src/island/main.ts）は DEF[b.id] のまま
+ */
+export function defOf(b: { id: string; lv?: number }): Def {
+  return b.id === 'workshop' && b.lv ? wsDef(b.lv) : DEF[b.id];
+}
+/** 建物の名前（工房は段で「工房」「町工場」「大工場」） */
+export function bName(b: { id: string; lv?: number }): string {
+  return b.id === 'workshop' && b.lv ? FACTORY.name[b.lv] : DEF[b.id]?.name ?? b.id;
+}
+/** 建物が使うマス（段 FACTORY1a：建て替え中の工房は、新しい形の予約のマスも含む） */
+export function cellsOf(b: PBuilding, reserve = true): [number, number][] {
+  const cs = cells(defOf(b), b.i, b.j, b.dir);
+  if (!reserve || !b.up) return cs;
+  const add = cells(wsDef(b.up.lv), b.up.i, b.up.j, b.up.dir).filter(([x, y]) => !cs.some(([p, q]) => p === x && q === y));
+  return [...cs, ...add];
+}
+
 export function occupant(s: P1State, i: number, j: number): PBuilding | null {
-  for (const b of s.buildings) if (cells(DEF[b.id], b.i, b.j, b.dir).some(([x, y]) => x === i && y === j)) return b;
+  for (const b of s.buildings) if (cellsOf(b).some(([x, y]) => x === i && y === j)) return b;
   return null;
 }
 
@@ -955,20 +989,25 @@ export function occupant(s: P1State, i: number, j: number): PBuilding | null {
 export function tapTarget(s: P1State, i: number, j: number): [number, number] {
   if (occupant(s, i, j)) return [i, j];
   if (ground(s, i + 1, j + 1) && occupant(s, i + 1, j + 1)) return [i + 1, j + 1];
+  // 段 FACTORY1a：2×2 の大工場の絵は高いので、2 マス手前まで見る（大工場のときだけ）
+  if (ground(s, i + 2, j + 2)) {
+    const o = occupant(s, i + 2, j + 2);
+    if (o && defOf(o).size === 4) return [i + 2, j + 2];
+  }
   return [i, j];
 }
 
-/** 入口の前のマス（建物のマスを除く） */
-export function frontCells(id: string, i: number, j: number, dir: Dir): [number, number][] {
-  const cs = cells(DEF[id], i, j, dir);
+/** 入口の前のマス（建物のマスを除く）。def：形（段 FACTORY1a：段のある工房。無ければ DEF[id]） */
+export function frontCells(id: string, i: number, j: number, dir: Dir, def: Def = DEF[id]): [number, number][] {
+  const cs = cells(def, i, j, dir);
   const [dx, dy] = FRONT[dir];
   return cs.map(([x, y]) => [x + dx, y + dy] as [number, number]).filter(([x, y]) => !cs.some(([p, q]) => p === x && q === y));
 }
 
-export const facesRoad = (s: P1State, id: string, i: number, j: number, dir: Dir) => frontCells(id, i, j, dir).some(([x, y]) => isRoad(s, x, y));
+export const facesRoad = (s: P1State, id: string, i: number, j: number, dir: Dir, def: Def = DEF[id]) => frontCells(id, i, j, dir, def).some(([x, y]) => isRoad(s, x, y));
 
-function lotFree(s: P1State, id: string, i: number, j: number, dir: Dir, ignore?: number, revived = false) {
-  return cells(DEF[id], i, j, dir).every(([x, y]) => {
+function lotFree(s: P1State, id: string, i: number, j: number, dir: Dir, ignore?: number, revived = false, def: Def = DEF[id]) {
+  return cells(def, i, j, dir).every(([x, y]) => {
     // 荒れ地（発掘許可をもらって掘りきると復興して、自社の建物を建てられるようになる。町の建物は建てない）
     if (revived ? wasteBlock(s, x, y) : isWaste(s, x, y)) return false;
     const o = ground(s, x, y) === 'grass' ? occupant(s, x, y) : undefined;
@@ -1638,8 +1677,11 @@ export function tutSpot(s: P1State, id: string): [number, number, Dir] | null {
   return pick;
 }
 
+/** ignore：動かす建物（その建物のマスは空いているとみなし、形はその建物の段の形。段 FACTORY1a） */
 export function allowedDirs(s: P1State, id: string, i: number, j: number, ignore?: number): Dir[] {
-  return (['rd', 'ld', 'lu', 'ru'] as Dir[]).filter((d) => facesRoad(s, id, i, j, d) && lotFree(s, id, i, j, d, ignore, true) && (id !== 'museum' || cells(DEF[id], i, j, d).every(([x, y]) => isRevived(s, x, y))));
+  const mv = ignore != null ? s.buildings.find((b) => b.uid === ignore) : undefined;
+  const def = mv ? defOf(mv) : DEF[id];
+  return (['rd', 'ld', 'lu', 'ru'] as Dir[]).filter((d) => facesRoad(s, id, i, j, d, def) && lotFree(s, id, i, j, d, ignore, true, def) && (id !== 'museum' || cells(def, i, j, d).every(([x, y]) => isRevived(s, x, y))));
 }
 
 export function canBuild(s: P1State, id: string): PlaceErr | null {
@@ -1708,14 +1750,16 @@ export function build(s: P1State, id: string, i: number, j: number, dir: Dir): P
 /** 向きを、入口が道路に向く次の向きへ */
 export function turn(s: P1State, uid: number): boolean {
   const b = s.buildings.find((x) => x.uid === uid && x.owner === 'me');
-  if (!b) return false;
+  // 段 FACTORY1a：建て替えの途中は回さない（予約したマスがずれる）
+  if (!b || b.up) return false;
   const order: Dir[] = ['rd', 'ld', 'lu', 'ru'];
   const others = s.buildings.filter((x) => x !== b);
+  const def = defOf(b);
   for (let k = 1; k < 4; k++) {
     const d = order[(order.indexOf(b.dir) + k) % 4];
-    const cs = cells(DEF[b.id], b.i, b.j, d);
-    const free = cs.every(([x, y]) => ground(s, x, y) === 'grass' && !wasteBlock(s, x, y) && (b.id !== 'museum' || isRevived(s, x, y)) && !others.some((o) => cells(DEF[o.id], o.i, o.j, o.dir).some(([p, q]) => p === x && q === y)));
-    if (free && facesRoad(s, b.id, b.i, b.j, d)) {
+    const cs = cells(def, b.i, b.j, d);
+    const free = cs.every(([x, y]) => ground(s, x, y) === 'grass' && !wasteBlock(s, x, y) && (b.id !== 'museum' || isRevived(s, x, y)) && !others.some((o) => cellsOf(o).some(([p, q]) => p === x && q === y)));
+    if (free && facesRoad(s, b.id, b.i, b.j, d, def)) {
       b.dir = d;
       return true;
     }
@@ -1733,9 +1777,11 @@ export const refundOf = (b: PBuilding) => Math.round((P1B[b.id]?.cost ?? 0) * MO
 export function canMoveTo(s: P1State, uid: number, i: number, j: number, dir: Dir): PlaceErr | null {
   const b = s.buildings.find((x) => x.uid === uid && x.owner === 'me');
   if (!b) return 'locked';
-  if (b.left > 0) return 'locked';
+  // 段 FACTORY1a：建て替えの途中は動かさない
+  if (b.left > 0 || b.up) return 'locked';
   if (s.money < moveCost(b)) return 'money';
-  const cs = cells(DEF[b.id], i, j, dir);
+  const def = defOf(b);
+  const cs = cells(def, i, j, dir);
   if (cs.some(([x, y]) => ground(s, x, y) !== 'grass')) return 'ground';
   if (cs.some(([x, y]) => wasteBlock(s, x, y))) return 'waste';
   if (b.id === 'museum' && !cs.every(([x, y]) => isRevived(s, x, y))) return 'revive';
@@ -1744,7 +1790,7 @@ export function canMoveTo(s: P1State, uid: number, i: number, j: number, dir: Di
     return o && o.uid !== uid;
   }))
     return 'taken';
-  if (!facesRoad(s, b.id, i, j, dir)) return 'road';
+  if (!facesRoad(s, b.id, i, j, dir, def)) return 'road';
   return null;
 }
 
@@ -1816,6 +1862,115 @@ export function invest(s: P1State, uid: number, id: string): string | null {
   return null;
 }
 
+// ---------------------------------------------------------------- 段 FACTORY1a：工房の建て替え（町工場 1×2・大工場 2×2）
+
+/** 建て替えられない理由：工房が無い・工事中・建て替えの途中・もう大工場・作業台 2 段目がまだ・町のランク・置き場所が無い・資金 */
+export type UpErr = 'none' | 'building' | 'busy' | 'max' | 'bench' | 'tier' | 'room' | 'money';
+/** 建て替えの置き方の候補（here：いまのマスを含む＝その場で広がる。ほかは移転を兼ねる） */
+export interface UpSpot {
+  i: number;
+  j: number;
+  dir: Dir;
+  here: boolean;
+}
+/** 工房の段（無ければ 0） */
+export const facLv = (s: P1State): FacLv => (wsAny(s)?.lv ?? 0) as FacLv;
+
+/** 新しい形をそこに置けるか（工房自身のマスは空いているとみなす。荒れ地は不可・復興した土地は可） */
+function upFits(s: P1State, ws: PBuilding, def: Def, i: number, j: number, dir: Dir): PlaceErr | null {
+  const cs = cells(def, i, j, dir);
+  if (cs.some(([x, y]) => ground(s, x, y) !== 'grass')) return 'ground';
+  if (cs.some(([x, y]) => wasteBlock(s, x, y))) return 'waste';
+  if (cs.some(([x, y]) => {
+    const o = occupant(s, x, y);
+    return o && o.uid !== ws.uid;
+  }))
+    return 'taken';
+  if (!facesRoad(s, ws.id, i, j, dir, def)) return 'road';
+  return null;
+}
+
+/**
+ * 建て替えの置き方の候補：その場で広がれる置き方（いまのマスを全部含む）を先に、あとは工房から近い順（移転を兼ねる）。
+ * 2×2 は向きで形が変わらないが、入口の向き（道路に面する辺）は替わるので、向きごとに 1 つ
+ */
+export function upSpots(s: P1State, lv: 1 | 2): UpSpot[] {
+  const ws = wsAny(s);
+  if (!ws) return [];
+  const def = wsDef(lv);
+  const old = cellsOf(ws, false);
+  const ci = old.reduce((a, [x]) => a + x, 0) / old.length;
+  const cj = old.reduce((a, [, y]) => a + y, 0) / old.length;
+  const out: (UpSpot & { d: number })[] = [];
+  for (let j = 0; j < s.n; j++)
+    for (let i = 0; i < s.n; i++)
+      for (const dir of ['rd', 'ld', 'lu', 'ru'] as Dir[]) {
+        if (upFits(s, ws, def, i, j, dir)) continue;
+        const cs = cells(def, i, j, dir);
+        const here = old.every(([x, y]) => cs.some(([p, q]) => p === x && q === y));
+        const mi = cs.reduce((a, [x]) => a + x, 0) / cs.length;
+        const mj = cs.reduce((a, [, y]) => a + y, 0) / cs.length;
+        out.push({ i, j, dir, here, d: Math.abs(mi - ci) + Math.abs(mj - cj) });
+      }
+  return out.sort((a, b) => Number(b.here) - Number(a.here) || a.d - b.d).map(({ i, j, dir, here }) => ({ i, j, dir, here }));
+}
+
+/** 次の段へ建て替えられるか（lv：次の段・cost・days：値段と工期。建て替えの途中なら lv はその段・days は残り） */
+export function upCheck(s: P1State): { lv: 1 | 2 | null; err: UpErr | null; cost: number; days: number } {
+  const ws = wsAny(s);
+  if (!ws) return { lv: null, err: 'none', cost: 0, days: 0 };
+  if (ws.up) return { lv: ws.up.lv, err: 'busy', cost: FACTORY.cost[ws.up.lv], days: ws.up.left };
+  const cur = ws.lv ?? 0;
+  if (cur >= 2) return { lv: null, err: 'max', cost: 0, days: 0 };
+  const lv = (cur + 1) as 1 | 2;
+  const out = { lv, cost: FACTORY.cost[lv], days: FACTORY.days[lv] };
+  if (ws.left > 0) return { ...out, err: 'building' };
+  if (invLv(ws, 'bench') < FACTORY.needBench) return { ...out, err: 'bench' };
+  if (TIER_ORDER.indexOf(s.tier ?? 'C') < TIER_ORDER.indexOf(FACTORY.minTier[lv])) return { ...out, err: 'tier' };
+  if (!upSpots(s, lv).length) return { ...out, err: 'room' };
+  if (s.money < out.cost) return { ...out, err: 'money' };
+  return { ...out, err: null };
+}
+
+/** その置き方で建て替えを始められるか（置くモードの理由。条件が足りなければ locked・資金なら money） */
+export function canUpAt(s: P1State, i: number, j: number, dir: Dir): PlaceErr | null {
+  const c = upCheck(s);
+  const ws = wsAny(s);
+  if (!ws || !c.lv || (c.err && c.err !== 'money' && c.err !== 'room')) return 'locked';
+  const e = upFits(s, ws, wsDef(c.lv), i, j, dir);
+  if (e) return e;
+  return c.err === 'money' ? 'money' : null;
+}
+
+/** 建て替えを始める：お金を払って、新しい形のマスに足場を組む（工房は前の形のまま動き続ける） */
+export function startUp(s: P1State, i: number, j: number, dir: Dir): UpErr | PlaceErr | null {
+  const c = upCheck(s);
+  const ws = wsAny(s);
+  if (c.err || !c.lv || !ws) return c.err ?? 'none';
+  const e = upFits(s, ws, wsDef(c.lv), i, j, dir);
+  if (e) return e;
+  s.money -= c.cost;
+  spend(s, 'build', c.cost);
+  // 経理（段 F）：建て替えは設備投資として節税の対象
+  deduct(s, 'capex', c.cost);
+  ws.up = { lv: c.lv, i, j, dir, left: c.days, days: c.days };
+  return null;
+}
+
+/** 建て替えが終わった日：形・段・台の数が替わる（移転を兼ねるなら前のマスが空く）。増えた作業台は「NEW」 */
+export function finishUp(s: P1State, ws: PBuilding) {
+  const u = ws.up;
+  if (!u) return;
+  ws.i = u.i;
+  ws.j = u.j;
+  ws.dir = u.dir;
+  ws.lv = u.lv;
+  delete ws.up;
+  const n0 = s.slots.length;
+  syncSlots(s);
+  if (s.slots.length > n0) s.flags.facNew = Array.from({ length: s.slots.length - n0 }, (_, k) => n0 + k);
+}
+
 /** お店の裏に置ける数（そのお店の設備投資「裏の倉庫を広げる」） */
 export const storageCap = (b: PBuilding, s?: P1State) => SHOP.storageCap + unitsX(20) * invLv(b, 'backroom') + (s ? Math.round(unitsX(10) * lvMul(s, 'inventory')) : 0);
 
@@ -1830,7 +1985,7 @@ export function roomOf(b: PBuilding): number {
   return 0;
 }
 /** 素材と、お店へ運ぶ前の商品を置ける数の合計（工房の物置・倉庫・物流拠点） */
-export const poolCap = (s: P1State) => STORE.base + 40 * invLv(wsAny(s), 'stockroom') + Math.round(20 * lvMul(s, 'inventory')) + [...myWarehouses(s), ...myDepots(s)].reduce((a, w) => a + roomOf(w), 0);
+export const poolCap = (s: P1State) => STORE.base + 40 * invLv(wsAny(s), 'stockroom') + FACTORY.pool[wsAny(s)?.lv ?? 0] + Math.round(20 * lvMul(s, 'inventory')) + [...myWarehouses(s), ...myDepots(s)].reduce((a, w) => a + roomOf(w), 0);
 /** 段 UI5d：置き場所の内訳（工房の物置・倉庫・物流拠点）。表示用 */
 export function poolParts(s: P1State): { base: number; warehouse: number; depot: number } {
   const wh = myWarehouses(s).reduce((a, w) => a + roomOf(w), 0);
@@ -1873,7 +2028,7 @@ export function roadPath(s: P1State, from: [number, number], to: [number, number
 }
 /** 建物の入口の前の道路のマス */
 export function doorOf(b: PBuilding): [number, number] {
-  return frontCells(b.id, b.i, b.j, b.dir)[0] ?? [b.i, b.j];
+  return frontCells(b.id, b.i, b.j, b.dir, defOf(b))[0] ?? [b.i, b.j];
 }
 export const wholesaler = (s: P1State) => s.buildings.find((b) => b.id === 'wholesale') ?? null;
 
@@ -1929,7 +2084,15 @@ export const wsAny = (s: P1State) => s.buildings.find((b) => b.owner === 'me' &&
  */
 export const cartsOf = (s: P1State) => 1 + invLv(wsAny(s), 'carts') + lvOf(s, 'joint');
 export const cartCap = (s: P1State) => Math.round(TRANSPORT.cap * (invLv(wsAny(s), 'truck') > 0 ? 2.5 : 1) * (1 + 0.3 * lvMul(s, 'loading') + fxSum(s, 'cartCap')));
-export const benchCount = (s: P1State) => 1 + invLv(wsAny(s), 'bench');
+/**
+ * 作業台の数（数える所はここ 1 つ。段 FACTORY1b の工員の台もここに足す）：作業台の設備投資の段 ＋ 工房の段の上積み
+ * （段の上積みは作業台 2 段目を取ってから。段 0 は 1〜3 台・町工場 4 台・大工場 5 台）
+ */
+export function benchCount(s: P1State): number {
+  const ws = wsAny(s);
+  const inv = invLv(ws, 'bench');
+  return 1 + inv + (inv >= FACTORY.needBench ? FACTORY.bench[ws?.lv ?? 0] : 0);
+}
 export const shelfCount = (_s: P1State, b: PBuilding) => (P1B[b.id]?.shelves ?? 1) + invLv(b, 'shelves');
 export const partMax = (s: P1State, uid: number) => SHOP.partTimeMax + 2 * invLv(s.buildings.find((x) => x.uid === uid), 'staffroom');
 
@@ -3953,6 +4116,8 @@ export function siteInfo(s: P1State, id: string, i: number, j: number, dir: Dir)
 
 export interface DayResult {
   finished: PBuilding[];
+  /** 段 FACTORY1a：建て替えが終わった工房（形と台の数が替わった） */
+  rebuilt?: PBuilding[];
   crafted: Sku[];
   delivered: { to: number; n: number }[];
   routes: Mat[];
@@ -4078,6 +4243,13 @@ export function step(s: P1State): DayResult {
       }
     }
   }
+
+  // 段 FACTORY1a：工房の建て替え（そのあいだも前の形で作り続ける。終わった日に形と台の数が替わる）
+  for (const b of s.buildings)
+    if (b.owner === 'me' && b.up && b.left <= 0 && --b.up.left <= 0) {
+      finishUp(s, b);
+      (res.rebuilt ??= []).push(b);
+    }
 
   const ws = myWorkshop(s);
   const shops = myShops(s);
