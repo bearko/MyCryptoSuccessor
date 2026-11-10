@@ -15,6 +15,7 @@ import { siteCandidates } from '../../src/island/p1/trade';
 import { borderAt, cheaperImport, setSource, sourceOf } from '../../src/island/p1/tariff';
 import { feedItems, feedNeighbors, feedReady, toggleFeed } from '../../src/island/p1/feed';
 import { TRADE } from '../../src/island/p1/data';
+import { benchCount, startUp, upCheck, upSpots } from '../../src/island/p1/model';
 import { HR_OFF, baseWage, charismaOf, moraleOf, payroll, talk, toMarket } from '../../src/island/p1/hr';
 import { ACCT_OFF, quarterNow, taxPlan, taxOn } from '../../src/island/p1/acct';
 import { fatigueAvg, fatigueMul, fatigueOf, gaOn } from '../../src/island/p1/ga';
@@ -263,6 +264,10 @@ export interface SectorRun {
   revisit?: boolean;
   /** v17（段 E1：ヒーローの育成）：離れたときのヒーローの Lv（全員） */
   lv?: number[];
+  /** v50（段 FACTORY1a）：工房の建て替えが終わった段と月（着いてからの月の締めの回数）・その場か移転か */
+  fac?: { lv: number; at: number; here: boolean }[];
+  /** v50：大工場（2×2）にしたかったのに置き場所が無くて、町工場（1×2）で止まった */
+  facStop?: boolean;
 }
 
 export interface DigRec {
@@ -533,6 +538,10 @@ interface Ctx {
   /** v14：100% の再発掘の周回を足した・その町 */
   toured?: boolean;
   revisit?: Set<string>;
+  /** v50（段 FACTORY1a）：製造が詰まりの月の続き・建て替えを始めた置き方（その場か）・2×2 の置き場所が無くて止まったセクタ */
+  craftJam?: number;
+  facHere?: boolean;
+  facStuck?: Set<string>;
 }
 
 const DIRS = ['rd', 'ld', 'lu', 'ru'] as const;
@@ -685,6 +694,8 @@ const ok = (r: unknown) => r === null || r === true || (typeof r === 'object' &&
 export const SIM_CARDS = { on: true };
 /** v48（段 TRADE1a）：関税込みで安ければ、調達係の仕入れ先をとなり町に（off で段 TRADE1a の前と同じ通し：比べる用） */
 export const SIM_TRADE = { on: true };
+/** v50（段 FACTORY1a）：製造の詰まりが months か月続き、作業台が全部埋まっていたら工房の段を上げる（off で段 FACTORY1a の前と同じ通し：比べる用） */
+export const SIM_FACTORY = { on: process.env.SIM_FACTORY !== '0', months: 2, full: true };
 /** v49（段 TRADE1b）：各階層の 2 町目以降で、隣の工房の売れ筋を境の拠点で輸入する（off で段 TRADE1b の前と同じ通し：比べる用） */
 export const SIM_FEED = { on: process.env.SIM_FEED !== '0' };
 /**
@@ -890,6 +901,22 @@ export function policy(s: P1State, c: Ctx): Action[] {
   const can = (id: string) => (invOf(id) ? invNeed(id).length > 0 : lvTok(id) ? lvCan(lvTok(id)!) : learnable(id));
   const costOf = (id: string) => (invOf(id) ? invCost(id) : lvTok(id) ? nextLevelCost(s, lvTok(id)!) : SKILL[id] && isResearch(SKILL[id]) ? 0 : SKILL[id].cost);
   if (!has(s, 'hire')) take('hire', 0);
+  /**
+   * v50（段 FACTORY1a）：工房の段を上げる（その場で広がれる置き方を先に、無ければ光る候補の最初へ移転）。
+   * 大工場の置き場所が無ければ町工場で止める（待たない。止まった町を覚える）。keep：残すお金。始めたら true
+   */
+  const facTake = (keep: number): boolean => {
+    if (pending.has('factory')) return false;
+    const up = upCheck(s);
+    if (up.lv === 2 && up.err === 'room') (c.facStuck ??= new Set()).add(s.sector ?? 'c1');
+    if (!up.lv || up.err || budget < up.cost + keep) return false;
+    const sp = upSpots(s, up.lv)[0];
+    spend(up.cost);
+    pending.add('factory');
+    c.facHere = sp.here;
+    acts.push({ kind: 'factory', run: () => startUp(s, sp.i, sp.j, sp.dir) });
+    return true;
+  };
 
   // ---- お店（最初の 1 軒）
   const shopsAll = s.buildings.filter((b) => b.owner === 'me' && P1B[b.id]?.kind === 'shop');
@@ -1304,6 +1331,9 @@ export function policy(s: P1State, c: Ctx): Action[] {
     if (r && !saving && (s.sector ?? 'c1') === 'c1' && !s.cleared) take('@bench:1', reserve / 2);
     if (r && !saving) {
       const bn = c.lastBn ?? 'sell';
+      // v50（段 FACTORY1a）：作業台が段の上限まで埋まり（全部の台に職人）、製造の詰まりが 2 か月続いたら、工房の段を上げる。
+      // その場で広がれる置き方を先に、無ければ光る候補の最初へ移転。2×2 の置き場所が無ければ町工場（1×2）で止める（待たない）
+      if (SIM_FACTORY.on && (c.craftJam ?? 0) >= SIM_FACTORY.months && s.slots.length >= benchCount(s) && s.slots.every((x) => x.worker != null)) facTake(reserve);
       // v16c（Rare の町 ②）：営業の画面の手。空き店舗が出たら入る → 「出店の候補地」の上位に店を出す → 宣伝で押す → 営業のパネル
       if (s.area) {
         const A = SIM_AREA;
@@ -1408,6 +1438,12 @@ export function policy(s: P1State, c: Ctx): Action[] {
           const cost = costOf(id);
           if (!can(id) || cost > rest) continue;
           if (take(id, 0)) rest -= cost;
+        }
+        // v50（段 FACTORY1a）：工房の建て替えも、ほかの設備投資と同じく残りの資金の枠で（作業台 2 段目のあと）
+        if (SIM_FACTORY.on && SIM_FACTORY.full) {
+          const up = upCheck(s);
+          if (up.lv && !up.err && up.cost <= rest && facTake(0)) rest -= up.cost;
+          else if (up.lv === 2 && up.err === 'room') facTake(0);
         }
       }
       // v20（段 F）：決算の前（会社の四半期の締めまで 30 日以内の月末）に、節税の上限まで投資を前倒しする（SIM_TAX。最短は節税を気にしない）
@@ -2636,6 +2672,8 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       v.picks = Math.max(v.picks, Object.values(s.land?.recs ?? {}).reduce((a, r) => a + (r.feed?.length ?? 0), 0));
     }
     if (cur.sale1 == null && d.sales.length) cur.sale1 = s.day - cur.arrived;
+    // v50（段 FACTORY1a）：建て替えが終わった段と月
+    for (const b of d.rebuilt ?? []) (cur.fac ??= []).push({ lv: b.lv ?? 0, at: cur.log.length, here: c.facHere ?? true });
     o.onDay?.(s, cur.id, d);
     cur.dig.auto += d.dug?.length ?? 0;
     // v18：任せ方の記録
@@ -2771,6 +2809,9 @@ export function runOnce(p: PolicyId, seed: number, o: RunOpts = {}): RunResult {
       o.onMonth?.(s, cur.id, r.month);
       c.monthEnd = r;
       if (p !== 'rta') c.lastBn = readBn(s);
+      // v50（段 FACTORY1a）：製造が詰まりの月の続き（工房の建て替えの判断）
+      c.craftJam = c.lastBn === 'craft' ? (c.craftJam ?? 0) + 1 : 0;
+      if (c.facStuck?.has(cur.id)) cur.facStop = true;
       c.shopsThisMonth = 0;
       c.lineupDirty = true;
       if (r.rank === 1 && r.revenue > 0 && cur.first == null) cur.first = r.month;
@@ -3359,6 +3400,25 @@ export function tables(rep: Report2): string {
         const mos = runs.flatMap((r) => r.sectors.filter((x) => x.tier === tier).slice(1).filter((x) => x.months != null).map((x) => x.months ?? 0));
         out.push(`| ${POLICY_NAME[p]} | ${tier} | ${f(g('qty'))}（${g('n').toFixed(1)}） | ${f(g('duty'))} | ${ups.length ? mean(ups).toFixed(1) : '—'} | ${mos.length ? mean(mos).toFixed(2) : '—'} | ${one ? `${f(one.v49?.byTier[tier]?.qty ?? 0)}／${oneUp || '—'}` : '—'} |`);
       }
+    }
+    out.push('');
+  }
+  // v50（段 FACTORY1a）：工房の建て替え
+  if (rep.runs.some((r) => r.sectors.some((x) => x.fac?.length || x.facStop))) {
+    out.push('### 表 30：工房の建て替え（v50。段 FACTORY1a）');
+    out.push('');
+    out.push(`シード ${seeds.join('・')}。製造の詰まりが ${SIM_FACTORY.months} か月続き、作業台が全部埋まっていたら工房の段を上げる（町工場 1×2：作業台 2 段目のあと・大工場 2×2：Rare から）。100% は、ほかの設備投資と同じく残りの資金の枠でも上げる。月は着いてから建て替えが終わるまでの月の締めの回数（「移」は移転を兼ねた建て替え）。止まった町は、大工場にしたかったのに 2×2 の置き場所が無かった町。`);
+    out.push('');
+    out.push('| 方針 | 町工場にした町（平均） | 大工場にした町（平均） | 2×2 が無くて止まった町（のべ） | シード 1：町と月 | 止まった町（シード：町） |');
+    out.push('|---|---|---|---|---|---|');
+    for (const p of pols) {
+      const runs = rep.runs.filter((r) => r.policy === p);
+      if (!runs.length) continue;
+      const cnt = (lv: number) => mean(runs.map((r) => r.sectors.filter((x) => x.fac?.some((f) => f.lv === lv)).length));
+      const stops = runs.flatMap((r) => r.sectors.filter((x) => x.facStop).map((x) => `${r.seed}:${x.id}`));
+      const one = runs.find((r) => r.seed === 1);
+      const oneTxt = one ? one.sectors.filter((x) => x.fac?.length).map((x) => `${x.id} ${x.fac!.map((f) => `段${f.lv} ${f.at}か月目${f.here ? '' : '（移）'}`).join('→')}`).join('・') : '';
+      out.push(`| ${POLICY_NAME[p]} | ${cnt(1).toFixed(1)} | ${cnt(2).toFixed(1)} | ${stops.length} | ${oneTxt || '—'} | ${stops.join('・') || '—'} |`);
     }
     out.push('');
   }
