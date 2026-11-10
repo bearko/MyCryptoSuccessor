@@ -5,11 +5,11 @@
 import { t } from '../../i18n';
 import { drawRef } from '../../render/images';
 import { DEF, artId } from '../defs';
-import { center, diamond, drawArt, drawBuilding, drawCell, image, type Camera, type Effect } from '../render';
+import { artOf, center, depthOf, diamond, drawArt, drawBuilding, drawCell, image, scaffoldAt, type Camera, type Effect } from '../render';
 import { cells, frontCell, type Dir } from '../sim';
 import { PRODUCT, skuParts, type Sku } from './data';
 import { COIN_KEEP, COIN_MS, PLUS_MS, along, drawRing, drawWalker, floatText, type Anim } from './anim';
-import { DUNGEON, craftDays, doorOf, facilityStatus, ground, isRoad, isVacant, myDepots, myWorkshop, roadPath, siteProgress, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
+import { DUNGEON, cellsOf, craftDays, defOf, doorOf, wsDef, facilityStatus, ground, isRoad, isVacant, myDepots, myWorkshop, roadPath, siteProgress, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
 import { areaPaint, companyColor } from './trade';
 import { bounds, cacheScale, covered, drawBorders, drawWorld, roadAt, type World } from './worldrender';
 import { standing } from './digview';
@@ -23,6 +23,8 @@ export interface P1Ghost {
   j: number;
   dir: Dir;
   ok: boolean;
+  /** 段 FACTORY1a：工房の建て替え（新しい段の形の影）と、置ける場所の光（マスの番号 j×n+i） */
+  up?: { lv: 1 | 2; spots: Set<number> };
   /** お店を置くとき：商圏（近いマスほど濃く） */
   area?: boolean;
   /** 人流解析：お客さんの多い区画（上位 20%）。薄い金色に塗る */
@@ -176,6 +178,15 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
       for (let dj = 0; dj < 2; dj++) for (let di = 0; di < 2; di++) if (visible(i0 + di, j0 + dj)) diamond(ctx, i0 + di, j0 + dj, 'rgba(225,60,60,0.42)');
     });
 
+  // 段 FACTORY1a：建て替えの置ける場所の光（新しい形が収まるマス。MAP1 の空き地の塗りと同じく地面の層に。reduced-motion では脈打たない）
+  if (ghost?.up) {
+    const a = reducedMotion() ? 0.42 : 0.34 + 0.12 * Math.sin(now / 260);
+    for (const k of ghost.up.spots) {
+      const i = k % s.n;
+      const j = Math.floor(k / s.n);
+      if (visible(i, j)) diamond(ctx, i, j, hexA(MAPVIZ_COLOR.days[1], a));
+    }
+  }
   // 人流解析：お客さんの多い区画を薄い金色に（置けないマスの暗さの上に）
   if (ghost?.hot)
     for (const k of ghost.hot) {
@@ -237,18 +248,27 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
     diamond(ctx, anim.mark.i, anim.mark.j, `rgba(255,214,90,${a.toFixed(3)})`);
   }
   const sel = selected != null ? s.buildings.find((b) => b.uid === selected) : null;
-  if (sel) for (const [x, y] of cells(DEF[sel.id], sel.i, sel.j, sel.dir)) diamond(ctx, x, y, 'rgba(255,230,120,0.35)');
+  if (sel) for (const [x, y] of cellsOf(sel, false)) diamond(ctx, x, y, 'rgba(255,230,120,0.35)');
   else if (cell) diamond(ctx, cell[0], cell[1], 'rgba(255,230,120,0.45)');
 
   type Item = { depth: number; draw: () => void };
   const items: Item[] = [];
   for (const b of s.buildings) {
-    const def = DEF[b.id];
+    // 段 FACTORY1a：工房は段の形（町工場 1×2・大工場 2×2）
+    const def = defOf(b);
     const [fi, fj] = frontCell(def, b.i, b.j, b.dir);
+    // 建て替えの途中：新しい形のマス（いまの形と重ならないマス）に足場。工房は前の形のまま動く（足場は演出。マスは予約）
+    if (b.up && !overview) {
+      const nd = wsDef(b.up.lv);
+      const own = cells(def, b.i, b.j, b.dir);
+      const k = 1 - (b.up.left - (anim?.frac ?? 0)) / b.up.days;
+      for (const [x, y] of cells(nd, b.up.i, b.up.j, b.up.dir))
+        if (!own.some(([p, q]) => p === x && q === y) && visible(x, y)) items.push({ depth: (x + y) * 1000 + x + 0.2, draw: () => scaffoldAt(ctx, nd, x, y, k) });
+    }
     if (!visible(fi, fj)) continue;
     const eff = fx.find((e) => e.uid === b.uid);
     items.push({
-      depth: (fi + fj) * 1000 + fi,
+      depth: depthOf(def, b.i, b.j, b.dir),
       draw: () => {
         // 廃墟（ランクアップの災害。発掘 v2 の 7 段目）：元の建物の絵を暗く・傾けて、瓦礫とひびを重ねる（仮の絵。docs/ISLAND_ART_TODO.md）
         if (b.owner === RUIN) {
@@ -271,7 +291,7 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
     if (!visible(i0, j0)) return;
     // 復興した土地の「復興」の立て札（建物が建っていなければ）・ダンジョンの入り口の門（仮の絵。docs/ISLAND_ART_TODO.md）
     const t0 = anim?.revive?.site === k ? anim.revive.t0 : null;
-    if (st?.revived && !s.buildings.some((b) => cells(DEF[b.id], b.i, b.j, b.dir).some(([x, y]) => x >= i0 && y >= j0 && x < i0 + 2 && y < j0 + 2))) items.push({ depth: (i0 + j0) * 1000 + i0 + 0.3, draw: () => reviveSign(ctx, i0, j0, t0, now) });
+    if (st?.revived && !s.buildings.some((b) => cellsOf(b).some(([x, y]) => x >= i0 && y >= j0 && x < i0 + 2 && y < j0 + 2))) items.push({ depth: (i0 + j0) * 1000 + i0 + 0.3, draw: () => reviveSign(ctx, i0, j0, t0, now) });
     if (s.dig?.dungeon?.site === k) items.push({ depth: (i0 + j0 + 2) * 1000 + i0 + 0.4, draw: () => dungeonGate(ctx, i0, j0, t0, now, s.digRun?.site === DUNGEON) });
     if (!st?.permit || st.done || s.digRun?.site === k) return;
     items.push({ depth: (i0 + j0) * 1000 + i0 + 0.3, draw: () => wasteFlag(ctx, i0, j0, now) });
@@ -280,10 +300,10 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
     if (pct > 0 && !overview) items.push({ depth: (i0 + j0 + 2) * 1000 + i0 + 0.35, draw: () => wasteBadge(ctx, i0, j0, pct) });
   });
   if (ghost) {
-    const def = DEF[ghost.id];
-    const [fi, fj] = frontCell(def, ghost.i, ghost.j, ghost.dir);
+    // 段 FACTORY1a：建て替えは新しい段の形の影
+    const def = ghost.up ? wsDef(ghost.up.lv) : DEF[ghost.id];
     items.push({
-      depth: (fi + fj) * 1000 + fi + 0.5,
+      depth: depthOf(def, ghost.i, ghost.j, ghost.dir) + 0.5,
       draw: () => {
         // 設置面：置けるなら緑、置けないなら赤（下の建物より上に塗る）
         for (const [x, y] of cells(def, ghost.i, ghost.j, ghost.dir)) {
@@ -291,7 +311,7 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
           edge(ctx, x, y, ghost.ok ? '#b8ffd0' : '#ffd0d0');
         }
         ctx.globalAlpha = ghost.ok ? 0.8 : 0.5;
-        drawArt(ctx, image(`b/${artId(ghost.id)}/${ghost.dir === 'rd' || ghost.dir === 'ld' ? 'rd' : 'lu'}.png`), def, ghost);
+        drawArt(ctx, def.art ? artOf(def, ghost.dir) : image(`b/${artId(ghost.id)}/${ghost.dir === 'rd' || ghost.dir === 'ld' ? 'rd' : 'lu'}.png`), def, ghost);
         ctx.globalAlpha = 1;
       },
     });
@@ -533,11 +553,11 @@ function drawBubbles(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w: 
   for (const b of s.buildings) {
     const st = facilityStatus(s, b);
     if (!st) continue;
-    const def = DEF[b.id];
+    const def = defOf(b);
     const cs = cells(def, b.i, b.j, b.dir).map(([x, y]) => center(x, y));
     const wx = cs.reduce((a, c) => a + c.x, 0) / cs.length;
     const [fi, fj] = frontCell(def, b.i, b.j, b.dir);
-    const im = image(`b/${artId(b.id)}/rd.png`);
+    const im = image(`b/${def.art ?? artId(b.id)}/rd.png`);
     const ah = im.naturalHeight || 200;
     // 絵の上端（キャンバスの上の余白を少し差し引く）
     const wy = center(fi, fj).y + 55 - (ah - 31) + 26;

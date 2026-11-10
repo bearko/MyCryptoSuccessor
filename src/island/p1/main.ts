@@ -38,6 +38,15 @@ import { diploOf, hostCost, landDef, meetPages, relOf, reqTerms, tradeTerms, typ
 import { activeFx, evIcon, fxText, isGood, makeEvent, type EvKind } from './events';
 import {
   allowedDirs,
+  bName,
+  canUpAt,
+  defOf,
+  startUp,
+  upCheck,
+  upSpots,
+  wsAny,
+  wsDef,
+  type UpSpot,
   digSite,
   placeFind,
   build,
@@ -166,7 +175,7 @@ import { IslandSfx } from './sfx';
 import { boardDue, boardOf, boardQuarter, closeText } from './board';
 import { openBoard, type BoardHooks } from './boardui';
 import { KNOW_TALK, SLOT_TALK, slotNews, slotsOf, takePolNews } from './policy';
-import { POLICY_OF, unitsX } from './data';
+import { FACTORY, POLICY_OF, unitsX } from './data';
 import { openPolicyView } from './policyui';
 // 段 K3：経営方針発表会のカードの場面（boardui.ts の BOARD_SCENES に登録する）
 import './policycardsui';
@@ -274,7 +283,8 @@ const pendingShutter: number[] = [];
 const cam: Camera = { x: 0, y: (s.n - 1) * 55, zoom: innerWidth < 600 ? 0.3 : 0.5 };
 let speed = 1;
 /** 建てる（move があれば移転） */
-let placing: { id: string; dir: Dir; i: number; j: number; move?: number } | null = null;
+/** up：段 FACTORY1a の工房の建て替え（新しい段。move は工房の uid） */
+let placing: { id: string; dir: Dir; i: number; j: number; move?: number; up?: 1 | 2 } | null = null;
 let selected: number | null = null;
 /** 吹き出しを出しているマス */
 let pop: [number, number] | null = null;
@@ -393,6 +403,7 @@ const ctx: Ctx = {
     closeSheet();
     startPlacing(id, at ? { at } : {});
   },
+  rebuild: () => startRebuild(),
   tip: (screen) => tutTip(screen),
   closeGlow: (screen) => !!tutStep()?.closeOn?.includes(screen),
   sfx: (k, gain, rate) => sfx.play(k, gain, rate),
@@ -1345,11 +1356,52 @@ function openBuildSheet() {
 }
 
 const ignoreOf = () => placing?.move;
+/**
+ * 段 FACTORY1a：建て替えの置き方の候補（置くモードのあいだだけ）と、光らせるマス（候補の形が収まるマス全部）。
+ * 建物・日が変わったら作り直す
+ */
+let upCache: { key: string; spots: UpSpot[]; glow: Set<number> } | null = null;
+function upNow(): { spots: UpSpot[]; glow: Set<number> } | null {
+  if (!placing?.up) return null;
+  const key = `${placing.up}:${s.buildings.length}:${s.nextUid}:${s.day}:${s.sector}`;
+  if (upCache?.key === key) return upCache;
+  const spots = upSpots(s, placing.up);
+  const glow = new Set<number>();
+  const def = wsDef(placing.up);
+  for (const p of spots) for (const [x, y] of cells(def, p.i, p.j, p.dir)) glow.add(y * s.n + x);
+  upCache = { key, spots, glow };
+  return upCache;
+}
+/** 置こうとしているマスで選べる向き（建て替えは候補の向き） */
+function dirsAt(i: number, j: number): Dir[] {
+  if (!placing) return [];
+  if (placing.up) return (upNow()?.spots ?? []).filter((p) => p.i === i && p.j === j).map((p) => p.dir);
+  return allowedDirs(s, placing.id, i, j, ignoreOf());
+}
+/** 置く建物の形（建て替えは新しい段の形・移転はその建物の段の形） */
+function placeDef() {
+  if (!placing) return DEF.workshop;
+  if (placing.up) return wsDef(placing.up);
+  const mv = placing.move != null ? s.buildings.find((b) => b.uid === placing!.move) : undefined;
+  return mv ? defOf(mv) : DEF[placing.id];
+}
 /** 置こうとしているマスで、入口を道路に向けられる向きにそろえる */
 function fitDir() {
   if (!placing) return;
-  const ok = allowedDirs(s, placing.id, placing.i, placing.j, ignoreOf());
+  const ok = dirsAt(placing.i, placing.j);
   if (ok.length && !ok.includes(placing.dir)) placing.dir = ok[0];
+}
+/** 段 FACTORY1a：工房の吹き出し・工房の画面の「町工場にする」「大工場にする」：置き方を選ぶモードへ（その場で広がれる置き方から） */
+function startRebuild() {
+  const c = upCheck(s);
+  const ws = wsAny(s);
+  if (!ws || !c.lv || c.err) {
+    sfx.play('error');
+    return;
+  }
+  const sp = upSpots(s, c.lv)[0];
+  closeSheet();
+  startPlacing('workshop', { move: ws.uid, up: c.lv, at: [sp.i, sp.j], dir: sp.dir });
 }
 /** チュートリアルで建ててもらう場所（建築で光らせている建物を置くときだけ） */
 function tutSpotNow(): [number, number, Dir] | null {
@@ -1359,6 +1411,7 @@ function tutSpotNow(): [number, number, Dir] | null {
 }
 const placeErr = (): PlaceErr | 'spot' | null => {
   if (!placing) return null;
+  if (placing.up) return canUpAt(s, placing.i, placing.j, placing.dir);
   const e = placing.move != null ? canMoveTo(s, placing.move, placing.i, placing.j, placing.dir) : canPlaceAt(s, placing.id, placing.i, placing.j, placing.dir);
   if (e) return e;
   const sp = tutSpotNow();
@@ -1376,6 +1429,7 @@ placeBox.hidden = true;
 let placeCache: { key: string; set: Set<number> } | null = null;
 function placeable(): Set<number> | null {
   if (!placing) return null;
+  if (placing.up) return upNow()?.glow ?? null;
   const key = `${placing.id}:${placing.move ?? ''}:${s.buildings.length}:${s.nextUid}`;
   if (placeCache?.key === key) return placeCache.set;
   const set = new Set<number>();
@@ -1393,7 +1447,8 @@ const centerCell = () => pick(cam, W, H, W / 2, H / 2);
  */
 let heatCache: { key: string; heat: MapViz['heat'] } | null = null;
 function placeHeat(): MapViz['heat'] {
-  if (!placing) return null;
+  // 段 FACTORY1a：建て替えは置ける場所の光（P1Ghost.up）だけ
+  if (!placing || placing.up) return null;
   const kind = P1B[placing.id]?.kind;
   const hk: 'shop' | 'days' | null = kind === 'shop' ? 'shop' : kind === 'warehouse' || kind === 'workshop' || kind === 'depot' ? 'days' : null;
   if (!hk) return null;
@@ -1405,12 +1460,12 @@ function placeHeat(): MapViz['heat'] {
 }
 
 /** 置くモードを始める（at があればそのマスへ） */
-function startPlacing(id: string, opts: { move?: number; at?: [number, number]; dir?: Dir } = {}) {
+function startPlacing(id: string, opts: { move?: number; at?: [number, number]; dir?: Dir; up?: 1 | 2 } = {}) {
   closePop();
   menu = null;
   sub = null;
   const [i, j] = opts.at ?? centerCell();
-  placing = { id, dir: opts.dir ?? 'rd', i, j, move: opts.move };
+  placing = { id, dir: opts.dir ?? 'rd', i, j, move: opts.move, up: opts.up };
   fitDir();
   if (opts.at) tweenTo(i, j);
   sfx.play('move');
@@ -1428,6 +1483,16 @@ function setGhost(i: number, j: number) {
   if (!placing || (placing.i === i && placing.j === j)) return;
   // 段 UX1（B-1）：チュートリアルの建築中は、地図を動かしても光っている場所から動かさない
   if (tutSpotNow()) return;
+  // 段 FACTORY1a：建て替えは、押したマスを含む候補の置き方へ寄せる（光っているマスならどこを押してもよい）
+  if (placing.up && !dirsAt(i, j).length) {
+    const def = wsDef(placing.up);
+    const sp = upNow()?.spots.find((p) => cells(def, p.i, p.j, p.dir).some(([x, y]) => x === i && y === j));
+    if (sp) {
+      if (sp.i === placing.i && sp.j === placing.j) return;
+      [i, j] = [sp.i, sp.j];
+      placing.dir = sp.dir;
+    }
+  }
   placing.i = i;
   placing.j = j;
   fitDir();
@@ -1445,7 +1510,7 @@ function reasonOf(err: PlaceErr | 'spot' | null): string {
   if (!err || !placing) return '';
   if (err === 'spot') return t('光っている場所に建ててみて！', 'Build on the glowing spot!');
   if (err === 'ground') {
-    const onRoad = cells(DEF[placing.id], placing.i, placing.j, placing.dir).some(([x, y]) => ground(s, x, y) === 'road');
+    const onRoad = cells(placeDef(), placing.i, placing.j, placing.dir).some(([x, y]) => ground(s, x, y) === 'road');
     return onRoad ? t('道路には置けません', 'Not on a road') : t('ここには置けません', 'Can’t build here');
   }
   if (err === 'taken') return t('建物があります', 'Already built on');
@@ -1453,8 +1518,11 @@ function reasonOf(err: PlaceErr | 'spot' | null): string {
   if (err === 'revive') return t('復興した土地にだけ建てられます', 'Revived land only');
   if (err === 'road') return t('道路に面していません', 'Doesn’t face a road');
   if (err === 'money') return t('資金が足りません', 'Not enough funds');
+  if (placing.up && err === 'locked') return t('光っている場所を選んでね', 'Pick a glowing spot');
   return ERR[err];
 }
+/** 段 FACTORY1a：建て替えの名前（「町工場（1×2）」など） */
+const upLabel = (lv: 1 | 2) => t(`${FACTORY.name[lv]}（${FACTORY.shape[lv]}）`, `${FACTORY.name[lv]} (${FACTORY.shape[lv]})`);
 
 function tryPlace() {
   if (!placing) return;
@@ -1466,7 +1534,19 @@ function tryPlace() {
     return;
   }
   const name = DEF[placing.id].name;
-  if (placing.move != null) {
+  if (placing.up) {
+    const lv = placing.up;
+    const ws = wsAny(s);
+    const from = ws ? bName(ws) : name;
+    const e = startUp(s, placing.i, placing.j, placing.dir);
+    if (e) toast(t('建て替えられません', 'Can’t rebuild'));
+    else {
+      toast(t(`${from}を${upLabel(lv)}に建て替え始めました（${FACTORY.days[lv]} 日・そのあいだも作り続けます）`, `Rebuilding ${from} into a ${upLabel(lv)} (${FACTORY.days[lv]} days; it keeps working meanwhile)`));
+      setTimeout(() => sfx.play('place'), 120);
+      placing = null;
+      save();
+    }
+  } else if (placing.move != null) {
     const e = relocate(s, placing.move, placing.i, placing.j, placing.dir);
     if (e) toast(ERR[e]);
     else {
@@ -1501,7 +1581,7 @@ function renderPlace() {
   const moving = placing.move != null;
   const name = DEF[placing.id].name;
   selBox.replaceChildren(
-    h('div', 'isl-sel-name', moving ? t(`移転：${name}`, `Moving: ${name}`) : t(`選択中：${name}`, `Selected: ${name}`)),
+    h('div', 'isl-sel-name', placing.up ? t(`建て替え：${upLabel(placing.up)}`, `Rebuild: ${upLabel(placing.up)}`) : moving ? t(`移転：${name}`, `Moving: ${name}`) : t(`選択中：${name}`, `Selected: ${name}`)),
     btn(t('戻る', 'Back'), () => {
       const was = placing;
       placing = null;
@@ -1511,21 +1591,20 @@ function renderPlace() {
     }),
   );
   const err = placeErr();
-  const dirs = allowedDirs(s, placing.id, placing.i, placing.j, ignoreOf());
+  const dirs = dirsAt(placing.i, placing.j);
   const row = h('div', 'isl-row');
   if (err) {
     row.append(h('span', 'isl-reason', reasonOf(err)));
     // 段 UX1（B-4）：荒れ地の赤い札に「⛏ 掘れば使える → 発掘へ」（荒れ地の吹き出しへ。許可の申請・発掘はそこから）
     if (err === 'waste') row.append(btn(t('⛏ 掘れば使える → 発掘へ', '⛏ Dig it out to use it → Dig'), () => toWastePop(), 'isl-place-dig'));
   } else {
-    const cost = moving ? moveCost(s.buildings.find((b) => b.uid === placing!.move)!) : P1B[placing.id].cost;
-    row.append(btn(moving ? t(`ここへ移転 ${money(cost)}`, `Move here ${money(cost)}`) : cost ? t(`建てる ${money(cost)}`, `Build ${money(cost)}`) : t('建てる', 'Build'), tryPlace, 'is-on'));
+    row.append(btn(placeLabel(), tryPlace, 'is-on'));
   }
   if (dirs.length > 1)
     row.append(
       btn('↻', () => {
         if (!placing) return;
-        const ok = allowedDirs(s, placing.id, placing.i, placing.j, ignoreOf());
+        const ok = dirsAt(placing.i, placing.j);
         if (ok.length) placing.dir = ok[(ok.indexOf(placing.dir) + 1) % ok.length];
         sfx.play('move', 0.7);
         renderPlace();
@@ -1540,7 +1619,7 @@ function renderPlace() {
 /** 段 UX1（B-4）：置くのをやめて、ゴーストの下の荒れ地の吹き出しへ（許可の申請・発掘はそこから） */
 function toWastePop() {
   if (!placing) return;
-  const wc = cells(DEF[placing.id], placing.i, placing.j, placing.dir).find(([x, y]) => wasteAt(s, x, y) >= 0) ?? [placing.i, placing.j];
+  const wc = cells(placeDef(), placing.i, placing.j, placing.dir).find(([x, y]) => wasteAt(s, x, y) >= 0) ?? [placing.i, placing.j];
   placing = null;
   openPop(wc[0], wc[1]);
   renderAll();
@@ -1553,9 +1632,12 @@ function toWastePop() {
 function renderPlaceBar(err: PlaceErr | 'spot' | null, canRotate: boolean) {
   if (!placing) return;
   const moving = placing.move != null;
-  const cost = moving ? moveCost(s.buildings.find((b) => b.uid === placing!.move)!) : P1B[placing.id].cost;
+  const cost = placeCost();
   const head = h('div', 'isl-place-bar-head');
-  head.append(h('b', '', DEF[placing.id].name), h('small', 'isl-dim', err ? reasonOf(err) : moving ? t(`移転費 ${money(cost)}`, `Move cost ${money(cost)}`) : cost ? t(`費用 ${money(cost)}`, `Cost ${money(cost)}`) : t('無料', 'Free')));
+  // 段 FACTORY1a：建て替えは「その場で」か「移転して」かも出す（移転の費用は値段に含む）
+  const here = placing.up ? upNow()?.spots.find((p) => p.i === placing!.i && p.j === placing!.j && p.dir === placing!.dir)?.here : undefined;
+  const note = placing.up ? (here == null ? '' : here ? t('その場で広げる', 'Grow in place') : t('移転して建て替え（移転費込み）', 'Move and rebuild (move included)')) : '';
+  head.append(h('b', '', placing.up ? upLabel(placing.up) : DEF[placing.id].name), h('small', 'isl-dim', err ? reasonOf(err) : placing.up ? t(`費用 ${money(cost)}・${FACTORY.days[placing.up]} 日・${note}`, `Cost ${money(cost)} · ${FACTORY.days[placing.up]}d · ${note}`) : moving ? t(`移転費 ${money(cost)}`, `Move cost ${money(cost)}`) : cost ? t(`費用 ${money(cost)}`, `Cost ${money(cost)}`) : t('無料', 'Free')));
   // 段 MAP1：ヒートマップの数字（お店：見込み N 軒・被り N／倉庫など：工房から N 日）。色で見て、数字はここで確かめる
   const heat = placeHeat();
   const hc = heat?.data.cells.get(placing.j * s.n + placing.i);
@@ -1570,7 +1652,7 @@ function renderPlaceBar(err: PlaceErr | 'spot' | null, canRotate: boolean) {
     head.append(sp);
   }
   const row = h('div', 'isl-row');
-  if (!err) row.append(btn(moving ? t(`ここへ移転 ${money(cost)}`, `Move here ${money(cost)}`) : cost ? t(`建てる ${money(cost)}`, `Build ${money(cost)}`) : t('建てる', 'Build'), tryPlace, 'is-on is-big'));
+  if (!err) row.append(btn(placeLabel(), tryPlace, 'is-on is-big'));
   else if (err === 'waste') {
     row.append(btn(t('⛏ 掘れば使える → 発掘へ', '⛏ Dig it out to use it → Dig'), () => toWastePop(), 'is-on is-big isl-place-dig'));
   }
@@ -1578,7 +1660,7 @@ function renderPlaceBar(err: PlaceErr | 'spot' | null, canRotate: boolean) {
     row.append(
       btn(t('↻ 回す', '↻ Rotate'), () => {
         if (!placing) return;
-        const ok = allowedDirs(s, placing.id, placing.i, placing.j, ignoreOf());
+        const ok = dirsAt(placing.i, placing.j);
         if (ok.length) placing.dir = ok[(ok.indexOf(placing.dir) + 1) % ok.length];
         sfx.play('move', 0.7);
         renderPlace();
@@ -1594,6 +1676,22 @@ function renderPlaceBar(err: PlaceErr | 'spot' | null, canRotate: boolean) {
   );
   placeBox.classList.toggle('is-bad', !!err);
   placeBox.replaceChildren(head, row);
+}
+
+/** 置くときの費用（建て替え・移転・建てる） */
+function placeCost(): number {
+  if (!placing) return 0;
+  if (placing.up) return FACTORY.cost[placing.up];
+  if (placing.move != null) return moveCost(s.buildings.find((b) => b.uid === placing!.move)!);
+  return P1B[placing.id].cost;
+}
+/** 決めるボタンの言葉 */
+function placeLabel(): string {
+  if (!placing) return '';
+  const cost = placeCost();
+  if (placing.up) return t(`🏗 ここで建て替える ${money(cost)}`, `🏗 Rebuild here ${money(cost)}`);
+  if (placing.move != null) return t(`ここへ移転 ${money(cost)}`, `Move here ${money(cost)}`);
+  return cost ? t(`建てる ${money(cost)}`, `Build ${money(cost)}`) : t('建てる', 'Build');
 }
 
 /**
@@ -4716,7 +4814,7 @@ function addCoin(uid: number, yen: number, t: number) {
 /** 建物の区画のまんなかの、手前の地面（ワールドの座標） */
 function bldFoot(uid: number): [number, number] | null {
   const b = s.buildings.find((x) => x.uid === uid);
-  const def = b ? DEF[b.id] : undefined;
+  const def = b ? defOf(b) : undefined;
   if (!b || !def) return null;
   const cs = cells(def, b.i, b.j, b.dir);
   return [cs.reduce((a, [i, j]) => a + (i - j) * 100, 0) / cs.length, cs.reduce((a, [i, j]) => a + (i + j) * 55, 0) / cs.length + 30];
@@ -4726,6 +4824,17 @@ function craftFx(uid: number) {
   if (overviewOn() || digOpen()) return;
   const at = bldFoot(uid);
   if (at) mapFx('hammer-sparks', at[0], at[1] - 40, { scale: Math.max(1, cam.zoom * 3), thin: `craft:${uid}`, seed: (uid * 17 + Math.floor(performance.now())) >>> 0 });
+}
+/** 段 FACTORY1a：建て替えが終わった：マスごとに足場が外れる土ぼこり（poof）と、まんなかで金の光（sunburst）。縮小の全体表示・発掘・reduced-motion では出さない */
+function upFx(uid: number) {
+  if (overviewOn() || digOpen() || reduceMotion()) return;
+  const b = s.buildings.find((x) => x.uid === uid);
+  if (!b) return;
+  const cs = cells(defOf(b), b.i, b.j, b.dir);
+  const z = Math.max(1, cam.zoom * 3);
+  cs.forEach(([i, j], k) => mapFx('poof', (i - j) * 100, (i + j) * 55 + 20, { scale: z, palette: FX_PAL.dust, delay: 60 * k, seed: uid * 7 + k }));
+  const at = bldFoot(uid);
+  if (at) mapFx('sunburst', at[0], at[1] - 60, { scale: z * 1.5, palette: FX_PAL.gold, delay: 200, seed: uid * 13 });
 }
 /** 段 FX2：外交の依頼を届けたトーストの横で自社の色の光 */
 function diploFx(e: HTMLElement | null) {
@@ -4737,7 +4846,7 @@ function coinFx(uid: number) {
   const now = performance.now();
   if (now - (coinFxAt.get(uid) ?? -1e9) < 350 || overviewOn() || digOpen()) return;
   const b = s.buildings.find((x) => x.uid === uid);
-  const def = b ? DEF[b.id] : undefined;
+  const def = b ? defOf(b) : undefined;
   if (!b || !def) return;
   const cs = cells(def, b.i, b.j, b.dir);
   // 区画のまんなかの、手前の地面
@@ -4957,8 +5066,15 @@ function advance(days: number) {
     if (gs.reached) news(t(`🎯 目標の「${SKILL[gs.reached]?.name ?? gs.reached}」に届きました`, `🎯 Goal reached: ${SKILL[gs.reached]?.name ?? gs.reached}`), { kind: 'promo' });
     for (const b of r.finished) {
       fx.push({ uid: b.uid, start: performance.now() });
-      news(t(`${DEF[b.id].name}が完成しました！`, `${DEF[b.id].name} is complete!`), { kind: 'build', group: 'built', name: DEF[b.id].name });
+      news(t(`${bName(b)}が完成しました！`, `${bName(b)} is complete!`), { kind: 'build', group: 'built', name: bName(b) });
       sfx.play('done');
+    }
+    // 段 FACTORY1a：建て替えが終わった日：形と台の数が替わる。キラキラと、足場が外れる土ぼこり・光（pixelfx。reduced-motion では光らない）
+    for (const b of r.rebuilt ?? []) {
+      fx.push({ uid: b.uid, start: performance.now() });
+      news(t(`🏭 ${bName(b)}が完成しました！ 作業台 ${s.slots.length} 台`, `🏭 Your ${bName(b)} is complete! ${s.slots.length} benches`), { kind: 'build', group: 'built', name: bName(b) });
+      sfx.play('levelup');
+      upFx(b.uid);
     }
     if (r.crafted.length) sfx.play('craft');
     // 段 DIG3：発掘隊（シャドーヒーロー）が打った：発掘画面の隊員を動かす
@@ -5351,7 +5467,8 @@ function frame(now: number) {
     // チュートリアル：建ててもらう場所に「ここに建ててみて！」
     const sp = tutSpotNow();
     anim.mark = sp ? { i: sp[0], j: sp[1], label: t('ここに建ててみて！', 'Build here!') } : null;
-    const ghost: P1Ghost | null = placing ? { id: placing.id, i: placing.i, j: placing.j, dir: placing.dir, ok: !placeErr(), area: P1B[placing.id]?.kind === 'shop', hot: has(s, 'flow') && !placing.move ? hotCells(s) : undefined } : null;
+    const un = upNow();
+    const ghost: P1Ghost | null = placing ? { id: placing.id, i: placing.i, j: placing.j, dir: placing.dir, ok: !placeErr(), area: P1B[placing.id]?.kind === 'shop', hot: has(s, 'flow') && !placing.move ? hotCells(s) : undefined, up: placing.up && un ? { lv: placing.up, spots: un.glow } : undefined } : null;
     lastDraw = now;
     const ov = overviewOn() ? overviewScale(cam.zoom, DPR) : null;
     drawP1(ctx2, s, cam, W, H, DPR, now, fx, ghost, placing?.move ?? selected, pop && selected == null ? pop : null, placeable(), anim, worldOf(s), ov, vizNow());
