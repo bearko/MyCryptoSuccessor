@@ -59,6 +59,15 @@
 | trunk_truck | 幹線のトラック（輸入の便） | 地図：週の到着の日に隣町の工房 → 境界の番所 → 境の拠点を走る（`render.ts` の `truck`・`main.ts` の `tradeAnim`）。縮小した地図では町と町のあいだを往復する | コードで描いた四角（青い荷台・白い運転席・黒い車輪。荷を積んでいる行きは木箱を 2 つ載せる）。左右の 2 向きだけ（斜めの向きは無い） | 荷車の 2 倍ほど（70×50） | a small blue cargo truck with a white cab and two wooden crates on the flatbed, isometric pixel art, transparent background; 2 diagonal directions (down-right and up-right; mirror for the others), loaded and empty variants |
 | feed_crate | 輸入中の木箱のアイコン | 縮小した地図の町の札の「📦 輸入中」「→ 品」（`main.ts` の badgeEl・`.isl-feed-badge`）・拠点の吹き出しの見出し・月次報告の「📦 輸入」の行（`report.ts` の importLine） | 絵文字 📦 と「→」の字 | 16×16（札・行）・24×24（吹き出しの見出し） | a tiny wooden shipping crate with a blue arrow stamp pointing right, dark 1px outline, pixel art, transparent background; 16px and 24px versions |
 
+### 段 FACTORY1a（工房を 1×2 の町工場・2×2 の大工場へ建て替える。2026-11-10）
+
+| id | 名前 | 使う場所 | いまの状態 | 大きさ | PixelLab への指示 |
+|---|---|---|---|---|---|
+| workshop_lv1（いまは factory を流用） | 町工場（工房の段 1） | 地図の工房（`PBuilding.lv` が 1。`data.ts` の `FACTORY.art`・`model.ts` の `wsDef`）・建て替えの置き方の影・隣のセクタと縮小した地図 | 工場（factory）の絵（300×255）をそのまま。工房（煉瓦と木の店）とのつながりが弱く、「同じ店が大きくなった」と見えない | 2 マス（1×2・300×255・base "2"） | 工房と同じ看板（ハンマーと歯車）・同じ煉瓦と木の色で、同じ店が横に広がった町工場：a small town factory grown from the craftsman's workshop: the same brick ground floor and wooden upper floor extended into a long two-bay building, a low sawtooth roof over the new bay, two chimneys, wide windows showing several workbenches, the same hanging sign with a hammer and gear icon, stacked crates and a hand cart by a loading door, paved front ／ 背面：remove the windows, the sign and the loading door, and show the brick back wall with pipes, a back door and stacked lumber |
+| workshop_lv2（いまは factory を 2 棟並べる） | 大工場（工房の段 2） | 同上（`PBuilding.lv` が 2。2×2 は `Def.size` 4） | 工場の絵（1×2）を奥と手前に 2 棟並べて描く（`src/island/render.ts` の `drawArt`：幅 400 未満の絵を 2×2 に置くとき） | 2×2 マス（**400×340**。基準点は下から 31・横の真ん中 x = 200。`docs/ISLAND_MVP.md`）。生成の土台 `scripts/island/bases/empty_2x2*.png` と `generate.py` の `'4'` が要る（まだ無い） | 町工場がさらに大きくなった大工場：a large factory complex grown from the same workshop brand on a 2x2 lot: a big brick main hall with a long sawtooth roof, a taller office block with the hammer and gear sign, three chimneys, a conveyor bridge between two halls, a loading yard with a small truck and stacked pallets, paved yard filling the whole 2x2 diamond ／ 背面：the same complex from behind with plain brick walls, water tanks, pipes and a back gate |
+| fac_scaffold（いまは足場の流用） | 建て替えの足場 | 建て替えのあいだ、新しい形のマス（いまの形と重ならないマス）に組む（`p1/render.ts`。`scaffoldAt`） | 工事の足場（`fx/scaffold4.png`・更地 `fx/lot.png`）をそのまま。前の建物は横で動いている | 1 マスごと（足場 4 段） | コードのままでよい（足場が外れる土ぼこり・光は pixelfx の poof・sunburst）。作るなら：the same scaffold frames with a green safety net and a small crane arm, 12 frames |
+| fac_shapes | 段の形のアイコン（1×1 → 1×2 → 2×2） | 工房の吹き出しと工房の画面の「建て替え」の欄（`factoryui.ts` の `.isl-fac-shape`） | CSS の四角（いまの段は金色・次の段は点線） | 12px の四角を 1・2・4 個 | コードのままでよい（作るなら、各段の地図の絵を 32×32 に縮めたアイコン） |
+
 ## 優先度 中（コードで描いた小物。いまのままでも遊べる）
 
 | 素材 | 使う場所 | いまの状態 | 大きさ | メモ |

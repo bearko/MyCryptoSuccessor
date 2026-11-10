@@ -53,6 +53,8 @@ import {
   roadPath,
   doorOf,
   fitEquipment,
+  finishUp,
+  upSpots,
   runAd,
   sellNow,
   sellWhatIf,
@@ -752,7 +754,36 @@ export const INVEST_SPEC: Record<string, { expect: Stage[]; base?: Item['base'];
   // 発掘の道具（ツルハシ・ランタン・発破）は、発掘 v2 の 2 段目でスキルツリーの発掘の枝へ移した（監査では「発掘」の対象外）
   // 遺物の展示館の展示室の増築（発掘 v2 の 4 段目）：SCM の段ではなく、入館料と節目のボーナス
   hall: { expect: [], out: '展示館（tests/island-p1-dungeon.test.ts で確認）' },
+  // 段 FACTORY1a：工房の建て替え（町工場・大工場。設備投資の一覧 INVESTS ではなく FACTORY。items で段ごとに足す）。置き場所は tests/island-p1-factory1a.test.ts
+  factory: { expect: ['craft'], base: 'j_craft', note: '作業台 2 段目のあと、建て替えで増えた作業台に職人を置いて主力を作る（物置も広がる。置き場所の決まりは vitest で確認）' },
 };
+/** 段 FACTORY1a：工房の建て替えの段（町工場・大工場）。工房の段を lv − 1 にして、作業台を 2 段目まで（全部の台に職人・主力） */
+function facPre(s: P1State, lv: 1 | 2) {
+  const ws = wsOf(s);
+  delete ws.lv;
+  while (invLv(ws, 'bench') < 2) inv('bench')(s);
+  fitEquipment(s);
+  if (lv === 2) facTo(s, 1);
+  for (let k = 0; k < s.slots.length; k++) {
+    if (s.slots[k].worker == null) assign(s, hireFor(s, 'craft'), 'craft', k);
+    if (!s.slots[k].sku) setCraft(s, k, mainSku(s));
+  }
+  // 大工場（段 2）：町工場の 4 台で調達が先に詰まるので、調達を太くして製造が詰まりの状態から測る（物置・調達の工夫）
+  if (lv === 2) {
+    for (const id of FAC_BUY) if (SKILL[id]) gainSkill(s, id);
+    s.proc.lv = Math.max(s.proc.lv, 5);
+    if (!invLv(ws, 'stockroom')) inv('stockroom')(s);
+  }
+}
+/** 建て替えが終わった状態にする（置き方は建て替えの候補の最初：その場で広がれるならその場・入口が道路に面する） */
+function facTo(s: P1State, lv: 1 | 2) {
+  const ws = wsOf(s);
+  const sp = upSpots(s, lv)[0];
+  if (!sp) throw new Error(`no spot for factory ${lv}`);
+  ws.up = { lv, i: sp.i, j: sp.j, dir: sp.dir, left: 0, days: 1 };
+  finishUp(s, ws);
+}
+const FAC_BUY = ['stock1', 'stock2', 'stock3', 'bulk', 'bulk2', 'swift'];
 /** 荒れ地 k を掘りきって、復興させる（家 +N・需要 +6%） */
 function reviveFor(s: P1State, k: number) {
   const st = s.dig!.sites[k];
@@ -817,6 +848,26 @@ export function items(): Item[] {
         out: spec ? spec.out : '表に無い（scripts/island/audit.ts の INVEST_SPEC に足す）',
       });
     }
+  }
+  // 段 FACTORY1a：工房の建て替え（町工場 → 大工場）。終わった日の状態にして（置き場所は決まりの外）、増えた作業台に職人を置く
+  for (const lv of [1, 2] as const) {
+    const spec = INVEST_SPEC.factory;
+    out.push({
+      id: `@factory:${lv}`,
+      group: '設備投資',
+      name: `工房の建て替え（${lv === 1 ? '町工場 1×2' : '大工場 2×2'}）`,
+      expect: spec.expect,
+      base: spec.base,
+      setup: (s) => facPre(s, lv),
+      apply: (s) => {
+        facTo(s, lv);
+        for (let k = 0; k < s.slots.length; k++) {
+          if (s.slots[k].worker == null) assign(s, hireFor(s, 'craft'), 'craft', k);
+          if (!s.slots[k].sku) setCraft(s, k, mainSku(s));
+        }
+      },
+      note: spec.note,
+    });
   }
   // スキル：取れるもの全部（封印・準備中を除く）
   for (const k of LEARNABLE()) {
