@@ -3,7 +3,8 @@
  * 入の状態で、部品を全部並べる：色 2 組・文字 3 段・ボタン 4 種 ×（ふつう・押した・押せない）・器・窓・幕・カウンター・
  * レバー・スイッチ・つまみ・ランプ・計器・吹き出し・枠破り・お知らせ・粒。
  */
-import '../island.css';
+// いまの画面の CSS（island.css・p1.css）は読まない：読むと、本体の CSS の束が分かれて、切のときの読み込みの順が変わってしまう。
+// 見本帳で要る分の並べ方（body・#isl-ui・札・窓の箱）は kit.css に書いてある
 import './kit.css';
 import { isEn, t } from '../../i18n';
 import { btn, heroIcon, heroName, sheet } from '../p1/ui';
@@ -159,7 +160,7 @@ export function openKit() {
   redraw();
   const counters = el(
     'div.ux-kit-col',
-    rowOf(cell(t('資金', 'Funds'), el('span.ux-gauge-win', odo.el, el('span.ux-unit.ux-num', 'G'))), uxKey('+12,400', () => add(12400), { kind: 'main', ico: 'coin' }), uxKey('-3,000', () => add(-3000))),
+    el('div.ux-kit-row.ux-kit-funds', uxTape(t('資金', 'Funds')), el('span.ux-gauge-win', odo.el, el('span.ux-unit.ux-num', 'G')), uxKey('+12,400', () => add(12400), { kind: 'main', ico: 'coin' }), uxKey('-3,000', () => add(-3000))),
     rowOf(cell(t('小', 'S'), odoS.el), cell(t('大（琥珀）', 'L (amber)'), odoL.el)),
     redrawBox,
   );
