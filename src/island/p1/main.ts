@@ -171,10 +171,10 @@ import { csOn } from './cs';
 import { gradeName, gradeOf } from './mkt';
 import { taxHint } from './acct';
 import { quitLeft, type HrDay } from './hr';
-import { IslandSfx, type Sfx as SfxKey } from './sfx';
+import { IslandSfx } from './sfx';
 import { setUx, uxOn } from '../uix/flag';
 import { ux } from '../uix/hooks';
-import { setUxSfxSink } from '../uix/sound';
+import { nextStep, uxLegacy, uxSetVol, uxSfx, uxSound, uxSoundInit, uxVol, type UxScene } from '../uix/sound';
 import { boardDue, boardOf, boardQuarter, closeText } from './board';
 import { openBoard, type BoardHooks } from './boardui';
 import { KNOW_TALK, SLOT_TALK, slotNews, slotsOf, takePolNews } from './policy';
@@ -252,12 +252,16 @@ sound.playBgm('bgmCraft');
 // 効果音はコードで作った音（scripts/island/sfx.py）。BGM だけ mycryptoheroes の曲
 const sfx = new IslandSfx();
 sfx.level = vol.se;
+// 段 UIX1s：新しい画面が入（<html class="is-uxc">）のときは、効果音を合成の音へ付け替える（切のときは何も変わらない）
+sfx.route = uxLegacy;
 // ブラウザは最初の操作まで音を出せない
 // スマホは指を離したとき（pointerup・touchend・click）がユーザーの操作として数えられる。鳴るまで毎回試す
 for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'])
   addEventListener(
     ev,
     () => {
+      // 段 UIX1s：入のあいだは、今の音（mp3）を始めない（新しい音は uix/sound.ts が自分で始める）
+      if (uxOn()) return;
       sound.unlock();
       sfx.unlock();
     },
@@ -273,8 +277,6 @@ addEventListener(
   },
   { capture: true },
 );
-// 段 UIX1a：新しい部品の音の口（uix/sound.ts の uxSfx）を、今の効果音につなぐ。音の土台の段（UIX1s）が新しい音に替える
-setUxSfxSink((k, gain, rate) => sfx.play(k as SfxKey, gain, rate));
 
 const canvas = document.getElementById('isl-map') as HTMLCanvasElement;
 const ctx2 = canvas.getContext('2d')!;
@@ -2408,8 +2410,12 @@ function startPresent() {
  * conquered：この発表で制覇した（1 位を 2 か月続けていた）→ 👑 の帯とファンファーレ、閉じたら「フェーズ 1 クリア！」（初めての制覇）
  */
 function showLetter(rp: number, letter: Tier | null, chief: number | null, left = 0, conquered = false) {
-  sfx.play('mining');
-  setTimeout(() => sfx.play(conquered ? 'clear' : 'win'), 500);
+  // 段 UIX1s：入のとき、制覇は「小太鼓の連打 → 一撃 → 祝いの曲」（切のときは今のまま）
+  if (conquered && uxOn()) uxSfx('conquest');
+  else {
+    sfx.play('mining');
+    setTimeout(() => sfx.play(conquered ? 'clear' : 'win'), 500);
+  }
   const body = h('div', 'isl-letter');
   const card = h('div', 'isl-letter-card');
   const rays = h('div', 'isl-letter-rays');
@@ -3766,8 +3772,13 @@ function openSettings() {
         }
       },
     ],
-    [vol.bgm > 0 ? t('BGM を消す', 'BGM off') : t('BGM を流す', 'BGM on'), () => setVol({ bgm: vol.bgm > 0 ? 0 : 1 })],
-    [vol.se > 0 ? t('効果音を消す', 'Sound effects off') : t('効果音を出す', 'Sound effects on'), () => setVol({ se: vol.se > 0 ? 0 : 1 })],
+    // 段 UIX1s：新しい画面が入のときは、音の欄を音量（5 段）と消音に替える。切のときは今の入り切りのまま
+    ...(uxOn()
+      ? uxVolRows()
+      : ([
+          [vol.bgm > 0 ? t('BGM を消す', 'BGM off') : t('BGM を流す', 'BGM on'), () => setVol({ bgm: vol.bgm > 0 ? 0 : 1 })],
+          [vol.se > 0 ? t('効果音を消す', 'Sound effects off') : t('効果音を出す', 'Sound effects on'), () => setVol({ se: vol.se > 0 ? 0 : 1 })],
+        ] as [string, () => void, string?][])),
     [
       t(`街の人通り：${CROWD_LEVELS[crowdLevel].name}`, `Crowd: ${CROWD_LEVELS[crowdLevel].name}`),
       () => {
@@ -3838,6 +3849,45 @@ function openPace() {
         ];
       }),
   );
+}
+
+/**
+ * 段 UIX1s：入のときの音の欄。押すたびに次の段へ（0 → 2 → 4 → 6 → 8 → 10 → 0）。
+ * はじめの値は見本と同じ（BGM 7・効果音 8）。古い設定で消していたら 0 から
+ */
+function uxVolRows(): [string, () => void, string?][] {
+  const v = uxVol();
+  const meter = (n: number) => '■'.repeat(Math.ceil(n / 2)) + '□'.repeat(5 - Math.ceil(n / 2));
+  return [
+    [
+      t(`BGM の音量：${meter(v.bgm)} ${v.bgm}/10`, `Music volume: ${meter(v.bgm)} ${v.bgm}/10`),
+      () => {
+        const n = nextStep(v.bgm);
+        uxSetVol({ bgm: n });
+        uxSfx('slide', { step: n });
+      },
+      'is-uxs-bgm',
+    ],
+    [
+      t(`効果音の音量：${meter(v.se)} ${v.se}/10`, `Sound effects volume: ${meter(v.se)} ${v.se}/10`),
+      () => {
+        const n = nextStep(v.se);
+        uxSetVol({ se: n });
+        // 大きさが分かるように、つまみの音と入金の音を鳴らす（見本と同じ）
+        uxSfx('slide', { step: n });
+        uxSfx('deposit');
+      },
+      'is-uxs-se',
+    ],
+    [
+      v.mute ? t('消音：入（押すと鳴らす）', 'Muted (tap to unmute)') : t('消音：切（押すと消す）', 'Sound on (tap to mute)'),
+      () => {
+        uxSetVol({ mute: !v.mute });
+        uxSfx('toggle', { step: v.mute ? 1 : 0 });
+      },
+      'is-uxs-mute',
+    ],
+  ];
 }
 
 function setVol(v: Partial<typeof vol>) {
@@ -4790,6 +4840,30 @@ addEventListener('visibilitychange', () => {
   if (document.hidden) save();
 });
 
+// ---------------------------------------------------------------- 段 UIX1s：新しい音（<html class="is-uxc"> のときだけ鳴る）
+
+/** いまの場面（BGM が替わる）。出ている画面から読むだけ。新しい画面は uxScene() で自分から指定する */
+function uxSceneNow(): UxScene {
+  if (digOpen() || sound.currentBgm() === 'bgmDig') return 'dig';
+  if (sound.currentBgm() === 'bgmBoard') return 'board';
+  if (root.querySelector('.is-report-sheet, .isl-rp-reveal')) return 'report';
+  if (root.querySelector('.isl-sheet .isl-land')) return 'sector';
+  return 'map';
+}
+uxSoundInit({
+  // 入のあいだは、今の BGM（mp3）を止める（流すはずの曲の名前は覚えたままなので、切に戻すと続きの場面の曲が鳴る）
+  legacyBgm: (paused) => sound.setVolumes({ bgm: paused ? 0 : vol.bgm }),
+  scene: uxSceneNow,
+  // 地図の曲の層を決める数字（読むだけ）：直近のエリアの順位・今月と先月の売上
+  momentum: () => {
+    const last = s.reports[s.reports.length - 1];
+    const d = date(s);
+    return { rank: last?.rank ?? null, companies: last?.area.length ?? 0, salesNow: monthRevenue(s), salesPrev: last?.revenue ?? null, salesPrev2: s.reports[s.reports.length - 2]?.revenue ?? null, day: d?.day ?? 1, days: DAYS };
+  },
+  root,
+  pop: popEl,
+});
+
 // ---------------------------------------------------------------- 時間
 
 /** 1 日の長さ（ms）。標準 1.2 秒で、スキルで選べる進行速度で短くなる */
@@ -5448,6 +5522,8 @@ function frame(now: number) {
     advance(1);
   }
   if (moneyAnim) {
+    // 段 UIX1s：数字が回るあいだの「チチチ」（入のときだけ鳴る）
+    uxSfx('tick');
     const k = Math.min(1, (now - moneyAnim.t0) / 700);
     shownMoney = moneyAnim.from + (moneyAnim.to - moneyAnim.from) * (1 - (1 - k) ** 2);
     moneyText(shownMoney);
@@ -5603,6 +5679,8 @@ window.setTimeout(() => warmFx(), 3000);
   /** 下の帯の小メニューを開く（撮影スクリプト用） */
   sub: goSub,
   bgm: () => ({ key: sound.currentBgm(), src: sound.bgmSrc(), playing: sound.bgmPlaying(), sfx: sfx.info() }),
+  // 段 UIX1s：新しい音の様子（確かめ用）
+  uxs: () => uxSound(),
   /** 段 I2（撮影・確かめ用）：いまの状態で経営会議の議題を作る（四半期の締めと同じ）・開く・議題の中身 */
   board: {
     make: () => {

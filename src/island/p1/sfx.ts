@@ -32,6 +32,11 @@ export class IslandSfx {
   private last = new Map<Sfx, number>();
   /** 設定の音量（0 で消す） */
   level = 1;
+  /**
+   * 段 UIX1s：新しい音（uix/sound.ts）への付け替え。true を返したら、こちらでは鳴らさない。
+   * 新しい画面が切（既定）のときは false が返るので、今の音は何も変わらない
+   */
+  route: ((k: Sfx, gain: number, rate: number) => boolean) | null = null;
 
   /** 操作のたびに呼ぶ（最初の操作で音の準備をし、止まっていれば動かす） */
   unlock(): void {
@@ -65,6 +70,7 @@ export class IslandSfx {
 
   /** gain：その場だけの大きさ（1 が標準）・rate：再生の速さ（1 が標準。下げると低く重い音。発掘の奥の層） */
   play(k: Sfx, gain = 1, rate = 1): void {
+    if (this.route?.(k, gain, rate)) return;
     const ctx = this.ctx;
     const b = this.buf.get(k);
     if (!ctx || !b || this.level <= 0 || ctx.state !== 'running') return;

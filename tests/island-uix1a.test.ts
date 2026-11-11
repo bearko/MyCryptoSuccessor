@@ -8,7 +8,7 @@ import { WIPE, wipe, wipeOrder } from '../src/island/uix/fx';
 import { SWAP_MS, deferClose, wipeLabel } from '../src/island/uix/legacy';
 import { KEY_KINDS, LEVER, PRESS_MIN_MS, forgetRoll, keyClass, leverCore, meterStep, odoPositions, rollDelta, rollValue, typePause } from '../src/island/uix/parts';
 import { PREFS_DEF, TALK_CPS, calmOf, cleanPrefs } from '../src/island/uix/prefs';
-import { UX_SFX, setUxSfxSink, uxSfx } from '../src/island/uix/sound';
+import { UX_SFX, uxSfx } from '../src/island/uix/sound';
 import { fxOn } from '../src/island/fx/layer';
 import { sheet } from '../src/island/p1/ui';
 
@@ -57,7 +57,6 @@ afterEach(() => {
   page?.restore();
   page = null;
   for (const k of Object.keys(ux)) delete (ux as Record<string, unknown>)[k];
-  setUxSfxSink(null);
 });
 
 describe('切り替え（<html class="is-uxc">）', () => {
@@ -511,26 +510,8 @@ describe('音の口（uxSfx）', () => {
   it('名前は約束のとおり', () => {
     expect([...UX_SFX]).toEqual(['press', 'release', 'open', 'close', 'page', 'tab', 'lever', 'clunk', 'lamp', 'coin', 'cash', 'deny', 'confirm', 'rankup', 'conquest', 'build', 'done', 'tick', 'blip', 'toggle', 'slide', 'error']);
   });
-  it('つないでいなければ鳴らさない。知らない名前でも落ちない', () => {
+  it('音が始まっていなくても、知らない名前でも落ちない（鳴らす中身は音の土台の段。tests/island-uix1s.test.ts）', () => {
     expect(() => uxSfx('open')).not.toThrow();
     expect(() => uxSfx('no-such-sound')).not.toThrow();
-  });
-  it('今の効果音へ対応づける。press・release は、全体のボタンの音がもう鳴るので重ねない', () => {
-    const sink = vi.fn();
-    setUxSfxSink(sink);
-    uxSfx('press');
-    uxSfx('release');
-    uxSfx('tick');
-    uxSfx('blip', { voice: 1 });
-    expect(sink).not.toHaveBeenCalled();
-    uxSfx('open');
-    expect(sink).toHaveBeenLastCalledWith('page', undefined, 1);
-    uxSfx('clunk');
-    expect(sink.mock.calls.at(-1)![0]).toBe('place');
-    // step：段が上がるほど高く
-    uxSfx('lamp', { step: 0 });
-    const r0 = sink.mock.calls.at(-1)![2] as number;
-    uxSfx('lamp', { step: 4 });
-    expect(sink.mock.calls.at(-1)![2] as number).toBeGreaterThan(r0);
   });
 });
