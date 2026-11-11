@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#12141c" />
+<meta name="robots" content="noindex" />
+<title>手触りラボ — My Crypto Successor</title>
+<style>
+  /* 見本の入口。3 つの方向へ案内するだけの頁なので、どの方向の見た目にも寄せない。角は丸めない・字は 12px 以上・押せる所は 44px 以上。 */
+  :root { --bg: #12141c; --panel: #1b1e2a; --line: #3a3f55; --fg: #f1efe6; --sub: #b6b8c6; --key: #e8ab2c; --ink: #12141c; }
+  * { box-sizing: border-box; border-radius: 0; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); }
+  body { font: 400 16px/1.7 system-ui, -apple-system, 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif; padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+  main { max-width: 1080px; margin: 0 auto; }
+  .eyebrow { margin: 0; font-size: 13px; letter-spacing: 0.16em; color: var(--key); }
+  h1 { margin: 2px 0 10px; font-size: 30px; line-height: 1.25; font-weight: 800; text-wrap: balance; }
+  .lede { margin: 0 0 8px; max-width: 40em; color: var(--sub); }
+  .how { margin: 16px 0 24px; padding: 12px 16px; border-left: 4px solid var(--key); background: var(--panel); max-width: 44em; }
+  .how p { margin: 0; }
+  .how p + p { margin-top: 4px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
+  .card { display: flex; flex-direction: column; min-width: 0; background: var(--panel); border: 2px solid var(--line); }
+  .card .shot { display: block; width: 100%; aspect-ratio: 390 / 500; object-fit: cover; object-position: top; border-bottom: 2px solid var(--line); background: #000; }
+  .card .pix { image-rendering: pixelated; }
+  .body { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 16px; flex: 1; }
+  .tag { margin: 0; font-size: 13px; letter-spacing: 0.14em; color: var(--key); }
+  h2 { margin: 0; font-size: 24px; line-height: 1.3; font-weight: 800; }
+  .what { margin: 0; color: var(--sub); font-size: 15px; }
+  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 15px; }
+  dt { color: var(--key); font-weight: 700; white-space: nowrap; }
+  dd { margin: 0; }
+  .go { margin-top: auto; display: flex; align-items: center; justify-content: center; min-height: 52px; padding: 10px 16px; background: var(--key); color: var(--ink); font-size: 17px; font-weight: 800; text-decoration: none; border: 2px solid #000; box-shadow: 0 4px 0 #000; transition: transform 70ms ease-out, box-shadow 70ms ease-out; }
+  .go:active { transform: translateY(4px); box-shadow: 0 0 0 #000; }
+  .go:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
+  .notes { margin: 28px 0 0; max-width: 44em; color: var(--sub); font-size: 14px; }
+  .notes li + li { margin-top: 4px; }
+  .back { display: inline-flex; align-items: center; min-height: 44px; margin-top: 16px; color: var(--fg); }
+  @media (prefers-reduced-motion: reduce) { .go { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">MY CRYPTO SUCCESSOR ・ UIX0</p>
+  <h1>手触りラボ</h1>
+  <p class="lede">これからの画面の「見た目・動き・音」を決めるための、触れる見本です。同じ場面を、3 つの方向で作り分けました。ゲーム本体は、まだ何も変えていません。</p>
+  <div class="how">
+    <p><strong>見かた：</strong>スマホで開き、音を出して、最初の画面を押すと始まります。1 つあたり 2 分ほどです。</p>
+    <p>どの見本にも「目次」があり、好きな場面へ飛べます。工房を押す → 工房を開く → 設備を買う → 提案を承認する → 月次報告 → 制覇、の順に進みます。</p>
+  </div>
+
+  <ul class="cards">
+    <li class="card">
+      <img class="shot" src="thumbs/a.webp" alt="方向 A「帳場」の画面。紙の稟議書と朱の検印" width="390" height="844" />
+      <div class="body">
+        <p class="tag">方向 A</p>
+        <h2>帳場</h2>
+        <p class="what">商家の道具。生成りの紙、墨の紺、金、朱の印。木と紙の音。</p>
+        <dl>
+          <dt>遷移</dt><dd>紙が重なり、綴じ目を軸にめくれる</dd>
+          <dt>承認</dt><dd>朱の検印を持ち上げて、離して叩く</dd>
+          <dt>数字</dt><dd>帳簿の桁が、そろばんのように転がる</dd>
+        </dl>
+        <a class="go" href="a/index.html">A を触る</a>
+      </div>
+    </li>
+    <!--B-->
+    <li class="card">
+      <img class="shot pix" src="thumbs/c.webp" alt="方向 C「管制卓」の画面。ドット絵の計器が並ぶ工房" width="390" height="844" />
+      <div class="body">
+        <p class="tag">方向 C</p>
+        <h2>管制卓</h2>
+        <p class="what">ドット絵の町と地続きの、機械の卓。スイッチ、ランプ、計器、紙テープ。チップの音。</p>
+        <dl>
+          <dt>遷移</dt><dd>押した場所から、画素の幕が閉じて開く</dd>
+          <dt>承認</dt><dd>赤いレバーを引き下ろし、ランプが順に点く</dd>
+          <dt>数字</dt><dd>機械のカウンターの桁が回る</dd>
+        </dl>
+        <a class="go" href="c/index.html">C を触る</a>
+      </div>
+    </li>
+  </ul>
+
+  <ul class="notes">
+    <li>見くらべる所は 3 つ：場面の切り替わり、承認の手応え、数字の増えかた。それと、曲と効果音が好みに合うか。</li>
+    <li>数字・社名・セリフは見本用の作り物です。ゲームの数字とは関係ありません。</li>
+    <li>各見本の「設定」で、音量・動きを減らす・字の大きさ・色覚に配慮した色を試せます。</li>
+    <li>方向は混ぜられます（例：A の見た目に、C の数字の回りかた）。</li>
+  </ul>
+  <a class="back" href="../">ゲームへもどる</a>
+</main>
+</body>
+</html>

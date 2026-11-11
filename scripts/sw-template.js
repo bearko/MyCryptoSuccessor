@@ -30,7 +30,10 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
-  if (req.mode === 'navigate' && !/(\/|index\.html)$/.test(url.pathname)) {
+  // The touch lab (public/uixlab/) is a set of standalone sample pages: network only, so opening one never
+  // replaces the cached shell and its files are never served stale.
+  if (url.pathname.includes('/uixlab/')) return;
+  if (req.mode === 'navigate' &&!/(\/|index\.html)$/.test(url.pathname)) {
     // Other pages (island.html, which only forwards to ./): network only, so they never replace the cached shell below.
     return;
   }
