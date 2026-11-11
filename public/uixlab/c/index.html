@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ja" class="is-crt">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#0b0d17" />
+    <meta name="robots" content="noindex" />
+    <title>手触りラボ C「管制卓」｜ My Crypto Successor</title>
+    <link rel="preload" href="fonts/DotGothic16-sub.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/Jersey10-sub.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/scenes.css" />
+  </head>
+  <body>
+    <div class="c-app" id="app">
+      <div class="c-map" id="map">
+        <div class="c-sea" id="sea">
+          <div class="c-water c-water--a"></div>
+          <div class="c-water c-water--b"></div>
+        </div>
+        <div class="c-world" id="world">
+          <img class="c-land" id="land" src="img/land.webp" alt="" draggable="false" />
+        </div>
+        <canvas class="c-live" id="live"></canvas>
+        <button class="c-spot" id="spot" type="button" aria-label="工房（押すと職人が話します）">
+          <span class="c-spot-box"><i></i><i></i><i></i><i></i></span>
+          <span class="c-spot-tag"><span class="c-tape c-tape--amber"><b>工房</b></span></span>
+        </button>
+      </div>
+      <div class="c-dim" id="dim"></div>
+      <div class="c-layer" id="layer"></div>
+      <canvas class="c-fx" id="fx"></canvas>
+      <canvas class="c-wipe" id="wipe"></canvas>
+      <div class="c-toast" id="toast" role="status" aria-live="polite"></div>
+
+      <!-- はじまり：電源を入れる前の管制卓 -->
+      <div class="c-title" id="title" role="button" tabindex="0" aria-label="タップしてはじめる">
+        <div class="c-title-half c-title-half--t"></div>
+        <div class="c-title-half c-title-half--b"></div>
+        <div class="c-title-line"></div>
+        <div class="c-title-in">
+          <div class="c-title-top"><span class="c-tape c-tape--dark">MY CRYPTO SUCCESSOR</span><span class="c-tape">手触りラボ</span></div>
+          <div class="c-title-power" aria-hidden="true"><i class="c-lamp c-lamp--bad is-on is-blink"></i><span>電源 切</span></div>
+          <div class="c-title-mark">
+            <span class="c-title-c num">C</span>
+            <h1 class="c-title-name c-bleed">管制卓</h1>
+          </div>
+          <p class="c-title-lead">ドット絵の町と地続きの、<br />レトロな機械の卓。</p>
+          <div class="c-title-lamps" aria-hidden="true"><i class="c-lamp"></i><i class="c-lamp c-lamp--good"></i><i class="c-lamp c-lamp--cyan"></i><i class="c-lamp"></i><i class="c-lamp c-lamp--good"></i><i class="c-lamp c-lamp--cyan"></i><i class="c-lamp"></i></div>
+          <div class="c-title-go"><span class="c-title-go-in" id="title-go">よみこみ中…</span></div>
+          <p class="c-title-note">音が出ます。<br />音量は「システム」で変えられます。</p>
+          <div class="c-title-cast" id="title-cast" aria-hidden="true"></div>
+        </div>
+      </div>
+
+      <div class="c-crt" aria-hidden="true"></div>
+    </div>
+    <noscript>この見本は JavaScript を使います。</noscript>
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
