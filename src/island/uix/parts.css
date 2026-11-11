@@ -1,0 +1,1356 @@
+/* 段 UIX1a：方向 C「管制卓」の部品（docs/ISLAND_UIX.md）。
+   手触りラボ C（public/uixlab/c/css/）の値を、名前だけ替えて移したもの：class は ux-、変数は --ux-、動きの名前は ux-。
+   セレクタはすべて html.is-uxc の内側（切のときは 1 つも当たらない）。
+   決まり：角は丸めない（切り欠きの角）。字は 16px の整数倍を基本にする（最小 16px）。動かすのは transform と opacity。 */
+
+/* ==== ドット絵・読み上げ用・数字 */
+html.is-uxc .ux-px {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+html.is-uxc .ux-vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+html.is-uxc b,
+html.is-uxc strong {
+  font-weight: 400;
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc .ux-num {
+  font-family: var(--ux-num);
+  font-weight: 400;
+  font-size: var(--ux-n15);
+  /* 行の高さを 0 にすると、数字（高さ 10 画素）が行のまん中にそろう */
+  line-height: 0;
+  text-shadow: none;
+  white-space: nowrap;
+}
+html.is-uxc .ux-n2 { font-size: var(--ux-n2); }
+html.is-uxc .ux-n3 { font-size: var(--ux-n3); }
+html.is-uxc .ux-n4 { font-size: var(--ux-n4); }
+html.is-uxc .ux-t-good { color: var(--ux-good); }
+html.is-uxc .ux-t-bad { color: var(--ux-bad); }
+html.is-uxc .ux-t-amber { color: var(--ux-amber); }
+html.is-uxc .ux-t-dim { color: var(--ux-k5); }
+
+/* ==== アイコン */
+/* ---------- 絵文字を使わないドット絵のアイコン（canvas を JS で描く） */
+html.is-uxc .ux-ico {
+  display: inline-block;
+  flex: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  vertical-align: middle;
+}
+
+/* ==== 機械の板・ねじ */
+/* ---------- 機械の板（パネル） */
+html.is-uxc .ux-plate {
+  position: relative;
+  background: var(--ux-k2);
+  clip-path: var(--ux-notch4);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k4), inset -4px -4px 0 0 var(--ux-k1);
+}
+/* 板の地：細かい網目をうっすら（金属の質感） */
+html.is-uxc .ux-plate::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: var(--ux-dz25);
+  opacity: 0.1;
+  pointer-events: none;
+}
+/* 浮いている板は、ぼかさない固い影を落とす */
+html.is-uxc .ux-float {
+  filter: drop-shadow(4px 4px 0 rgba(4, 6, 14, 0.55));
+}
+
+/* ねじ（板の四隅） */
+html.is-uxc .ux-screws {
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+}
+html.is-uxc .ux-screws::before,
+html.is-uxc .ux-screws::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 4px;
+  height: 4px;
+  background: var(--ux-k4);
+  box-shadow: 2px 2px 0 var(--ux-k0);
+}
+html.is-uxc .ux-screws::before { left: 0; }
+html.is-uxc .ux-screws::after { right: 0; }
+
+/* ==== 貼り札 */
+/* ---------- 貼り札（ラベルのテープ） */
+html.is-uxc .ux-tape {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  min-height: 1.25rem;
+  line-height: 1.25rem;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  box-shadow: inset 0 -2px 0 var(--ux-paper2), 2px 2px 0 rgba(4, 6, 14, 0.5);
+  white-space: nowrap;
+}
+html.is-uxc .ux-tape--amber { background: var(--ux-amber); box-shadow: inset 0 -2px 0 var(--ux-amber-lo), 2px 2px 0 rgba(4, 6, 14, 0.5); }
+html.is-uxc .ux-tape--good { background: var(--ux-good); box-shadow: inset 0 -2px 0 var(--ux-good-lo), 2px 2px 0 rgba(4, 6, 14, 0.5); }
+html.is-uxc .ux-tape--dark { background: var(--ux-k0); color: var(--ux-paper); box-shadow: inset 0 0 0 2px var(--ux-k3); }
+
+/* ==== 機械のキー */
+/* ---------- 機械のキー（押すと沈む） */
+html.is-uxc .ux-key {
+  --ux-face: var(--ux-k3);
+  --ux-hi: var(--ux-k4);
+  --ux-lo: var(--ux-k1);
+  --ux-side: #10121f;
+  --ux-txt: var(--ux-paper);
+  position: relative;
+  display: inline-block;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 2px 2px 8px;
+  background: linear-gradient(var(--ux-k0) 0 8px, var(--ux-side) 8px);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+  clip-path: var(--ux-notch);
+  color: var(--ux-txt);
+  text-align: center;
+  vertical-align: top;
+}
+html.is-uxc .ux-key > .ux-cap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  height: 100%;
+  padding: 2px 10px;
+  background: var(--ux-face);
+  box-shadow: inset 2px 2px 0 var(--ux-hi), inset -2px -2px 0 var(--ux-lo);
+  overflow: hidden;
+  transition: transform 60ms steps(2, end);
+  will-change: transform;
+}
+html.is-uxc .ux-key.is-ux-down > .ux-cap,
+html.is-uxc .ux-key[aria-pressed='true'] > .ux-cap {
+  transform: translateY(4px);
+}
+html.is-uxc .ux-key[aria-pressed='true'] > .ux-cap {
+  background: var(--ux-lit, var(--ux-face));
+  box-shadow: inset 2px 2px 0 rgba(4, 6, 14, 0.4), inset -2px -2px 0 rgba(255, 255, 255, 0.45);
+}
+/* 種類は 4 つまで：主（琥珀。1 画面に 1 つ）・ふつう（上の既定）・弱い・危ない。押せないものは平ら */
+html.is-uxc .ux-key--main {
+  --ux-face: var(--ux-amber);
+  --ux-hi: var(--ux-amber-hi);
+  --ux-lo: var(--ux-amber-lo);
+  --ux-side: #7a3f06;
+  --ux-txt: var(--ux-ink);
+}
+/* 弱い：板と同じ明るさの面（脇の操作）。見本に無い種類なので、胴の色の段から作った */
+html.is-uxc .ux-key--weak {
+  --ux-face: var(--ux-k2);
+  --ux-hi: var(--ux-k3);
+  --ux-lo: var(--ux-k1);
+  --ux-side: #10121f;
+  --ux-txt: var(--ux-k5);
+}
+/* 危ない：ランプの赤（見本のレバーのつまみと同じ面・光・影） */
+html.is-uxc .ux-key--danger {
+  --ux-face: var(--ux-bad);
+  --ux-hi: #ffc0c4;
+  --ux-lo: var(--ux-bad-lo);
+  --ux-side: #5e1422;
+  --ux-txt: var(--ux-ink);
+}
+html.is-uxc.is-cvd .ux-key--danger { --ux-hi: #ffd9b0; --ux-side: #5c2e07; }
+html.is-uxc .ux-key--flat {
+  /* 押せないもの：平らにする */
+  --ux-face: var(--ux-k2);
+  --ux-hi: var(--ux-k2);
+  --ux-lo: var(--ux-k2);
+  --ux-txt: var(--ux-k5);
+  padding-bottom: 2px;
+  background: var(--ux-k0);
+}
+html.is-uxc .ux-key--big > .ux-cap {
+  min-height: 46px;
+  font-size: 1rem;
+}
+html.is-uxc .ux-key--big b { letter-spacing: 0.06em; }
+/* 主のキーには、ときどき光の帯が走る（止まらない画面） */
+html.is-uxc .ux-key--main > .ux-cap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -24px;
+  width: 12px;
+  background: linear-gradient(90deg, transparent 0 2px, rgba(255, 255, 255, 0.75) 2px 8px, transparent 8px 10px, rgba(255, 255, 255, 0.5) 10px 12px);
+  transform: translateX(0) skewX(0deg);
+  animation: ux-shine 5.2s steps(18, end) infinite;
+  pointer-events: none;
+}
+@keyframes ux-shine {
+  0%, 72% { transform: translateX(0); opacity: 0; }
+  73% { opacity: 1; }
+  100% { transform: translateX(460px); opacity: 1; }
+}
+
+/* ==== ランプ */
+/* ---------- ランプ */
+html.is-uxc .ux-lamp {
+  --ux-c: var(--ux-amber);
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: #1a1d30;
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+  clip-path: var(--ux-notch);
+}
+html.is-uxc .ux-lamp.is-on {
+  background: var(--ux-c);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 rgba(255, 255, 255, 0.7);
+}
+html.is-uxc .ux-lamp--good { --ux-c: var(--ux-good); }
+html.is-uxc .ux-lamp--bad { --ux-c: var(--ux-bad); }
+html.is-uxc .ux-lamp--cyan { --ux-c: var(--ux-cyan); }
+html.is-uxc .ux-lamp.is-blink { animation: ux-blink 0.9s steps(1, end) infinite; }
+@keyframes ux-blink {
+  50% { opacity: 0.25; }
+}
+
+/* ==== 桁が回る数字 */
+/* ---------- 桁が回る数字（機械のカウンター） */
+html.is-uxc .ux-odo {
+  display: inline-flex;
+  align-items: stretch;
+  padding: 2px;
+  gap: 1px;
+  background: var(--ux-k0);
+  font-family: var(--ux-num);
+  font-weight: 400;
+  font-size: var(--ux-n2);
+  line-height: 0.75;
+  vertical-align: middle;
+}
+html.is-uxc .ux-odo--s { font-size: var(--ux-n15); }
+html.is-uxc .ux-odo--l { font-size: var(--ux-n3); }
+html.is-uxc .ux-odo--xl { font-size: var(--ux-n4); }
+html.is-uxc .ux-odo-d {
+  position: relative;
+  width: 0.375em;
+  height: 0.75em;
+  overflow: hidden;
+  background: #161929;
+  color: var(--ux-paper);
+}
+html.is-uxc .ux-odo-d.is-lead { color: #3d4468; }
+html.is-uxc .ux-odo-d > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  text-align: center;
+  will-change: transform;
+}
+html.is-uxc .ux-odo-d > span > i {
+  display: block;
+  height: 0.75em;
+  font-style: normal;
+}
+/* 筒の丸みを、上下の影の段で見せる */
+html.is-uxc .ux-odo-d::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(5, 6, 12, 0.7) 0 2px, rgba(5, 6, 12, 0.3) 2px 4px, transparent 4px calc(100% - 4px), rgba(5, 6, 12, 0.3) calc(100% - 4px) calc(100% - 2px), rgba(5, 6, 12, 0.7) calc(100% - 2px));
+  pointer-events: none;
+}
+html.is-uxc .ux-odo-sep {
+  width: 0.1607em;
+  color: var(--ux-k5);
+  text-align: center;
+}
+html.is-uxc .ux-odo-sep.is-lead { color: #3d4468; }
+html.is-uxc .ux-odo--amber .ux-odo-d { color: var(--ux-amber); }
+html.is-uxc .ux-odo--paper { background: var(--ux-ink); }
+html.is-uxc .ux-odo--paper .ux-odo-d { background: #26293f; }
+
+/* ==== 目盛りの棒 */
+/* ---------- 目盛りの棒（進み） */
+html.is-uxc .ux-meter {
+  position: relative;
+  height: 14px;
+  background: var(--ux-k0);
+  overflow: hidden;
+}
+html.is-uxc .ux-meter > i {
+  position: absolute;
+  inset: 2px;
+  background: var(--ux-amber);
+  box-shadow: inset 0 2px 0 var(--ux-amber-hi), inset 0 -2px 0 var(--ux-amber-lo);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  will-change: transform;
+}
+html.is-uxc .ux-meter::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: repeating-linear-gradient(90deg, transparent 0 6px, var(--ux-k0) 6px 8px);
+}
+html.is-uxc .ux-meter--good > i { background: var(--ux-good); box-shadow: inset 0 2px 0 #b9ffd8, inset 0 -2px 0 var(--ux-good-lo); }
+html.is-uxc .ux-meter--cyan > i { background: var(--ux-cyan); box-shadow: inset 0 2px 0 #d6f8ff, inset 0 -2px 0 var(--ux-cyan-lo); }
+html.is-uxc .ux-meter.is-flash > i { animation: ux-flash 0.32s steps(1, end) 2; }
+@keyframes ux-flash {
+  50% { opacity: 0.2; }
+}
+
+/* ==== つまみ */
+/* ---------- つまみ（スライダー） */
+html.is-uxc .ux-fader {
+  position: relative;
+  height: 44px;
+  flex: 1;
+  min-width: 120px;
+  touch-action: none;
+  cursor: ew-resize;
+}
+html.is-uxc .ux-fader-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 16px;
+  height: 12px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 2px 0 #000;
+  overflow: hidden;
+}
+html.is-uxc .ux-fader-fill {
+  position: absolute;
+  inset: 2px;
+  background: var(--ux-amber);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  will-change: transform;
+}
+html.is-uxc .ux-fader-ticks {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 32px;
+  height: 6px;
+  background: repeating-linear-gradient(90deg, var(--ux-k4) 0 2px, transparent 2px 10%);
+  opacity: 0.8;
+}
+html.is-uxc .ux-fader-knob {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 20px;
+  height: 36px;
+  margin-left: -10px;
+  background: var(--ux-paper);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-white), inset -4px -4px 0 0 var(--ux-paper3);
+  clip-path: var(--ux-notch);
+  will-change: transform;
+}
+html.is-uxc .ux-fader-knob::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  width: 4px;
+  height: 20px;
+  background: var(--ux-bad);
+}
+html.is-uxc .ux-fader.is-drag .ux-fader-knob { box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-amber-hi), inset -4px -4px 0 0 var(--ux-amber-lo); background: var(--ux-amber); }
+
+/* ==== スイッチ */
+/* ---------- 切り替えスイッチ */
+html.is-uxc .ux-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 4px;
+  text-align: left;
+}
+html.is-uxc .ux-switch-box {
+  position: relative;
+  flex: none;
+  width: 60px;
+  height: 30px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 2px 0 #000, inset 0 0 0 2px var(--ux-k0);
+  clip-path: var(--ux-notch);
+}
+html.is-uxc .ux-switch-box::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: var(--ux-dz50w);
+  opacity: 0.08;
+}
+html.is-uxc .ux-switch-knob {
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 28px;
+  height: 26px;
+  background: var(--ux-k4);
+  box-shadow: inset 2px 2px 0 var(--ux-k5), inset -2px -2px 0 var(--ux-k2);
+  transition: transform 90ms steps(3, end);
+  will-change: transform;
+}
+html.is-uxc .ux-switch-knob::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 6px;
+  width: 8px;
+  height: 14px;
+  background: repeating-linear-gradient(90deg, var(--ux-k2) 0 2px, transparent 2px 4px);
+}
+html.is-uxc .ux-switch[aria-checked='true'] .ux-switch-knob {
+  transform: translateX(28px);
+  background: var(--ux-good);
+  box-shadow: inset 2px 2px 0 #b9ffd8, inset -2px -2px 0 var(--ux-good-lo);
+}
+html.is-uxc .ux-switch-state {
+  min-width: 2.2em;
+  color: var(--ux-k5);
+}
+html.is-uxc .ux-switch[aria-checked='true'] .ux-switch-state { color: var(--ux-good); }
+
+/* ==== 上掛けの層・幕 */
+html.is-uxc .ux-fx,
+html.is-uxc .ux-wipe {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+html.is-uxc .ux-wipe {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  z-index: var(--ux-z-wipe);
+  visibility: hidden;
+}
+html.is-uxc .ux-fx { z-index: var(--ux-z-fx); }
+
+/* ==== 暗い網目 */
+/* 札を開いているあいだ、地図を暗い網目で沈める（ぼかしは使わない：どの端末でも軽い） */
+html.is-uxc .ux-dim {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 11, 24, 0.62);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms steps(4, end);
+}
+html.is-uxc .ux-dim::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ux-dz50);
+  opacity: 0.35;
+}
+html.is-uxc .ux-dim.is-on { opacity: 1; }
+html.is-uxc .ux-dim.is-soft { background: rgba(9, 11, 24, 0.3); }
+
+/* ==== 走査線 */
+/* ---------- ブラウン管の効果（走査線・にじみ・ゆっくり流れる帯）。設定で切れる */
+html.is-uxc .ux-crt {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--ux-z-crt);
+  overflow: hidden;
+  display: none;
+}
+html.is-uxc.is-crt .ux-crt { display: block; }
+html.is-uxc .ux-crt::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(to bottom, rgba(6, 8, 20, 0.16) 0 1px, transparent 1px 3px);
+}
+html.is-uxc .ux-crt::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -120px;
+  height: 120px;
+  background: linear-gradient(transparent, rgba(190, 230, 255, 0.045) 40%, rgba(190, 230, 255, 0.07) 50%, rgba(190, 230, 255, 0.045) 60%, transparent);
+  animation: ux-roll 7.5s linear infinite;
+  will-change: transform;
+}
+@keyframes ux-roll {
+  to { transform: translate3d(0, calc(100vh + 240px), 0); }
+}
+/* にじみ：大きい字だけ、赤と青を 1px ずらす */
+html.is-uxc .ux-num.ux-bleed { text-shadow: none; }
+html.is-uxc.is-crt .ux-num.ux-bleed { text-shadow: -2px 0 rgba(255, 70, 110, 0.4), 2px 0 rgba(70, 220, 255, 0.4); }
+html.is-uxc.is-crt .ux-bleed:not(.ux-num) {
+  text-shadow: 1px 0 currentColor, -2px 0 rgba(255, 70, 110, 0.4), 3px 0 rgba(70, 220, 255, 0.4);
+}
+html.is-uxc .ux-bleed:not(.ux-num) { text-shadow: 1px 0 currentColor; }
+
+/* ==== お知らせ */
+/* ---------- お知らせ（下から出る短い紙） */
+html.is-uxc .ux-toast {
+  position: fixed;
+  left: 50%;
+  top: calc(var(--ux-top-h, 150px) + 8px);
+  z-index: var(--ux-z-toast);
+  width: max-content;
+  max-width: min(94vw, 420px);
+  transform: translate(-50%, -16px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 160ms steps(4, end), opacity 160ms steps(4, end);
+}
+html.is-uxc .ux-toast.is-on { transform: translate(-50%, 0); opacity: 1; }
+html.is-uxc .ux-toast > div {
+  padding: 8px 12px;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  box-shadow: inset 0 -2px 0 var(--ux-paper2), inset 0 0 0 2px var(--ux-ink), 4px 4px 0 rgba(4, 6, 14, 0.5);
+  clip-path: none;
+  white-space: normal;
+}
+
+/* ==== 揺れ */
+/* ---------- 揺れ（承認などの大きな手応え） */
+@keyframes ux-shake {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(2px, -2px); }
+  60% { transform: translate(-2px, 0); }
+  80% { transform: translate(2px, 2px); }
+  100% { transform: translate(0, 0); }
+}
+html.is-uxc .ux-shake { animation: ux-shake 180ms steps(5, end) 1; }
+
+/* ==== 幕の上の行き先の札 */
+/* 幕の上の行き先の札 */
+html.is-uxc .ux-wipe-label {
+  position: fixed;
+  left: 50%;
+  top: 46%;
+  z-index: calc(var(--ux-z-wipe) + 1);
+  transform: translate(-50%, -50%);
+  padding: 4px 16px;
+  font-size: 1.5rem;
+  letter-spacing: 0.2em;
+  white-space: nowrap;
+  color: var(--ux-amber);
+  box-shadow: inset 0 0 0 2px var(--ux-amber);
+  text-shadow: 1px 0 currentColor;
+  opacity: 0;
+  pointer-events: none;
+}
+html.is-uxc .ux-wipe-label.is-on { opacity: 1; }
+html.is-uxc .ux-wipe-label:empty { display: none; }
+
+/* ==== ヒーローの絵 */
+/* ---------- ヒーロー・エクステンションの絵（表から 1 升。整数倍で大きくする） */
+html.is-uxc .ux-hero,
+html.is-uxc .ux-ext {
+  display: block;
+  flex: none;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ==== 増えた・減ったぶん */
+html.is-uxc .ux-delta {
+  position: absolute;
+  left: 3.3rem;
+  top: 0.62rem;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--ux-good);
+  opacity: 0;
+  pointer-events: none;
+  text-shadow: 2px 2px 0 var(--ux-k0);
+}
+html.is-uxc .ux-delta.is-ux-down { color: var(--ux-bad); }
+html.is-uxc .ux-delta.is-on { animation: ux-delta 900ms steps(9, end) 1; }
+@keyframes ux-delta {
+  0% { transform: translate3d(0, 8px, 0); opacity: 1; }
+  25% { transform: translate3d(0, 0, 0); opacity: 1; }
+  80% { transform: translate3d(0, 0, 0); opacity: 1; }
+  100% { transform: translate3d(0, -6px, 0); opacity: 0; }
+}
+
+/* ==== 吹き出し */
+/* ---------- 吹き出し */
+html.is-uxc .ux-pop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+html.is-uxc .ux-pop-bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: min(366px, calc(100vw - 16px));
+  pointer-events: auto;
+  will-change: transform;
+}
+html.is-uxc .ux-pop-rise {
+  position: relative;
+  padding: 50px 14px 6px;
+  transform-origin: 66% 0;
+}
+html.is-uxc .ux-pop.is-in .ux-pop-rise { animation: ux-pop-in 260ms steps(7, end) both; }
+@keyframes ux-pop-in {
+  0% { transform: scale(0.3, 0.04); opacity: 0; }
+  30% { transform: scale(0.6, 0.5); opacity: 1; }
+  70% { transform: scale(1.04, 1.08); }
+  100% { transform: scale(1, 1); }
+}
+html.is-uxc .ux-pop.is-out .ux-pop-rise { animation: ux-pop-out 180ms steps(4, end) both; }
+html.is-uxc .ux-pop.is-out .ux-pop-actions { animation: ux-fadeout 120ms steps(2, end) both; }
+@keyframes ux-pop-out {
+  to { transform: scale(0.4, 0.04); opacity: 0; }
+}
+@keyframes ux-fadeout {
+  to { opacity: 0; }
+}
+html.is-uxc .ux-pop-bg {
+  position: absolute;
+  inset: 0;
+  filter: drop-shadow(4px 4px 0 rgba(4, 6, 14, 0.55));
+  pointer-events: none;
+}
+html.is-uxc .ux-pop-bg i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: var(--ux-paper);
+  border: 0 solid var(--ux-ink);
+}
+html.is-uxc .ux-pop-t {
+  top: 0;
+  height: 8px;
+  border-width: 2px 2px 0 !important;
+  box-shadow: inset 2px 2px 0 var(--ux-white), inset -2px 0 0 var(--ux-paper2);
+  clip-path: polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% 100%, 0 100%);
+}
+html.is-uxc .ux-pop-m {
+  top: 8px;
+  height: 100px;
+  border-width: 0 2px !important;
+  box-shadow: inset 2px 0 0 var(--ux-white), inset -2px 0 0 var(--ux-paper2);
+  transform-origin: 0 0;
+  will-change: transform;
+}
+html.is-uxc .ux-pop-b {
+  top: 8px;
+  height: 8px;
+  border-width: 0 2px 2px !important;
+  box-shadow: inset -2px -2px 0 var(--ux-paper2), inset 2px 0 0 var(--ux-white);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px));
+  will-change: transform;
+}
+html.is-uxc .ux-pop-tail {
+  position: absolute;
+  left: 0;
+  top: -12px;
+  z-index: 1;
+  will-change: transform;
+}
+html.is-uxc .ux-pop-tail svg { display: block; }
+html.is-uxc .ux-pop-who {
+  position: absolute;
+  left: 4px;
+  top: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+/* 人物は枠の上に立ち、枠をはみ出す。息をする */
+html.is-uxc .ux-pop-face { animation: ux-breathe 1.8s steps(2, end) infinite; }
+@keyframes ux-breathe {
+  50% { transform: translate3d(0, -2px, 0); }
+}
+html.is-uxc .ux-pop-face.is-hop { animation: ux-hop 260ms steps(4, end) 1, ux-breathe 1.8s steps(2, end) 260ms infinite; }
+@keyframes ux-hop {
+  0% { transform: translate3d(0, 0, 0); }
+  40% { transform: translate3d(0, -10px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+html.is-uxc .ux-pop-name,
+html.is-uxc .ux-prop-name {
+  gap: 8px;
+  background: var(--ux-ink);
+  color: var(--ux-paper);
+  box-shadow: 2px 2px 0 rgba(4, 6, 14, 0.4);
+}
+html.is-uxc .ux-pop-name { position: absolute; left: 118px; top: 12px; }
+html.is-uxc .ux-pop-name span,
+html.is-uxc .ux-prop-name span { color: var(--ux-amber); }
+html.is-uxc .ux-pop-x {
+  position: absolute;
+  right: 0;
+  top: -50px;
+}
+html.is-uxc .ux-pop-say {
+  position: relative;
+  cursor: pointer;
+  min-height: 44px;
+}
+html.is-uxc .ux-pop-text {
+  margin: 0;
+  color: var(--ux-ink);
+  line-height: 1.5;
+  min-height: 1.5em;
+}
+html.is-uxc .ux-pop-foot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  height: 22px;
+  color: var(--ux-ink);
+}
+html.is-uxc .ux-pop-count { color: var(--ux-paper3); }
+html.is-uxc .ux-pop-next { opacity: 0; color: var(--ux-bad-lo); }
+html.is-uxc .ux-pop-next.is-on { opacity: 1; animation: ux-nextbob 0.7s steps(2, end) infinite; }
+@keyframes ux-nextbob {
+  50% { transform: translateY(3px); }
+}
+html.is-uxc .ux-pop-actions {
+  position: absolute;
+  left: 50%;
+  bottom: calc(96px + var(--ux-safe-b));
+  width: min(366px, calc(100vw - 24px));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: auto;
+}
+html.is-uxc .ux-pop.is-in .ux-pop-actions > * { animation: ux-key-in 220ms steps(5, end) both; }
+html.is-uxc .ux-pop.is-in .ux-pop-actions > :nth-child(1) { animation-delay: 120ms; }
+html.is-uxc .ux-pop.is-in .ux-pop-actions > :nth-child(2) { animation-delay: 190ms; }
+@keyframes ux-key-in {
+  0% { transform: translate3d(0, 24px, 0); opacity: 0; }
+  60% { transform: translate3d(0, -4px, 0); opacity: 1; }
+  100% { transform: translate3d(0, 0, 0); }
+}
+html.is-uxc .ux-pop-up {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+html.is-uxc .ux-pop-up .ux-num { color: var(--ux-amber); font-size: var(--ux-n2); }
+html.is-uxc .ux-pop-actions .ux-key { width: 100%; }
+
+/* ==== 札の器・タブ */
+/* ---------- 札（工房・設定） */
+html.is-uxc .ux-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--ux-top-h, 150px) + 4px);
+  bottom: 0;
+  z-index: var(--ux-z-sheet);
+  display: flex;
+  justify-content: center;
+  padding: 0 6px calc(6px + var(--ux-safe-b));
+  pointer-events: none;
+}
+html.is-uxc .ux-sheet-plate {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 560px;
+  min-height: 0;
+  padding: 12px 10px 10px;
+  pointer-events: auto;
+}
+html.is-uxc .ux-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px 8px;
+  position: relative;
+}
+html.is-uxc .ux-sheet-head h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 400;
+  line-height: 44px;
+  letter-spacing: 0.04em;
+}
+html.is-uxc .ux-sheet-run {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ux-good);
+}
+html.is-uxc .ux-sheet-x { margin-left: auto; width: 44px; }
+html.is-uxc .ux-sheet-x > .ux-cap { padding: 2px; }
+html.is-uxc .ux-tabs {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 4px;
+  padding: 0 4px;
+}
+html.is-uxc .ux-tab { flex: 1; --ux-lit: var(--ux-paper); }
+html.is-uxc .ux-tab-l { display: flex; align-items: center; gap: 8px; }
+html.is-uxc .ux-tab[aria-pressed='true'] { --ux-txt: var(--ux-ink); }
+html.is-uxc .ux-tab[aria-pressed='false'] b { text-shadow: none; color: var(--ux-k5); }
+html.is-uxc .ux-tabbody {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 6px 0 0 rgba(4, 6, 14, 0.35);
+}
+html.is-uxc .ux-pane {
+  position: absolute;
+  inset: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 6px 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  will-change: transform;
+}
+html.is-uxc .ux-pane[hidden] { display: none; }
+html.is-uxc .ux-pane.is-leaving { pointer-events: none; }
+html.is-uxc .ux-pane-note { margin: 4px 4px 0; }
+
+/* ==== 光・判・+N */
+@keyframes ux-glow {
+  0% { opacity: 0.35; }
+  100% { opacity: 0; }
+}
+
+/* ====  */
+@keyframes ux-plus {
+  0% { transform: translate3d(0, 10px, 0); opacity: 1; }
+  70% { transform: translate3d(0, -12px, 0); opacity: 1; }
+  100% { transform: translate3d(0, -16px, 0); opacity: 0; }
+}
+
+/* ====  */
+@keyframes ux-stamp {
+  0% { transform: scale(2.2); opacity: 0; }
+  60% { transform: scale(0.9); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* ==== 札の入り */
+@keyframes ux-card-in {
+  0% { transform: translate3d(0, 40px, 0) scale(0.9); opacity: 0; }
+  60% { transform: translate3d(0, -6px, 0) scale(1.02); opacity: 1; }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* ==== 白い光 */
+html.is-uxc .ux-prop-flash {
+  position: absolute;
+  inset: 0;
+  background: var(--ux-white);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+html.is-uxc .ux-prop-flash.is-on { animation: ux-white 140ms steps(2, end) 1; }
+@keyframes ux-white {
+  0% { opacity: 0.7; }
+  100% { opacity: 0; }
+}
+
+/* ==== 承認のランプと「承認済」 */
+html.is-uxc .ux-prop-lamps {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+html.is-uxc .ux-prop-lamps .ux-lamp { width: 16px; height: 16px; }
+html.is-uxc .ux-prop-done {
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+  color: #3d4468;
+  text-align: center;
+  min-height: 36px;
+  display: grid;
+  place-items: center;
+}
+html.is-uxc .ux-prop-done-in {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.2em;
+}
+html.is-uxc .ux-prop-done .ux-ico { opacity: 0.2; }
+html.is-uxc .ux-prop-done.is-on {
+  background: var(--ux-good);
+  color: var(--ux-ink);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 rgba(255, 255, 255, 0.7), inset -4px -4px 0 0 var(--ux-good-lo);
+  animation: ux-stamp 220ms steps(4, end) 1;
+}
+html.is-uxc .ux-prop-done.is-on .ux-ico { opacity: 1; }
+
+/* ==== レバー */
+html.is-uxc .ux-lever-box {
+  flex: none;
+  min-width: 108px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+html.is-uxc .ux-lever {
+  position: relative;
+  width: 108px;
+  height: 172px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 #000, inset -4px -4px 0 0 var(--ux-k3);
+  clip-path: var(--ux-notch4);
+  touch-action: none;
+  cursor: grab;
+}
+html.is-uxc .ux-lever-slot {
+  position: absolute;
+  left: 48px;
+  top: 12px;
+  bottom: 12px;
+  width: 12px;
+  background: #000;
+  box-shadow: inset 2px 0 0 #232842, 14px 0 0 -12px var(--ux-k3);
+}
+html.is-uxc .ux-lever-scale {
+  position: absolute;
+  left: 10px;
+  top: 28px;
+  bottom: 28px;
+  width: 8px;
+  background: repeating-linear-gradient(to bottom, var(--ux-k4) 0 2px, transparent 2px 12px);
+}
+html.is-uxc .ux-lever-hint {
+  position: absolute;
+  right: 14px;
+  top: 70px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  animation: ux-hint 0.9s steps(3, end) infinite;
+}
+@keyframes ux-hint {
+  0% { transform: translate3d(0, -8px, 0); opacity: 0.3; }
+  100% { transform: translate3d(0, 10px, 0); opacity: 1; }
+}
+html.is-uxc .ux-lever.is-on .ux-lever-hint { display: none; }
+html.is-uxc .ux-lever-goal {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  text-align: center;
+  font-family: var(--ux-num);
+  font-size: var(--ux-n15);
+  line-height: 1rem;
+  color: var(--ux-good-lo);
+}
+html.is-uxc .ux-lever.is-on .ux-lever-goal { color: var(--ux-ink); }
+/* 行き先：黄と黒のしま（ここまで引く） */
+html.is-uxc .ux-lever-goal::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -2px;
+  height: 22px;
+  z-index: -1;
+  background: repeating-linear-gradient(90deg, var(--ux-amber-lo) 0 8px, #191d31 8px 16px);
+  opacity: 0.55;
+}
+html.is-uxc .ux-lever-cap { color: var(--ux-amber); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+html.is-uxc .ux-lever:not(.is-on)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 0 2px var(--ux-amber);
+  animation: ux-blink 1.2s steps(1, end) infinite;
+  pointer-events: none;
+}
+html.is-uxc .ux-lever-knob {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  width: 92px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  background: var(--ux-bad);
+  color: var(--ux-ink);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 #ffc0c4, inset -4px -4px 0 0 var(--ux-bad-lo);
+  clip-path: var(--ux-notch);
+  will-change: transform;
+}
+html.is-uxc.is-cvd .ux-lever-knob { box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 #ffd9b0, inset -4px -4px 0 0 var(--ux-bad-lo); }
+html.is-uxc .ux-lever-knob b { letter-spacing: 0.12em; }
+html.is-uxc .ux-lever-grip {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 6px;
+  height: 6px;
+  background: repeating-linear-gradient(90deg, var(--ux-bad-lo) 0 2px, transparent 2px 6px);
+}
+html.is-uxc .ux-lever.is-drag { cursor: grabbing; }
+html.is-uxc .ux-lever.is-drag .ux-lever-knob { background: #ff8088; }
+html.is-uxc .ux-lever.is-on .ux-lever-knob {
+  background: var(--ux-good);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 rgba(255, 255, 255, 0.75), inset -4px -4px 0 0 var(--ux-good-lo);
+}
+html.is-uxc .ux-lever.is-on .ux-lever-grip { background: repeating-linear-gradient(90deg, var(--ux-good-lo) 0 2px, transparent 2px 6px); }
+html.is-uxc .ux-lever:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--ux-cyan), inset 4px 4px 0 0 #000; }
+
+/* ==== 伝票 */
+/* 伝票の受け皿 */
+html.is-uxc .ux-ticket-slot {
+  position: relative;
+  height: 84px;
+  margin-top: 8px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 8px 0 0 #000, inset 0 10px 0 0 var(--ux-k3);
+  overflow: hidden;
+}
+html.is-uxc .ux-ticket-slot::before {
+  content: attr(data-label);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -30%);
+  color: #2f3657;
+  letter-spacing: 0.4em;
+}
+html.is-uxc .ux-ticket { position: absolute; left: 12px; right: 12px; top: 8px; }
+html.is-uxc .ux-ticket-paper {
+  padding: 6px 10px 6px;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  box-shadow: inset 0 -2px 0 var(--ux-paper2), inset 2px 0 0 var(--ux-white);
+  line-height: 1.35;
+  transform: translate3d(0, -110%, 0);
+  transition: transform 460ms steps(7, end);
+}
+html.is-uxc .ux-ticket.is-on .ux-ticket-paper { transform: translate3d(0, 0, 0); }
+html.is-uxc .ux-t-ink2 { color: #6a5f40; }
+
+/* ==== 紙テープ */
+html.is-uxc .ux-rp-page {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px 26px 12px;
+  color: var(--ux-ink);
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* 紙：両端に送りの穴、うすい罫 */
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 8px, var(--ux-k1) 8px 14px, transparent 14px 22px) 6px 0 / 6px 100% no-repeat,
+    repeating-linear-gradient(to bottom, transparent 0 8px, var(--ux-k1) 8px 14px, transparent 14px 22px) calc(100% - 6px) 0 / 6px 100% no-repeat,
+    repeating-linear-gradient(to bottom, transparent 0 46px, rgba(26, 28, 46, 0.07) 46px 48px),
+    var(--ux-paper);
+  will-change: transform;
+}
+html.is-uxc .ux-rl {
+  position: relative;
+  flex: none;
+  opacity: 0;
+}
+html.is-uxc .ux-rl.is-on { opacity: 1; }
+/* 印字：行が左から打たれていく（覆いが右へ縮む） */
+html.is-uxc .ux-rl::after {
+  content: '';
+  position: absolute;
+  inset: -2px 0;
+  background: var(--ux-paper);
+  transform-origin: 100% 50%;
+  pointer-events: none;
+}
+html.is-uxc .ux-rl.is-on::after {
+  transform: scaleX(0);
+  transition: transform 150ms steps(8, end);
+}
+html.is-uxc .ux-rl-k {
+  display: inline-block;
+  padding: 0 8px;
+  background: var(--ux-ink);
+  color: var(--ux-paper);
+  text-shadow: 1px 0 currentColor;
+}
+
+/* ==== 設定の行 */
+/* ---------- 設定 */
+html.is-uxc .ux-set-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 8px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 6px 0 0 rgba(4, 6, 14, 0.35);
+}
+html.is-uxc .ux-set-body > *,
+html.is-uxc .ux-pane > * { flex: none; }
+html.is-uxc .ux-set-h {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 2px;
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--ux-cyan);
+  border-bottom: 2px dotted var(--ux-k3);
+}
+html.is-uxc .ux-set-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0 12px;
+  min-height: 50px;
+}
+html.is-uxc .ux-set-ctl {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+html.is-uxc .ux-set-val {
+  min-width: 1.8rem;
+  text-align: right;
+  font-size: var(--ux-n2);
+  color: var(--ux-amber);
+}
+html.is-uxc .ux-set-note { grid-column: 1 / -1; margin: 0 0 6px; text-align: right; line-height: 1.3; }
+html.is-uxc .ux-sizes { display: flex; gap: 2px; }
+html.is-uxc .ux-size-key { min-width: 60px; }
+html.is-uxc .ux-size-key > .ux-cap { padding: 2px 4px; font-family: var(--ux-num); font-size: var(--ux-n15); line-height: 0; }
+html.is-uxc .ux-size-key b { text-shadow: none; }
+html.is-uxc .ux-size-key[aria-pressed='true'] { --ux-txt: var(--ux-ink); }
+html.is-uxc .ux-speed-key[aria-pressed='true'] { --ux-txt: var(--ux-ink); }
+html.is-uxc .ux-set-sample {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  justify-content: flex-end;
+  margin: -2px 0 6px;
+}
+html.is-uxc .ux-set-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  color: var(--ux-ink);
+}
+html.is-uxc .ux-set-chip.is-good { background: var(--ux-good); }
+html.is-uxc .ux-set-chip.is-bad { background: var(--ux-bad); }
+
+/* ==== キーの輪郭 */
+html.is-uxc .ux-key:focus-visible { outline: none; }
+html.is-uxc .ux-key:focus-visible > .ux-cap { box-shadow: inset 0 0 0 2px var(--ux-cyan), inset 4px 4px 0 0 var(--ux-hi); }
+
+/* ==== この段で足したもの（見本の部品を、本体で使う形にするための置き方だけ。色・形・動きの値は見本のまま） */
+/* 枠破りの立ち絵：パネルの縁からはみ出して、手前に立つ（top は parts.ts が絵の大きさから決める：128px なら -84px） */
+html.is-uxc .ux-stand {
+  position: absolute;
+  left: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+html.is-uxc .ux-stand > * {
+  display: block;
+  flex: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+/* 吹き出しを、その場に置く（地図に付けないとき） */
+html.is-uxc .ux-pop-bubble--flow { position: relative; }
+/* 人物のいない吹き出し：上の余白は人物ぶんを取らない */
+html.is-uxc .ux-pop-rise--plain { padding-top: 14px; }
+html.is-uxc .ux-pop-rise--plain .ux-pop-x { top: -50px; }
+/* 「+N」を上掛けの層に出す（もとの画面が作り直されても消えない） */
+html.is-uxc .ux-delta--float {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: var(--ux-z-toast);
+  translate: -50% 0;
+  font-size: var(--ux-n2);
+  white-space: nowrap;
+}
+/* 白い光は、板の上に重ねる */
+html.is-uxc .ux-plate > .ux-prop-flash { z-index: 5; }
+/* レバーを、いまの承認ボタンの代わりに置く箱（ランプ・「承認済」・レバー） */
+html.is-uxc .ux-lever-wrap {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 4px 0 0 rgba(4, 6, 14, 0.4);
+  color: var(--ux-paper);
+  font: 400 1rem/1.5 var(--ux-jp);
+  vertical-align: bottom;
+}
+html.is-uxc .ux-lever-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 6.5rem;
+}
+html.is-uxc .ux-lever-side .ux-prop-lamps { margin-top: auto; }
+
+/* ==== 見本の提案の札から：レバーのまわりの並べ方（効果の面・大きな数字・下のキーの列） */
+/* ==== 計器の窓・単位 */
+html.is-uxc .ux-gauge-win {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+html.is-uxc .ux-unit {
+  font-size: var(--ux-n2);
+  color: var(--ux-k5);
+}
+
+/* ==== 提案の札（レバーのまわり） */
+html.is-uxc .ux-prop-wrap,
+html.is-uxc .ux-end-wrap {
+  position: relative;
+  width: min(100%, 404px);
+  margin: auto 0;
+  pointer-events: auto;
+}
+
+/* ====  */
+html.is-uxc .ux-prop-face {
+  position: absolute;
+  left: 2px;
+  top: -86px;
+  z-index: 2;
+  pointer-events: none;
+  animation: ux-breathe 1.8s steps(2, end) infinite;
+}
+html.is-uxc .ux-prop-card,
+html.is-uxc .ux-end-card { padding: 10px 12px 10px; }
+html.is-uxc .ux-prop-card.ux-shake { animation: ux-shake 180ms steps(5, end) 1; }
+
+/* ====  */
+html.is-uxc .ux-prop-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding-left: 126px;
+  white-space: nowrap;
+}
+html.is-uxc .ux-prop-say,
+html.is-uxc .ux-end-bubble {
+  position: relative;
+  margin-top: 4px;
+  padding: 16px 12px 10px;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  box-shadow: inset 0 0 0 2px var(--ux-ink), inset 4px 4px 0 0 var(--ux-white), inset -4px -4px 0 0 var(--ux-paper2);
+  clip-path: none;
+}
+html.is-uxc .ux-prop-name {
+  position: absolute;
+  left: 10px;
+  top: -10px;
+}
+html.is-uxc .ux-prop-text,
+html.is-uxc .ux-end-say {
+  margin: 0;
+  min-height: 4.5em;
+  line-height: 1.5;
+}
+html.is-uxc .ux-prop-main {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 8px;
+}
+html.is-uxc .ux-prop-effect {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 4px 0 0 rgba(4, 6, 14, 0.4);
+}
+html.is-uxc .ux-prop-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+html.is-uxc .ux-prop-big {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1.5rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: var(--ux-good);
+}
+html.is-uxc .ux-prop-big .ux-num { font-size: var(--ux-n3); }
+
+/* ====  */
+html.is-uxc .ux-prop-foot,
+html.is-uxc .ux-end-keys {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+html.is-uxc .ux-prop-foot { min-height: 58px; }
+html.is-uxc .ux-prop-foot [hidden] { display: none; }
+html.is-uxc .ux-prop-back { flex: 1; }

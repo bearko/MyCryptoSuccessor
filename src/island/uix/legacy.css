@@ -1,0 +1,307 @@
+/* 段 UIX1a：いまの入口（btn()・sheet()・modal()・toast）を、入のときだけ新しい器と手応えにする（docs/ISLAND_UIX.md「差し込み」）。
+   画面ごとの作り込みは次の段：ここは器（ボタン・札・窓・お知らせ・暗い網目）だけ。色・形・動きの値は見本（parts.css）と同じ。
+   いまの CSS（p1.css ほか）は #isl-ui を付けて強くした決まりがあるので、ここも html.is-uxc #isl-ui … で書く。 */
+
+/* ---------- ボタン（.isl-btn）：見本のキーを、1 つの要素で描く
+   中の字は呼ぶ側が書き換える（textContent）ので、見本のように中に箱（ux-cap）を入れない。
+   ボタン自身がキーの面（字ごと 4px 沈む）、::before が胴（沈むぶんだけ逆へ動かして、その場に残す）、::after が面の色と縁の光。
+   字の不具合（無効な font の短縮形で 13.33px・400 になっていた）は、ここで 16px のドットの字に決め直す */
+html.is-uxc #isl-ui .isl-btn {
+  --ux-face: var(--ux-k3);
+  --ux-hi: var(--ux-k4);
+  --ux-lo: var(--ux-k1);
+  --ux-side: #10121f;
+  --ux-txt: var(--ux-paper);
+  min-width: 44px;
+  min-height: 44px;
+  padding: 2px 10px;
+  border: solid transparent;
+  border-width: 2px 2px 8px;
+  background: none;
+  box-shadow: none;
+  color: var(--ux-txt);
+  font: 400 1rem/1.25 var(--ux-jp);
+  /* 見本のキーの字（b）と同じ：1px の影で太らせる */
+  text-shadow: 1px 0 currentColor;
+  letter-spacing: 0;
+  text-align: center;
+  opacity: 1;
+  translate: 0 0;
+  transition: translate 60ms steps(2, end);
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+html.is-uxc #isl-ui .isl-btn::before {
+  content: '';
+  position: absolute;
+  inset: -2px -2px -8px;
+  z-index: -2;
+  width: auto;
+  height: auto;
+  background: linear-gradient(var(--ux-k0) 0 8px, var(--ux-side) 8px);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+  clip-path: var(--ux-notch);
+  opacity: 1;
+  translate: 0 0;
+  transition: translate 60ms steps(2, end);
+  animation: none;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .isl-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: auto;
+  height: auto;
+  background: var(--ux-face);
+  box-shadow: inset 2px 2px 0 var(--ux-hi), inset -2px -2px 0 var(--ux-lo);
+  opacity: 1;
+  animation: none;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .isl-btn.is-ux-down {
+  translate: 0 4px;
+}
+html.is-uxc #isl-ui .isl-btn.is-ux-down::before {
+  translate: 0 -4px;
+}
+/* 主（琥珀）：いまの is-on（金色） */
+html.is-uxc #isl-ui .isl-btn.is-on {
+  --ux-face: var(--ux-amber);
+  --ux-hi: var(--ux-amber-hi);
+  --ux-lo: var(--ux-amber-lo);
+  --ux-side: #7a3f06;
+  --ux-txt: var(--ux-ink);
+}
+/* 危ない：いまの is-danger */
+html.is-uxc #isl-ui .isl-btn.is-danger {
+  --ux-face: var(--ux-bad);
+  --ux-hi: #ffc0c4;
+  --ux-lo: var(--ux-bad-lo);
+  --ux-side: #5e1422;
+  --ux-txt: var(--ux-ink);
+}
+/* 押せないもの：平ら */
+html.is-uxc #isl-ui .isl-btn:disabled {
+  --ux-face: var(--ux-k2);
+  --ux-hi: var(--ux-k2);
+  --ux-lo: var(--ux-k2);
+  --ux-txt: var(--ux-k5);
+  border-bottom-width: 2px;
+  opacity: 1;
+}
+html.is-uxc #isl-ui .isl-btn:disabled::before {
+  inset: -2px;
+  background: var(--ux-k0);
+}
+/* 主のキーには、ときどき光の帯が走る（止まらない画面）。1 つの要素では帯を箱で切り取れないので、面の地の模様として送る */
+html.is-uxc #isl-ui .isl-btn.is-on:not(:disabled)::after {
+  background:
+    linear-gradient(90deg, transparent 0 2px, rgba(255, 255, 255, 0.75) 2px 8px, transparent 8px 10px, rgba(255, 255, 255, 0.5) 10px 12px) -24px 0 / 12px 100% no-repeat,
+    var(--ux-face);
+  animation: ux-shine-bg 5.2s steps(18, end) infinite;
+}
+@keyframes ux-shine-bg {
+  0%, 72% { background-position: -24px 0, 0 0; }
+  100% { background-position: 436px 0, 0 0; }
+}
+html.is-uxc.is-calm #isl-ui .isl-btn.is-on::after {
+  animation: none;
+}
+html.is-uxc #isl-ui .isl-btn:focus-visible {
+  outline: none;
+}
+html.is-uxc #isl-ui .isl-btn:focus-visible::after {
+  box-shadow: inset 0 0 0 2px var(--ux-cyan), inset 4px 4px 0 0 var(--ux-hi);
+}
+/* btn() を通らないボタン（h('button') の 94 か所）：形はそのまま、押した手応え（沈む）だけ付ける */
+html.is-uxc #isl-ui button:not(.isl-btn):not([class*='ux-']) {
+  transition: translate 60ms steps(2, end);
+}
+html.is-uxc #isl-ui button.is-ux-down:not(.isl-btn):not([class*='ux-']) {
+  translate: 0 2px;
+}
+
+/* ---------- 札の器（.isl-sheet）：機械の胴の板・ねじ・見出し・✕ のキー */
+html.is-uxc #isl-ui .isl-sheet {
+  background: none;
+}
+html.is-uxc #isl-ui .isl-sheet-box {
+  position: relative;
+  padding: 12px 10px 10px;
+  border: 0;
+  background: var(--ux-k2);
+  clip-path: var(--ux-notch4);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k4), inset -4px -4px 0 0 var(--ux-k1);
+  color: var(--ux-paper);
+}
+/* 板の地：細かい網目をうっすら（金属の質感） */
+html.is-uxc #isl-ui .isl-sheet-box::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: var(--ux-dz25);
+  opacity: 0.1;
+  pointer-events: none;
+}
+/* ねじ（板の上の両すみ） */
+html.is-uxc #isl-ui .isl-sheet-box::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 6px;
+  top: 8px;
+  height: 6px;
+  background:
+    linear-gradient(var(--ux-k4), var(--ux-k4)) 0 0 / 4px 4px no-repeat,
+    linear-gradient(var(--ux-k0), var(--ux-k0)) 2px 2px / 4px 4px no-repeat,
+    linear-gradient(var(--ux-k4), var(--ux-k4)) calc(100% - 2px) 0 / 4px 4px no-repeat,
+    linear-gradient(var(--ux-k0), var(--ux-k0)) 100% 2px / 4px 4px no-repeat;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .isl-sheet-head {
+  position: relative;
+  gap: 8px;
+  padding: 0 2px 8px;
+  border-bottom: 0;
+}
+html.is-uxc #isl-ui .isl-sheet-head h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 400;
+  line-height: 44px;
+  letter-spacing: 0.04em;
+  text-shadow: 1px 0 currentColor;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+html.is-uxc.is-crt #isl-ui .isl-sheet-head h2 {
+  text-shadow: 1px 0 currentColor, -2px 0 rgba(255, 70, 110, 0.4), 3px 0 rgba(70, 220, 255, 0.4);
+}
+html.is-uxc #isl-ui .isl-sheet-head > .isl-btn.ux-x {
+  flex: none;
+  width: 44px;
+  padding: 2px;
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+}
+html.is-uxc #isl-ui .isl-sheet-body {
+  position: relative;
+  padding: 10px 8px 12px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 6px 0 0 rgba(4, 6, 14, 0.35);
+}
+/* 中の小さな板（いまのカード） */
+html.is-uxc #isl-ui .isl-card2 {
+  border: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k3), inset -4px -4px 0 0 #191d31;
+}
+/* 開く：幕が閉じきるまで隠しておく（押せる所は札が受けたまま：下の地図は押せない） */
+html.is-uxc #isl-ui .isl-sheet.ux-wait > * {
+  opacity: 0;
+  pointer-events: none;
+}
+/* 閉じる：幕が閉じきるまで、押せない */
+html.is-uxc #isl-ui .isl-sheet.ux-leaving > * {
+  pointer-events: none;
+}
+/* 札から札へ（部門のサブタブなど）：短い出入り（220ms） */
+html.is-uxc #isl-ui .isl-sheet.ux-swap .isl-sheet-body {
+  animation: ux-key-in 220ms steps(5, end) both;
+}
+
+/* ---------- 窓の共通の器（.isl-modal）：暗い網目の幕・入る動き。modal() の箱は機械の板 */
+html.is-uxc {
+  --ux-dz50s: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h2v2H0zM2 2h2v2H2z' fill-opacity='.35'/%3E%3C/svg%3E");
+}
+html.is-uxc #isl-ui .isl-modal.ux-modal {
+  background: var(--ux-dz50s), rgba(9, 11, 24, 0.62);
+}
+html.is-uxc #isl-ui .isl-modal.ux-modal:not(.ux-modal--disaster) > * {
+  animation: ux-modal-in 260ms steps(6, end) both;
+}
+/* いまの画面は transform で位置を決めている所があるので、入る動きは translate・scale の別の口で重ねる */
+@keyframes ux-modal-in {
+  0% { translate: 0 40px; scale: 0.9; opacity: 0; }
+  60% { translate: 0 -6px; scale: 1.02; opacity: 1; }
+  100% { translate: 0 0; scale: 1; }
+}
+html.is-uxc #isl-ui .isl-modal.ux-modal--plain > div,
+html.is-uxc #isl-ui .isl-modal.ux-modal--sect > div {
+  position: relative;
+  padding: 16px 14px 12px;
+  border: 0;
+  background: var(--ux-k2);
+  clip-path: var(--ux-notch4);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k4), inset -4px -4px 0 0 var(--ux-k1);
+  color: var(--ux-paper);
+  filter: none;
+}
+html.is-uxc #isl-ui .isl-modal.ux-modal--plain h2 {
+  font-size: 1.5rem;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+}
+html.is-uxc #isl-ui .isl-modal.ux-modal--plain p {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* ---------- お知らせ（.isl-toast）：短い紙。160ms で出入りする。開いている札・窓の中身には重ねない（置き場所は boot.ts） */
+html.is-uxc #isl-ui .isl-toast {
+  padding: 8px 12px;
+  border: 0;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  box-shadow: inset 0 -2px 0 var(--ux-paper2), inset 0 0 0 2px var(--ux-ink), 4px 4px 0 rgba(4, 6, 14, 0.5);
+  font: 400 1rem/1.5 var(--ux-jp);
+  animation: ux-toast-life 3300ms steps(4, end) both;
+}
+@keyframes ux-toast-life {
+  0% { transform: translate3d(0, -16px, 0); opacity: 0; }
+  4.85% { transform: translate3d(0, 0, 0); opacity: 1; }
+  95.15% { transform: translate3d(0, 0, 0); opacity: 1; }
+  100% { transform: translate3d(0, -16px, 0); opacity: 0; }
+}
+html.is-uxc.is-calm #isl-ui .isl-toast {
+  animation: none;
+}
+
+/* ---------- 設定の欄（入のときに足す。settings.ts） */
+html.is-uxc #isl-ui .ux-set {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .ux-set .ux-set-ctl {
+  flex-wrap: wrap;
+}
+html.is-uxc .ux-seg { display: flex; gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
+html.is-uxc .ux-seg .ux-key { min-width: 60px; }
+html.is-uxc .ux-seg .ux-key > .ux-cap { padding: 2px 6px; }
+html.is-uxc .ux-seg .ux-key[aria-pressed='true'] { --ux-txt: var(--ux-ink); }
+html.is-uxc .ux-seg .ux-key[aria-pressed='false'] b { text-shadow: none; }
+
+/* ---------- レバーを置いた所（いまの画面の並びを崩さないための置き方） */
+html.is-uxc #isl-ui .isl-feed-head:has(.ux-lever-wrap) {
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+html.is-uxc #isl-ui .isl-feed-head .ux-lever-wrap {
+  margin-left: auto;
+}
+/* レバーに替えたもとのボタンは、画面に出さない（レバーが落ちたら、コードから 1 回押す） */
+html.is-uxc #isl-ui .ux-lever-wrap > button {
+  display: none;
+}
+html.is-uxc .ux-lever-what {
+  line-height: 1.3;
+  max-width: 9rem;
+}

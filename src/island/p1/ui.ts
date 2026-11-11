@@ -2,6 +2,7 @@
 import { allSeries, extensionById, heroById } from '../../game/catalog';
 import { isEn, t } from '../../i18n';
 import { icon } from '../../ui/dom';
+import { ux } from '../uix/hooks';
 import { PRODUCT, skuParts, type Mat, type Sku } from './data';
 
 export function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = ''): HTMLElementTagNameMap[K] {
@@ -126,12 +127,18 @@ export function sheet(root: HTMLElement, title: string, onClose: () => void, onU
   const head = h('div', 'isl-sheet-head');
   const close = () => {
     el.remove();
+    ux.sheetClosed?.();
     onClose();
   };
   // ✕ や外側を押して閉じたとき（別の札に切り替えるときは呼ばない）
+  // 段 UIX1a：新しい画面（入）では、網目の幕が閉じきるのを待ってから消す（切のときは、今までどおりすぐ消す）
   const userClose = () => {
-    close();
-    onUser?.();
+    const go = () => {
+      close();
+      onUser?.();
+    };
+    if (ux.sheetLeave) ux.sheetLeave(el, go);
+    else go();
   };
   head.append(h('h2', '', title), btn('✕', userClose));
   const body = h('div', 'isl-sheet-body');
@@ -141,6 +148,7 @@ export function sheet(root: HTMLElement, title: string, onClose: () => void, onU
     if (e.target === el) userClose();
   });
   root.append(el);
+  ux.sheetOpen?.(el, title);
   return { body, close, el };
 }
 

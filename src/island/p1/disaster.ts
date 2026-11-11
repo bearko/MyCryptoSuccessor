@@ -11,6 +11,7 @@ import { sectorIcon } from './landui';
 import type { P1State, ResetRec } from './model';
 import type { Sfx } from './sfx';
 import { btn, h, money } from './ui';
+import { ux } from '../uix/hooks';
 import { FX_PAL, fxLevel, playFx } from '../fx/layer';
 
 /** 店の名前の幅（全角 2・半角 1。16 まで＝全角 8 文字・英語 16 文字） */
@@ -43,6 +44,7 @@ type Step = 'storm' | 'damage' | 'notice' | 'sign' | 'stamp' | 'grant';
 export function playDisaster(root: HTMLElement, s: P1State, rec: ResetRec, hooks: DisasterHooks, done: () => void) {
   // isl-modal：会話と同じく、出ているあいだは時間も到着の案内も止める
   const m = h('div', 'isl-modal isl-disaster');
+  ux.modal?.(m, 'disaster');
   const sky = h('div', 'isl-disaster-sky');
   // 雲・雨・稲光（仮の絵：CSS）
   for (let k = 0; k < 5; k++) {

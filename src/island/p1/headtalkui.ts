@@ -28,6 +28,7 @@ import { quipOf } from './persona';
 import { done as delegDone, pickHead } from './delegui';
 import { after, open, type Ctx } from './screens';
 import { btn, h, heroIcon, money, recLine, recTag, rich } from './ui';
+import { ux } from '../uix/hooks';
 import { checkItems, detailOf, doneLine, laterLine, hireCard, itemLine, openLine, talkMode, topicLine, topicsOf, type CheckItem, type TopicId } from './headtalk';
 
 export interface TalkHooks {
@@ -172,7 +173,8 @@ function optsOf(ctx: Ctx, s: P1State, dept: DeptId, mode: 'head' | 'mine', item:
   const opt = (label: string, on: () => void, cls = '') => {
     const b = btn(label, on, `isl-ht-opt ${cls}`);
     if (/\bis-rec\b/.test(cls) && label.startsWith('✔')) b.prepend(recTag());
-    row.append(b);
+    // 段 UIX1a：新しい画面（入）では、部長の提案の承認はレバーを引き下ろす（落ちたら、このボタンを 1 回押す）
+    row.append(/^✔ (承認|Approve)/.test(label) ? (ux.lever?.(b, label.replace(/^✔\s*/, '')) ?? b) : b);
   };
   const back = () => opt(t('← 話題に戻る', '← Back'), () => go(ctx, null), 'is-back');
   if (item) {

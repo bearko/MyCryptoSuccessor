@@ -42,6 +42,7 @@ import type { Sfx } from './sfx';
 import type { Bgm } from '../../audio';
 import type { Ctx } from './screens';
 import { btn, h, heroIcon, recLine } from './ui';
+import { ux } from '../uix/hooks';
 import { pickHead } from './delegui';
 import { STAGE_JA, causeChips, causeName, coLive, forecastHint, leverOpts, leverWhy, ofSlack, styleOfHero, type Lever } from './boardplan';
 import { styleTags } from './voice';
@@ -97,6 +98,7 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
   let jingled = false;
 
   const m = h('div', 'isl-modal isl-board');
+  ux.modal?.(m, 'board');
   m.classList.toggle('is-still', still());
   const wrap = h('div', 'isl-bm');
   // ---- 会議室（CSS の仮の絵）

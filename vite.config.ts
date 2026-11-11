@@ -22,7 +22,9 @@ function pwa(): Plugin {
         .map((f) => relative(outDir, f).split(sep).join('/'))
         .filter((f) => f !== 'sw.js')
         .sort();
-      const shell = files.filter((f) => SHELL.some((re) => re.test(f)));
+      // 段 UIX1a：新しい画面（入のときだけ読む分）は事前に保存しない：使ったときに覚える（sw-template.js の「初めて使ったときに保存」）。
+      // 分かれた書体のファイル（120 個あまり）と、入口の boot・見本帳の kit（src/island/uix/boot.ts・kit.ts のチャンク）
+      const shell = files.filter((f) => SHELL.some((re) => re.test(f)) && !/\.woff2?$/.test(f) && !/^assets\/(boot|kit)-/.test(f));
       const hash = createHash('sha256');
       for (const f of shell) hash.update(f).update(readFileSync(join(outDir, f)));
       const precache = ['./', ...shell.filter((f) => f !== 'index.html')];
@@ -30,6 +32,22 @@ function pwa(): Plugin {
         .replace('__VERSION__', hash.digest('hex').slice(0, 12))
         .replace('__PRECACHE__', JSON.stringify(precache));
       writeFileSync(join(outDir, 'sw.js'), sw);
+    },
+  };
+}
+
+/**
+ * 段 UIX1a：新しい画面（方向 C「管制卓」）の書体（@fontsource/dotgothic16・@fontsource/jersey-10。SIL Open Font License。文は public/fonts/）。
+ * unicode-range で分かれた woff2 を自前で配る（外部の CDN からは読まない）。古いブラウザ向けの woff は配らない：CSS から外す。
+ * 書体は入のとき（src/island/uix/boot.ts）だけ読む。ブラウザは、画面に出た字を含むファイルだけを取りに行く。
+ */
+function uxFonts(): Plugin {
+  return {
+    name: 'mcs-ux-fonts',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!/@fontsource[\\/][^?]+\.css/.test(id)) return null;
+      return { code: code.replace(/,\s*url\([^)]*\.woff\)\s*format\('woff'\)/g, ''), map: null };
     },
   };
 }
@@ -55,7 +73,7 @@ export default defineConfig({
   build: {
     assetsInlineLimit: 0,
   },
-  plugins: [pwa(), siteUrl()],
+  plugins: [uxFonts(), pwa(), siteUrl()],
   test: {
     // CI の機械は手元より遅く、町を何年ぶんも回すテストが既定の 5 秒を超えることがある
     // CI は 2 CPU で並列に回すので、性質のテスト（何か月も回す）が 60 秒を超えることがある

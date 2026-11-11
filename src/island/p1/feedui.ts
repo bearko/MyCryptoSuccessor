@@ -10,6 +10,7 @@ import { TRADE } from './data';
 import { approveFeed, borderDepots, feedBlock, feedItems, feedNext, feedPicks, feedSuggest, goodsRate, townName, toggleFeed } from './feed';
 import { tradeNeighbors } from './tariff';
 import { btn, h, heroIcon, heroName, money, skuIcon, skuName } from './ui';
+import { ux } from '../uix/hooks';
 import type { P1State, PBuilding } from './model';
 
 const WHY: Record<string, () => string> = {
@@ -49,10 +50,12 @@ export function feedBox(s: P1State, b: PBuilding, done: (msg?: string) => void):
       const line = sg.out
         ? t(`${heroName(sg.hero)}（物流の部長）「${skuName(sg.out)}を${skuName(sg.sku)}に入れ替えると この町の売上 月 +${money(sg.gain)}」`, `${heroName(sg.hero)} (Logistics head): “Swap ${skuName(sg.out)} for ${skuName(sg.sku)}: this town +${money(sg.gain)}/mo”`)
         : t(`${heroName(sg.hero)}（物流の部長）「${skuName(sg.sku)}を輸入に足すと この町の売上 月 +${money(sg.gain)}」`, `${heroName(sg.hero)} (Logistics head): “Add ${skuName(sg.sku)} to imports: this town +${money(sg.gain)}/mo”`);
-      say.append(face, h('span', 'isl-feed-say', line), btn(t('承認', 'Approve'), () => {
+      const ok = btn(t('承認', 'Approve'), () => {
         approveFeed(s, sg);
         done(t(`${skuName(sg.sku)}を${nb.name}から輸入します`, `Importing ${skuName(sg.sku)} from ${nb.name}`));
-      }, 'is-on'));
+      }, 'is-on');
+      // 段 UIX1a：新しい画面（入）では、承認はレバーを引き下ろす（落ちたら、このボタンを 1 回押す）
+      say.append(face, h('span', 'isl-feed-say', line), ux.lever?.(ok) ?? ok);
       sec.append(say);
     }
     const grid = h('div', 'isl-feed-grid');

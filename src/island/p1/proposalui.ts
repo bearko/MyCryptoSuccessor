@@ -26,6 +26,7 @@ import { after, chooseMake, type Ctx } from './screens';
 import { pickMake } from './stockui';
 import { craftable } from './orders';
 import { btn, extImage, h, heroIcon, heroName, money, rich, signCls, signed, skuIcon } from './ui';
+import { ux } from '../uix/hooks';
 import { cardInbox, goneLine, inTutorial, speechText, starOf, withdrawCard, type Speech } from './card';
 import { goodsName } from './moves';
 import { actName } from './deleg';
@@ -153,6 +154,7 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   if (askDue(s)) return openPolicyPick(ctx, { mine: true, then: () => openProposal(ctx, plan, o) });
   ctx.root.querySelector('.isl-prop')?.remove();
   const m = h('div', 'isl-modal isl-prop');
+  ux.modal?.(m, 'prop');
   const panel = h('div', 'isl-prop-panel');
   const phone = innerWidth < 600;
   // 見込み（写しに当てて計算する）：このまま（承認しない）と承認後
