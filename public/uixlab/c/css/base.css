@@ -1,0 +1,746 @@
+/* 手触りラボ C「管制卓」：土台と部品。
+   決まり：角は丸めない（切り欠きの角）。字は 16px の整数倍を基本にする（最小 16px）。動かすのは transform と opacity。 */
+
+@font-face {
+  font-family: 'DotGothic16';
+  src: url('../fonts/DotGothic16-sub.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Jersey 10';
+  src: url('../fonts/Jersey10-sub.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+:root {
+  /* 機械の胴（暗い順） */
+  --k0: #0b0d17;
+  --k1: #151829;
+  --k2: #20253d;
+  --k3: #2f3657;
+  --k4: #4a5486;
+  --k5: #97a1cf;
+  /* 貼り札・紙テープ */
+  --paper: #f4ecd4;
+  --paper2: #d8cba3;
+  --paper3: #b3a47a;
+  --ink: #1a1c2e;
+  /* ランプ */
+  --amber: #ffb81f;
+  --amber-hi: #ffe394;
+  --amber-lo: #b8650d;
+  --good: #36e08b;
+  --good-lo: #14804c;
+  --bad: #ff5964;
+  --bad-lo: #9c2238;
+  --cyan: #5fe4ff;
+  --cyan-lo: #1f7fa8;
+  --white: #fffdf3;
+  --sea: #2f6fae;
+
+  --jp: 'DotGothic16', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', monospace;
+  --num: 'Jersey 10', 'DotGothic16', monospace;
+  --u: 2px;
+  /* 数字の書体は 1 em が 18.667 画素。画素を整数倍（1.5・2・3・4 CSS px）にする大きさ */
+  /* せまい画面では、文字を大きくしても数字が枠からはみ出さないよう、幅で上限を付ける */
+  --n15: min(1.75rem, 7.2vw);
+  --n2: min(2.3333rem, 9.58vw);
+  --n3: min(3.5rem, 14.36vw);
+  --n4: min(4.6667rem, 19.15vw);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+
+  /* 切り欠きの角（2px・4px の階段） */
+  --notch: polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px));
+  --notch4: polygon(0 4px, 2px 4px, 2px 2px, 4px 2px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 2px, calc(100% - 2px) 2px, calc(100% - 2px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 2px) calc(100% - 4px), calc(100% - 2px) calc(100% - 2px), calc(100% - 4px) calc(100% - 2px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 2px), 2px calc(100% - 2px), 2px calc(100% - 4px), 0 calc(100% - 4px));
+
+  /* 網目（ディザ）：黒の 50%・25% */
+  --dz50: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h2v2H0zM2 2h2v2H2z'/%3E%3C/svg%3E");
+  --dz25: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h2v2H0z'/%3E%3C/svg%3E");
+  --dz50w: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h2v2H0zM2 2h2v2H2z' fill='%23fff'/%3E%3C/svg%3E");
+  --dz25w: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h2v2H0z' fill='%23fff'/%3E%3C/svg%3E");
+}
+
+/* 色覚に配慮した色：良い＝青、急ぎ＝橙（赤と緑を並べない）。形と言葉はいつも添える */
+:root.is-cvd {
+  --good: #4cc3ff;
+  --good-lo: #1b6fa6;
+  --bad: #ff9a3c;
+  --bad-lo: #a3520f;
+}
+
+* {
+  box-sizing: border-box;
+  border-radius: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+html {
+  font-size: 16px;
+  height: 100%;
+  background: var(--k0);
+}
+html.is-t115 { font-size: 18.4px; }
+html.is-t130 { font-size: 20.8px; }
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--jp);
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--paper);
+  background: var(--k0);
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  text-rendering: optimizeSpeed;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+img,
+canvas {
+  display: block;
+}
+.px {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+b,
+strong {
+  font-weight: 400;
+  text-shadow: 1px 0 currentColor;
+}
+.num {
+  font-family: var(--num);
+  font-weight: 400;
+  font-size: var(--n15);
+  /* 行の高さを 0 にすると、数字（高さ 10 画素）が行のまん中にそろう */
+  line-height: 0;
+  text-shadow: none;
+  white-space: nowrap;
+}
+.n2 { font-size: var(--n2); }
+.n3 { font-size: var(--n3); }
+.n4 { font-size: var(--n4); }
+.t-good { color: var(--good); }
+.t-bad { color: var(--bad); }
+.t-amber { color: var(--amber); }
+.t-dim { color: var(--k5); }
+
+/* ---------- 絵文字を使わないドット絵のアイコン（canvas を JS で描く） */
+.c-ico {
+  display: inline-block;
+  flex: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  vertical-align: middle;
+}
+
+/* ---------- 機械の板（パネル） */
+.c-plate {
+  position: relative;
+  background: var(--k2);
+  clip-path: var(--notch4);
+  box-shadow: inset 0 0 0 2px var(--k0), inset 4px 4px 0 0 var(--k4), inset -4px -4px 0 0 var(--k1);
+}
+/* 板の地：細かい網目をうっすら（金属の質感） */
+.c-plate::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: var(--dz25);
+  opacity: 0.1;
+  pointer-events: none;
+}
+/* 浮いている板は、ぼかさない固い影を落とす */
+.c-float {
+  filter: drop-shadow(4px 4px 0 rgba(4, 6, 14, 0.55));
+}
+
+/* ねじ（板の四隅） */
+.c-screws {
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+}
+.c-screws::before,
+.c-screws::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 4px;
+  height: 4px;
+  background: var(--k4);
+  box-shadow: 2px 2px 0 var(--k0);
+}
+.c-screws::before { left: 0; }
+.c-screws::after { right: 0; }
+
+/* ---------- 貼り札（ラベルのテープ） */
+.c-tape {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  min-height: 1.25rem;
+  line-height: 1.25rem;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: inset 0 -2px 0 var(--paper2), 2px 2px 0 rgba(4, 6, 14, 0.5);
+  white-space: nowrap;
+}
+.c-tape--amber { background: var(--amber); box-shadow: inset 0 -2px 0 var(--amber-lo), 2px 2px 0 rgba(4, 6, 14, 0.5); }
+.c-tape--good { background: var(--good); box-shadow: inset 0 -2px 0 var(--good-lo), 2px 2px 0 rgba(4, 6, 14, 0.5); }
+.c-tape--dark { background: var(--k0); color: var(--paper); box-shadow: inset 0 0 0 2px var(--k3); }
+
+/* ---------- 機械のキー（押すと沈む） */
+.c-key {
+  --face: var(--k3);
+  --hi: var(--k4);
+  --lo: var(--k1);
+  --side: #10121f;
+  --txt: var(--paper);
+  position: relative;
+  display: inline-block;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 2px 2px 8px;
+  background: linear-gradient(var(--k0) 0 8px, var(--side) 8px);
+  box-shadow: inset 0 0 0 2px var(--k0);
+  clip-path: var(--notch);
+  color: var(--txt);
+  text-align: center;
+  vertical-align: top;
+}
+.c-key > .c-cap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  height: 100%;
+  padding: 2px 10px;
+  background: var(--face);
+  box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--lo);
+  overflow: hidden;
+  transition: transform 60ms steps(2, end);
+  will-change: transform;
+}
+.c-key.is-down > .c-cap,
+.c-key[aria-pressed='true'] > .c-cap {
+  transform: translateY(4px);
+}
+.c-key[aria-pressed='true'] > .c-cap {
+  background: var(--lit, var(--face));
+  box-shadow: inset 2px 2px 0 rgba(4, 6, 14, 0.4), inset -2px -2px 0 rgba(255, 255, 255, 0.45);
+}
+.c-key--amber {
+  --face: var(--amber);
+  --hi: var(--amber-hi);
+  --lo: var(--amber-lo);
+  --side: #7a3f06;
+  --txt: var(--ink);
+}
+.c-key--paper {
+  --face: var(--paper);
+  --hi: var(--white);
+  --lo: var(--paper3);
+  --side: #7d7048;
+  --txt: var(--ink);
+}
+.c-key--good {
+  --face: var(--good);
+  --hi: #b9ffd8;
+  --lo: var(--good-lo);
+  --side: #0c5733;
+  --txt: var(--ink);
+}
+.c-key--flat {
+  /* 押せないもの：平らにする */
+  --face: var(--k2);
+  --hi: var(--k2);
+  --lo: var(--k2);
+  --txt: var(--k5);
+  padding-bottom: 2px;
+  background: var(--k0);
+}
+.c-key--big > .c-cap {
+  min-height: 46px;
+  font-size: 1rem;
+}
+.c-key--big b { letter-spacing: 0.06em; }
+/* 主のキーには、ときどき光の帯が走る（止まらない画面） */
+.c-key--amber > .c-cap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -24px;
+  width: 12px;
+  background: linear-gradient(90deg, transparent 0 2px, rgba(255, 255, 255, 0.75) 2px 8px, transparent 8px 10px, rgba(255, 255, 255, 0.5) 10px 12px);
+  transform: translateX(0) skewX(0deg);
+  animation: c-shine 5.2s steps(18, end) infinite;
+  pointer-events: none;
+}
+@keyframes c-shine {
+  0%, 72% { transform: translateX(0); opacity: 0; }
+  73% { opacity: 1; }
+  100% { transform: translateX(460px); opacity: 1; }
+}
+
+/* ---------- ランプ */
+.c-lamp {
+  --c: var(--amber);
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: #1a1d30;
+  box-shadow: inset 0 0 0 2px var(--k0);
+  clip-path: var(--notch);
+}
+.c-lamp.is-on {
+  background: var(--c);
+  box-shadow: inset 0 0 0 2px var(--k0), inset 4px 4px 0 0 rgba(255, 255, 255, 0.7);
+}
+.c-lamp--good { --c: var(--good); }
+.c-lamp--bad { --c: var(--bad); }
+.c-lamp--cyan { --c: var(--cyan); }
+.c-lamp.is-blink { animation: c-blink 0.9s steps(1, end) infinite; }
+@keyframes c-blink {
+  50% { opacity: 0.25; }
+}
+
+/* ---------- 桁が回る数字（機械のカウンター） */
+.c-odo {
+  display: inline-flex;
+  align-items: stretch;
+  padding: 2px;
+  gap: 1px;
+  background: var(--k0);
+  font-family: var(--num);
+  font-weight: 400;
+  font-size: var(--n2);
+  line-height: 0.75;
+  vertical-align: middle;
+}
+.c-odo--s { font-size: var(--n15); }
+.c-odo--l { font-size: var(--n3); }
+.c-odo--xl { font-size: var(--n4); }
+.c-odo-d {
+  position: relative;
+  width: 0.375em;
+  height: 0.75em;
+  overflow: hidden;
+  background: #161929;
+  color: var(--paper);
+}
+.c-odo-d.is-lead { color: #3d4468; }
+.c-odo-d > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  text-align: center;
+  will-change: transform;
+}
+.c-odo-d > span > i {
+  display: block;
+  height: 0.75em;
+  font-style: normal;
+}
+/* 筒の丸みを、上下の影の段で見せる */
+.c-odo-d::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(5, 6, 12, 0.7) 0 2px, rgba(5, 6, 12, 0.3) 2px 4px, transparent 4px calc(100% - 4px), rgba(5, 6, 12, 0.3) calc(100% - 4px) calc(100% - 2px), rgba(5, 6, 12, 0.7) calc(100% - 2px));
+  pointer-events: none;
+}
+.c-odo-sep {
+  width: 0.1607em;
+  color: var(--k5);
+  text-align: center;
+}
+.c-odo-sep.is-lead { color: #3d4468; }
+.c-odo--amber .c-odo-d { color: var(--amber); }
+.c-odo--paper { background: var(--ink); }
+.c-odo--paper .c-odo-d { background: #26293f; }
+
+/* ---------- 目盛りの棒（進み） */
+.c-meter {
+  position: relative;
+  height: 14px;
+  background: var(--k0);
+  overflow: hidden;
+}
+.c-meter > i {
+  position: absolute;
+  inset: 2px;
+  background: var(--amber);
+  box-shadow: inset 0 2px 0 var(--amber-hi), inset 0 -2px 0 var(--amber-lo);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  will-change: transform;
+}
+.c-meter::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: repeating-linear-gradient(90deg, transparent 0 6px, var(--k0) 6px 8px);
+}
+.c-meter--good > i { background: var(--good); box-shadow: inset 0 2px 0 #b9ffd8, inset 0 -2px 0 var(--good-lo); }
+.c-meter--cyan > i { background: var(--cyan); box-shadow: inset 0 2px 0 #d6f8ff, inset 0 -2px 0 var(--cyan-lo); }
+.c-meter.is-flash > i { animation: c-flash 0.32s steps(1, end) 2; }
+@keyframes c-flash {
+  50% { opacity: 0.2; }
+}
+
+/* ---------- つまみ（スライダー） */
+.c-fader {
+  position: relative;
+  height: 44px;
+  flex: 1;
+  min-width: 120px;
+  touch-action: none;
+  cursor: ew-resize;
+}
+.c-fader-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 16px;
+  height: 12px;
+  background: var(--k0);
+  box-shadow: inset 0 2px 0 #000;
+  overflow: hidden;
+}
+.c-fader-fill {
+  position: absolute;
+  inset: 2px;
+  background: var(--amber);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  will-change: transform;
+}
+.c-fader-ticks {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 32px;
+  height: 6px;
+  background: repeating-linear-gradient(90deg, var(--k4) 0 2px, transparent 2px 10%);
+  opacity: 0.8;
+}
+.c-fader-knob {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 20px;
+  height: 36px;
+  margin-left: -10px;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 2px var(--k0), inset 4px 4px 0 0 var(--white), inset -4px -4px 0 0 var(--paper3);
+  clip-path: var(--notch);
+  will-change: transform;
+}
+.c-fader-knob::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  width: 4px;
+  height: 20px;
+  background: var(--bad);
+}
+.c-fader.is-drag .c-fader-knob { box-shadow: inset 0 0 0 2px var(--k0), inset 4px 4px 0 0 var(--amber-hi), inset -4px -4px 0 0 var(--amber-lo); background: var(--amber); }
+
+/* ---------- 切り替えスイッチ */
+.c-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 4px;
+  text-align: left;
+}
+.c-switch-box {
+  position: relative;
+  flex: none;
+  width: 60px;
+  height: 30px;
+  background: var(--k0);
+  box-shadow: inset 0 2px 0 #000, inset 0 0 0 2px var(--k0);
+  clip-path: var(--notch);
+}
+.c-switch-box::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: var(--dz50w);
+  opacity: 0.08;
+}
+.c-switch-knob {
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 28px;
+  height: 26px;
+  background: var(--k4);
+  box-shadow: inset 2px 2px 0 var(--k5), inset -2px -2px 0 var(--k2);
+  transition: transform 90ms steps(3, end);
+  will-change: transform;
+}
+.c-switch-knob::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 6px;
+  width: 8px;
+  height: 14px;
+  background: repeating-linear-gradient(90deg, var(--k2) 0 2px, transparent 2px 4px);
+}
+.c-switch[aria-checked='true'] .c-switch-knob {
+  transform: translateX(28px);
+  background: var(--good);
+  box-shadow: inset 2px 2px 0 #b9ffd8, inset -2px -2px 0 var(--good-lo);
+}
+.c-switch-state {
+  min-width: 2.2em;
+  color: var(--k5);
+}
+.c-switch[aria-checked='true'] .c-switch-state { color: var(--good); }
+
+/* ---------- 画面の全体 */
+.c-app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--sea);
+  contain: strict;
+}
+.c-map {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--sea);
+  touch-action: none;
+}
+.c-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.c-land {
+  position: relative;
+  image-rendering: auto;
+}
+.c-world.is-px .c-land {
+  image-rendering: pixelated;
+}
+/* 海：画面より少し大きいだけの箱に波の模様を敷き、カメラに合わせて模様 1 枚ぶんの中で動かす（大きな層を作らない） */
+.c-sea {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  overflow: hidden;
+}
+.c-water {
+  position: absolute;
+  left: -128px;
+  top: -64px;
+  right: -128px;
+  bottom: -64px;
+  background-repeat: repeat;
+  will-change: transform;
+  image-rendering: pixelated;
+}
+.c-water--a { animation: c-drift-a 9s linear infinite; }
+.c-water--b { animation: c-drift-b 14s linear infinite; opacity: 0.7; }
+@keyframes c-drift-a {
+  to { transform: translate3d(-128px, 64px, 0); }
+}
+@keyframes c-drift-b {
+  to { transform: translate3d(128px, 64px, 0); }
+}
+.c-live,
+.c-fx,
+.c-wipe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.c-wipe {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  z-index: 60;
+  visibility: hidden;
+}
+.c-fx { z-index: 55; }
+
+/* 札を開いているあいだ、地図を暗い網目で沈める（ぼかしは使わない：どの端末でも軽い） */
+.c-dim {
+  position: absolute;
+  inset: 0;
+  background: rgba(9, 11, 24, 0.62);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms steps(4, end);
+  z-index: 20;
+}
+.c-dim::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--dz50);
+  opacity: 0.35;
+}
+.c-dim.is-on { opacity: 1; pointer-events: auto; }
+.c-dim.is-soft { background: rgba(9, 11, 24, 0.3); }
+
+/* ---------- ブラウン管の効果（走査線・にじみ・ゆっくり流れる帯）。設定で切れる */
+.c-crt {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 90;
+  overflow: hidden;
+  display: none;
+}
+:root.is-crt .c-crt { display: block; }
+.c-crt::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(to bottom, rgba(6, 8, 20, 0.16) 0 1px, transparent 1px 3px);
+}
+.c-crt::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -120px;
+  height: 120px;
+  background: linear-gradient(transparent, rgba(190, 230, 255, 0.045) 40%, rgba(190, 230, 255, 0.07) 50%, rgba(190, 230, 255, 0.045) 60%, transparent);
+  animation: c-roll 7.5s linear infinite;
+  will-change: transform;
+}
+@keyframes c-roll {
+  to { transform: translate3d(0, calc(100vh + 240px), 0); }
+}
+/* にじみ：大きい字だけ、赤と青を 1px ずらす */
+.num.c-bleed { text-shadow: none; }
+:root.is-crt .num.c-bleed { text-shadow: -2px 0 rgba(255, 70, 110, 0.4), 2px 0 rgba(70, 220, 255, 0.4); }
+:root.is-crt .c-bleed:not(.num) {
+  text-shadow: 1px 0 currentColor, -2px 0 rgba(255, 70, 110, 0.4), 3px 0 rgba(70, 220, 255, 0.4);
+}
+.c-bleed:not(.num) { text-shadow: 1px 0 currentColor; }
+
+/* ---------- お知らせ（下から出る短い紙） */
+.c-toast {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--top-h, 150px) + 8px);
+  z-index: 70;
+  width: max-content;
+  max-width: min(94vw, 420px);
+  transform: translate(-50%, -16px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 160ms steps(4, end), opacity 160ms steps(4, end);
+}
+.c-toast.is-on { transform: translate(-50%, 0); opacity: 1; }
+.c-toast > div {
+  padding: 8px 12px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: inset 0 -2px 0 var(--paper2), inset 0 0 0 2px var(--ink), 4px 4px 0 rgba(4, 6, 14, 0.5);
+  clip-path: none;
+  white-space: normal;
+}
+
+/* ---------- 揺れ（承認などの大きな手応え） */
+@keyframes c-shake {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(2px, -2px); }
+  60% { transform: translate(-2px, 0); }
+  80% { transform: translate(2px, 2px); }
+  100% { transform: translate(0, 0); }
+}
+.is-shake { animation: c-shake 180ms steps(5, end) 1; }
+
+/* ---------- 動きを減らす（設定・端末の設定の両方）。揺れ・光・流れは止め、情報はそのまま出す */
+:root.is-calm *,
+:root.is-calm *::before,
+:root.is-calm *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  animation-delay: 0s !important;
+  transition-duration: 0.01ms !important;
+}
+:root.is-calm .c-ticker-run {
+  animation: none !important;
+  left: 8px;
+}
+:root.is-calm .c-crt::after,
+:root.is-calm .c-key--amber > .c-cap::after {
+  display: none;
+}
+:root.is-lite .c-water--b,
+:root.is-lite .c-crt::after {
+  display: none;
+}
+
+/* 幕の上の行き先の札 */
+.c-wipe-label {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  z-index: 61;
+  transform: translate(-50%, -50%);
+  padding: 4px 16px;
+  font-size: 1.5rem;
+  letter-spacing: 0.2em;
+  white-space: nowrap;
+  color: var(--amber);
+  box-shadow: inset 0 0 0 2px var(--amber);
+  text-shadow: 1px 0 currentColor;
+  opacity: 0;
+  pointer-events: none;
+}
+.c-wipe-label.is-on { opacity: 1; }
+.c-wipe-label:empty { display: none; }
