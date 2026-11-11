@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16213c">
+<meta name="robots" content="noindex">
+<title>手触りラボ A「帳場」 — My Crypto Successor</title>
+<link rel="preload" href="fonts/display.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/text-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/num.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="img/town.webp" as="image">
+<link rel="stylesheet" href="css/lab.css">
+</head>
+<body>
+<div class="app" id="app">
+  <!-- 町の地図（1 枚の絵＋動く層） -->
+  <div class="sea" id="sea" aria-hidden="false">
+    <div class="cam" id="cam">
+      <div class="drift">
+        <img class="town" src="img/town.webp" alt="商会のある町の地図" width="2048" height="1920" draggable="false">
+        <div class="mapfx" id="mapfx"></div>
+      </div>
+    </div>
+  </div>
+  <div class="veil" id="veil"></div>
+
+  <!-- 上の帯 -->
+  <header class="top" id="top">
+    <div class="top-bg"></div>
+    <div class="top-in">
+      <div class="stats">
+        <div class="stat funds" id="st-funds"><span class="lb">資金</span><span class="vl"><i class="coin"></i><span id="v-funds"></span></span><span class="pop" id="p-funds"></span></div>
+        <div class="stat" id="st-sales"><span class="lb">今月の売上</span><span class="vl"><span id="v-sales"></span></span><span class="pop" id="p-sales"></span></div>
+        <div class="stat" id="st-rank"><span class="lb">エリア</span><span class="vl"><span id="v-rank"></span><span class="jp">位</span></span></div>
+        <div class="stat" id="st-brand"><span class="lb">ブランド力</span><span class="vl"><i class="dia"></i><span id="v-brand"></span></span></div>
+      </div>
+      <div class="clock">
+        <div class="date">
+          <div class="d"><span><span class="num" id="v-year">1</span>年目</span><span><span class="num" id="v-month">5</span>月</span><span><span class="num" id="v-day">18</span>日</span><span class="hold">帳場中</span></div>
+          <div class="ruler" aria-hidden="true"><div class="fill" id="r-fill"></div><div class="mk" id="r-mk"></div></div>
+        </div>
+        <div class="speed" role="group" aria-label="時間の進み">
+          <button class="spd sh n4" data-spd="0" aria-label="一時停止"><span class="face nt n4"><i class="i-pause"></i></span></button>
+          <button class="spd sh n4 on" data-spd="1" aria-label="再生"><span class="face nt n4"><i class="i-play"></i></span></button>
+          <button class="spd sh n4" data-spd="3" aria-label="早送り"><span class="face nt n4"><i class="i-fast"></i></span></button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ニュースのテロップ -->
+  <div class="ticker" id="ticker" aria-label="ニュース">
+    <div class="hd">新着</div>
+    <div class="run"><div class="tape" id="tape"></div></div>
+  </div>
+
+  <!-- 部長の提案の札（顔がテロップの手前に出る） -->
+  <button class="callout" id="callout" aria-label="貿易部長から提案があります" tabindex="-1">
+    <i class="hero" id="callout-hero"></i>
+    <span class="mark">要</span>
+    <span class="lbl sh tag"><span class="face nt tag paper">提案が<br>あります</span></span>
+  </button>
+
+  <!-- 下の帯：5 つの入口 -->
+  <nav class="dock" id="dock" aria-label="商会の入口">
+    <div class="dock-bg"></div>
+    <div class="dock-in">
+      <button class="dk sh n4" data-act="logi"><span class="face nt n4"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 7h12v10H2zM14 11h5l3 3v3h-8M5 17v3h3v-3M16 17v3h3v-3"/></svg>物流</span></button>
+      <button class="dk sh n4" data-act="hr"><span class="face nt n4"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4v4H6zM3 20v-7l2-2h6l2 2v7M15 6h4v3h-4zM15 12h4l2 2v6"/></svg>人事</span></button>
+      <button class="dk main sh" data-act="plan"><span class="face nt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3zM3 10h18M8 5v14M13 5v14M18 5v14"/><path class="f" d="M8 5.6 10 7.5 8 9.4 6 7.5zM13 5.6 15 7.5 13 9.4 11 7.5zM8 12 10 14 8 16 6 14zM13 14 15 16 13 18 11 16zM18 12 20 14 18 16 16 14z"/></svg>経営企画<i class="sheen"></i></span><span class="badge num" id="plan-badge">1</span></button>
+      <button class="dk sh n4" data-act="mkt"><span class="face nt n4"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4h4l8 5V5l-8 5zM18 8l3-2M18 12h4M18 16l3 2"/></svg>マーケ</span></button>
+      <button class="dk sh n4" data-act="sys"><span class="face nt n4"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h9M17 7h4M12 5h5v4h-5zM3 17h4M12 17h9M7 15h5v4H7z"/></svg>システム</span></button>
+    </div>
+  </nav>
+
+  <div class="layer" id="layer"></div>
+  <div class="slip" id="slip" role="status" aria-live="polite"><span class="face nt paper" id="slip-tx"></span></div>
+
+  <!-- はじまり：帳面の表紙 -->
+  <div class="title" id="title" role="button" tabindex="0" aria-label="タップしてはじめる">
+    <div class="cov">
+      <div class="bind"></div>
+      <div class="frame"></div>
+      <div class="in">
+        <div class="kick">My Crypto Successor<b>UI / UX LAB — No. A</b></div>
+        <div class="mid">
+          <div class="name" aria-label="帳場">帳場<span class="gl" aria-hidden="true">帳場</span></div>
+          <div class="dir">方向<b>A</b></div>
+        </div>
+        <div>
+          <p class="lead">商会の帳場の道具で、町を動かす。<br>紙・墨・金、そして朱の検印。</p>
+          <div style="text-align:center"><span class="start sh"><span class="face nt gold">タップしてはじめる<i class="go"></i><i class="sheen"></i></span></span></div>
+          <div class="snd">ここから音が出ます</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 目次（しおり）：どこからでも開ける -->
+  <button class="toc-tab" id="toc-tab" aria-label="目次を開く"><span class="face">目次</span></button>
+  <canvas id="fx" aria-hidden="true"></canvas>
+</div>
+<script>
+// ゲーム本体のオフライン用の仕組み（サービスワーカー）は、いちど読んだ css・js・絵を覚えて、古いまま出し続ける。
+// この見本は直しながら見比べる物なので、読み終えたら自分のフォルダの分だけを、その覚え（mcs-assets）から消す。次に開くと新しい版が届く。
+(function () {
+  if (!('caches' in window)) return;
+  var here = new URL('./', location.href).href;
+  function tidy() {
+    caches.open('mcs-assets').then(function (c) {
+      return c.keys().then(function (rs) { rs.forEach(function (r) { if (r.url.indexOf(here) === 0) c.delete(r); }); });
+    }).catch(function () {});
+  }
+  caches.has('mcs-assets').then(function (yes) {
+    if (!yes) return;
+    addEventListener('load', function () { setTimeout(tidy, 2500); });
+    addEventListener('pagehide', tidy);
+  }).catch(function () {});
+})();
+</script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
