@@ -1,0 +1,312 @@
+/* 段 UIX2m：建物の吹き出し（docs/ISLAND_UIX.md「画面：建物の吹き出し」）。
+   紙の吹き出し・枠の上に立つ人物・1 字ずつのセリフは土台の部品（parts.css の .ux-pop-*）。ここは本体へ付ける所：
+   いまの吹き出しの箱（.isl-pop）を透明の台にして、吹き出し・「くわしく」の板・キーを置く。
+   入のときだけ読む。セレクタはすべて html.is-uxc の内側。 */
+
+/* いまの箱：画面いっぱいの透明の台（置き場所は screens/pop.ts が transform で決める） */
+html.is-uxc #isl-ui.uxm-on .isl-pop.uxm-pop {
+  position: absolute;
+  inset: 0 !important;
+  display: block;
+  width: auto !important;
+  max-height: none !important;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  pointer-events: none;
+  overflow: visible;
+}
+html.is-uxc #isl-ui.uxm-on .isl-pop.uxm-pop > .isl-pop-tail,
+html.is-uxc #isl-ui.uxm-on .isl-pop.uxm-pop > .isl-pop-head {
+  display: none;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-anchor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: min(366px, calc(100vw - 16px));
+  pointer-events: none;
+  will-change: transform;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-anchor > * {
+  pointer-events: auto;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-bubble .ux-pop-bubble {
+  position: relative;
+  width: 100%;
+}
+/* 建物の名前：人物がいないときは、枠の上のふちに貼った札。人物がいるときは、セリフの下の段の左 */
+html.is-uxc #isl-ui.uxm-on .uxm-pop-title {
+  position: absolute;
+  left: 10px;
+  top: -14px;
+  z-index: 3;
+  max-width: calc(100% - 72px);
+  overflow: hidden;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-title.has-face {
+  position: static;
+  margin-right: auto;
+  max-width: 62%;
+  min-height: 1.25rem;
+  line-height: 1.25rem;
+  box-shadow: none;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-bubble .ux-pop-foot {
+  height: auto;
+  min-height: 22px;
+}
+/* 吹き出しを出しているあいだ、ミッションの札は横へよける（建物と吹き出しに重ねない） */
+html.is-uxc #isl-ui.uxm-on .isl-missions {
+  transition: transform 200ms steps(5, end);
+}
+html.is-uxc #isl-ui.uxm-on.uxm-popping .isl-missions {
+  transform: translate3d(calc(100% + 16px + var(--rail-w, 0px)), 0, 0);
+}
+/* 吹き出しのすぐ下：「くわしく」のキー（広い画面は、ここに下のキーも付く） */
+html.is-uxc #isl-ui.uxm-on .uxm-pop-under {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  margin-top: 4px;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-under > * {
+  pointer-events: auto;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-more {
+  align-self: flex-start;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-more[aria-expanded='true'] > .ux-cap {
+  transform: translateY(4px);
+  background: var(--ux-amber);
+  box-shadow: inset 2px 2px 0 rgba(4, 6, 14, 0.4), inset -2px -2px 0 rgba(255, 255, 255, 0.45);
+  color: var(--ux-ink);
+}
+html.is-uxc #isl-ui.uxm-on .uxm-more-in {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-stage.is-in .uxm-pop-more { animation: ux-key-in 220ms steps(5, end) 60ms both; }
+
+/* ---------- 下のキー（開く・移転・撤去・建てる ほか）：せまい画面は押しやすい下に固定 */
+html.is-uxc #isl-ui.uxm-on .uxm-pop-actions {
+  bottom: calc(96px + var(--ux-safe-b));
+  z-index: 1;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-stage.is-wide .uxm-pop-actions {
+  position: static;
+  width: 100%;
+  transform: none;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-actions .isl-pop-acts-fix {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-actions .isl-pop-acts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-actions .isl-btn {
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  white-space: normal;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-actions .isl-btn.is-on,
+html.is-uxc #isl-ui.uxm-on .uxm-pop-actions .isl-btn:only-child,
+html.is-uxc #isl-ui.uxm-on .uxm-pop-actions .isl-btn:nth-child(2):last-child {
+  grid-column: 1 / -1;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-actions .isl-btn.is-on {
+  min-height: 58px;
+  letter-spacing: 0.06em;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop .uxm-btn-ico,
+html.is-uxc #isl-ui.uxm-on .uxm-pop-stage .uxm-btn-ico {
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: -4px;
+}
+/* 強調（チュートリアルの「ここを押す」）：琥珀の枠がまたたく */
+@keyframes uxm-guide-out {
+  50% { outline-color: transparent; }
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-stage .isl-btn.is-guide {
+  outline: 4px solid var(--ux-amber);
+  outline-offset: 2px;
+  animation: uxm-guide-out 0.9s steps(1, end) infinite;
+}
+/* 立ち上がる・戻る（キーは少し遅れて入る） */
+html.is-uxc #isl-ui.uxm-on .uxm-pop-stage.is-in .isl-pop-acts-fix > * { animation: ux-key-in 220ms steps(5, end) 120ms both; }
+html.is-uxc #isl-ui.uxm-on .uxm-pop-stage.is-in .isl-pop-acts-fix > :nth-child(2) { animation-delay: 190ms; }
+html.is-uxc #isl-ui.uxm-on .uxm-pop-stage.is-out .uxm-pop-data,
+html.is-uxc #isl-ui.uxm-on .uxm-pop-stage.is-out .uxm-pop-more {
+  animation: ux-fadeout 120ms steps(2, end) both;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-stage.is-out * {
+  pointer-events: none !important;
+}
+
+/* ---------- 「くわしく」の板：担当への指示・数字・設備投資（今の並びのまま。暗い計器の板） */
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 8px 8px;
+  pointer-events: auto;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data.is-in { animation: ux-key-in 220ms steps(5, end) both; }
+html.is-uxc #isl-ui.uxm-on .uxm-pop-datahead {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 0 4px 6px;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-datax { width: 44px; }
+html.is-uxc #isl-ui.uxm-on .uxm-pop-datax > .ux-cap { padding: 2px; }
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 6px 0 0 rgba(4, 6, 14, 0.35);
+  color: var(--ux-paper);
+  font: 400 1rem/1.5 var(--ux-jp);
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+/* 字は 16px が最小（いまの 12〜14px の字を、板の中では 1rem にそろえる） */
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-scroll :is(p, small, b, span, h4, li, label, button, div) {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-scroll :is(b, h4) {
+  font-weight: 400;
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-scroll h4 {
+  margin: 4px 0 0;
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-scroll p { margin: 0; }
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-scroll .isl-btn {
+  min-height: 44px;
+}
+/* 貼り札（建築者・所有者）・小さな計器（数字） */
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-stat {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 0;
+  background: var(--ux-k0);
+  box-shadow: inset 2px 2px 0 #000;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-stat.is-wide { grid-column: 1 / -1; }
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-stat small { color: var(--ux-k5); }
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-stat b { overflow-wrap: anywhere; }
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-stat.is-bad b { color: var(--ux-bad); }
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-stat.is-good b { color: var(--ux-good); }
+/* 担当への指示：キー（推奨は琥珀） */
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-orders {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-orders-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-order {
+  display: grid;
+  gap: 0;
+  min-height: 44px;
+  padding: 6px 10px 12px;
+  border: 0;
+  background: var(--ux-k3);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k4), inset -4px -8px 0 0 var(--ux-k1);
+  color: var(--ux-paper);
+  text-align: left;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-order small { color: var(--ux-k5); }
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-order.is-rec {
+  background: var(--ux-amber);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-amber-hi), inset -4px -8px 0 0 var(--ux-amber-lo);
+  color: var(--ux-ink);
+}
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-order.is-rec small { color: #6b3a05; }
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-order:disabled > * { opacity: 0.45; }
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-rec-tag {
+  margin-right: 6px;
+  padding: 0 6px;
+  border: 0;
+  background: var(--ux-ink);
+  color: var(--ux-amber);
+  text-shadow: none;
+}
+/* 確かめの枠（撤去しますか？） */
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-confirm {
+  padding: 8px;
+  border: 0;
+  background: var(--ux-paper);
+  box-shadow: inset 0 0 0 2px var(--ux-ink);
+  color: var(--ux-ink);
+}
+
+/* ---------- 動きを減らす：立ち上がりの動きは出さない（すぐ出る） */
+html.is-uxc.is-calm #isl-ui.uxm-on .uxm-pop-stage .isl-btn.is-guide {
+  animation: none;
+}
