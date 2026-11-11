@@ -605,6 +605,16 @@ html.is-uxc #isl-ui.uxm-on .isl-zoom {
   right: calc(var(--rail-w, 0px) + 6px);
   gap: 2px;
 }
+/* せまい画面：ミッションの札に隠れないよう、下の帯の上（「次の月へ」のキーの上）に置く。吹き出しのあいだは、下のキーに場所をゆずる */
+@media (max-width: 699px) {
+  html.is-uxc #isl-ui.uxm-on .isl-zoom {
+    top: auto;
+    bottom: calc(var(--foot-h, 96px) + 84px);
+  }
+  html.is-uxc #isl-ui.uxm-on.uxm-popping .isl-zoom {
+    display: none;
+  }
+}
 html.is-uxc #isl-ui.uxm-on .isl-zoom .isl-btn {
   display: grid;
   place-items: center;

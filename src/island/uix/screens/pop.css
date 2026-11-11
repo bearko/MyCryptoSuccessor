@@ -146,6 +146,24 @@ html.is-uxc #isl-ui.uxm-on .uxm-pop-stage .uxm-btn-ico {
   margin-right: 6px;
   vertical-align: -4px;
 }
+/* 足りないとき：責めない。あといくらかを、目盛りと言葉でそっと見せる（キーのすぐ上） */
+html.is-uxc #isl-ui.uxm-on .uxm-pop-gaps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+  color: var(--ux-amber-hi);
+  line-height: 1.4;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-gap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+html.is-uxc #isl-ui.uxm-on .uxm-gap .ux-meter > i { transition: transform 420ms steps(6, end); }
+html.is-uxc #isl-ui.uxm-on .uxm-pop-stage.is-in .uxm-pop-gaps { animation: ux-key-in 220ms steps(5, end) 90ms both; }
 /* 強調（チュートリアルの「ここを押す」）：琥珀の枠がまたたく */
 @keyframes uxm-guide-out {
   50% { outline-color: transparent; }
@@ -176,6 +194,7 @@ html.is-uxc #isl-ui.uxm-on .uxm-pop-data {
   pointer-events: auto;
 }
 html.is-uxc #isl-ui.uxm-on .uxm-pop-data.is-in { animation: ux-key-in 220ms steps(5, end) both; }
+html.is-uxc #isl-ui.uxm-on .uxm-pop-data.is-arming { pointer-events: none; }
 html.is-uxc #isl-ui.uxm-on .uxm-pop-datahead {
   position: relative;
   flex: none;

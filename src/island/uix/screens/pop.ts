@@ -11,10 +11,11 @@
  */
 import { t } from '../../../i18n';
 import { P1B } from '../../p1/data';
+import { moveCost } from '../../p1/model';
 import { ordersOf, inTut } from '../../p1/orders';
 import { heroIcon, heroName } from '../../p1/ui';
-import { el } from '../dom';
-import { uxBubble, uxKey, uxLamp, uxTape } from '../parts';
+import { el, fmtN } from '../dom';
+import { uxBubble, uxKey, uxLamp, uxMeter, uxTape } from '../parts';
 import { isCalm } from '../prefs';
 import type { UxmCam, UxmHost } from './mhooks';
 import { LABEL_ICO, mIcon } from './micons';
@@ -57,6 +58,14 @@ export function popPlaceUx(o: { sx: number; sy: number; zoom: number; W: number;
   return { left, top, tail: o.sx - left };
 }
 
+/** 「あと N G」の N（足りない額。書いていなければ null） */
+export function shortOf(text: string): number | null {
+  const m = /あと\s*([\d,]+)\s*G/.exec(text) ?? /([\d,]+)\s*G short/.exec(text);
+  return m ? Number(m[1].replace(/,/g, '')) : null;
+}
+/** 足りないときの目盛り（持っている額 ÷ 要る額。20 段・少しでも見える） */
+export const gapMeter = (money: number, need: number) => Math.max(0.05, Math.min(1, Math.round((Math.max(0, money) / Math.max(1, Math.max(0, money) + need)) * 20) / 20));
+
 /** 字の頭の絵文字（1 つ）と、残りの字 */
 export function splitEmoji(text: string): { emoji: string; rest: string } {
   const m = /^(\p{Extended_Pictographic}\uFE0F?)\s*/u.exec(text);
@@ -72,7 +81,7 @@ function dressLabel(b: HTMLElement) {
   const name = LABEL_ICO[emoji];
   if (!name) return;
   const dark = b.classList.contains('is-on') || b.classList.contains('is-danger');
-  const ic = mIcon(name, b.matches(':disabled') ? { color: '#97a1cf', hi: '#97a1cf', lo: '#20253d' } : dark ? { color: '#1a1c2e', hi: '#1a1c2e', lo: '#7a3f06' } : {});
+  const ic = mIcon(name, b.matches(':disabled') ? { color: '#97a1cf', hi: '#97a1cf', lo: '#20253d' } : dark ? { color: '#1a1c2e', hi: '#ffe394', lo: '#7a3f06' } : {});
   ic.classList.add('uxm-btn-ico');
   b.prepend(ic);
 }
@@ -91,7 +100,8 @@ export function installPop(host: UxmHost) {
   const more = uxKey(el('span.uxm-more-in', lamp, moreTxt), () => setData(!dataOn), { ico: 'list', cls: 'uxm-pop-more', attrs: { 'aria-expanded': 'false' } });
   const under = el('div.uxm-pop-under', more);
   const anchor = el('div.uxm-pop-anchor', bubbleBox, under);
-  const actions = el('div.uxm-pop-actions.ux-pop-actions', acts);
+  const gaps = el('div.uxm-pop-gaps', { hidden: true });
+  const actions = el('div.uxm-pop-actions.ux-pop-actions', gaps, acts);
   const dataHead = el('div.uxm-pop-datahead', uxTape(t('くわしく', 'Details')), uxKey(el('span.ux-vh', t('もどる', 'Back')), () => setData(false), { ico: 'close', cls: 'uxm-pop-datax', attrs: { 'aria-label': t('くわしくを閉じる', 'Close details') } }));
   const data = el('div.uxm-pop-data.ux-plate', { hidden: true }, el('div.ux-screws'), dataHead, body);
   const stage = el('div.uxm-pop-stage.ux-pop.ux-root', anchor, data, actions);
@@ -111,6 +121,9 @@ export function installPop(host: UxmHost) {
   let saved: { x: number; y: number; zoom: number } | null = null;
   let target: { x: number; y: number; zoom: number } | null = null;
   let leaveT = 0;
+  let riseT = 0;
+  /** この吹き出しのために、カメラを寄せはじめた（cam() を呼んだ直後の描き直し） */
+  let camMoving = false;
 
   function setData(on: boolean, user = true) {
     if (user) dataPick = on;
@@ -122,6 +135,9 @@ export function installPop(host: UxmHost) {
       data.classList.remove('is-in');
       void data.offsetWidth;
       data.classList.add('is-in');
+      // 開いた指の続きの click が、出てきた板の中のボタンに当たらないように（0.35 秒だけ押せなくする）
+      data.classList.add('is-arming');
+      window.setTimeout(() => data.classList.remove('is-arming'), 350);
     }
     place();
   }
@@ -140,12 +156,26 @@ export function installPop(host: UxmHost) {
       desc.push(p.textContent ?? '');
       p.remove();
     }
+    // 足りないときの理由（今の赤・橙の小さな字）は、下のキーのすぐ上へ（責めない言い方と目盛りで）
+    const notes: { text: string; need: number | null }[] = [];
+    for (const n of root ? [...root.querySelectorAll<HTMLElement>(':scope > small')] : []) {
+      const text = (n.textContent ?? '').trim();
+      const need = shortOf(text);
+      if (!(n.classList.contains('isl-bad') || n.classList.contains('isl-warn') || need != null)) continue;
+      notes.push({ text, need });
+      n.remove();
+    }
+    // 移転のお金が足りない（今はキーが平らになるだけ）：あといくらかを添える
+    if (b && b.owner === 'me' && !b.up && b.left <= 0 && s.money < moveCost(b)) {
+      const need = Math.ceil(moveCost(b) - s.money);
+      notes.push({ text: t(`移転まで あと ${fmtN(need)} G。売上がたまれば届きます`, `Moving: ${fmtN(need)} G short. Sales will get you there`), need });
+    }
     const orders = root?.querySelectorAll('.isl-order').length ?? 0;
     const rec = !!root?.querySelector('.isl-order.is-rec');
     // いますぐ押してほしい所（光っている枠・確かめの枠・直すボタン）が「くわしく」の中にあるか
     const hot = !!root?.querySelector('.is-hot, .is-guide, .isl-pop-confirm, .isl-pop-act');
     const rest = !!root && root.childElementCount > 0;
-    return { box, hero: box?.hero ?? null, lines: popLines({ greet: box?.greet, status: box?.status, desc, title }), orders, rec, hot, rest };
+    return { box, notes, hero: box?.hero ?? null, lines: popLines({ greet: box?.greet, status: box?.status, desc, title }), orders, rec, hot, rest };
   }
 
   /** 中身を作り直した（p1/main.ts の renderPop から）。同じ建物・同じセリフなら、喋りなおさない */
@@ -195,6 +225,19 @@ export function installPop(host: UxmHost) {
     if (want !== dataOn || fresh) setData(want, false);
     dim.classList.add('is-on');
     host.root.classList.add('uxm-popping');
+    // 足りない理由の札
+    const gk = m.notes.map((n) => n.text).join('|');
+    if (gk !== gaps.dataset.k || fresh) {
+      gaps.dataset.k = gk;
+      gaps.hidden = !m.notes.length;
+      gaps.replaceChildren(
+        ...m.notes.map((n) => {
+          const mt = n.need != null ? uxMeter(0) : null;
+          if (mt) requestAnimationFrame(() => mt.set(gapMeter(host.s().money, n.need ?? 0)));
+          return el('div.uxm-gap', mt?.el ?? null, el('span', n.text));
+        }),
+      );
+    }
     // 主のキー（工房を開く・お店を開く）に、建物の絵を添える
     const kind = b && b.owner === 'me' ? P1B[b.id]?.kind : null;
     const mainKey = kind === 'workshop' || kind === 'shop' ? acts.querySelector<HTMLElement>('.isl-btn.is-on:not(:has(canvas))') : null;
@@ -204,15 +247,27 @@ export function installPop(host: UxmHost) {
       mainKey.prepend(ic);
     }
     if (fresh) {
-      const first = !open;
       open = true;
       place();
-      bubble?.start();
-      if (first || !isCalm()) {
+      // カメラが寄りきる少し前に、吹き出しが立ち上がる（見本と同じ 300ms。動きを減らすときはすぐ）
+      const b0 = bubble;
+      const rise = () => {
+        riseT = 0;
+        stage.style.visibility = '';
+        if (bubble !== b0 || !open) return;
+        place();
+        bubble?.start();
         stage.classList.remove('is-in');
         void stage.offsetWidth;
         stage.classList.add('is-in');
+      };
+      clearTimeout(riseT);
+      if (isCalm() || !camMoving) rise();
+      else {
+        stage.style.visibility = 'hidden';
+        riseT = window.setTimeout(rise, 300);
       }
+      camMoving = false;
     } else {
       bubble?.fit(false);
       place();
@@ -286,6 +341,7 @@ export function installPop(host: UxmHost) {
     const hr = host.hud.getBoundingClientRect();
     const tg = popCamTarget({ i, j, size, W, H, zoom: c.zoom, hudBottom: host.hudBottom(), hudRight: hr.right });
     target = { x: tg.x, y: tg.y, zoom: tg.zoom };
+    camMoving = Math.abs(c.zoom - tg.zoom) > 0.01 || Math.abs(c.x - tg.x) * c.zoom > 24 || Math.abs(c.y - tg.y) * c.zoom > 24;
     return { x1: tg.x, y1: tg.y, z1: tg.zoom, dur: isCalm() ? 1 : 480 };
   }
 
@@ -295,6 +351,9 @@ export function installPop(host: UxmHost) {
     key = '';
     dim.classList.remove('is-on');
     host.root.classList.remove('uxm-popping');
+    clearTimeout(riseT);
+    riseT = 0;
+    stage.style.visibility = '';
     bubble?.skip();
     // 吹き出しが建物へ戻る（180ms）。そのあいだだけ、器を外に出しておく（今の吹き出しはすぐ hidden になる）
     if (!isCalm()) {
