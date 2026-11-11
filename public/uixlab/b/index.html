@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#15110d">
+<meta name="robots" content="noindex">
+<title>手触りラボ B「号外」｜My Crypto Successor</title>
+<link rel="preload" href="fonts/dela-jp.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/anton.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/scenes.css">
+</head>
+<body>
+<div id="stage">
+  <!-- 地図（町の絵と、その上で動く層） -->
+  <div id="world" aria-label="タオックスの町の地図">
+    <div id="drift">
+      <div id="cam">
+        <img id="town" src="img/town.webp" alt="" width="3720" height="2140" draggable="false">
+        <div id="amb" aria-hidden="true"></div>
+        <div id="pops" aria-hidden="true"></div>
+      </div>
+    </div>
+    <div id="screen" data-lv="0" aria-hidden="true"></div>
+  </div>
+
+  <!-- 上の帯：資金・今月の売上・日付・ブランド力・順位 -->
+  <header id="top" class="top">
+    <div class="top-in">
+      <div class="top-a">
+        <div class="st st--funds" id="st-funds">
+          <span class="st-l">資金</span>
+          <span class="st-v"><span id="v-funds"></span><small>G</small></span>
+        </div>
+        <div class="st st--sales" id="st-sales">
+          <span class="st-l">今月の売上</span>
+          <span class="st-v"><span id="v-sales"></span><small>G</small></span>
+        </div>
+      </div>
+      <div class="top-b">
+        <div class="date" id="date">
+          <span class="date-y" id="v-year">1年目</span>
+          <span class="date-t"><b id="v-month">3</b><span>月</span><b id="v-day">24</b><span>日</span></span>
+          <span class="date-bar" aria-hidden="true"><i id="daybar"></i></span>
+          <span class="date-hold" id="date-hold" hidden>決裁待ち</span>
+        </div>
+        <div class="chip" id="chip-brand"><span class="chip-l">ブランド力</span><span class="chip-v"><i class="star" aria-hidden="true"></i><span id="v-brand">16</span></span></div>
+        <div class="chip chip--rank" id="chip-rank"><span class="chip-l">エリア</span><span class="chip-v"><span id="v-rank">2</span><small>位</small></span></div>
+        <button class="toc-key" id="toc-key" type="button" data-press aria-haspopup="dialog" aria-label="目次を開く"><span>目次</span></button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ニュースのテロップと、時間の進み -->
+  <div id="ticker" class="tk">
+    <div class="tk-tag" id="tk-tag"><b>速報</b></div>
+    <div class="tk-view" aria-live="off"><div class="tk-run" id="tk-run"></div></div>
+    <div class="spd" role="group" aria-label="時間の進み">
+      <button type="button" data-press data-spd="0" aria-label="一時停止" aria-pressed="false"><i class="ic-pause"></i></button>
+      <button type="button" data-press data-spd="1" aria-label="再生" aria-pressed="true"><i class="ic-play"></i></button>
+      <button type="button" data-press data-spd="3" aria-label="早送り" aria-pressed="false"><i class="ic-ff"></i></button>
+    </div>
+  </div>
+
+  <!-- 下の帯：5 つの入口 -->
+  <nav id="dock" class="dock" aria-label="部門">
+    <button type="button" class="dk" data-press data-dept="logi">
+      <span class="dk-f"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 5h13v11H1zM15 9h5l3 4v3h-8zM4 17h4v4H4zM16 17h4v4h-4z"/></svg><b>物流</b></span>
+    </button>
+    <button type="button" class="dk" data-press data-dept="hr">
+      <span class="dk-f"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 1l4 4-4 4-4-4zM2 11h12v10H2zM18 5l3 3-3 3-3-3zM16 13h7v8h-7z"/></svg><b>人事</b></span>
+    </button>
+    <button type="button" class="dk dk--main" data-press data-se="none" data-dept="plan" id="dk-plan">
+      <span class="dk-f"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0l3 9 9 3-9 3-3 9-3-9-9-3 9-3z"/></svg><b>経営企画</b></span>
+      <span class="dk-note" id="dk-note" hidden><b>提案</b></span>
+    </button>
+    <button type="button" class="dk" data-press data-dept="mkt">
+      <span class="dk-f"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 9h5l9-6v18l-9-6H1zM17 8h2v8h-2zM21 5h2v14h-2zM4 16h4v6H4z"/></svg><b>マーケ</b></span>
+    </button>
+    <button type="button" class="dk" data-press data-dept="sys">
+      <span class="dk-f"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10 0h4v3l3 1 2-2 3 3-2 2 1 3h3v4h-3l-1 3 2 2-3 3-2-2-3 1v3h-4v-3l-3-1-2 2-3-3 2-2-1-3H0v-4h3l1-3-2-2 3-3 2 2 3-1zM9 9v6h6V9z"/></svg><b>システム</b></span>
+    </button>
+  </nav>
+
+  <!-- 台本の先へ誘う札（地図の上・下の帯のすぐ上） -->
+  <div id="cue" class="cue" hidden></div>
+
+  <div id="layer-bubble"></div>
+  <div id="layer-sheet"></div>
+  <div id="layer-card"></div>
+  <div id="layer-top"></div>
+  <div id="layer-cut" aria-hidden="true"></div>
+  <canvas id="fx" aria-hidden="true"></canvas>
+
+  <!-- はじまり -->
+  <div id="title" class="title">
+    <div class="title-plate title-plate--a"></div>
+    <div class="title-plate title-plate--b"></div>
+    <div class="title-in">
+      <div class="title-mast"><span>MY CRYPTO SUCCESSOR</span><span>手触りラボ</span></div>
+      <button type="button" class="title-toc" id="title-toc" data-press>目次から入る</button>
+      <div class="title-rule"></div>
+      <p class="title-lead">UI・動き・音の方向を、<br>触って比べる見本（その 2）</p>
+      <div class="title-art">
+        <div class="title-kick"><b>方向 B</b></div>
+        <h1 class="title-hl" id="title-hl" aria-label="号外"><span>号</span><span>外</span></h1>
+        <div class="title-cast" id="title-cast" aria-hidden="true"></div>
+      </div>
+      <p class="title-sub">刷りたての号外・動く活字</p>
+      <button type="button" class="btn btn--gold title-go" id="title-go" data-press data-se="none"><span class="btn-f"><i class="ic-play"></i>タップしてはじめる</span></button>
+      <p class="title-note">音が出ます（設定で消せます）</p>
+    </div>
+  </div>
+</div>
+<noscript><p style="padding:24px;font-size:16px">この見本は JavaScript を使います。</p></noscript>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
