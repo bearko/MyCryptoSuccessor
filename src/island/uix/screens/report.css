@@ -1006,7 +1006,7 @@ html.is-uxc .uxs-rp-next {
 @media (min-width: 700px) {
   html.is-uxc #isl-ui .isl-sheet.uxs-rp {
     justify-content: flex-end;
-    padding: 12px 12px 12px 0;
+    padding: calc(var(--hud-h, 8px) - 4px) 12px 12px 0;
   }
 }
 

@@ -947,8 +947,12 @@ html.is-uxc #isl-ui .uxs-tip .isl-remind b {
   font-weight: 400;
 }
 
-/* ---------- 広い画面：作る数を 1 行に */
+/* ---------- 広い画面：見本と同じく、札は右へ（地図と建物が左に見える）。作る数は 1 行に */
 @media (min-width: 700px) {
+  html.is-uxc #isl-ui .isl-sheet.uxs-ws {
+    justify-content: flex-end;
+    padding-right: 12px;
+  }
   html.is-uxc .uxs-ctl-row--qty {
     justify-content: flex-start;
   }

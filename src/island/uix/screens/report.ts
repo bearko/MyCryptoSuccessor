@@ -100,6 +100,66 @@ export function readRange(get: (k: string) => string | null): Range {
 }
 export type TrendView = 'sales' | 'both' | 'cash';
 
+/**
+ * 紙テープのページ送りの芯（DOM なし）：いまのページ・送っている途中（押しても進まない）・もう見たページ（数え上げをしない）・
+ * 「紙を押すとすぐ出る」・最後のページの「つぎへ」は閉じる。
+ * render(k, dir, feed)：k ページ目を出す。feed が真なら紙を送る動き（600ms）をして、終わったら fed() を呼ぶ
+ */
+export function paperCore(n: number, ev: { render: (k: number, dir: 1 | -1, feed: boolean) => void; close: () => void }, calm: () => boolean = () => false, again = false) {
+  let page = -1;
+  let busy = false;
+  let skip: (() => void) | null = null;
+  const seen = new Set<number>();
+  const core = {
+    get page() {
+      return page;
+    },
+    get busy() {
+      return busy;
+    },
+    /** いまのページに、まだ出していない行がある（紙を押すとすぐ出る） */
+    get printing() {
+      return !!skip;
+    },
+    /** 数え上げ・印字の動きをしない：開き直し・動きを減らす・もう見たページ */
+    instant: () => again || calm() || seen.has(page),
+    /** いまのページの演出を一気に終わらせる関数を預かる（null：もう全部出ている） */
+    setSkip(fn: (() => void) | null) {
+      skip = fn;
+    },
+    /** 紙を押した：そのページをすぐ全部出す。出すものが無ければ false */
+    tap(): boolean {
+      const f = skip;
+      if (!f) return false;
+      skip = null;
+      f();
+      return true;
+    },
+    show(k: number, dir: 1 | -1 = 1): boolean {
+      if (busy || k < 0 || k >= n) return false;
+      core.tap();
+      if (page >= 0) seen.add(page);
+      const feed = page >= 0 && !calm();
+      page = k;
+      busy = feed;
+      ev.render(k, dir, feed);
+      return true;
+    },
+    /** 紙を送り終わった */
+    fed() {
+      busy = false;
+    },
+    /** つぎへ（d=1）・前へ（d=-1）。最後のページのつぎは、閉じる */
+    go(d: 1 | -1) {
+      if (busy) return;
+      if (d > 0 && page >= n - 1) return ev.close();
+      if (d < 0 && page <= 0) return;
+      core.show(page + d, d);
+    },
+  };
+  return core;
+}
+
 // ---------------------------------------------------------------- 紙の上の小さな部品
 
 /** [[ ]] で囲んだ言葉を太字に */
@@ -349,24 +409,20 @@ function openPaper(ctx: Ctx, o: PaperOpts): void {
     const nextKey = uxKey(t('つぎへ', 'Next'), () => go(1), { kind: 'main', big: true, ico: 'next', cls: 'uxs-rp-next', strong: true });
     body.replaceChildren(printer, win, el('div.uxs-rp-foot', backKey, tip, nextKey));
 
-    let page = -1;
-    let busy = false;
     let cur: HTMLElement | null = null;
-    let skipPage: (() => void) | null = null;
-    const seen = new Set<number>();
     const setSkip = (fn: (() => void) | null) => {
-      skipPage = fn;
+      core.setSkip(fn);
       tip.classList.toggle('is-off', !fn);
     };
     const api: PageApi = {
       later: (ms, fn) => {
         if (dead) return;
-        if (api.instant()) return fn();
+        if (core.instant()) return fn();
         timers.push(laterOn(ms, () => !dead && fn()));
       },
       clear,
       skip: setSkip,
-      instant: () => o.again || isCalm() || seen.has(page),
+      instant: () => core.instant(),
       close,
     };
     /** 紙に続きがあるとき、下に小さな印を出す */
@@ -375,61 +431,56 @@ function openPaper(ctx: Ctx, o: PaperOpts): void {
       more.classList.toggle('is-on', !!p && p.scrollHeight > p.clientHeight + 8 && p.scrollTop + p.clientHeight < p.scrollHeight - 8);
     };
     win.addEventListener('click', () => {
-      if (skipPage) {
-        uxSfx('flap');
-        skipPage();
-      }
+      if (core.tap()) uxSfx('flap');
     });
-
-    function show(k: number, dir: 1 | -1) {
-      if (busy || dead) return;
-      clear();
-      skipPage?.();
-      setSkip(null);
-      if (page >= 0) seen.add(page);
-      page = k;
-      const pg = o.pages[k](api);
-      lamps.forEach((l, i) => l.classList.toggle('is-on', i <= k));
-      pageNo.textContent = `${k + 1}/${n}`;
-      const b = nextKey.querySelector('b');
-      if (b) b.textContent = k === n - 1 ? (o.last ?? t('地図へもどる', 'Back to map')) : t('つぎへ', 'Next');
-      backKey.hidden = k === 0;
-      const old = cur;
-      cur = pg.el;
-      pg.el.addEventListener('scroll', syncMore, { passive: true });
-      paper.append(pg.el);
-      const start = () => {
-        pg.run();
-        requestAnimationFrame(syncMore);
-        // 行が打たれて紙が伸びたあとも見直す
-        api.later(900, syncMore);
-      };
-      if (!old || isCalm() || typeof pg.el.animate !== 'function') {
-        old?.remove();
-        start();
-        return;
-      }
-      // 紙を送る：古いページは下へ出ていき、新しいページが印字口から降りてくる（600ms・9 段）。前へ戻るときは逆向き
-      busy = true;
-      uxSfx('page', { step: 8 });
-      printer.classList.add('is-feed');
-      const opt: KeyframeAnimationOptions = { duration: FEED_MS, easing: 'steps(9, end)', fill: 'both' };
-      old.animate([{ transform: 'translate3d(0,0,0)' }, { transform: `translate3d(0,${dir * 104}%,0)` }], opt);
-      pg.el.animate([{ transform: `translate3d(0,${-dir * 104}%,0)` }, { transform: 'translate3d(0,0,0)' }], opt).onfinish = () => {
-        old.remove();
-        for (const a of pg.el.getAnimations()) a.cancel();
-        printer.classList.remove('is-feed');
-        busy = false;
-        if (!dead) start();
-      };
-    }
-    function go(d: 1 | -1) {
-      if (busy) return;
-      if (d > 0 && page >= n - 1) return close();
-      if (d < 0 && page <= 0) return;
-      show(page + d, d);
-    }
-    show(0, 1);
+    const core = paperCore(
+      n,
+      {
+        close,
+        render(k, dir, feed) {
+          clear();
+          tip.classList.add('is-off');
+          const pg = o.pages[k](api);
+          lamps.forEach((l, i) => l.classList.toggle('is-on', i <= k));
+          pageNo.textContent = `${k + 1}/${n}`;
+          const b = nextKey.querySelector('b');
+          if (b) b.textContent = k === n - 1 ? (o.last ?? t('地図へもどる', 'Back to map')) : t('つぎへ', 'Next');
+          backKey.hidden = k === 0;
+          const old = cur;
+          cur = pg.el;
+          pg.el.addEventListener('scroll', syncMore, { passive: true });
+          paper.append(pg.el);
+          const start = () => {
+            pg.run();
+            requestAnimationFrame(syncMore);
+            // 行が打たれて紙が伸びたあとも見直す
+            timers.push(laterOn(1200, syncMore));
+          };
+          if (!old || !feed || typeof pg.el.animate !== 'function') {
+            old?.remove();
+            core.fed();
+            start();
+            return;
+          }
+          // 紙を送る：古いページは下へ出ていき、新しいページが印字口から降りてくる（600ms・9 段）。前へ戻るときは逆向き
+          uxSfx('page', { step: 8 });
+          printer.classList.add('is-feed');
+          const opt: KeyframeAnimationOptions = { duration: FEED_MS, easing: 'steps(9, end)', fill: 'both' };
+          old.animate([{ transform: 'translate3d(0,0,0)' }, { transform: `translate3d(0,${dir * 104}%,0)` }], opt);
+          pg.el.animate([{ transform: `translate3d(0,${-dir * 104}%,0)` }, { transform: 'translate3d(0,0,0)' }], opt).onfinish = () => {
+            old.remove();
+            for (const a of pg.el.getAnimations()) a.cancel();
+            printer.classList.remove('is-feed');
+            core.fed();
+            if (!dead) start();
+          };
+        },
+      },
+      isCalm,
+      o.again,
+    );
+    const go = (d: 1 | -1) => core.go(d);
+    core.show(0, 1);
   }
 }
 
