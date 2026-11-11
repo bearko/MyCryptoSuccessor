@@ -1,0 +1,215 @@
+/* 段 UIX1s：音の見本帳（?uix=sound）。この頁だけの見た目（class は uxs-）。
+   決まり：角は丸めない。字は 16px が最小。押せる所は 44px 以上。動かすのは opacity だけ。色は見本 C の機械の胴・ランプの値。 */
+
+body.uxs-on {
+  margin: 0;
+  background: #0b0d17;
+  overflow: auto;
+  height: auto;
+  min-height: 100%;
+  position: static;
+}
+body.uxs-on #isl-map,
+body.uxs-on #isl-ui {
+  display: none;
+}
+
+.uxs-book {
+  --uxs-k0: #0b0d17;
+  --uxs-k1: #151829;
+  --uxs-k2: #20253d;
+  --uxs-k3: #2f3657;
+  --uxs-k4: #4a5486;
+  --uxs-k5: #97a1cf;
+  --uxs-paper: #f4ecd4;
+  --uxs-ink: #1a1c2e;
+  --uxs-amber: #ffb81f;
+  --uxs-good: #36e08b;
+  --uxs-cyan: #5fe4ff;
+  box-sizing: border-box;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 16px 16px 48px;
+  color: #fffdf3;
+  font: 16px/1.5 'DotGothic16', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', monospace;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.uxs-book *,
+.uxs-book *::before {
+  box-sizing: border-box;
+  border-radius: 0;
+}
+.uxs-book h1 {
+  margin: 0 0 4px;
+  font-size: 32px;
+  line-height: 1.25;
+  font-weight: 400;
+  color: var(--uxs-amber);
+}
+.uxs-book h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--uxs-cyan);
+}
+.uxs-note {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: var(--uxs-k5);
+}
+
+.uxs-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 -16px 16px;
+  padding: 12px 16px;
+  background: var(--uxs-k1);
+  border-bottom: 2px solid var(--uxs-k3);
+}
+.uxs-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  min-height: 32px;
+}
+.uxs-state {
+  padding: 2px 8px;
+  background: var(--uxs-k3);
+  color: var(--uxs-k5);
+}
+.uxs-state.is-on {
+  background: var(--uxs-good);
+  color: var(--uxs-ink);
+}
+.uxs-now {
+  color: var(--uxs-paper);
+}
+.uxs-lamps {
+  display: inline-flex;
+  gap: 4px;
+}
+.uxs-lamp,
+.uxs-beat {
+  display: block;
+  width: 12px;
+  height: 12px;
+  background: var(--uxs-k3);
+  border: 2px solid var(--uxs-k0);
+}
+.uxs-lamp.is-on {
+  background: var(--uxs-amber);
+}
+.uxs-beat {
+  background: var(--uxs-cyan);
+  opacity: 0.2;
+}
+.uxs-beat.is-on {
+  opacity: 1;
+}
+
+.uxs-sec {
+  margin: 0 0 24px;
+  padding: 12px;
+  background: var(--uxs-k1);
+  border: 2px solid var(--uxs-k3);
+}
+.uxs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 8px;
+}
+
+.uxs-key {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;
+  padding: 6px 10px;
+  font: inherit;
+  text-align: left;
+  color: var(--uxs-paper);
+  background: var(--uxs-k2);
+  border: 2px solid var(--uxs-k4);
+  border-bottom-width: 4px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.uxs-key b {
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.uxs-key small {
+  font-size: 16px;
+  line-height: 1.25;
+  color: var(--uxs-k5);
+  overflow-wrap: anywhere;
+}
+.uxs-key:active {
+  border-bottom-width: 2px;
+  transform: translateY(2px);
+}
+.uxs-key:focus-visible {
+  outline: 2px solid var(--uxs-cyan);
+  outline-offset: 2px;
+}
+.uxs-key[aria-pressed='true'] {
+  background: var(--uxs-amber);
+  border-color: #b8650d;
+  color: var(--uxs-ink);
+}
+.uxs-key[aria-pressed='true'] small {
+  color: var(--uxs-ink);
+}
+.uxs-key.is-amber {
+  border-color: var(--uxs-amber);
+}
+.uxs-key.is-se b {
+  color: var(--uxs-amber);
+}
+.uxs-key.is-sq {
+  align-items: center;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0;
+}
+.uxs-key.is-sq b {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.uxs-grid.uxs-vol {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.uxs-volrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.uxs-tape {
+  min-width: 56px;
+  padding: 2px 8px;
+  background: var(--uxs-paper);
+  color: var(--uxs-ink);
+  text-align: center;
+}
+.uxs-val {
+  min-width: 48px;
+  font-size: 32px;
+  line-height: 1;
+  font-weight: 400;
+  text-align: center;
+  color: var(--uxs-amber);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .uxs-key:active {
+    transform: none;
+  }
+}
