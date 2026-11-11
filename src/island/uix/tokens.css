@@ -1,0 +1,96 @@
+/* 段 UIX1a：方向 C「管制卓」の値（docs/ISLAND_UIX.md）。手触りラボ C（public/uixlab/c/css/base.css）の値をそのまま、名前を --ux-* にそろえた。
+   新しい見た目は <html class="is-uxc"> のときだけ：この CSS は入のときだけ読み、セレクタもすべて .is-uxc の内側。 */
+html.is-uxc {
+  /* 機械の胴（暗い順） */
+  --ux-k0: #0b0d17;
+  --ux-k1: #151829;
+  --ux-k2: #20253d;
+  --ux-k3: #2f3657;
+  --ux-k4: #4a5486;
+  --ux-k5: #97a1cf;
+  /* 貼り札・紙テープ */
+  --ux-paper: #f4ecd4;
+  --ux-paper2: #d8cba3;
+  --ux-paper3: #b3a47a;
+  --ux-ink: #1a1c2e;
+  /* ランプ */
+  --ux-amber: #ffb81f;
+  --ux-amber-hi: #ffe394;
+  --ux-amber-lo: #b8650d;
+  --ux-good: #36e08b;
+  --ux-good-lo: #14804c;
+  --ux-bad: #ff5964;
+  --ux-bad-lo: #9c2238;
+  --ux-cyan: #5fe4ff;
+  --ux-cyan-lo: #1f7fa8;
+  --ux-white: #fffdf3;
+  --ux-sea: #2f6fae;
+
+  /* 書体：日本語は DotGothic16、数字と英字は Jersey 10（読めるまでは、いまの書体で出る） */
+  --ux-jp: 'DotGothic16', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic', 'Meiryo', system-ui, sans-serif;
+  --ux-num: 'Jersey 10', 'DotGothic16', monospace;
+  /* 升目：寸法・余白・縁はすべて 2px の倍数 */
+  --ux-u: 2px;
+  /* 字の段：16px の整数倍を基本にする（最小 16px）。見出しだけ 1.5 倍 */
+  --ux-t1: 1rem;
+  --ux-t15: 1.5rem;
+  --ux-t2: 2rem;
+  --ux-t3: 3rem;
+  /* 数字の段：数字の書体は 1 em が 18.667 画素。画素を整数倍（1.5・2・3・4 CSS px）にする大きさ。
+     せまい画面では、文字を大きくしても数字が枠からはみ出さないよう、幅で上限を付ける */
+  --ux-n15: min(1.75rem, 7.2vw);
+  --ux-n2: min(2.3333rem, 9.58vw);
+  --ux-n3: min(3.5rem, 14.36vw);
+  --ux-n4: min(4.6667rem, 19.15vw);
+  --ux-safe-t: env(safe-area-inset-top, 0px);
+  --ux-safe-b: env(safe-area-inset-bottom, 0px);
+
+  /* 切り欠きの角（2px・4px の階段） */
+  --ux-notch: polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px));
+  --ux-notch4: polygon(0 4px, 2px 4px, 2px 2px, 4px 2px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 2px, calc(100% - 2px) 2px, calc(100% - 2px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 2px) calc(100% - 4px), calc(100% - 2px) calc(100% - 2px), calc(100% - 4px) calc(100% - 2px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 2px), 2px calc(100% - 2px), 2px calc(100% - 4px), 0 calc(100% - 4px));
+
+  /* 網目（ディザ）：黒の 50%・25%、白の 50%・25% */
+  --ux-dz50: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h2v2H0zM2 2h2v2H2z'/%3E%3C/svg%3E");
+  --ux-dz25: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h2v2H0z'/%3E%3C/svg%3E");
+  --ux-dz50w: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h2v2H0zM2 2h2v2H2z' fill='%23fff'/%3E%3C/svg%3E");
+  --ux-dz25w: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h2v2H0z' fill='%23fff'/%3E%3C/svg%3E");
+
+  /* 動きの長さとイーズ（カクカクと「機械が切り替える」動き：steps）
+     押す 60〜90ms・出入り 180〜260ms・めくり 500〜700ms・大きな演出 1.5〜3s */
+  --ux-d-press: 60ms;
+  --ux-e-press: steps(2, end);
+  --ux-d-switch: 90ms;
+  --ux-e-switch: steps(3, end);
+  --ux-d-toast: 160ms;
+  --ux-e-toast: steps(4, end);
+  --ux-d-dim: 200ms;
+  --ux-e-dim: steps(4, end);
+  --ux-d-out: 180ms;
+  --ux-e-out: steps(4, end);
+  --ux-d-in: 260ms;
+  --ux-e-in: steps(7, end);
+  --ux-d-page: 520ms;
+  --ux-e-page: steps(8, end);
+  --ux-d-big: 1800ms;
+
+  /* 重なりの段（body の直下に置く層。#isl-ui の中の順はいまのまま） */
+  --ux-z-sheet: 45;
+  --ux-z-fx: 55;
+  --ux-z-wipe: 60;
+  --ux-z-toast: 70;
+  --ux-z-cut: 75;
+  --ux-z-crt: 90;
+}
+
+/* 色覚に配慮した色：良い＝青、急ぎ＝橙（赤と緑を並べない）。形と言葉はいつも添える */
+html.is-uxc.is-cvd {
+  --ux-good: #4cc3ff;
+  --ux-good-lo: #1b6fa6;
+  --ux-bad: #ff9a3c;
+  --ux-bad-lo: #a3520f;
+}
+
+/* 文字の大きさ（設定：100・115・130%）。新しい部品は rem で書くので、ここだけで変わる */
+html.is-uxc { font-size: 16px; }
+html.is-uxc.is-t115 { font-size: 18.4px; }
+html.is-uxc.is-t130 { font-size: 20.8px; }

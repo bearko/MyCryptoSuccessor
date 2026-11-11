@@ -33,6 +33,7 @@ import { openGrowth } from './growthui';
 import type { P1State } from './model';
 import { after, open, type Ctx } from './screens';
 import { bar, btn, h, heroIcon, recTag, rich } from './ui';
+import { ux } from '../uix/hooks';
 import './i1.css';
 import { cvBox, heatEl } from './chartkit';
 import { budgetHeat } from './dash';
@@ -171,14 +172,15 @@ function deptCard(ctx: Ctx, s: P1State, d: DeptId, ifs: ReturnType<typeof ifsOf>
     for (const p of wait.slice(0, 2)) {
       const row = moveRow(actName(s, p.act), costNeed(s, d, p.cost), laborNeed(s, d, p.act), [t('承認待ち', 'Awaiting'), 'is-over']);
       // 段 UI5d：行の額は予算から払う額（予算の効きで割り引き後）。直接の承認は会社のお金で定価を払うので、ボタンに額を書く
-      row.append(
-        btn(p.cost > 0 ? t(`✔ 承認（${g(p.cost)}）`, `✔ Approve (${g(p.cost)})`) : t('✔ 承認', '✔ Approve'), () => {
+      const okLabel = p.cost > 0 ? t(`✔ 承認（${g(p.cost)}）`, `✔ Approve (${g(p.cost)})`) : t('✔ 承認', '✔ Approve');
+      const ok = btn(okLabel, () => {
           const e = approve(s, p.id);
           if (e === 'money' || e === 'rp') ctx.toast(e === 'money' ? t('資金が足りません', 'Not enough money') : t('研究ポイントが足りません', 'Not enough RP'));
           else ctx.toast(e ? t('もう打てない施策でした', 'That move is gone') : t(`承認：${actName(s, p.act)}`, `Approved: ${actName(s, p.act)}`));
           after(ctx);
-        }, 'is-on isl-bd-ok'),
-      );
+        }, 'is-on isl-bd-ok');
+      // 段 UIX1a：新しい画面（入）では、承認はレバーを引き下ろす（落ちたら、このボタンを 1 回押す）
+      row.append(ux.lever?.(ok, okLabel.replace(/^✔\s*/, '')) ?? ok);
       acts.append(row);
     }
   }

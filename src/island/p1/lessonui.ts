@@ -14,6 +14,7 @@ import type { LessonType } from './data';
 import type { P1State } from './model';
 import type { Ctx } from './screens';
 import { btn, h, heroIcon, heroName } from './ui';
+import { ux } from '../uix/hooks';
 
 /** 型の札（アイコンと名前。縁の色は型ごと） */
 export function typeChip(k: LessonType, n?: number): HTMLElement {
@@ -115,6 +116,7 @@ function nearCell(r: LessonRow): HTMLElement {
 export function openLessons(ctx: Ctx) {
   ctx.root.querySelector('.isl-ls-modal')?.remove();
   const m = h('div', 'isl-modal isl-ls-modal');
+  ux.modal?.(m, 'lesson');
   const panel = h('div', 'isl-ls-panel');
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', t('教えの図鑑', 'Lessons'));

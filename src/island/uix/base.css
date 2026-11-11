@@ -1,0 +1,101 @@
+/* 段 UIX1a：入のときの土台（docs/ISLAND_UIX.md）。書体・角・輪郭・動きを減らす。セレクタはすべて html.is-uxc の内側。 */
+
+/* 角は丸めない（いまの画面の 441 か所の丸みも、入のときはここで外す） */
+html.is-uxc *,
+html.is-uxc *::before,
+html.is-uxc *::after {
+  border-radius: 0 !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 書体：ドットの字。太字の重ね描き（合成）はさせず、強調は 1px の影で太らせる */
+html.is-uxc,
+html.is-uxc body.isl {
+  font-family: var(--ux-jp);
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  font-synthesis: none;
+  text-rendering: optimizeSpeed;
+}
+html.is-uxc button,
+html.is-uxc input,
+html.is-uxc select,
+html.is-uxc textarea {
+  font-family: inherit;
+}
+html.is-uxc h1,
+html.is-uxc h2,
+html.is-uxc h3,
+html.is-uxc h4,
+html.is-uxc th {
+  font-weight: 400;
+  text-shadow: 1px 0 currentColor;
+}
+
+/* いまの画面の色の変数を、管制卓の色へ寄せる（まだ移していない画面も、同じ色の組で出る） */
+html.is-uxc {
+  --isl-ink: var(--ux-ink);
+  --isl-paper: var(--ux-paper);
+  --isl-night: var(--ux-k2);
+  --isl-panel: var(--ux-k2);
+  --isl-line: var(--ux-k0);
+  --isl-gold: var(--ux-amber);
+  --isl-good: var(--ux-good);
+  --isl-bad: var(--ux-bad);
+  --isl-text: var(--ux-paper);
+  --isl-dim: var(--ux-k5);
+}
+
+html.is-uxc button:focus-visible,
+html.is-uxc [tabindex]:focus-visible {
+  outline: 2px solid var(--ux-cyan);
+  outline-offset: 2px;
+}
+
+/* 新しい部品の中は、見本と同じ箱の決まり */
+html.is-uxc [class^='ux-'],
+html.is-uxc [class*=' ux-'] {
+  box-sizing: border-box;
+}
+/* （:where で弱くしておく：部品の class の決まりが、この初期化に必ず勝つ） */
+:where(html.is-uxc) :where(button[class^='ux-'], button[class*=' ux-']) {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+html.is-uxc .ux-root {
+  font-family: var(--ux-jp);
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--ux-paper);
+  user-select: none;
+  -webkit-user-select: none;
+}
+html.is-uxc .ux-root img,
+html.is-uxc .ux-root canvas {
+  display: block;
+}
+
+/* ---------- 動きを減らす（設定「動きを減らす」と端末の設定の両方）。揺れ・光・流れは止め、情報はそのまま出す。
+   いまの画面の CSS の動き（128 の @keyframes）も、ここでまとめて止まる */
+html.is-uxc.is-calm *,
+html.is-uxc.is-calm *::before,
+html.is-uxc.is-calm *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  animation-delay: 0s !important;
+  transition-duration: 0.01ms !important;
+}
+html.is-uxc.is-calm .ux-crt::after,
+html.is-uxc.is-calm .ux-key--main > .ux-cap::after {
+  display: none;
+}
+/* 重い端末：流れる帯を止める */
+html.is-uxc.is-lite .ux-crt::after {
+  display: none;
+}

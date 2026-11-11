@@ -1,0 +1,200 @@
+/* 段 UIX1a：部品の見本帳（?uix=kit）の並べ方だけ。部品の見た目は parts.css・legacy.css。 */
+html.is-uxc .ux-kit {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: calc(12px + var(--ux-safe-t)) 12px calc(48px + var(--ux-safe-b));
+  background: var(--ux-k1);
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+html.is-uxc .ux-kit::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--ux-dz25w);
+  opacity: 0.03;
+  pointer-events: none;
+}
+html.is-uxc .ux-kit > * {
+  position: relative;
+  max-width: 760px;
+  margin-left: auto;
+  margin-right: auto;
+}
+html.is-uxc .ux-kit-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+html.is-uxc .ux-kit-top h1 {
+  margin: 0 8px 0 0;
+  font-size: 2rem;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+}
+html.is-uxc .ux-kit-top .ux-key { margin-left: auto; }
+html.is-uxc .ux-kit-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 0 18px;
+  border-top: 2px dotted var(--ux-k3);
+}
+html.is-uxc .ux-kit-h {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+  font-size: 1rem;
+  text-shadow: none;
+}
+html.is-uxc .ux-kit-h .ux-tape { text-shadow: 1px 0 currentColor; }
+html.is-uxc .ux-kit-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+html.is-uxc .ux-kit-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+html.is-uxc .ux-kit-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+html.is-uxc .ux-kit-cell > .ux-meter { width: min(100%, 320px); align-self: stretch; }
+html.is-uxc .ux-kit-grid {
+  display: grid;
+  grid-template-columns: auto repeat(3, minmax(0, max-content));
+  align-items: center;
+  gap: 8px 14px;
+}
+html.is-uxc .ux-kit-pal {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+html.is-uxc .ux-kit-cvd {
+  --ux-good: #4cc3ff;
+  --ux-good-lo: #1b6fa6;
+  --ux-bad: #ff9a3c;
+  --ux-bad-lo: #a3520f;
+}
+html.is-uxc .ux-kit-sws {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+html.is-uxc .ux-kit-sw {
+  display: flex;
+  align-items: flex-end;
+  width: 4.5rem;
+  height: 3rem;
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .ux-kit-sw i {
+  padding: 0 4px;
+  background: var(--ux-k0);
+  color: var(--ux-paper);
+  font-style: normal;
+  line-height: 1.25;
+}
+html.is-uxc .ux-kit-type {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+}
+html.is-uxc .ux-kit-t100 { font-size: 16px; }
+html.is-uxc .ux-kit-t115 { font-size: 18.4px; }
+html.is-uxc .ux-kit-t130 { font-size: 20.8px; }
+html.is-uxc .ux-kit-type .ux-num { font-size: 1.75em; line-height: 0.75; }
+html.is-uxc .ux-kit-nums .ux-num { line-height: 0.75; }
+html.is-uxc .ux-kit-t1 { font-size: var(--ux-t1); }
+html.is-uxc .ux-kit-t15 { font-size: var(--ux-t15); line-height: 1.3; }
+html.is-uxc .ux-kit-t2 { font-size: var(--ux-t2); line-height: 1.2; }
+html.is-uxc .ux-kit-plate {
+  display: flex;
+  flex-direction: column;
+  max-width: 560px;
+  padding: 12px 10px 10px;
+}
+html.is-uxc .ux-kit-body { flex: none; }
+html.is-uxc .ux-kit-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 8px;
+}
+html.is-uxc .ux-kit-pane p { margin: 0; }
+html.is-uxc .ux-kit-paper {
+  position: relative;
+  max-width: 480px;
+  height: 172px;
+}
+html.is-uxc .ux-kit-page { overflow: hidden; }
+html.is-uxc .ux-kit-redraw {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+html.is-uxc .ux-kit-lever {
+  padding-top: 92px;
+}
+html.is-uxc .ux-kit-lever .ux-prop-wrap {
+  position: relative;
+  width: min(100%, 404px);
+}
+html.is-uxc .ux-kit-lever .ux-prop-card { padding: 10px 12px; }
+html.is-uxc .ux-kit-face { left: 2px; }
+html.is-uxc .ux-kit-pop {
+  position: relative;
+  padding-top: 96px;
+}
+html.is-uxc .ux-kit-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .ux-kit-toasts {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  justify-items: start;
+  max-width: none;
+}
+html.is-uxc #isl-ui .ux-kit-toasts .isl-toast {
+  animation: none;
+}
+html.is-uxc .ux-kit-set {
+  max-width: 560px;
+  padding: 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+/* 見本帳の中の札・窓は、画面いっぱいに重ねる */
+html.is-uxc #isl-ui > .isl-sheet,
+html.is-uxc #isl-ui > .isl-modal {
+  position: fixed;
+}
+html.is-uxc .ux-kit-total {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 3rem;
+}
+html.is-uxc .ux-kit-grid { justify-content: start; }

@@ -211,7 +211,12 @@ function skipUi() {
 
 /** 効果を出せるか（演出「なし」・止めているとき・画面が無いときは出さない。「動きを減らす」は演出の初期値「なし」で） */
 export function fxOn(): boolean {
-  return enabled && typeof document !== 'undefined' && fxLevel() !== 'off';
+  return enabled && typeof document !== 'undefined' && fxLevel() !== 'off' && !uxCalm();
+}
+/** 段 UIX1a：新しい画面（<html class="is-uxc">）で「動きを減らす」（is-calm）のあいだは、効果を出さない（docs/ISLAND_UIX.md） */
+function uxCalm(): boolean {
+  const c = document.documentElement.classList;
+  return c.contains('is-uxc') && c.contains('is-calm');
 }
 /** 効果を止める・戻す（撮影の比べ用） */
 export function setFxEnabled(v: boolean) {

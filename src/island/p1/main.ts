@@ -171,7 +171,10 @@ import { csOn } from './cs';
 import { gradeName, gradeOf } from './mkt';
 import { taxHint } from './acct';
 import { quitLeft, type HrDay } from './hr';
-import { IslandSfx } from './sfx';
+import { IslandSfx, type Sfx as SfxKey } from './sfx';
+import { setUx, uxOn } from '../uix/flag';
+import { ux } from '../uix/hooks';
+import { setUxSfxSink } from '../uix/sound';
 import { boardDue, boardOf, boardQuarter, closeText } from './board';
 import { openBoard, type BoardHooks } from './boardui';
 import { KNOW_TALK, SLOT_TALK, slotNews, slotsOf, takePolNews } from './policy';
@@ -270,6 +273,8 @@ addEventListener(
   },
   { capture: true },
 );
+// 段 UIX1a：新しい部品の音の口（uix/sound.ts の uxSfx）を、今の効果音につなぐ。音の土台の段（UIX1s）が新しい音に替える
+setUxSfxSink((k, gain, rate) => sfx.play(k as SfxKey, gain, rate));
 
 const canvas = document.getElementById('isl-map') as HTMLCanvasElement;
 const ctx2 = canvas.getContext('2d')!;
@@ -3414,6 +3419,7 @@ function flushTalk() {
 const talkKeys = new WeakMap<HTMLElement, () => void>();
 function showTalk(pages: TutPage[], ok: string, then: () => void) {
   const m = h('div', 'isl-modal isl-talk');
+  ux.modal?.(m, 'talk');
   const stage = h('div', 'isl-talk-stage');
   const box = h('div', 'isl-talk-box');
   const mine = h('img', 'isl-talk-mine');
@@ -3686,6 +3692,8 @@ function renderAdvisor() {
 
 function modal(title: string, body: string | HTMLElement, actions: [string, () => void, string?][], face = false) {
   const m = h('div', 'isl-modal');
+  // 段 UIX1a：窓の共通の器（入のときだけ。直接作っている 10 か所も、同じ口を通す）
+  ux.modal?.(m, 'plain');
   const box = h('div');
   const row = h('div', 'isl-row');
   for (const [label, on, cls] of actions)
@@ -3716,7 +3724,7 @@ function modal(title: string, body: string | HTMLElement, actions: [string, () =
  * システムの画面（設定・進行速度・セーブ・テスト）。ほかの事業と同じく札で開くので、サブタブで切り替えられる。
  * buttons は描き直すたびに作り直す（押したあとの表示が変わるため）
  */
-function sysSheet(title: string, note: string, buttons: () => [string, () => void, string?][]) {
+function sysSheet(title: string, note: string, buttons: () => [string, () => void, string?][], extra?: (body: HTMLElement) => void) {
   openSheet(ctx, title, (body) => {
     body.append(h('p', 'isl-dim', note));
     const list = h('div', 'isl-sys-list');
@@ -3733,6 +3741,7 @@ function sysSheet(title: string, note: string, buttons: () => [string, () => voi
         ),
       );
     body.append(list);
+    extra?.(body);
   });
 }
 
@@ -3782,6 +3791,17 @@ function openSettings() {
       },
       'is-fxlevel',
     ],
+    // 段 UIX1a：新しい画面（方向 C「管制卓」の試作）の入り切り。切り替えたら、画面を読み直す（URL の ?uix=1／?uix=0 でも替えられる）
+    [
+      uxOn() ? t('新しい画面（試作）：入', 'New screens (preview): on') : t('新しい画面（試作）：切', 'New screens (preview): off'),
+      () => {
+        setUx(!uxOn());
+        save();
+        const u = new URL(location.href);
+        u.searchParams.delete('uix');
+        location.replace(u.toString());
+      },
+    ],
     ...(tutOf(s) < TUT_DONE
       ? [
           [
@@ -3793,7 +3813,7 @@ function openSettings() {
           ] as [string, () => void],
         ]
       : []),
-  ]);
+  ], (body) => ux.settings?.(body));
 }
 
 /** 進行速度：標準・1.5 倍・2 倍（スキルで選べるようになる） */
@@ -4169,6 +4189,7 @@ function openSectorCard(id: string) {
   const adv = advanceOf(s, id);
   const facts = sectorFacts(id);
   const m = h('div', 'isl-modal isl-bulk isl-sectm');
+  ux.modal?.(m, 'sectm');
   m.dataset.sector = id;
   const p = h('div', 'isl-bulk-panel isl-sectm-panel');
   p.style.setProperty('--tc', TIERS[d.tier].color);
@@ -4319,7 +4340,8 @@ function placeToasts() {
   const head = root.querySelector('.isl-sheet-head')?.getBoundingClientRect();
   const band = root.querySelector('.isl-sheet-box > .isl-dband')?.getBoundingClientRect();
   if (head && head.top < y + Math.max(40, toasts.offsetHeight)) y = Math.max(y, (band && band.height > 0 && band.top >= head.top ? band.bottom : head.bottom) + 6);
-  const top = `${Math.round(y)}px`;
+  // 段 UIX1a：新しい画面（入）では、開いている札・窓の中身に重ねない（上の帯の上へ）
+  const top = `${Math.round(ux.toastTop?.(y) ?? y)}px`;
   if (toasts.style.top !== top) toasts.style.top = top;
 }
 function renderAll() {

@@ -41,6 +41,7 @@ import {
 import { heroNm, headOf } from './deleg';
 import { after, open, type Ctx } from './screens';
 import { btn, h, recLine } from './ui';
+import { ux } from '../uix/hooks';
 import type { P1State } from './model';
 import { sideText } from './policycards';
 import './pol.css';
@@ -69,6 +70,7 @@ export function openPolicyPick(ctx: Ctx, o: { mine?: boolean; then?: () => void 
   const s = ctx.s();
   ctx.root.querySelector('.isl-pol')?.remove();
   const m = h('div', 'isl-modal isl-pol');
+  ux.modal?.(m, 'pol');
   const panel = h('div', 'isl-pol-panel');
   const head = h('div', 'isl-pol-head');
   if (o.mine) {
@@ -327,6 +329,7 @@ export function openDeptPick(ctx: Ctx, d: DeptId) {
 function modal(ctx: Ctx, title: string, fill: (panel: HTMLElement, close: () => void) => void) {
   ctx.root.querySelector('.isl-pol')?.remove();
   const m = h('div', 'isl-modal isl-pol');
+  ux.modal?.(m, 'pol');
   const panel = h('div', 'isl-pol-panel');
   const head = h('div', 'isl-pol-head');
   head.append(h('h3', '', title));

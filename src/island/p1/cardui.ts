@@ -50,6 +50,7 @@ import { useUpOf } from './proj';
 import { shelfGate } from './stock';
 import { openShelfChoice } from './stockui';
 import { btn, h, heroIcon, heroName, money, recLine, rich } from './ui';
+import { ux } from '../uix/hooks';
 import { assetUrl } from '../../render/images';
 import { cardReact, sayToast } from './p2ui';
 import { DUO_BY_ID } from './duo';
@@ -301,6 +302,7 @@ export function showCard(ctx: Ctx, c: Card, hooks: CardHooks) {
   markSeen(s, c.id);
   ctx.root.querySelector('.isl-cardm')?.remove();
   const m = h('div', 'isl-modal isl-cardm');
+  ux.modal?.(m, 'card');
   const close = (res: ChooseRes | null, label: string) => {
     if (res && !res.ok && (res.err === 'money' || res.err === 'rp' || res.err === 'stock' || res.err === 'cool')) {
       ctx.sfx?.('error');
