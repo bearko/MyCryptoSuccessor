@@ -1,12 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DEF, DEFS, PENDING_ART } from '../src/island/defs';
+import { DEF, DEFS, PENDING_ART, type Def } from '../src/island/defs';
 import { ELECTION, canPlace, cells, monthReport, togglePolicy, demolish, deserialize, endMonth, frontCell, groundAt, happiness, homes, newGame, place, rotate, serialize, step, type State } from '../src/island/sim';
 
 const grassCell = (s: State, size = 1): [number, number] => {
   for (let j = 0; j < s.n; j++)
     for (let i = 0; i < s.n; i++) {
-      const ok = cells({ ...DEF.house, size: size as 1 | 2 }, i, j, 'rd').every(([x, y]) => groundAt(s, x, y) === 'grass' && !s.buildings.some((b) => cells(DEF[b.id], b.i, b.j, b.dir).some(([p, q]) => p === x && q === y)));
+      const ok = cells({ ...DEF.house, size: size as Def['size'] }, i, j, 'rd').every(([x, y]) => groundAt(s, x, y) === 'grass' && !s.buildings.some((b) => cells(DEF[b.id], b.i, b.j, b.dir).some(([p, q]) => p === x && q === y)));
       if (ok) return [i, j];
     }
   throw new Error('no grass');

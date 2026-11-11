@@ -99,9 +99,13 @@ export const groundAt = (s: State, i: number, j: number): Ground | null => (i < 
 
 // ---------------------------------------------------------------- 置き方
 
-/** 建物が使うマス。2 マスは、入口が右下・左上なら j の向き、左下・右上なら i の向きに延びる */
+/**
+ * 建物が使うマス。2 マスは、入口が右下・左上なら j の向き、左下・右上なら i の向きに延びる。
+ * 4（2×2）は向きで形が変わらない（(i, j) が奥の角、最後の (i+1, j+1) が手前の角）
+ */
 export function cells(def: Def, i: number, j: number, dir: Dir): [number, number][] {
   if (def.size === 1) return [[i, j]];
+  if (def.size === 4) return [[i, j], [i + 1, j], [i, j + 1], [i + 1, j + 1]];
   return dir === 'rd' || dir === 'lu' ? [[i, j], [i, j + 1]] : [[i, j], [i + 1, j]];
 }
 

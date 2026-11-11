@@ -4,12 +4,10 @@
  * ランドが復興のために所持金を全額徴収する。研究ポイント・RP で開けたパネル・ヒーローは残る。お金で開けたパネルは未取得へ。
  * 被災した町は、手で直す（安い）か、ヒーローに復興支援金を送って任せる（割高・遅い・自動）。docs/ISLAND_PHASE1.md「ランクアップの災害と復興」
  */
-import { DEF } from '../defs';
-import { cells } from '../sim';
 import { acctReset } from './acct';
 import { MANAGER, P1B, PRODUCT, SECTORS, SKILL, grantOf, isAntique, isResearch, skuParts, type Sku, type Tier } from './data';
 import { book, delegateCostOf, repairCostOf, repairDaysOf, repairOrder, ruinCount, RUIN, sectorDef, type Land, type RuinLike, type SectorRec } from './company';
-import { assign, trimForSector, newDig, reviveMul, spend, staffOf, wasteSpots, type DigState, type P1State, type PBuilding, type ResetRec } from './model';
+import { assign, cellsOf, trimForSector, newDig, reviveMul, spend, staffOf, wasteSpots, type DigState, type P1State, type PBuilding, type ResetRec } from './model';
 
 const TIER_ORDER: Tier[] = ['C', 'U', 'R', 'E', 'L'];
 const rankOf = (t0: Tier) => TIER_ORDER.indexOf(t0);
@@ -63,7 +61,7 @@ function ruinSnap(snap: Record<string, unknown>, sector: string, round: number):
   const bs = (snap.buildings as PBuilding[] | undefined) ?? [];
   // 荒れ地（復興した土地・ダンジョンの入り口も）のマス：そこに建っていた自社の建物（展示館など）は、荒れ地に戻るので残らない
   const waste = new Set(wasteSpots(sector).flatMap(([i, j]) => [0, 1].flatMap((dj) => [0, 1].map((di) => `${i + di},${j + dj}`))));
-  const onWaste = (b: PBuilding) => cells(DEF[b.id], b.i, b.j, b.dir).some(([x, y]) => waste.has(`${x},${y}`));
+  const onWaste = (b: PBuilding) => cellsOf(b).some(([x, y]) => waste.has(`${x},${y}`));
   const keep: PBuilding[] = [];
   let ruins = 0;
   for (const b of bs) {

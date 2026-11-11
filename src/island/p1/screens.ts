@@ -128,7 +128,9 @@ import {
   scoutMul,
   relicMinCraft,
   MAX_HAULERS,
+  bName,
 } from './model';
+import { facBox } from './factoryui';
 import { canImport, cheapAt, dutyText, headSuggest, importLead, importPrice, setSource, sourceOf, tradeNeighbors } from './tariff';
 import { sectorDef as secDef } from './company';
 import { tradeCmpEl } from './tariffui';
@@ -174,6 +176,8 @@ export interface Ctx {
   rpNoted?: () => void;
   /** 段 SALES1：札を閉じて、そのお店の吹き出しを開く（地図でそのお店の商圏が光る） */
   showShop?: (uid: number) => void;
+  /** 段 FACTORY1a：札を閉じて、工房の建て替えの置き方を選ぶモードへ（町工場・大工場） */
+  rebuild?: () => void;
 }
 
 /**
@@ -552,9 +556,14 @@ export function openWorkshop(ctx: Ctx, opt: boolean | { invest?: boolean; make?:
       chooseMake(ctx, s0, free, o.make);
     }
   }
-  open(ctx, t('工房', 'Workshop'), (body) => {
+  // 段 FACTORY1a：見出しは段の名前（工房・町工場・大工場）
+  const wsT = s0.buildings.find((b) => b.owner === 'me' && b.id === 'workshop');
+  open(ctx, wsT ? bName(wsT) : t('工房', 'Workshop'), (body) => {
     const s = ctx.s();
     mineTip(ctx, 'workshop', body);
+    // 段 FACTORY1a：建て替えで増えた作業台の「NEW」は一度だけ（この画面を開いたら消す）
+    const fresh = new Set(s.flags.facNew ?? []);
+    if (fresh.size) delete s.flags.facNew;
     const scene = h('div', 'isl-craft-scene');
     scene.style.backgroundImage = `url("${assetUrl('mch/Image/CraftBackgrounds/Base/100.webp')}")`;
     const amb = h('img', 'isl-craft-amb');
@@ -574,8 +583,10 @@ export function openWorkshop(ctx: Ctx, opt: boolean | { invest?: boolean; make?:
 
     // 作業台：職人の枠と、作るエクステの枠。エクステを選ぶとすぐ作り始める（続けて作る）
     s.slots.forEach((sl, k) => {
-      const card = h('div', 'isl-card2 isl-bench');
-      card.append(h('h3', '', t(`作業台 ${k + 1}`, `Workbench ${k + 1}`)));
+      const card = h('div', `isl-card2 isl-bench${fresh.has(k) ? ' isl-fac-new' : ''}`);
+      const ht = h('h3', '', t(`作業台 ${k + 1}`, `Workbench ${k + 1}`));
+      if (fresh.has(k)) ht.append(h('span', 'isl-fac-newtag', 'NEW'));
+      card.append(ht);
       const row = h('div', 'isl-slots');
       row.append(
         slot(s, {
@@ -667,6 +678,13 @@ export function openWorkshop(ctx: Ctx, opt: boolean | { invest?: boolean; make?:
     stock.append(sl, h('p', 'isl-dim', t('できた商品は、物流の担当がお店へ運びます。', 'Haulers carry finished goods to your shops.')));
     body.append(stock);
     const wsB = s.buildings.find((b) => b.owner === 'me' && b.id === 'workshop');
+    // 段 FACTORY1a：町工場・大工場への建て替え（作業台の数・物置・置き場所）
+    const fb = wsB && !ctx.step?.() ? facBox(ctx, s) : null;
+    if (fb) {
+      const fc = h('div', 'isl-card2 isl-fac-card');
+      fc.append(h('h3', '', t('建て替え（工房 → 町工場 → 大工場）', 'Rebuild (workshop → town factory → big factory)')), fb);
+      body.append(fc);
+    }
     if (wsB && !ctx.step?.()) body.append(investCard(ctx, wsB, t('作業台・荷車・トラック・物置など。建物ごと（セクタごと）の設備なので、新しいセクタでは入れ直します。', 'Workbenches, carts, truck, stockroom and more. Equipment belongs to each building, so new sectors start fresh.')));
   });
   if (toInvest) flashTo(document.querySelector<HTMLElement>('.isl-sheet .isl-invest-card'));

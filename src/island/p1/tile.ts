@@ -23,7 +23,8 @@ import { extIcon } from './digui';
 import { DEEP_LOCK, standing } from './digview';
 import { repairCostOf, repairDaysOf } from './company';
 import { clearRuin, isRuin, repair, repairAll, repairAllCost, repairLock, ruinsOf } from './reset';
-import { areaShares, isVacant, newStorePull, storeRisk, takeVacant, vacantCost, vacantErr } from './model';
+import { areaShares, bName, isVacant, newStorePull, storeRisk, takeVacant, vacantCost, vacantErr } from './model';
+import { facBox } from './factoryui';
 import { RARE_AREA, SALES1 } from './data';
 import { refillHint, storeName, surveyed } from './trade';
 import { MA_LOCK_TEXT, dealOf, guidePrice, legalHere } from './legal';
@@ -496,7 +497,8 @@ export function tileContent(ctx: Ctx, i: number, j: number, hooks: TileHooks): {
   const body = h('div', 'isl-pop-body');
   const b = occupant(s, i, j);
   if (!b) return empty(s, i, j, body, hooks);
-  const name = DEF[b.id].name;
+  // 段 FACTORY1a：工房は段の名前（工房・町工場・大工場）
+  const name = bName(b);
   if (b.owner === 'me') return { title: name, body: mine(ctx, b, body, hooks) };
   // 廃墟（ランクアップの災害で壊れた自社の建物。発掘 v2 の 7 段目）：修繕する・取り壊す・全部修繕
   if (isRuin(b)) return { title: t(`🏚 ${name}（廃墟）`, `🏚 ${name} (ruin)`), body: ruinPop(ctx, b, body, hooks) };
@@ -824,6 +826,9 @@ function mine(ctx: Ctx, b: PBuilding, body: HTMLElement, hooks: TileHooks): HTML
     stat(grid, t('置き場所', 'Storage'), t(`${poolUsed(s)} / ${poolCap(s)} 個`, `${poolUsed(s)} / ${poolCap(s)}`));
     stat(grid, t('運ぶ前の商品', 'Goods to haul'), t(`${Object.values(s.stock).reduce<number>((a, n) => a + (n ?? 0), 0)} 個`, `${Object.values(s.stock).reduce<number>((a, n) => a + (n ?? 0), 0)}`));
     body.append(grid);
+    // 段 FACTORY1a：町工場・大工場への建て替え（チュートリアルのあいだは出さない）
+    const fb = ctx.step?.() ? null : facBox(ctx, s);
+    if (fb) body.append(fb);
   }
 
   const acts = h('div', 'isl-row isl-pop-acts');
@@ -834,10 +839,11 @@ function mine(ctx: Ctx, b: PBuilding, body: HTMLElement, hooks: TileHooks): HTML
     // チュートリアル：建物の中の画面は、ここから開くと覚えてもらう
     const step = ctx.step?.();
     const guide = step === 'craft' && kind === 'workshop';
-    acts.append(btn(kind === 'workshop' ? t('工房を開く', 'Open workshop') : t('お店を開く', 'Open shop'), () => (kind === 'workshop' ? openWorkshop(ctx) : openShop(ctx, b.uid)), guide ? 'is-on is-guide' : 'is-on'));
+    acts.append(btn(kind === 'workshop' ? (b.lv ? t(`${bName(b)}を開く`, `Open ${bName(b)}`) : t('工房を開く', 'Open workshop')) : t('お店を開く', 'Open shop'), () => (kind === 'workshop' ? openWorkshop(ctx) : openShop(ctx, b.uid)), guide ? 'is-on is-guide' : 'is-on'));
   }
   const mv = btn(t(`移転 ${money(moveCost(b))}`, `Move ${money(moveCost(b))}`), () => hooks.move(b.uid));
-  mv.disabled = s.money < moveCost(b);
+  // 段 FACTORY1a：建て替えの途中は移転しない
+  mv.disabled = s.money < moveCost(b) || !!b.up;
   acts.append(mv);
   if (b.id === 'workshop') {
     const x = btn(t('撤去（本店はできません）', 'Demolish (not the head office)'), () => undefined);

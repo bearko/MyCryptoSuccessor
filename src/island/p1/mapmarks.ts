@@ -11,8 +11,7 @@
  */
 import { t } from '../../i18n';
 import { L0, SELF_RUN, SKILL } from './data';
-import { DEF } from '../defs';
-import { has, myShops, myWorkshop, stallOf, type P1State, type PBuilding, type Stall } from './model';
+import { cellsOf, has, myShops, myWorkshop, stallOf, type P1State, type PBuilding, type Stall } from './model';
 import { storeFull } from './stock';
 import { csOn } from './cs';
 import { propsOpen } from './stage';
@@ -128,9 +127,9 @@ export function marksOf(s: P1State): MapMark[] {
     if (!b) continue;
     xs.sort((a, c) => c.pri - a.pri);
     const kinds = new Set(xs.map((x) => x.kind));
-    // 2 × 2 の建物（物流拠点など）は真ん中に
-    const half = ((DEF[b.id]?.size ?? 1) - 1) / 2;
-    out.push({ ...xs[0], i: b.i + half, j: b.j + half, more: kinds.size - 1 });
+    // 2 マス・2×2 の建物（物流拠点・町工場・大工場など）は、使うマスの真ん中に（段 FACTORY1a：1×2 は延びた向きにだけずらす）
+    const cs = cellsOf(b, false);
+    out.push({ ...xs[0], i: cs.reduce((a, [x]) => a + x, 0) / cs.length, j: cs.reduce((a, [, y]) => a + y, 0) / cs.length, more: kinds.size - 1 });
   }
   return out.sort((a, c) => c.pri - a.pri);
 }

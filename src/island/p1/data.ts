@@ -277,7 +277,7 @@ export const P1_BUILDINGS: P1Building[] = [
   { id: 'bakery', kind: 'food', cost: 1600, days: 6, upkeep: 300, soon: true },
   { id: 'arcade', kind: 'fun', cost: 12000, days: 10, upkeep: 1500, soon: true },
   { id: 'amusement', kind: 'fun', cost: 40000, days: 20, upkeep: 5000, soon: true },
-  { id: 'factory', kind: 'big', cost: 60000, days: 20, upkeep: 6000, soon: true },
+  // 段 FACTORY1a：「大型施設 → 工場（準備中）」は外した（工場は工房の建て替え：FACTORY。入り口を 1 つに）
   { id: 'harbor', kind: 'big', cost: 120000, days: 30, upkeep: 9000, soon: true },
   // 遺物の展示館（発掘 v2 の 4 段目）：復興した土地にだけ・会社で 1 つ。値段はブティック（Common の大きめの建物）と同じくらい
   { id: 'museum', kind: 'museum', cost: 15000, days: 10, upkeep: 600 },
@@ -293,7 +293,7 @@ export const BUILD_CATS: { id: string; name: string; icon: string; ids: string[]
   { id: 'logi', name: t('物流・倉庫', 'Logistics'), icon: '📦', ids: ['warehouse', 'logistics'] },
   { id: 'food', name: t('飲食', 'Food'), icon: '🍜', ids: ['ramen', 'cafe', 'bakery'] },
   { id: 'fun', name: t('娯楽', 'Leisure'), icon: '🎡', ids: ['arcade', 'amusement'] },
-  { id: 'big', name: t('大型施設', 'Large sites'), icon: '🏭', ids: ['factory', 'harbor'] },
+  { id: 'big', name: t('大型施設', 'Large sites'), icon: '🏭', ids: ['harbor'] },
   // 発掘 v2 の 4 段目：復興した土地ができると開く
   { id: 'relic', name: t('遺物', 'Relics'), icon: '🏛', ids: ['museum'] },
 ];
@@ -3144,7 +3144,7 @@ export const INVESTS: Invest[] = [
   { id: 'staffroom', kind: 'shop', name: t('アルバイトの控室', 'Part-timer room'), note: t('このお店のアルバイトの上限 +2', 'This shop can take 2 more part-timers'), cost: [2500] },
   { id: 'fixtures', kind: 'shop', name: t('陳列の什器', 'Display fixtures'), note: t('棚に並べる速さ +30%（1 段ごと）', 'Shelving speed +30% per level'), cost: [2500, 5000] },
   { id: 'backroom', kind: 'shop', name: t('裏の倉庫を広げる', 'Bigger backroom'), note: t(`裏に置ける数 +${unitsX(20)}（1 段ごと）`, `Backroom +${unitsX(20)} per level`), cost: [1500, 3000, 4000] },
-  { id: 'bench', kind: 'workshop', name: t('作業台を増やす', 'More workbenches'), note: t('作業台 +1（1 段ごと。2 段目は工場にして、クラフトの日数 −20% も）', 'Workbench +1 per level (level 2 also cuts crafting days by 20%)'), cost: [5000, 22000] },
+  { id: 'bench', kind: 'workshop', name: t('作業台を増やす', 'More workbenches'), note: t('作業台 +1（1 段ごと。2 段目は作業場を広げて、クラフトの日数 −20% も）', 'Workbench +1 per level (level 2 also widens the floor and cuts crafting days by 20%)'), cost: [5000, 22000] },
   { id: 'carts', kind: 'workshop', name: t('荷車を増やす', 'More carts'), note: t('運搬係 1 人が同時に出せる便 +1（1 段ごと）', 'Each hauler runs one more trip at once per level'), cost: [3000, 7000] },
   { id: 'truck', kind: 'workshop', name: t('小型トラック', 'Small truck'), note: t('積める数 ×2.5・運ぶ速さ ×1.5', 'Load ×2.5, hauling speed ×1.5'), cost: [8000] },
   { id: 'stockroom', kind: 'workshop', name: t('物置の整理', 'Tidy stockroom'), note: t('工房の物置 +40 個', 'Workshop stockroom +40'), cost: [2500] },
@@ -3181,6 +3181,36 @@ export const INVEST: Record<string, Invest> = Object.fromEntries(INVESTS.map((x)
 
 /** 移転は建てる値段の半分（最低 2,000 G）・工期の半分。撤去は建てる値段の 3 割が戻る */
 export const MOVE = { rate: 0.5, min: 2000, days: 0.5, refund: 0.3 };
+
+/**
+ * 段 FACTORY1a：工房の段（建て替え）。id は workshop のまま、PBuilding.lv（無ければ 0）で形・絵・名前・作業台・物置が替わる。
+ * 段 0「工房」1×1 → 段 1「町工場」1×2 → 段 2「大工場」2×2。どれも任意の投資（必要なお金には入れない）。
+ * - 段 1：作業台の設備投資 2 段目のあと（どのランクの町でも）。段 2：段 1 のあと・Rare 以上の町だけ（minTier）。
+ * - 作業台は「作業台の設備投資の段」＋ bench[段]（作業台 2 段目を取ってから増える）。物置は pool[段] を足す。
+ * - 建て替えのあいだも工房は止めない（前の形と台の数のまま）。新しい形のマスは足場で予約する。移転を兼ねても値段は同じ。
+ * - 2×2 は荒れ地のマスに置けない（掘りきって復興した土地には置ける。ほかの建物と同じ決まり）
+ */
+export const FACTORY = {
+  /** 段ごとの形（cells の size：1×1・1×2・2×2） */
+  size: [1, 2, 4] as const,
+  /** 段ごとの地図の絵（段 0 は工房の絵。段 2 は 2×2 の絵が無いので工場の絵を 2 棟並べる仮の絵。docs/ISLAND_ART_TODO.md） */
+  art: [null, 'factory', 'factory'] as const,
+  /** 作業台の上積み（作業台の設備投資 2 段目のあと。段 0 は 3 台＝いまのまま） */
+  bench: [0, 1, 2],
+  /** 物置の上積み（poolCap） */
+  pool: [0, 60, 140],
+  /** 建て替えの値段・工期（段 1・段 2。添字は段） */
+  cost: [0, 30000, 120000],
+  days: [0, 6, 10],
+  /** 開く町のランク（この段より上の町。段 2 は Rare から） */
+  minTier: ['C', 'C', 'R'] as Tier[],
+  /** 開くのに要る作業台の設備投資の段 */
+  needBench: 2,
+  name: [t('工房', 'Workshop'), t('町工場', 'Town factory'), t('大工場', 'Big factory')],
+  /** 形の言い方 */
+  shape: ['1×1', '1×2', '2×2'],
+};
+export type FacLv = 0 | 1 | 2;
 
 // ---------------------------------------------------------------- 地層の発掘と研究ポイント（docs/ISLAND_PHASE1.md「地層の発掘と研究ポイント」）
 

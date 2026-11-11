@@ -12,8 +12,10 @@ export interface Def {
   id: string;
   name: string;
   cat: Cat;
-  /** 1 マスか 2 マスか */
-  size: 1 | 2;
+  /** 1 マスか 2 マス（1×2）か。4 は 2×2（段 FACTORY1a：工房の大工場。島づくりの建物には無い） */
+  size: 1 | 2 | 4;
+  /** 絵の id（段で絵が替わる建物。無ければ artId(id)） */
+  art?: string;
   /** 絵の高さが 280（2 マスは 340）。足場は 5 段 */
   tall: boolean;
   cost: number;

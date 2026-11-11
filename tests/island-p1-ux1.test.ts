@@ -66,7 +66,8 @@ describe('A. 時間の止まり方', () => {
 describe('B. 建てる・掘る・押す', () => {
   it('B-1：チュートリアルの建築中は、スポット以外のタップでゴーストを動かさず、トーストだけ', () => {
     const m = src('main.ts');
-    const i = m.indexOf('if (placing.i === i && placing.j === j) tryPlace();');
+    // 段 FACTORY1a：建て替えのときは影のマスのどれを押しても建てる（条件が延びたので、地図のタップの中の tryPlace から探す）
+    const i = m.indexOf('tryPlace();', m.indexOf('function tapMap('));
     const body = m.slice(i, m.indexOf('return;', i));
     expect(body).toContain('else if (tutSpotNow()) {');
     expect(body).toContain('光っている場所に建ててみて！');
