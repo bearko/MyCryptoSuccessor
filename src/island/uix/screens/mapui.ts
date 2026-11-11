@@ -16,7 +16,7 @@ export function installMapUi(host: UxmHost) {
   const { root } = host;
   const hud = buildHud(host);
   const ticker = dressTicker(host.news);
-  dressMapUi(root);
+  const mapUi = dressMapUi(root);
   dressDock(host.foot);
   const pop = installPop(host);
   root.classList.add('uxm-on');
@@ -31,6 +31,7 @@ export function installMapUi(host: UxmHost) {
       rest = r;
       root.classList.toggle('uxm-rest', r);
     }
+    mapUi.frame();
     if (r) return;
     hud.paintMeters();
     ticker.frame();

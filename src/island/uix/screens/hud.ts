@@ -83,7 +83,9 @@ export function buildHud(host: UxmHost) {
 
   // ---- エリアの順位（押すと企業ランキング）
   const rankNum = el('span.uxm-flap.ux-num', '--');
-  const rankFace = el('span.uxm-face', { 'aria-hidden': 'true' }, uxTape(t('エリア', 'Area')), el('span.uxm-rank-win', isEn ? el('span.uxm-rank-unit', '#') : null, rankNum, isEn ? null : el('span.uxm-rank-unit', '位')));
+  // 英語は「#2」、日本語は「2 位」
+  const rankUnit = el('span.uxm-rank-unit', t('位', '#'));
+  const rankFace = el('span.uxm-face', { 'aria-hidden': 'true' }, uxTape(t('エリア', 'Area')), el('span.uxm-rank-win', isEn ? rankUnit : null, rankNum, isEn ? null : rankUnit));
   const gRank = ghost(el('div.uxm-rank', rankFace), statRank);
 
   // ---- ブランド力（押すとブランド力の画面）。炎上のおそれ・炎上中は、右上のランプ
@@ -111,7 +113,6 @@ export function buildHud(host: UxmHost) {
     const [ico, label] = SPEED[k] ?? SPEED[1];
     b.replaceChildren(mIcon(ico, { cls: 'is-dim' }), mIcon(ico, { color: '#1a1c2e', hi: '#1a1c2e', cls: 'is-lit' }), el('span.ux-vh', label));
     b.setAttribute('aria-label', label);
-    b.dataset.uxQuiet = '';
   });
   speedBox.setAttribute('role', 'group');
   speedBox.setAttribute('aria-label', t('時間の進み', 'Game speed'));
@@ -387,6 +388,14 @@ export function dressMapUi(root: HTMLElement) {
       const name = MARK_ICO[b.dataset.kind ?? ''];
       if (ic && name) ic.replaceChildren(mIcon(name, { color: '#1a1c2e', hi: '#f4ecd4', lo: '#1a1c2e' }));
     }
+    // ミッションの小さなチェックの数（建物を指さしているあいだは、チェックをたたんで数だけ出す：札が建物を隠さないように）
+    for (const row of root.querySelectorAll<HTMLElement>('.isl-missions .isl-mis.is-tut:not(.uxm-done)')) {
+      row.classList.add('uxm-done');
+      const checks = row.querySelectorAll('.isl-mis-check');
+      if (!checks.length) continue;
+      const on = row.querySelectorAll('.isl-mis-check.is-on').length;
+      row.append(el('small.uxm-mis-sum', t(`チェック ${on} / ${checks.length}`, `Checks ${on} / ${checks.length}`)));
+    }
     for (const b of root.querySelectorAll<HTMLElement>('.isl-mark-tip:not(.uxm-done)')) {
       b.classList.add('uxm-done');
       b.replaceChildren(mIcon('bulb', { color: '#1a1c2e', hi: '#ffe394', scale: 1 }));
@@ -394,6 +403,15 @@ export function dressMapUi(root: HTMLElement) {
   };
   dress();
   if (typeof MutationObserver === 'function') new MutationObserver(dress).observe(root, { childList: true, subtree: true });
+  let pointing = false;
+  /** 毎コマ：建物を指さしているか（チュートリアル） */
+  const frame = () => {
+    const p = !!point && !point.hidden;
+    if (p !== pointing) {
+      pointing = p;
+      root.classList.toggle('uxm-pointing', p);
+    }
+  };
   // 今の要素が自分で書き直す印（手紙・タップ・強調の矢印）は、CSS の変数に入れたドットの絵で出す
   const url = (name: string, color: string, hi = '#fffdf3') => {
     try {
@@ -407,4 +425,5 @@ export function dressMapUi(root: HTMLElement) {
   st.setProperty('--uxm-i-mail', url('mail', '#ffb81f', '#1a1c2e'));
   st.setProperty('--uxm-i-lock', url('lock', '#97a1cf', '#151829'));
   st.setProperty('--uxm-i-unlock', url('unlock', '#ffb81f', '#151829'));
+  return { frame };
 }

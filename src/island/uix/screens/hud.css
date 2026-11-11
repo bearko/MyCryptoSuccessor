@@ -536,13 +536,13 @@ html.is-uxc #isl-ui.uxm-on .isl-missions-list {
 }
 html.is-uxc #isl-ui.uxm-on .isl-mis {
   grid-template-columns: 20px 1fr;
-  gap: 2px 6px;
+  gap: 0 6px;
   min-height: 44px;
-  padding: 6px 6px;
+  padding: 4px 6px;
   background: none;
   box-shadow: inset 0 2px 0 var(--ux-paper2);
   color: var(--ux-ink);
-  font: 400 1rem/1.4 var(--ux-jp);
+  font: 400 1rem/1.3 var(--ux-jp);
 }
 html.is-uxc #isl-ui.uxm-on .isl-mis.is-tut {
   border-left: 4px solid var(--ux-amber);
@@ -566,17 +566,23 @@ html.is-uxc #isl-ui.uxm-on .isl-mis.is-waiting .isl-mis-box {
 html.is-uxc #isl-ui.uxm-on .isl-mis-text {
   font-size: 1rem;
   font-weight: 400;
-  line-height: 1.4;
+  line-height: 1.3;
   text-shadow: 1px 0 currentColor;
 }
 html.is-uxc #isl-ui.uxm-on .isl-mis.is-cleared .isl-mis-text { color: var(--ux-paper3); }
 html.is-uxc #isl-ui.uxm-on .isl-mis-check,
 html.is-uxc #isl-ui.uxm-on .isl-mis small {
   font-size: 1rem;
-  line-height: 1.4;
+  line-height: 1.3;
   color: #5d5a45;
 }
 html.is-uxc #isl-ui.uxm-on .isl-mis-check.is-on { color: var(--ux-good-lo); }
+/* せまい画面で建物を指さしているあいだ（チュートリアル）：小さなチェックはたたんで数だけ出す（札が、押してほしい建物を隠さない） */
+html.is-uxc #isl-ui.uxm-on .uxm-mis-sum { display: none; }
+@media (max-width: 699px) {
+  html.is-uxc #isl-ui.uxm-on.uxm-pointing .isl-mis.is-tut .isl-mis-check { display: none; }
+  html.is-uxc #isl-ui.uxm-on.uxm-pointing .isl-mis.is-tut .uxm-mis-sum { display: block; }
+}
 html.is-uxc #isl-ui.uxm-on .isl-mis-go {
   color: var(--ux-bad-lo);
   font-size: 1rem;
@@ -605,11 +611,10 @@ html.is-uxc #isl-ui.uxm-on .isl-zoom {
   right: calc(var(--rail-w, 0px) + 6px);
   gap: 2px;
 }
-/* せまい画面：ミッションの札に隠れないよう、下の帯の上（「次の月へ」のキーの上）に置く。吹き出しのあいだは、下のキーに場所をゆずる */
+/* せまい画面：ミッションの札とマインちゃんの一言のあいだ（どちらにも隠れない高さ）に置く。吹き出しのあいだは、下のキーに場所をゆずる */
 @media (max-width: 699px) {
   html.is-uxc #isl-ui.uxm-on .isl-zoom {
-    top: auto;
-    bottom: calc(var(--foot-h, 96px) + 84px);
+    top: min(62%, calc(100% - var(--foot-h, 96px) - 230px));
   }
   html.is-uxc #isl-ui.uxm-on.uxm-popping .isl-zoom {
     display: none;
@@ -622,6 +627,10 @@ html.is-uxc #isl-ui.uxm-on .isl-zoom .isl-btn {
   min-height: 44px;
   padding: 0;
   font-size: 0;
+}
+/* 建てるモードの「選択中」の札：上の帯の下へ（今は帯の右に置く。新しい帯は 1 枚の板なので、重ねない） */
+html.is-uxc #isl-ui.uxm-on .isl-selbox {
+  top: var(--hud-h, 160px) !important;
 }
 /* 困りごとの印：色の付いた貼り札（色・絵・読み上げの名前の 3 つで伝える） */
 html.is-uxc #isl-ui.uxm-on .isl-mark-pin {
@@ -1080,6 +1089,18 @@ html.is-uxc #isl-ui.uxm-on.is-rail .isl-tab {
   flex: none;
   padding: 0;
 }
+/* グループの引き出しも、柱の左に縦に並ぶ */
+html.is-uxc #isl-ui.uxm-on.is-rail .isl-drawer {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  width: 112px;
+  max-width: none;
+  margin: 6px 2px 6px 0;
+  padding: 10px 6px 8px;
+  filter: none;
+}
+html.is-uxc #isl-ui.uxm-on.is-rail .isl-drawer .isl-tab { flex: none; }
 html.is-uxc #isl-ui.uxm-on.is-rail .isl-tab.is-center { margin: 6px 0; }
 html.is-uxc #isl-ui.uxm-on.is-rail .isl-tab.is-guide::after {
   content: '';

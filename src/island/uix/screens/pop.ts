@@ -97,12 +97,12 @@ export function installPop(host: UxmHost) {
   const bubbleBox = el('div.uxm-pop-bubble');
   const lamp = uxLamp('', true, true);
   const moreTxt = el('b');
-  const more = uxKey(el('span.uxm-more-in', lamp, moreTxt), () => setData(!dataOn), { ico: 'list', cls: 'uxm-pop-more', attrs: { 'aria-expanded': 'false' } });
+  const more = uxKey(el('span.uxm-more-in', lamp, moreTxt), () => setData(!dataOn), { ico: 'list', cls: 'uxm-pop-more', attrs: { 'aria-expanded': 'false', 'data-ux-quiet': '' } });
   const under = el('div.uxm-pop-under', more);
   const anchor = el('div.uxm-pop-anchor', bubbleBox, under);
   const gaps = el('div.uxm-pop-gaps', { hidden: true });
   const actions = el('div.uxm-pop-actions.ux-pop-actions', gaps, acts);
-  const dataHead = el('div.uxm-pop-datahead', uxTape(t('くわしく', 'Details')), uxKey(el('span.ux-vh', t('もどる', 'Back')), () => setData(false), { ico: 'close', cls: 'uxm-pop-datax', attrs: { 'aria-label': t('くわしくを閉じる', 'Close details') } }));
+  const dataHead = el('div.uxm-pop-datahead', uxTape(t('くわしく', 'Details')), uxKey(el('span.ux-vh', t('もどる', 'Back')), () => setData(false), { ico: 'close', cls: 'uxm-pop-datax', attrs: { 'aria-label': t('くわしくを閉じる', 'Close details'), 'data-ux-quiet': '' } }));
   const data = el('div.uxm-pop-data.ux-plate', { hidden: true }, el('div.ux-screws'), dataHead, body);
   const stage = el('div.uxm-pop-stage.ux-pop.ux-root', anchor, data, actions);
   pop.append(stage);
@@ -210,6 +210,8 @@ export function installPop(host: UxmHost) {
       titleEl = el(`span.ux-tape.uxm-pop-title${m.hero != null ? '.has-face.ux-tape--dark' : ''}`, el('b', shown));
       if (m.hero != null) bubble.el.querySelector('.ux-pop-foot')?.prepend(titleEl);
       else bubble.el.querySelector('.ux-pop-rise')?.append(titleEl);
+      // 閉じるキーは自分の音（押す・離す）を持つ：全体の押した音と重ねない
+      bubble.el.querySelector('.ux-pop-x')?.setAttribute('data-ux-quiet', '');
       bubbleBox.replaceChildren(bubble.el);
       stage.setAttribute('role', 'dialog');
       stage.setAttribute('aria-label', name ? t(`${name}の話`, `${name} speaking`) : shown);
