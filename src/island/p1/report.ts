@@ -30,26 +30,27 @@ import { sectorDef } from './company';
 import { ZERO_LINE } from './mine';
 import { arw, candleEl, candleLegend, cvBox, donutEl, fallEl, fallLegend, legendEl, pctBarEl, rankBarsEl, shortN, trendEl, trendLegend, type TSer } from './chartkit';
 import { dutyText, tradeNeighbors } from './tariff';
+import { uxs } from '../uix/screens/s-slots';
 import { costParts, monHead, monLab, monthFall, moneyCandles, rankRows, salesParts } from './dash';
 
-const STAGE_NAME: Record<Stage, string> = { buy: t('① 調達', '① Buy'), craft: t('② 製造', '② Craft'), haul: t('③ 物流', '③ Haul'), sell: t('④ 販売', '④ Sell') };
+export const STAGE_NAME: Record<Stage, string> = { buy: t('① 調達', '① Buy'), craft: t('② 製造', '② Craft'), haul: t('③ 物流', '③ Haul'), sell: t('④ 販売', '④ Sell') };
 const STAGE_ICON: Record<Stage, string> = { buy: '🧱', craft: '🔨', haul: '🛒', sell: '🏪' };
 /** 段ごとの直し方（ボトルネックのとき） */
-const STAGE_HINT: Record<Stage, string> = {
+export const STAGE_HINT: Record<Stage, string> = {
   buy: t('素材が足りていません。調達係を置くか、スキル「調達枠の拡大」「まとめ買い」で仕入れを増強しましょう。', 'Materials are short. Assign a buyer or widen buying with the Bigger quota / Bulk buying skills.'),
   craft: t('作る数が足りていません。作業台を増やす（工房の設備投資）・段取りの改善（スキル）か、製造の得意なヒーローを置きましょう。', 'Crafting is the limit. Add a bench (workshop investment), Better jigs (skill), or put a better crafter on the bench.'),
   haul: t('運ぶ数が足りていません。荷車を増やす・小型トラック（工房の設備投資）、遠いお店には物流拠点を。', 'Hauling is the limit. More carts or a Small truck (workshop investment); a hub for far shops.'),
   sell: t('売れる数が頭打ち。棚やお店の数ではなく、別の商品・届く場所・売り場の強さ・認知で伸びます（サプライチェーンの販売の内訳へ）。', 'Sales are capped. They grow with another item, reaching new homes, stronger shops or awareness — not more shelves or shops (see the SCM sales breakdown).'),
 };
 /** スマホ用の短い版（2 行以内） */
-const STAGE_HINT_SHORT: Record<Stage, string> = {
+export const STAGE_HINT_SHORT: Record<Stage, string> = {
   buy: t('素材が足りない。調達係やスキルで仕入れを増強。', 'Short of materials. Add a buyer or buying skills.'),
   craft: t('作る数が足りない。作業台（設備投資）・スキル・職人を。', 'Crafting is short. Benches (investment), skills or a crafter.'),
   haul: t('運ぶ数が足りない。荷車（設備投資）・物流拠点を。', 'Hauling is short. Carts (investment) or a hub.'),
   sell: t('売れる数が頭打ち。別の商品・届く場所・売り場・認知で（販売の内訳へ）。', 'Sales capped: new item, reach, pull or awareness (breakdown).'),
 };
 /** 段を太くするスキル（スキルツリーの枝） */
-const STAGE_BRANCH: Record<Stage, string> = { buy: 'buy', craft: 'craft', haul: 'logi', sell: 'shop' };
+export const STAGE_BRANCH: Record<Stage, string> = { buy: 'buy', craft: 'craft', haul: 'logi', sell: 'shop' };
 
 /** ゴールの順位（いまはエリア 1 位で固定。セクタのランクで変える余地）。制覇はこれを TOP_STREAK か月続ける */
 const GOAL_RANK = 1;
@@ -449,6 +450,8 @@ export function openMonthReport(ctx: Ctx, r: Report, hooks: ReportHooks, then?: 
   const upto = idx >= 0 ? s.reports.slice(0, idx + 1) : [...s.reports, r];
   const again = announced.has(r);
   announced.add(r);
+  // 段 UIX2s：新しい画面（入のときだけ。uix/screens/report.ts）。発表を 1 回だけにする決まり（again）は今のまま
+  if (uxs.report) return uxs.report(ctx, r, hooks, then, again);
   /** 発表が終わったか（終わるまでは本体を隠す） */
   let shown = again;
   /** 本体のカードの出る演出・順位のポン（最初の 1 回だけ） */
@@ -896,6 +899,8 @@ export function openDigSummary(ctx: Ctx, sum: DigSummary, hooks: DigSummaryHooks
   const s = ctx.s();
   // まとめ報告の発表は、最新の月の報告の発表も兼ねる（「くわしい報告を見る」でドラムロールを繰り返さない）
   announced.add(sum.latest);
+  // 段 UIX2s：新しい画面（入のときだけ）
+  if (uxs.digSummary) return uxs.digSummary(ctx, sum, hooks, then);
   let counted = false;
   /** カウントを始めた時刻（画面を描き直しても、続きから。ドラムロールは最初の 1 回だけ） */
   let t0: number | null = null;
