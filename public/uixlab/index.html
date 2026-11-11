@@ -21,7 +21,7 @@
   .how p + p { margin-top: 4px; }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
   .card { display: flex; flex-direction: column; min-width: 0; background: var(--panel); border: 2px solid var(--line); }
-  .card .shot { display: block; width: 100%; aspect-ratio: 390 / 500; object-fit: cover; object-position: top; border-bottom: 2px solid var(--line); background: #000; }
+  .card .shot { display: block; width: 100%; height: auto; aspect-ratio: 390 / 500; object-fit: cover; object-position: top; border-bottom: 2px solid var(--line); background: #000; }
   .card .pix { image-rendering: pixelated; }
   .body { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 16px; flex: 1; }
   .tag { margin: 0; font-size: 13px; letter-spacing: 0.14em; color: var(--key); }
@@ -51,7 +51,7 @@
 
   <ul class="cards">
     <li class="card">
-      <img class="shot" src="thumbs/a.webp" alt="方向 A「帳場」の画面。紙の稟議書と朱の検印" width="390" height="844" />
+      <img class="shot" style="object-position: center 62%" src="thumbs/a.webp" alt="方向 A「帳場」の画面。紙の稟議書と朱の検印" width="390" height="844" />
       <div class="body">
         <p class="tag">方向 A</p>
         <h2>帳場</h2>
@@ -64,7 +64,20 @@
         <a class="go" href="a/index.html">A を触る</a>
       </div>
     </li>
-    <!--B-->
+    <li class="card">
+      <img class="shot" style="object-position: center 88%" src="thumbs/b.webp" alt="方向 B「号外」の画面。朱の特大の活字「承認」が刷られる瞬間" width="390" height="844" />
+      <div class="body">
+        <p class="tag">方向 B</p>
+        <h2>号外</h2>
+        <p class="what">刷り物の勢い。墨・生成り・朱に金、斜めの特大の見出し、網点。太鼓と管の音。</p>
+        <dl>
+          <dt>遷移</dt><dd>朱・墨・金の帯が、斜めに切り裂く</dd>
+          <dt>承認</dt><dd>特大の活字「承認」を、紙に刷る</dd>
+          <dt>数字</dt><dd>変わった桁の活字が、上から叩きつけられる</dd>
+        </dl>
+        <a class="go" href="b/index.html">B を触る</a>
+      </div>
+    </li>
     <li class="card">
       <img class="shot pix" src="thumbs/c.webp" alt="方向 C「管制卓」の画面。ドット絵の計器が並ぶ工房" width="390" height="844" />
       <div class="body">
