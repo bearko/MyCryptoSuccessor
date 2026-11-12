@@ -5729,6 +5729,15 @@ window.setTimeout(() => warmFx(), 3000);
   notesOpen: () => openNotes(ctx),
   tablet: (id: string) => debugTablet(id),
   tick: () => renderAll(),
+  /** 段 UIX3a（撮影・確かめ用）：お知らせ・トロフィーのお知らせ・窓・ミッションの一覧・設定を出す */
+  toast: (text: string, img?: string) => toast(text, img),
+  trophyDemo: (d: TrophyDef) => {
+    trophyQ.push(d);
+    trophyFlush();
+  },
+  modalDemo: (title: string, body: string, face = false) => modal(title, body, [[t('やり直す', 'Start over'), () => undefined, 'is-danger'], [t('やめる', 'Cancel'), () => undefined, 'is-on']], face),
+  missions: () => openMissions(ctx),
+  settings: () => openSettings(),
   /** 建てる・置くモードを始める（撮影スクリプト用） */
   place: (id: string) => startPlacing(id),
   /** 段 UX1（撮影スクリプト用）：まだ掘りきっていない荒れ地の 1 マス目 */
