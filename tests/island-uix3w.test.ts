@@ -9,7 +9,6 @@ import { FRONT_SEL } from '../src/island/uix/front';
 import { CUT_CALM_MS, CUT_MS, CUT_OUT_MS, ROLL_MS, bare, barWait, cutCore, letterKind, nameParts, plainSay, rpDigits, sayParts } from '../src/island/uix/screens/conquer';
 import { END_AUTO_MS, END_KEYS_MS, FIND_STEP_MS, SPARK_BURSTS, findAt, sparkPicks, statNum, topicLamps } from '../src/island/uix/screens/dig';
 import { NAME_W, gapRate, goKind, nodeLook } from '../src/island/uix/screens/land';
-import { M_ICONS } from '../src/island/uix/screens/micons';
 import { UX_ICONS } from '../src/island/uix/icons';
 import { W_ICONS } from '../src/island/uix/screens/w-icons';
 import { uxw } from '../src/island/uix/screens/w-slots';
@@ -44,6 +43,8 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
   it('新しい画面の束は、本体のモジュールを自分では読まない（型だけ）。関数は p1/uxw.ts から渡す', () => {
     for (const f of FILES) {
       const code = src(`uix/screens/${f}`);
+      // ほかの段の束（上と下の帯）の部品も読まない（共有の束ができて、事前に保存する一覧が変わる）
+      expect(code, f).not.toMatch(/from '\.\/(micons|mhooks|mapui|hud|pop|dock)'/);
       for (const m of code.matchAll(/^import (type )?[^;]*? from '([^']+)';/gms)) {
         const outside = /^\.\.\/\.\.\//.test(m[2]);
         if (outside && !m[1]) expect(m[2], `${f}: ${m[0].slice(0, 60)}`).toBe('../../../i18n');
@@ -314,11 +315,12 @@ describe('発掘', () => {
     expect(DG).toContain("for (const k of ['.isl-dig-info', '.isl-dig-spec', '.isl-dig-tools', '.isl-dig-legend', '.isl-dig-crew']) deco(root.querySelector(k));");
     expect(DG).toContain('new MutationObserver(');
     // 替える先の絵は、どれも持っている
-    const have = new Set([...UX_ICONS, ...M_ICONS, ...W_ICONS]);
+    const have = new Set([...UX_ICONS, ...W_ICONS]);
     const map = /const EMOJI_ICO[^=]*= \{([^}]*)\}/.exec(LN)![1];
     for (const m of map.matchAll(/: '([a-z]+)'/g)) expect(have.has(m[1]), m[1]).toBe(true);
     for (const m of DG.matchAll(/(?:ico|wIcon)\('([a-z]+)'/g)) expect(have.has(m[1]), m[1]).toBe(true);
     for (const m of DG.matchAll(/ico: '([a-z]+)'/g)) expect(UX_ICONS, m[1]).toContain(m[1]);
-    for (const m of LN.matchAll(/ico: '([a-z]+)'/g)) expect(UX_ICONS, m[1]).toContain(m[1]);
+    // キーに添える絵は、土台の絵（uxKey は土台の icons.ts から描く）
+    for (const line of LN.split('\n').filter((l) => l.includes('uxKey('))) for (const m of line.matchAll(/ico: '([a-z]+)'/g)) expect(UX_ICONS, m[1]).toContain(m[1]);
   });
 });

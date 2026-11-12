@@ -174,7 +174,7 @@ function endCard(o: { kind: string; label: string; ico: string; title: string; b
   return el(
     `section.uxw-end.uxw-end--${o.kind}`,
     { role: 'dialog', 'aria-label': o.label },
-    el('div.uxw-end-wrap.ux-float', mineFace(), el('div.uxw-end-card.ux-plate', el('div.ux-screws'), el('div.uxw-end-head', uxIcon(o.ico, { color: '#ffb81f', scale: 3 }), el('h2', o.title)), o.body)),
+    el('div.uxw-end-wrap', mineFace(), el('div.uxw-end-card.ux-plate', el('div.ux-screws'), el('div.uxw-end-head', uxIcon(o.ico, { color: '#ffb81f', scale: 3 }), el('h2', o.title)), o.body)),
   );
 }
 /** 窓の外枠：今の目印（.isl-modal）を付ける（開いているあいだ時間が止まる）。押した先を地図へ渡さない */
@@ -268,8 +268,8 @@ export function openLetterUx(v: LetterView) {
         m.append(card);
         card.classList.add('is-in');
         uxSfx(kind === 'conquest' ? 'open' : 'clunk');
-        if (kind === 'conquest') confetti(4);
-        else shake(card.querySelector('.uxw-end-card'));
+        if (kind !== 'conquest') shake(card.querySelector('.uxw-end-card'));
+        // 花火と紙ふぶきは、今のドットの効果（制覇は金の 1 発と紙ふぶきが足される）。上掛けの紙ふぶきは重ねない（粒が二重になって重い）
         v.fx();
         // 札が打たれる → ランプが順に点く → 研究ポイントが回る → ひと言
         const count = () => rp.set(v.rp, { dur: 900, onTick: () => uxSfx('coin') });

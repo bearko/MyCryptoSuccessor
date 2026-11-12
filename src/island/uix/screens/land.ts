@@ -14,7 +14,6 @@ import { rollNumber, uxKey, uxLamp, uxLever, uxMeter, uxTape, type LampKind } fr
 import { isCalm } from '../prefs';
 import { uxScene, uxSfx } from '../sound';
 import { bare, sayParts } from './conquer';
-import { mIcon } from './micons';
 import { safe } from './s-press';
 import { W } from './w-deps';
 import { wIcon } from './w-icons';
@@ -69,8 +68,8 @@ export const NAME_W: Record<string, number> = { C: 23, U: 29, R: 34, E: 24, L: 2
 
 // ---------------------------------------------------------------- 部品
 
-const ico = (name: string, color = '#f4ecd4', scale = 1) => mIcon(name, { color, hi: color, scale });
-const inkIco = (name: string, scale = 1) => mIcon(name, { color: '#1a1c2e', hi: '#1a1c2e', lo: '#1a1c2e', scale });
+const ico = (name: string, color = '#f4ecd4', scale = 1) => wIcon(name, { color, hi: color, scale });
+const inkIco = (name: string, scale = 1) => wIcon(name, { color: '#1a1c2e', hi: '#1a1c2e', lo: '#1a1c2e', scale });
 const SVG = 'http://www.w3.org/2000/svg';
 const sv = (tag: string, attrs: Record<string, string>) => {
   const e = document.createElementNS(SVG, tag);
@@ -175,7 +174,7 @@ function render(ctx: Ctx, body: HTMLElement) {
     const noLetter = W.letterLocked(s, d.id);
     const look = nodeLook(st, noLetter);
     const name = st === 'cloud' ? '???' : d.name;
-    const b = el<HTMLButtonElement>(`button.uxw-ln-node.is-${st}${look.can ? '.is-can' : ''}`, { type: 'button', 'aria-label': `${name}：${look.word}`, 'data-ux-quiet': '' });
+    const b = el<HTMLButtonElement>(`button.uxw-ln-node.is-${st}${look.can ? '.is-can' : ''}`, { type: 'button', 'aria-label': t(`${name}：${look.word}`, `${name}: ${look.word}`), 'data-ux-quiet': '' });
     b.dataset.sector = d.id;
     b.style.left = `${d.at[0]}%`;
     b.style.top = `${d.at[1]}%`;
@@ -195,10 +194,11 @@ function render(ctx: Ctx, body: HTMLElement) {
       if (rv && rv.ruins > 0) {
         const fixing = rv.hero != null && rv.fund > 0;
         b.append(el(`span.uxw-ln-ruin${fixing ? '.is-fix' : ''}`, { title: W.reviveLine(rv).replace(/\p{Extended_Pictographic}\uFE0F?\s*/gu, '') }, ico(fixing ? 'hammer' : 'warn', '#1a1c2e')));
-        b.setAttribute('aria-label', `${name}：${look.word}・${fixing ? t(`復興中 ${rv.fixed}/${rv.all}`, `rebuilding ${rv.fixed}/${rv.all}`) : t('被災', 'hit')}`);
+        const hit = fixing ? t(`復興中 ${rv.fixed}/${rv.all}`, `rebuilding ${rv.fixed}/${rv.all}`) : t('被災', 'hit');
+        b.setAttribute('aria-label', t(`${name}：${look.word}・${hit}`, `${name}: ${look.word}, ${hit}`));
       }
     }
-    if (st === 'here') b.append(el('i.uxw-ln-pin', mIcon('pin', { color: '#ffb81f', scale: 2 })));
+    if (st === 'here') b.append(el('i.uxw-ln-pin', wIcon('pin', { color: '#ffb81f', scale: 2 })));
     b.append(el('span.uxw-ln-name', name));
     b.addEventListener('click', () => pick(d.id));
     nodes.set(d.id, b);

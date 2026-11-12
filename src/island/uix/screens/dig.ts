@@ -269,7 +269,7 @@ function end(root: HTMLElement, e: DigEndView) {
   const card = el(
     'section.uxw-dg-end',
     { role: 'dialog', 'aria-label': t('発掘終了', 'Dig over') },
-    el('div.uxw-dg-endwrap.ux-float', el('div.uxw-dg-endcard.ux-plate', el('div.ux-screws'), el('div.uxw-dg-endhead', wIcon('pick', { color: '#ffb81f', scale: 3 }), el('h2', t('発掘終了', 'Dig over')), uxTape(t('今回の出土', 'This dig'), 'amber')), el('div.uxw-dg-endbody', body), keys)),
+    el('div.uxw-dg-endwrap', el('div.uxw-dg-endcard.ux-plate', el('div.ux-screws'), el('div.uxw-dg-endhead', wIcon('pick', { color: '#ffb81f', scale: 3 }), el('h2', t('発掘終了', 'Dig over')), uxTape(t('今回の出土', 'This dig'), 'amber')), el('div.uxw-dg-endbody', body), keys)),
   );
   card.addEventListener('pointerdown', (ev) => ev.stopPropagation());
   root.append(card);

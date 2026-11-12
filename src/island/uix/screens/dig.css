@@ -386,10 +386,19 @@ html.is-uxc .uxw-dg-end {
   background: var(--ux-dz50s), rgba(9, 11, 24, 0.66);
 }
 html.is-uxc .uxw-dg-endwrap {
+  position: relative;
   width: min(480px, 100%);
   max-height: 100%;
   display: flex;
   animation: ux-card-in 260ms steps(6, end) both;
+}
+/* 固い影は、ずらした同じ形で描く（filter の影は、中の数字が回るたびに札ごと描き直しになって重い） */
+html.is-uxc .uxw-dg-endwrap::before {
+  content: '';
+  position: absolute;
+  inset: 4px -4px -4px 4px;
+  background: rgba(4, 6, 14, 0.55);
+  clip-path: var(--ux-notch4);
 }
 html.is-uxc .uxw-dg-endcard {
   flex: 1;
