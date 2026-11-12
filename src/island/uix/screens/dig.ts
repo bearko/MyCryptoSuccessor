@@ -112,7 +112,20 @@ function open(root: HTMLElement) {
     dug: cell('is-dug', [ico('layers', '#97a1cf'), dugK], el('div.uxw-dg-v', dugV), dugM.el),
     top: cell('is-top', [ico('flag', '#ffb81f'), topK], topV),
   };
-  head.after(timer, el('div.uxw-dg-gauges', { 'aria-hidden': 'true' }, cells.rp, cells.got, cells.dug, cells.top));
+  // 字を大きくした（115%・130%）せまい画面：小さな帯 2 行（作業の条件・日付・売上・爆弾）と層の並びは畳んで、この見出しを押すと開く（壁のマスを 44px 近くに保つ）。
+  // ふだん（100%・広い画面）は、見出しは出さず、帯はそのまま出る（dig.css）
+  const foldWord = el('b', t('開く', 'Open'));
+  const fold = el<HTMLButtonElement>('button.uxw-dg-fold', { type: 'button', 'aria-expanded': 'false', 'data-ux-quiet': '' }, wIcon('down', { color: '#ffb81f', scale: 1 }), el('span', t('条件・日付・売上・爆弾・層', 'Terms · date · sales · bombs · layers')), foldWord);
+  fold.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const on = root.classList.toggle('is-unfold');
+    fold.setAttribute('aria-expanded', String(on));
+    foldWord.textContent = on ? t('畳む', 'Fold') : t('開く', 'Open');
+    uxSfx('flap');
+    // 壁のマスの大きさを合わせ直す（今の仕組み：resize で測り直す）
+    dispatchEvent(new Event('resize'));
+  });
+  head.after(timer, el('div.uxw-dg-gauges', { 'aria-hidden': 'true' }, cells.rp, cells.got, cells.dug, cells.top), fold);
   // つるはし（打っているマスの上）は、ドットの絵に
   root.querySelector('.isl-dig-pick')?.replaceChildren(wIcon('pick', { color: '#f4ecd4', scale: 3 }));
   // あとから足される要素（出土のお知らせ・爆発・マインちゃんのひと言・石板の窓）も、絵文字をドットの絵に

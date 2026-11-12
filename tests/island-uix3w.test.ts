@@ -337,6 +337,20 @@ describe('発掘', () => {
     expect(DG).toContain('if (!v || isCalm()) return;');
     expect(DG).toContain('later(calm ? 0 : 200 + n * 110, run)');
   });
+  it('字を大きくした（115%・130%）せまい画面：小さな帯と層の並びは畳み、見出しを押すと開く（壁のマスを 44px 以上に保つ）。100% は今のまま', () => {
+    expect(DG).toContain("el<HTMLButtonElement>('button.uxw-dg-fold', { type: 'button', 'aria-expanded': 'false'");
+    expect(DG).toContain("const on = root.classList.toggle('is-unfold');");
+    // 開け閉めのあと、壁のマスの大きさを測り直す（今の仕組み：resize）
+    expect(DG).toContain("dispatchEvent(new Event('resize'));");
+    expect(DIGUI).toContain("addEventListener('resize', resize);");
+    const css = src('uix/screens/dig.css');
+    // ふだんは見出しを出さない。出すのは、字を大きくしたせまい画面だけ
+    expect(css).toContain('html.is-uxc .uxw-dg-fold { display: none; }');
+    expect(css).toMatch(/@media \(max-width: 599px\) \{\s*html\.is-uxc:is\(\.is-t115, \.is-t130\) \.uxw-dg-fold \{/);
+    for (const k of ['.isl-dig-spec', '.isl-dig-info', '.isl-dig-legend']) expect(css).toContain(`html.is-uxc:is(.is-t115, .is-t130) .uxw-dig:not(.is-unfold) ${k}`);
+    // 見た目は 28px・押せる高さは 44px
+    expect(css).toMatch(/\.uxw-dg-fold::after \{[^}]*height: 44px;/);
+  });
   it('絵文字は使わない：足した帯はドットの絵。今の要素の絵文字は替える（あとから足される札も）', () => {
     expect(DG).not.toMatch(/\p{Extended_Pictographic}/u);
     expect(DG).toContain("for (const k of ['.isl-dig-info', '.isl-dig-spec', '.isl-dig-tools', '.isl-dig-legend', '.isl-dig-crew']) deco(root.querySelector(k));");
