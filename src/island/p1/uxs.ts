@@ -60,6 +60,7 @@ import { propsOpen } from './stage';
 import { pickMake } from './stockui';
 import { dutyText, tradeNeighbors } from './tariff';
 import { fmt, heroIcon, heroName, matIcon, money, signed, skuIcon, skuName } from './ui';
+import { uxbDeps } from './uxb';
 import { uxwDeps } from './uxw';
 import { uxcDeps } from './uxc';
 import { uxsBoot } from '../uix/screens/s-slots';
@@ -170,6 +171,8 @@ export const uxsDeps = {
   // 段 UIX3w：世界の場面（町の制覇・ランドマップ・発掘）の束
   w: uxwDeps,
   uxc: uxcDeps,
+  // 段 UIX3b：事業の画面（調達・お店・サプライチェーン ほか）の束
+  b: uxbDeps,
 };
 export type UxsDeps = typeof uxsDeps;
 

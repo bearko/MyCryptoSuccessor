@@ -146,6 +146,7 @@ import { adBreakeven, adGain } from './moves';
 import { craftable, shopInvestOrder } from './orders';
 import { charismaCard, charismaNeeds, openPayroll as openPayrollHr } from './hrui';
 import { hireEmptyLines } from './hr';
+import { uxb } from '../uix/screens/b-slots';
 import { uxs } from '../uix/screens/s-slots';
 
 export interface Ctx {
@@ -1165,6 +1166,8 @@ function ordersCard(s: P1State): HTMLElement {
 }
 
 export function openBuy(ctx: Ctx) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/buy.ts）
+  if (uxb.buy) return uxb.buy(ctx);
   open(ctx, t('調達', 'Buying'), (body) => {
     const s = ctx.s();
     mineTip(ctx, 'buy', body);
