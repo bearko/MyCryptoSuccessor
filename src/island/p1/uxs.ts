@@ -62,6 +62,7 @@ import { dutyText, tradeNeighbors } from './tariff';
 import { fmt, heroIcon, heroName, matIcon, money, signed, skuIcon, skuName } from './ui';
 import { uxwDeps } from './uxw';
 import { uxcDeps } from './uxc';
+import { uxkDeps } from './uxk';
 import { uxsBoot } from '../uix/screens/s-slots';
 
 export const uxsDeps = {
@@ -170,6 +171,7 @@ export const uxsDeps = {
   // 段 UIX3w：世界の場面（町の制覇・ランドマップ・発掘）の束
   w: uxwDeps,
   uxc: uxcDeps,
+  k: uxkDeps,
 };
 export type UxsDeps = typeof uxsDeps;
 

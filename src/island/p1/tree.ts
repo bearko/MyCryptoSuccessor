@@ -24,6 +24,7 @@ import { tipLine, tipPanels } from './mapmarks';
 import { rpStackEl, studyEl } from './r2ui';
 import { STUDY_KINDS, studyLock } from './r2';
 import { goalFloor, goalMonths, goalNext, goalPath, goalable, setGoal, type GoalWait } from './goal';
+import { uxk } from '../uix/screens/k-slots';
 
 /** ランドセクタの絵（はじまりの国 Lime） */
 const TIER_IMG: Record<Tier, string> = { C: '04_Lime_1_Common', U: '04_Lime_2_Uncommon', R: '04_Lime_3_Rare', E: '04_Lime_4_Epic', L: '04_Lime_5_Legendary' };
@@ -633,6 +634,12 @@ export function openSkills(ctx: Ctx, focus?: string) {
     view.x = c.x;
     view.y = c.y;
     view.sel = null;
+  }
+  // 段 UIX3k：入のときは、新しい画面（回路図のスキルツリー。uix/screens/tree.ts）へ。見ている場所・選んだパネル（view）はそのまま渡る
+  if (uxk.tree) {
+    const lift = liftOnce;
+    liftOnce = false;
+    return uxk.tree(ctx, { lift });
   }
   open(ctx, t('スキルツリー', 'Skill tree'), (body) => {
     const s = ctx.s();
@@ -1874,3 +1881,41 @@ export function openSkills(ctx: Ctx, focus?: string) {
 function burstAt(ctx: Ctx, palette: readonly string[]) {
   window.setTimeout(() => fxAtEl('collect-burst', ctx.root.querySelector('.isl-tree-node.is-sel'), { palette, dy: 30 }), 60);
 }
+
+/**
+ * 段 UIX3k：新しい画面（uix/screens/tree.ts）へ渡す、このファイルの道具（p1/uxk.ts が束ねる）。
+ * 絵の決め方・見え方（State）・値段と言い方は、今の画面と同じ 1 か所から使う。view・filt は同じ物（見ている場所・絞り込みを、入でも切でも覚えている）
+ */
+export type TreeState = State;
+export const treeKit = {
+  view,
+  filt,
+  HQ,
+  ALL,
+  RINGFIT,
+  DOUBLE_MS,
+  BURST_MS,
+  DIG_REVEAL_MS,
+  RING_MS,
+  DIG_PUFFS,
+  iconOf,
+  digCloudAt,
+  tierImg,
+  tierArea,
+  isGoalTier,
+  stateOf,
+  priceOf,
+  infText,
+  INF_LABEL,
+  learnLabel,
+  trainNote,
+  ringNeed,
+  shownName,
+  branchName,
+  colorOf,
+  canLevel,
+  nextPrice,
+  donateLabel,
+  DONATE_NEED,
+  HQ_NOTE,
+};

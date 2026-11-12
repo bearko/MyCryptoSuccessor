@@ -5,6 +5,7 @@
  */
 import type { UxsDeps } from '../p1/uxs';
 import type { UxcScreens } from './screens/c-slots';
+import type { UxkScreens } from './screens/k-slots';
 import type { UxScreens } from './screens/s-slots';
 import type { UxwScreens } from './screens/w-slots';
 
@@ -34,5 +35,6 @@ export const ux: UxHooks = {};
 export const uxsSlots: UxScreens = {};
 export const uxcSlots: UxcScreens = {};
 export const uxwSlots: UxwScreens = {};
+export const uxkSlots: UxkScreens = {};
 /** 束（s-boot.ts）が読めたら、入れ方（install）がここに入る（p1/uxs.ts の bootUxs が、起動のその場で呼ぶ）。切のときは空のまま */
 export const uxsBootSlot: { install?: (d: UxsDeps) => void } = {};
