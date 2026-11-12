@@ -134,6 +134,9 @@ html.is-uxc #isl-ui.uxm-on .uxm-delta {
   display: flex;
   align-items: center;
   gap: 2px;
+  padding: 0 2px;
+  /* となりの計器の札に重なっても読めるように、板の色の下地を敷く */
+  background: var(--ux-k2);
   color: var(--ux-good);
   opacity: 0;
   pointer-events: none;

@@ -5590,7 +5590,7 @@ function frame(now: number) {
 }
 requestAnimationFrame(frame);
 // 段 UIX2m：入のときだけ、上と下の帯・建物の吹き出しを新しい画面（方向 C）に入れ替える（切のときは読まない）
-if (uxOn()) void import('../uix/screens/mapui').then((m) => m.installMapUi({ s: () => s, root, hud, foot, pop: popEl, news: ticker.el, cam, size: () => ({ W, H }), unpaid: () => tourUnpaid, speed: () => speed, frac: () => anim.frac, hudBottom: newsBottom, sel: () => (selected != null ? (s.buildings.find((b) => b.uid === selected) ?? null) : null), popAt: () => pop, popSector: () => !!popSector, refresh: renderAll }));
+if (uxOn()) void import('../uix/screens/mapui').then((m) => m.installMapUi({ s: () => s, root, hud, foot, pop: popEl, news: ticker.el, cam, size: () => ({ W, H }), unpaid: () => tourUnpaid, speed: () => speed, frac: () => anim.frac, hudBottom: newsBottom, sel: () => (selected != null ? (s.buildings.find((b) => b.uid === selected) ?? null) : null), popAt: () => pop, popSector: () => !!popSector, refresh: renderAll, api: { DAYS, date, daysToClose, monthRevenue, moveCost, chipOf, activeFx, sectorDef, tierLabel, tierColor: (tier) => TIERS[tier].color } }));
 // ドット絵のエフェクトを暇なときに温めておく（初めて鳴らしたときに引っかからないように）
 window.setTimeout(() => warmFx(), 3000);
 

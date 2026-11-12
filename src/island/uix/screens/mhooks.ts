@@ -4,6 +4,11 @@
  * 入のときだけ、screens/mapui.ts（動的に読む）が中身を入れる。このファイルは型と空の口だけ（切のときに読むのはこれだけ）。
  */
 import type { Camera } from '../../render';
+import type * as Company from '../../p1/company';
+import type { Tier } from '../../p1/data';
+import type * as Events from '../../p1/events';
+import type * as Mine from '../../p1/mine';
+import type * as Model from '../../p1/model';
 import type { P1State, PBuilding } from '../../p1/model';
 
 /** カメラの行き先（p1/main.ts の tween に渡す） */
@@ -53,4 +58,20 @@ export interface UxmHost {
   popSector: () => boolean;
   /** 全部を描き直す（renderAll） */
   refresh: () => void;
+  /**
+   * 本体の関数（読むだけ）。新しい画面の束は本体のコードを import せず、ここから受け取る
+   * （入のときだけ読む束が、本体の束の分かれ方を変えないように）
+   */
+  api: {
+    DAYS: number;
+    date: typeof Model.date;
+    daysToClose: typeof Model.daysToClose;
+    monthRevenue: typeof Model.monthRevenue;
+    moveCost: typeof Model.moveCost;
+    chipOf: typeof Mine.chipOf;
+    activeFx: typeof Events.activeFx;
+    sectorDef: typeof Company.sectorDef;
+    tierLabel: typeof Company.tierLabel;
+    tierColor: (tier: Tier) => string;
+  };
 }

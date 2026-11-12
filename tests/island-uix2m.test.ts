@@ -7,10 +7,10 @@ import { UX_ICONS } from '../src/island/uix/icons';
 import { dateText, dayStep, digitsFor, monthFrac, odoSize } from '../src/island/uix/screens/hud';
 import { uxm } from '../src/island/uix/screens/mhooks';
 import { DEPT_ICO, LABEL_ICO, MARK_ICO, M_ART, NEWS_ICO, STAGE_ICO } from '../src/island/uix/screens/micons';
-import { POP_W, gapMeter, isWide, popCamTarget, popLines, popPlaceUx, popZoom, shortOf, splitEmoji } from '../src/island/uix/screens/pop';
+import { POP_W, gapMeter, isWide, popCamTarget, popLines, popPlaceUx, popZoom, shortOf, splitEmoji, unquote, voiceOf } from '../src/island/uix/screens/pop';
 import { DEPTS, DEPT_GROUPS } from '../src/island/p1/data';
 import { MARK_KIND } from '../src/island/p1/mapmarks';
-import { DAYS, newP1 } from '../src/island/p1/model';
+import { DAYS, date, daysToClose, newP1 } from '../src/island/p1/model';
 import { NEWS_ICON } from '../src/island/p1/ticker';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
@@ -31,6 +31,14 @@ describe('入のときだけ、新しい画面に分かれる', () => {
     // 口のファイルは、型と空の入れ物だけ（中身を読み込まない）
     const hooks = src('uix/screens/mhooks.ts');
     expect([...hooks.matchAll(/^import (type )?/gm)].every((m) => m[1] === 'type ')).toBe(true);
+    // 新しい画面の束（入のときだけ読む）は、本体のコード（p1/）を import しない（型だけ）。要る関数は host.api で渡す：
+    // 本体の束（切のときに読む束）の分かれ方を変えないため
+    for (const f of ['mapui', 'hud', 'dock', 'pop', 'micons', 'mhooks']) {
+      const body = src(`uix/screens/${f}.ts`);
+      const runtime = [...body.matchAll(/^import (type )?[^;]*from '(?:\.\.\/){2}(?:p1\/[a-z]+|render|defs)';$/gm)].filter((m) => !m[1]);
+      expect(runtime.map((m) => m[0]), f).toEqual([]);
+    }
+    expect(MAIN).toMatch(/api: \{ DAYS, date, daysToClose, monthRevenue, moveCost, chipOf, activeFx, sectorDef, tierLabel, tierColor: /);
     // 足した行は 20 行まで
     const added = MAIN.split('\n').filter((l) => /uxm\.|UIX2m/.test(l)).length;
     expect(added).toBeLessThanOrEqual(20);
@@ -122,16 +130,19 @@ describe('上の帯の計器', () => {
   });
   it('日付：開店前は「開業準備 N日目」、開店後は「Y年目 M月D日」。月の進みは 0〜1', () => {
     const s = newP1();
-    expect(dateText(s)).toBe('開業準備 1日目');
-    expect(monthFrac(s, 0.5)).toBe(0);
+    // 本体の関数（date・daysToClose）は、p1/main.ts が host.api で渡す。ここでは同じ関数を直に使う
+    const text = () => dateText(date(s), s.day - (s.arrived ?? 0) + 1);
+    const frac = (f: number) => monthFrac(!!date(s), daysToClose(s), DAYS, f);
+    expect(text()).toBe('開業準備 1日目');
+    expect(frac(0.5)).toBe(0);
     s.open = s.day;
-    expect(dateText(s)).toBe('1年目 1月1日');
-    expect(monthFrac(s, 0)).toBe(0);
-    expect(monthFrac(s, 1)).toBeCloseTo(1 / DAYS, 5);
+    expect(text()).toBe('1年目 1月1日');
+    expect(frac(0)).toBe(0);
+    expect(frac(1)).toBeCloseTo(1 / DAYS, 5);
     s.day += DAYS - 1;
-    expect(dateText(s)).toBe(`1年目 1月${DAYS}日`);
-    expect(monthFrac(s, 1)).toBe(1);
-    expect(monthFrac(s, 9)).toBe(1);
+    expect(text()).toBe(`1年目 1月${DAYS}日`);
+    expect(frac(1)).toBe(1);
+    expect(frac(9)).toBe(1);
   });
   it('1 日の進みは 12 段', () => {
     expect(dayStep(0)).toBe(0);
@@ -187,6 +198,14 @@ describe('建物の吹き出し', () => {
     expect(gapMeter(1000, 1000)).toBe(0.5);
     expect(gapMeter(0, 500)).toBe(0.05);
     expect(gapMeter(-50, 500)).toBe(0.05);
+  });
+  it('担当のひと言はかぎかっこを外して喋る。声は名前から決まる（同じ人はいつも同じ声）', () => {
+    expect(unquote('「データは揃っています。ご指示を。」')).toBe('データは揃っています。ご指示を。');
+    expect(unquote('“Awaiting your command!”')).toBe('Awaiting your command!');
+    expect(unquote('そのまま')).toBe('そのまま');
+    expect(voiceOf('達磨')).toBe(voiceOf('達磨'));
+    expect(voiceOf('達磨')).not.toBe(voiceOf('森蘭丸'));
+    expect(Number.isInteger(voiceOf('MCHアーティスト'))).toBe(true);
   });
   it('キーの字の頭の絵文字は、ドットの絵に替える（字はそのまま）', () => {
     expect(splitEmoji('🔨 修繕する（1,000 G・2 日）')).toEqual({ emoji: '🔨', rest: '修繕する（1,000 G・2 日）' });

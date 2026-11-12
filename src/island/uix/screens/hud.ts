@@ -6,13 +6,11 @@
  * 作り方：今の帯の要素（.isl-stat ほか）は消さない。数字の札は新しい計器の下に透明のまま重ねて、押す先・読み上げ・
  * 手応えの場所（ブランド力の光など）に使う。速さのボタン・タブ・ミッションは今の要素をそのまま着せ替える
  * （チュートリアルの目印 is-guide・is-lock はそのまま効く）。出す・隠すは今の描き直し（renderHud）が決めた値を読む。
+ *
+ * 本体のコード（p1/）は import しない（型だけ）：要る関数は p1/main.ts から host.api で受け取る。
+ * 入のときだけ読むこの束が、本体の束（切のときに読む束）の分かれ方を変えないようにするため。
  */
 import { isEn, t } from '../../../i18n';
-import { TIERS } from '../../p1/data';
-import { activeFx } from '../../p1/events';
-import { chipOf } from '../../p1/mine';
-import { DAYS, date, daysToClose, monthRevenue, type P1State } from '../../p1/model';
-import { sectorDef, tierLabel } from '../../p1/company';
 import { el, fmtN } from '../dom';
 import { Odo, uxLamp, uxTape } from '../parts';
 import { isCalm } from '../prefs';
@@ -24,17 +22,15 @@ import { MARK_ICO, NEWS_ICO, STAGE_ICO, mIcon } from './micons';
 export const digitsFor = (v: number, min: number) => Math.max(min, String(Math.abs(Math.round(v))).length);
 /** カウンターの大きさ：2 つの計器の桁の合計が多いときは、小さい数字にする（390 で 2 段に収める） */
 export const odoSize = (fundsDigits: number, salesDigits: number): '' | 's' => (fundsDigits + salesDigits > 13 ? 's' : '');
-/** 日付の札（帯に収まる短い書き方） */
-export function dateText(s: P1State): string {
-  const d = date(s);
+/** 日付の札（帯に収まる短い書き方）。d：開店後の日付（開店前は null）。prep：開業準備の何日目か */
+export function dateText(d: { year: number; month: number; day: number } | null, prep: number): string {
   if (d) return isEn ? `Y${d.year} M${d.month} D${d.day}` : `${d.year}年目 ${d.month}月${d.day}日`; // i18n-ja
-  const n = s.day - (s.arrived ?? 0) + 1;
-  return t(`開業準備 ${n}日目`, `Prep day ${n}`);
+  return t(`開業準備 ${prep}日目`, `Prep day ${prep}`);
 }
-/** 月の進み（0〜1。今日の進み frac を足す）。開店前は 0 */
-export function monthFrac(s: P1State, frac: number): number {
-  if (!date(s)) return 0;
-  return Math.max(0, Math.min(1, (DAYS - daysToClose(s) + Math.max(0, Math.min(1, frac))) / DAYS));
+/** 月の進み（0〜1。今日の進み frac を足す）。left：締めまでの日数・days：ひと月の日数。開店前（open が偽）は 0 */
+export function monthFrac(open: boolean, left: number, days: number, frac: number): number {
+  if (!open) return 0;
+  return Math.max(0, Math.min(1, (days - left + Math.max(0, Math.min(1, frac))) / days));
 }
 /** 1 日の進みの目盛り（12 段） */
 export const dayStep = (frac: number) => Math.round(Math.max(0, Math.min(1, frac)) * 12) / 12;
@@ -47,7 +43,7 @@ function ghost(box: HTMLElement, legacy: HTMLElement): HTMLElement {
 }
 
 export function buildHud(host: UxmHost) {
-  const { hud } = host;
+  const { hud, api } = host;
   const q = <T extends HTMLElement = HTMLElement>(sel: string) => hud.querySelector<T>(sel);
   // 今の並び：資金・ブランド力・炎上・売上・順位・セクタ・日付・課題・効き目・受け箱・（すきま）・速さ
   const kids = [...hud.children] as HTMLElement[];
@@ -67,7 +63,7 @@ export function buildHud(host: UxmHost) {
   // ---- 資金・今月の売上（桁の回るカウンター）
   const s0 = host.s();
   let fundsV = Math.round(s0.money - host.unpaid());
-  let salesV = Math.round(monthRevenue(s0) - host.unpaid());
+  let salesV = Math.round(api.monthRevenue(s0) - host.unpaid());
   let fd = digitsFor(fundsV, 6);
   let sd = digitsFor(salesV, 7);
   let size = odoSize(fd, sd);
@@ -164,7 +160,7 @@ export function buildHud(host: UxmHost) {
     const now = performance.now();
     // 資金・売上：桁が足りなくなったら、計器を作り直す
     const fv = Math.round(s.money - host.unpaid());
-    const sv = Math.round(monthRevenue(s) - host.unpaid());
+    const sv = Math.round(api.monthRevenue(s) - host.unpaid());
     const nfd = digitsFor(fv, 6);
     const nsd = digitsFor(sv, 7);
     if (nfd > fd || nsd > sd || odoSize(Math.max(fd, nfd), Math.max(sd, nsd)) !== size) {
@@ -226,7 +222,8 @@ export function buildHud(host: UxmHost) {
     brandLamp.classList.toggle('is-on', flameOn);
     brandLamp.classList.toggle('is-blink', fire);
     // 日付（変わると札がめくれる）・計画中
-    const dt = dateText(s);
+    const day = api.date(s);
+    const dt = dateText(day, s.day - (s.arrived ?? 0) + 1);
     if (dt !== lastDate) {
       if (lastDate) flip(dateTxt);
       lastDate = dt;
@@ -236,22 +233,22 @@ export function buildHud(host: UxmHost) {
     if (plan.hidden === planOn) plan.hidden = !planOn;
     gDate.classList.toggle('is-plan', planOn);
     if (planOn) {
-      const d = date(s);
+      const d = day;
       const txt = d ? t(`計画中 ▶ ${d.month}月へ`, `Planning ▶ M${d.month}`) : t('計画中 ▶ 次の月へ', 'Planning ▶ next');
       if (plan.textContent !== txt) plan.textContent = txt;
     }
     gDate.classList.toggle('is-held', statDate.classList.contains('is-held'));
-    monthMeter.classList.toggle('is-near', !!date(s) && daysToClose(s) <= 5);
-    const left = daysToClose(s);
-    gDate.title = date(s) ? t(`月の締めまで あと ${left} 日`, `${left} days to the monthly close`) : '';
+    const left = api.daysToClose(s);
+    monthMeter.classList.toggle('is-near', !!day && left <= 5);
+    gDate.title = day ? t(`月の締めまで あと ${left} 日`, `${left} days to the monthly close`) : '';
     paintMeters();
     // 印の列
     paintTag(tSector, `${s.land?.cur}|${isEn}`, () => {
-      const d = sectorDef(s.land!.cur);
-      tSector.box.style.setProperty('--tc', TIERS[d.tier].color);
-      return [mIcon('pin', { color: '#1a1c2e', hi: '#f4ecd4', scale: 1 }), el('small.uxm-long', tierLabel(d.tier)), el('small.uxm-short', d.tier), el('b', d.name)];
+      const d = api.sectorDef(s.land!.cur);
+      tSector.box.style.setProperty('--tc', api.tierColor(d.tier));
+      return [mIcon('pin', { color: '#1a1c2e', hi: '#f4ecd4', scale: 1 }), el('small.uxm-long', api.tierLabel(d.tier)), el('small.uxm-short', d.tier), el('b', d.name)];
     });
-    const c = chipOf(s);
+    const c = api.chipOf(s);
     paintTag(tJam, c ? `${c.k}|${c.k === 'jam' ? c.stage : ''}|${isEn}` : '', () => {
       if (!c) return [];
       tJam.box.classList.toggle('is-build', c.k !== 'jam');
@@ -259,7 +256,7 @@ export function buildHud(host: UxmHost) {
       const ico = c.k === 'jam' ? STAGE_ICO[c.stage] : c.k === 'ws' ? 'hammer' : 'shop';
       return [uxLamp(c.k === 'jam' ? 'bad' : '', true, true), el('small', c.k === 'jam' ? t('課題', 'Issue') : t('次の一手', 'Next')), mIcon(ico, { color: '#1a1c2e', hi: '#f4ecd4', lo: '#1a1c2e', scale: 1 }), el('b', name)];
     });
-    const fxs = statEv.hidden ? [] : activeFx(s);
+    const fxs = statEv.hidden ? [] : api.activeFx(s);
     paintTag(tEv, fxs.length ? `${fxs.length}|${Math.max(...fxs.map((f) => f.until - s.day))}|${statEv.classList.contains('is-bad')}|${isEn}` : '', () => {
       const d = Math.max(...fxs.map((f) => f.until - s.day));
       const bad = statEv.classList.contains('is-bad');
@@ -283,7 +280,8 @@ export function buildHud(host: UxmHost) {
       lastDay = dq;
       dayBar.style.transform = `scaleX(${dq})`;
     }
-    const mq = Math.round(monthFrac(host.s(), f) * 60) / 60;
+    const s = host.s();
+    const mq = Math.round(monthFrac(!!api.date(s), api.daysToClose(s), api.DAYS, f) * 60) / 60;
     if (mq !== lastMonth) {
       lastMonth = mq;
       monthBar.style.transform = `scaleX(${mq})`;
@@ -321,12 +319,17 @@ export function dressTicker(news: HTMLElement) {
       dressTag();
       dressIco(news);
     }).observe(news, { childList: true, subtree: true });
-    // 一覧（#isl-ui の直下に出る）
+    // 一覧（#isl-ui の直下に出る。出たら、その中の行の書き直しも見る）
     const root = news.parentElement;
-    if (root)
-      new MutationObserver(() => {
+    let seen: HTMLElement | null = null;
+    if (root) {
+      const dressList = () => {
         const l = root.querySelector<HTMLElement>(':scope > .isl-news-list');
-        if (!l) return;
+        if (!l) return void (seen = null);
+        if (l !== seen) {
+          seen = l;
+          new MutationObserver(dressList).observe(l, { childList: true, subtree: true });
+        }
         dressIco(l);
         const x = l.querySelector<HTMLElement>('.isl-news-x:not(.uxm-done)');
         if (x) {
@@ -338,7 +341,9 @@ export function dressTicker(news: HTMLElement) {
           hb.classList.add('uxm-done');
           hb.textContent = (hb.textContent ?? '').replace(/^\S+\s/, '');
         }
-      }).observe(root, { childList: true, subtree: true });
+      };
+      new MutationObserver(dressList).observe(root, { childList: true });
+    }
   }
   let lastN = -1;
   let lastBeat = false;
@@ -402,7 +407,14 @@ export function dressMapUi(root: HTMLElement) {
     }
   };
   dress();
-  if (typeof MutationObserver === 'function') new MutationObserver(dress).observe(root, { childList: true, subtree: true });
+  // 見るのは、印の層とミッションの札だけ（札の中身の作り直しのたびに、画面ぜんたいを調べない）
+  if (typeof MutationObserver === 'function') {
+    const mo = new MutationObserver(dress);
+    for (const sel of [':scope > .isl-marks', ':scope > .isl-missions']) {
+      const e = root.querySelector(sel);
+      if (e) mo.observe(e, { childList: true, subtree: true });
+    }
+  }
   let pointing = false;
   /** 毎コマ：建物を指さしているか（チュートリアル） */
   const frame = () => {

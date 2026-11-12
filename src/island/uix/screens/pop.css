@@ -58,6 +58,11 @@ html.is-uxc #isl-ui.uxm-on .uxm-pop-title.has-face {
   line-height: 1.25rem;
   box-shadow: none;
 }
+/* 人物の名前の札：長い名前・大きい字でも、枠からはみ出さない */
+html.is-uxc #isl-ui.uxm-on .uxm-pop-bubble .ux-pop-name {
+  max-width: calc(min(366px, 100vw - 16px) - 126px);
+  overflow: hidden;
+}
 html.is-uxc #isl-ui.uxm-on .uxm-pop-bubble .ux-pop-foot {
   height: auto;
   min-height: 22px;

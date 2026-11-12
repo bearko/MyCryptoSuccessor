@@ -8,12 +8,11 @@
  * - 下のボタン（開く・移転・撤去・建てる・発掘 ほか）→ キー（スマホは下に固定・PC は吹き出しのすぐ下）
  * - 担当への指示・数字・設備投資 ほか → 「くわしく」の板（暗い計器の板。今の並びのまま、今の要素のまま）
  * 今の要素を作り直さずに入れ替えるだけなので、押す先・チュートリアルの目印（is-guide・is-hot）はそのまま効く。
+ *
+ * 本体のコード（p1/）は import しない（型だけ）：要る関数は p1/main.ts から host.api で受け取り、担当の顔・名前・ひと言は
+ * 今の吹き出しの要素から読む。入のときだけ読むこの束が、本体の束（切のときに読む束）の分かれ方を変えないようにするため。
  */
 import { t } from '../../../i18n';
-import { P1B } from '../../p1/data';
-import { moveCost } from '../../p1/model';
-import { ordersOf, inTut } from '../../p1/orders';
-import { heroIcon, heroName } from '../../p1/ui';
 import { el, fmtN } from '../dom';
 import { uxBubble, uxKey, uxLamp, uxMeter, uxTape } from '../parts';
 import { isCalm } from '../prefs';
@@ -65,6 +64,22 @@ export function shortOf(text: string): number | null {
 }
 /** 足りないときの目盛り（持っている額 ÷ 要る額。20 段・少しでも見える） */
 export const gapMeter = (money: number, need: number) => Math.max(0.05, Math.min(1, Math.round((Math.max(0, money) / Math.max(1, Math.max(0, money) + need)) * 20) / 20));
+
+/** 話す人ごとの声（名前から決める。同じ人はいつも同じ声） */
+export const voiceOf = (name: string) => [...name].reduce((a, c) => (a + (c.codePointAt(0) ?? 0)) % 997, 0);
+/** ひと言のかぎかっこを外す（「…」・“…”） */
+export const unquote = (text: string) => text.trim().replace(/^[「“]/, '').replace(/[」”]$/, '');
+/** 今の吹き出しの「担当」の欄（.isl-orders-head）から、顔・名前・肩書き・ひと言・様子を読む */
+function whoOf(head: HTMLElement) {
+  const face = head.querySelector<HTMLElement>(':scope > .isl-hero');
+  return {
+    face,
+    name: head.querySelector('.isl-orders-who > b')?.textContent ?? '',
+    role: splitEmoji(head.querySelector('.isl-orders-role')?.textContent ?? '').rest,
+    greet: unquote(head.querySelector('.isl-orders-say')?.textContent ?? ''),
+    status: head.querySelector('.isl-orders-status')?.textContent ?? '',
+  };
+}
 
 /** 字の頭の絵文字（1 つ）と、残りの字 */
 export function splitEmoji(text: string): { emoji: string; rest: string } {
@@ -146,10 +161,11 @@ export function installPop(host: UxmHost) {
   function split(title: string) {
     const s = host.s();
     const b = host.sel();
-    const box = b && !inTut(s) && !host.popSector() ? ordersOf(s, b) : null;
     const root = body.querySelector<HTMLElement>(':scope > .isl-pop-body') ?? body.firstElementChild;
-    // 担当の顔・名前・ひと言・様子は、枠の上の人物とセリフへ（指示のボタンは「くわしく」に残す）
-    root?.querySelector('.isl-orders-head')?.remove();
+    // 担当の顔・名前・肩書き・ひと言・様子は、枠の上の人物とセリフへ（指示のボタンは「くわしく」に残す）
+    const head = root?.querySelector<HTMLElement>('.isl-orders-head');
+    const who = head ? whoOf(head) : null;
+    head?.remove();
     // 建物の説明（色の付いていない段落）は、セリフへ
     const desc: string[] = [];
     for (const p of root ? [...root.querySelectorAll<HTMLElement>(':scope > p:not([class])')] : []) {
@@ -166,8 +182,8 @@ export function installPop(host: UxmHost) {
       n.remove();
     }
     // 移転のお金が足りない（今はキーが平らになるだけ）：あといくらかを添える
-    if (b && b.owner === 'me' && !b.up && b.left <= 0 && s.money < moveCost(b)) {
-      const need = Math.ceil(moveCost(b) - s.money);
+    if (b && b.owner === 'me' && !b.up && b.left <= 0 && s.money < host.api.moveCost(b)) {
+      const need = Math.ceil(host.api.moveCost(b) - s.money);
       notes.push({ text: t(`移転まで あと ${fmtN(need)} G。売上がたまれば届きます`, `Moving: ${fmtN(need)} G short. Sales will get you there`), need });
     }
     const orders = root?.querySelectorAll('.isl-order').length ?? 0;
@@ -175,7 +191,7 @@ export function installPop(host: UxmHost) {
     // いますぐ押してほしい所（光っている枠・確かめの枠・直すボタン）が「くわしく」の中にあるか
     const hot = !!root?.querySelector('.is-hot, .is-guide, .isl-pop-confirm, .isl-pop-act');
     const rest = !!root && root.childElementCount > 0;
-    return { box, notes, hero: box?.hero ?? null, lines: popLines({ greet: box?.greet, status: box?.status, desc, title }), orders, rec, hot, rest };
+    return { who, notes, face: who?.face ?? null, lines: popLines({ greet: who?.greet, status: who?.status, desc, title }), orders, rec, hot, rest };
   }
 
   /** 中身を作り直した（p1/main.ts の renderPop から）。同じ建物・同じセリフなら、喋りなおさない */
@@ -191,24 +207,24 @@ export function installPop(host: UxmHost) {
     const m = split(title);
     for (const x of stage.querySelectorAll<HTMLElement>('.isl-pop-acts-fix .isl-btn, .isl-pop-scroll .isl-btn')) dressLabel(x);
     const shown = splitEmoji(title).rest;
-    const k = `${at}|${b?.uid ?? ''}|${title}|${m.hero}|${m.lines.join('\n')}`;
+    const k = `${at}|${b?.uid ?? ''}|${title}|${m.who?.name ?? ''}|${m.lines.join('\n')}`;
     const fresh = k !== key || !open;
     if (fresh) {
       key = k;
       bubble?.destroy();
-      const name = m.hero != null ? heroName(m.hero) : undefined;
+      const name = m.face ? m.who?.name : undefined;
       bubble = uxBubble({
-        face: m.hero != null ? heroIcon(m.hero, 128) : undefined,
+        face: m.face ?? undefined,
         name,
-        role: m.box?.role.text,
-        voice: m.hero ?? undefined,
+        role: m.who?.role,
+        voice: m.who ? voiceOf(m.who.name) : undefined,
         lines: m.lines,
         onClose: () => legacyX?.click(),
         flow: true,
       });
       // 建物の名前：人物がいるときはセリフの下の段の左（名前の札は人物の名前）、いないときは枠の上のふちの貼り札
-      titleEl = el(`span.ux-tape.uxm-pop-title${m.hero != null ? '.has-face.ux-tape--dark' : ''}`, el('b', shown));
-      if (m.hero != null) bubble.el.querySelector('.ux-pop-foot')?.prepend(titleEl);
+      titleEl = el(`span.ux-tape.uxm-pop-title${m.face ? '.has-face.ux-tape--dark' : ''}`, el('b', shown));
+      if (m.face) bubble.el.querySelector('.ux-pop-foot')?.prepend(titleEl);
       else bubble.el.querySelector('.ux-pop-rise')?.append(titleEl);
       // 閉じるキーは自分の音（押す・離す）を持つ：全体の押した音と重ねない
       bubble.el.querySelector('.ux-pop-x')?.setAttribute('data-ux-quiet', '');
@@ -241,10 +257,10 @@ export function installPop(host: UxmHost) {
       );
     }
     // 主のキー（工房を開く・お店を開く）に、建物の絵を添える
-    const kind = b && b.owner === 'me' ? P1B[b.id]?.kind : null;
-    const mainKey = kind === 'workshop' || kind === 'shop' ? acts.querySelector<HTMLElement>('.isl-btn.is-on:not(:has(canvas))') : null;
-    if (mainKey) {
-      const ic = mIcon(kind === 'workshop' ? 'hammer' : 'shop', { color: '#1a1c2e', hi: '#1a1c2e', lo: '#7a3f06' });
+    const mainKey = b && b.owner === 'me' && b.left <= 0 ? acts.querySelector<HTMLElement>('.isl-btn.is-on:not(:has(canvas))') : null;
+    const mainIco = !mainKey ? null : b?.id === 'workshop' ? 'hammer' : mainKey.textContent === t('お店を開く', 'Open shop') ? 'shop' : null;
+    if (mainKey && mainIco) {
+      const ic = mIcon(mainIco, { color: '#1a1c2e', hi: '#1a1c2e', lo: '#7a3f06' });
       ic.classList.add('uxm-btn-ico');
       mainKey.prepend(ic);
     }
