@@ -82,7 +82,7 @@ export function facBox(ctx: Ctx, s: P1State): HTMLElement | null {
 }
 
 /** 建て替えたあとの作業台の数（作業台 2 段目のあと。いまの設備投資の段で） */
-function benchAfter(s: P1State, lv: 1 | 2): number {
+export function benchAfter(s: P1State, lv: 1 | 2): number {
   const inv = invLv(wsAny(s), 'bench');
   return 1 + inv + (inv >= FACTORY.needBench ? FACTORY.bench[lv] : 0);
 }

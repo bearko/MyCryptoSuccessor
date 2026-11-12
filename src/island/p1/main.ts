@@ -156,6 +156,7 @@ import { openSupply } from './scm';
 import { openSales } from './sales';
 import { pickHooks } from './heroui';
 import { openDigSummary, openMonthReport } from './report';
+import { loadUxs } from './uxs';
 import { openOrg } from './orgui';
 import { openSkills } from './tree';
 import { goalSeen, goalStep } from './goal';
@@ -174,6 +175,7 @@ import { quitLeft, type HrDay } from './hr';
 import { IslandSfx } from './sfx';
 import { setUx, uxOn } from '../uix/flag';
 import { ux } from '../uix/hooks';
+import { uxm } from '../uix/screens/mhooks';
 import { nextStep, uxLegacy, uxSetVol, uxSfx, uxSound, uxSoundInit, uxVol, type UxScene } from '../uix/sound';
 import { boardDue, boardOf, boardQuarter, closeText } from './board';
 import { openBoard, type BoardHooks } from './boardui';
@@ -254,6 +256,8 @@ const sfx = new IslandSfx();
 sfx.level = vol.se;
 // 段 UIX1s：新しい画面が入（<html class="is-uxc">）のときは、効果音を合成の音へ付け替える（切のときは何も変わらない）
 sfx.route = uxLegacy;
+// 段 UIX2s：入のときだけ、新しい画面（工房の札・月次報告）を読む。切のときは読まない
+if (uxOn()) void loadUxs();
 // ブラウザは最初の操作まで音を出せない
 // スマホは指を離したとき（pointerup・touchend・click）がユーザーの操作として数えられる。鳴るまで毎回試す
 for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'])
@@ -764,6 +768,8 @@ function renderHud() {
   renderJam();
   renderEv();
   renderInbox();
+  // 段 UIX2m：入のときは、新しい帯（計器・ランプ）へ写す
+  uxm.hud?.();
   // 段 UI4（UI3 の残り）：札が増えて上の帯の行が増えたら、画面（シート）の上端を下げ直す（スマホで「受け箱」の札がシートに半分隠れていた）
   const hb = hud.offsetHeight;
   if (hb !== hudH) {
@@ -1819,8 +1825,11 @@ function openPop(i: number, j: number) {
   selected = b ? b.uid : null;
   // チュートリアル：地図のお店をタップした
   if (b && b.owner === 'me' && P1B[b.id]?.kind === 'shop') tutSeen.add('shopPop');
+  // 段 UIX2m：入のときは、カメラが建物へ寄る（今の tween で。閉じると戻る）。始まりは前のコマの時刻（進みが負にならないように）
+  const to = uxm.popCam?.(b ? b.i : i, b ? b.j : j, b ? (DEF[b.id]?.size ?? 1) : 1);
   renderPop();
-  centerOn(b ? b.i : i, b ? b.j : j);
+  if (to) tween = { x0: cam.x, y0: cam.y, z0: cam.zoom, t0: last, ...to };
+  else centerOn(b ? b.i : i, b ? b.j : j);
 }
 function closePop() {
   if (!pop) return;
@@ -1829,6 +1838,8 @@ function closePop() {
   selected = null;
   popEl.hidden = true;
   dirty = true;
+  const back = uxm.popClose?.();
+  if (back) tween = { x0: cam.x, y0: cam.y, z0: cam.zoom, t0: last, ...back };
 }
 function renderPop() {
   if (!pop) return;
@@ -1871,6 +1882,8 @@ function renderPop() {
   popActs.hidden = !popActs.childElementCount;
   popBody.scrollTop = y;
   popEl.hidden = false;
+  // 段 UIX2m：入のときは、吹き出しの器と置き場所を新しい画面が受け持つ
+  if (uxm.pop?.(title)) return void (dirty = true);
   popEl.style.width = `${Math.min(400, popRight() - 16)}px`;
   popEl.style.maxHeight = 'none';
   popNeed = popEl.offsetHeight;
@@ -2625,7 +2638,7 @@ const popRight = () => {
  * 段 MAP1：PC で下にはみ出すなら、建物の左か右（画面の中央より左の建物なら右に、右なら左に）に出し、縦は画面に収める（mapviz.ts の popPlace）。スマホは下のまま
  */
 function placePop() {
-  if (!pop || popEl.hidden) return;
+  if (!pop || popEl.hidden || uxm.placePop?.()) return;
   const b = selected != null ? s.buildings.find((x) => x.uid === selected) : null;
   const [i, j] = b ? [b.i, b.j] : pop;
   const sx = ((i - j) * 100 - cam.x) * cam.zoom + W / 2;
@@ -5546,6 +5559,7 @@ function frame(now: number) {
   updatePoint();
   updateMarks();
   updateIssues(now);
+  uxm.frame?.(now);
   checkSeamless();
   if (tour) tourFrame(now);
   for (let k = fx.length - 1; k >= 0; k--) if (effectDone(fx[k], now)) fx.splice(k, 1);
@@ -5578,6 +5592,8 @@ function frame(now: number) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+// 段 UIX2m：入のときだけ、上と下の帯・建物の吹き出しを新しい画面（方向 C）に入れ替える（切のときは読まない）
+if (uxOn()) void import('../uix/screens/mapui').then((m) => m.installMapUi({ s: () => s, root, hud, foot, pop: popEl, news: ticker.el, cam, size: () => ({ W, H }), unpaid: () => tourUnpaid, speed: () => speed, frac: () => anim.frac, hudBottom: newsBottom, sel: () => (selected != null ? (s.buildings.find((b) => b.uid === selected) ?? null) : null), popAt: () => pop, popSector: () => !!popSector, refresh: renderAll, api: { DAYS, date, daysToClose, monthRevenue, moveCost, chipOf, activeFx, sectorDef, tierLabel, tierColor: (tier) => TIERS[tier].color } }));
 // ドット絵のエフェクトを暇なときに温めておく（初めて鳴らしたときに引っかからないように）
 window.setTimeout(() => warmFx(), 3000);
 

@@ -68,6 +68,44 @@
 | fac_scaffold（いまは足場の流用） | 建て替えの足場 | 建て替えのあいだ、新しい形のマス（いまの形と重ならないマス）に組む（`p1/render.ts`。`scaffoldAt`） | 工事の足場（`fx/scaffold4.png`・更地 `fx/lot.png`）をそのまま。前の建物は横で動いている | 1 マスごと（足場 4 段） | コードのままでよい（足場が外れる土ぼこり・光は pixelfx の poof・sunburst）。作るなら：the same scaffold frames with a green safety net and a small crane arm, 12 frames |
 | fac_shapes | 段の形のアイコン（1×1 → 1×2 → 2×2） | 工房の吹き出しと工房の画面の「建て替え」の欄（`factoryui.ts` の `.isl-fac-shape`） | CSS の四角（いまの段は金色・次の段は点線） | 12px の四角を 1・2・4 個 | コードのままでよい（作るなら、各段の地図の絵を 32×32 に縮めたアイコン） |
 
+### 段 UIX2m（新しい画面：上と下の帯・建物の吹き出しのドットのアイコン。2026-11-11）
+
+新しい画面（`<html class="is-uxc">`）のときだけ出る。絵文字の代わりに、コードで描いた 12×12 のドット絵（`src/island/uix/screens/micons.ts` の `M_ART`。1 色＋明るい色＋暗い色。2 倍か 1 倍で出す）。切のときは今の絵文字のまま。
+
+| id | 名前 | 使う場所 | いまの状態 | 大きさ | PixelLab への指示 |
+|---|---|---|---|---|---|
+| ux_dept（tag・headset・flask・scales・office・receipt） | 部門のアイコン 6 つ（営業・カスタマーサポート・R&D・法務・総務・経理） | 下の帯のタブ（`dock.ts` の `DEPT_ICO`）。物流・人事・マーケ・システム・経営企画は土台の絵（`uix/icons.ts`） | コードで描いた仮の絵（12×12） | 12×12（24px で出す） | 1 色のシルエットのアイコン（値札・ヘッドセット・フラスコ・天秤・事務所のビル・レシート）。黒いふち無し・明るい面と影の 3 階調。暗い板の上（紙の色 #f4ecd4）と琥珀のキーの上（墨 #1a1c2e）の両方で読めること |
+| ux_group（compass・folder・bricks。事業は土台の shop） | グループのアイコン 4 つ（事業・戦略・管理・基盤） | 下の帯のグループのタブ（部門が 7 つ以上のとき） | コードで描いた仮の絵 | 12×12 | 同じ調子で：お店・羅針盤・フォルダ・レンガの土台 |
+| ux_mark（cart・box・person・zzz・shelf・bubble・bulb） | 地図の印のアイコン（売れない・素材・人・疲れ・倉庫・お客さん・直すパネル）。製造は土台の hammer・空き店舗は shop | 建物の上の困りごとの印（`hud.ts` の `dressMapUi`・`MARK_ICO`）。段 L0 の `map_mark_icons` の新しい画面の版 | コードで描いた仮の絵 | 12×12（24px） | 色の付いた四角い札（赤・橙・青・灰・紫・黄・緑）の上に墨の 1 色で：買い物かご・木箱・人・Zzz・棚・吹き出し・電球 |
+| ux_hud（pin・inbox・warn・fire・bolt・plus・minus・left・mail・lock・unlock・pick） | 上の帯・地図の上の札の小さな絵 | 印の列（今いる町・受け箱・炎上のおそれ／炎上中・効き目）・拡大縮小のキー・建物を指さす矢印・役所からの手紙・サブタブの鍵・吹き出しのキーの頭（発掘・申請・買収 ほか：`LABEL_ICO`） | コードで描いた仮の絵 | 12×12（12px か 24px） | 同じ調子の 1 色の記号：地図のピン・受け箱（下向きの矢印と皿）・注意の三角・炎・稲妻・＋・−・左向きの矢印・封筒・南京錠（閉・開）・つるはし |
+
+### 段 UIX2s（新しい画面：工房の札・月次報告。入のときだけ。2026-11-11）
+
+新しい画面（`<html class="is-uxc">`）の中では、絵文字の代わりにドットのアイコン（12×12・コードで描いた仮の絵）を使う。絵は `src/island/uix/screens/s-icons.ts`（`sIcon(name)`・紙の上は `inkIcon(name)`）。機能が落ち着いたら、まとめて作り直す。
+どれも 12×12（1 画素 = 1〜4 CSS px の整数倍で出す）・透明の地・濃い 1px のふち・3〜4 色。暗い板の上（色 #97a1cf・明るい所 #f4ecd4）と、紙の上（墨 #1a1c2e の 1 色）の両方で読めること。
+
+| id | 名前 | 使う場所 | いまの状態 | 大きさ | PixelLab への指示 |
+|---|---|---|---|---|---|
+| ux_bench | 作業台（万力つきの台） | 工房の札 → 設備投資「作業台を増やす」の絵（`workshop.ts` の `INVEST_ICON`） | コードのドット絵（仮） | 12×12（4 倍で 48px） | a tiny wooden workbench with a small vise on top, side view, dark 1px outline, pixel art, transparent background; 12px |
+| ux_cart | 荷車 | 設備投資「荷車を増やす」の絵・月次報告のサプライチェーンの「③ 物流」 | 同上 | 12×12 | a tiny two-wheeled hand cart with a crate, side view, dark 1px outline, pixel art, transparent background; 12px |
+| ux_shelf | 物置の棚 | 設備投資「物置の整理」の絵 | 同上 | 12×12 | a tiny storage shelf with three rows of small boxes, front view, dark 1px outline, pixel art, transparent background; 12px |
+| ux_wrench | 道具（スパナ） | 設備投資「道具の新調」の絵 | 同上 | 12×12 | a tiny wrench laid diagonally, dark 1px outline, pixel art, transparent background; 12px |
+| ux_cup | 休憩所（湯気の立つ湯のみ） | 設備投資「職人の休憩所」の絵 | 同上 | 12×12 | a tiny mug with two wisps of steam, side view, dark 1px outline, pixel art, transparent background; 12px |
+| ux_plus・ux_minus | ＋・− | 作る数の「1 ロット増やす／減らす」のキー・職人や作る物がまだ無い台 | 同上 | 12×12 | コードのままでよい（記号） |
+| ux_box | 木箱 | 月次報告の「輸入」の行 | 同上（地図の「📦 輸入中」の木箱 feed_crate と同じ題材） | 12×12 | feed_crate と同じ絵を 12px に（a tiny wooden shipping crate, dark 1px outline, pixel art, transparent background） |
+| ux_brick | 素材（積んだれんが） | サプライチェーンの「① 調達」 | 同上 | 12×12 | a tiny stack of three bricks, dark 1px outline, pixel art, transparent background; 12px |
+| ux_pick | つるはし | 各部からの報告「今月の出土品」・まとめ報告の「研究ノート」のキー | 同上 | 12×12 | a tiny pickaxe laid diagonally, dark 1px outline, pixel art, transparent background; 12px |
+| ux_voice | 吹き出し | 各部からの報告「お客さんの声」 | 同上 | 12×12 | a tiny speech bubble with two short lines, dark 1px outline, pixel art, transparent background; 12px |
+| ux_scale | 天びん | 各部からの報告「法務」 | 同上 | 12×12 | a tiny balance scale, front view, dark 1px outline, pixel art, transparent background; 12px |
+| ux_globe | 地球 | 各部からの報告「交易」 | 同上 | 12×12 | a tiny globe with grid lines, dark 1px outline, pixel art, transparent background; 12px |
+| ux_share | 取り分（円の図） | 企業ランキングのページの「商圏の取り分」 | 同上 | 12×12 | a tiny pie chart with one gold slice, dark 1px outline, pixel art, transparent background; 12px |
+| ux_gate | 番所 | 売上のページの「関税」 | 同上 | 12×12 | a tiny checkpoint gate with a red and gold bar, front view, dark 1px outline, pixel art, transparent background; 12px |
+| ux_doc | 提案書 | サプライチェーンのページの「担当者からの提案」のキー | 同上 | 12×12 | a tiny sheet of paper with a folded corner and three lines, dark 1px outline, pixel art, transparent background; 12px |
+| ux_warn | 気をつける（三角の札） | 工房の札の「止まっている理由」・建て替えの押せない理由 | 同上 | 12×12 | a tiny yellow triangular warning sign with a black exclamation mark, dark 1px outline, pixel art, transparent background; 12px |
+| ux_crane | 工事（足場） | 工房の札の「建て替え中」・各部からの報告「復興」 | 同上 | 12×12 | a tiny construction crane with a hanging gold block, side view, dark 1px outline, pixel art, transparent background; 12px |
+| ux_fac_shapes | 段の形のマス（1×1 → 1×2 → 2×2） | 工房の札 → 設備投資のタブの「建て替え」（`workshop.css` の `.uxs-fac-shape`） | CSS の四角（いまの段は琥珀・次の段はまたたく枠・済んだ段は緑）。fac_shapes と同じ題材 | 14px の四角を 1・2・4 個 | コードのままでよい（作るなら、各段の地図の絵を 32×32 に縮めたアイコン） |
+| ux_bench_stage | 作業台の小さな舞台 | 工房の札の作業台の左（`.uxs-bench-stage`：職人が立つ台と、作る物） | CSS の暗い箱と木の板の線（見本と同じ）。職人と商品は MCH の絵そのまま | 124×72 | コードのままでよい（作るなら：a small dark workshop nook with a wooden counter line at the bottom, pixel art; 124×72） |
+
 ## 優先度 中（コードで描いた小物。いまのままでも遊べる）
 
 | 素材 | 使う場所 | いまの状態 | 大きさ | メモ |
