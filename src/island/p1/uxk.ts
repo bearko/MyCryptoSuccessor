@@ -9,9 +9,17 @@ import { FX_PAL, fxAtEl } from '../fx/layer';
 import { t } from '../../i18n';
 import { DEF } from '../defs';
 import { CAPITAL, TIER_NAME, emptyLedger, pl, quarters, sumLedger, type Balance, type Ledger } from './company';
-import { acctAdvice, costRank, quarterNow, taxLine } from './acct';
-import { bsParts, monHead, monLab, plFall, quarterTrend, rankHist } from './dash';
-import { DEPT, DEPTS, DIG_BALANCE, GOAL, INVESTS, LAND_COMPANIES, MARKET, P1B, SKILL, SKILLS, TIERS, WORLD_COMPANIES, deptOf, digRpLv, isResearch, maxLv, r2Panel, rpCost, shownOf, shownText } from './data';
+import { acctAdvice, acctOf, costRank, dedCap, dedRate, quarterNow, taxLine, taxPlan, taxRate, topTier } from './acct';
+import { budgetHeat, bsParts, heatStep, monHead, monLab, plFall, quarterTrend, rankHist, taxFall } from './dash';
+import { ACCT_MASTERY, BUDGET, CROSS_ACCT_GA, DEPT, DEPTS, DIG_BALANCE, FATIGUE, GA_MASTERY, GOAL, INVESTS, LAND_COMPANIES, MARKET, P1B, SKILL, SKILLS, TAX, TIERS, TRADE, WORLD_COMPANIES, deptOf, digRpLv, isResearch, maxLv, r2Panel, rpCost, shownOf, shownText } from './data';
+import { BUDGET_LVS, amountFor, amountOf, askText, budgetDepts, budgetOpen, budgetRetry, costNeed, crewWageMonth, deptBudget, effParts, headStar, laborCap, laborNeed, lvName, nextMoves, nextUp, setBudget, setBudgets, setCrewCap } from './budget';
+import { actName, approve, headOf, heroNm, ifsOf, resultText, setHead } from './deleg';
+import { done as delegDone, pickHead } from './delegui';
+import { approveFeed, borderDepots, feedBlock, feedItems, feedNext, feedPicks, feedSuggest, goodsRate, toggleFeed, townName } from './feed';
+import { envItems, fatigueAvg, fatigueBand, fatigueLoad, fatigueMorale, fatigueMul, fatigueOf, gaOn } from './ga';
+import { openGrowth } from './growthui';
+import { moraleOf } from './hr';
+import { tradeNeighbors } from './tariff';
 import { deptLevel, deptLockText, deptOpen } from './dept';
 import { goalFloor, goalMonths, goalNext, goalPath, goalable, setGoal } from './goal';
 import { pickHero } from './heroui';
@@ -38,6 +46,7 @@ import {
   levelLock,
   levelUp,
   lvOf,
+  setRest,
   missingFront,
   monthRevenue,
   nextDonateCost,
@@ -64,7 +73,7 @@ import { rpStackEl, studyEl } from './r2ui';
 import { after, mineTip, open, rivalName } from './screens';
 import { treeKit } from './tree';
 import { BANDS, BAND_TIERS, BOUNDS, DEPT_LAYOUT, EDGES, GATES, GROUP_STAGE, HEAD_Y, HUBPOS, JUNCTIONS, KNOTPOS, POS, STEP, UNIT, deptAtX, deptCenter, halfOf, shapeOf } from './treelayout';
-import { heroIcon, heroName, matIcon, money, plain, rich, skuIcon } from './ui';
+import { heroIcon, heroName, matIcon, money, plain, rich, skuIcon, skuName } from './ui';
 
 // ---------------------------------------------------------------- 企業ランキング
 /** 順位の 1 行（名前・月の売上・わが社か・添える札：反撃中／セール中。label は今の画面の札の字・short は行に出す短い字） */
@@ -298,6 +307,7 @@ export const uxkDeps = {
   levelLock,
   levelUp,
   lvOf,
+  setRest,
   missingFront,
   nextDonateCost,
   nextLevelCost,
@@ -340,5 +350,76 @@ export const uxkDeps = {
   invest,
   // ---- 決算書
   booksView,
+  // ---- 税と節税・疲れと職場の環境（今の画面 p1/acctui.ts の openTax・openGa と同じ関数）
+  acctOf,
+  taxPlan,
+  taxRate,
+  topTier,
+  dedCap,
+  dedRate,
+  quarterNow,
+  taxFall,
+  TAX,
+  ACCT_MASTERY,
+  CROSS_ACCT_GA,
+  GA_MASTERY,
+  FATIGUE,
+  envItems,
+  fatigueAvg,
+  fatigueBand,
+  fatigueLoad,
+  fatigueMorale,
+  fatigueMul,
+  fatigueOf,
+  gaOn,
+  moraleOf,
+  // ---- 予算と部門（今の画面 p1/budgetui.ts の openBudget と同じ関数）
+  BUDGET,
+  BUDGET_LVS,
+  amountFor,
+  amountOf,
+  askText,
+  budgetDepts,
+  budgetOpen,
+  budgetRetry,
+  costNeed,
+  crewWageMonth,
+  deptBudget,
+  effParts,
+  headStar,
+  laborCap,
+  laborNeed,
+  lvName,
+  nextMoves,
+  nextUp,
+  setBudget,
+  setBudgets,
+  setCrewCap,
+  actName,
+  approve,
+  headOf,
+  heroNm,
+  ifsOf,
+  resultText,
+  setHead,
+  delegDone,
+  pickHead,
+  openGrowth,
+  budgetHeat,
+  heatStep,
+  // ---- 物流拠点の「輸入」（今の p1/feedui.ts の feedBox と同じ関数）
+  TRADE,
+  approveFeed,
+  borderDepots,
+  feedBlock,
+  feedItems,
+  feedNext,
+  feedPicks,
+  feedSuggest,
+  goodsRate,
+  toggleFeed,
+  townName,
+  tradeNeighbors,
+  skuName,
 };
 export type UxkDeps = typeof uxkDeps;

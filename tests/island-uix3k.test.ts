@@ -19,12 +19,13 @@ import { INVESTS } from '../src/island/p1/data';
 import { fallBars, rowTone } from '../src/island/uix/screens/books';
 import { bsRows, plRows } from '../src/island/p1/uxk';
 import { emptyLedger } from '../src/island/p1/company';
+import { BAND_LAMP, BAND_NAME, DED_KINDS, MORALE_STEPS, dedRatio, moraleSteps, restHot } from '../src/island/uix/screens/tax';
 import { CHAMFER, chainOf, descKey, gaugeSteps, lampOf, routeWires, stairDiamond, stateWord, type NodeDesc } from '../src/island/uix/screens/tree';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
 const TREE = src('p1/tree.ts');
 const TR = src('uix/screens/tree.ts');
-export const K_FILES = ['tree.ts', 'ranking.ts', 'invest.ts', 'books.ts', 'k-icons.ts', 'k-boot.ts', 'k-deps.ts', 'k-slots.ts'];
+export const K_FILES = ['tree.ts', 'ranking.ts', 'invest.ts', 'books.ts', 'tax.ts', 'k-icons.ts', 'k-boot.ts', 'k-deps.ts', 'k-slots.ts'];
 export const K_CSS = ['tree.css', 'k-screens.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -375,5 +376,57 @@ describe('決算書', () => {
     expect(BK).toContain('const motion = anim && !isCalm();');
     expect(BK).toContain('uxpPrint(plLines, { gap: 50');
     expect(BK).toContain('uxpPrint(plLines).finish();');
+  });
+});
+
+describe('税と節税・疲れと職場の環境', () => {
+  const TX = src('uix/screens/tax.ts');
+  const ACCT = src('p1/acctui.ts');
+  it('入口：openTax・openGa が、差し込み口が入っているときだけ新しい画面へ渡す（押す先 hooks も渡す）。器は今の札（open・keep）', () => {
+    expect(ACCT).toContain('if (uxk.tax) return uxk.tax(ctx, hooks);');
+    expect(ACCT).toContain('if (uxk.ga) return uxk.ga(ctx, hooks);');
+    expect(src('uix/screens/k-boot.ts')).toContain('uxk.tax = openTaxUx;');
+    expect(src('uix/screens/k-boot.ts')).toContain('uxk.ga = openGaUx;');
+    expect(TX).toMatch(/K\.open\(\s*ctx,\s*title,[\s\S]*?undefined,\s*true,\s*\)/);
+  });
+  it('今の目印（経理・総務の案内が指す所）：tax-plan・tax-tip・fatigue・env・data-hero', () => {
+    for (const k of ["'data-focus': 'tax-plan'", "'data-focus': 'tax-tip'", "'data-focus': 'fatigue'", "'data-focus': 'env'", "'data-hero': String(st.hero)"]) expect(TX, k).toContain(k);
+  });
+  it('出す中身は今の画面と同じ：見込み（利益・区分ごと・差し引ける額・上限・減る税）・あと N G・前の四半期の報告・これまで・しくみ・奥義の予告', () => {
+    for (const k of ['ここまでの課税の対象の利益', '差し引ける額', '節税で減る税', '研究開発なら', '課税の対象の利益', '繰越の損失', '節税の差し引き', '課税される額', '払った税', '節税で減らした税', '繰り越している損失', '払いきれていない税', '節税のしくみ', '奥義と掛け合わせ（予告）', '決算書を見る', '経理のパネル']) {
+      expect(TX, k).toContain(k);
+      expect(ACCT, k).toContain(k);
+    }
+    for (const k of ['疲れの平均', '休憩をやめる', '休ませる', '職場の環境', '総務のパネル', '設備投資', '未取得（総務のパネル）', '未設置（設備投資）', '工房に付いている']) {
+      expect(TX, k).toContain(k);
+      expect(ACCT, k).toContain(k);
+    }
+    expect(DED_KINDS).toEqual(['capex', 'rnd', 'env']);
+    expect(Object.keys(BAND_NAME)).toEqual(['fresh', 'ok', 'tired', 'worn']);
+    expect(BAND_LAMP.worn).toBe('bad');
+  });
+  it('節税の枠の計器・士気の目標の段・休ませたほうがよい人（今の is-on と同じ条件）', () => {
+    expect(dedRatio(50, 100)).toBe(0.5);
+    expect(dedRatio(150, 100)).toBe(1);
+    expect(dedRatio(1, 0)).toBe(0);
+    expect(MORALE_STEPS).toBe(6);
+    expect(moraleSteps(9)).toBe(6);
+    expect(restHot(false, 0.7, 0.6)).toBe(true);
+    expect(restHot(true, 0.9, 0.6)).toBe(false);
+    expect(restHot(false, 0.5, 0.6)).toBe(false);
+    expect(ACCT).toContain("!st.resting && f >= FATIGUE.show ? 'is-on' : ''");
+  });
+  it('主役のキーは 1 つ（下に貼りつく帯の主のキー＝前の層）：税は「決算書を見る」・総務は「総務のパネル」', () => {
+    expect(TX).toContain("kind: 'main', ico: null, cls: 'uxk-tx-books'");
+    expect(TX).toContain("kind: 'main', ico: null, cls: 'uxk-ga-panels'");
+    expect(TX.match(/kind: 'main'/g)?.length).toBe(2);
+    expect(FRONT_SEL).toContain('ux-key--main');
+  });
+  it('開くとき：紙の行が打たれ・棒が伸び・計器が振れる。上限まで使えたら札が打たれる。休ませると「休憩中」が打たれる。動きを減らすと、すぐ出る', () => {
+    expect(TX).toContain('const motion = anim && !isCalm();');
+    expect(TX).toContain('uxpPrint(rows).finish()');
+    expect(TX).toContain('stamp.hit(tip)');
+    expect(TX).toContain('h.stamp.hit(h.card)');
+    expect(TX).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
   });
 });

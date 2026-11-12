@@ -9,6 +9,7 @@ import { openBooksUx } from './books';
 import { openInvestUx } from './invest';
 import { openRankingUx } from './ranking';
 import { openSkillsUx } from './tree';
+import { openGaUx, openTaxUx } from './tax';
 
 /** 本体の関数の束を受け取って、差し込み口へ入れる */
 export function installK(d: UxkDeps) {
@@ -17,4 +18,6 @@ export function installK(d: UxkDeps) {
   uxk.ranking = openRankingUx;
   uxk.invest = openInvestUx;
   uxk.books = openBooksUx;
+  uxk.tax = openTaxUx;
+  uxk.ga = openGaUx;
 }
