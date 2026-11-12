@@ -9,6 +9,7 @@ import './tokens.css';
 import './base.css';
 import './parts.css';
 import './legacy.css';
+import { initFront } from './front';
 import { initFx } from './fx';
 import { installLegacy } from './legacy';
 import { onQuality, quality } from './loop';
@@ -24,7 +25,12 @@ export function bootUx() {
   const crt = document.createElement('div');
   crt.className = 'ux-crt';
   crt.setAttribute('aria-hidden', 'true');
+  // 線の 1 枚（主役のボタンの所だけ窓を開ける：front.ts）。ゆっくり流れる帯は .ux-crt::after のまま
+  const lines = document.createElement('i');
+  lines.className = 'ux-crt-lines';
+  crt.append(lines);
   document.body.append(crt);
+  initFront(lines);
   onQuality(() => {
     if (quality.level === 0) dropCrt();
   });

@@ -256,6 +256,8 @@ export function installPop(host: UxmHost) {
         }),
       );
     }
+    // 前の層（走査線の乗らない窓：uix/front.ts）に出すのは、この吹き出しの主役のキー 1 つ（並びの先頭の琥珀のキー）
+    acts.querySelector<HTMLElement>('.isl-btn.is-on:not(:disabled)')?.classList.add('ux-front');
     // 主のキー（工房を開く・お店を開く）に、建物の絵を添える
     const mainKey = b && b.owner === 'me' && b.left <= 0 ? acts.querySelector<HTMLElement>('.isl-btn.is-on:not(:has(canvas))') : null;
     const mainIco = !mainKey ? null : b?.id === 'workshop' ? 'hammer' : mainKey.textContent === t('お店を開く', 'Open shop') ? 'shop' : null;
