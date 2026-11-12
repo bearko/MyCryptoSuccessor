@@ -204,7 +204,8 @@ export function openShelfChoiceUx(ctx: Ctx, plan: Plan, gate: OneShelf[], go: (p
       pic: el('span.uxb-cut', bIcon(ICO[o.pick], { scale: 2 })),
       name: o.name,
       desc: el('span.uxb-dim', o.sub),
-      foot: o.off ? (gap ? gap.el : whyLine(o.off)) : o.pick === 'keep' ? null : salesLine(o.sales),
+      // 売上の見込みは o.sub（今の画面と同じ文）に入っているので、足りないときの目盛りと理由だけ
+      foot: o.off ? (gap ? gap.el : whyLine(o.off)) : null,
       badge: o.rec ? t('おすすめ', 'Pick') : undefined,
       onTap: () => setSel(o.pick, true),
       selected: o === sel,
@@ -297,6 +298,8 @@ export function openRankUpUx(ctx: Ctx, x: Sku, worker: number | null, onMake: (u
     ),
   );
   if (r.why) host.append(whyLine(r.why));
+  // 開発の資金が足りない：「あと N G」の目盛り（責めない言い方。売上がたまれば届く）
+  if (r.next === 'money') host.append(uxpGap(s.money, r.cost).el);
   if (act) d.setDecide({ name: null, label: act.label, on: true });
 
   function dev() {

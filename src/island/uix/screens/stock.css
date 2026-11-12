@@ -36,6 +36,13 @@ html.is-uxc .uxb-store-rate {
 html.is-uxc .uxb-store > .ux-meter {
   height: 12px;
 }
+html.is-uxc .uxb-store > .uxb-dim {
+  align-items: baseline;
+}
+html.is-uxc .uxb-store > .uxb-dim > .ux-num {
+  font-size: var(--ux-n15);
+  line-height: 1.2;
+}
 /* 在庫品の札 */
 html.is-uxc .uxb-chips {
   display: grid;
