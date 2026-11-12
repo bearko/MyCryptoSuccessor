@@ -485,8 +485,8 @@ html.is-uxc .ux-crt {
   display: none;
 }
 html.is-uxc.is-crt .ux-crt { display: block; }
-html.is-uxc .ux-crt::before {
-  content: '';
+/* 線の 1 枚。主役のボタンの所だけ、同じ形の窓を開ける（front.ts が clip-path を書く。docs/ISLAND_UIX.md「前の層」） */
+html.is-uxc .ux-crt > .ux-crt-lines {
   position: absolute;
   inset: 0;
   background: repeating-linear-gradient(to bottom, rgba(6, 8, 20, 0.16) 0 1px, transparent 1px 3px);
