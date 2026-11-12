@@ -42,7 +42,7 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     const boot = src('uix/screens/w-boot.ts');
     for (const k of ['letter', 'cheer', 'land', 'rankUp', 'sectorCard', 'deco', 'dig', 'disaster', 'road']) expect(boot).toContain(`uxw.${k} = `);
     // 本体から新しい画面を直接読んでいる所は無い（読んでよいのは、空の差し込み口だけ）
-    for (const f of ['p1/main.ts', 'p1/landui.ts', 'p1/digui.ts', 'p1/disaster.ts', 'p1/uxw.ts']) expect(src(f), f).not.toMatch(/from '\.\.\/uix\/screens\/(?!s-slots'|w-slots'|mhooks')/);
+    for (const f of ['p1/main.ts', 'p1/landui.ts', 'p1/digui.ts', 'p1/disaster.ts', 'p1/uxw.ts']) expect(src(f), f).not.toMatch(/from '\.\.\/uix\/screens\/(?![a-z]-slots'|mhooks')/);
   });
   it('新しい画面の束は、本体のモジュールを自分では読まない（型だけ）。関数は p1/uxw.ts から渡す', () => {
     for (const f of FILES) {

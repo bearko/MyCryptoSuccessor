@@ -6,6 +6,7 @@
 import type { UxsDeps } from '../p1/uxs';
 import type { UxcScreens } from './screens/c-slots';
 import type { UxScreens } from './screens/s-slots';
+import type { UxwScreens } from './screens/w-slots';
 
 export interface UxHooks {
   /** 札（sheet()）を作った直後：器の飾り・✕ のキー・開く動き（幕か、短い出入り） */
@@ -26,11 +27,12 @@ export interface UxHooks {
 export const ux: UxHooks = {};
 
 /**
- * 段 UIX3a：新しい画面の差し込み口の入れ物（中身の型と説明は screens/s-slots.ts・c-slots.ts。そこから同じ物を名前を替えて出している）。
+ * 段 UIX3a：新しい画面の差し込み口の入れ物（中身の型と説明は screens/s-slots.ts・c-slots.ts・w-slots.ts。そこから同じ物を名前を替えて出している）。
  * 入れ物そのものは、このファイル（切のときも読む小さな束）に置く：入のとき、入口が新しい画面の束を本体より先に読むので、
  * 入れ物が本体の束の中にあると、本番のビルドで入れ物だけの束が 1 つ増え、切のときに読むファイルの数が変わってしまうため。
  */
 export const uxsSlots: UxScreens = {};
 export const uxcSlots: UxcScreens = {};
+export const uxwSlots: UxwScreens = {};
 /** 束（s-boot.ts）が読めたら、入れ方（install）がここに入る（p1/uxs.ts の bootUxs が、起動のその場で呼ぶ）。切のときは空のまま */
 export const uxsBootSlot: { install?: (d: UxsDeps) => void } = {};

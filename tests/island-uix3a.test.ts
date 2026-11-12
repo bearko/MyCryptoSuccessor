@@ -171,7 +171,7 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     }
   });
   it('本体から読むのは、空の差し込み口だけ。入のときは、入口が束を先に読み、本体は起動のその場で差し込む', () => {
-    for (const f of ['p1/main.ts', 'p1/heroui.ts', 'p1/tut.ts', 'p1/uxc.ts']) expect(src(f), f).not.toMatch(/from '\.\.\/uix\/screens\/(?!s-slots'|c-slots'|mhooks')/);
+    for (const f of ['p1/main.ts', 'p1/heroui.ts', 'p1/tut.ts', 'p1/uxc.ts']) expect(src(f), f).not.toMatch(/from '\.\.\/uix\/screens\/(?![a-z]-slots'|mhooks')/);
     expect(src('main.ts')).toMatch(/import\('\.\/uix\/boot'\)\s*\.then\(\(\) => import\('\.\/uix\/screens\/s-boot'\)\)\s*\.then\(start, start\)/);
     expect(src('uix/screens/s-boot.ts')).toContain('uxsBoot.install = install;');
     expect(src('p1/main.ts')).toContain('if (uxOn()) bootUxs();');
@@ -179,10 +179,11 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     // 入れ物そのものは uix/hooks.ts（切のときも読む小さな束）に置く：差し込み口のファイルは型と名前だけで、中身（束）を持たない
     // （本番のビルドで、入れ物だけの束が増えて、切のときに読むファイルの数が変わらないように）
     const hooks = src('uix/hooks.ts');
-    for (const n of ['uxsSlots', 'uxcSlots', 'uxsBootSlot']) expect(hooks).toMatch(new RegExp(`export const ${n}\\b`));
+    for (const n of ['uxsSlots', 'uxcSlots', 'uxwSlots', 'uxsBootSlot']) expect(hooks).toMatch(new RegExp(`export const ${n}\\b`));
     expect(src('uix/screens/s-slots.ts')).toContain("export { uxsSlots as uxs, uxsBootSlot as uxsBoot } from '../hooks';");
     expect(src('uix/screens/c-slots.ts')).toContain("export { uxcSlots as uxc } from '../hooks';");
-    for (const f of ['uix/screens/s-slots.ts', 'uix/screens/c-slots.ts']) expect(src(f), f).not.toMatch(/^export (const|let|function|class) /m);
+    expect(src('uix/screens/w-slots.ts')).toContain("export { uxwSlots as uxw } from '../hooks';");
+    for (const f of ['uix/screens/s-slots.ts', 'uix/screens/c-slots.ts', 'uix/screens/w-slots.ts']) expect(src(f), f).not.toMatch(/^export (const|let|function|class) /m);
     // 入のときだけの束（画面の部品・アイコン）は、事前に保存しない
     expect(src('../../vite.config.ts')).toContain('(boot|kit|s-boot|sparts|micons)-');
   });

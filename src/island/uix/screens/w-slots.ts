@@ -170,4 +170,5 @@ export interface UxwScreens {
   /** 地図の上の札（縮小の札）・となりの町の吹き出し：今の要素の絵文字をドットの絵に替える（見た目は CSS で着せ替える） */
   deco?: (e: HTMLElement, kind: 'badge' | 'pop') => void;
 }
-export const uxw: UxwScreens = {};
+// 入れ物は uix/hooks.ts に置く（理由はそこに）。ここは型と、同じ物の名前だけ
+export { uxwSlots as uxw } from '../hooks';
