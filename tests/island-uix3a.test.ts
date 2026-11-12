@@ -6,7 +6,7 @@ import { drawer, pickExt, pickHero, pickKind } from '../src/island/p1/heroui';
 import { newP1 } from '../src/island/p1/model';
 import { uxcDeps } from '../src/island/p1/uxc';
 import { uxsDeps } from '../src/island/p1/uxs';
-import { EMOJI_ICO, EMOJI_RE, FRONT_PICK, splitByEmoji, sysSplit } from '../src/island/uix/screens/c-dress';
+import { EMOJI_ICO, EMOJI_RE, FRONT_PICK, GUIDE_SEL, GUIDE_SFX_GAP, GUIDE_SNAP_MS, TOAST_SFX_GAP, guideStep, sayParts, splitByEmoji, sysSplit, toastKind, toastParts } from '../src/island/uix/screens/c-dress';
 import { uxc } from '../src/island/uix/screens/c-slots';
 import { M_ICONS } from '../src/island/uix/screens/micons';
 import { KIND_ORDER, PICK_STAMP_MS, extOrder, heroTap, preselect } from '../src/island/uix/screens/picker';
@@ -332,6 +332,107 @@ describe('今の要素のまま着せ替える画面（お知らせ・窓・チ�
     expect(src('uix/screens/c-dress.ts')).toContain("b.classList.add('ux-front')");
   });
   it('動きを減らす：着せ替えた所の出入り・はずみも止まる', () => {
-    expect(noComment(src('uix/screens/c-skin.css'))).toMatch(/html\.is-uxc\.is-calm #isl-ui :is\([^)]*\.isl-bcard\.is-guide[^)]*\) \{\s*animation: none;/);
+    expect(noComment(src('uix/screens/c-skin.css'))).toMatch(/html\.is-uxc\.is-calm #isl-ui :is\([^)]*\.isl-tour-tap[^)]*\) \{\s*animation: none;/);
+  });
+});
+
+describe('お知らせ：管制卓の信号の帯', () => {
+  const CSS = noComment(src('uix/screens/c-skin.css'));
+  const TS = src('uix/screens/c-dress.ts');
+  it('種類：済み・注意・セリフ・知らせ（頭の印で決める）', () => {
+    expect(toastKind('✔ 承認：扇子を輸入に追加しました')).toBe('done');
+    expect(toastKind('⚠ 素材が足りません（あと 12 個）')).toBe('warn');
+    expect(toastKind('💬 MCHアーティスト「いい品ができたぞ」')).toBe('say');
+    expect(toastKind('マスをタップで建物を動かす')).toBe('info');
+    expect(toastKind('いまは「工房で作るものを決める」をしよう！')).toBe('info');
+  });
+  it('字を、種類・本文・「×N」に分ける（頭の印は絵とランプに替わるので、本文からは外す。字そのものは今のまま）', () => {
+    expect(toastParts('✔ 承認しました')).toEqual({ kind: 'done', body: '承認しました', n: 1 });
+    expect(toastParts('木材を 1 ロット注文しました ×3')).toEqual({ kind: 'info', body: '木材を 1 ロット注文しました', n: 3 });
+    expect(toastParts('⚠ 資金が足りません ×2')).toEqual({ kind: 'warn', body: '資金が足りません', n: 2 });
+    expect(sayParts('💬 MCHアーティスト「いい品ができたぞ」')).toEqual({ name: 'MCHアーティスト', line: 'いい品ができたぞ' });
+    expect(sayParts('ふつうの知らせ')).toBeNull();
+    // 今の決まり（積む数・消えるまで・同じ文は ×N）は本体のまま：新しい画面の側は、出た札を組み直すだけ
+    const main = src('p1/main.ts');
+    expect(main).toContain('setTimeout(() => e.remove(), 3300);');
+    expect(main).toContain('while (toasts.children.length > 3) toasts.firstChild?.remove();');
+  });
+  it('幅：せまい画面は画面幅 − 32px・広い画面は 420px まで。字は 3 行まで。160ms ほどで滑り込む', () => {
+    expect(CSS).toMatch(/#isl-ui \.isl-toasts \{\s*left: 16px;\s*right: 16px;/);
+    expect(CSS).toMatch(/width: min\(420px, calc\(100% - 16px\)\);/);
+    expect(CSS).toMatch(/-webkit-line-clamp: 3;/);
+    // 3300ms の 4.85% ＝ 160ms
+    expect(CSS).toMatch(/uxc-sig-life 3300ms steps\(4, end\)/);
+    expect(Math.round(3300 * 0.0485)).toBe(160);
+  });
+  it('上の帯を隠さない：札・窓を開いているあいだも、上の帯のすぐ下', () => {
+    const legacy = src('uix/legacy.ts');
+    expect(legacy).toMatch(/return hud && hud\.height \? hud\.bottom \+ 6 : y;/);
+    expect(legacy).not.toMatch(/\? 8 : y\)/);
+  });
+  it('せまい画面：帯が出ているあいだ、ミッションの札は見出しだけにたたんで下へよける（クリアの印が出ているあいだは、たたまない）', () => {
+    expect(TS).toContain("root.classList.toggle('uxc-toasting', hgt > 0);");
+    expect(CSS).toMatch(/\.uxc-toasting \.isl-missions:not\(:has\(\.isl-mis-stamp\)\) > :not\(\.isl-missions-head\) \{\s*display: none;/);
+    expect(CSS).toMatch(/translate: 0 var\(--uxc-toast-h, 0px\);/);
+  });
+  it('音は間引く。セリフには、名前の札と小さな顔。トロフィーは、表に無い絵ならトロフィーのドットの絵', () => {
+    expect(TOAST_SFX_GAP).toBeGreaterThanOrEqual(300);
+    expect(TS).toContain("if (now - toastSfxAt < TOAST_SFX_GAP) return;");
+    expect(TS).toContain("uxpFace(C.heroIcon(id, 64), { win: 40 })");
+    expect(Object.keys(uxcDeps)).toContain('heroByName');
+    expect(uxcDeps.heroByName('そんな人はいない')).toBeNull();
+    expect(UX_ICONS).toContain('trophy');
+    expect(TS).toMatch(/uxIcon\(m \? EMOJI_ICO\[m\[1\]\] : 'trophy'/);
+  });
+});
+
+describe('チュートリアル：一言・光る枠・クリア・流れの案内・ほめる一言', () => {
+  const CSS = noComment(src('uix/screens/c-skin.css'));
+  const TS = src('uix/screens/c-dress.ts');
+  it('手順・条件・順番は変えない：本体のチュートリアルの段（p1/tut.ts の TUT）には、入のときの言い方のほか触らない', () => {
+    const tut = src('p1/tut.ts');
+    // 入のときだけ替えるのは、文の 3 か所だけ
+    expect(tut.match(/uxText\(/g)?.length).toBe(3);
+    for (const f of ['uix/screens/c-dress.ts', 'uix/screens/talk.ts', 'uix/screens/picker.ts']) expect(src(f), f).not.toMatch(/\.tut\s*=[^=]/);
+  });
+  it('マインちゃんの一言：会話と同じ器（枠の上に立つ・名前の札・1 字ずつ喋る）。出す・隠すは今の決まりのまま', () => {
+    expect(TS).toMatch(/typeInto\(p, f, \{ voice: TIP_VOICE \}\)/);
+    // 文が替わったときだけ喋る（同じ文のまま作り直されたら、全部出たまま）
+    expect(TS).toMatch(/if \(last && last\.key === key\) \{/);
+    expect(CSS).toMatch(/\.isl-advisor > \.isl-bubble\[data-uxc-name\]::before \{\s*content: attr\(data-uxc-name\);/);
+    // display は書かない（札・窓・吹き出しを開いているあいだは今の決まりで隠れる）・はみ出した所は地図を押せるまま
+    const adv = [...CSS.matchAll(/html\.is-uxc #isl-ui \.isl-advisor \{([^}]*)\}/g)].map((m) => m[1]);
+    expect(adv.length).toBeGreaterThan(0);
+    for (const body of adv) expect(body).not.toMatch(/display:/);
+    expect(adv.join('\n')).toMatch(/padding-top: 92px;\s*pointer-events: none;/);
+    // 立ち絵は 96×128 の等倍（にじませない）
+    expect(CSS).toMatch(/\.isl-advisor > img \{[^}]*width: 96px;\s*height: 128px;/);
+    expect(CSS).toMatch(/\.isl-dock-mine \{[^}]*object-fit: none;/);
+  });
+  it('光る枠：相手が替わったら締まり直す・同じ相手なら締まり直さない・相手が無ければ消す', () => {
+    expect(guideStep('', 'a')).toBe('snap');
+    expect(guideStep('a', 'a')).toBe('keep');
+    expect(guideStep('a', 'b')).toBe('snap');
+    expect(guideStep('a', null)).toBe('hide');
+    expect(GUIDE_SNAP_MS).toBe(180);
+    expect(GUIDE_SFX_GAP).toBeGreaterThanOrEqual(300);
+    expect(CSS).toMatch(/uxc-guide-snap 180ms steps\(3, end\) 1/);
+    expect(CSS).toMatch(/uxc-guide-pulse 1\.6s steps\(4, end\) infinite/);
+    // 動きを減らす：止まった形
+    expect(CSS).toMatch(/html\.is-uxc\.is-calm \.uxc-guide,\s*html\.is-uxc\.is-calm \.uxc-guide > i \{\s*animation: none;/);
+    // 今の目印（is-hot・is-guide）を見る。下の帯のタブ・速さのキーは、上と下の帯の段が自分で囲む
+    for (const sel of GUIDE_SEL) expect(sel).toMatch(/\.is-hot|\.is-guide/);
+    expect(GUIDE_SEL.join(' ')).not.toMatch(/isl-tab|isl-speed/);
+    // 会話のあいだは出さない
+    expect(TS).toContain("if (!root.querySelector('.isl-talk'))");
+  });
+  it('ミッションのクリア：印が打たれる（1 回だけ）。流れの案内：段が進むと光が走る。ほめる一言：打たれる札', () => {
+    expect(TS).toContain('if (stamp && !hadStamp) {');
+    expect(CSS).toMatch(/\.isl-missions\.uxc-clear \.isl-mis-stamp \{\s*animation: ux-stamp 200ms steps\(4, end\) 1;/);
+    expect(TS).toContain("tour.classList.add('uxc-run');");
+    expect(CSS).toMatch(/uxc-tour-run 520ms steps\(8, end\)/);
+    expect(CSS).toMatch(/\.isl-tour-step\.is-done::before \{[^}]*clip-path: polygon/);
+    expect(TS).toContain("pr.classList.add('uxc-hit');");
+    expect(CSS).toMatch(/\.isl-praise\.uxc-hit \{\s*animation: uxc-praise 2600ms/);
   });
 });

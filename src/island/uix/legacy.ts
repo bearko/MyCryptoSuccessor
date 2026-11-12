@@ -4,7 +4,7 @@
  * - 札（sheet()）：地図から開く・地図へ閉じるのは網目の幕（押した場所から埋まり、行き先の札を出して晴れる）。
  *   閉じるのは、幕が閉じきるのを待ってから消す。札から札へは短い出入り。開いているあいだ、地図は暗い網目で落とす
  * - 窓（modal() と、直接作っている 10 か所）：共通の器の class を付ける
- * - お知らせ：開いている札・窓の中身に重ねない
+ * - お知らせ：上の帯のすぐ下（札・窓を開いているあいだも同じ：上の帯を隠さない）
  * - 承認のボタン：レバーに替える（2 か所で試す）
  */
 import { t } from '../../i18n';
@@ -146,7 +146,13 @@ export function installLegacy() {
   };
 
   // ---- お知らせ：札・窓を開いているあいだは、上の帯の上（中身に重ねない）
-  ux.toastTop = (y) => (root()?.querySelector(':scope > .isl-sheet, :scope > .isl-modal') ? 8 : y);
+  // 段 UIX3a：札・窓を開いているあいだも、上の帯（資金・速さのキー）は隠さない：帯のすぐ下に出す（札の見出しには重なる）
+  ux.toastTop = (y) => {
+    const ui = root();
+    if (!ui?.querySelector(':scope > .isl-sheet, :scope > .isl-modal')) return y;
+    const hud = (ui.querySelector('.uxm-hud') ?? ui.querySelector('.isl-hud'))?.getBoundingClientRect();
+    return hud && hud.height ? hud.bottom + 6 : y;
+  };
 
   // ---- 承認のボタン → レバー
   ux.lever = (b, label) => {
