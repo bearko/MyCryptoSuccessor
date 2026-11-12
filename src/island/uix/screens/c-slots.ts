@@ -32,4 +32,5 @@ export interface UxcScreens {
   /** エクステを選ぶ引き出し（作業台の作る物を選ぶ並びも） */
   pickExt?: (...a: Parameters<typeof pickExt>) => void;
 }
-export const uxc: UxcScreens = {};
+// 入れ物は uix/hooks.ts に置く（理由はそこに）。ここは型と、同じ物の名前だけ
+export { uxcSlots as uxc } from '../hooks';

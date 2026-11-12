@@ -24,8 +24,8 @@ function pwa(): Plugin {
         .sort();
       // 段 UIX1a：新しい画面（入のときだけ読む分）は事前に保存しない：使ったときに覚える（sw-template.js の「初めて使ったときに保存」）。
       // 分かれた書体のファイル（120 個あまり）と、入口の boot・見本帳の kit（src/island/uix/boot.ts・kit.ts のチャンク）、
-      // 段 UIX2s の新しい画面の束 s-boot（src/island/uix/screens/s-boot.ts のチャンク）
-      const shell = files.filter((f) => SHELL.some((re) => re.test(f)) && !/\.woff2?$/.test(f) && !/^assets\/(boot|kit|s-boot)-/.test(f));
+      // 段 UIX2s の新しい画面の束 s-boot（src/island/uix/screens/s-boot.ts のチャンク）、段 UIX3a で分かれた入のときだけの束（画面の部品 sparts・アイコン micons）
+      const shell = files.filter((f) => SHELL.some((re) => re.test(f)) && !/\.woff2?$/.test(f) && !/^assets\/(boot|kit|s-boot|sparts|micons)-/.test(f));
       const hash = createHash('sha256');
       for (const f of shell) hash.update(f).update(readFileSync(join(outDir, f)));
       const precache = ['./', ...shell.filter((f) => f !== 'index.html')];
