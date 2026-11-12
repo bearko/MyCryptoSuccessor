@@ -13,7 +13,11 @@ if (q.get('uix') === 'sound')
   void import('./uix/audio/book');
 // 入のときだけ、新しい値・部品・書体を読む（切のときは読まない）。読めなくても、今の画面で始める
 else if (uxc.kit) void import('./uix/boot').then(() => import('./uix/kit'));
-else if (uxc.on) void import('./uix/boot').then(start, start);
+// 段 UIX3a：新しい画面の束も、本体より先に読んでおく（起動のすぐあとの最初の会話から、新しい画面で出すため。読めなくても始める）
+else if (uxc.on)
+  void import('./uix/boot')
+    .then(() => import('./uix/screens/s-boot'))
+    .then(start, start);
 else void start();
 
 // オフラインで遊べるように（本番のビルドだけ。dist/sw.js は vite.config.ts の pwa() が作る）

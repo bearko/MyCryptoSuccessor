@@ -12,7 +12,7 @@ import { el } from './dom';
 import { lastPress, pressMark, pressOrigin, ripple, wipe } from './fx';
 import { ux } from './hooks';
 import { uxIcon } from './icons';
-import { PRESS_MIN_MS, uxLever } from './parts';
+import { KEY_ATTR, PRESS_MIN_MS, uxLever } from './parts';
 import { isCalm } from './prefs';
 import { renderUxSettings } from './settings';
 import { uxSfx } from './sound';
@@ -76,8 +76,8 @@ export function installLegacy() {
       // 地図を押した所に、四角い波紋
       if (tg.id === 'isl-map') return ripple({ x: e.clientX, y: e.clientY });
       const b = tg.closest('button');
-      // 新しい部品（ux-）は、自分で沈む
-      if (!b || b.disabled || /(^|\s)ux-/.test(b.className)) return;
+      // 新しい部品（press() を通したキー。接頭辞は ux-・uxp-・uxs-・uxm-・uxc- のどれでも）は、自分で沈む
+      if (!b || b.disabled || b.hasAttribute(KEY_ATTR) || /(^|\s)ux-/.test(b.className)) return;
       lift();
       b.classList.add('is-ux-down');
       down = { b, at: performance.now() };

@@ -8,6 +8,7 @@ import '@fontsource/jersey-10/400.css';
 import './tokens.css';
 import './base.css';
 import './parts.css';
+import './sparts.css';
 import './legacy.css';
 import { initFront } from './front';
 import { initFx } from './fx';

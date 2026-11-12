@@ -61,6 +61,8 @@ import { pickMake } from './stockui';
 import { dutyText, tradeNeighbors } from './tariff';
 import { fmt, heroIcon, heroName, matIcon, money, signed, skuIcon, skuName } from './ui';
 import { uxwDeps } from './uxw';
+import { uxcDeps } from './uxc';
+import { uxsBoot } from '../uix/screens/s-slots';
 
 export const uxsDeps = {
   heroFacesRight,
@@ -167,8 +169,14 @@ export const uxsDeps = {
   skuName,
   // 段 UIX3w：世界の場面（町の制覇・ランドマップ・発掘）の束
   w: uxwDeps,
+  uxc: uxcDeps,
 };
 export type UxsDeps = typeof uxsDeps;
 
 /** 入のときだけ呼ぶ（p1/main.ts）：新しい画面の束を読み、本体の関数を渡して差し込み口（uxs）へ入れる */
 export const loadUxs = () => import('../uix/screens/s-boot').then((m) => m.install(uxsDeps));
+/**
+ * 段 UIX3a：束がもう届いていれば（入のとき、入口 src/island/main.ts が本体より先に読む）、その場で差し込み口へ入れる。
+ * 本体の起動のすぐあと（最初の描き直し）に出る会話から、新しい画面で出すため。届いていなければ何もしない（loadUxs があとから入れる）
+ */
+export const bootUxs = () => uxsBoot.install?.(uxsDeps);

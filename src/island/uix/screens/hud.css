@@ -128,8 +128,10 @@ html.is-uxc #isl-ui.uxm-on .uxm-minus {
 /* 増えた・減ったぶん（色・符号・向きの 3 つで伝える。900ms） */
 html.is-uxc #isl-ui.uxm-on .uxm-delta {
   position: absolute;
-  left: 3.3rem;
-  top: 0.62rem;
+  /* 「資金」の札の右・計器の右端にそろえる（字を大きくしても、となりの「今月の売上」の札へはみ出さない） */
+  right: 0;
+  top: 0;
+  height: 1.25rem;
   z-index: 2;
   display: flex;
   align-items: center;
@@ -347,6 +349,45 @@ html.is-uxc #isl-ui.uxm-on .uxm-tag-in .uxm-long { display: none; }
 @media (min-width: 700px) {
   html.is-uxc #isl-ui.uxm-on .uxm-tag-in .uxm-long { display: inline; }
   html.is-uxc #isl-ui.uxm-on .uxm-tag-in .uxm-short { display: none; }
+}
+/* 入りきらないとき：添えの言葉（課題・効き目・「のおそれ」）をたたむ（hud.ts の fitTags） */
+html.is-uxc #isl-ui.uxm-on .uxm-tags.is-tight .uxm-w,
+html.is-uxc #isl-ui.uxm-on .uxm-tags.is-snug .uxm-pin {
+  display: none;
+}
+/* せまい画面：印は 1 行に。今いる町の札は、残りの幅に合わせて伸び縮みする（ほかの札を先に置く） */
+@media (max-width: 599px) {
+  html.is-uxc #isl-ui.uxm-on .uxm-tags {
+    gap: 4px;
+  }
+  html.is-uxc #isl-ui.uxm-on .uxm-tag-in {
+    padding: 0 6px 0 4px;
+  }
+  html.is-uxc #isl-ui.uxm-on .uxm-tag--sector {
+    flex: 0 1 auto;
+    min-width: 5rem;
+  }
+  html.is-uxc #isl-ui.uxm-on .uxm-tag--sector .uxm-tag-in {
+    padding-left: 8px;
+  }
+  html.is-uxc #isl-ui.uxm-on .uxm-tag--sector b {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+  }
+  /* 字を大きくしても、ブランド力・日付・速さのキーが 1 段に並ぶ（速さのキーだけが次の段へ落ちない） */
+  html.is-uxc.is-t115 #isl-ui.uxm-on .uxm-hud,
+  html.is-uxc.is-t130 #isl-ui.uxm-on .uxm-hud {
+    column-gap: 4px;
+  }
+  html.is-uxc.is-t115 #isl-ui.uxm-on .uxm-chip > .uxm-face,
+  html.is-uxc.is-t130 #isl-ui.uxm-on .uxm-chip > .uxm-face {
+    padding: 0 2px;
+  }
+  html.is-uxc.is-t115 #isl-ui.uxm-on .uxm-date,
+  html.is-uxc.is-t130 #isl-ui.uxm-on .uxm-date {
+    min-width: 0;
+  }
 }
 html.is-uxc #isl-ui.uxm-on .uxm-tag--sector .uxm-tag-in { box-shadow: inset 4px 0 0 var(--tc, var(--ux-k5)), inset 0 -2px 0 var(--ux-paper2), 2px 2px 0 rgba(4, 6, 14, 0.5); padding-left: 10px; }
 html.is-uxc #isl-ui.uxm-on .uxm-tag--sector b {

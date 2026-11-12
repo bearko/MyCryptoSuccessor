@@ -12,6 +12,7 @@ import { bar, btn, h, heroIcon, heroName, matIcon, money, skuIcon, skuName } fro
 import { seriesTag } from './digview';
 import { roleOf, roleText } from './deleg';
 import { fromStock, rankUp, rankable, sellFilter, sellNo, upPrice } from './stock';
+import { uxc } from '../uix/screens/c-slots';
 
 export const TASK_NAME: Record<Task, string> = { ...(Object.fromEntries(TASKS.map((x) => [x.key, x.name])) as Record<Task, string>), side: t('バイト', 'Part-time'), manager: t('セクター長', 'Sector head'), train: t('修行', 'Training'), dig: t('発掘', 'Digging'), lead: t('リーダー・部長', 'Leader / head') };
 
@@ -164,6 +165,8 @@ export function slot(s: P1State, o: { label: string; task: Task; hero: number | 
 
 /** 引き出し（下から出る小さな窓）。閉じる関数を返す */
 export function drawer(root: HTMLElement, title: string, note: string, fill: (box: HTMLElement, close: () => void) => void): () => void {
+  // 段 UIX3a：新しい画面（入）の引き出しの器。切のときは今のまま
+  if (uxc.drawer) return uxc.drawer(root, title, note, fill);
   const el = h('div', 'isl-picker');
   const box = h('div', 'isl-picker-box');
   const head = h('div', 'isl-picker-head');
@@ -254,6 +257,8 @@ export function pickHero(
   s: P1State,
   o: { title: string; task: Task; current: number | null; onPick: (hero: number | null) => void; note?: string; extra?: (st: Staff) => string | null; badge?: string },
 ) {
+  // 段 UIX3a：新しい画面（入）のヒーローを選ぶ引き出し（選んで、下のキーで決める）。切のときは今のまま
+  if (uxc.pickHero) return uxc.pickHero(root, s, o);
   // ほかのセクタのセクター長と、チームリーダー・事業部長（役目。段 D）は、ここにはいない（役目は部門の画面の「担当」で）。
   // ただしセクター長を選ぶときは、リーダー・部長も出す（昇進）
   const promo = o.task === 'manager';
@@ -574,6 +579,8 @@ export function pickExt(
     craft?: { stock: (x: Sku) => void; rank: (x: Sku, close: () => void) => void; tab?: 'all' | 'stock' };
   },
 ) {
+  // 段 UIX3a：新しい画面（入）のエクステを選ぶ引き出し（作る物を選ぶ並びも）。切のときは今のまま
+  if (uxc.pickExt) return uxc.pickExt(root, s, o);
   if (o.craft) return pickMake(root, s, o as Parameters<typeof pickExt>[2] & { craft: NonNullable<Parameters<typeof pickExt>[2]['craft']> });
   // 技がまだの商品はうしろへ（カードに「技：○○が要る」）
   const locked = (x: Sku) => Number(craftCheck(s, x, null) === 'tech');

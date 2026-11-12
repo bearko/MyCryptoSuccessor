@@ -1,0 +1,970 @@
+/* 段 UIX3a：画面の部品（docs/ISLAND_UIX.md「画面の部品」。sparts.ts）。class は uxp-。
+   土台の部品（parts.css）と同じ値で組む：升目 2px・切り欠きの角・網目・字は 16px が最小・動かすのは transform と opacity。
+   暗い板の上が基本。紙（.uxp-paper）の中に置くと、行・見出し・棒は墨の色になる。 */
+
+html.is-uxc [class^='uxp-'],
+html.is-uxc [class*=' uxp-'] {
+  box-sizing: border-box;
+}
+html.is-uxc [class^='uxp-'][hidden],
+html.is-uxc [class*=' uxp-'][hidden] {
+  display: none !important;
+}
+
+/* ---------- 見出しの貼り札（節） */
+html.is-uxc .uxp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 1.75rem;
+  margin: 6px 0 2px;
+  min-width: 0;
+}
+html.is-uxc .uxp-head:first-child {
+  margin-top: 0;
+}
+html.is-uxc .uxp-head > .ux-tape {
+  flex: none;
+  min-height: 1.5rem;
+  line-height: 1.5rem;
+  padding: 0 8px;
+}
+html.is-uxc .uxp-head-note {
+  color: var(--ux-k5);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+/* 罫：2px の点々（機械の板の刻み） */
+html.is-uxc .uxp-head-rule {
+  flex: 1;
+  min-width: 8px;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--ux-k4) 0 4px, transparent 4px 8px);
+}
+html.is-uxc .uxp-head-right {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------- 行（名前 …… 値・添え書き） */
+html.is-uxc .uxp-row {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 2px 0;
+}
+html.is-uxc .uxp-row-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 1.75rem;
+  min-width: 0;
+}
+html.is-uxc .uxp-row-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxp-row-dots {
+  flex: 1;
+  min-width: 12px;
+  height: 0;
+  border-bottom: 2px dotted rgba(151, 161, 207, 0.4);
+}
+html.is-uxc .uxp-row-v {
+  flex: none;
+  max-width: 62%;
+  text-align: right;
+  color: var(--ux-paper);
+}
+html.is-uxc .uxp-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+html.is-uxc .uxp-row-note {
+  align-self: flex-end;
+  color: var(--ux-k5);
+  text-align: right;
+  line-height: 1.4;
+}
+html.is-uxc .uxp-row.is-good .uxp-row-v { color: var(--ux-good); }
+html.is-uxc .uxp-row.is-bad .uxp-row-v { color: var(--ux-bad); }
+html.is-uxc .uxp-row.is-amber .uxp-row-v { color: var(--ux-amber); }
+html.is-uxc .uxp-row.is-dim .uxp-row-v { color: var(--ux-k5); }
+
+/* ---------- 数字の札（貼り札の名前 ＋ 桁の回るカウンター ＋ 単位） */
+html.is-uxc .uxp-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 6px;
+}
+html.is-uxc .uxp-stat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 8px 6px;
+  background: #11131f;
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 4px 0 0 rgba(0, 0, 0, 0.5);
+}
+html.is-uxc .uxp-stat-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  min-height: 1.25rem;
+  line-height: 1.25rem;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  box-shadow: inset 0 -2px 0 var(--ux-paper2);
+  max-width: 100%;
+}
+html.is-uxc .uxp-stat-v {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 2rem;
+  max-width: 100%;
+}
+html.is-uxc .uxp-stat-u {
+  color: var(--ux-k5);
+}
+html.is-uxc .uxp-stat-u.ux-num {
+  font-size: var(--ux-n15);
+}
+html.is-uxc .uxp-stat-note {
+  color: var(--ux-k5);
+  line-height: 1.4;
+}
+html.is-uxc .uxp-stat.is-amber .ux-odo-d { color: var(--ux-amber); }
+html.is-uxc .uxp-stat.is-good .ux-odo-d { color: var(--ux-good); }
+html.is-uxc .uxp-stat.is-bad .ux-odo-d { color: var(--ux-bad); }
+html.is-uxc .uxp-stat.is-bad .uxp-stat-k { background: var(--ux-bad); box-shadow: inset 0 -2px 0 var(--ux-bad-lo); }
+
+/* ---------- タブ（見た目は土台の ux-tabs・ux-tab。ここは、届いた印と、内容に合わせる高さ） */
+html.is-uxc .uxp-tabbox {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+html.is-uxc .uxp-tabbox:not(.is-flow) {
+  flex: 1;
+}
+html.is-uxc .uxp-tabs {
+  flex: none;
+}
+html.is-uxc .uxp-tab {
+  min-width: 0;
+}
+html.is-uxc .uxp-tab > .ux-cap {
+  padding: 2px 4px;
+}
+html.is-uxc .uxp-tab .ux-tab-l {
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc .uxp-tab .ux-tab-l > b {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+html.is-uxc .uxp-tab-ico {
+  display: inline-flex;
+}
+html.is-uxc .uxp-tab[aria-pressed='false'] .uxp-tab-ico {
+  opacity: 0.6;
+}
+/* 開いているタブは明るい面：絵は墨の色に */
+html.is-uxc .uxp-tab[aria-pressed='true'] .uxp-tab-ico {
+  filter: brightness(0.12);
+}
+/* せまい画面：タブの絵は出さない（字とランプと届いた印で足りる） */
+@media (max-width: 479px) {
+  html.is-uxc .uxp-tab-ico {
+    display: none;
+  }
+}
+/* 内容に合わせる高さ：中身はその場に置く。送っているあいだだけ、出ていく側を重ねる */
+html.is-uxc .uxp-tabbody.is-flow {
+  flex: none;
+  overflow: hidden;
+}
+html.is-uxc .uxp-tabbody.is-flow > .uxp-pane {
+  position: relative;
+  inset: auto;
+  overflow: visible;
+  margin: 2px;
+}
+html.is-uxc .uxp-tabbody.is-flow > .uxp-pane.is-leaving {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+}
+
+/* タブの届いた印は、キーの右上のすみに重ねる（字の幅を取らない） */
+html.is-uxc .uxp-tab .uxp-dot {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+}
+
+/* ---------- 値段（金貨の絵 ＋ 数字） */
+html.is-uxc .uxp-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 1.5rem;
+  color: var(--ux-amber);
+}
+html.is-uxc .uxp-price .ux-num {
+  font-size: var(--ux-n2);
+}
+html.is-uxc .uxp-price.is-free {
+  color: var(--ux-good);
+}
+
+/* ---------- 届いた印のランプ */
+html.is-uxc .uxp-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+html.is-uxc .uxp-dot-n {
+  padding: 0 4px;
+  min-width: 1.1rem;
+  min-height: 1.1rem;
+  line-height: 1.1rem;
+  background: var(--ux-bad);
+  color: var(--ux-ink);
+  font-size: var(--ux-n15);
+  text-align: center;
+  text-shadow: none;
+}
+
+/* ---------- 一覧のカード（絵・名前・説明・右にキー） */
+html.is-uxc .uxp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc .uxp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc .uxp-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 6px 10px;
+  padding: 10px;
+  min-width: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k3), inset -4px -4px 0 0 #191d31;
+  color: var(--ux-paper);
+  text-align: left;
+}
+html.is-uxc .uxp-card.no-pic {
+  grid-template-columns: minmax(0, 1fr);
+}
+html.is-uxc .uxp-card.has-right {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+html.is-uxc .uxp-card.no-pic.has-right {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+html.is-uxc .uxp-card-pic {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  min-width: 56px;
+  min-height: 56px;
+  background: #11131f;
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 4px 0 0 rgba(0, 0, 0, 0.5);
+}
+html.is-uxc .uxp-card-pic > .uxp-face {
+  background: none;
+  box-shadow: none;
+}
+html.is-uxc .uxp-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+html.is-uxc .uxp-card-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  min-height: 1.5rem;
+  min-width: 0;
+}
+html.is-uxc .uxp-card-desc {
+  color: var(--ux-k5);
+  line-height: 1.5;
+}
+html.is-uxc .uxp-card-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+  min-width: 0;
+}
+html.is-uxc .uxp-card-right {
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+/* せまい画面：右のキーは下の段へ（カードの幅いっぱい） */
+@media (max-width: 479px) {
+  html.is-uxc .uxp-card.has-right,
+  html.is-uxc .uxp-card.no-pic.has-right {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  html.is-uxc .uxp-card.no-pic.has-right {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html.is-uxc .uxp-card-right {
+    grid-column: 1 / -1;
+  }
+}
+html.is-uxc .uxp-card-badge {
+  position: absolute;
+  right: 6px;
+  top: -10px;
+  z-index: 1;
+}
+html.is-uxc .uxp-card:has(> .uxp-card-badge) {
+  margin-top: 8px;
+}
+html.is-uxc .uxp-card-lamp {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+}
+/* 押せるカード：面が明るく、押すと 2px 沈む。選ばれた物は琥珀の枠・ランプ */
+html.is-uxc .uxp-card.is-tap {
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: transform 60ms steps(2, end);
+}
+html.is-uxc .uxp-card.is-tap.is-ux-down {
+  transform: translate3d(0, 2px, 0);
+}
+html.is-uxc .uxp-card.is-sel {
+  background: #2b3050;
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 0 0 4px var(--ux-amber), inset 6px 6px 0 0 var(--ux-k3);
+}
+html.is-uxc .uxp-card.is-pick {
+  animation: uxp-pick 220ms steps(4, end) 1;
+}
+@keyframes uxp-pick {
+  0% { transform: translate3d(0, 4px, 0); }
+  50% { transform: translate3d(0, -2px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+html.is-uxc .uxp-card.is-pick::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--ux-white);
+  opacity: 0;
+  animation: ux-glow 300ms steps(3, end) 1;
+  pointer-events: none;
+}
+/* 灰色：網目をかけて沈める（色だけに頼らない：理由の字を添える） */
+html.is-uxc .uxp-card.is-off {
+  background: #1a1e33;
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+  color: var(--ux-k5);
+}
+html.is-uxc .uxp-card.is-off .uxp-card-pic {
+  opacity: 0.55;
+}
+html.is-uxc .uxp-card.is-tap:focus-visible {
+  outline: 2px solid var(--ux-cyan);
+  outline-offset: -4px;
+}
+
+/* ---------- 「あと N G」の目盛り（足りないとき：責めない言い方と計器） */
+html.is-uxc .uxp-gap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  color: var(--ux-amber-hi);
+}
+html.is-uxc .uxp-gap-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc .uxp-gap-h {
+  color: var(--ux-k5);
+  line-height: 1.4;
+}
+html.is-uxc .uxp-gap .ux-meter > i {
+  transition: transform 420ms steps(6, end);
+}
+html.is-uxc .uxp-gap.is-in {
+  animation: uxp-gap-in 300ms steps(5, end) 1;
+}
+@keyframes uxp-gap-in {
+  0% { transform: translate3d(0, -8px, 0); opacity: 0; }
+  100% { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+
+/* ---------- 空のとき */
+html.is-uxc .uxp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 12px 14px;
+  text-align: center;
+  color: var(--ux-k5);
+  background:
+    repeating-linear-gradient(90deg, var(--ux-k4) 0 6px, transparent 6px 12px) 0 0 / 100% 2px no-repeat,
+    repeating-linear-gradient(90deg, var(--ux-k4) 0 6px, transparent 6px 12px) 0 100% / 100% 2px no-repeat,
+    repeating-linear-gradient(0deg, var(--ux-k4) 0 6px, transparent 6px 12px) 0 0 / 2px 100% no-repeat,
+    repeating-linear-gradient(0deg, var(--ux-k4) 0 6px, transparent 6px 12px) 100% 0 / 2px 100% no-repeat;
+}
+html.is-uxc .uxp-empty-ico > .ux-ico {
+  animation: ux-breathe 2.2s steps(2, end) infinite;
+}
+html.is-uxc .uxp-empty-t {
+  color: var(--ux-paper);
+}
+html.is-uxc .uxp-empty-s {
+  line-height: 1.5;
+}
+html.is-uxc .uxp-empty > .ux-key {
+  margin-top: 4px;
+}
+
+/* ---------- 下に貼りつく決めるキーの帯 */
+html.is-uxc .uxp-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 2px 2px;
+  /* 帯の上の縁：中身が下へもぐって見える（暗い刻み） */
+  background:
+    linear-gradient(var(--ux-k0), var(--ux-k0)) 0 4px / 100% 2px no-repeat,
+    linear-gradient(var(--ux-k4), var(--ux-k4)) 0 6px / 100% 2px no-repeat,
+    linear-gradient(transparent 0 4px, var(--ux-k2) 4px);
+}
+html.is-uxc .uxp-foot > .ux-key {
+  flex: none;
+}
+html.is-uxc .uxp-foot-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+}
+html.is-uxc .uxp-foot > .ux-key--main,
+html.is-uxc .uxp-foot > .uxp-decide {
+  flex: 1;
+}
+/* 選んだ物の名前（キーのすぐ上の小さな表示板） */
+html.is-uxc .uxp-foot-pick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 1.5rem;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--ux-amber-hi);
+}
+html.is-uxc .uxp-foot-pick:empty {
+  display: none;
+}
+html.is-uxc .uxp-decide {
+  width: 100%;
+}
+html.is-uxc .uxp-decide.is-ready > .ux-cap {
+  animation: uxp-ready 260ms steps(3, end) 1;
+}
+@keyframes uxp-ready {
+  0% { transform: translateY(4px); }
+  60% { transform: translateY(-2px); }
+  100% { transform: translateY(0); }
+}
+
+/* ---------- 選ぶ引き出し（下から出る板） */
+html.is-uxc #isl-ui .uxp-drawer,
+html.is-uxc .uxp-drawer {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: calc(var(--ux-safe-t) + 48px) 6px calc(6px + var(--ux-safe-b));
+  pointer-events: auto;
+  background: var(--ux-dz50s, var(--ux-dz50)), rgba(9, 11, 24, 0.62);
+  animation: uxp-dim-in 200ms steps(4, end) backwards;
+}
+@keyframes uxp-dim-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+html.is-uxc .uxp-drawer-box {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 720px;
+  max-height: 100%;
+  min-height: 0;
+  padding: 16px 10px 10px;
+  color: var(--ux-paper);
+  /* 動きが終わったら層を残さない（開いているあいだ、下の画面の動きで重くならないように：fill は backwards だけ・will-change は付けない） */
+  animation: uxp-drawer-in 260ms steps(7, end) backwards;
+}
+@keyframes uxp-drawer-in {
+  0% { transform: translate3d(0, 104%, 0); }
+  70% { transform: translate3d(0, -6px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+html.is-uxc .uxp-drawer.is-out {
+  pointer-events: none;
+  animation: uxp-dim-out 180ms steps(4, end) both;
+}
+html.is-uxc .uxp-drawer.is-out .uxp-drawer-box {
+  animation: uxp-drawer-out 180ms steps(4, end) both;
+}
+@keyframes uxp-dim-out {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes uxp-drawer-out {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(0, 104%, 0); }
+}
+/* 引き出しの取っ手（上の縁の刻み） */
+html.is-uxc .uxp-drawer-grip {
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  width: 48px;
+  height: 6px;
+  margin-left: -24px;
+  background: repeating-linear-gradient(90deg, var(--ux-k4) 0 4px, var(--ux-k0) 4px 6px);
+  pointer-events: none;
+}
+html.is-uxc .uxp-drawer-head {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px 6px;
+  min-width: 0;
+}
+html.is-uxc .uxp-drawer-head h3 {
+  flex: 1;
+  margin: 0;
+  min-width: 0;
+  font-size: 1.25rem;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+}
+html.is-uxc .uxp-drawer-note {
+  flex: none;
+  margin: 0 2px 8px;
+  color: var(--ux-k5);
+  line-height: 1.5;
+}
+html.is-uxc .uxp-drawer-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 6px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 6px 0 0 rgba(4, 6, 14, 0.35);
+}
+html.is-uxc .uxp-drawer .uxp-foot {
+  position: relative;
+  padding-top: 8px;
+  background: none;
+}
+/* 引き出しの上の小さな確かめ（付け替えますか？ など） */
+html.is-uxc .uxp-drawer-over {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: var(--ux-dz50s, var(--ux-dz50)), rgba(9, 11, 24, 0.62);
+}
+html.is-uxc .uxp-drawer-over > .ux-plate {
+  width: 100%;
+  max-width: 420px;
+  padding: 16px 12px 12px;
+  animation: ux-card-in 260ms steps(6, end) backwards;
+}
+
+/* ---------- 紙のページ（読ませる面：紙に墨。両端に送りの穴） */
+html.is-uxc .uxp-paper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 26px 12px;
+  min-width: 0;
+  color: var(--ux-ink);
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 8px, var(--ux-k1) 8px 14px, transparent 14px 22px) 6px 0 / 6px 100% no-repeat,
+    repeating-linear-gradient(to bottom, transparent 0 8px, var(--ux-k1) 8px 14px, transparent 14px 22px) calc(100% - 6px) 0 / 6px 100% no-repeat,
+    repeating-linear-gradient(to bottom, transparent 0 46px, rgba(26, 28, 46, 0.07) 46px 48px),
+    var(--ux-paper);
+  box-shadow: inset 0 -2px 0 var(--ux-paper2);
+}
+html.is-uxc .uxp-paper.is-plain {
+  padding: 10px 12px;
+  background: var(--ux-paper);
+  box-shadow: inset 0 -2px 0 var(--ux-paper2), inset 0 0 0 2px var(--ux-ink), 4px 4px 0 rgba(4, 6, 14, 0.5);
+}
+html.is-uxc .uxp-paper p {
+  margin: 0;
+  line-height: 1.6;
+}
+html.is-uxc .uxp-paper .ux-rl::after {
+  background: var(--ux-paper);
+}
+/* 紙の上：行・見出し・数字の札・空のとき・棒は墨の色 */
+html.is-uxc .uxp-paper .uxp-row-k,
+html.is-uxc .uxp-paper .uxp-row-note,
+html.is-uxc .uxp-paper .uxp-head-note {
+  color: #6a5f40;
+}
+html.is-uxc .uxp-paper .uxp-row-v {
+  color: var(--ux-ink);
+}
+html.is-uxc .uxp-paper .uxp-row-dots {
+  border-bottom-color: rgba(26, 28, 46, 0.4);
+}
+html.is-uxc .uxp-paper .uxp-row.is-good .uxp-row-v { color: #0f6e40; }
+html.is-uxc .uxp-paper .uxp-row.is-bad .uxp-row-v { color: #9c2238; }
+html.is-uxc .uxp-paper .uxp-row.is-amber .uxp-row-v { color: #7a3f06; }
+html.is-uxc.is-cvd .uxp-paper .uxp-row.is-good .uxp-row-v { color: #14568a; }
+html.is-uxc.is-cvd .uxp-paper .uxp-row.is-bad .uxp-row-v { color: #8a4408; }
+html.is-uxc .uxp-paper .uxp-head > .ux-tape {
+  background: var(--ux-ink);
+  color: var(--ux-paper);
+  box-shadow: none;
+}
+html.is-uxc .uxp-paper .uxp-head-rule {
+  background: repeating-linear-gradient(90deg, var(--ux-ink) 0 4px, transparent 4px 8px);
+  opacity: 0.5;
+}
+
+/* ---------- 縦の棒グラフ */
+html.is-uxc .uxp-bars {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  height: 168px;
+  padding: 0 4px;
+  min-width: 0;
+}
+html.is-uxc .uxp-bars.is-many {
+  gap: 6px;
+}
+html.is-uxc .uxp-bar-col {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  max-width: 72px;
+}
+html.is-uxc .uxp-bar-v {
+  min-height: 1.5rem;
+  color: var(--ux-paper);
+}
+html.is-uxc .uxp-bar-plot {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 2px solid var(--ux-k4);
+}
+html.is-uxc .uxp-bar {
+  display: block;
+  width: 100%;
+  background: var(--ux-k4);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 rgba(255, 255, 255, 0.18);
+  transform: scaleY(0);
+  transform-origin: 50% 100%;
+  transition: transform 520ms steps(8, end);
+  will-change: transform;
+}
+html.is-uxc .uxp-bars.is-grown .uxp-bar {
+  transform: scaleY(1);
+}
+html.is-uxc .uxp-bar.is-main { background: var(--ux-amber); }
+html.is-uxc .uxp-bar.is-good { background: var(--ux-good); }
+html.is-uxc .uxp-bar.is-bad { background: var(--ux-bad); }
+/* 負の値：斜線（色だけに頼らない） */
+html.is-uxc .uxp-bar.is-neg {
+  background: repeating-linear-gradient(135deg, var(--ux-bad) 0 4px, var(--ux-k1) 4px 8px);
+}
+/* 見込み：点線の枠だけ */
+html.is-uxc .uxp-bar.is-dash {
+  background: var(--ux-dz50), var(--ux-k4);
+  box-shadow: inset 0 0 0 2px var(--ux-k5);
+}
+html.is-uxc .uxp-bar-l {
+  min-height: 1.5rem;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--ux-k5);
+  text-align: center;
+}
+html.is-uxc .uxp-paper .uxp-bar-v { color: var(--ux-ink); }
+html.is-uxc .uxp-paper .uxp-bar-l { color: #6a5f40; }
+html.is-uxc .uxp-paper .uxp-bar-plot { border-bottom-color: var(--ux-ink); }
+html.is-uxc .uxp-paper .uxp-bar {
+  background: var(--ux-dz50), #7f8bb8;
+  box-shadow: inset 0 0 0 2px var(--ux-ink);
+}
+html.is-uxc .uxp-paper .uxp-bar.is-main { background: var(--ux-amber); }
+html.is-uxc .uxp-paper .uxp-bar.is-good { background: #2fae6f; }
+html.is-uxc .uxp-paper .uxp-bar.is-neg { background: repeating-linear-gradient(135deg, #c8424f 0 4px, var(--ux-paper) 4px 8px); }
+html.is-uxc .uxp-paper .uxp-bar.is-dash { background: none; box-shadow: inset 0 0 0 2px #6a5f40; }
+
+/* ---------- 順位の行（順位だけは横の棒） */
+html.is-uxc .uxp-ranks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+html.is-uxc .uxp-rank {
+  display: grid;
+  grid-template-columns: 2.6rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 3rem;
+  padding: 2px 8px 2px 4px;
+  background: #1a1e33;
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxp-rank:has(> .uxp-rank-pic) {
+  grid-template-columns: 2.6rem auto minmax(0, 1fr) auto;
+}
+html.is-uxc .uxp-rank-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: var(--ux-n2);
+  color: var(--ux-k5);
+}
+html.is-uxc .uxp-rank.is-top .uxp-rank-n {
+  color: var(--ux-amber);
+}
+html.is-uxc .uxp-rank-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+html.is-uxc .uxp-rank-name {
+  overflow: hidden;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+html.is-uxc .uxp-rank-note {
+  color: var(--ux-k5);
+  line-height: 1.4;
+}
+html.is-uxc .uxp-rank-bar {
+  height: 10px;
+  background: var(--ux-k0);
+}
+html.is-uxc .uxp-rank-bar > i {
+  display: block;
+  height: 100%;
+  background: var(--ux-k5);
+  transform-origin: 0 50%;
+  transition: transform 480ms steps(8, end);
+}
+html.is-uxc .uxp-rank-v {
+  min-width: 4.4rem;
+  text-align: right;
+  font-size: var(--ux-n2);
+}
+html.is-uxc .uxp-rank.is-me {
+  background: var(--ux-amber);
+  color: var(--ux-ink);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-amber-hi), inset -4px -4px 0 0 var(--ux-amber-lo);
+}
+html.is-uxc .uxp-rank.is-me .uxp-rank-n,
+html.is-uxc .uxp-rank.is-me .uxp-rank-note {
+  color: var(--ux-ink);
+}
+html.is-uxc .uxp-rank.is-me .uxp-rank-name {
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc .uxp-rank.is-me .uxp-rank-bar {
+  background: rgba(26, 28, 46, 0.25);
+}
+html.is-uxc .uxp-rank.is-me .uxp-rank-bar > i {
+  background: var(--ux-ink);
+}
+html.is-uxc .uxp-paper .uxp-rank {
+  background: none;
+  box-shadow: none;
+  color: var(--ux-ink);
+}
+html.is-uxc .uxp-paper .uxp-rank-n,
+html.is-uxc .uxp-paper .uxp-rank-note { color: #6a5f40; }
+html.is-uxc .uxp-paper .uxp-rank-bar { background: rgba(26, 28, 46, 0.14); }
+html.is-uxc .uxp-paper .uxp-rank-bar > i { background: #56608e; }
+html.is-uxc .uxp-paper .uxp-rank.is-me {
+  background: #ffd873;
+  box-shadow: inset 0 0 0 2px var(--ux-ink), 2px 2px 0 rgba(26, 28, 46, 0.3);
+}
+html.is-uxc .uxp-paper .uxp-rank.is-me .uxp-rank-bar > i { background: var(--ux-ink); }
+
+/* ---------- ヒーローの札（顔は整数倍・にじませない・flex の子でも伸びない） */
+html.is-uxc .uxp-face {
+  position: relative;
+  display: block;
+  flex: none;
+  overflow: hidden;
+  background: #11131f;
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 4px 0 0 rgba(0, 0, 0, 0.5);
+}
+html.is-uxc .uxp-face-in {
+  display: block;
+  flex: none;
+}
+html.is-uxc .uxp-face .ux-hero {
+  display: block;
+  flex: none;
+  max-width: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+html.is-uxc .uxp-face.is-breathe .uxp-face-in {
+  animation: ux-breathe 1.8s steps(2, end) infinite;
+}
+html.is-uxc .uxp-face.is-off .uxp-face-in {
+  opacity: 0.5;
+}
+html.is-uxc .uxp-face-mark {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  display: inline-flex;
+}
+html.is-uxc .uxp-hero {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+html.is-uxc .uxp-hero-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+html.is-uxc .uxp-hero-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+html.is-uxc .uxp-hero-sub {
+  color: var(--ux-k5);
+  line-height: 1.5;
+}
+html.is-uxc .uxp-hero.is-off .uxp-hero-name > .ux-tape {
+  background: var(--ux-paper3);
+}
+
+/* ---------- 打たれる札（導入済・承認済・決定） */
+html.is-uxc .uxp-stamp {
+  flex: none;
+  transform-origin: 50% 50%;
+}
+html.is-uxc .uxp-stamp.is-new {
+  animation: ux-stamp 200ms steps(4, end) 1;
+}
+
+/* ---------- 小さな選びのキーの列 */
+html.is-uxc .uxp-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+html.is-uxc .uxp-seg-key {
+  flex: 1 1 auto;
+  min-width: 60px;
+  --ux-lit: var(--ux-paper);
+}
+html.is-uxc .uxp-seg-key > .ux-cap {
+  padding: 2px 6px;
+}
+html.is-uxc .uxp-seg-key[aria-pressed='true'] {
+  --ux-txt: var(--ux-ink);
+}
+html.is-uxc .uxp-seg-key[aria-pressed='false'] b {
+  text-shadow: none;
+  color: var(--ux-k5);
+}
+
+/* ---------- 動きを減らす：出入り・伸び・息は止め、形と字はそのまま出す（base.css の決まりに加えて、途中の形で止まらないように） */
+html.is-uxc.is-calm .uxp-bar {
+  transform: scaleY(1);
+}
+html.is-uxc.is-calm .uxp-drawer,
+html.is-uxc.is-calm .uxp-drawer-box {
+  animation: none;
+}

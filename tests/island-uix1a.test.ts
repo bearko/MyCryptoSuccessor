@@ -146,7 +146,7 @@ describe('値（tokens.css）と、.is-uxc の内側だけに書く決まり', (
     expect(total).toBeLessThanOrEqual(700);
   });
   it('新しい CSS のセレクタは、すべて .is-uxc の内側（切のときは 1 つも当たらない）。角は丸めない', () => {
-    for (const f of ['tokens.css', 'base.css', 'parts.css', 'legacy.css', 'kit.css']) {
+    for (const f of ['tokens.css', 'base.css', 'parts.css', 'sparts.css', 'legacy.css', 'kit.css']) {
       const src = css(f).replace(/\/\*[\s\S]*?\*\//g, '');
       let depth = 0;
       let inKeyframes = -1;
@@ -173,7 +173,7 @@ describe('値（tokens.css）と、.is-uxc の内側だけに書く決まり', (
     }
   });
   it('新しい部品の中の字は、12px を下回らない（rem・em・変数で書く。px の小さい字は無い）', () => {
-    for (const f of ['parts.css', 'legacy.css', 'kit.css']) {
+    for (const f of ['parts.css', 'sparts.css', 'legacy.css', 'kit.css']) {
       const px = [...css(f).matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)].map((m) => Number(m[1]));
       expect(px.every((v) => v >= 16), `${f} ${px.join(',')}`).toBe(true);
       const rem = [...css(f).matchAll(/font-size:\s*(\d+(?:\.\d+)?)rem/g)].map((m) => Number(m[1]));
