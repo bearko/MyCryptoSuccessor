@@ -1539,7 +1539,7 @@ function build(ctx: Ctx, body: HTMLElement, key: string, liftFirst: boolean) {
     place();
   };
   // 絵は自分で入れる（土台のキーの ico は、土台の絵しか描けない）
-  const zk = (ico: string, label: string, fn: () => void, cls = '') => uxKey([lite(ico), el('span.ux-vh', label)], fn, { ico: null, cls: `uxk-zkey ${cls}`.trim(), attrs: { 'aria-label': label, title: label } });
+  const zk = (ico: string, label: string, fn: () => void, cls = '') => uxKey([kIcon(ico, { color: '#f4ecd4', hi: '#f4ecd4', lo: '#0b0d17', scale: 2 }), el('span.ux-vh', label)], fn, { ico: null, cls: `uxk-zkey ${cls}`.trim(), attrs: { 'aria-label': label, title: label } });
   zoomUi.append(
     zk('left', t('左の列へ', 'Previous column'), () => sendCol(-1), 'uxk-zkey-col'),
     zk('left', t('右の列へ', 'Next column'), () => sendCol(1), 'uxk-zkey-col uxk-flip'),
@@ -1813,7 +1813,9 @@ function build(ctx: Ctx, body: HTMLElement, key: string, liftFirst: boolean) {
       const best = K.bestSkillMove(S());
       V.x = best && K.POS.has(best.id) ? K.DEPT_LAYOUT[K.deptOf(K.SKILL[best.id])].cx : K.DEPT_LAYOUT.logistics.cx;
     }
-    V.y = -0.75 + (vp.clientHeight / 2 - insetT) / (UNIT * V.zoom);
+    // 本社が横に見える列：本社と見出しが上に来る。本社が画面の外の列：その列の見出しを上の帯のすぐ下に（本社の段の空きを見せない）
+    const hqSeen = Math.abs(V.x) * UNIT * V.zoom < vp.clientWidth / 2 - 48;
+    V.y = hqSeen ? -0.75 + (vp.clientHeight / 2 - insetT) / (UNIT * V.zoom) : K.HEAD_Y + (vp.clientHeight / 2 - insetT - HEAD_PX + 12) / (UNIT * V.zoom);
   }
   const zoomSteps = () => {
     const keep = { x: V.x, y: V.y, zoom: V.zoom };
