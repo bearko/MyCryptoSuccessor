@@ -15,6 +15,7 @@ import { UX_ICONS, uxIcon } from './icons';
 import { KEY_KINDS, Odo, forgetRoll, rollNumber, uxBubble, uxCloseKey, uxFader, uxKey, uxLamp, uxLever, uxMeter, uxPlate, uxPlus, uxStand, uxTape, uxToast, uxToggle, type KeyKind } from './parts';
 import { prefs, setPrefs, type CalmMode, type UxPrefs } from './prefs';
 import { renderUxSettings } from './settings';
+import { uxpBars, uxpCard, uxpDot, uxpDrawer, uxpEmpty, uxpFace, uxpFoot, uxpGap, uxpHead, uxpHero, uxpPaper, uxpPrice, uxpPrint, uxpRank, uxpRow, uxpSeg, uxpSelect, uxpStamp, uxpStat, uxpTabs } from './sparts';
 import { uxSfx } from './sound';
 
 const KIND_NAME: Record<KeyKind, () => string> = {
@@ -243,6 +244,108 @@ export function openKit() {
   );
   const toastDemo = el('div.isl-toasts.ux-kit-toasts', el('div.isl-toast', t('✔ 承認：扇子を輸入に追加', '✔ Approved: fans added to imports')));
 
+  // ---- 画面の部品（sparts.ts。段 UIX3a）：あとの画面は、この形で組む
+  let have = 1800;
+  const gap = uxpGap(have, 3000);
+  const stamp = uxpStamp(t('導入済', 'Installed'));
+  const stat = uxpStat(t('在庫', 'Stock'), 128, { unit: t('個', 'pcs'), digits: 4, size: 's' });
+  const statG = uxpStat(t('今月の売上', 'Sales this month'), 268400, { unit: 'G', digits: 7, tone: 'amber', ico: 'coin' });
+  const buyKey = uxKey(t('買う', 'Buy'), () => {
+    if (have < 3000) return gap.nudge();
+    stamp.hit(buyCard);
+    uxSfx('cash');
+  }, { kind: 'main', strong: true, attrs: { 'data-ux-quiet': '' } });
+  const buyCard = uxpCard({
+    pic: uxIcon('grinder', { scale: 4, color: '#97a1cf', hi: '#f4ecd4', lo: '#3a4266' }),
+    name: t('研磨機', 'Grinder'),
+    tags: stamp.el,
+    desc: t('仕上げが速くなる。製造の速さ +20%。', 'Faster finishing: +20% craft speed.'),
+    foot: [uxpPrice(3000), gap.el],
+    right: buyKey,
+  });
+  const earn = uxKey(t('売上 +600', 'Sales +600'), () => {
+    have += 600;
+    gap.set(have, 3000);
+    stat.set(128 + Math.round(have / 100));
+    statG.set(268400 + have);
+  }, { ico: 'coin' });
+  const pickCards = [HERO_A, HERO_B].map((id, k) =>
+    uxpCard({
+      pic: uxpFace(heroIcon(id, 64), { breathe: k === 0, win: 56 }),
+      name: heroName(id),
+      tags: uxTape(k === 0 ? t('待機中', 'Free') : t('物流の担当', 'Hauling'), k === 0 ? 'good' : 'dark'),
+      desc: k === 0 ? t('製造の適性 A・スタミナ 92%', 'Craft A · stamina 92%') : t('製造の適性 C・押すとここへ付け替え', 'Craft C · tap to move here'),
+      badge: k === 0 ? t('いちばん向いている', 'Best fit') : undefined,
+      off: k === 1,
+      onTap: (c) => pickCards.forEach((x) => uxpSelect(x, x === c, x === c)),
+    }),
+  );
+  const openDrawer = () => {
+    const cards: HTMLElement[] = [];
+    const d = uxpDrawer({ root, title: t('作業台 1 の職人', 'Crafter for bench 1'), note: t('選んで、下の「決める」で確定します。', 'Pick one, then confirm below.'), ico: 'people', decide: { label: t('決める', 'Confirm'), onDecide: () => { uxToast(t('決めました', 'Confirmed')); d.close(); } } });
+    [HERO_A, HERO_B, 4010].forEach((id, k) => {
+      const c = uxpCard({
+        pic: uxpFace(heroIcon(id, 64), { win: 56 }),
+        name: heroName(id),
+        desc: t(`製造の適性 ${'ABC'[k]}`, `Craft ${'ABC'[k]}`),
+        badge: k === 0 ? t('いちばん向いている', 'Best fit') : undefined,
+        onTap: () => {
+          cards.forEach((x) => uxpSelect(x, x === c, x === c));
+          d.setDecide({ name: [uxIcon('check', { scale: 1, color: '#ffe394' }), heroName(id)], label: t('この人に決める', 'Confirm this hero'), on: true });
+        },
+      });
+      cards.push(c);
+    });
+    d.body.append(el('div.uxp-list', cards));
+    return d;
+  };
+  const tabsDemo = uxpTabs(
+    [
+      { key: 'a', label: t('一覧', 'List'), ico: 'list', build: (pane) => pane.append(uxpHead(t('設備', 'Equipment'), { note: t('買うと「導入済」が打たれる', 'Buying stamps “Installed”'), right: uxpDot(2).el }), buyCard, earn, uxpHead(t('選ぶ一覧', 'Pick list'), { kind: 'dark', ico: 'people' }), el('div.uxp-list', pickCards)) },
+      {
+        key: 'b',
+        label: t('数字', 'Numbers'),
+        ico: 'coin',
+        dot: 3,
+        build: (pane) =>
+          pane.append(
+            el('div.uxp-stats', stat.el, statG.el),
+            uxpHead(t('行', 'Rows')),
+            uxpRow(t('売上', 'Sales'), '268,400 G', { ico: 'coin', tone: 'amber' }),
+            uxpRow(t('先月比', 'vs last month'), '+12.4%', { tone: 'good', note: t('3 か月つづけて伸びた', 'Up three months running') }),
+            uxpRow(t('担当', 'In charge'), heroName(HERO_A)),
+            uxpHead(t('順位（横の棒）', 'Ranking (horizontal)'), { kind: 'dark' }),
+            el('div.uxp-ranks', uxpRank({ n: 1, name: t('わが社', 'Our company'), value: '268,400', ratio: 1, me: true }), uxpRank({ n: 2, name: t('東の商会', 'East Trading'), value: '201,000', ratio: 0.75 }), uxpRank({ n: 3, name: t('北の工房', 'North Works'), value: '96,500', ratio: 0.36, note: t('先月 2 位', 'Was 2nd') })),
+          ),
+      },
+      {
+        key: 'c',
+        label: t('紙', 'Paper'),
+        ico: 'note',
+        build: (pane) => {
+          const bars = uxpBars([{ label: t('3月', 'Mar'), value: 121000 }, { label: t('4月', 'Apr'), value: 187000 }, { label: t('5月', 'May'), value: 268400, kind: 'main' }, { label: t('見込み', 'Next'), value: 290000, kind: 'dash' }], { auto: false });
+          const lines = [uxpHead(t('5月の売上', 'May sales')), uxpRow(t('売上', 'Sales'), '268,400 G'), uxpRow(t('利益', 'Profit'), '−3,200 G', { tone: 'bad', note: t('設備を買った月', 'Bought equipment') }), bars.el];
+          pane.append(uxpPaper(lines), uxKey(t('もう一度打つ', 'Print again'), () => { lines.forEach((l) => l.classList.remove('is-on')); bars.el.classList.remove('is-grown'); requestAnimationFrame(() => uxpPrint(lines, { onDone: bars.grow })); }), uxpEmpty(t('まだ報告はありません', 'No reports yet'), { ico: 'note', sub: t('月末に、ここへ届きます。', 'They arrive here at month end.'), key: uxKey(t('地図へもどる', 'Back to the map'), undefined, { kind: 'weak' }) }));
+        },
+        onShow: (pane) => {
+          const ls = [...pane.querySelectorAll<HTMLElement>('.uxp-paper > *')];
+          ls.forEach((l) => l.classList.remove('is-on'));
+          requestAnimationFrame(() => uxpPrint(ls, { onDone: () => pane.querySelector('.uxp-bars')?.classList.add('is-grown') }));
+        },
+      },
+    ],
+    { flow: true },
+  );
+  const sparts = el(
+    'div.ux-kit-col',
+    uxPlate('ux-kit-plate ux-kit-sparts', el('div.ux-sheet-head', el('h2.ux-bleed', t('画面の部品', 'Screen parts')), uxTape('uxp-', 'dark')), tabsDemo.el, uxpFoot(uxKey(t('やめる', 'Cancel'), undefined, { kind: 'weak' }), uxKey(t('引き出しを開く', 'Open the drawer'), openDrawer, { kind: 'main', big: true, ico: 'people' }))),
+    rowOf(
+      cell(t('ヒーローの札', 'Hero plate'), uxpHero(heroIcon(HERO_A, 64), { name: heroName(HERO_A), sub: t('職人・製造の適性 A', 'Crafter · craft A'), tags: uxTape('Lv 12', 'dark'), breathe: true })),
+      cell(t('2 倍', '2×'), uxpHero(heroIcon(HERO_B, 128), { scale: 2, name: heroName(HERO_B), sub: t('休憩中（あと 2 日）', 'Resting (2 days)'), off: true })),
+    ),
+    rowOf(cell(t('届いた印', 'New mark'), uxpDot(0).el, uxpDot(5).el), cell(t('選びのキー', 'Choice keys'), uxpSeg([{ value: 1, label: t('ゆっくり', 'Slow') }, { value: 2, label: t('ふつう', 'Normal') }, { value: 3, label: t('はやい', 'Fast') }], 2, () => undefined).el)),
+  );
+
   // ---- 設定（見本帳の上で、文字・動き・色・走査線を切り替える）
   const set = el('div.ux-kit-set');
   renderUxSettings(set);
@@ -257,6 +360,7 @@ export function openKit() {
     sec('lever', t('レバー（承認）', 'Lever (approve)'), t('引く・押すのどちらでも落ちる', 'Pull it or just press it'), leverHost),
     sec('ctl', t('スイッチ・つまみ・ランプ・計器', 'Switch, fader, lamps, meter'), '', controls),
     sec('pop', t('吹き出し・枠破り', 'Speech bubble, break-out hero'), t('枠は中身で伸び縮みする。押すと次へ', 'The frame stretches with the text. Press for the next line'), pop),
+    sec('sparts', t('画面の部品', 'Screen parts'), t('見出し・行・数字の札・タブ・カード・「あと N G」・空のとき・引き出し・紙・棒・順位・ヒーロー・届いた印・決めるキーの帯', 'Headings, rows, stats, tabs, cards, “N G to go”, empty state, drawer, paper, bars, ranking, heroes, new marks, the decide band'), sparts),
     sec('fx', t('お知らせ・粒', 'Toast, particles'), t('上掛けの canvas 1 枚', 'One overlay canvas'), fxRow, toastDemo),
     sec('set', t('設定', 'Settings'), t('文字の大きさ・動きを減らす・色・吹き出しの速さ・走査線', 'Text size, reduced motion, colours, speech speed, scanlines'), set),
   );
@@ -282,6 +386,8 @@ export function openKit() {
     prefs: () => ({ ...prefs }),
     set: (part: Partial<UxPrefs> & { calm?: CalmMode }) => setPrefs(part),
     toast: (m: string) => uxToast(m),
+    openDrawer,
+    tabs: tabsDemo,
   };
 }
 openKit();

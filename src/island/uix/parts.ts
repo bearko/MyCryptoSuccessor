@@ -30,6 +30,34 @@ export function shake(e: Element | null) {
 // ---------------------------------------------------------------- 押す手応え
 /** すばやく叩いても、沈んだ形が見える長さ（ms） */
 export const PRESS_MIN_MS = 70;
+/** press() を通したキーに付く目印（class の接頭辞が ux-・uxp-・uxs-・uxm-・uxc- のどれでも同じに扱うため） */
+export const KEY_ATTR = 'data-ux-key';
+/** 続く click を呑む間（ms）と、同じ場所とみなす幅（px） */
+export const SWALLOW_MS = 400;
+export const SWALLOW_PX = 24;
+/** 呑むかどうか：押した所の近く（SWALLOW_PX 以内）に来た click だけ。場所の無い click（読み上げ・コードから）は呑まない */
+export const swallowHit = (x: number, y: number, cx: number, cy: number, detail: number) => detail > 0 && Math.abs(cx - x) <= SWALLOW_PX && Math.abs(cy - y) <= SWALLOW_PX;
+/**
+ * 指を離した瞬間（pointerup）に動くキーの守り：そのあとブラウザが同じ場所へ届ける click を 1 回だけ呑む。
+ * 呑まないと、操作で開いたばかりの窓（引き出しの外側＝閉じる）や、札を閉じたあとの地図に、その click が当たる。
+ * 近くに来た click だけを呑むので、すぐ別の所を押した click は通る。SWALLOW_MS のあいだに来なければ、何もしない
+ */
+export function swallowClick(x: number, y: number, ms = SWALLOW_MS) {
+  if (typeof addEventListener !== 'function') return;
+  const stop = (e: Event) => {
+    const m = e as MouseEvent;
+    if (!swallowHit(x, y, m.clientX, m.clientY, m.detail)) return;
+    e.stopPropagation();
+    e.preventDefault();
+    off();
+  };
+  const off = () => {
+    removeEventListener('click', stop, true);
+    clearTimeout(id);
+  };
+  addEventListener('click', stop, true);
+  const id = setTimeout(off, ms);
+}
 /**
  * 押す手応え：押した瞬間に沈む（60〜90ms）・離すと戻る。音は押す／離すで別。
  * 指を離した所がボタンの上（まわり 8px まで）なら fn を呼ぶ。読み上げなどの「クリック」だけが来たときも呼ぶ
@@ -37,6 +65,8 @@ export const PRESS_MIN_MS = 70;
 export function press<T extends HTMLElement>(b: T, fn?: (b: T) => void, opt: { silent?: boolean; strong?: boolean } = {}): T {
   let downAt = 0;
   let isDown = false;
+  // 自分で沈むキーの目印（接頭辞に関係なく、土台の初期化・いまの入口の手応えがこれを見る：base.css・legacy.ts）
+  b.setAttribute(KEY_ATTR, '');
   const off = () => (b as unknown as HTMLButtonElement).disabled || b.getAttribute('aria-disabled') === 'true';
   const up = (fire: boolean) => {
     if (!isDown) return;
@@ -67,7 +97,10 @@ export function press<T extends HTMLElement>(b: T, fn?: (b: T) => void, opt: { s
   });
   b.addEventListener('pointerup', (e) => {
     const r = b.getBoundingClientRect();
-    up(e.clientX >= r.left - 8 && e.clientX <= r.right + 8 && e.clientY >= r.top - 8 && e.clientY <= r.bottom + 8);
+    const hit = e.clientX >= r.left - 8 && e.clientX <= r.right + 8 && e.clientY >= r.top - 8 && e.clientY <= r.bottom + 8;
+    // 離した瞬間に操作を呼ぶので、このあとブラウザが同じ場所へ届ける click を 1 回だけ呑む（開いたばかりの窓・閉じたあとの地図に当てない）
+    if (hit && isDown) swallowClick(e.clientX, e.clientY);
+    up(hit);
   });
   b.addEventListener('pointercancel', () => up(false));
   b.addEventListener('keydown', (e) => {

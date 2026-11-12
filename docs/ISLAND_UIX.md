@@ -228,6 +228,37 @@ My Crypto Successor の UI・部品・動きを作り直すための決まりと
   - ゆっくり流れる明るい帯（`.ux-crt::after`）は、窓を開けずに全体へかけたまま（線ではないので、字は読みにくくならない）。
 - **重さ**：止まっている画面では、1 コマの平均が 0.01ms 未満（位置を読むだけ。手元のヘッドレスでの計測で、実機では測っていない）。390・1280 で、吹き出しの立ち上がり・カメラの寄りのあいだも、窓はキーと同じコマで動く（ずれたコマ 0）。
 
+## 画面の部品（`src/island/uix/sparts.ts`・`sparts.css`。class は `uxp-`）
+
+段 UIX3a。土台の部品（キー・ランプ・計器・カウンター…）を組んだ、**画面を作るときの決まった形**。残りの画面は、これで組む（同じ役目の部品を、画面ごとに作らない）。見本帳（`?uix=kit` の「画面の部品」）に全部並んでいる。CSS は土台といっしょに読むので（`boot.ts`）、画面の側で読み込む必要は無い。本体（`p1/`）は読まない：ヒーロー・商品の絵は、呼ぶ側が要素で渡す（`D.heroIcon(id, 64)` など）。
+
+| 部品 | 使い方 | 決まり |
+|---|---|---|
+| 見出しの貼り札（節） | `uxpHead(title, { kind, ico, note, right })` | 節のはじめに 1 つ。貼り札 ＋ 右へ伸びる点々の罫。右端に数の札・小さなキーを置ける |
+| 行 | `uxpRow(name, value, { ico, note, tone })` | 名前 …… 値（点線でつなぐ）。添え書きは下の行。`tone`：`good`・`bad`・`amber`・`dim`（色だけに頼らず、符号・言葉を値に入れる） |
+| 数字まじりの値 | `uxpNum('12.1万')` | 頭の数字は数字の書体、うしろの言葉（万・個・人）は日本語の書体 |
+| 数字の札 | `uxpStat(label, value, { key, unit, digits, size, tone, plus })` → `set(v)` | 貼り札の名前 ＋ 桁の回るカウンター。`key` を渡すと、画面を作り直しても前の値から回る。並べるときは `div.uxp-stats` に入れる |
+| タブ | `uxpTabs([{ key, label, ico, build, onShow, dot }], { initial, onChange, flow })` → `el`・`set(key)`・`dot(key, n)` | 520ms・8 段の横送り。開いているタブはランプが点いて沈む。`build` は、はじめて開くときに 1 回。`flow: true` は、中身の高さに合わせる（札の中を縦に送る画面）。既定は残りの高さいっぱいの窓 |
+| 届いた印 | `uxpDot(n)` → `set(n)` | 赤いランプがまたたく。`0`＝ランプだけ・1 以上＝数つき・`null`＝出さない |
+| 一覧のカード | `uxpCard({ pic, name, tags, desc, foot, right, badge, onTap, selected, off })` | 絵・名前・説明・右にキー（せまい画面では、キーは下の段）。`onTap` を渡すと、カード全体が押せる（選ぶ一覧）。並べるときは `div.uxp-list`（縦）・`div.uxp-grid`（列） |
+| 選んだ形にする | `uxpSelect(card, on, feel)` | ランプ・琥珀の枠。`feel` で押し込まれた音と小さな動き |
+| 「あと N G」の目盛り | `uxpGap(have, cost, { unit, hint })` → `set(have, cost)`・`nudge()`・`short` | 足りないときだけ出る。足りないまま押されたら `nudge()`（やわらかい音・目盛りが進む）。赤い × で終わらせない |
+| 値段 | `uxpPrice(cost)` | 金貨の絵 ＋ 数字。0 なら「無料」 |
+| 空のとき | `uxpEmpty(text, { ico, sub, key })` | 点線の枠・息をする絵・一言・次に押すキー |
+| 選ぶ引き出し | `uxpDrawer({ root, title, note, ico, decide, side, onClose })` → `body`・`setDecide({ label, name, on, fn })`・`close()`・`drop()` | 下から出る板（260ms）・一覧・下に貼りつく決めるキー。外側・✕・Esc でしまう（180ms）。今の目印 `.isl-picker` が付くので、開いているあいだの時間の止め方は今のまま。決めるキーは、選ぶまで平ら。上に重ねる小さな確かめは `div.uxp-drawer-over` |
+| 紙のページ | `uxpPaper(...kids)`・`uxpPaper({ plain: true }, ...)` | 読ませる面（紙に墨）。中の行・見出し・棒・順位は墨の色になる。`uxpPrint(lines)` で、行が上から順に打たれる（押した側で `finish()` を呼べば、すぐ全部出る） |
+| 縦の棒グラフ | `uxpBars([{ label, value, kind, text }], { max, height })` → `grow()` | グラフは縦。棒は下から 8 段で伸びる（520ms）。負の値は斜線・見込み（`dash`）は点線・主役（`main`）は琥珀 |
+| 順位の行 | `uxpRank({ n, name, value, ratio, me, note, pic })` | 順位だけは横の棒。わが社は琥珀の面。1 位は王冠。並べるときは `div.uxp-ranks` |
+| ヒーローの札 | `uxpFace(sprite, { scale, win, breathe, off, mark })`・`uxpHero(sprite, { name, sub, tags, … })` | 顔は、もとの 64px の整数倍（1・2・3）。にじませない・flex の子でも伸びない。`win` を絵より小さくすると、顔のまわりだけを切り取る（一覧のカードの絵は `win: 56`） |
+| 打たれる札 | `uxpStamp(label, { kind })` → `hit(shakeEl)`・`show()`・`hide()` | 決めたあとの「導入済」「承認済」「決定」。200ms・4 段で打たれ、音と小さな揺れ |
+| 下に貼りつく決めるキーの帯 | `uxpFoot(弱いキー, 主のキー)` | 送っても下に残る。主のキー（`uxKey(..., { kind: 'main' })`）は 1 つ：前の層に出る |
+| 小さな選びのキーの列 | `uxpSeg([{ value, label }], value, onChange)` | 2〜4 個から 1 つ。選んだキーは沈んで明るい面 |
+
+- **組み方の例**（設備を買う札）：`uxpCard({ pic, name, tags: stamp.el, desc, foot: [値段, gap.el], right: 買うキー })`。押したら、足りなければ `gap.nudge()`、足りていれば本体の関数を呼び、`stamp.hit(card)`・`uxSfx('cash')`・上の帯の資金は自分で回る（`rollNumber`）。
+- **画面は止めない**：開いたとき（`uxpPrint`・`uxpBars` の伸び・`uxpStat` の `key`）・値が変わったとき（`set`）・押したとき（`uxpSelect(…, true)`・`stamp.hit`・`gap.nudge`）に、必ず何かが動く。動きを減らすときは、全部すぐ出る。
+- 押すキーは、どの接頭辞（`ux-`・`uxp-`・`uxs-`・`uxm-`・`uxc-`）でも、土台の `press()`（`uxKey`）で作れば同じ手応えになる：`press()` を通したキーには `data-ux-key` が付き、土台の初期化（`base.css`）と、いまの入口の手応え（`legacy.ts`）はこれを見る。
+- **指を離した瞬間に動く**：`press()` は、操作を呼ぶ前に、続く click を 1 回だけ呑む（同じ場所の 24px 以内・400ms 以内に来たものだけ）。開いたばかりの窓の外側や、閉じたあとの地図に、その click が当たらない。画面ごとの守り（`s-press.ts` の `safe()`）は、もう要らない（残っていても害は無い）。
+
 ## 10. このあと
 
 1. 見本の 4 画面（工房の札・建物の吹き出し・月次報告・上と下の帯）を、この部品で本体に入れる（上と下の帯・建物の吹き出しは、上の「画面：」の節）。
