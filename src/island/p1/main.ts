@@ -156,6 +156,7 @@ import { openSupply } from './scm';
 import { openSales } from './sales';
 import { pickHooks } from './heroui';
 import { openDigSummary, openMonthReport } from './report';
+import { loadUxs } from './uxs';
 import { openOrg } from './orgui';
 import { openSkills } from './tree';
 import { goalSeen, goalStep } from './goal';
@@ -255,6 +256,8 @@ const sfx = new IslandSfx();
 sfx.level = vol.se;
 // 段 UIX1s：新しい画面が入（<html class="is-uxc">）のときは、効果音を合成の音へ付け替える（切のときは何も変わらない）
 sfx.route = uxLegacy;
+// 段 UIX2s：入のときだけ、新しい画面（工房の札・月次報告）を読む。切のときは読まない
+if (uxOn()) void loadUxs();
 // ブラウザは最初の操作まで音を出せない
 // スマホは指を離したとき（pointerup・touchend・click）がユーザーの操作として数えられる。鳴るまで毎回試す
 for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'])

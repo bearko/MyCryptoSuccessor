@@ -1,0 +1,1085 @@
+/* 段 UIX2s：月次報告（方向 C「管制卓」。docs/ISLAND_UIX.md「画面：月次報告」）。
+   見本（public/uixlab/c/css/scenes.css の「月次報告（紙テープ）」「伝票の行」）の値をそのまま移し、本体の中身（利益・資金・内訳・ゴール・
+   期間の切り替え・サプライチェーン・各部からの報告）のぶんを足した。
+   セレクタはすべて html.is-uxc の内側。class の接頭辞は uxs-。動かすのは transform と opacity。グラフは縦（順位だけ横）。 */
+
+/* ---------- 器：今の札（.isl-sheet）を、見本の報告の面に（上の帯のすぐ下から、画面の下まで。下の帯の上にも重ねる） */
+html.is-uxc #isl-ui .isl-sheet.uxs-rp {
+  inset: 0;
+  padding: calc(var(--hud-h, 8px) - 4px) 0 0;
+  z-index: 6;
+  align-items: stretch;
+  background: none;
+}
+html.is-uxc #isl-ui.is-rail .isl-sheet.uxs-rp {
+  right: var(--rail-w, 0px);
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-box {
+  width: min(600px, 100%);
+  height: 100%;
+  max-height: 100%;
+  padding: 6px 8px calc(8px + var(--ux-safe-b));
+  align-items: center;
+  background: var(--ux-k1);
+  clip-path: none;
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 6px 0 0 #0e101c;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-box::before {
+  inset: 0;
+  background: var(--ux-dz25w);
+  opacity: 0.03;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-box::after {
+  display: none;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-head {
+  flex: none;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+  padding: 0;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-head h2 {
+  flex: 0 1 auto;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-head .ux-tape {
+  flex: none;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-head > .isl-btn.uxs-rp-skip {
+  display: inline-block;
+  width: auto;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  gap: 0;
+  padding: 0;
+  overflow: visible;
+  background: none;
+  box-shadow: none;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-rp.ux-swap .isl-sheet-body {
+  animation: none;
+}
+
+/* ---------- 印字機 */
+html.is-uxc .uxs-rp-printer {
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+  height: 46px;
+  margin-top: 4px;
+  padding: 0 14px 6px;
+  flex: none;
+}
+html.is-uxc .uxs-rp-slot {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 4px;
+  height: 6px;
+  background: #000;
+}
+html.is-uxc .uxs-rp-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+html.is-uxc .uxs-rp-pages .ux-num {
+  margin-left: 4px;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxs-rp-printer.is-feed .ux-lamp.is-blink {
+  animation-duration: 0.12s;
+}
+
+/* ---------- 紙 */
+html.is-uxc .uxs-rp-win {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: calc(100% - 36px);
+  max-width: 480px;
+  margin-top: -8px;
+  overflow: hidden;
+  cursor: pointer;
+}
+html.is-uxc .uxs-rp-paper {
+  position: absolute;
+  inset: 0;
+}
+html.is-uxc .uxs-rp-page {
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+html.is-uxc .uxs-rp-page p {
+  margin: 0;
+}
+html.is-uxc .uxs-rp-page [hidden] {
+  display: none !important;
+}
+html.is-uxc .uxs-rp-page .ux-rl {
+  min-width: 0;
+}
+html.is-uxc .uxs-rl {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+/* 紙に続きがあるとき：下に小さな印（上下にゆれる） */
+html.is-uxc .uxs-rp-more {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  margin-left: -12px;
+  opacity: 0;
+  pointer-events: none;
+}
+html.is-uxc .uxs-rp-more.is-on {
+  opacity: 0.8;
+  animation: ux-nextbob 0.7s steps(2, end) infinite;
+}
+html.is-uxc .uxs-rp-tag {
+  margin-left: auto;
+  color: #6a5f40;
+  white-space: nowrap;
+}
+html.is-uxc .uxs-rp-total {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc .uxs-rp-g {
+  font-size: var(--ux-n3);
+}
+html.is-uxc .uxs-rp-page .ux-odo.is-done {
+  animation: uxs-inv 260ms steps(1, end) 1;
+}
+@keyframes uxs-inv {
+  0% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+html.is-uxc .uxs-rule {
+  height: 0;
+  border-bottom: 2px solid var(--ux-ink);
+  margin: 2px 0;
+}
+/* 伝票の行（名前 …… 値。点線でつなぐ） */
+html.is-uxc .uxs-rcp {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 1.6rem;
+  min-width: 0;
+}
+html.is-uxc .uxs-rcp > b {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 400;
+  text-shadow: none;
+  min-width: 0;
+}
+html.is-uxc .uxs-rcp > i {
+  flex: 1;
+  min-width: 12px;
+  height: 0;
+  border-bottom: 2px dotted rgba(26, 28, 46, 0.4);
+}
+html.is-uxc .uxs-rcp .ux-num {
+  font-size: var(--ux-n2);
+}
+html.is-uxc .uxs-rcp.is-s .ux-num {
+  font-size: var(--ux-n15);
+}
+/* 増えた・減った：色・▲▼・符号の 3 つで（色覚に配慮した組では、青と橙） */
+html.is-uxc .uxs-rp-page .is-good {
+  color: #0f6e40;
+}
+html.is-uxc .uxs-rp-page .is-bad {
+  color: #9c2238;
+}
+html.is-uxc.is-cvd .uxs-rp-page .is-good {
+  color: #14568a;
+}
+html.is-uxc.is-cvd .uxs-rp-page .is-bad {
+  color: #8a4408;
+}
+html.is-uxc .uxs-rcp.is-good > b,
+html.is-uxc .uxs-rcp.is-bad > b {
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc .uxs-rp-sub {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  min-height: 1.4rem;
+  color: #6a5f40;
+}
+html.is-uxc .uxs-rp-diff {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+html.is-uxc .uxs-rp-diff.is-even {
+  color: var(--ux-ink);
+}
+html.is-uxc .uxs-rp-text {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  min-width: 0;
+  line-height: 1.5;
+}
+html.is-uxc .uxs-rp-text .ux-num {
+  font-size: var(--ux-n15);
+}
+html.is-uxc .uxs-rp-imp {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+}
+html.is-uxc .uxs-rp-imp .ux-ext {
+  width: 32px;
+  height: 32px;
+}
+html.is-uxc .uxs-rp-say {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+html.is-uxc .uxs-rp-say .ux-tape {
+  flex: none;
+  background: var(--ux-ink);
+  color: var(--ux-paper);
+  box-shadow: none;
+}
+html.is-uxc .uxs-chip-k {
+  display: inline-block;
+  padding: 0 6px;
+  box-shadow: inset 0 0 0 2px var(--ux-ink);
+  white-space: nowrap;
+}
+html.is-uxc .uxs-chip-k.is-bad {
+  background: #9c2238;
+  color: var(--ux-paper);
+  box-shadow: none;
+}
+html.is-uxc.is-cvd .uxs-chip-k.is-bad {
+  background: #8a4408;
+  color: var(--ux-paper);
+}
+html.is-uxc .uxs-memo {
+  color: #6a5f40;
+  line-height: 1.4;
+}
+html.is-uxc .uxs-memo.is-warn {
+  color: #9c2238;
+}
+
+/* 小さな縦の棒（先月・今月／発掘のあいだの月ごと） */
+html.is-uxc .uxs-mini {
+  display: flex;
+  align-items: flex-end;
+  gap: 28px;
+  height: 148px;
+  margin-top: 6px;
+  padding-left: 8px;
+}
+html.is-uxc .uxs-mini.is-many {
+  gap: 12px;
+  height: 128px;
+}
+html.is-uxc .uxs-mini-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+}
+html.is-uxc .uxs-mini-bar {
+  flex: 1;
+  width: 48px;
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 2px solid var(--ux-ink);
+}
+html.is-uxc .uxs-mini.is-many .uxs-mini-bar {
+  width: 36px;
+}
+html.is-uxc .uxs-mini-bar i {
+  display: block;
+  width: 100%;
+  height: var(--h);
+  background: var(--ux-dz50), #7f8bb8;
+  box-shadow: inset 0 0 0 2px var(--ux-ink);
+  transform: scaleY(0);
+  transform-origin: 50% 100%;
+  transition: transform 520ms steps(8, end);
+}
+html.is-uxc .uxs-mini-bar i.is-main {
+  background: var(--ux-amber);
+}
+html.is-uxc .is-grown .uxs-mini-bar i {
+  transform: scaleY(1);
+}
+html.is-uxc .uxs-man {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  min-height: 1.5rem;
+}
+
+/* ---------- 紙の上のキー（紙の色の面・墨の縁・固い影。押すと影の分だけ沈む） */
+html.is-uxc .uxs-pkey {
+  position: relative;
+  display: inline-block;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 2px 4px 0;
+  border: 0;
+  background: none;
+  color: var(--ux-ink);
+  font: 400 1rem/1.5 var(--ux-jp);
+  vertical-align: top;
+  text-align: center;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+html.is-uxc .uxs-pkey::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 0;
+  top: 4px;
+  bottom: 0;
+  background: var(--ux-ink);
+}
+html.is-uxc .uxs-pkey-cap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  height: 100%;
+  padding: 2px 10px;
+  background: var(--ux-paper2);
+  box-shadow: inset 0 0 0 2px var(--ux-ink), inset 4px 4px 0 0 var(--ux-white);
+  transition: transform 60ms steps(2, end);
+  will-change: transform;
+}
+html.is-uxc .uxs-pkey b {
+  text-shadow: none;
+}
+html.is-uxc .uxs-pkey.is-ux-down > .uxs-pkey-cap,
+html.is-uxc .uxs-pkey[aria-pressed='true'] > .uxs-pkey-cap {
+  transform: translate3d(2px, 4px, 0);
+}
+/* 選ばれているキー：墨の面に紙の字（形と色の両方で） */
+html.is-uxc .uxs-pkey[aria-pressed='true'] > .uxs-pkey-cap {
+  background: var(--ux-ink);
+  color: var(--ux-paper);
+  box-shadow: inset 0 0 0 2px var(--ux-ink);
+}
+html.is-uxc .uxs-pkey[aria-pressed='true'] b {
+  text-shadow: 1px 0 currentColor;
+}
+/* そのページでいちばん押してほしい導線：墨の面 */
+html.is-uxc .uxs-pkey--ink::before {
+  background: #6a5f40;
+}
+html.is-uxc .uxs-pkey--ink > .uxs-pkey-cap {
+  background: var(--ux-ink);
+  color: var(--ux-paper);
+  box-shadow: inset 0 0 0 2px var(--ux-ink), inset 4px 4px 0 0 #4a5486;
+}
+html.is-uxc .uxs-pkey--ink b {
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc .uxs-pkey:focus-visible {
+  outline: 2px solid var(--ux-cyan-lo);
+  outline-offset: 2px;
+}
+html.is-uxc .uxs-rp-go {
+  flex: 1 1 100%;
+}
+html.is-uxc .uxs-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 2px;
+}
+html.is-uxc .uxs-seg > .uxs-pkey {
+  flex: 1 0 auto;
+}
+html.is-uxc .uxs-seg > .uxs-pkey > .uxs-pkey-cap {
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+/* 行の右に置く小さなキー（営業・研究ノート・育成…） */
+html.is-uxc .uxs-rp-act {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+html.is-uxc .uxs-rp-act > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+html.is-uxc .uxs-rp-act > .uxs-pkey {
+  flex: none;
+}
+html.is-uxc .uxs-rp-dept {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-bottom: 6px;
+  border-bottom: 2px dotted rgba(26, 28, 46, 0.3);
+  line-height: 1.4;
+}
+/* 手を打つとよい行：左に急ぎの色の帯と「要確認」の札（色だけに頼らない） */
+html.is-uxc .uxs-rp-dept.is-warn {
+  box-shadow: inset 4px 0 0 #9c2238;
+  padding-left: 10px;
+}
+html.is-uxc.is-cvd .uxs-rp-dept.is-warn {
+  box-shadow: inset 4px 0 0 #8a4408;
+}
+html.is-uxc .uxs-rp-dept-k {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+}
+html.is-uxc .uxs-rp-page .ux-t-ink2 {
+  color: #6a5f40;
+}
+
+/* 折りたたみ */
+html.is-uxc .uxs-fold {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+html.is-uxc .uxs-fold-key {
+  width: 100%;
+}
+html.is-uxc .uxs-fold-key > .uxs-pkey-cap {
+  justify-content: flex-start;
+  text-align: left;
+}
+html.is-uxc .uxs-fold-key .ux-ico {
+  flex: none;
+  transition: transform 90ms steps(3, end);
+}
+html.is-uxc .uxs-fold-key[aria-expanded='true'] .ux-ico {
+  transform: rotate(90deg);
+}
+html.is-uxc .uxs-fold-l {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+html.is-uxc .uxs-fold-l .ux-num {
+  font-size: var(--ux-n15);
+}
+html.is-uxc .uxs-fold-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0 4px 10px;
+  box-shadow: inset 2px 0 0 rgba(26, 28, 46, 0.3);
+  animation: uxs-fold-in 300ms steps(5, end) 1;
+}
+@keyframes uxs-fold-in {
+  0% { transform: translate3d(0, -8px, 0); opacity: 0; }
+  100% { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+html.is-uxc .uxs-bd {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+  border-bottom: 2px dotted rgba(26, 28, 46, 0.3);
+}
+html.is-uxc .uxs-bd-list {
+  margin: 0;
+  padding: 0 0 0 1.6rem;
+}
+html.is-uxc .uxs-bd-list li {
+  padding-left: 2px;
+}
+html.is-uxc .uxs-bd-list li > span:first-child {
+  margin-right: 8px;
+}
+
+/* ---------- 企業ランキング（順位は横の棒） */
+/* 行の高さは字の大きさに合わせる（100% で 52px：見本の値） */
+html.is-uxc .uxs-rk {
+  --rk-h: 3.25rem;
+  position: relative;
+  height: calc(var(--rk-h) * var(--n, 4));
+  margin-top: 2px;
+}
+html.is-uxc .uxs-rk-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--rk-h);
+  display: grid;
+  grid-template-columns: 1.9rem 1fr auto;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 0 4px;
+  transition: transform 480ms steps(8, end);
+  will-change: transform;
+}
+html.is-uxc .uxs-rk-row.is-me {
+  z-index: 1;
+  background: #ffd873;
+  box-shadow: inset 0 0 0 2px var(--ux-ink), 2px 2px 0 rgba(26, 28, 46, 0.3);
+}
+html.is-uxc .uxs-rk-n {
+  font-size: var(--ux-n3);
+  text-align: center;
+}
+html.is-uxc .uxs-rk-body {
+  min-width: 0;
+}
+html.is-uxc .uxs-rk-name {
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+html.is-uxc .uxs-rk-bar {
+  height: 10px;
+  background: rgba(26, 28, 46, 0.14);
+}
+html.is-uxc .uxs-rk-bar i {
+  display: block;
+  height: 100%;
+  background: #56608e;
+  transform-origin: 0 50%;
+}
+html.is-uxc .uxs-rk-row.is-me .uxs-rk-bar i {
+  background: var(--ux-ink);
+}
+html.is-uxc .uxs-rk-v {
+  min-width: 5.2rem;
+  text-align: right;
+  font-size: var(--ux-n2);
+}
+html.is-uxc .uxs-rk-crown {
+  position: absolute;
+  right: -8px;
+  top: -18px;
+  z-index: 2;
+  opacity: 0;
+  transform: translate3d(0, -14px, 0);
+}
+html.is-uxc .is-top.is-crowned .is-me .uxs-rk-crown {
+  opacity: 1;
+  transform: none;
+  transition: transform 200ms steps(4, end), opacity 1ms;
+}
+/* ゴールの線（1 位と 2 位のあいだ） */
+html.is-uxc .uxs-rk-goal {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--rk-h);
+  z-index: 2;
+  height: 0;
+  border-top: 2px dashed #9c2238;
+  color: #9c2238;
+  pointer-events: none;
+}
+html.is-uxc .uxs-rk-goal::after {
+  content: attr(data-k);
+  position: absolute;
+  left: 34px;
+  top: -0.6rem;
+  padding: 0 4px;
+  background: var(--ux-paper);
+  font-size: 1rem;
+  line-height: 1rem;
+}
+html.is-uxc .uxs-rkb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding: 6px;
+  margin-top: 4px;
+  border: 2px solid var(--ux-ink);
+}
+html.is-uxc .uxs-rkb-win {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 2.6rem;
+  padding: 0 10px;
+  background: var(--ux-ink);
+  color: var(--ux-paper);
+}
+html.is-uxc .uxs-rkb-n {
+  font-size: var(--ux-n3);
+}
+html.is-uxc .uxs-rkb-win.is-new {
+  opacity: 0.2;
+}
+html.is-uxc .uxs-rkb.is-up .uxs-rkb-win:not(.is-new) {
+  opacity: 0.45;
+}
+html.is-uxc .uxs-rkb.is-up .uxs-rkb-win.is-new {
+  opacity: 1;
+  color: var(--ux-amber);
+  animation: ux-stamp 260ms steps(4, end) 1;
+}
+html.is-uxc .uxs-rkb-move {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+}
+html.is-uxc .uxs-rkb.is-up .uxs-rkb-move {
+  opacity: 1;
+}
+html.is-uxc .uxs-rkb.is-up.is-up .uxs-rkb-move {
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc .uxs-rkb.is-down .uxs-rkb-move {
+  color: #9c2238;
+}
+html.is-uxc .uxs-rkb.is-up.is-up:not(.is-down):not(.is-keep):not(.is-new) .uxs-rkb-move {
+  color: #0f6e40;
+}
+html.is-uxc .uxs-rp-goal {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  line-height: 1.4;
+}
+html.is-uxc .uxs-rp-goal .ux-ico {
+  flex: none;
+  margin-top: 4px;
+}
+html.is-uxc .uxs-rp-goal.is-done {
+  padding: 2px 8px;
+  background: var(--ux-ink);
+  color: var(--ux-amber);
+}
+
+/* ---------- 縦の棒のグラフ（推移・内訳） */
+html.is-uxc .uxs-tr-unit {
+  color: #6a5f40;
+}
+html.is-uxc .uxs-tr-holder {
+  min-width: 0;
+}
+html.is-uxc .uxs-tr {
+  position: relative;
+  height: 208px;
+  margin-top: 4px;
+}
+html.is-uxc .uxs-tr.is-s {
+  height: 156px;
+}
+html.is-uxc .uxs-tr-grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(26px + (100% - 50px) * var(--y));
+  height: 0;
+  border-top: 2px dotted rgba(26, 28, 46, 0.3);
+}
+html.is-uxc .uxs-tr-grid.is-zero {
+  border-top: 2px solid var(--ux-ink);
+}
+html.is-uxc .uxs-tr-grid > span {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  color: #6a5f40;
+  line-height: 1.2;
+}
+html.is-uxc .uxs-tr-cols {
+  position: absolute;
+  left: 50px;
+  right: 2px;
+  top: 24px;
+  bottom: 26px;
+  display: flex;
+  justify-content: space-around;
+}
+html.is-uxc .uxs-tr-col {
+  position: relative;
+  flex: 0 1 15%;
+  min-width: 6px;
+  max-width: 64px;
+}
+html.is-uxc .uxs-tr-plot {
+  position: absolute;
+  inset: 0;
+}
+html.is-uxc .uxs-tr-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--b, 0%);
+  height: var(--h, 0%);
+  background: var(--ux-dz50), #7f8bb8;
+  box-shadow: inset 0 0 0 2px var(--ux-ink);
+  transform: scaleY(0);
+  transform-origin: 50% 100%;
+  transition: transform 420ms steps(7, end);
+}
+html.is-uxc .uxs-tr-bar.is-under {
+  transform-origin: 50% 0;
+}
+html.is-uxc .uxs-tr-bar.is-main {
+  background: var(--ux-amber);
+}
+html.is-uxc .uxs-tr-bar.is-ink {
+  background: var(--ux-ink);
+}
+/* 赤字・減った月：斜線（色だけに頼らない） */
+html.is-uxc .uxs-tr-bar.is-neg {
+  background: repeating-linear-gradient(135deg, #9c2238 0 2px, transparent 2px 6px), var(--ux-paper);
+  box-shadow: inset 0 0 0 2px #9c2238;
+}
+/* 見込み：点線の枠 */
+html.is-uxc .uxs-tr-bar.is-dash {
+  background: repeating-linear-gradient(0deg, rgba(26, 28, 46, 0.18) 0 2px, transparent 2px 6px);
+  box-shadow: none;
+  border: 2px dashed var(--ux-ink);
+}
+html.is-uxc .uxs-tr-bar.is-n0 {
+  right: 42%;
+}
+html.is-uxc .uxs-tr-bar.is-n1 {
+  left: 58%;
+}
+html.is-uxc .uxs-tr-col.is-on .uxs-tr-bar {
+  transform: scaleY(1);
+}
+html.is-uxc .uxs-tr-wick {
+  position: absolute;
+  left: calc(50% - 1px);
+  width: 2px;
+  bottom: var(--b, 0%);
+  height: var(--h, 0%);
+  background: var(--ux-ink);
+  opacity: 0;
+}
+html.is-uxc .uxs-tr-col.is-on .uxs-tr-wick {
+  opacity: 1;
+}
+html.is-uxc .uxs-tr-v {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--b, 0%) + 2px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+}
+html.is-uxc .uxs-tr-col.is-on .uxs-tr-v {
+  opacity: 1;
+  transition: opacity 1ms 400ms;
+}
+html.is-uxc .uxs-tr-m {
+  position: absolute;
+  left: -14px;
+  right: -14px;
+  bottom: -26px;
+  text-align: center;
+  white-space: nowrap;
+}
+/* 選んだ月：下に墨の印 */
+html.is-uxc .uxs-tr-col.is-sel::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 4px;
+  background: var(--ux-ink);
+}
+html.is-uxc .uxs-tr-col.is-sel .uxs-tr-m {
+  text-shadow: 1px 0 currentColor;
+}
+/* 月が多いとき：名前は、はじめ・終わり・選んだ月だけ */
+html.is-uxc .uxs-tr.is-dense .uxs-tr-col:not(.is-sel):not(:first-child):not(:last-child) .uxs-tr-m {
+  display: none;
+}
+html.is-uxc .uxs-tr-readline {
+  min-width: 0;
+}
+/* 選んだ列の値：◀ 値 ▶（列を 1 つずつ送る） */
+html.is-uxc .uxs-tr-read {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc .uxs-tr-read-in {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.4;
+}
+html.is-uxc .uxs-tr-read-in > span {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 10px;
+}
+html.is-uxc .uxs-tr-read-in > span > span {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 4px;
+  min-width: 0;
+}
+html.is-uxc .uxs-tr-step {
+  flex: none;
+  width: 46px;
+}
+html.is-uxc .uxs-tr-step > .uxs-pkey-cap {
+  padding: 2px;
+}
+html.is-uxc .uxs-tr-step--prev .ux-ico {
+  transform: scaleX(-1);
+}
+html.is-uxc .uxs-tr-step[aria-disabled='true'] > .uxs-pkey-cap {
+  background: var(--ux-paper);
+  box-shadow: inset 0 0 0 2px rgba(26, 28, 46, 0.35);
+}
+html.is-uxc .uxs-tr-step[aria-disabled='true']::before {
+  display: none;
+}
+html.is-uxc .uxs-tr-step[aria-disabled='true'] .ux-ico {
+  opacity: 0.35;
+}
+html.is-uxc .uxs-tr-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  color: #6a5f40;
+}
+html.is-uxc .uxs-lg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+html.is-uxc .uxs-lg > .uxs-tr-bar {
+  position: static;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  transform: none;
+  transition: none;
+}
+html.is-uxc .uxs-lg-wick {
+  flex: none;
+  width: 2px;
+  height: 14px;
+  margin: 0 6px;
+  background: var(--ux-ink);
+}
+
+/* ---------- サプライチェーンの流れ（① 調達 → ② 製造 → ③ 物流 → ④ 販売） */
+html.is-uxc .uxs-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  margin-top: 2px;
+}
+html.is-uxc .uxs-flow-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 2px;
+  text-align: center;
+  line-height: 1.3;
+}
+html.is-uxc .uxs-flow-col.is-bn {
+  box-shadow: inset 0 0 0 2px #9c2238;
+}
+html.is-uxc.is-cvd .uxs-flow-col.is-bn {
+  box-shadow: inset 0 0 0 2px #8a4408;
+}
+html.is-uxc .uxs-flow-bar {
+  width: 32px;
+  height: 64px;
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 2px solid var(--ux-ink);
+}
+html.is-uxc .uxs-flow-bar i {
+  display: block;
+  width: 100%;
+  height: var(--h);
+  background: var(--ux-dz50), #7f8bb8;
+  box-shadow: inset 0 0 0 2px var(--ux-ink);
+  transform: scaleY(0);
+  transform-origin: 50% 100%;
+  transition: transform 420ms steps(7, end);
+}
+html.is-uxc .uxs-flow-col.is-bn .uxs-flow-bar i {
+  background: repeating-linear-gradient(135deg, #9c2238 0 2px, transparent 2px 6px), var(--ux-paper);
+  box-shadow: inset 0 0 0 2px #9c2238;
+}
+html.is-uxc .is-grown .uxs-flow-bar i {
+  transform: scaleY(1);
+}
+html.is-uxc .uxs-flow-n {
+  font-size: var(--ux-n2);
+  min-height: 1.6rem;
+  display: inline-flex;
+  align-items: center;
+}
+html.is-uxc .uxs-flow-name {
+  overflow-wrap: anywhere;
+}
+html.is-uxc .uxs-flow-arrow {
+  flex: none;
+  align-self: center;
+  margin-top: -1.6rem;
+}
+html.is-uxc .uxs-rp-hint {
+  line-height: 1.5;
+}
+
+/* ---------- 発掘作業のまとめ報告 */
+html.is-uxc .uxs-ds-got {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+html.is-uxc .uxs-ds-stat {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2px 6px;
+  box-shadow: inset 0 0 0 2px var(--ux-ink);
+  white-space: nowrap;
+}
+html.is-uxc .uxs-ds-stat .ux-num {
+  font-size: var(--ux-n2);
+  min-height: 1.6rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ---------- 下の帯：前のページ・ひとこと・つぎへ */
+html.is-uxc .uxs-rp-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+  padding-top: 8px;
+}
+html.is-uxc .uxs-rp-foot [hidden] {
+  display: none;
+}
+html.is-uxc .uxs-rp-tip {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.3;
+}
+html.is-uxc .uxs-rp-tip.is-off {
+  visibility: hidden;
+}
+html.is-uxc .uxs-rp-back {
+  flex: none;
+  width: 48px;
+}
+html.is-uxc .uxs-rp-back > .ux-cap {
+  padding: 2px;
+}
+html.is-uxc .uxs-rp-back .ux-ico {
+  transform: scaleX(-1);
+}
+html.is-uxc .uxs-rp-next {
+  flex: none;
+  margin-left: auto;
+  min-width: 168px;
+}
+
+/* ---------- 広い画面（PC）：見本と同じく、右に 600px の面 */
+@media (min-width: 700px) {
+  html.is-uxc #isl-ui .isl-sheet.uxs-rp {
+    justify-content: flex-end;
+    padding: calc(var(--hud-h, 8px) - 4px) 12px 12px 0;
+  }
+}
+
+/* 数字だけの行でも、行の高さを保つ（数字の書体は行の高さを 0 にしてある） */
+html.is-uxc .uxs-rp-page .uxs-tr-read-in .ux-num,
+html.is-uxc .uxs-rp-page .uxs-rp-text .ux-num,
+html.is-uxc .uxs-rp-page .uxs-rp-sub .ux-num,
+html.is-uxc .uxs-rp-page .uxs-bd-list .ux-num {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+}
+html.is-uxc .uxs-flow-col.is-bn {
+  flex: 1.5 1 0;
+}
+
+/* 月末ポーズのあいだ、見出しの「とばす」の横に出る「▶ N 月へ」（今のキー isl-next-mini）：入りきらないときは 2 段目へ折り返す */
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-head {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: 2px;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-head > .ux-tape {
+  margin-right: auto;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-head > .isl-btn.isl-next-mini {
+  margin: 0;
+  padding: 2px 6px;
+  --ux-txt: var(--ux-amber);
+  animation: none;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-head > .isl-btn.isl-next-mini + .isl-btn {
+  margin-left: 0;
+}

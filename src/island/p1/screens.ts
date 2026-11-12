@@ -146,6 +146,7 @@ import { adBreakeven, adGain } from './moves';
 import { craftable, shopInvestOrder } from './orders';
 import { charismaCard, charismaNeeds, openPayroll as openPayrollHr } from './hrui';
 import { hireEmptyLines } from './hr';
+import { uxs } from '../uix/screens/s-slots';
 
 export interface Ctx {
   s: () => P1State;
@@ -404,7 +405,8 @@ export const sheetHooks: { opened?: () => void } = {};
 let openGuard: ((title: string) => boolean) | null = null;
 export const setOpenGuard = (f: ((title: string) => boolean) | null) => (openGuard = f);
 
-export function open(ctx: Ctx, title: string, render: (body: HTMLElement) => void, onClose?: () => void) {
+/** keep：中身を作り直さない（段 UIX2s：新しい画面は、自分の中身を持ったまま描き直す。render は毎回呼ぶ） */
+export function open(ctx: Ctx, title: string, render: (body: HTMLElement) => void, onClose?: () => void, keep = false) {
   // まとめた画面の中身を集めているあいだ：札は開かない
   if (capture) {
     capture.push({ title, render, onClose });
@@ -434,6 +436,7 @@ export function open(ctx: Ctx, title: string, render: (body: HTMLElement) => voi
     () => ctx.dismissed?.(),
   );
   const draw = () => {
+    if (keep) return render(sh.body);
     const y = sh.body.scrollTop;
     sh.body.replaceChildren();
     render(sh.body);
@@ -459,7 +462,7 @@ export const after = (ctx: Ctx) => {
   current?.render();
 };
 
-const CRAFT_ERR: Record<string, string> = {
+export const CRAFT_ERR: Record<string, string> = {
   pot: t('アンコモンには「魔法の釜」が要ります（スキル）', 'Uncommons need the Magic Pot (skill)'),
   dev: t('このアンコモンはまだ開発していません（R&D → 商品開発）', 'Develop this Uncommon first (R&D → Product development)'),
   skill: t(`アンコモンには製造の適性 ${UNCOMMON.minCraft} 以上の職人が要ります`, `Uncommons need a crafter with aptitude ${UNCOMMON.minCraft}+`),
@@ -470,7 +473,7 @@ const CRAFT_ERR: Record<string, string> = {
   relic: t('この復刻品のレシピはまだ分かっていません（遺物の研究 Lv3 で開く）', 'This revival recipe is not known yet (research the relic to Lv3)'),
 };
 /** 作れない理由（技が要るものは、その技の名前） */
-const craftErr = (x: Sku, e: string, s?: P1State) =>
+export const craftErr = (x: Sku, e: string, s?: P1State) =>
   (e === 'tech' ? techNeed(skuParts(x)[0], s) : null) ??
   // Rare の復刻品（Rare の町 ①）は 1 段上の職人
   (e === 'skill' && PRODUCT[skuParts(x)[0]]?.relic?.rare ? t(`${PRODUCT[skuParts(x)[0]]?.relic?.epic ? 'Epic' : 'Rare'} の復刻品には製造の適性 ${relicMinCraft(skuParts(x)[0])} 以上の職人が要ります`, `${PRODUCT[skuParts(x)[0]]?.relic?.epic ? 'Epic' : 'Rare'} revivals need a crafter with aptitude ${relicMinCraft(skuParts(x)[0])}+`) : null) ??
@@ -545,6 +548,8 @@ function flashTo(el: HTMLElement | null) {
  */
 export function openWorkshop(ctx: Ctx, opt: boolean | { invest?: boolean; make?: Sku; from?: string } = false) {
   const o = typeof opt === 'boolean' ? { invest: opt } : opt;
+  // 段 UIX2s：新しい画面（入のときだけ。uix/screens/workshop.ts）
+  if (uxs.workshop) return uxs.workshop(ctx, o);
   const toInvest = !!o.invest;
   const s0 = ctx.s();
   /** 作るものを入れた作業台（スクロール先） */
