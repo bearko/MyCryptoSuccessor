@@ -5,10 +5,12 @@
 import type { UxkDeps } from '../../p1/uxk';
 import { setK } from './k-deps';
 import { uxk } from './k-slots';
+import { openRankingUx } from './ranking';
 import { openSkillsUx } from './tree';
 
 /** 本体の関数の束を受け取って、差し込み口へ入れる */
 export function installK(d: UxkDeps) {
   setK(d);
   uxk.tree = openSkillsUx;
+  uxk.ranking = openRankingUx;
 }

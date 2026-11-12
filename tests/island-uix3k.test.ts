@@ -13,13 +13,14 @@ import { K_ART, K_EMOJI, K_ICONS, headEmoji, noEmoji } from '../src/island/uix/s
 import { uxk } from '../src/island/uix/screens/k-slots';
 import { S_ICONS } from '../src/island/uix/screens/s-icons';
 import { W_ICONS } from '../src/island/uix/screens/w-icons';
+import { histHeight, moveWord, rankMove, rankRatio } from '../src/island/uix/screens/ranking';
 import { CHAMFER, chainOf, descKey, gaugeSteps, lampOf, routeWires, stairDiamond, stateWord, type NodeDesc } from '../src/island/uix/screens/tree';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
 const TREE = src('p1/tree.ts');
 const TR = src('uix/screens/tree.ts');
-export const K_FILES = ['tree.ts', 'k-icons.ts', 'k-boot.ts', 'k-deps.ts', 'k-slots.ts'];
-export const K_CSS = ['tree.css'];
+export const K_FILES = ['tree.ts', 'ranking.ts', 'k-icons.ts', 'k-boot.ts', 'k-deps.ts', 'k-slots.ts'];
+export const K_CSS = ['tree.css', 'k-screens.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 afterEach(() => {
@@ -227,5 +228,53 @@ describe('スキルツリー（回路図）', () => {
     // 絵文字は出さない（仮に絵文字で置いてあるパネルの絵は、ドットの絵に替える）
     expect(TR).toContain("if (!e.classList.contains('isl-tree-emoji')) {");
     expect(TR.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
+  });
+});
+
+describe('企業ランキング', () => {
+  const RK = src('uix/screens/ranking.ts');
+  const SCR = src('p1/screens.ts');
+  const UXK = src('p1/uxk.ts');
+  it('入口：openRanking が、差し込み口が入っているときだけ新しい画面へ渡す（はじめのタブも渡す）。器は今の札（open）', () => {
+    expect(SCR).toContain('if (uxk.ranking) return uxk.ranking(ctx, tab);');
+    expect(src('uix/screens/k-boot.ts')).toContain('uxk.ranking = openRankingUx;');
+    expect(RK).toContain("K.open(ctx, t('企業ランキング（月の売上）', 'Company ranking (monthly sales)')");
+  });
+  it('今の目印：マインちゃんの一言と ✕ の強調（mineTip の ranking）を、今の画面と同じく札の中身に。チュートリアルはこれで「見た」になる', () => {
+    expect(RK).toContain("K.mineTip(ctx, 'ranking', body);");
+  });
+  it('出す中身は今の画面と同じ計算（rankingView）：エリア・ランド・世界・反撃・セール・次の順位までの差／2 位との差・順位の推移・世界の見込みの順位', () => {
+    for (const k of ['areaRanking(s, mine,', 'LAND_COMPANIES', 'WORLD_COMPANIES', 'Math.max(9, Math.round(4000 / Math.max(1, Math.log10(Math.max(10, mine)))))', 'est * 37', 'rivalAreaMul(s, selling.rid) / edgeMul(s)', 'saleBonus(s, selling.rid)', 'rankHist(s.reports)', 'MARKET.rally']) expect(UXK, k).toContain(k);
+    for (const k of ["key: 'area'", "key: 'land'", "key: 'world'", 'v.rally', 'v.sale', 'uxpGap(v.mine, v.gap.top', "t('2 位との差', 'Ahead of #2')", 'v.hist', 'v.worldMe', "t('同じエリアで物販をしている同業他社です。"]) expect(RK, k).toContain(k);
+  });
+  it('順位は横の棒（uxpRank）・わが社の行は琥珀（me）・1 位と 2 位のあいだにゴールの線。推移は縦の棒（上位ほど高い）', () => {
+    expect(RK).toContain('uxpRank({');
+    expect(RK).toContain('me: r.me');
+    expect(RK).toContain("div.uxk-rk-goal");
+    expect(histHeight(1, 5)).toBe(5);
+    expect(histHeight(5, 5)).toBe(1);
+    expect(rankRatio(0, 100)).toBeGreaterThan(0);
+    expect(rankRatio(100, 100)).toBe(1);
+  });
+  it('順位の札は上の帯の札と同じ言葉と色（「エリア」・N 位・1 位は琥珀・報告が無いあいだは「--」）。順位が動いた月は、先月の順位から札がめくれる（月に 1 回）', () => {
+    expect(RK).toContain("uxTape(t('エリア', 'Area'))");
+    expect(RK).toContain("if (shown == null) num.textContent = '--';");
+    expect(RK).toContain("num.classList.add('is-flip');");
+    expect(RK).toContain('flippedMonth !== v.month');
+    expect(rankMove(2, 3)).toBe('up');
+    expect(rankMove(3, 2)).toBe('down');
+    expect(rankMove(1, 1)).toBe('keep');
+    expect(rankMove(4, null)).toBe('new');
+    expect(rankMove(null, null)).toBe('est');
+    // 色だけに頼らない：言葉が付く
+    expect(moveWord('up', 3)).toContain('ランクアップ');
+    expect(moveWord('down', 1)).toContain('ランクダウン');
+  });
+  it('動きを減らす：めくり・行の打ち込み・棒の伸びをせず、すぐ出る', () => {
+    expect(RK).toContain('const flip = first && !isCalm()');
+    expect(RK).toContain('if (first && !isCalm()) {');
+    expect(RK).toMatch(/function grow\(bars: HTMLElement\[\], delay = 0\) \{\s*if \(isCalm\(\)\) return;/);
+    expect(noComment(src('uix/screens/k-screens.css'))).toMatch(/html\.is-uxc\.is-calm #isl-ui \.uxk-calm \*::after \{\s*animation: none !important;/);
+    expect(RK).toContain("el('div.uxk-rk.uxk-calm')");
   });
 });

@@ -373,7 +373,10 @@ describe('お知らせ：管制卓の信号の帯', () => {
   });
   it('せまい画面：帯が出ているあいだ、ミッションの札は見出しだけにたたんで下へよける（クリアの印が出ているあいだは、たたまない）', () => {
     expect(TS).toContain("root.classList.toggle('uxc-toasting', hgt > 0);");
-    expect(CSS).toMatch(/\.uxc-toasting \.isl-missions:not\(:has\(\.isl-mis-stamp\)\) > :not\(\.isl-missions-head\) \{\s*display: none;/);
+    // 印のある札の目印は c-dress.ts が付ける（段 UIX3k：:not(:has(...)) だと、せまい画面でどこを書き換えても文書全体の見た目の計算が走る）
+    expect(CSS).toMatch(/\.uxc-toasting \.isl-missions:not\(\.uxc-stamped\) > :not\(\.isl-missions-head\) \{\s*display: none;/);
+    expect(TS).toContain("m.classList.toggle('uxc-stamped', !!m.querySelector('.isl-mis-stamp'))");
+    expect(CSS).not.toMatch(/:not\(:has\(/);
     expect(CSS).toMatch(/translate: 0 var\(--uxc-toast-h, 0px\);/);
   });
   it('音は間引く。セリフには、名前の札と小さな顔。トロフィーは、表に無い絵ならトロフィーのドットの絵', () => {

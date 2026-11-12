@@ -8,6 +8,10 @@ import type { Ctx } from '../../p1/screens';
 export interface UxkScreens {
   /** スキルツリー（lift：選んだパネルを、くわしい板の上へ持ち上げて開く。市場データ・助言から） */
   tree?: (ctx: Ctx, o: { lift: boolean }) => void;
+  /** 企業ランキング（tab：はじめに開くタブ） */
+  ranking?: (ctx: Ctx, tab: 'area' | 'land' | 'world') => void;
+  /** 設備投資（建物ごとの設備を買う） */
+  invest?: (ctx: Ctx) => void;
 }
 // 入れ物は uix/hooks.ts に置く（理由はそこに）。ここは型と、同じ物の名前だけ
 export { uxkSlots as uxk } from '../hooks';
