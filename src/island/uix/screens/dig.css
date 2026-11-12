@@ -232,7 +232,7 @@ html.is-uxc .uxw-dig .isl-dig-chip.is-bomb ~ .isl-dig-chip { display: none; }
    帯の余白も少し詰める。ふだん（100%・広い画面）は見出しを出さない */
 html.is-uxc .uxw-dg-fold { display: none; }
 @media (max-width: 599px) {
-  html.is-uxc:is(.is-t115, .is-t130) .uxw-dg-fold {
+  html.is-uxc .uxw-dig.is-big .uxw-dg-fold {
     position: relative;
     display: flex;
     align-items: center;
@@ -250,7 +250,7 @@ html.is-uxc .uxw-dg-fold { display: none; }
     cursor: pointer;
   }
   /* 見た目は 28px・押せる高さは 44px */
-  html.is-uxc:is(.is-t115, .is-t130) .uxw-dg-fold::after {
+  html.is-uxc .uxw-dig.is-big .uxw-dg-fold::after {
     content: '';
     position: absolute;
     left: 0;
@@ -259,7 +259,7 @@ html.is-uxc .uxw-dg-fold { display: none; }
     height: 44px;
     margin-top: -22px;
   }
-  html.is-uxc:is(.is-t115, .is-t130) .uxw-dg-fold > span {
+  html.is-uxc .uxw-dig.is-big .uxw-dg-fold > span {
     flex: 1;
     min-width: 0;
     overflow: hidden;
@@ -267,14 +267,14 @@ html.is-uxc .uxw-dg-fold { display: none; }
     white-space: nowrap;
     text-overflow: ellipsis;
   }
-  html.is-uxc:is(.is-t115, .is-t130) .uxw-dg-fold > b { flex: none; font-weight: 400; color: var(--ux-amber); }
-  html.is-uxc:is(.is-t115, .is-t130) .uxw-dig.is-unfold .uxw-dg-fold > .ux-ico { transform: rotate(180deg); }
-  html.is-uxc:is(.is-t115, .is-t130) .uxw-dig:not(.is-unfold) .isl-dig-spec,
-  html.is-uxc:is(.is-t115, .is-t130) .uxw-dig:not(.is-unfold) .isl-dig-info,
-  html.is-uxc:is(.is-t115, .is-t130) .uxw-dig:not(.is-unfold) .isl-dig-legend { display: none; }
-  html.is-uxc:is(.is-t115, .is-t130) .uxw-dig .isl-dig-top { gap: 2px; padding: 4px 6px 2px; }
-  html.is-uxc:is(.is-t115, .is-t130) .uxw-dig .isl-dig-foot { gap: 2px; padding-top: 4px; }
-  html.is-uxc:is(.is-t115, .is-t130) .uxw-dig .isl-dig-why { min-height: 0; }
+  html.is-uxc .uxw-dig.is-big .uxw-dg-fold > b { flex: none; font-weight: 400; color: var(--ux-amber); }
+  html.is-uxc .uxw-dig.is-big.is-unfold .uxw-dg-fold > .ux-ico { transform: rotate(180deg); }
+  html.is-uxc .uxw-dig.is-big:not(.is-unfold) .isl-dig-spec,
+  html.is-uxc .uxw-dig.is-big:not(.is-unfold) .isl-dig-info,
+  html.is-uxc .uxw-dig.is-big:not(.is-unfold) .isl-dig-legend { display: none; }
+  html.is-uxc .uxw-dig.is-big .isl-dig-top { gap: 2px; padding: 4px 6px 2px; }
+  html.is-uxc .uxw-dig.is-big .isl-dig-foot { gap: 2px; padding-top: 4px; }
+  html.is-uxc .uxw-dig.is-big .isl-dig-why { min-height: 0; }
 }
 
 /* ---------- 壁：機械の窓枠。マスは角を丸めない */

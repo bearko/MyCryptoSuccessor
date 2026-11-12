@@ -346,8 +346,9 @@ describe('発掘', () => {
     const css = src('uix/screens/dig.css');
     // ふだんは見出しを出さない。出すのは、字を大きくしたせまい画面だけ
     expect(css).toContain('html.is-uxc .uxw-dg-fold { display: none; }');
-    expect(css).toMatch(/@media \(max-width: 599px\) \{\s*html\.is-uxc:is\(\.is-t115, \.is-t130\) \.uxw-dg-fold \{/);
-    for (const k of ['.isl-dig-spec', '.isl-dig-info', '.isl-dig-legend']) expect(css).toContain(`html.is-uxc:is(.is-t115, .is-t130) .uxw-dig:not(.is-unfold) ${k}`);
+    expect(DG).toContain("root.classList.toggle('is-big', prefs.text > 100);");
+    expect(css).toMatch(/@media \(max-width: 599px\) \{\s*html\.is-uxc \.uxw-dig\.is-big \.uxw-dg-fold \{/);
+    for (const k of ['.isl-dig-spec', '.isl-dig-info', '.isl-dig-legend']) expect(css).toContain(`html.is-uxc .uxw-dig.is-big:not(.is-unfold) ${k}`);
     // 見た目は 28px・押せる高さは 44px
     expect(css).toMatch(/\.uxw-dg-fold::after \{[^}]*height: 44px;/);
   });

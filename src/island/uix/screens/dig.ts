@@ -11,7 +11,7 @@ import { el, type Kid } from '../dom';
 import { sparks } from '../fx';
 import { later } from '../loop';
 import { Odo, shake, uxKey, uxLamp, uxMeter, uxPlus, uxTape, vibrate } from '../parts';
-import { isCalm } from '../prefs';
+import { isCalm, prefs } from '../prefs';
 import { uxSfx } from '../sound';
 import { bare } from './conquer';
 import { swapEmoji } from './land';
@@ -86,6 +86,8 @@ function deco(root: Element | null, color = '#f4ecd4') {
 
 function open(root: HTMLElement) {
   root.classList.add('uxw-dig', 'ux-root');
+  // 字を大きくしている（115%・130%）：せまい画面では小さな帯を畳む（dig.css の .is-big）
+  root.classList.toggle('is-big', prefs.text > 100);
   const head = root.querySelector('.isl-dig-head');
   const top = root.querySelector('.isl-dig-top');
   if (!head || !top) return;
