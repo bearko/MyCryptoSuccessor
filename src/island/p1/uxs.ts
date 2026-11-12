@@ -60,6 +60,7 @@ import { propsOpen } from './stage';
 import { pickMake } from './stockui';
 import { dutyText, tradeNeighbors } from './tariff';
 import { fmt, heroIcon, heroName, matIcon, money, signed, skuIcon, skuName } from './ui';
+import { uxwDeps } from './uxw';
 
 export const uxsDeps = {
   heroFacesRight,
@@ -164,6 +165,8 @@ export const uxsDeps = {
   signed,
   skuIcon,
   skuName,
+  // 段 UIX3w：世界の場面（町の制覇・ランドマップ・発掘）の束
+  w: uxwDeps,
 };
 export type UxsDeps = typeof uxsDeps;
 

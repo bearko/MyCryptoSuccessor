@@ -6,6 +6,7 @@ import type { UxsDeps } from '../../p1/uxs';
 import { openDigSummaryUx, openMonthReportUx } from './report';
 import { setDeps } from './s-deps';
 import { uxs } from './s-slots';
+import { installW } from './w-boot';
 import { openWorkshopUx } from './workshop';
 
 /** 本体の関数の束を受け取って、差し込み口へ入れる */
@@ -14,4 +15,5 @@ export function install(d: UxsDeps) {
   uxs.workshop = openWorkshopUx;
   uxs.report = openMonthReportUx;
   uxs.digSummary = openDigSummaryUx;
+  installW(d.w);
 }

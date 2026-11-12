@@ -157,6 +157,7 @@ import { openSales } from './sales';
 import { pickHooks } from './heroui';
 import { openDigSummary, openMonthReport } from './report';
 import { loadUxs } from './uxs';
+import { uxw, type UxwAct } from '../uix/screens/w-slots';
 import { openOrg } from './orgui';
 import { openSkills } from './tree';
 import { goalSeen, goalStep } from './goal';
@@ -2454,12 +2455,29 @@ function showLetter(rp: number, letter: Tier | null, chief: number | null, left 
     if (conquered && s.cleared && !s.flags.clearSeen) clearModal();
     else f();
   };
-  modal(
-    conquered ? t('👑 研究成果を発表して制覇！', '👑 Findings presented — sector conquered!') : letter ? t('📜 調査依頼状を受け取った！', '📜 Survey request received!') : t('研究成果を発表した！', 'Findings presented!'),
-    body,
-    letter === 'U' || letter === 'R' || letter === 'E' ? [[t('ランドマップを見る', 'Open land map'), then(() => openLand(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]] : [[t('スキルツリーを開く', 'Open skills'), then(() => openSkills(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]],
-    true,
-  );
+  const title = conquered ? t('👑 研究成果を発表して制覇！', '👑 Findings presented — sector conquered!') : letter ? t('📜 調査依頼状を受け取った！', '📜 Survey request received!') : t('研究成果を発表した！', 'Findings presented!');
+  const acts: UxwAct[] = letter === 'U' || letter === 'R' || letter === 'E' ? [[t('ランドマップを見る', 'Open land map'), then(() => openLand(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]] : [[t('スキルツリーを開く', 'Open skills'), then(() => openSkills(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]];
+  // 段 UIX3w：入のときは、管制卓のカットインと札へ（中身は同じ。切のときは今の窓）
+  if (uxw.letter) {
+    const face = s.staff[0]?.hero ?? chief;
+    return uxw.letter({
+      host: root,
+      rp,
+      letter,
+      letterName: letter ? t(`${TIER_NAME[letter]} の調査依頼状`, `${TIER_NAME[letter]} survey request`) : '',
+      letterIcon: letter ? extIcon(letter === 'U' ? 1016 : letter === 'R' ? 2016 : letter === 'E' ? 3016 : 5016, 128) : null,
+      from: letter && chief != null ? t(`町の長 ${heroName(chief)}より`, `From town head ${heroName(chief)}`) : '',
+      conquered,
+      town: sectorDef(s.sector ?? 'c1').name,
+      title,
+      conds: [t('2 か月続けて 1 位 ✔', '#1 two months running ✔'), t('研究成果の発表 ✔', 'Findings presented ✔')],
+      say: presentAfter(letter, left, conquered, sectorDef(s.sector ?? 'c1').tier),
+      hero: face != null ? (size) => heroIcon(face, size) : null,
+      actions: acts,
+      fx: () => letterFx(conquered),
+    });
+  }
+  modal(title, body, acts, true);
   root.querySelector('.isl-modal:last-of-type')?.classList.add('is-letter');
   letterFx(conquered);
 }
@@ -2617,7 +2635,10 @@ function sectorChecks() {
     brandAdd(s, BRAND.landClear, title);
     save();
     sfx.play('win');
-    modal(`👑 ${title}`, `${body} ${t(`ブランド力 +${BRAND.landClear}`, `Brand +${BRAND.landClear}`)}`, [[t('ランドマップを見る', 'Open land map'), () => openLand(ctx), 'is-on'], [t('続ける', 'Keep going'), () => renderAll()]], true);
+    const acts: UxwAct[] = [[t('ランドマップを見る', 'Open land map'), () => openLand(ctx), 'is-on'], [t('続ける', 'Keep going'), () => renderAll()]];
+    // 段 UIX3w：入のときは、管制卓のお祝いの札（ブランド力は桁の回る数字で）
+    if (uxw.cheer) uxw.cheer({ host: root, kind: 'land', title, say: body, bonus: { label: t('ブランド力', 'Brand'), n: BRAND.landClear }, actions: acts });
+    else modal(`👑 ${title}`, `${body} ${t(`ブランド力 +${BRAND.landClear}`, `Brand +${BRAND.landClear}`)}`, acts, true);
     return;
   }
 }
@@ -5481,7 +5502,10 @@ function afterReport() {
 function clearModal() {
   s.flags.clearSeen = true;
   save();
-  modal(t('フェーズ 1 クリア！', 'Phase 1 cleared!'), plain(CLEAR_LINE(gateToll(s))), [[t('関所を見る', 'View the gate'), () => ((speed = 1), showGate(), renderHud()), 'is-on'], [t('続ける', 'Keep going'), () => ((speed = 1), renderHud())]], true);
+  const acts: UxwAct[] = [[t('関所を見る', 'View the gate'), () => ((speed = 1), showGate(), renderHud()), 'is-on'], [t('続ける', 'Keep going'), () => ((speed = 1), renderHud())]];
+  // 段 UIX3w：入のときは、管制卓のお祝いの札（中身は同じ）
+  if (uxw.cheer) return uxw.cheer({ host: root, kind: 'clear', title: t('フェーズ 1 クリア！', 'Phase 1 cleared!'), say: CLEAR_LINE(gateToll(s)), actions: acts });
+  modal(t('フェーズ 1 クリア！', 'Phase 1 cleared!'), plain(CLEAR_LINE(gateToll(s))), acts, true);
 }
 
 /**
