@@ -4,6 +4,7 @@
  */
 import type { UxwDeps } from '../../p1/uxw';
 import { openCheerUx, openLetterUx } from './conquer';
+import { digUx } from './dig';
 import { decoWorldUx, openLandUx, openRankUpUx, openSectorCardUx } from './land';
 import { setW } from './w-deps';
 import { uxw } from './w-slots';
@@ -17,4 +18,5 @@ export function installW(d: UxwDeps) {
   uxw.rankUp = openRankUpUx;
   uxw.sectorCard = openSectorCardUx;
   uxw.deco = decoWorldUx;
+  uxw.dig = digUx;
 }

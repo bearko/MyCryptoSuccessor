@@ -17,6 +17,7 @@ import { bare, sayParts } from './conquer';
 import { mIcon } from './micons';
 import { safe } from './s-press';
 import { W } from './w-deps';
+import { wIcon } from './w-icons';
 import './land.css';
 import type { SectorState } from '../../p1/company';
 import type { SectorDef } from '../../p1/data';
@@ -546,7 +547,7 @@ export function openSectorCardUx(v: SectorCardView) {
 
 // ---------------------------------------------------------------- 地図の上の札（縮小の札・境界の名前・吹き出し）の着せ替え
 
-const EMOJI_ICO: Record<string, string> = { '👑': 'crown', '📍': 'pin', '🔒': 'lock', '📦': 'box', '📜': 'mail', '🗺': 'compass', '🏪': 'shop', '🔥': 'fire', '💴': 'coin', '🏚': 'warn', '🏗': 'hammer', '⚠': 'warn', '⛏': 'pick' };
+const EMOJI_ICO: Record<string, string> = { '👑': 'crown', '📍': 'pin', '🔒': 'lock', '📦': 'box', '📜': 'mail', '🗺': 'compass', '🏪': 'shop', '🔥': 'fire', '💴': 'coin', '🏚': 'warn', '🏗': 'hammer', '⚠': 'warn', '⛏': 'pick', '💣': 'bomb', '⏱': 'clock', '📅': 'cal', '🔩': 'drill', '📖': 'book', '💥': 'fire' };
 /** 文の中の絵文字を、ドットの絵に替える（知らない絵文字は外す）。root の中の文字だけを書き換える（要素・聞き手はそのまま） */
 export function swapEmoji(root: HTMLElement, color = '#1a1c2e') {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -562,7 +563,7 @@ export function swapEmoji(root: HTMLElement, color = '#1a1c2e') {
         if (buf) out.push(buf);
         buf = '';
         const name = EMOJI_ICO[ch];
-        if (name) out.push(mIcon(name, { color, hi: color, lo: color, scale: 1 }));
+        if (name) out.push(wIcon(name, { color, hi: color, lo: color, scale: 1 }));
       } else if (ch !== '️' && ch !== '‍') buf += ch;
     }
     if (buf.trim() || !out.length) out.push(buf);

@@ -5,6 +5,8 @@
  */
 import type { SectorState } from '../../p1/company';
 import type { Tier } from '../../p1/data';
+import type { DigStatus } from '../../p1/digview';
+import type { DigHit } from '../../p1/model';
 import type { Ctx } from '../../p1/screens';
 
 /** 押せる選択肢（今の modal() の actions と同じ形：字・押したとき・class。'is-on' が主役） */
@@ -73,6 +75,44 @@ export interface SectorCardView {
   go: () => void;
 }
 
+/** 発掘終了の札（p1/digui.ts の showEndCard が出していた中身） */
+export interface DigEndView {
+  /** 今回の出土の数字（名前・値。「+9」「0」） */
+  lines: [string, string][];
+  /** 見つけた出土品（見つけた順） */
+  finds: { kind: string; rank: string; icon: HTMLElement; tag: string; name: string; rp: number; recipe: boolean; big: boolean; first: boolean; note: string; read: (() => void) | null }[];
+  bombs: number;
+  /** ダンジョン：いちばん深い層・新記録か */
+  deep: { deep: number; record: boolean } | null;
+  /** 掘りきったときのひと言（無ければ空） */
+  note: string;
+  /** 新しいレシピ（復刻品） */
+  recipes: { icon: HTMLElement; name: string; note: string; series: { text: string; good: boolean } | null; make: () => void }[];
+  /** 次の強化のおすすめ */
+  rec: { text: string; go: () => void } | null;
+  /** 選択肢（月次報告へ／もう一度・町に戻る） */
+  acts: UxwAct[];
+  /** 選択肢を出したとき */
+  shown: () => void;
+  /** 何も出なかったとき：6 秒たったら呼ぶ（町に戻る） */
+  auto: (() => void) | null;
+}
+/** 発掘の画面への差し込み（今の画面の要素 el＝.isl-dig に、管制卓の帯・計器・手応えを足す） */
+export interface DigUx {
+  /** 画面を作った直後 */
+  open: (el: HTMLElement) => void;
+  /** 帯・道具・壁を描き直したあと */
+  sync: (el: HTMLElement, st: DigStatus, o: { run: boolean; over: boolean }) => void;
+  /** 毎コマ：残り時間（作業の外は null） */
+  timer: (el: HTMLElement, rb: { sec: string; frac: number; warn: boolean; tick: boolean } | null) => void;
+  /** 打った（はがれた・出てきた）。big：いちばん大きい演出の種類 */
+  hits: (el: HTMLElement, hits: DigHit[], cellAt: (x: number, y: number) => HTMLElement | null, big: string | null) => void;
+  /** 発掘終了の札 */
+  end: (el: HTMLElement, v: DigEndView) => void;
+  /** 閉じる */
+  close: (el: HTMLElement) => void;
+}
+
 export interface UxwScreens {
   /** 研究成果の発表・調査依頼状・制覇 */
   letter?: (v: LetterView) => void;
@@ -84,6 +124,8 @@ export interface UxwScreens {
   rankUp?: (ctx: Ctx, target: string) => void;
   /** となりの町の窓 */
   sectorCard?: (v: SectorCardView) => void;
+  /** 発掘の画面 */
+  dig?: DigUx;
   /** 地図の上の札（縮小の札）・となりの町の吹き出し：今の要素の絵文字をドットの絵に替える（見た目は CSS で着せ替える） */
   deco?: (e: HTMLElement, kind: 'badge' | 'pop') => void;
 }

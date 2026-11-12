@@ -7,7 +7,11 @@ import { uxsDeps } from '../src/island/p1/uxs';
 import { uxwDeps } from '../src/island/p1/uxw';
 import { FRONT_SEL } from '../src/island/uix/front';
 import { CUT_CALM_MS, CUT_MS, CUT_OUT_MS, ROLL_MS, bare, barWait, cutCore, letterKind, nameParts, plainSay, rpDigits, sayParts } from '../src/island/uix/screens/conquer';
+import { END_AUTO_MS, END_KEYS_MS, FIND_STEP_MS, SPARK_BURSTS, findAt, sparkPicks, statNum, topicLamps } from '../src/island/uix/screens/dig';
 import { NAME_W, gapRate, goKind, nodeLook } from '../src/island/uix/screens/land';
+import { M_ICONS } from '../src/island/uix/screens/micons';
+import { UX_ICONS } from '../src/island/uix/icons';
+import { W_ICONS } from '../src/island/uix/screens/w-icons';
 import { uxw } from '../src/island/uix/screens/w-slots';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
@@ -15,8 +19,10 @@ const MAIN = src('p1/main.ts');
 const CQ = src('uix/screens/conquer.ts');
 const LN = src('uix/screens/land.ts');
 const LANDUI = src('p1/landui.ts');
-const FILES = ['conquer.ts', 'land.ts', 'w-boot.ts', 'w-deps.ts', 'w-slots.ts'];
-const CSS_FILES = ['conquer.css', 'land.css'];
+const DG = src('uix/screens/dig.ts');
+const DIGUI = src('p1/digui.ts');
+const FILES = ['conquer.ts', 'land.ts', 'dig.ts', 'w-icons.ts', 'w-boot.ts', 'w-deps.ts', 'w-slots.ts'];
+const CSS_FILES = ['conquer.css', 'land.css', 'dig.css'];
 const CSS = CSS_FILES.map((f) => [f, src(`uix/screens/${f}`).replace(/\/\*[\s\S]*?\*\//g, '')] as const);
 
 afterEach(() => {
@@ -31,7 +37,7 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     expect(src('p1/uxs.ts')).toContain('w: uxwDeps,');
     expect(uxsDeps.w).toBe(uxwDeps);
     const boot = src('uix/screens/w-boot.ts');
-    for (const k of ['letter', 'cheer', 'land', 'rankUp', 'sectorCard', 'deco']) expect(boot).toContain(`uxw.${k} = `);
+    for (const k of ['letter', 'cheer', 'land', 'rankUp', 'sectorCard', 'deco', 'dig']) expect(boot).toContain(`uxw.${k} = `);
     // 本体から新しい画面を直接読んでいる所は無い（読んでよいのは、空の差し込み口だけ）
     for (const f of ['p1/main.ts', 'p1/landui.ts', 'p1/digui.ts', 'p1/uxw.ts']) expect(src(f), f).not.toMatch(/from '\.\.\/uix\/screens\/(?!s-slots'|w-slots'|mhooks')/);
   });
@@ -54,6 +60,8 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
       // 字は 16px（1rem）以上
       for (const m of css.matchAll(/font-size:\s*([\d.]+)(px|rem)/g)) expect(Number(m[1]) * (m[2] === 'rem' ? 16 : 1), `${f}: ${m[0]}`).toBeGreaterThanOrEqual(16);
       for (const m of css.matchAll(/@keyframes\s+([\w-]+)/g)) expect(m[1], f).toMatch(/^uxw-/);
+      // 新しい class は uxw-（今の要素の着せ替えは、今の class のまま）
+      for (const m of css.matchAll(/\.(ux[a-z]-[\w-]+)/g)) expect(m[1], f).toMatch(/^uxw-/);
     }
   });
 });
@@ -255,5 +263,62 @@ describe('ランドマップ（航路図）・進出', () => {
   it('動きを減らす：目盛りはすぐ出て、レバーのあとの待ちは無い', () => {
     expect(LN).toContain('if (isCalm()) m.set(gapRate(have, need));');
     expect(LN).toContain('later(isCalm() ? 0 : 260, safe(o.go))');
+  });
+});
+
+describe('発掘', () => {
+  it('入口：今の発掘の画面（壁・なぞって掘る・時間）はそのまま。入のときだけ、帯・計器・手応え・出土の報告を足す', () => {
+    for (const k of ['uxw.dig?.open(el);', 'uxw.dig?.timer(p.el, rb);', 'uxw.dig?.sync(p.el, st, { run: !!s.digRun, over: p.over });', 'uxw.dig?.hits(p.el, hits, cellAt, big);', 'uxw.dig?.close(p.el);', 'if (uxw.dig) {', 'uxw.dig.end(p.el, {']) expect(DIGUI, k).toContain(k);
+    // 切のときの札（今の作り）は、そのまま残っている
+    expect(DIGUI).toContain("const card = h('div', 'isl-dig-endcard');");
+    expect(DIGUI).toContain('function foundCards(finds: DigFound[], bombs: number): HTMLElement {');
+    // 曲は、今の決まりのまま「発掘」（発掘の画面が開いているあいだ）
+    expect(MAIN).toContain("if (digOpen() || sound.currentBgm() === 'bgmDig') return 'dig';");
+  });
+  it('出土の報告：出す中身と選択肢が今の札とそろう（数字・出土品・爆弾・最深・掘りきった・新レシピ・おすすめ・月次報告へ／もう一度／町に戻る）', () => {
+    for (const k of ['lines: gotLines(end.got)', 'finds: finds.map(', 'bombs: end.got.bombs ?? 0', 'deep: end.isDungeon ?', 'recipes: recipes.flatMap(', 'rec: rec ?', "t('▶ 月次報告へ', '▶ Monthly report')", "t('町に戻る', 'Back to town')", 'shown: () => o.after?.()', 'read: it.kind ===']) expect(DIGUI, k).toContain(k);
+    for (const k of ['e.lines', 'e.finds', 'e.bombs', 'e.deep', 'e.note', 'e.recipes', 'e.rec', 'e.acts', 'e.shown()', 'e.auto', 'f.read', 'r.make', 'f.note', 'f.recipe', 'f.rp']) expect(DG, k).toContain(k);
+    // 選択肢は 1.2 秒後・何も出なかったら 6 秒で町へ（今と同じ）
+    expect([END_KEYS_MS, END_AUTO_MS, FIND_STEP_MS]).toEqual([1200, 6000, 70]);
+    expect(DIGUI).toContain('}, 1200);');
+    expect(DIGUI).toContain('}, 6000);');
+  });
+  it('数字の数え上げ・火花の間引き・札を打つ順', () => {
+    expect(statNum('+9')).toEqual({ n: 9, plus: true });
+    expect(statNum('20')).toEqual({ n: 20, plus: false });
+    expect(statNum('3 / 5')).toBeNull();
+    const hits = [
+      { broke: false, item: null },
+      { broke: true, item: null },
+      { broke: true, item: { kind: 'ext' } },
+      { broke: true, item: null },
+      { broke: true, item: null },
+      { broke: true, item: null },
+    ];
+    const picks = sparkPicks(hits);
+    expect(picks.length).toBe(SPARK_BURSTS);
+    expect(picks[0].item).not.toBeNull();
+    expect(picks.every((h) => h.broke)).toBe(true);
+    expect([findAt(0), findAt(3), findAt(12), findAt(40)]).toEqual([0, 210, 840, 840]);
+    expect(topicLamps(2, 3)).toEqual([true, true, false]);
+    expect(topicLamps(0, 0)).toEqual([]);
+  });
+  it('主役は「もう一度」か「月次報告へ」の 1 つ（主のキー＝前の層）。動きを減らすと、数字と札はすぐ出て、火花・揺れは出さない', () => {
+    expect(DG).toContain("k === main ? { kind: 'main', big: true, strong: true, ico:");
+    expect(DG).toContain("if (calm) return c.classList.add('is-on');");
+    expect(DG).toContain('if (!v || isCalm()) return;');
+    expect(DG).toContain('later(calm ? 0 : 200 + n * 110, run)');
+  });
+  it('絵文字は使わない：足した帯はドットの絵。今の要素の絵文字は替える（あとから足される札も）', () => {
+    expect(DG).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(DG).toContain("for (const k of ['.isl-dig-info', '.isl-dig-spec', '.isl-dig-tools', '.isl-dig-legend', '.isl-dig-crew']) deco(root.querySelector(k));");
+    expect(DG).toContain('new MutationObserver(');
+    // 替える先の絵は、どれも持っている
+    const have = new Set([...UX_ICONS, ...M_ICONS, ...W_ICONS]);
+    const map = /const EMOJI_ICO[^=]*= \{([^}]*)\}/.exec(LN)![1];
+    for (const m of map.matchAll(/: '([a-z]+)'/g)) expect(have.has(m[1]), m[1]).toBe(true);
+    for (const m of DG.matchAll(/(?:ico|wIcon)\('([a-z]+)'/g)) expect(have.has(m[1]), m[1]).toBe(true);
+    for (const m of DG.matchAll(/ico: '([a-z]+)'/g)) expect(UX_ICONS, m[1]).toContain(m[1]);
+    for (const m of LN.matchAll(/ico: '([a-z]+)'/g)) expect(UX_ICONS, m[1]).toContain(m[1]);
   });
 });
