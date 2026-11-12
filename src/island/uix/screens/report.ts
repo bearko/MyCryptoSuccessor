@@ -720,7 +720,7 @@ function breakdown(r: Report): Kid[] {
   if (mix.length) {
     const tot = mix.reduce((a, x) => a + x.v, 0);
     const c = vchart(
-      mix.map((x, k) => ({ label: String(k + 1), bars: [{ v: x.v, kind: k === 0 ? 'main' : 'past' }], top: num(pct(x.v, tot)), read: el('span', el('b', `${k + 1}. ${x.name}`), el('span', num(money(x.v)), `（${pct(x.v, tot)}）`)) })),
+      mix.map((x, k) => ({ label: String(k + 1), bars: [{ v: x.v, kind: k === 0 ? 'main' : 'past' }], top: num(pct(x.v, tot)), read: el('span', el('b', `${k + 1}. ${x.name}`), el('span', num(money(x.v)), t(`（${pct(x.v, tot)}）`, ` (${pct(x.v, tot)})`))) })),
       { cls: 'is-s', sel: 0, aria: t('商品ごとの売上の割合', 'Sales by product') },
     );
     c.growAll();
@@ -730,7 +730,7 @@ function breakdown(r: Report): Kid[] {
   if (cs.length) {
     const tot = cs.reduce((a, x) => a + x.v, 0);
     const c = vchart(
-      cs.map((x, k) => ({ label: String(k + 1), bars: [{ v: x.v, kind: k === 0 ? 'ink' : 'past' }], top: num(pct(x.v, tot)), read: el('span', el('b', `${k + 1}. ${x.name}`), el('span', num(money(x.v)), `（${pct(x.v, tot)}）`)) })),
+      cs.map((x, k) => ({ label: String(k + 1), bars: [{ v: x.v, kind: k === 0 ? 'ink' : 'past' }], top: num(pct(x.v, tot)), read: el('span', el('b', `${k + 1}. ${x.name}`), el('span', num(money(x.v)), t(`（${pct(x.v, tot)}）`, ` (${pct(x.v, tot)})`))) })),
       { cls: 'is-s', sel: 0, aria: t(`費用の合計 ${money(tot)}`, `Total costs ${money(tot)}`) },
     );
     c.growAll();
