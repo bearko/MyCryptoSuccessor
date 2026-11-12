@@ -188,6 +188,9 @@ html.is-uxc #isl-ui .isl-sheet-body.uxw-ru {
 }
 html.is-uxc .uxw-ln > *,
 html.is-uxc .uxw-ru > * { flex: none; }
+/* 下に貼りつく帯の下に、送った中身が見えないよう、札の中身の下の余白は最後の要素の外側に持つ */
+html.is-uxc #isl-ui .isl-sheet-body.uxw-ln { padding-bottom: 0; }
+html.is-uxc .uxw-ln > :last-child { margin-bottom: 12px; }
 html.is-uxc .uxw-ln-none {
   display: grid;
   justify-items: center;
@@ -229,7 +232,8 @@ html.is-uxc .uxw-ln-intro { margin: 0; color: var(--ux-k5); }
 html.is-uxc .uxw-ln-chart {
   position: relative;
   container-type: inline-size;
-  height: 560px;
+  /* 7 段：キー 44px ＋ 名前 2 行（字の大きさで伸びる） */
+  height: calc(392px + 19.5rem);
   overflow: hidden;
   background:
     radial-gradient(circle, rgba(95, 228, 255, 0.22) 1px, transparent 1.5px) 0 0 / 16px 16px,
@@ -265,14 +269,16 @@ html.is-uxc .uxw-ln-road.is-on {
 @keyframes uxw-road {
   to { stroke-dashoffset: -10; }
 }
+/* 字を大きくしたとき（115%・130%）：名前は 3 行まで（1 行に入る字が減るので）。そのぶん段の間を広げる */
+html.is-uxc.is-t115 .uxw-ln-chart,
+html.is-uxc.is-t130 .uxw-ln-chart { height: calc(392px + 27.5rem); }
+html.is-uxc.is-t115 .uxw-ln-name > span,
+html.is-uxc.is-t130 .uxw-ln-name > span { -webkit-line-clamp: 3; }
 /* 走る光の線（画面は止めない） */
 html.is-uxc .uxw-ln-scan {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 2px;
-  background: var(--ux-cyan);
+  inset: 0;
+  background: linear-gradient(var(--ux-cyan), var(--ux-cyan)) 0 0 / 100% 2px no-repeat;
   opacity: 0.35;
   pointer-events: none;
   animation: uxw-scan 5.2s steps(52, end) infinite;
@@ -280,7 +286,7 @@ html.is-uxc .uxw-ln-scan {
 }
 @keyframes uxw-scan {
   from { transform: translate3d(0, 0, 0); }
-  to { transform: translate3d(0, 560px, 0); }
+  to { transform: translate3d(0, 100%, 0); }
 }
 /* セクタの札：44px のキー（ランクの字と状態の絵）と、名前の貼り札 */
 html.is-uxc .uxw-ln-node {
@@ -380,29 +386,44 @@ html.is-uxc .uxw-ln-node.is-sel::before {
 @keyframes uxw-sel {
   50% { transform: scale(1.1); }
 }
-/* 名前の貼り札 */
+/* 名前の貼り札：2 行まで折り返す（折るのは「・」や空白・町の語尾の前。入らないときだけ途中で折り、3 行めからは「…」）。
+   外の箱（.uxw-ln-name）が置ける幅、中の span が見える札（字の幅に合わせて、箱の真ん中に） */
 html.is-uxc .uxw-ln-name {
   position: absolute;
-  top: 12px;
-  left: 0;
-  transform: translate3d(-50%, 0, 0);
-  max-width: 5.5em;
-  max-width: calc(var(--nw) * 1cqw);
+  top: 16px;
+  left: -2.75em;
+  width: 5.5em;
+  left: calc(var(--nl) * -1cqw + 1px);
+  width: calc((var(--nl) + var(--nr)) * 1cqw - 2px);
+  display: flex;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1.125rem;
+  text-align: center;
+  pointer-events: none;
+}
+html.is-uxc .uxw-ln-name > span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  padding: 0 4px;
+  max-width: 100%;
+  padding: 1px 2px;
   background: var(--ux-k0);
   box-shadow: inset 0 -2px 0 var(--ux-k3);
   color: var(--ux-paper);
-  font-size: 1rem;
-  line-height: 1.25rem;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
-html.is-uxc .uxw-ln-node.is-here .uxw-ln-name { background: var(--ux-amber); color: var(--ux-ink); box-shadow: inset 0 -2px 0 var(--ux-amber-lo); }
-html.is-uxc .uxw-ln-node.is-mine .uxw-ln-name { box-shadow: inset 0 -2px 0 var(--ux-good-lo); }
-html.is-uxc .uxw-ln-node:not(.is-can):not(.is-here) .uxw-ln-name { color: var(--ux-k5); }
-html.is-uxc .uxw-ln-node.is-sel .uxw-ln-name {
+html.is-uxc .uxw-ln-node.is-here .uxw-ln-name > span { background: var(--ux-amber); color: var(--ux-ink); box-shadow: inset 0 -2px 0 var(--ux-amber-lo); }
+html.is-uxc .uxw-ln-node.is-mine .uxw-ln-name > span { box-shadow: inset 0 -2px 0 var(--ux-good-lo); }
+html.is-uxc .uxw-ln-node:not(.is-can):not(.is-here) .uxw-ln-name > span { color: var(--ux-k5); }
+html.is-uxc .uxw-ln-node.is-sel .uxw-ln-name > span {
+  display: block;
+  flex: none;
   max-width: none;
+  overflow: visible;
+  white-space: nowrap;
   background: var(--ux-white);
   color: var(--ux-ink);
   box-shadow: inset 0 -2px 0 var(--ux-paper2), 2px 2px 0 rgba(4, 6, 14, 0.5);

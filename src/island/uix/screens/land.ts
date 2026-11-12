@@ -63,8 +63,59 @@ export function goKind(st: SectorState, o: { noLetter: boolean; rankUp: boolean;
 }
 /** 目盛り（0〜1）：持っている／要る */
 export const gapRate = (have: number, need: number) => (need <= 0 ? 1 : Math.max(0, Math.min(1, have / need)));
-/** 名前の札の幅（航路図の幅に対する割合。100 で全幅）：横に並ぶ数で決まる（Common は 4 つ・Uncommon と Epic は 3 つ・Rare は 2 つ） */
-export const NAME_W: Record<string, number> = { C: 23, U: 29, R: 34, E: 24, L: 24 };
+/** 字の幅（em）：半角は 0.55・ほかは 1 */
+export const textEm = (x: string) => [...x].reduce((a, c) => a + (/[\u0000-\u00ff]/.test(c) ? 0.55 : 1), 0);
+/** 町の名前の語尾（この前で折ってよい） */
+const TAIL = /(タウン|シティ|カントリー|キングダム|ヒルズ|マウス)$/;
+/**
+ * 名前を 2 行に折る：折ってよい所は「・」や空白のあと・町の語尾の前（無ければ真ん中）。
+ * parts：折ってよい所で分けたかたまり／two：2 行にしたときの長いほうの行の幅（em）／one：1 行の幅（em）
+ */
+export function nameLines(name: string): { parts: string[]; two: number; one: number } {
+  const cs = [...name];
+  const cuts = new Set<number>();
+  cs.forEach((c, k) => {
+    if ((c === '・' || c === ' ') && k + 1 < cs.length) cuts.add(k + 1);
+  });
+  const m = TAIL.exec(name);
+  if (m && m.index > 0) cuts.add([...name.slice(0, m.index)].length);
+  const one = textEm(name);
+  if (!cuts.size) {
+    // 折ってよい所が無い名前：短ければ 1 行で出す幅をもらう（言葉の途中で折らない）。長い名前は真ん中で折る
+    if (one <= 6) return { parts: [name], two: one, one };
+    const mid = Math.ceil(cs.length / 2);
+    return { parts: [name], two: Math.max(textEm(cs.slice(0, mid).join('')), textEm(cs.slice(mid).join(''))), one };
+  }
+  const at = [...cuts].sort((a, b) => a - b);
+  const two = Math.min(...at.map((k) => Math.max(textEm(cs.slice(0, k).join('').trimEnd()), textEm(cs.slice(k).join('')))));
+  const parts: string[] = [];
+  let from = 0;
+  for (const k of [...at, cs.length]) {
+    parts.push(cs.slice(from, k).join(''));
+    from = k;
+  }
+  return { parts, two, one };
+}
+/**
+ * 名前の札を置ける幅（航路図の幅を 100 として、町の位置から左へ l・右へ r）：同じ段のとなりの町とのあいだを、
+ * 名前の長さ（2 行にしたときの幅）の割合で分け合う。端の町は、図の縁まで。左右の差は 1.5 倍まで（札が町の真下から外れすぎない）
+ */
+export function nameSpans(items: { id: string; x: number; y: number; need: number }[]): Record<string, { l: number; r: number }> {
+  const out: Record<string, { l: number; r: number }> = {};
+  const rows = new Map<number, typeof items>();
+  for (const it of items) rows.set(it.y, [...(rows.get(it.y) ?? []), it]);
+  const r1 = (v: number) => Math.floor(v * 10) / 10;
+  for (const row of rows.values()) {
+    row.sort((a, b) => a.x - b.x);
+    row.forEach((it, k) => {
+      const share = (other: typeof it | undefined, edge: number) => (other ? (Math.abs(other.x - it.x) * it.need) / Math.max(0.01, it.need + other.need) : edge);
+      const l = share(row[k - 1], it.x - 1);
+      const r = share(row[k + 1], 99 - it.x);
+      out[it.id] = { l: r1(Math.min(l, r * 1.5)), r: r1(Math.min(r, l * 1.5)) };
+    });
+  }
+  return out;
+}
 
 // ---------------------------------------------------------------- 部品
 
@@ -169,6 +220,9 @@ function render(ctx: Ctx, body: HTMLElement) {
   }
   chart.append(svg, el('i.uxw-ln-scan'));
   const nodes = new Map<string, HTMLElement>();
+  // 名前の札：2 行まで折り返す。幅は、同じ段のとなりと分け合う
+  const shown = (d: SectorDef) => (W.sectorState(land, d.id) === 'cloud' ? '???' : d.name);
+  const spans = nameSpans(W.SECTORS.map((d) => ({ id: d.id, x: d.at[0], y: d.at[1], need: nameLines(shown(d)).two + 0.4 })));
   W.SECTORS.forEach((d, k) => {
     const st = W.sectorState(land, d.id);
     const noLetter = W.letterLocked(s, d.id);
@@ -179,7 +233,8 @@ function render(ctx: Ctx, body: HTMLElement) {
     b.style.left = `${d.at[0]}%`;
     b.style.top = `${d.at[1]}%`;
     b.style.setProperty('--tc', W.TIERS[d.tier].color);
-    b.style.setProperty('--nw', String(NAME_W[d.tier] ?? 24));
+    b.style.setProperty('--nl', String(spans[d.id]?.l ?? 12));
+    b.style.setProperty('--nr', String(spans[d.id]?.r ?? 12));
     b.style.animationDelay = `${k * 18}ms`;
     const key = el('span.uxw-ln-key', el('b.ux-num', d.tier), look.ico ? ico(look.ico, st === 'here' ? '#1a1c2e' : st === 'mine' ? '#36e08b' : look.can ? '#5fe4ff' : '#97a1cf') : el('i.uxw-ln-q', '?'));
     b.append(key);
@@ -199,7 +254,7 @@ function render(ctx: Ctx, body: HTMLElement) {
       }
     }
     if (st === 'here') b.append(el('i.uxw-ln-pin', wIcon('pin', { color: '#ffb81f', scale: 2 })));
-    b.append(el('span.uxw-ln-name', name));
+    b.append(el('span.uxw-ln-name', el('span', nameLines(name).parts.map((x, n) => (n ? [el('wbr'), x] : x)))));
     b.addEventListener('click', () => pick(d.id));
     nodes.set(d.id, b);
     chart.append(b);

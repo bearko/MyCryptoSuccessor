@@ -8,7 +8,8 @@ import { uxwDeps } from '../src/island/p1/uxw';
 import { FRONT_SEL } from '../src/island/uix/front';
 import { CUT_CALM_MS, CUT_MS, CUT_OUT_MS, ROLL_MS, bare, barWait, cutCore, letterKind, nameParts, plainSay, rpDigits, sayParts } from '../src/island/uix/screens/conquer';
 import { END_AUTO_MS, END_KEYS_MS, FIND_STEP_MS, SPARK_BURSTS, findAt, sparkPicks, statNum, topicLamps } from '../src/island/uix/screens/dig';
-import { NAME_W, gapRate, goKind, nodeLook } from '../src/island/uix/screens/land';
+import { gapRate, goKind, nameLines, nameSpans, nodeLook, textEm } from '../src/island/uix/screens/land';
+import { SECTORS } from '../src/island/p1/data';
 import { UX_ICONS } from '../src/island/uix/icons';
 import { W_ICONS } from '../src/island/uix/screens/w-icons';
 import { uxw } from '../src/island/uix/screens/w-slots';
@@ -203,7 +204,33 @@ describe('ランドマップ（航路図）・進出', () => {
     expect(all.map((x) => x.can)).toEqual([false, true, true, false, false, false]);
     // 調査依頼状が無い町は、開いていても行けない（手紙の絵）
     expect(nodeLook('open', true)).toMatchObject({ ico: 'mail', can: false });
-    for (const k of ['C', 'U', 'R', 'E', 'L']) expect(NAME_W[k]).toBeGreaterThan(20);
+  });
+  it('町の名前は 2 行まで折り返す：折るのは「・」や空白のあと・町の語尾の前。390 幅（図の幅 340px・16px の字）で、どの町の名前も 2 行に入る', () => {
+    expect(nameLines('ゴリ・ラグズ')).toEqual({ parts: ['ゴリ・', 'ラグズ'], two: 3, one: 6 });
+    expect(nameLines('ヤツカノタウン').parts).toEqual(['ヤツカノ', 'タウン']);
+    expect(nameLines('クリプト・サン・シティ').parts).toEqual(['クリプト・', 'サン・', 'シティ']);
+    expect(nameLines('クリプト・サン・シティ').two).toBe(6);
+    // 折ってよい所が無い短い名前は、1 行ぶんの幅をもらう
+    expect(nameLines('タオックス')).toEqual({ parts: ['タオックス'], two: 5, one: 5 });
+    expect(nameLines('アイウエオカキクケコ').two).toBe(5);
+    expect(nameLines('Gori Rags').parts).toEqual(['Gori ', 'Rags']);
+    expect(textEm('Ab ')).toBeCloseTo(1.65);
+    // 幅の分け合い：同じ段のとなりとのあいだを、名前の長さの割合で分ける。となりの札と重ならない
+    const items = SECTORS.map((d) => ({ id: d.id, x: d.at[0], y: d.at[1], need: nameLines(d.name).two + 0.4 }));
+    const w = nameSpans(items);
+    for (const a of items)
+      for (const b of items) {
+        if (a.y !== b.y || a.x >= b.x) continue;
+        expect(w[a.id].r + w[b.id].l, `${a.id}-${b.id}`).toBeLessThanOrEqual(b.x - a.x + 0.01);
+      }
+    for (const it of items) {
+      // 図の縁から出ない・左右の差は 1.5 倍まで
+      expect(it.x - w[it.id].l, it.id).toBeGreaterThanOrEqual(0.9);
+      expect(it.x + w[it.id].r, it.id).toBeLessThanOrEqual(99.1);
+      expect(Math.max(w[it.id].l, w[it.id].r) / Math.min(w[it.id].l, w[it.id].r), it.id).toBeLessThanOrEqual(1.6);
+      // 図の幅 338px・字 16px：2 行にしたときの長いほうの行が、札の幅（余白 6px を除く）に入る
+      expect(((w[it.id].l + w[it.id].r) / 100) * 338 - 6, it.id).toBeGreaterThanOrEqual((it.need - 0.4) * 16);
+    }
   });
   it('進出の決め方：今の画面と同じ分かれ方（いまここ・移動・出店・足りない・ランクアップ・依頼状・開放前・準備中・雲）', () => {
     const o = { noLetter: false, rankUp: false, fee: 100, money: 500 };
