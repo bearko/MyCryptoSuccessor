@@ -10,6 +10,8 @@ export interface UxbScreens {
   buy?: (ctx: Ctx) => void;
   /** お店の札 */
   shop?: (ctx: Ctx, uid: number) => void;
+  /** サプライチェーン（breakdown：④ 販売の内訳を開いた状態で） */
+  supply?: (ctx: Ctx, opt: { breakdown?: boolean }) => void;
 }
 // 入れ物は uix/hooks.ts に置く（理由はそこに）。ここは型と、同じ物の名前だけ
 export { uxbSlots as uxb } from '../hooks';

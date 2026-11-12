@@ -51,7 +51,15 @@ import { craftable, shopInvestOrder } from './orders';
 import { after, crewLine, mineTip, open, pickShelf, shelfMoved, shopView } from './screens';
 import { canImport, cheapAt, dutyText, headSuggest, importLead, importPrice, setSource, sourceOf, tradeNeighbors } from './tariff';
 import { fmt, heroIcon, heroName, matIcon, money, skuIcon, skuName } from './ui';
-
+import { MARKET, PRODUCT, isResearch, rpCost, unitsX } from './data';
+import { flowHist, monLab } from './dash';
+import { clearCondText } from './digmeet';
+import { TASK_NAME } from './heroui';
+import { MAX_HAULERS, clearGoal, craftDays, learn, matDays, monthRevenue, nextJam, sellInfo, shopArea, speed, stageCaps, whatIf } from './model';
+import { bestSell, shopMonthly } from './moves';
+import { GOODS_WHY, LAMP_NAME, STAGE, WHY_NAME, gainText, goodsReason, jamGain, moveUp, nextSkills, scmIssues, scmJam, sellBigUp, shopLabel, upsOf, whatIfUp, whyLine } from './scm';
+import { openAds, openBuy, openData, openHire, openShop, openStaff, openWorkshop } from './screens';
+import { openSkills } from './tree';
 export const uxbDeps = {
   assetUrl,
   sectorDef,
@@ -131,5 +139,52 @@ export const uxbDeps = {
   money,
   skuIcon,
   skuName,
+  MARKET,
+  PRODUCT,
+  isResearch,
+  rpCost,
+  unitsX,
+  flowHist,
+  monLab,
+  clearCondText,
+  TASK_NAME,
+  MAX_HAULERS,
+  clearGoal,
+  craftDays,
+  learn,
+  matDays,
+  monthRevenue,
+  nextJam,
+  sellInfo,
+  shopArea,
+  speed,
+  stageCaps,
+  whatIf,
+  bestSell,
+  shopMonthly,
+  GOODS_WHY,
+  LAMP_NAME,
+  STAGE,
+  WHY_NAME,
+  gainText,
+  goodsReason,
+  jamGain,
+  moveUp,
+  nextSkills,
+  scmIssues,
+  scmJam,
+  sellBigUp,
+  shopLabel,
+  upsOf,
+  whatIfUp,
+  scmWhy: whyLine,
+  openAds,
+  openBuy,
+  openData,
+  openHire,
+  openShop,
+  openStaff,
+  openWorkshop,
+  openSkills,
 };
 export type UxbDeps = typeof uxbDeps;

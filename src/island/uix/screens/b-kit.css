@@ -306,3 +306,48 @@ html.is-uxc .uxb-cmp-duty {
 html.is-uxc .uxb-cmp-foot {
   color: var(--ux-k5);
 }
+
+/* ---------- 折りたたみ */
+html.is-uxc .uxb-fold {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc .uxb-fold-key {
+  width: 100%;
+}
+html.is-uxc .uxb-fold-key > .ux-cap {
+  justify-content: flex-start;
+  padding: 2px 8px;
+  text-align: left;
+}
+html.is-uxc .uxb-fold-l {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 0;
+}
+html.is-uxc .uxb-fold-note {
+  flex: 1 1 8em;
+  color: var(--ux-k5);
+  line-height: 1.25;
+}
+html.is-uxc .uxb-fold-chev {
+  margin-left: auto;
+  transition: transform 90ms steps(2, end);
+}
+html.is-uxc .uxb-fold-key[aria-expanded='true'] .uxb-fold-chev {
+  transform: rotate(90deg);
+}
+html.is-uxc .uxb-fold-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+html.is-uxc .uxb-fold-box.is-open {
+  animation: uxb-in 180ms steps(3, end) backwards;
+}

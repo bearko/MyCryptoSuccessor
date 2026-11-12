@@ -164,3 +164,40 @@ export function state(kind: '' | 'good' | 'bad' | 'cyan', text: string, blink = 
 export const key = (label: Kid, fn: () => void, o: KeyOpts = {}) => uxKey(label, () => fn(), { ...o, cls: `uxb-key ${o.cls ?? ''}`.trim() });
 /** ctx の「保存して描き直す」（今の after と同じ） */
 export const done = (ctx: Ctx) => B.after(ctx);
+
+/**
+ * 折りたたみ：見出しのキー（ランプ・名前・添え書き）を押すと、中身が開く。中身は、はじめて開くときに 1 回だけ作る。
+ * open()：開いて、そこまで送る
+ */
+export function fold(title: string, build: (box: HTMLElement) => void, o: { open?: boolean; note?: string; ico?: string; cls?: string } = {}) {
+  const lamp = uxLamp('', !!o.open);
+  const box = el('div.uxb-fold-box', { hidden: !o.open });
+  let made = false;
+  const make = () => {
+    if (made) return;
+    made = true;
+    build(box);
+  };
+  const set = (on: boolean, feel = true) => {
+    if (on) make();
+    box.hidden = !on;
+    lamp.classList.toggle('is-on', on);
+    head.setAttribute('aria-expanded', String(on));
+    if (feel) uxSfx('toggle', { step: on ? 1 : 0 });
+    if (on && feel) uxpReplay(box, 'is-open');
+  };
+  const head = uxKey(el('span.uxb-fold-l', lamp, o.ico ? bIcon(o.ico, { scale: 1 }) : null, el('b', title), o.note ? el('span.uxb-fold-note', o.note) : null, el('span.uxb-fold-chev', bIcon('next', { scale: 1, color: '#97a1cf' }))), () => set(box.hidden === true), { cls: 'uxb-fold-key', attrs: { 'aria-expanded': String(!!o.open), 'data-ux-quiet': '' } });
+  if (o.open) make();
+  const e = el(`div.uxb-fold${o.cls ? '.' + o.cls : ''}`, head, box);
+  return {
+    el: e,
+    box,
+    get isOpen() {
+      return !box.hidden;
+    },
+    open(scroll = true) {
+      set(true, false);
+      if (scroll) requestAnimationFrame(() => e.scrollIntoView({ block: 'start' }));
+    },
+  };
+}
