@@ -215,3 +215,20 @@ html.is-uxc .uxb-ad .uxp-card-foot {
   align-items: stretch;
   gap: 4px;
 }
+
+/* ---------- 市場調査（市場データ） */
+html.is-uxc .uxb-datacard .uxp-card-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+html.is-uxc .uxb-datacard .uxp-card-name {
+  flex-wrap: wrap;
+}
+html.is-uxc .uxb-datacard.is-rec {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 0 0 4px var(--ux-amber-lo);
+}
+html.is-uxc .uxb-shade {
+  filter: brightness(0);
+  opacity: 0.6;
+}

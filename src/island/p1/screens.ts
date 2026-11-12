@@ -1661,6 +1661,8 @@ export function openHire(ctx: Ctx, opts: { charisma?: boolean } = {}) {
 // ---------------------------------------------------------------- 市場データ
 
 export function openData(ctx: Ctx) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/biz.ts）
+  if (uxb.data) return uxb.data(ctx);
   const s0 = ctx.s();
   s0.flags.data = true;
   // セクタごとに「市場データを見た」を覚える（2 か所目以降のリサーチの案内）

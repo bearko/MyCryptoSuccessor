@@ -70,6 +70,15 @@ import { adBreakeven, adGain } from './moves';
 import { SALES_SORT, SALES_TAG, emptyShelfCount, fillEmptyShelves, freeHeroes, salesRows, setMainAll, shopBars, staffEmptyShops } from './sales';
 import { openSupply } from './scm';
 import { pickClerk } from './screens';
+import { CROSS_HR_MKT, CROSS_MKT_CS, CS, CS_MASTERY, FLAME, GRADE, GRADE_NAME, MKT_MASTERY, PR, REPLY_FIT } from './data';
+import { KIND_NAME, REPLY_NAME, apologize, careMul, centerRate, csOf, csOn, daysLeft, expireDays, inquiryText, noticeCost, putCost, putLock, putOut, putPower, refundCost, repeatMul, reply, replyGain, replyLock, satOf, swapItem, visitMul } from './cs';
+import { rivalBars, satHist } from './dash';
+import { PR_KIND_NAME, forecast, gradeArea, gradeBrand, gradeHire, gradeName, gradeNext, gradeOf, horizon, newsOf, prCost, prGain, prLock, prOn, prWait, publish } from './mkt';
+import { rivalDef } from './data';
+import { seriesTag } from './digview';
+import { needText } from './heroui';
+import { recommend, relicMarket, relicSku, relicsSoon } from './model';
+import { makeInWorkshop } from './screens';
 export const uxbDeps = {
   assetUrl,
   sectorDef,
@@ -232,5 +241,64 @@ export const uxbDeps = {
   staffEmptyShops,
   openSupply,
   pickClerk,
+  CROSS_HR_MKT,
+  CROSS_MKT_CS,
+  CS,
+  CS_MASTERY,
+  FLAME,
+  GRADE,
+  GRADE_NAME,
+  MKT_MASTERY,
+  PR,
+  REPLY_FIT,
+  KIND_NAME,
+  REPLY_NAME,
+  apologize,
+  careMul,
+  centerRate,
+  csOf,
+  csOn,
+  daysLeft,
+  expireDays,
+  inquiryText,
+  noticeCost,
+  putCost,
+  putLock,
+  putOut,
+  putPower,
+  refundCost,
+  repeatMul,
+  reply,
+  replyGain,
+  replyLock,
+  satOf,
+  swapItem,
+  visitMul,
+  rivalBars,
+  satHist,
+  PR_KIND_NAME,
+  forecast,
+  gradeArea,
+  gradeBrand,
+  gradeHire,
+  gradeName,
+  gradeNext,
+  gradeOf,
+  horizon,
+  newsOf,
+  prCost,
+  prGain,
+  prLock,
+  prOn,
+  prWait,
+  publish,
+  rivalDef,
+  seriesTag,
+  needText,
+  recommend,
+  relicMarket,
+  relicSku,
+  relicsSoon,
+  makeInWorkshop,
 };
 export type UxbDeps = typeof uxbDeps;

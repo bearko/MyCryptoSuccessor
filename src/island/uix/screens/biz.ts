@@ -336,3 +336,108 @@ export function openAdsUx(ctx: Ctx) {
     }
   });
 }
+
+// ---------------------------------------------------------------- 市場調査（市場データ）
+
+export function openDataUx(ctx: Ctx) {
+  const s0 = ctx.s();
+  // 今の画面と同じ：見た印（このセクタで市場データを見た）を覚える
+  s0.flags.data = true;
+  const here = s0.sector ?? 'c1';
+  if (!(s0.flags.dataSeen ?? []).includes(here)) s0.flags.dataSeen = [...(s0.flags.dataSeen ?? []), here];
+  ctx.save();
+  sheet(ctx, t('市場データ（このエリア）', 'Market data (this area)'), 'data', 'uxb-data', (host, s) => {
+    const rec = B.recommend(s);
+    const all = B.market(s);
+    // 並び：おすすめ → まだ誰も売っていない → そのほか（需要 × 値段の大きい順）。供給が足りている商品はうしろ
+    const val = (r: (typeof all)[number]) => r.demand * r.p.price * (r.saturated ? 0.3 : 1);
+    const rows = [...all].sort((a, b) => Number(b.p.key === rec) - Number(a.p.key === rec) || Number(b.gap) - Number(a.gap) || Number(a.saturated) - Number(b.saturated) || val(b) - val(a));
+    const maxD = Math.max(1, ...rows.map((r) => r.demand));
+    const recRow = all.find((r) => r.p.key === rec);
+    const need = recRow?.need;
+    const pos = B.has(s, 'pos');
+    const making = (key: string) => s.slots.some((sl) => sl.sku && B.skuParts(sl.sku)[0] === key);
+    const mats = (recipe: Partial<Record<Mat, number>>) => el('span.uxb-recipe', (Object.entries(recipe) as [Mat, number][]).map(([m, q]) => el('span.uxb-chip', { title: B.MATS[m].name }, matPic(m, 24), num(`×${q}`))));
+    const known = (v: number) => {
+      const m = uxMeter(v, 'cyan');
+      return el('div.uxb-field.is-row', el('span.uxb-field-k', t('認知', 'Known')), m.el, el('span.uxb-field-v', num(`${Math.round(v * 100)}%`)));
+    };
+    // 他社の反撃中
+    const rally = s.rally ?? 0;
+    if (rally > 0) host.append(el('p.uxb-why.is-bad', bIcon('warn', { scale: 1 }), el('span', uxTape(t(`反撃中（あと ${rally} か月）`, `Fighting back (${rally} mo left)`), 'amber'), ' ', t(`あなたが 1 位を取ったので、他社が宣伝を始めた。他社の売り場の強さ ×${B.MARKET.rally}`, `You took #1, so rivals started advertising. Rival pull ×${B.MARKET.rally}`))));
+    // いちばん上：おすすめの商品へ（主役のキー）
+    if (need && need.kind !== 'dev' && ctx.skills) {
+      const go = need.skill;
+      host.append(key(t(`「${B.PRODUCT[rec].name}」の準備：${B.needText(need, s)}`, `Get ${B.PRODUCT[rec].name} ready: ${B.needText(need, s)}`), () => ctx.skills?.(go), { kind: 'main', ico: 'star', cls: 'uxb-wide' }));
+    } else if (recRow && !need) host.append(key(t(`「${B.PRODUCT[rec].name}」を工房で作る`, `Make ${B.PRODUCT[rec].name} in the workshop`), () => B.makeInWorkshop(ctx, rec), { kind: 'main', ico: 'hammer', cls: 'uxb-wide' }));
+    // 国民のニーズ（縦の棒。琥珀＝おすすめ）
+    put(host, uxpHead(t('国民のニーズ（月）', 'Demand / mo'), { ico: 'bars' }), uxpBars(rows.slice(0, 8).map((r) => ({ label: r.p.name, value: r.demand, kind: r.p.key === rec ? 'main' : r.saturated ? 'dash' : '' })), { max: maxD, height: 132 }).el, dim(t('琥珀の棒＝マインちゃんのおすすめ・点線の棒＝他店で供給が足りている商品', 'Amber bar = Mine-chan’s pick · dashed bar = well supplied by other shops')));
+    host.append(uxpHead(t('商品ごと', 'By item'), { ico: 'list' }));
+    for (const r of rows) {
+      const who = s.rivals.filter((x) => (x.sells[r.p.key] ?? 0) > 0).map((x) => B.rivalDef(x.id)?.name ?? '');
+      const dm = uxMeter(r.demand / maxD);
+      const yd = s.yday?.[r.p.key] ?? 0;
+      host.append(
+        uxpCard({
+          pic: skuPic(B.sku(r.p.key, 'C'), 32),
+          name: r.p.name,
+          tags: [uxpPrice(r.p.price), making(r.p.key) ? uxTape(t('作っている', 'Making'), 'good') : null],
+          badge: r.p.key === rec ? t('マインちゃんのおすすめ', 'Mine-chan’s pick') : undefined,
+          desc: [
+            r.need ? el('span.uxb-gain.is-wait', bIcon('info', { scale: 1 }), B.needText(r.need, s)) : el('span.uxb-gain', bIcon('check', { color: '#36e08b', scale: 1 }), t('作れる', 'You can make it')),
+            el('div.uxb-field.is-row', el('span.uxb-field-k', t('ニーズ', 'Demand')), dm.el, el('span.uxb-field-v', num(B.fmt(r.demand)), t('個', ''))),
+            !r.sellers ? uxpRow(t('売っている会社', 'Sellers'), t('まだ誰も売っていない', 'Nobody sells it yet'), { tone: 'amber' }) : uxpRow(t('売っている会社', 'Sellers'), t(`${r.sellers} 社`, `${r.sellers}`), { tone: r.saturated ? 'bad' : '', note: [r.saturated ? t('他店で供給が足りている・', 'Well supplied · ') : '', who.join(t('・', ', '))] }),
+            pos ? uxpRow(t('きのう売れた', 'Sold yesterday'), t(`${yd} 個`, `${yd}`), { tone: yd > 0 ? 'good' : 'dim', note: r.mine ? t(`認知 ${Math.round(r.known * 100)}%`, `Known ${Math.round(r.known * 100)}%`) : undefined }) : null,
+            mats(r.p.recipe.C),
+            r.known < 1 ? known(r.known) : null,
+          ],
+          right: r.need ? null : key(t('工房で作る', 'Make it'), () => B.makeInWorkshop(ctx, r.p.key), { ico: 'hammer' }),
+          off: r.saturated,
+          cls: `uxb-datacard${r.p.key === rec ? ' is-rec' : ''}`,
+          attrs: { 'data-key': r.p.key },
+        }),
+      );
+    }
+    // 復刻品（開いた順）：独占の残り・他社・工房で作る。まだ開いていないものは影絵
+    const relics = B.relicMarket(s);
+    const soon = B.relicsSoon(s, relics.length ? 2 : 3);
+    if (relics.length || soon.length) {
+      put(host, uxpHead(t('復刻品（遺物の研究 Lv3 で作れる）', 'Revivals (research a relic to Lv3)'), { ico: 'slab' }), relics.length ? dim(t('昔の Lime の品。初めて売った月から 4 か月は、どの会社も真似できない。', 'Goods of old Lime. For 4 months from the first sale, no rival can copy them.')) : null);
+      const maxR = Math.max(1, ...relics.map((r) => r.demand));
+      for (const r of relics) {
+        const dm = uxMeter(r.demand / maxR);
+        const sg = B.seriesTag(r.p.relic!.ext, s.tier);
+        const mono = r.left > 0 ? uxTape(r.started ? t(`独占 あと ${r.left} か月`, `Monopoly: ${r.left} mo left`) : t(`独占 ${r.left} か月（売ったら始まる）`, `Monopoly ${r.left} mo (starts at first sale)`), 'amber') : uxTape(r.sellers ? t(`他社 ${r.sellers} 社`, `${r.sellers} rival${r.sellers > 1 ? 's' : ''}`) : t('独占は終わり', 'Monopoly over'));
+        host.append(
+          uxpCard({
+            pic: skuPic(r.x, 32),
+            name: r.p.name,
+            tags: [uxpPrice(B.skuPrice(r.x)), uxTape(t('復刻', 'Revival'), 'dark'), mono, sg ? uxTape(sg[0], sg[1] ? 'good' : '') : null, making(r.p.key) ? uxTape(t('作っている', 'Making'), 'good') : null],
+            desc: [
+              r.need ? el('span.uxb-gain.is-wait', bIcon('info', { scale: 1 }), B.needText(r.need, s)) : el('span.uxb-gain', bIcon('check', { color: '#36e08b', scale: 1 }), t('作れる（技・開発は要らない）', 'You can make it (no skill or dev needed)')),
+              el('div.uxb-field.is-row', el('span.uxb-field-k', t('ニーズ', 'Demand')), dm.el, el('span.uxb-field-v', num(B.fmt(r.demand)), t('個／月', '/mo'))),
+              mats(r.p.recipe[B.skuParts(r.x)[1]]),
+              r.known < 1 ? known(r.known) : null,
+            ],
+            right: r.need ? null : key(t('工房で作る', 'Make it'), () => B.makeInWorkshop(ctx, r.p.key), { ico: 'hammer' }),
+            off: r.saturated,
+            cls: 'uxb-datacard is-relic',
+          }),
+        );
+      }
+      for (const x of soon) {
+        const ic = skuPic(B.relicSku(x.p.key), 32);
+        ic.classList.add('uxb-shade');
+        host.append(uxpCard({ pic: ic, name: t('？？？', '???'), desc: el('span.uxb-dim', bDim('lock'), t(`研究 Lv3 で開く（いま Lv${x.lv}）`, `Opens at research Lv3 (now Lv${x.lv})`)), off: true, cls: 'uxb-datacard is-soon' }));
+      }
+    }
+    const satNames = all.filter((r) => r.saturated).map((r) => r.p.name);
+    host.append(
+      dim(
+        satNames.length
+          ? t(`他店で供給が足りている商品（${satNames.join('・')}）は、並べてもあまり売れません。まだ誰も売っていない商品を探しましょう。`, `Goods other shops already supply (${satNames.join(', ')}) barely sell. Look for goods nobody sells yet.`)
+          : t('売れ筋：他社がよく売っているのはランタンと鋏。競争が激しいので、最初は避けるのがおすすめです。', 'Best sellers: rivals sell many lanterns and scissors. Competition is tough there, so avoid them at first.'),
+      ),
+    );
+  });
+}

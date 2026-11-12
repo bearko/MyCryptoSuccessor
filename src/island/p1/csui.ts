@@ -15,6 +15,7 @@ import { after, open, type Ctx } from './screens';
 import { bar, btn, fmt, h, money, skuName } from './ui';
 import { arw, cvBox, rankBarsEl, trendEl, trendLegend, vbarsEl, type TSer } from './chartkit';
 import { SAT_REFS, monHead, monLab, rivalBars, satHist } from './dash';
+import { uxb } from '../uix/screens/b-slots';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const sg = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(Math.round(v * 10) / 10)}`;
@@ -113,6 +114,8 @@ function replyBtn(ctx: Ctx, s: P1State, q: Inquiry, r: ReplyKind): HTMLElement {
 
 /** カスタマーサポート → 問い合わせ（受け箱と返事の選択） */
 export function openInbox(ctx: Ctx, hooks: CsHooks = {}) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/cs.ts）
+  if (uxb.inbox) return uxb.inbox(ctx, hooks);
   open(ctx, t('問い合わせ', 'Inquiries'), (body) => {
     const s = ctx.s();
     const C = csOf(s);
@@ -155,6 +158,7 @@ export function openInbox(ctx: Ctx, hooks: CsHooks = {}) {
 
 /** カスタマーサポート → 顧客満足度 */
 export function openSat(ctx: Ctx, hooks: CsHooks = {}) {
+  if (uxb.sat) return uxb.sat(ctx, hooks);
   open(ctx, t('顧客満足度', 'Customer satisfaction'), (body) => {
     const s = ctx.s();
     const v = satOf(s);
@@ -217,6 +221,7 @@ export function openSat(ctx: Ctx, hooks: CsHooks = {}) {
 
 /** マーケ → 市場の見通し */
 export function openForecast(ctx: Ctx, hooks: { skills?: () => void; ads?: () => void } = {}) {
+  if (uxb.forecast) return uxb.forecast(ctx, hooks);
   open(ctx, t('市場の見通し', 'Market outlook'), (body) => {
     const s = ctx.s();
     const f = forecast(s);
@@ -309,6 +314,7 @@ export function openForecast(ctx: Ctx, hooks: { skills?: () => void; ads?: () =>
 
 /** マーケ → 広報と企業の格 */
 export function openPr(ctx: Ctx, hooks: CsHooks = {}) {
+  if (uxb.pr) return uxb.pr(ctx, hooks);
   open(ctx, t('広報と企業の格', 'PR & standing'), (body) => {
     const s = ctx.s();
     // 企業の格

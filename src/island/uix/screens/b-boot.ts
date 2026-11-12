@@ -5,8 +5,9 @@
 import type { UxbDeps } from '../../p1/uxb';
 import { setB } from './b-deps';
 import { uxb } from './b-slots';
-import { openAdsUx, openBomUx, openSalesUx } from './biz';
+import { openAdsUx, openBomUx, openDataUx, openSalesUx } from './biz';
 import { openBuyUx } from './buy';
+import { openForecastUx, openInboxUx, openPrUx, openSatUx } from './cs';
 import { openShopUx } from './shop';
 import { openSupplyUx } from './supply';
 
@@ -19,4 +20,9 @@ export function installB(d: UxbDeps) {
   uxb.bom = openBomUx;
   uxb.sales = openSalesUx;
   uxb.ads = openAdsUx;
+  uxb.data = openDataUx;
+  uxb.inbox = openInboxUx;
+  uxb.sat = openSatUx;
+  uxb.forecast = openForecastUx;
+  uxb.pr = openPrUx;
 }
