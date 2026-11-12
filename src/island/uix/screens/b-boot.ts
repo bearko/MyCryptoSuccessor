@@ -6,9 +6,11 @@ import type { UxbDeps } from '../../p1/uxb';
 import { setB } from './b-deps';
 import { uxb } from './b-slots';
 import { openBuyUx } from './buy';
+import { openShopUx } from './shop';
 
 /** 本体の関数の束を受け取って、差し込み口へ入れる */
 export function installB(d: UxbDeps) {
   setB(d);
   uxb.buy = openBuyUx;
+  uxb.shop = openShopUx;
 }

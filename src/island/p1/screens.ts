@@ -1039,6 +1039,8 @@ export function shopScene(s: P1State, uid: number, onPay?: (yen: number) => void
 }
 
 export function openShop(ctx: Ctx, uid: number) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/shop.ts）
+  if (uxb.shop) return uxb.shop(ctx, uid);
   const s0 = ctx.s();
   const b = s0.buildings.find((x) => x.uid === uid);
   if (!b) return;

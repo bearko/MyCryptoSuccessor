@@ -8,6 +8,8 @@ import type { Ctx } from '../../p1/screens';
 export interface UxbScreens {
   /** 調達 */
   buy?: (ctx: Ctx) => void;
+  /** お店の札 */
+  shop?: (ctx: Ctx, uid: number) => void;
 }
 // 入れ物は uix/hooks.ts に置く（理由はそこに）。ここは型と、同じ物の名前だけ
 export { uxbSlots as uxb } from '../hooks';

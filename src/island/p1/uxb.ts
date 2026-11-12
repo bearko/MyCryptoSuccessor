@@ -5,19 +5,26 @@
  */
 import { assetUrl } from '../../render/images';
 import { sectorDef } from './company';
-import { MATS, MAT_KEYS, PROC, aptitude, procNeed } from './data';
+import { DEF } from '../defs';
+import { INVESTS, MATS, MAT_KEYS, P1B, PROC, SELF_RUN, SHOP, aptitude, procNeed, skuPrice } from './data';
 import { evMul } from './events';
 import { aptShow, pickHero, rankOf } from './heroui';
 import {
   LOT,
   assign,
   fullUse,
+  has,
   hasRoute,
+  invLv,
+  invest,
+  investCost,
   isCheap,
   leadDays,
+  myShops,
   myWarehouses,
   order,
   orderFrom,
+  partMax,
   poolCap,
   poolFree,
   poolUsed,
@@ -28,22 +35,32 @@ import {
   procMats,
   procQty,
   scoutMul,
+  setDustShop,
+  setPart,
   setProcQty,
+  shelvesAuto,
   staffOf,
+  storageCap,
   toggleProcExtra,
   toggleProcItem,
   unitPrice,
   utilRate,
   walkDays,
 } from './model';
-import { craftable } from './orders';
-import { after, mineTip, open } from './screens';
+import { craftable, shopInvestOrder } from './orders';
+import { after, crewLine, mineTip, open, pickShelf, shelfMoved, shopView } from './screens';
 import { canImport, cheapAt, dutyText, headSuggest, importLead, importPrice, setSource, sourceOf, tradeNeighbors } from './tariff';
 import { fmt, heroIcon, heroName, matIcon, money, skuIcon, skuName } from './ui';
 
 export const uxbDeps = {
   assetUrl,
   sectorDef,
+  DEF,
+  INVESTS,
+  P1B,
+  SELF_RUN,
+  SHOP,
+  skuPrice,
   MATS,
   MAT_KEYS,
   PROC,
@@ -56,12 +73,18 @@ export const uxbDeps = {
   LOT,
   assign,
   fullUse,
+  has,
   hasRoute,
+  invLv,
+  invest,
+  investCost,
   isCheap,
   leadDays,
+  myShops,
   myWarehouses,
   order,
   orderFrom,
+  partMax,
   poolCap,
   poolFree,
   poolUsed,
@@ -72,17 +95,26 @@ export const uxbDeps = {
   procMats,
   procQty,
   scoutMul,
+  setDustShop,
+  setPart,
   setProcQty,
+  shelvesAuto,
   staffOf,
+  storageCap,
   toggleProcExtra,
   toggleProcItem,
   unitPrice,
   utilRate,
   walkDays,
   craftable,
+  shopInvestOrder,
   after,
+  crewLine,
   mineTip,
   open,
+  pickShelf,
+  shelfMoved,
+  shopView,
   canImport,
   cheapAt,
   dutyText,
