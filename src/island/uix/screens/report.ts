@@ -1223,7 +1223,8 @@ function deptRow(x: DeptLine): HTMLElement {
       `span.uxs-rp-dept${x.warn ? '.is-warn' : ''}`,
       el('span.uxs-rp-act', el('span.uxs-rp-dept-k', inkIcon(x.ico, 1), el('b', x.label), x.warn ? el('span.uxs-chip-k.is-bad', t('要確認', 'Check')) : null), x.go ? pkey(x.go[0], x.go[1]) : null),
       el('span', noEmoji(x.text)),
-      x.more ? el('span.ux-t-ink2', noEmoji(x.more)) : null,
+      // 続きの文（復興・展示館）は、全角の空きで区切られているので、1 件ずつ行を分ける
+      x.more ? x.more.split('　').map((m) => noEmoji(m)).filter(Boolean).map((m) => el('span.ux-t-ink2', m)) : null,
     ),
   );
 }
