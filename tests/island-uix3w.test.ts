@@ -7,13 +7,16 @@ import { uxsDeps } from '../src/island/p1/uxs';
 import { uxwDeps } from '../src/island/p1/uxw';
 import { FRONT_SEL } from '../src/island/uix/front';
 import { CUT_CALM_MS, CUT_MS, CUT_OUT_MS, ROLL_MS, bare, barWait, cutCore, letterKind, nameParts, plainSay, rpDigits, sayParts } from '../src/island/uix/screens/conquer';
+import { NAME_W, gapRate, goKind, nodeLook } from '../src/island/uix/screens/land';
 import { uxw } from '../src/island/uix/screens/w-slots';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
 const MAIN = src('p1/main.ts');
 const CQ = src('uix/screens/conquer.ts');
-const FILES = ['conquer.ts', 'w-boot.ts', 'w-deps.ts', 'w-slots.ts'];
-const CSS_FILES = ['conquer.css'];
+const LN = src('uix/screens/land.ts');
+const LANDUI = src('p1/landui.ts');
+const FILES = ['conquer.ts', 'land.ts', 'w-boot.ts', 'w-deps.ts', 'w-slots.ts'];
+const CSS_FILES = ['conquer.css', 'land.css'];
 const CSS = CSS_FILES.map((f) => [f, src(`uix/screens/${f}`).replace(/\/\*[\s\S]*?\*\//g, '')] as const);
 
 afterEach(() => {
@@ -28,7 +31,7 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     expect(src('p1/uxs.ts')).toContain('w: uxwDeps,');
     expect(uxsDeps.w).toBe(uxwDeps);
     const boot = src('uix/screens/w-boot.ts');
-    for (const k of ['letter', 'cheer']) expect(boot).toContain(`uxw.${k} = `);
+    for (const k of ['letter', 'cheer', 'land', 'rankUp', 'sectorCard', 'deco']) expect(boot).toContain(`uxw.${k} = `);
     // 本体から新しい画面を直接読んでいる所は無い（読んでよいのは、空の差し込み口だけ）
     for (const f of ['p1/main.ts', 'p1/landui.ts', 'p1/digui.ts', 'p1/uxw.ts']) expect(src(f), f).not.toMatch(/from '\.\.\/uix\/screens\/(?!s-slots'|w-slots'|mhooks')/);
   });
@@ -46,7 +49,7 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     for (const [f, css] of CSS) {
       const flat = css.replace(/@(media|supports)[^{]*\{/g, '').replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
       for (const m of flat.matchAll(/(^|\})\s*([^{}@]+)\{/g)) for (const sel of m[2].split(',')) if (sel.trim()) expect(sel.trim(), f).toMatch(/^html\.is-uxc[ .:]/);
-      expect(css, f).not.toMatch(/border-radius\s*:\s*(?!0)/);
+      expect(css, f).not.toMatch(/border-radius\s*:\s*[1-9.]/);
       expect(css, f).not.toMatch(/backdrop-filter/);
       // 字は 16px（1rem）以上
       for (const m of css.matchAll(/font-size:\s*([\d.]+)(px|rem)/g)) expect(Number(m[1]) * (m[2] === 'rem' ? 16 : 1), `${f}: ${m[0]}`).toBeGreaterThanOrEqual(16);
@@ -156,5 +159,101 @@ describe('町の制覇・研究成果の発表・調査依頼状', () => {
   it('音：見本と同じ（制覇の音は本体が鳴らす）。札・ランプ・数え上げ・飛ばす・閉じる', () => {
     for (const k of ["uxSfx('flap')", "uxSfx('lamp', { step: i })", "uxSfx('coin')", "uxSfx('close')", "uxSfx('rankup')", "'open' : 'clunk'"]) expect(CQ, k).toContain(k);
     expect(CQ).toContain('barWait(uxMusic())');
+  });
+});
+
+describe('ランドマップ（航路図）・進出', () => {
+  it('入口：openLand・openRankUp・openSectorCard が、差し込み口が入っているときだけ新しい画面へ渡す。地図の上の札は今の要素を着せ替える', () => {
+    expect(LANDUI).toContain('if (uxw.land) return uxw.land(ctx);');
+    expect(LANDUI).toContain('if (uxw.rankUp) return uxw.rankUp(ctx, target);');
+    expect(MAIN).toContain('if (uxw.sectorCard) {');
+    expect(MAIN.match(/uxw\.deco\?\.\(el, 'badge'\)/g)?.length).toBe(3);
+    expect(MAIN).toContain("uxw.deco?.(body, 'pop');");
+    const ctx = {} as never;
+    const land = vi.fn();
+    const rank = vi.fn();
+    uxw.land = land;
+    uxw.rankUp = rank;
+    return import('../src/island/p1/landui').then((m) => {
+      m.openLand(ctx);
+      m.openRankUp(ctx, 'r1');
+      expect(land).toHaveBeenCalledWith(ctx);
+      expect(rank).toHaveBeenCalledWith(ctx, 'r1');
+    });
+  });
+  it('器は今の札（open()）。曲はセクタ選択。今の目印（となりの町の窓の .isl-sectm と data-sector）が残る', () => {
+    expect(LN).toMatch(/W\.open\(\s*ctx,\s*t\('ランドマップ', 'Land map'\)/);
+    expect(LN).toContain("sceneOff ??= uxScene('sector');");
+    expect(LN).toContain("el('div.isl-modal.isl-sectm.ux-root.uxw-sc')");
+    expect(LN).toContain('m.dataset.sector = v.id;');
+  });
+  it('札の見分け：状態ごとに絵と言葉がある（色だけにしない）。行ける所だけ「行ける」', () => {
+    const all = (['here', 'mine', 'open', 'soon', 'locked', 'cloud'] as const).map((st) => nodeLook(st));
+    expect(new Set(all.map((x) => x.word)).size).toBe(6);
+    expect(all.filter((x) => x.ico).length).toBe(5);
+    expect(all.map((x) => x.can)).toEqual([false, true, true, false, false, false]);
+    // 調査依頼状が無い町は、開いていても行けない（手紙の絵）
+    expect(nodeLook('open', true)).toMatchObject({ ico: 'mail', can: false });
+    for (const k of ['C', 'U', 'R', 'E', 'L']) expect(NAME_W[k]).toBeGreaterThan(20);
+  });
+  it('進出の決め方：今の画面と同じ分かれ方（いまここ・移動・出店・足りない・ランクアップ・依頼状・開放前・準備中・雲）', () => {
+    const o = { noLetter: false, rankUp: false, fee: 100, money: 500 };
+    expect(goKind('here', o)).toBe('here');
+    expect(goKind('mine', o)).toBe('go');
+    expect(goKind('open', o)).toBe('move');
+    expect(goKind('open', { ...o, money: 99 })).toBe('short');
+    expect(goKind('open', { ...o, rankUp: true, money: 0 })).toBe('rankup');
+    expect(goKind('open', { ...o, noLetter: true, rankUp: true })).toBe('letter');
+    expect([goKind('locked', o), goKind('soon', o), goKind('cloud', o)]).toEqual(['locked', 'soon', 'cloud']);
+    expect([gapRate(50, 200), gapRate(300, 200), gapRate(0, 0), gapRate(-5, 10)]).toEqual([0.25, 1, 1, 0]);
+  });
+  it('出す中身が今の画面とそろう（主な言葉と操作）', () => {
+    for (const k of [
+      'いまいるランドの全体図。',
+      '雲に覆われていて、まだ移動できない。',
+      '目標：2 か月続けてエリア 1 位＋研究成果の発表',
+      '研究成果の発表：まだ（このセクタのお題をそろえよう）',
+      'いまこのセクタを経営しています。',
+      'いまのセクタは、セクター長に任せます（次に選びます）。',
+      'このセクタへ移動する',
+      '開放されました！ このセクタの遊びは準備中です。',
+      'セクタごとの先月の売上',
+      '失うもの',
+      '残るもの',
+      'すべてのセクタの建物（お店・工房・倉庫・展示館など。中の在庫・素材も）',
+      'ダンジョンの最深記録・研究への寄付の回数',
+      '寄付パネルを開く',
+      'まだやめておく',
+      'ランドのふちの関所を開くと、ほかのランドセクタへ行けるようになります。',
+    ]) {
+      expect(LANDUI, k).toContain(k);
+      expect(LN, k).toContain(k);
+    }
+    // 操作：出店（レバー）・移動・ランクアップの確かめ・セクター長と復興の箱（今の要素）・寄付パネル・戻る
+    for (const k of ['W.startMove(ctx, id)', 'W.startMove(ctx, target)', 'openRankUpUx(ctx, id)', 'W.managerBox(ctx, s, id)', 'W.reviveBox(ctx, s, id)', "ctx.skills?.('dig_donate')", 'W.openLand(ctx)', 'W.letterLockOf(s, id)', 'W.needText(s, d)', 'W.TIER_NOTE[d.tier]', 'W.sectorBars(', 'W.antiquesHeld(s, d.tier)', 'W.grantOf(d.tier)', 'W.DONATE_LINE()', 'W.clearCondText(']) expect(LN, k).toContain(k);
+    // となりの町の窓：他社の数・需要の多い商品・入国料・理由
+    for (const k of ['v.rivals', 'v.hot', 'v.fee', 'v.why', 'v.go()']) expect(LN, k).toContain(k);
+  });
+  it('決める所の手応え：入国料を払う進出・ランクが上がる進出はレバー。足りないときは「あと N G」と目盛り（責めない）', () => {
+    expect(LN.match(/leverBox\(\{/g)?.length).toBe(3);
+    expect(LN).toContain('uxLever({ label: o.label, aria: o.what, cap: o.cap, doneText: o.done, onDone:');
+    expect(LN).toContain('売上がたまれば届きます。');
+    expect(LN).toContain("gapBox(t('出店許可申請', 'Permit'), d.fee, s.money)");
+    expect(LN).toContain("gapBox(t('入国料', 'Permit'), v.fee, v.money)");
+    // 主役は、レバーか主のキーの 1 つ（どちらも前の層に出る）
+    expect(FRONT_SEL).toContain('.ux-lever');
+    expect(LN.match(/kind: 'main'/g)?.length).toBe(4);
+  });
+  it('絵文字は使わない：今の要素の中の絵文字は、ドットの絵に替える', () => {
+    expect(LN).toContain('export function swapEmoji(');
+    expect(LN).toContain("swapEmoji(box, '#ffb81f');");
+    const strip = LN.replace(/const EMOJI_ICO[^\n]*\n/, '');
+    expect(strip).not.toMatch(/\p{Extended_Pictographic}/u);
+    // 制覇の画面：絵文字は、外すための決まり（bare）の中にしか無い
+    expect(CQ.replace(/\n\s*\.replace\([^\n]*/g, '').replace(/✔/g, '')).not.toMatch(/\p{Extended_Pictographic}/u);
+  });
+  it('動きを減らす：目盛りはすぐ出て、レバーのあとの待ちは無い', () => {
+    expect(LN).toContain('if (isCalm()) m.set(gapRate(have, need));');
+    expect(LN).toContain('later(isCalm() ? 0 : 260, safe(o.go))');
   });
 });

@@ -3,6 +3,7 @@
  * 切のときは何も入っていない（呼ぶ側は `if (uxw.x) return uxw.x(...)` と書く：今の画面がそのまま開く）。
  * 入のときだけ、w-boot.ts（s-boot.ts から呼ぶ。動的に読む）が中身を入れる。型だけを読むので、切のときも数行ぶんしか増えない。
  */
+import type { SectorState } from '../../p1/company';
 import type { Tier } from '../../p1/data';
 import type { Ctx } from '../../p1/screens';
 
@@ -54,6 +55,24 @@ export interface CheerView {
   actions: UxwAct[];
 }
 
+/** となりの町の窓（境界の町の名前・縮小の札から。p1/main.ts の openSectorCard が出していた中身） */
+export interface SectorCardView {
+  host: HTMLElement;
+  id: string;
+  state: SectorState;
+  /** 進出の決め方（world.ts の advanceOf：go・move・short・rankup・letter・locked） */
+  kind: 'go' | 'move' | 'short' | 'rankup' | 'letter' | 'locked';
+  fee: number;
+  money: number;
+  /** 進出できない理由（今の文） */
+  why: string;
+  rivals: number;
+  /** 需要の多い商品（絵と名前） */
+  hot: { icon: HTMLElement; name: string }[];
+  /** 進出・移動する（今の動き。窓は先に閉じる） */
+  go: () => void;
+}
+
 export interface UxwScreens {
   /** 研究成果の発表・調査依頼状・制覇 */
   letter?: (v: LetterView) => void;
@@ -63,5 +82,9 @@ export interface UxwScreens {
   land?: (ctx: Ctx) => void;
   /** ランクが上がる進出の確かめ */
   rankUp?: (ctx: Ctx, target: string) => void;
+  /** となりの町の窓 */
+  sectorCard?: (v: SectorCardView) => void;
+  /** 地図の上の札（縮小の札）・となりの町の吹き出し：今の要素の絵文字をドットの絵に替える（見た目は CSS で着せ替える） */
+  deco?: (e: HTMLElement, kind: 'badge' | 'pop') => void;
 }
 export const uxw: UxwScreens = {};

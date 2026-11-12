@@ -4172,6 +4172,7 @@ function sectorPop(id: string): { title: string; body: HTMLElement } {
     if (letterLocked(s, id)) body.append(h('p', 'isl-warn', letterLockOf(s, id)));
   } else body.append(h('p', 'isl-warn', `🔒 ${needLine(s, d) ?? ''}`));
   if (row.childElementCount) body.append(row);
+  uxw.deco?.(body, 'pop');
   return { title: st === 'cloud' ? '???' : d.name, body };
 }
 
@@ -4228,6 +4229,7 @@ function badgeEl(b: SectorBadge, mini: boolean): HTMLElement {
       el.append(f);
       if (!mini && b.lastRev != null && !gray) el.append(h('small', 'isl-wbadge-rev', t(`先月 ${money(b.lastRev)}`, `Last month ${money(b.lastRev)}`)));
       el.addEventListener('click', () => badgeClick(b));
+      uxw.deco?.(el, 'badge');
       return el;
     }
   } else if (b.state === 'open' && letterLocked(s, b.id)) row.append(h('span', 'isl-wbadge-note', mini ? '🔒' : letterLockOf(s, b.id)));
@@ -4236,6 +4238,8 @@ function badgeEl(b: SectorBadge, mini: boolean): HTMLElement {
   el.append(row);
   if (!mini && b.lastRev != null && !gray) el.append(h('small', 'isl-wbadge-rev', t(`先月 ${money(b.lastRev)}`, `Last month ${money(b.lastRev)}`)));
   el.addEventListener('click', () => badgeClick(b));
+  // 段 UIX3w：入のときは、絵文字をドットの絵に（見た目は CSS の着せ替え）
+  uxw.deco?.(el, 'badge');
   return el;
 }
 function badgeClick(b: SectorBadge) {
@@ -4261,6 +4265,7 @@ function edgeEl(id: string): HTMLElement {
   el.append(h('span', 'isl-wedge-tier', d.tier), h('b', '', st === 'cloud' ? '???' : d.name));
   if (st === 'mine') el.append(h('small', '', '▶'));
   else if (st !== 'open') el.append(h('small', '', '🔒'));
+  uxw.deco?.(el, 'badge');
   el.addEventListener('click', () => openSectorCard(id));
   return el;
 }
@@ -4272,6 +4277,22 @@ function openSectorCard(id: string) {
   const st = s.land ? sectorState(s.land, id) : 'cloud';
   const adv = advanceOf(s, id);
   const facts = sectorFacts(id);
+  // 段 UIX3w：入のときは、管制卓の窓へ（中身と進出の動きは同じ。切のときは今の窓）
+  if (uxw.sectorCard) {
+    sfx.play('page');
+    return uxw.sectorCard({
+      host: root,
+      id,
+      state: st,
+      kind: adv.k,
+      fee: adv.fee,
+      money: s.money,
+      why: adv.k === 'letter' ? letterLockOf(s, id) : adv.k === 'locked' ? (needLine(s, d) ?? '') : '',
+      rivals: facts.rivals,
+      hot: facts.hot.map((k) => ({ icon: skuIcon(`${k}:C` as SkuT, 24), name: PRODUCT[k]?.name ?? k })),
+      go: () => advanceGo(adv.k, { go: () => goSector(id), move: () => startMove(ctx, id), rankup: () => openRankUp(ctx, id) }),
+    });
+  }
   const m = h('div', 'isl-modal isl-bulk isl-sectm');
   ux.modal?.(m, 'sectm');
   m.dataset.sector = id;
