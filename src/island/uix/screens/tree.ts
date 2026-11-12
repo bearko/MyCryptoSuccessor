@@ -310,7 +310,7 @@ function glyph(name: string, cls: string, color = '#f4ecd4'): HTMLElement {
 const lite = (name: string, color = '#f4ecd4') => kIcon(name, { color, hi: color, lo: '#0b0d17', scale: 1 });
 
 /** 部門の絵（下の帯のタブと同じ絵） */
-const DEPT_ICO: Record<string, string> = { marketing: 'horn', logistics: 'truck', sales: 'tag', support: 'headset', systems: 'gear', rnd: 'flask', legal: 'scales', hr: 'people', general: 'office', accounting: 'receipt', strategy: 'star4' };
+export const DEPT_ICO: Record<string, string> = { marketing: 'horn', logistics: 'truck', sales: 'tag', support: 'headset', systems: 'gear', rnd: 'flask', legal: 'scales', hr: 'people', general: 'office', accounting: 'receipt', strategy: 'star4' };
 
 /** パネルの絵：今の画面と同じ決め方（建物・商品・エクステ・素材）。絵文字で仮に置いてある分は、ドットの絵に替える */
 function panelIcon(id: string, size: number): HTMLElement {

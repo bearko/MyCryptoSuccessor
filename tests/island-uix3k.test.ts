@@ -20,12 +20,13 @@ import { fallBars, rowTone } from '../src/island/uix/screens/books';
 import { bsRows, plRows } from '../src/island/p1/uxk';
 import { emptyLedger } from '../src/island/p1/company';
 import { BAND_LAMP, BAND_NAME, DED_KINDS, MORALE_STEPS, dedRatio, moraleSteps, restHot } from '../src/island/uix/screens/tax';
+import { FIT_TAG, heatText, stars, useHot, useRatio } from '../src/island/uix/screens/budget';
 import { CHAMFER, chainOf, descKey, gaugeSteps, lampOf, routeWires, stairDiamond, stateWord, type NodeDesc } from '../src/island/uix/screens/tree';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
 const TREE = src('p1/tree.ts');
 const TR = src('uix/screens/tree.ts');
-export const K_FILES = ['tree.ts', 'ranking.ts', 'invest.ts', 'books.ts', 'tax.ts', 'k-icons.ts', 'k-boot.ts', 'k-deps.ts', 'k-slots.ts'];
+export const K_FILES = ['tree.ts', 'ranking.ts', 'invest.ts', 'books.ts', 'tax.ts', 'budget.ts', 'k-icons.ts', 'k-boot.ts', 'k-deps.ts', 'k-slots.ts'];
 export const K_CSS = ['tree.css', 'k-screens.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -428,5 +429,49 @@ describe('税と節税・疲れと職場の環境', () => {
     expect(TX).toContain('stamp.hit(tip)');
     expect(TX).toContain('h.stamp.hit(h.card)');
     expect(TX).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
+  });
+});
+
+describe('予算と部門', () => {
+  const BD = src('uix/screens/budget.ts');
+  const OLD = src('p1/budgetui.ts');
+  it('入口：openBudget が、差し込み口が入っているときだけ新しい画面へ渡す。器は今の札（open・keep）', () => {
+    expect(OLD).toContain('if (uxk.budget) return uxk.budget(ctx);');
+    expect(src('uix/screens/k-boot.ts')).toContain('uxk.budget = openBudgetUx;');
+    expect(BD).toMatch(/K\.open\(\s*ctx,\s*t\('予算と部門', 'Budgets'\),[\s\S]*?undefined,\s*true,\s*\)/);
+  });
+  it('出す中身と押す先は今の画面と同じ（同じ関数を同じ引数で呼ぶ）', () => {
+    for (const k of ['budgetOpen(s)', 'budgetDepts(s)', 'setBudgets(s, Object.fromEntries(ds.map((d) => [d, { lv }])))', 'setBudget(s, d, lv)', "setBudget(s, d, 'X', v)", 'setCrewCap(s, d, B.cap - 1)', 'setCrewCap(s, d, B.cap + 1)', 'setCrewCap(s, d, B.cap + 2)', 'setBudget(s, d, up.lv, up.amt)', 'nextUp(s, d, ', 'approve(s, p.id)', 'nextMoves(s, d, 2, ifs)', 'openGrowth(ctx, H.hero)', 'pickHead(ctx, d, null)', 'setHead(s, d, hero)', 'setHead(s, d, null)', 'laborCap(s, d)', 'effParts(s, d)', 'askText(s, d, ', 'resultText(s, x)', 'budgetHeat(s.reports)']) {
+      expect(BD, k).toContain(k);
+      expect(OLD, k).toContain(k.replace(/^K\./, ''));
+    }
+    for (const k of ['今月の予算（部長のいる部門）', '部長からの頼み', '全部門の予算を', '部長なし（あなた）', '今月の施策（実行済み）', '予算の外：承認を待っている施策', '次に打ちたい施策（月の締めで部長が実行）', '先月の施策の成果', 'いま打てる施策はありません。', '部長を置くと、予算の中で施策を選んで実行します。', 'ほかに、お店の従業員', '月の予算（G）', '0 以上の数を入れてください']) {
+      expect(BD, k).toContain(k);
+      expect(OLD, k).toContain(k);
+    }
+    expect(BD).toContain("'data-dept': d");
+    expect(BD).toContain("k.setAttribute('data-lv', K.BUDGET_LVS[i])");
+    expect(BD).toContain('ux.lever?.(ok, okLabel) ?? ok');
+  });
+  it('札と計器：施策の札（緑と赤・言葉つき）・使った ／ 予算の計器（頼みが出るほど使ったら赤）・ます目（超えた月は「超」）・★', () => {
+    expect(FIT_TAG.ok()[1]).toBe('good');
+    expect(FIT_TAG.labor()[1]).toBe('bad');
+    expect(useRatio(50, 100)).toBe(0.5);
+    expect(useRatio(5, 0)).toBe(0);
+    expect(useHot(90, 100, 0.9)).toBe(true);
+    expect(useHot(80, 100, 0.9)).toBe(false);
+    expect(heatText(120, 4)).toMatch(/120%/);
+    expect(heatText(120, 4)).not.toBe('120%');
+    expect(heatText(40, 1)).toBe('40%');
+    expect(stars(2)).toBe('★★☆');
+  });
+  it('主役のキーは多くて 1 つ：いちばん上の部長の頼みの推奨のキー（主のキー＝前の層）', () => {
+    expect(BD).toContain("kind: mainAsk ? 'main' : ''");
+    expect(BD.match(/kind: 'main'/g)).toBeNull();
+  });
+  it('決める所：段のキー・−／＋・頼みのキーを押すと、描き直して数字が回り、計器が前の値から振れる。動きを減らすと、すぐ出る', () => {
+    expect(BD).toContain('const motion = (anim || swing) && !isCalm();');
+    expect(BD).toContain('const m = uxMeter(motion ? (from ?? 0) : v, kind);');
+    expect(BD).toContain('`uxk.bd.a.${d}`');
   });
 });

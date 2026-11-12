@@ -777,6 +777,309 @@ html.is-uxc #isl-ui .uxk-ga-item-s.is-good {
   }
 }
 
+/* ---------------------------------------------------------------- 予算と部門 */
+html.is-uxc #isl-ui .uxk-bd-lead {
+  margin: 0;
+  color: var(--ux-k5);
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxk-bd-lead > b {
+  display: inline;
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxk-bd-kpis .ux-meter {
+  margin-top: 4px;
+}
+/* 部門 × 月のます目の表（濃いほど使った・超えた月は赤と「超」） */
+html.is-uxc #isl-ui .uxk-bd-heatwrap {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: 8px;
+  background: #11131f;
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxk-bd-heat {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, auto) repeat(var(--cols), minmax(4.25rem, 1fr));
+  gap: 2px;
+  min-width: max-content;
+}
+html.is-uxc #isl-ui .uxk-bd-hc {
+  padding: 2px 4px;
+  color: var(--ux-k5);
+  text-align: center;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-bd-hr {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  white-space: nowrap;
+  box-shadow: inset 4px 0 0 0 var(--c);
+}
+html.is-uxc #isl-ui .uxk-bd-cell {
+  display: grid;
+  place-items: center;
+  min-height: 2rem;
+  padding: 2px 4px;
+  white-space: nowrap;
+  color: var(--ux-paper);
+  background: var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-bd-cell.is-none {
+  color: var(--ux-k4);
+}
+html.is-uxc #isl-ui .uxk-bd-cell.is-h0 { background: var(--ux-k2); color: var(--ux-k5); }
+html.is-uxc #isl-ui .uxk-bd-cell.is-h1 { background: #3a3424; }
+html.is-uxc #isl-ui .uxk-bd-cell.is-h2 { background: #6b5520; }
+html.is-uxc #isl-ui .uxk-bd-cell.is-h3 { background: var(--ux-amber); color: var(--ux-ink); }
+html.is-uxc #isl-ui .uxk-bd-cell.is-h4 {
+  background: repeating-linear-gradient(135deg, var(--ux-bad) 0 4px, #7a1d27 4px 8px);
+  color: #fffdf3;
+  text-shadow: 1px 1px 0 #0b0d17;
+}
+html.is-uxc #isl-ui .uxk-bd-bulk {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxk-bd-k {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-bd-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* 部門の板：部門の色の帯（左）・暗い板 */
+html.is-uxc #isl-ui .uxk-bd-dept {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px 12px 16px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 6px 0 0 0 var(--c), inset 8px 4px 0 0 var(--ux-k4), inset -4px -4px 0 0 var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-bd-dept.is-nohead {
+  background: #1b1f33;
+}
+html.is-uxc #isl-ui .uxk-bd-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxk-bd-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.125rem;
+}
+html.is-uxc #isl-ui .uxk-bd-ic {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  background: var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxk-bd-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-bd-face > .ux-cap {
+  padding: 0;
+  min-width: 44px;
+  min-height: 44px;
+}
+html.is-uxc #isl-ui .uxk-bd-head > .ux-cap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxk-bd-star {
+  color: var(--ux-amber);
+  letter-spacing: 1px;
+}
+html.is-uxc #isl-ui .uxk-bd-nohead {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-bd-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 2px solid var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-bd-line {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+html.is-uxc #isl-ui .uxk-bd-line > .uxk-bd-k {
+  align-self: center;
+  min-width: 4rem;
+}
+html.is-uxc #isl-ui .uxk-bd-gauge {
+  display: grid;
+  grid-template-columns: minmax(4rem, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxk-bd-rest {
+  color: var(--ux-k5);
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-bd-rest.is-bad {
+  color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxk-bd .ux-meter.is-hot > i {
+  background: var(--ux-bad);
+  box-shadow: inset 0 2px 0 #ffb3b8, inset 0 -2px 0 #8a1f2a;
+}
+html.is-uxc #isl-ui .uxk-bd-seg {
+  flex-wrap: wrap;
+}
+html.is-uxc #isl-ui .uxk-bd-num {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  background: var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-bd-input {
+  width: 9rem;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 0;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--ux-amber-hi);
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k4);
+}
+html.is-uxc #isl-ui .uxk-bd-step {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+html.is-uxc #isl-ui .uxk-bd-cap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxk-bd-pm > .ux-cap {
+  min-width: 44px;
+}
+html.is-uxc #isl-ui .uxk-bd-fine {
+  color: var(--ux-k5);
+  line-height: 1.45;
+}
+html.is-uxc #isl-ui .uxk-bd-acts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 2px solid var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-bd-move {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 6px 8px;
+  background: var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-bd-move-nm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-bd-move-n {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+html.is-uxc #isl-ui .uxk-bd-cost,
+html.is-uxc #isl-ui .uxk-bd-labor,
+html.is-uxc #isl-ui .uxk-bd-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-bd-labor {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-bd-tag.is-good {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxk-bd-tag.is-bad {
+  color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxk-bd-okwrap {
+  flex: 1 0 100%;
+}
+html.is-uxc #isl-ui .uxk-bd-res {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--ux-k5);
+  line-height: 1.45;
+}
+html.is-uxc #isl-ui .uxk-bd-res.is-good {
+  color: var(--ux-good);
+}
+/* 部長からの頼み：顔と吹き出し（紙）・推奨の札のキー */
+html.is-uxc #isl-ui .uxk-bd-ask {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px 10px;
+}
+html.is-uxc #isl-ui .uxk-bd-ask-say {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  color: var(--ux-ink);
+  background: var(--ux-paper);
+  box-shadow: inset 0 0 0 2px var(--ux-ink);
+  line-height: 1.45;
+}
+html.is-uxc #isl-ui .uxk-bd-ask-say::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 14px;
+  width: 8px;
+  height: 8px;
+  background: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxk-bd-ask-key {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+html.is-uxc #isl-ui .uxk-bd-rec > .ux-cap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* ==================================================================== 動きを減らす：止まった形で、全部すぐ出る（この束の画面の根には uxk-calm を付ける） */
 html.is-uxc.is-calm #isl-ui .uxk-calm *,
 html.is-uxc.is-calm #isl-ui .uxk-calm *::before,
