@@ -1120,6 +1120,19 @@ html.is-uxc #isl-ui.uxm-on.is-rail .isl-panel {
   border: 0;
 }
 html.is-uxc #isl-ui.uxm-on.is-rail .isl-sub { min-width: 0; }
+/* 柱の中の部門の帯（理解度・次の節目・担当・パネル）：字は 16px・押す所は 44px（並びと中身は今のまま） */
+html.is-uxc #isl-ui.uxm-on.is-rail .isl-panel .isl-dband {
+  gap: 4px 8px;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+html.is-uxc #isl-ui.uxm-on.is-rail .isl-panel .isl-dband :is(span, small, b, button) {
+  font-size: 1rem;
+  line-height: 1.4;
+}
+html.is-uxc #isl-ui.uxm-on.is-rail .isl-panel .isl-dband button {
+  min-height: 44px;
+}
 
 /* ---------- 札が地図を覆っているあいだ：見えない動きは休ませる */
 html.is-uxc #isl-ui.uxm-on.uxm-rest .uxm-hud *,
