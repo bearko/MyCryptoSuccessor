@@ -16,12 +16,15 @@ import { W_ICONS } from '../src/island/uix/screens/w-icons';
 import { histHeight, moveWord, rankMove, rankRatio } from '../src/island/uix/screens/ranking';
 import { BUY_MS, INVEST_ICO, buyState, gainText, mainPick } from '../src/island/uix/screens/invest';
 import { INVESTS } from '../src/island/p1/data';
+import { fallBars, rowTone } from '../src/island/uix/screens/books';
+import { bsRows, plRows } from '../src/island/p1/uxk';
+import { emptyLedger } from '../src/island/p1/company';
 import { CHAMFER, chainOf, descKey, gaugeSteps, lampOf, routeWires, stairDiamond, stateWord, type NodeDesc } from '../src/island/uix/screens/tree';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
 const TREE = src('p1/tree.ts');
 const TR = src('uix/screens/tree.ts');
-export const K_FILES = ['tree.ts', 'ranking.ts', 'invest.ts', 'k-icons.ts', 'k-boot.ts', 'k-deps.ts', 'k-slots.ts'];
+export const K_FILES = ['tree.ts', 'ranking.ts', 'invest.ts', 'books.ts', 'k-icons.ts', 'k-boot.ts', 'k-deps.ts', 'k-slots.ts'];
 export const K_CSS = ['tree.css', 'k-screens.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -320,5 +323,57 @@ describe('設備投資', () => {
   it('買う手応え：レジの音・金貨が資金から飛ぶ・資金が回って減る・光って揺れる → 420ms 後に段のランプと「導入済」。動きを減らすと、すぐ', () => {
     expect(BUY_MS).toBe(420);
     for (const k of ["uxSfx('cash')", 'coinsFly(from,', 'funds.set(Math.max(0, s.money), 700)', "uxpReplay(c, 'is-bought')", 'shake(c)', 'later(isCalm() ? 0 : BUY_MS', "uxSfx('stamp')", 'stamp.hit(c)', "uxpReplay(lit, 'is-new')", 'ctx.toast(t(`「${name}」を導入しました`']) expect(IV, k).toContain(k);
+  });
+});
+
+describe('決算書', () => {
+  const BK = src('uix/screens/books.ts');
+  const LAND = src('p1/landui.ts');
+  const UXK = src('p1/uxk.ts');
+  it('入口：openBooks が、差し込み口が入っているときだけ新しい画面へ渡す。器は今の札（open・keep）', () => {
+    expect(LAND).toContain('if (uxk.books) return uxk.books(ctx);');
+    expect(src('uix/screens/k-boot.ts')).toContain('uxk.books = openBooksUx;');
+    expect(BK).toContain("K.open(ctx, t('決算書', 'Financial statements'), (body) => render(ctx, body), undefined, true);");
+  });
+  it('P/L・B/S の行は今の表（plTable・bsTable）と同じ名前・同じ並び', () => {
+    const l = { ...emptyLedger(), sales: 1000, mats: 200, wages: 100, museum: 5, levy: 30, grant: 10, tax: 20 };
+    const names = plRows(l).map((r) => r.k);
+    let at = 0;
+    for (const n of names) {
+      const i = LAND.indexOf(`'${n}'`, at);
+      expect(i, n).toBeGreaterThan(0);
+      at = i;
+    }
+    expect(plRows(l).at(-1)).toMatchObject({ cls: 'is-total' });
+    at = 0;
+    for (const r of bsRows({ cash: 1, stock: 2, buildings: 3, invest: 4 } as never)) {
+      const i = LAND.indexOf(`'${r.k}'`, at);
+      expect(i, r.k).toBeGreaterThan(0);
+      at = i;
+    }
+  });
+  it('中身は今の画面と同じ計算（四半期の一覧・いまの四半期の途中・うしろの 8 つ・コストの大きい順 7 つ・法人税・助言は前の四半期と比べる）', () => {
+    for (const k of ['quarterNow(s)', 'list.slice(-8)', 'costRank(s, cur.l).slice(0, 7)', 'taxLine(s, cur.l, cur.q)', 'acctAdvice(s, cur.l, prevL)', 'prev && prev.q === cur.q - 1 ? prev.l : null', 'quarterTrend(books)', 'bsParts(bs)', 'plFall(cur.l)']) expect(UXK, k).toContain(k);
+    // 今の目印（経理の案内が指す所）
+    for (const k of ["'data-focus': 'cost-rank'", "tx.dataset.focus = 'tax-line'", "adv.dataset.focus = 'advice'"]) expect(BK, k).toContain(k);
+    expect(BK).toContain("t(`いまは ${v.inQ + 1} か月目の途中です。");
+  });
+  it('グラフは縦：P/L の差し引き（引くものは斜線・最後の当期の利益は琥珀）・資産の中身・四半期ごとの推移。金額は右そろえ・引くものは赤と「-」', () => {
+    const bars = fallBars([
+      { key: 'sales', name: 'S', kind: 'start', v: 100, from: 0, to: 100 },
+      { key: 'cogs', name: 'C', kind: 'down', v: -30, from: 100, to: 70 },
+      { key: 'net', name: 'N', kind: 'total', v: 70, from: 0, to: 70 },
+    ]);
+    expect(bars.map((b) => b.value)).toEqual([100, -30, 70]);
+    expect(bars[1].kind).toBe('bad');
+    expect(bars[2].kind).toBe('main');
+    expect(bars[1].text?.startsWith('−')).toBe(true);
+    expect(rowTone({ v: -5 })).toBe('bad');
+    expect(rowTone({ v: 5 })).toBe('');
+  });
+  it('開くとき・四半期を替えたとき：紙が送られ、行が打たれ、棒が伸びる。動きを減らすと、すぐ出る', () => {
+    expect(BK).toContain('const motion = anim && !isCalm();');
+    expect(BK).toContain('uxpPrint(plLines, { gap: 50');
+    expect(BK).toContain('uxpPrint(plLines).finish();');
   });
 });

@@ -5,6 +5,7 @@
 import type { UxkDeps } from '../../p1/uxk';
 import { setK } from './k-deps';
 import { uxk } from './k-slots';
+import { openBooksUx } from './books';
 import { openInvestUx } from './invest';
 import { openRankingUx } from './ranking';
 import { openSkillsUx } from './tree';
@@ -15,4 +16,5 @@ export function installK(d: UxkDeps) {
   uxk.tree = openSkillsUx;
   uxk.ranking = openRankingUx;
   uxk.invest = openInvestUx;
+  uxk.books = openBooksUx;
 }

@@ -12,6 +12,8 @@ export interface UxkScreens {
   ranking?: (ctx: Ctx, tab: 'area' | 'land' | 'world') => void;
   /** 設備投資（建物ごとの設備を買う） */
   invest?: (ctx: Ctx) => void;
+  /** 決算書（四半期の P/L・B/S） */
+  books?: (ctx: Ctx) => void;
 }
 // 入れ物は uix/hooks.ts に置く（理由はそこに）。ここは型と、同じ物の名前だけ
 export { uxkSlots as uxk } from '../hooks';

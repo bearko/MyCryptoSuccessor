@@ -8,8 +8,9 @@ import { assetUrl } from '../../render/images';
 import { FX_PAL, fxAtEl } from '../fx/layer';
 import { t } from '../../i18n';
 import { DEF } from '../defs';
-import { TIER_NAME } from './company';
-import { monHead, monLab, rankHist } from './dash';
+import { CAPITAL, TIER_NAME, emptyLedger, pl, quarters, sumLedger, type Balance, type Ledger } from './company';
+import { acctAdvice, costRank, quarterNow, taxLine } from './acct';
+import { bsParts, monHead, monLab, plFall, quarterTrend, rankHist } from './dash';
 import { DEPT, DEPTS, DIG_BALANCE, GOAL, INVESTS, LAND_COMPANIES, MARKET, P1B, SKILL, SKILLS, TIERS, WORLD_COMPANIES, deptOf, digRpLv, isResearch, maxLv, r2Panel, rpCost, shownOf, shownText } from './data';
 import { deptLevel, deptLockText, deptOpen } from './dept';
 import { goalFloor, goalMonths, goalNext, goalPath, goalable, setGoal } from './goal';
@@ -46,6 +47,7 @@ import {
   openRing,
   ringOpen,
   ringsDue,
+  balance,
   rivalAreaMul,
   rivalBase,
   saleBonus,
@@ -147,6 +149,95 @@ export function investView(s: P1State, tut: boolean) {
 }
 export type InvestView = ReturnType<typeof investView>;
 
+// ---------------------------------------------------------------- 決算書
+/** 決算書の 1 行（名前・金額・行の種類：見出し・内訳・小計・合計）。今の画面（p1/landui.ts の plTable・bsTable）と同じ並び・同じ条件 */
+export interface BookRow {
+  k: string;
+  v: number;
+  cls: 'is-head' | 'is-sub' | 'is-sum' | 'is-total';
+}
+/** P/L の行（今の plTable と同じ） */
+export function plRows(l: Ledger): BookRow[] {
+  const p = pl(l);
+  const r: BookRow[] = [];
+  const add = (k: string, v: number, cls: BookRow['cls']) => r.push({ k, v: v || 0, cls });
+  add(t('売上高', 'Sales'), p.sales, 'is-head');
+  add(t('売上原価（素材）', 'Cost of goods (materials)'), -p.cogs, 'is-sub');
+  add(t('売上総利益', 'Gross profit'), p.gross, 'is-sum');
+  add(t('販売費・一般管理費', 'SG&A'), -p.sga, 'is-head');
+  add(t('　給料', '  Wages'), -l.wages, 'is-sub');
+  add(t('　アルバイト', '  Part-timers'), -l.part, 'is-sub');
+  add(t('　維持費', '  Upkeep'), -l.upkeep, 'is-sub');
+  add(t('　宣伝', '  Advertising'), -l.ads, 'is-sub');
+  add(t('営業利益', 'Operating profit'), p.op, 'is-sum');
+  add(t('営業外の収入', 'Other income'), p.nonop, 'is-head');
+  add(t('　他店でバイト', '  Part-time work'), l.side, 'is-sub');
+  add(t('　依頼の報酬', '  Request rewards'), l.other, 'is-sub');
+  add(t('　他セクタからの利益', '  From managed sectors'), l.managed, 'is-sub');
+  if (l.museum) add(t('　展示館の入館料', '  Museum admissions'), l.museum, 'is-sub');
+  add(t('投資・特別な支出', 'Investment & special'), -p.special, 'is-head');
+  add(t('　建物・スキル・設備', '  Buildings, skills, upgrades'), -l.build, 'is-sub');
+  add(t('　通行料・出店許可申請', '  Tolls & permits'), -l.fees, 'is-sub');
+  if (l.levy) add(t('　特別損失：復興の徴収', '  Special loss: recovery levy'), -l.levy, 'is-sub');
+  if (l.grant) add(t('　特別利益：復興の支度金', '  Special gain: recovery grant'), l.grant, 'is-sub');
+  if (p.tax) add(t('法人税', 'Corporate tax'), -p.tax, 'is-head');
+  add(t('当期の利益', 'Net profit'), p.net, 'is-total');
+  return r;
+}
+/** B/S の行（今の bsTable と同じ） */
+export function bsRows(b: Balance): BookRow[] {
+  const assets = b.cash + b.stock + b.buildings + b.invest;
+  return [
+    { k: t('資産', 'Assets'), v: assets, cls: 'is-head' },
+    { k: t('　現金', '  Cash'), v: b.cash, cls: 'is-sub' },
+    { k: t('　在庫（素材・商品）', '  Inventory'), v: b.stock, cls: 'is-sub' },
+    { k: t('　建物', '  Buildings'), v: b.buildings, cls: 'is-sub' },
+    { k: t('　他セクタへの投資', '  Invested in sectors'), v: b.invest, cls: 'is-sub' },
+    { k: t('負債（借入金）', 'Liabilities (loans)'), v: 0, cls: 'is-head' },
+    { k: t('純資産', 'Equity'), v: assets, cls: 'is-head' },
+    { k: t('　資本金', '  Capital'), v: CAPITAL, cls: 'is-sub' },
+    { k: t('　利益剰余金', '  Retained earnings'), v: assets - CAPITAL, cls: 'is-sub' },
+  ].map((x) => ({ ...x, v: x.v || 0 })) as BookRow[];
+}
+/**
+ * 決算書に出す中身（今の画面 p1/landui.ts の openBooks と同じ計算）：四半期の一覧（締めた四半期 ＋ いまの四半期の途中）・選んだ四半期の P/L・B/S・
+ * P/L の差し引き・資産の中身・四半期ごとの推移・コストの大きい順・法人税の行・経理からの助言（前の四半期と比べる）
+ */
+export function booksView(s: P1State, sel: number | null) {
+  const books = s.books;
+  const qs = books ? quarters(books) : [];
+  const now = quarterNow(s);
+  const curQ = now.q;
+  const inQ = now.inQ - 1;
+  const curL = sumLedger([...(books?.months.filter((x) => Math.ceil(Math.max(1, x.m) / 3) === curQ).map((x) => x.l) ?? []), books?.cur ?? emptyLedger()]);
+  const list = [...qs.filter((q) => q.done && q.q !== curQ).map((q) => ({ q: q.q, l: q.l, bs: q.bs, label: t(`第 ${q.q} 四半期`, `Q${q.q}`), done: true })), { q: curQ, l: curL, bs: balance(s) as Balance, label: t(`第 ${curQ} 四半期（途中）`, `Q${curQ} (in progress)`), done: false }];
+  const q = sel != null && list.some((x) => x.q === sel) ? sel : list[list.length - 1].q;
+  const idx = list.findIndex((x) => x.q === q);
+  const cur = list[idx];
+  const p = pl(cur.l);
+  const bs = cur.bs ?? (balance(s) as Balance);
+  const prev = idx > 0 ? list[idx - 1] : null;
+  const prevL = prev && prev.q === cur.q - 1 ? prev.l : null;
+  return {
+    q,
+    /** 選べる四半期（今の画面と同じく、うしろの 8 つ） */
+    chips: list.slice(-8).map((x) => ({ q: x.q, label: x.label, done: x.done })),
+    label: cur.label,
+    done: cur.done,
+    inQ,
+    p,
+    fall: plFall(cur.l),
+    parts: bsParts(bs),
+    pl: plRows(cur.l),
+    bs: bsRows(bs),
+    trend: quarterTrend(books),
+    costs: costRank(s, cur.l).slice(0, 7),
+    tax: taxLine(s, cur.l, cur.q),
+    advice: acctAdvice(s, cur.l, prevL),
+  };
+}
+export type BooksView = ReturnType<typeof booksView>;
+
 export const uxkDeps = {
   assetUrl,
   getExtension,
@@ -247,5 +338,7 @@ export const uxkDeps = {
   // ---- 設備投資
   investView,
   invest,
+  // ---- 決算書
+  booksView,
 };
 export type UxkDeps = typeof uxkDeps;
