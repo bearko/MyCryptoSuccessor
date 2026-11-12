@@ -226,7 +226,7 @@ function build(ctx: Ctx, body: HTMLElement, v0: InvestView): Inst {
         key.disabled = st === 'max' || st === 'busy';
         key.classList.toggle('ux-key--flat', key.disabled);
         key.classList.toggle('ux-key--main', main && !key.disabled);
-        key.setAttribute('aria-label', st === 'short' || st === 'buy' ? `${t('買う', 'Buy')} ${it.name} ${K.money(it.cost ?? 0)}` : `${it.name} ${keyTextOf(st)}`);
+        key.setAttribute('aria-label', st === 'short' || st === 'buy' ? [t('買う', 'Buy'), it.name, K.money(it.cost ?? 0)].join(' ') : `${it.name} ${keyTextOf(st)}`);
     };
     return view;
   }

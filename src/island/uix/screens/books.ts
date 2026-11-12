@@ -119,8 +119,10 @@ function render(ctx: Ctx, body: HTMLElement) {
       const nets = uxpBars(v.trend.map((x) => ({ label: lab(x), value: x.net, kind: x.q === v.q ? ('main' as const) : x.done ? ('good' as const) : ('dash' as const) })), { height: 132, cls: 'uxk-bk-trend', auto: !motion });
       wide(sales.el, v.trend.length);
       wide(nets.el, v.trend.length);
-      sales.el.setAttribute('aria-label', `${t('売上高', 'Sales')}: ${v.trend.map((x) => `${lab(x)} ${K.money(x.sales)}`).join(' / ')}`);
-      nets.el.setAttribute('aria-label', `${t('当期の利益', 'Net profit')}: ${v.trend.map((x) => `${lab(x)} ${K.money(x.net)}`).join(' / ')}`);
+      const salesK = t('売上高', 'Sales');
+      const netK = t('当期の利益', 'Net profit');
+      sales.el.setAttribute('aria-label', salesK + ': ' + v.trend.map((x) => `${lab(x)} ${K.money(x.sales)}`).join(' / '));
+      nets.el.setAttribute('aria-label', netK + ': ' + v.trend.map((x) => `${lab(x)} ${K.money(x.net)}`).join(' / '));
       motionBars.push(sales, nets);
       kids.push(el('section.uxk-bk-sec', sect(t('四半期ごとの売上高と当期の利益', 'Sales and net profit by quarter'), 'bars', { dark: true, note: t('最後の四半期は途中まで', 'The last quarter is still in progress') }), el('div.uxk-bk-two', el('div.uxk-bk-graph', el('b.uxk-bk-sub', t('売上高', 'Sales')), sales.el), el('div.uxk-bk-graph', el('b.uxk-bk-sub', t('当期の利益', 'Net profit')), nets.el))));
     }
