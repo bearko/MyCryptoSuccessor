@@ -8,27 +8,6 @@
  * 発掘作業のまとめ報告も、同じ紙テープの 1 ページで出す。
  */
 import { isEn, t } from '../../../i18n';
-import { stallSay, reportProposal } from '../../p1/card';
-import { shortN } from '../../p1/chartkit';
-import { sectorDef } from '../../p1/company';
-import { csReportText } from '../../p1/csui';
-import { costParts, monHead, monLab, moneyCandles, monthFall, salesParts, ymOfMonth } from '../../p1/dash';
-import { TOP_STREAK } from '../../p1/data';
-import { delegReportText } from '../../p1/delegui';
-import { clearCondText, digMet, digReportLine, digReportText, presentReady, rebuildText, reviveReportText, type DigSummary } from '../../p1/digmeet';
-import { dipReportText } from '../../p1/diplo';
-import { eventReportText } from '../../p1/events';
-import { hrReportText } from '../../p1/hrui';
-import { legalReportText } from '../../p1/legalui';
-import { ZERO_LINE } from '../../p1/mine';
-import { cashGap, myShops, whatIf, type P1State, type Report, type Stage } from '../../p1/model';
-import { bestSell } from '../../p1/moves';
-import { FLOW_NAME, STAGE_BRANCH, STAGE_HINT, STAGE_HINT_SHORT, STAGE_NAME, levelUpText, reportJam, reportTitle, type DigSummaryHooks, type ReportHooks } from '../../p1/report';
-import { moveUp, sellBigUp } from '../../p1/scm';
-import { closeSheet, open, type Ctx } from '../../p1/screens';
-import { propsOpen } from '../../p1/stage';
-import { dutyText, tradeNeighbors } from '../../p1/tariff';
-import { fmt, money, signed, skuIcon, skuName } from '../../p1/ui';
 import { el, type Kid } from '../dom';
 import { coinsPop, sparks } from '../fx';
 import { later as laterOn } from '../loop';
@@ -38,6 +17,11 @@ import { uxScene, uxSfx } from '../sound';
 import { inkIcon, sIcon } from './s-icons';
 import { safe } from './s-press';
 import './report.css';
+import type { DigSummary } from '../../p1/digmeet';
+import type { P1State, Report, Stage } from '../../p1/model';
+import type { DigSummaryHooks, ReportHooks } from '../../p1/report';
+import type { Ctx } from '../../p1/screens';
+import { D } from './s-deps';
 
 /** ページ送り（見本：600ms・9 段） */
 export const FEED_MS = 600;
@@ -79,7 +63,7 @@ export function growStreak(vals: number[]): number {
  * 英語は、今のグラフと同じ短い書き方（shortN：541k・1M）
  */
 export function manText(v: number): string {
-  if (isEn) return shortN(v);
+  if (isEn) return D.shortN(v);
   const a = Math.abs(v);
   const sgn = v < 0 ? '−' : '';
   if (a >= 1e8) return `${sgn}${+(a / 1e8).toFixed(1)}億`; // i18n-ja
@@ -375,7 +359,7 @@ function openPaper(ctx: Ctx, o: PaperOpts): void {
     release?.();
     release = null;
   };
-  open(
+  D.open(
     ctx,
     o.title,
     (body) => {
@@ -415,7 +399,7 @@ function openPaper(ctx: Ctx, o: PaperOpts): void {
     const close = () => {
       if (dead) return;
       if (x) x.click();
-      else closeSheet();
+      else D.closeSheet();
     };
 
     // ---- 印字機・紙・下の帯
@@ -514,8 +498,8 @@ export function openMonthReportUx(ctx: Ctx, r: Report, hooks: ReportHooks, then:
   const idx = s.reports.indexOf(r);
   const prev = idx > 0 ? s.reports[idx - 1] : idx < 0 && s.reports.length ? s.reports[s.reports.length - 1] : null;
   const upto = idx >= 0 ? s.reports.slice(0, idx + 1) : [...s.reports, r];
-  const d = ymOfMonth(r.month);
-  const bn = reportJam(s, r);
+  const d = D.ymOfMonth(r.month);
+  const bn = D.reportJam(s, r);
   const dept = deptLines(s, r, hooks);
   const kinds = reportPages(dept.length > 0);
   const build: Record<RpPage, (api: PageApi) => Page> = {
@@ -526,7 +510,7 @@ export function openMonthReportUx(ctx: Ctx, r: Report, hooks: ReportHooks, then:
     dept: (api) => pageDept(api, dept),
   };
   openPaper(ctx, {
-    title: reportTitle(r.month),
+    title: D.reportTitle(r.month),
     head: t('月次報告', 'Monthly report'),
     tape: t(`${d.y}年目 ${d.m}月`, `Y${d.y} M${d.m}`),
     pages: kinds.map((k) => build[k]),
@@ -540,24 +524,24 @@ const title = (name: string, tag: string, extra?: Kid) => line(el('span.ux-rl-k'
 
 // ---- ① 売上（KPI ①）
 function pageSales(api: PageApi, s: P1State, r: Report, prev: Report | null, hooks: ReportHooks, bn: Stage): Page {
-  const d = ymOfMonth(r.month);
+  const d = D.ymOfMonth(r.month);
   const digits = Math.max(7, String(Math.round(Math.max(0, r.revenue))).length);
   const odo = new Odo({ digits, size: digits > 7 ? 'l' : 'xl', value: api.instant() ? r.revenue : 0, cls: 'ux-odo--paper' });
   const zero = r.revenue <= 0;
   const rows: HTMLElement[] = [title(t(`${d.m}月の売上`, `Sales · M${d.m}`), t('KPI ①', 'KPI 1')), line(el('span.uxs-rp-total', odo.el, num('G', 'uxs-rp-g')))];
   // 売上 0 の月：数え上げなし。マインちゃんの一言
-  if (zero) rows.push(line(el('span.uxs-rp-say', uxTape(t('マインちゃん', 'Mine-chan')), el('span', ZERO_LINE()))));
+  if (zero) rows.push(line(el('span.uxs-rp-say', uxTape(t('マインちゃん', 'Mine-chan')), el('span', D.ZERO_LINE()))));
   rows.push(el('div.ux-rl.uxs-rule'));
   if (prev) {
     const diff = r.revenue - prev.revenue;
-    rows.push(line(rcp(t('先月の売上', 'Last month'), money(prev.revenue))));
-    rows.push(line(rcp([toneIcon(diff), t('先月比', 'vs last month')], signed(diff, money), tone(diff))));
+    rows.push(line(rcp(t('先月の売上', 'Last month'), D.money(prev.revenue))));
+    rows.push(line(rcp([toneIcon(diff), t('先月比', 'vs last month')], D.signed(diff, D.money), tone(diff))));
   }
-  rows.push(line(rcp([toneIcon(r.profit), t('利益', 'Profit')], signed(r.profit, money), tone(r.profit))));
+  rows.push(line(rcp([toneIcon(r.profit), t('利益', 'Profit')], D.signed(r.profit, D.money), tone(r.profit))));
   // 資金の変化（月初 → 月末）
   if (r.money) {
     const dm = r.money.end - r.money.start;
-    rows.push(line(rcp(t('資金の変化', 'Cash'), signed(dm, money), tone(dm)), el('span.uxs-rp-sub', num(`${fmt(r.money.start)} G`), inkIcon('next', 1), num(`${fmt(r.money.end)} G`))));
+    rows.push(line(rcp(t('資金の変化', 'Cash'), D.signed(dm, D.money), tone(dm)), el('span.uxs-rp-sub', num(`${D.fmt(r.money.start)} G`), inkIcon('next', 1), num(`${D.fmt(r.money.end)} G`))));
   } else rows.push(line(rcp(t('資金の変化', 'Cash'), '—')));
   // 先月とくらべた一言と、小さな縦の棒（先月・今月）
   if (prev) {
@@ -574,21 +558,21 @@ function pageSales(api: PageApi, s: P1State, r: Report, prev: Report | null, hoo
       fill.style.setProperty('--h', `${Math.max(2, Math.round((b.v / top) * 100))}%`);
       return el('div.uxs-mini-col', man(b.v), el('div.uxs-mini-bar', fill), el('span', b.label));
     });
-    rows.push(el('div.ux-rl.uxs-mini', { role: 'img', 'aria-label': t(`先月 ${money(prev.revenue)}・今月 ${money(r.revenue)}`, `Last ${money(prev.revenue)}, now ${money(r.revenue)}`) }, bars));
+    rows.push(el('div.ux-rl.uxs-mini', { role: 'img', 'aria-label': t(`先月 ${D.money(prev.revenue)}・今月 ${D.money(r.revenue)}`, `Last ${D.money(prev.revenue)}, now ${D.money(r.revenue)}`) }, bars));
   } else rows.push(line(el('span.uxs-rp-diff.is-even', el('b', t('はじめての月次報告です。', 'Your first monthly report.')))));
   // ブランド力の増減
-  if (r.brand) rows.push(line(rcp([inkIcon('star', 1), t('ブランド力', 'Brand')], signed(r.brand), tone(r.brand))));
+  if (r.brand) rows.push(line(rcp([inkIcon('star', 1), t('ブランド力', 'Brand')], D.signed(r.brand), tone(r.brand))));
   // 売上のうち復刻品のぶん
-  if (r.relic) rows.push(line(rcp(t('うち復刻品', 'incl. revivals'), money(r.relic))));
+  if (r.relic) rows.push(line(rcp(t('うち復刻品', 'incl. revivals'), D.money(r.relic))));
   // 利益と資金の変化の差（利益に入らない入出金の内訳。1 月は開業前の出費）
-  const cg = cashGap(r);
+  const cg = D.cashGap(r);
   if (cg && cg.gap !== 0)
     rows.push(
       line(
-        fold(el('span.uxs-fold-l', el('b', t('利益との差', 'Gap vs profit')), num(signed(cg.gap, money))), () => [
-          ...cg.items.map((it) => rcp(FLOW_NAME[it.k](), signed(it.v, money), `is-s.${tone(it.v)}`)),
-          cg.rest ? rcp(t('ほか（法務・外交・本社の施策・計上の時期のずれ）', 'Other (legal, diplomacy, HQ moves, timing)'), signed(cg.rest, money), `is-s.${tone(cg.rest)}`) : null,
-          el('p.uxs-note', t('利益＝売上 − その月の費用。資金にはこのほかの入出金も入る', 'Profit = sales − this month’s costs; cash also moves with the items above')),
+        fold(el('span.uxs-fold-l', el('b', t('利益との差', 'Gap vs profit')), num(D.signed(cg.gap, D.money))), () => [
+          ...cg.items.map((it) => rcp(D.FLOW_NAME[it.k](), D.signed(it.v, D.money), `is-s.${tone(it.v)}`)),
+          cg.rest ? rcp(t('ほか（法務・外交・本社の施策・計上の時期のずれ）', 'Other (legal, diplomacy, HQ moves, timing)'), D.signed(cg.rest, D.money), `is-s.${tone(cg.rest)}`) : null,
+          el('p.uxs-memo', t('利益＝売上 − その月の費用。資金にはこのほかの入出金も入る', 'Profit = sales − this month’s costs; cash also moves with the items above')),
         ]),
       ),
     );
@@ -602,9 +586,9 @@ function pageSales(api: PageApi, s: P1State, r: Report, prev: Report | null, hoo
           inkIcon('box', 1),
           el('b', t('輸入', 'Imports')),
           xs.map((x) => {
-            const ic = skuIcon(x.sku, 32);
+            const ic = D.skuIcon(x.sku, 32);
             ic.classList.add('ux-ext');
-            return el('span.uxs-rp-imp', ic, t(`${skuName(x.sku)} ${x.n} 個`, `${x.n} ${skuName(x.sku)}`), el('span.ux-t-ink2', t(`（${sectorDef(x.from).name}から）`, ` (from ${sectorDef(x.from).name})`)));
+            return el('span.uxs-rp-imp', ic, t(`${D.skuName(x.sku)} ${x.n} 個`, `${x.n} ${D.skuName(x.sku)}`), el('span.ux-t-ink2', t(`（${D.sectorDef(x.from).name}から）`, ` (from ${D.sectorDef(x.from).name})`)));
           }),
         ),
       ),
@@ -613,21 +597,21 @@ function pageSales(api: PageApi, s: P1State, r: Report, prev: Report | null, hoo
   const duty = r.costs.duty ?? 0;
   if (duty > 0) {
     const goods = xs.reduce((a, x) => a + x.duty, 0);
-    const rates = tradeNeighbors(s).map((nb) => `${nb.name} ${dutyText(s, nb.id)}`);
+    const rates = D.tradeNeighbors(s).map((nb) => `${nb.name} ${D.dutyText(s, nb.id)}`);
     rows.push(
       line(
-        rcp([inkIcon('gate', 1), t('関税', 'Duty')], money(duty)),
-        goods > 0 || rates.length ? el('span.uxs-rp-sub.ux-t-ink2', [goods > 0 ? t(`素材 ${money(Math.max(0, duty - goods))}・商品 ${money(goods)}`, `materials ${money(Math.max(0, duty - goods))}, goods ${money(goods)}`) : '', rates.join(t('・', ', '))].filter(Boolean).join(t('／', ' / '))) : null,
+        rcp([inkIcon('gate', 1), t('関税', 'Duty')], D.money(duty)),
+        goods > 0 || rates.length ? el('span.uxs-rp-sub.ux-t-ink2', [goods > 0 ? t(`素材 ${D.money(Math.max(0, duty - goods))}・商品 ${D.money(goods)}`, `materials ${D.money(Math.max(0, duty - goods))}, goods ${D.money(goods)}`) : '', rates.join(t('・', ', '))].filter(Boolean).join(t('／', ' / '))) : null,
       ),
     );
   }
   // 月次 PDCA（スキル）：来月の見込み
   if (r.forecast)
-    rows.push(line(el('span.uxs-rp-text', el('span.uxs-chip-k', t('月次 PDCA', 'Monthly PDCA')), t('来月の見込み：売上 ', 'Next month: sales '), num(money(r.forecast.sales)), t('・利益 ', ', profit '), num(signed(r.forecast.profit, money), tone(r.forecast.profit)))));
+    rows.push(line(el('span.uxs-rp-text', el('span.uxs-chip-k', t('月次 PDCA', 'Monthly PDCA')), t('来月の見込み：売上 ', 'Next month: sales '), num(D.money(r.forecast.sales)), t('・利益 ', ', profit '), num(D.signed(r.forecast.profit, D.money), tone(r.forecast.profit)))));
   // 内訳（折りたたみ）：商品ごとの割合・費用の内訳・売上から利益まで（どれも縦の棒）・他社の動き
   rows.push(line(fold(el('b', t('売上の内訳（商品ごとの割合・費用・売上から利益まで）', 'Breakdown (sales mix, costs, sales to profit)')), () => breakdown(r))));
   // 導線：スキルツリー
-  rows.push(line(pkey(t('投資：スキルツリー', 'Invest: Skills'), () => hooks.openSkills(STAGE_BRANCH[bn]), { ico: 'star4', cls: 'uxs-rp-go' })));
+  rows.push(line(pkey(t('投資：スキルツリー', 'Invest: Skills'), () => hooks.openSkills(D.STAGE_BRANCH[bn]), { ico: 'star4', cls: 'uxs-rp-go' })));
   const page = el('div.ux-rp-page.uxs-rp-page', rows);
 
   const run = () => {
@@ -716,28 +700,28 @@ function pageSales(api: PageApi, s: P1State, r: Report, prev: Report | null, hoo
 function breakdown(r: Report): Kid[] {
   const out: Kid[] = [];
   const pct = (v: number, tot: number) => `${Math.round((v / Math.max(1, tot)) * 100)}%`;
-  const mix = salesParts(r.bySeries);
+  const mix = D.salesParts(r.bySeries);
   if (mix.length) {
     const tot = mix.reduce((a, x) => a + x.v, 0);
     const c = vchart(
-      mix.map((x, k) => ({ label: String(k + 1), bars: [{ v: x.v, kind: k === 0 ? 'main' : 'past' }], top: num(pct(x.v, tot)), read: el('span', el('b', `${k + 1}. ${x.name}`), el('span', num(money(x.v)), t(`（${pct(x.v, tot)}）`, ` (${pct(x.v, tot)})`))) })),
+      mix.map((x, k) => ({ label: String(k + 1), bars: [{ v: x.v, kind: k === 0 ? 'main' : 'past' }], top: num(pct(x.v, tot)), read: el('span', el('b', `${k + 1}. ${x.name}`), el('span', num(D.money(x.v)), t(`（${pct(x.v, tot)}）`, ` (${pct(x.v, tot)})`))) })),
       { cls: 'is-s', sel: 0, aria: t('商品ごとの売上の割合', 'Sales by product') },
     );
     c.growAll();
     out.push(el('div.uxs-bd', el('b', t('商品ごとの売上の割合', 'Sales by product')), c.el, c.read, el('ol.uxs-bd-list', mix.map((x) => el('li', el('span', x.name), num(pct(x.v, tot)))))));
   }
-  const cs = costParts(r.costs);
+  const cs = D.costParts(r.costs);
   if (cs.length) {
     const tot = cs.reduce((a, x) => a + x.v, 0);
     const c = vchart(
-      cs.map((x, k) => ({ label: String(k + 1), bars: [{ v: x.v, kind: k === 0 ? 'ink' : 'past' }], top: num(pct(x.v, tot)), read: el('span', el('b', `${k + 1}. ${x.name}`), el('span', num(money(x.v)), t(`（${pct(x.v, tot)}）`, ` (${pct(x.v, tot)})`))) })),
-      { cls: 'is-s', sel: 0, aria: t(`費用の合計 ${money(tot)}`, `Total costs ${money(tot)}`) },
+      cs.map((x, k) => ({ label: String(k + 1), bars: [{ v: x.v, kind: k === 0 ? 'ink' : 'past' }], top: num(pct(x.v, tot)), read: el('span', el('b', `${k + 1}. ${x.name}`), el('span', num(D.money(x.v)), t(`（${pct(x.v, tot)}）`, ` (${pct(x.v, tot)})`))) })),
+      { cls: 'is-s', sel: 0, aria: t(`費用の合計 ${D.money(tot)}`, `Total costs ${D.money(tot)}`) },
     );
     c.growAll();
-    out.push(el('div.uxs-bd', el('b', t('費用の内訳', 'Costs')), el('span.ux-t-ink2', t(`合計 ${money(tot)}・いちばん大きいのは${cs[0].name}（${pct(cs[0].v, tot)}）`, `Total ${money(tot)} · largest: ${cs[0].name} (${pct(cs[0].v, tot)})`)), c.el, c.read, el('ol.uxs-bd-list', cs.map((x) => el('li', el('span', x.name), num(pct(x.v, tot)))))));
+    out.push(el('div.uxs-bd', el('b', t('費用の内訳', 'Costs')), el('span.ux-t-ink2', t(`合計 ${D.money(tot)}・いちばん大きいのは${cs[0].name}（${pct(cs[0].v, tot)}）`, `Total ${D.money(tot)} · largest: ${cs[0].name} (${pct(cs[0].v, tot)})`)), c.el, c.read, el('ol.uxs-bd-list', cs.map((x) => el('li', el('span', x.name), num(pct(x.v, tot)))))));
   }
   // 売上から利益まで：売上 → 費用（大きい順に引く）→ 利益。棒は、引く前の高さから引いたあとの高さまで
-  const fall = monthFall(r);
+  const fall = D.monthFall(r);
   const hi = niceMax(Math.max(1, ...fall.map((x) => Math.max(x.from, x.to))));
   const lo = Math.min(0, ...fall.map((x) => Math.min(x.from, x.to))) < 0 ? -niceMax(-Math.min(0, ...fall.map((x) => Math.min(x.from, x.to)))) : 0;
   const cols = fall.map((x, k) => {
@@ -758,8 +742,8 @@ function breakdown(r: Report): Kid[] {
       'div.uxs-bd',
       el('b', t('売上から利益まで', 'From sales to profit')),
       el('span.ux-t-ink2', r.profit >= 0 ? t(`売上の ${Math.round((r.profit / Math.max(1, r.revenue)) * 100)}% が利益に残った`, `${Math.round((r.profit / Math.max(1, r.revenue)) * 100)}% of sales left as profit`) : t('費用が売上を上回った（赤字）', 'Costs exceeded sales (loss)')),
-      el('div.uxs-tr.is-s', { role: 'img', 'aria-label': t(`売上 ${money(r.revenue)} から費用を引いて、利益 ${signed(r.profit, money)}`, `Sales ${money(r.revenue)} minus costs: profit ${signed(r.profit, money)}`) }, grid, el('div.uxs-tr-cols', cols.map((c) => c.el))),
-      el('ol.uxs-bd-list', fall.map((x) => el('li', el('span', x.name), num(x.kind === 'start' || x.kind === 'total' ? (x.kind === 'total' ? signed(x.v, money) : money(x.v)) : signed(x.v, money))))),
+      el('div.uxs-tr.is-s', { role: 'img', 'aria-label': t(`売上 ${D.money(r.revenue)} から費用を引いて、利益 ${D.signed(r.profit, D.money)}`, `Sales ${D.money(r.revenue)} minus costs: profit ${D.signed(r.profit, D.money)}`) }, grid, el('div.uxs-tr-cols', cols.map((c) => c.el))),
+      el('ol.uxs-bd-list', fall.map((x) => el('li', el('span', x.name), num(x.kind === 'start' || x.kind === 'total' ? (x.kind === 'total' ? D.signed(x.v, D.money) : D.money(x.v)) : D.signed(x.v, D.money))))),
     ),
   );
   // 他社の動き
@@ -767,7 +751,7 @@ function breakdown(r: Report): Kid[] {
     const [who, what, kind] = n.split('|');
     out.push(
       el(
-        `p.uxs-note${kind === 'out' ? '.is-good' : '.is-warn'}`,
+        `p.uxs-memo${kind === 'out' ? '.is-good' : '.is-warn'}`,
         kind === 'out' ? t(`${who}が「${what}」から撤退しました。`, `${who} pulled out of ${what}.`) : kind === 'copy' ? t(`${who}が「${what}」を真似しはじめました（独占が終わった）。`, `${who} started copying ${what} (the monopoly ended).`) : t(`${who}が「${what}」の販売を始めました。`, `${who} started selling ${what}.`),
       ),
     );
@@ -789,7 +773,7 @@ function pageRank(api: PageApi, r: Report, prev: Report | null, hooks: ReportHoo
     const bar = el('i');
     bar.style.transform = `scaleX(${(v0 / top).toFixed(3)})`;
     const no = num('', 'uxs-rk-n');
-    const val = num(fmt(v0), 'uxs-rk-v');
+    const val = num(D.fmt(v0), 'uxs-rk-v');
     const row = el(`div.uxs-rk-row${x.me ? '.is-me' : ''}`, x.me ? el('span.uxs-rk-crown', sIcon('crown', { scale: 2 })) : null, no, el('div.uxs-rk-body', el('div.uxs-rk-name', el(x.me ? 'b' : 'span', x.me ? t('あなたの会社', 'Your company') : x.name)), el('div.uxs-rk-bar', bar)), val);
     return { x, k, row, bar, no, val, v: v0, y: -1 };
   });
@@ -825,28 +809,28 @@ function pageRank(api: PageApi, r: Report, prev: Report | null, hooks: ReportHoo
   // ゴール：TOP_STREAK か月続けて 1 位（制覇）。発掘 v2 の 5 段目：研究成果の発表も
   const streak = r.streak ?? (r.rank === 1 ? 1 : 0);
   const presented = !r.goal || r.goal.present;
-  const conquered = streak >= TOP_STREAK && presented;
-  const waiting = streak >= TOP_STREAK && !presented;
+  const conquered = streak >= D.TOP_STREAK && presented;
+  const waiting = streak >= D.TOP_STREAK && !presented;
   const goalText = conquered
-    ? t(`制覇！ ${TOP_STREAK} か月続けて 1 位${r.goal ? '＋研究成果の発表' : ''}`, `Conquered! #1 for ${TOP_STREAK} months${r.goal ? ' + findings' : ''}`)
+    ? t(`制覇！ ${D.TOP_STREAK} か月続けて 1 位${r.goal ? '＋研究成果の発表' : ''}`, `Conquered! #1 for ${D.TOP_STREAK} months${r.goal ? ' + findings' : ''}`)
     : waiting
       ? t('1 位を守っている（制覇まで：研究成果の発表）', 'Holding #1 (to conquer: present findings)')
       : r.goal
-        ? noEmoji(clearCondText(streak, r.goal)[0])
+        ? noEmoji(D.clearCondText(streak, r.goal)[0])
         : streak > 0
-          ? t(`ゴール：${TOP_STREAK} か月続けて 1 位（いま ${streak} / ${TOP_STREAK}）`, `Goal: #1 for ${TOP_STREAK} months in a row (${streak} / ${TOP_STREAK})`)
-          : t(`ゴール：${TOP_STREAK} か月続けて 1 位`, `Goal: #1 for ${TOP_STREAK} months in a row`);
+          ? t(`ゴール：${D.TOP_STREAK} か月続けて 1 位（いま ${streak} / ${D.TOP_STREAK}）`, `Goal: #1 for ${D.TOP_STREAK} months in a row (${streak} / ${D.TOP_STREAK})`)
+          : t(`ゴール：${D.TOP_STREAK} か月続けて 1 位`, `Goal: #1 for ${D.TOP_STREAK} months in a row`);
   const kids: HTMLElement[] = [title(t('企業ランキング', 'Company ranking'), t('KGI（エリア）', 'KGI (area)')), el('div.ux-rl', list), el('div.ux-rl', badge)];
   kids.push(line(el(`span.uxs-rp-goal${conquered ? '.is-done' : waiting ? '.is-wait' : ''}`, conquered || waiting ? sIcon('crown', { scale: 1 }) : inkIcon('flag', 1), el('b', goalText))));
   // 次の順位までの差・2 位との差
-  if (meK > 0) kids.push(line(rcp(t(`${meK} 位まで あと`, `To reach #${meK}`), money(Math.max(0, r.area[meK - 1].sales - mySales))), el('span.uxs-rp-sub', t(`次の順位は ${meK} 位の${r.area[meK - 1].name}`, `Next up: #${meK} ${r.area[meK - 1].name}`))));
-  else if (meK === 0 && r.area.length > 1) kids.push(line(rcp([inkIcon('up', 1), t('2 位との差', 'Ahead of #2')], `+${money(Math.max(0, mySales - r.area[1].sales))}`, 'is-good'), el('span.uxs-rp-sub', t(`2 位は${r.area[1].name}`, `#2 is ${r.area[1].name}`))));
+  if (meK > 0) kids.push(line(rcp(t(`${meK} 位まで あと`, `To reach #${meK}`), D.money(Math.max(0, r.area[meK - 1].sales - mySales))), el('span.uxs-rp-sub', t(`次の順位は ${meK} 位の${r.area[meK - 1].name}`, `Next up: #${meK} ${r.area[meK - 1].name}`))));
+  else if (meK === 0 && r.area.length > 1) kids.push(line(rcp([inkIcon('up', 1), t('2 位との差', 'Ahead of #2')], `+${D.money(Math.max(0, mySales - r.area[1].sales))}`, 'is-good'), el('span.uxs-rp-sub', t(`2 位は${r.area[1].name}`, `#2 is ${r.area[1].name}`))));
   // 1 回目の 1 位：制覇までの一言
   if (streak > 0 && !conquered) {
     const g = r.goal;
     const say =
       waiting && g
-        ? presentReady(g)
+        ? D.presentReady(g)
           ? t('あとは[[町の長]]に発表すれば[[制覇]]！', 'Present to the [[town head]] to [[conquer]]!')
           : t('あとは研究成果の発表で[[制覇]]！', 'Present your findings to [[conquer]]!')
         : g && !g.present
@@ -878,7 +862,7 @@ function pageRank(api: PageApi, r: Report, prev: Report | null, hooks: ReportHoo
       if (me) {
         me.v = mySales;
         me.bar.style.transform = `scaleX(${(me.v / top).toFixed(3)})`;
-        me.val.textContent = fmt(me.v);
+        me.val.textContent = D.fmt(me.v);
       }
       place(false);
       showAll(page);
@@ -916,7 +900,7 @@ function pageRank(api: PageApi, r: Report, prev: Report | null, hooks: ReportHoo
           const e = 1 - Math.pow(1 - k / steps, 2);
           me.v = Math.round(from + (mySales - from) * e);
           me.bar.style.transform = `scaleX(${(me.v / top).toFixed(3)})`;
-          me.val.textContent = fmt(me.v);
+          me.val.textContent = D.fmt(me.v);
           uxSfx('coin', { step: (0.2 + (k / steps) * 0.8) * 11.99 });
           if (place(true) && !swapped) {
             swapped = true;
@@ -958,32 +942,32 @@ function pageTrend(api: PageApi, s: P1State, r: Report, upto: Report[], idx: num
     let cols: Col[];
     if (trendView === 'cash') {
       // 資金のろうそく足（月のはじめ → 月末・その月のいちばん高い・安い）
-      const cs = moneyCandles(rs);
+      const cs = D.moneyCandles(rs);
       cols = cs.map((c, k) => ({
-        label: monLab(c.month, k === 0),
+        label: D.monLab(c.month, k === 0),
         bars: [],
-        read: el('span', el('b', monHead(c.month)), el('span', num(`${fmt(c.o)} G`), inkIcon('next', 1), num(`${fmt(c.c)} G`)), c.est ? null : el('span.ux-t-ink2', t(`高 ${shortN(c.h)}・安 ${shortN(c.l)}`, `high ${shortN(c.h)}, low ${shortN(c.l)}`))),
+        read: el('span', el('b', D.monHead(c.month)), el('span', num(`${D.fmt(c.o)} G`), inkIcon('next', 1), num(`${D.fmt(c.c)} G`)), c.est ? null : el('span.ux-t-ink2', t(`高 ${D.shortN(c.h)}・安 ${D.shortN(c.l)}`, `high ${D.shortN(c.h)}, low ${D.shortN(c.l)}`))),
       }));
       // ろうそくの胴は、月のはじめ〜月末の高さに置く
       const last = cs[cs.length - 1];
-      chart = candleChart(cs, cols, last ? t(`資金の月の動き：いま ${money(last.c)}`, `Cash by month: now ${money(last.c)}`) : t('資金の月の動き', 'Cash by month'));
+      chart = candleChart(cs, cols, last ? t(`資金の月の動き：いま ${D.money(last.c)}`, `Cash by month: now ${D.money(last.c)}`) : t('資金の月の動き', 'Cash by month'));
     } else {
       const both = trendView === 'both';
       cols = rs.map((x, k) => ({
-        label: monLab(x.month, k === 0),
+        label: D.monLab(x.month, k === 0),
         bars: [{ v: x.revenue, kind: k === lastK ? 'main' : 'past' }, ...(both ? [{ v: x.profit, kind: x.profit < 0 ? ('neg' as const) : ('ink' as const) }] : [])],
         top: rs.length <= 6 ? man(x.revenue) : undefined,
-        read: el('span', el('b', monHead(x.month)), el('span', t('売上', 'Sales'), num(money(x.revenue))), el('span', t('利益', 'Profit'), num(signed(x.profit, money), tone(x.profit)))),
+        read: el('span', el('b', D.monHead(x.month)), el('span', t('売上', 'Sales'), num(D.money(x.revenue))), el('span', t('利益', 'Profit'), num(D.signed(x.profit, D.money), tone(x.profit)))),
       }));
       // 来月の見込み（月次 PDCA）：点線の棒
       if (fc && rs.length)
         cols.push({
           label: t('来月', 'Next'),
           bars: [{ v: fc.sales, kind: 'dash' }, ...(both ? [{ v: fc.profit, kind: 'dash' as const }] : [])],
-          read: el('span', el('b', t('来月（見込み）', 'Next month (forecast)')), el('span', t('売上', 'Sales'), num(money(fc.sales))), el('span', t('利益', 'Profit'), num(signed(fc.profit, money), tone(fc.profit)))),
+          read: el('span', el('b', t('来月（見込み）', 'Next month (forecast)')), el('span', t('売上', 'Sales'), num(D.money(fc.sales))), el('span', t('利益', 'Profit'), num(D.signed(fc.profit, D.money), tone(fc.profit)))),
         });
       const last = rs[lastK];
-      chart = vchart(cols, { sel: lastK, aria: last ? t(`月次売上推移：${monHead(last.month)}の売上 ${money(last.revenue)}・利益 ${signed(last.profit, money)}`, `Monthly trend: ${monHead(last.month)} sales ${money(last.revenue)}, profit ${signed(last.profit, money)}`) : t('月次売上推移', 'Monthly trend') });
+      chart = vchart(cols, { sel: lastK, aria: last ? t(`月次売上推移：${D.monHead(last.month)}の売上 ${D.money(last.revenue)}・利益 ${D.signed(last.profit, D.money)}`, `Monthly trend: ${D.monHead(last.month)} sales ${D.money(last.revenue)}, profit ${D.signed(last.profit, D.money)}`) : t('月次売上推移', 'Monthly trend') });
     }
     holder.replaceChildren(chart.el);
     readLine.replaceChildren(chart.read);
@@ -1121,40 +1105,40 @@ function pageScm(api: PageApi, ctx: Ctx, s: P1State, r: Report, hooks: ReportHoo
   const f = r.flow ?? { bought: 0, made: 0, hauled: 0, sold: 0 };
   const vals: Record<Stage, number> = { buy: f.bought, craft: f.made, haul: f.hauled, sell: f.sold };
   const max = Math.max(1, ...Object.values(vals));
-  const flow = el('div.uxs-flow', { role: 'img', 'aria-label': (['buy', 'craft', 'haul', 'sell'] as Stage[]).map((k) => `${noEmoji(STAGE_NAME[k])} ${vals[k]}`).join(t('、', ', ')) });
+  const flow = el('div.uxs-flow', { role: 'img', 'aria-label': (['buy', 'craft', 'haul', 'sell'] as Stage[]).map((k) => `${noEmoji(D.STAGE_NAME[k])} ${vals[k]}`).join(t('、', ', ')) });
   (['buy', 'craft', 'haul', 'sell'] as Stage[]).forEach((k, i) => {
     if (i) flow.append(el('span.uxs-flow-arrow', inkIcon('next', 1)));
     const fill = el('i');
     fill.style.setProperty('--h', `${Math.max(6, Math.round((vals[k] / max) * 100))}%`);
-    flow.append(el(`div.uxs-flow-col${k === bn ? '.is-bn' : ''}`, inkIcon(STAGE_ICO[k], 2), el('div.uxs-flow-bar', fill), num(String(vals[k]), 'uxs-flow-n'), el('span.uxs-flow-name', STAGE_NAME[k]), k === bn ? el('span.uxs-chip-k.is-bad', t('課題あり', 'Issue')) : null));
+    flow.append(el(`div.uxs-flow-col${k === bn ? '.is-bn' : ''}`, inkIcon(STAGE_ICO[k], 2), el('div.uxs-flow-bar', fill), num(String(vals[k]), 'uxs-flow-n'), el('span.uxs-flow-name', D.STAGE_NAME[k]), k === bn ? el('span.uxs-chip-k.is-bad', t('課題あり', 'Issue')) : null));
   });
   // 課題ありの段と、いちばんの改善案（今の月次報告と同じ決まり）
   const hint = el('p.uxs-rp-hint');
   let best: { label: string; fn: () => void; short?: boolean } | null = null;
-  const prop = hooks.openProposal ? reportProposal(s, r) : null;
+  const prop = hooks.openProposal ? D.reportProposal(s, r) : null;
   if (r.stall) {
-    const why = stallSay(r.stall.stage, r.stall.why);
-    hint.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。${why.replace(/^\[\[[^\]]*\]\]が止まっている。/, '')}。`, `[[${STAGE_NAME[bn]}]] needs attention. ${why}.`)));
+    const why = D.stallSay(r.stall.stage, r.stall.why);
+    hint.append(rich(t(`[[${D.STAGE_NAME[bn]}]]が課題あり。${why.replace(/^\[\[[^\]]*\]\]が止まっている。/, '')}。`, `[[${D.STAGE_NAME[bn]}]] needs attention. ${why}.`)));
   } else {
     // 課題ありの段の打ち手のうち、見込み（+N 個／月）のいちばん大きいもの。④ 販売は moves.ts の bestSell
-    const sm = bn === 'sell' && myShops(s).length ? bestSell(s) : null;
-    const top = sm ? undefined : bn !== 'sell' || myShops(s).length ? whatIf(s, bn).find((w) => w.ok) : undefined;
-    const up = sm ? sellBigUp(ctx, s, sm) : top ? moveUp(ctx, s, top) : null;
+    const sm = bn === 'sell' && D.myShops(s).length ? D.bestSell(s) : null;
+    const top = sm ? undefined : bn !== 'sell' || D.myShops(s).length ? D.whatIf(s, bn).find((w) => w.ok) : undefined;
+    const up = sm ? D.sellBigUp(ctx, s, sm) : top ? D.moveUp(ctx, s, top) : null;
     if (up && (top || sm)) {
-      hint.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。いちばんの改善案は[[${up.label}]]（${up.sub}）。`, `[[${STAGE_NAME[bn]}]] needs attention. Best fix: [[${up.label}]] (${up.sub}).`)));
+      hint.append(rich(t(`[[${D.STAGE_NAME[bn]}]]が課題あり。いちばんの改善案は[[${up.label}]]（${up.sub}）。`, `[[${D.STAGE_NAME[bn]}]] needs attention. Best fix: [[${up.label}]] (${up.sub}).`)));
       // 段 L0：Rare より前は担当者からの提案ではなく、自分で打つ改善（押すとその手・その画面へ）
       if (!prop)
         best = {
-          label: propsOpen(s) ? t('担当者からの提案', 'Proposal from staff') : t('自分で改善する', 'Fix it yourself'),
+          label: D.propsOpen(s) ? t('担当者からの提案', 'Proposal from staff') : t('自分で改善する', 'Fix it yourself'),
           fn: () => {
-            closeSheet();
+            D.closeSheet();
             up.go();
           },
         };
-    } else hint.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。${STAGE_HINT[bn]}`, `[[${STAGE_NAME[bn]}]] needs attention. ${STAGE_HINT[bn]}`)));
+    } else hint.append(rich(t(`[[${D.STAGE_NAME[bn]}]]が課題あり。${D.STAGE_HINT[bn]}`, `[[${D.STAGE_NAME[bn]}]] needs attention. ${D.STAGE_HINT[bn]}`)));
   }
   if (prop) best = { label: t('担当者からの提案', 'Proposal from staff'), fn: () => hooks.openProposal?.(prop.plan, prop.say, prop.role, prop.speech) };
-  void STAGE_HINT_SHORT;
+  void D.STAGE_HINT_SHORT;
   const kids: HTMLElement[] = [title(t('サプライチェーン', 'Supply chain'), t('KPI ③（SCM）', 'KPI 3 (SCM)')), el('div.ux-rl', flow), line(hint)];
   if (best) {
     const b = best;
@@ -1202,35 +1186,35 @@ interface DeptLine {
 function deptLines(s: P1State, r: Report, hooks: ReportHooks): DeptLine[] {
   const out: DeptLine[] = [];
   // 今月の出土品（発掘との出会いのあと・発掘場のあるセクタ）：新発見・研究 Lv ↑・RP。導線は研究ノート
-  const dg = digMet(s) ? digReportLine(r) : null;
+  const dg = D.digMet(s) ? D.digReportLine(r) : null;
   if (dg) {
-    const rv = reviveReportText(r);
-    out.push({ ico: 'pick', label: t('今月の出土品', 'Finds this month'), text: digReportText(dg)[0], more: rv?.[0], go: hooks.openNotes ? [t('研究ノート', 'Notebook'), () => hooks.openNotes?.()] : undefined });
+    const rv = D.reviveReportText(r);
+    out.push({ ico: 'pick', label: t('今月の出土品', 'Finds this month'), text: D.digReportText(dg)[0], more: rv?.[0], go: hooks.openNotes ? [t('研究ノート', 'Notebook'), () => hooks.openNotes?.()] : undefined });
   } else {
     // 発掘場の無いセクタ・出会いの前でも、被災した町の復興の行は出す
-    const rb = rebuildText(r.rebuild);
+    const rb = D.rebuildText(r.rebuild);
     if (rb) out.push({ ico: 'crane', label: t('復興', 'Rebuilding'), text: rb[0] });
   }
   // 今月のレベルアップ・強化アイテム（ヒーローの育成）
-  const lt = levelUpText(r);
+  const lt = D.levelUpText(r);
   if (lt) out.push({ ico: 'up', label: t('今月のレベルアップ', 'Level-ups this month'), text: lt[0], go: hooks.openGrowth ? [t('育成', 'Growth'), () => hooks.openGrowth?.()] : undefined });
   // 担当の報告（任せ方の 4 段）
-  const dt = delegReportText(s, r);
+  const dt = D.delegReportText(s, r);
   if (dt) out.push({ ico: 'people', label: t('担当の報告', 'Delegation'), text: dt[0], go: hooks.openProps ? [t('担当', 'Leads'), () => hooks.openProps?.()] : undefined });
   // 士気と給与（人事）
-  const ht = hrReportText(r);
+  const ht = D.hrReportText(r);
   if (ht) out.push({ ico: 'people', label: t('士気と給与', 'Morale & pay'), text: ht[0], go: hooks.openPay ? [t('給与', 'Pay'), () => hooks.openPay?.()] : undefined, warn: !!r.hr && (r.hr.want > 0 || r.hr.quit.length > 0) });
   // お客さんの声（カスタマーサポートと炎上）
-  const ct = csReportText(r);
+  const ct = D.csReportText(r);
   if (ct) out.push({ ico: 'voice', label: t('お客さんの声', 'Customer voice'), text: ct[0], go: hooks.openCs ? [t('問い合わせ', 'Inquiries'), () => hooks.openCs?.()] : undefined, warn: !!r.cs && (!!r.cs.warn || !!r.cs.ignited || !!r.cs.heat || r.cs.expired > 0) });
   // 法務（買収・特許・裁判）
-  const lg = legalReportText(r);
+  const lg = D.legalReportText(r);
   if (lg) out.push({ ico: 'scale', label: t('法務', 'Legal'), text: lg[0], go: hooks.openLegal ? [t('法務', 'Legal'), () => hooks.openLegal?.()] : undefined, warn: !!r.legal && (r.legal.closed.length > 0 || r.legal.newSuits > 0 || r.legal.won > 0 || r.legal.lost > 0) });
   // 突発のできごと
-  const et = eventReportText(r.events ?? [], r.evFx ?? [], r.evYen ?? 0);
+  const et = D.eventReportText(r.events ?? [], r.evFx ?? [], r.evYen ?? 0);
   if (et) out.push({ ico: 'horn', label: t('できごと', 'Events'), text: et[0] });
   // 外交の交易
-  if (r.dip) out.push({ ico: 'globe', label: t('交易', 'Trade'), text: dipReportText(r.dip)[0], go: hooks.openDiplo ? [t('外交', 'Diplomacy'), () => hooks.openDiplo?.()] : undefined, warn: !!(r.dip.short || r.dip.late) });
+  if (r.dip) out.push({ ico: 'globe', label: t('交易', 'Trade'), text: D.dipReportText(r.dip)[0], go: hooks.openDiplo ? [t('外交', 'Diplomacy'), () => hooks.openDiplo?.()] : undefined, warn: !!(r.dip.short || r.dip.late) });
   return out;
 }
 function deptRow(x: DeptLine): HTMLElement {
@@ -1262,7 +1246,7 @@ function pageDept(api: PageApi, lines: DeptLine[]): Page {
 /** 発掘作業のあいだに締めた月をまとめた 1 枚（p1/report.ts の openDigSummary から。入のときだけ） */
 export function openDigSummaryUx(ctx: Ctx, sum: DigSummary, hooks: DigSummaryHooks, then?: () => void) {
   const s = ctx.s();
-  const bn = reportJam(s, sum.latest);
+  const bn = D.reportJam(s, sum.latest);
   const m = /^(.*?)[（(](.+)[）)]\s*$/.exec(sum.title);
   openPaper(ctx, {
     title: sum.title,
@@ -1284,12 +1268,12 @@ export function openDigSummaryUx(ctx: Ctx, sum: DigSummary, hooks: DigSummaryHoo
         const mv = rankMove(sum.rankFrom, sum.rankTo);
         const win = (n: number, cls = '') => el(`span.uxs-rkb-win${cls}`, num(String(n), 'uxs-rkb-n'), el('span', t('位', '')));
         const kids: HTMLElement[] = [title(t('期間の売上', 'Sales in this period'), t('KPI ①', 'KPI 1')), line(el('span.uxs-rp-total', odo.el, num('G', 'uxs-rp-g'))), el('div.ux-rl.uxs-rule')];
-        kids.push(el('div.ux-rl.uxs-mini.is-many', { role: 'img', 'aria-label': sum.months.map((x) => `${x.label} ${money(x.revenue)}`).join(t('、', ', ')) }, bars));
-        if (sum.relic) kids.push(line(rcp(t('うち復刻品', 'incl. revivals'), money(sum.relic))));
+        kids.push(el('div.ux-rl.uxs-mini.is-many', { role: 'img', 'aria-label': sum.months.map((x) => `${x.label} ${D.money(x.revenue)}`).join(t('、', ', ')) }, bars));
+        if (sum.relic) kids.push(line(rcp(t('うち復刻品', 'incl. revivals'), D.money(sum.relic))));
         kids.push(el('div.ux-rl', el(`div.uxs-rkb.is-${mv}.is-up`, el('span', t('エリアの順位', 'Area rank')), sum.rankFrom != null ? [win(sum.rankFrom), inkIcon('next', 2)] : null, win(sum.rankTo, '.is-new'), sum.conquered ? el('span.uxs-rkb-move', sIcon('crown', { scale: 1 }), t('制覇！', 'Conquered!')) : null)));
         if (sum.money) {
           const dm = sum.money.end - sum.money.start;
-          kids.push(line(rcp(t('資金', 'Funds'), signed(dm, money), tone(dm)), el('span.uxs-rp-sub', num(`${fmt(sum.money.start)} G`), inkIcon('next', 1), num(`${fmt(sum.money.end)} G`))));
+          kids.push(line(rcp(t('資金', 'Funds'), D.signed(dm, D.money), tone(dm)), el('span.uxs-rp-sub', num(`${D.fmt(sum.money.start)} G`), inkIcon('next', 1), num(`${D.fmt(sum.money.end)} G`))));
         } else kids.push(line(rcp(t('資金', 'Funds'), '—')));
         // 今回の出土
         const got = sum.got;
@@ -1309,15 +1293,15 @@ export function openDigSummaryUx(ctx: Ctx, sum: DigSummary, hooks: DigSummaryHoo
             ),
           ),
         );
-        const rv = reviveReportText({ revive: sum.revive, museum: sum.museum });
+        const rv = D.reviveReportText({ revive: sum.revive, museum: sum.museum });
         if (rv) kids.push(line(el('span.ux-t-ink2', noEmoji(rv[0]))));
         // いまの課題（最新の月）と打ち手 1 つ
-        const tw = bn !== 'sell' || myShops(s).length ? whatIf(s, bn).find((w) => w.ok) : undefined;
-        const up = tw ? moveUp(ctx, s, tw) : null;
+        const tw = bn !== 'sell' || D.myShops(s).length ? D.whatIf(s, bn).find((w) => w.ok) : undefined;
+        const up = tw ? D.moveUp(ctx, s, tw) : null;
         const hint = el('p.uxs-rp-hint');
-        if (sum.latest.stall) hint.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。${stallSay(sum.latest.stall.stage, sum.latest.stall.why).replace(/^\[\[[^\]]*\]\]が止まっている。/, '')}`, `[[${STAGE_NAME[bn]}]] needs attention. ${stallSay(sum.latest.stall.stage, sum.latest.stall.why)}`)));
-        else if (up && tw) hint.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。改善案：[[${up.label}]]（+${Math.round(tw.units)} 個／月）`, `[[${STAGE_NAME[bn]}]] needs attention. Fix: [[${up.label}]] (+${Math.round(tw.units)} / mo)`)));
-        else hint.append(rich(t(`[[${STAGE_NAME[bn]}]]が課題あり。${STAGE_HINT_SHORT[bn]}`, `[[${STAGE_NAME[bn]}]] needs attention. ${STAGE_HINT_SHORT[bn]}`)));
+        if (sum.latest.stall) hint.append(rich(t(`[[${D.STAGE_NAME[bn]}]]が課題あり。${D.stallSay(sum.latest.stall.stage, sum.latest.stall.why).replace(/^\[\[[^\]]*\]\]が止まっている。/, '')}`, `[[${D.STAGE_NAME[bn]}]] needs attention. ${D.stallSay(sum.latest.stall.stage, sum.latest.stall.why)}`)));
+        else if (up && tw) hint.append(rich(t(`[[${D.STAGE_NAME[bn]}]]が課題あり。改善案：[[${up.label}]]（+${Math.round(tw.units)} 個／月）`, `[[${D.STAGE_NAME[bn]}]] needs attention. Fix: [[${up.label}]] (+${Math.round(tw.units)} / mo)`)));
+        else hint.append(rich(t(`[[${D.STAGE_NAME[bn]}]]が課題あり。${D.STAGE_HINT_SHORT[bn]}`, `[[${D.STAGE_NAME[bn]}]] needs attention. ${D.STAGE_HINT_SHORT[bn]}`)));
         kids.push(line(el('span.ux-rl-k', t('いまの課題', 'Current issue')), el('span.uxs-rp-tag', t('KPI ③', 'KPI 3'))), line(hint));
         kids.push(line(pkey(t('くわしい報告を見る', 'Full report'), () => hooks.detail(), { ico: 'list', cls: 'uxs-rp-go' })));
         const page = el('div.ux-rp-page.uxs-rp-page', kids);

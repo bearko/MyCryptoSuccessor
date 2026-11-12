@@ -123,7 +123,8 @@ My Crypto Successor の UI・部品・動きを作り直すための決まりと
 
 段 UIX2s。見本の「工房」（`public/uixlab/c/js/workshop.js`）を、本体の本物のデータへ移した。`src/island/uix/screens/workshop.ts`・`workshop.css`（class は `uxs-`）。
 
-- **入口**：`p1/screens.ts` の `openWorkshop` が、入のときだけ `uxs.workshop` へ渡す（切のときは今の画面）。差し込み口は `uix/screens/s-slots.ts`、中身を入れるのは `s-boot.ts`（入のときだけ `p1/screens.ts` が動的に読む）。
+- **入口**：`p1/screens.ts` の `openWorkshop` が、入のときだけ `uxs.workshop` へ渡す（切のときは今の画面）。差し込み口は `uix/screens/s-slots.ts`（型だけ）。中身を入れるのは `s-boot.ts` の `install()` で、`p1/main.ts` が入のときだけ `loadUxs()`（`p1/uxs.ts`）で動的に読む。切のときは読まない。
+- **本体の関数は、束で渡す**（`p1/uxs.ts` の `uxsDeps` → `s-deps.ts` の `D`）：新しい画面のファイルは、本体のモジュール（`p1/…`・`catalog`・`images`・`defs`）を自分では読まない（型だけ）。あとから読む束が本体のモジュールを直接読むと、バンドラが本体の束を分け直し、**切のときの読み込み（JS・CSS のファイルの分かれ方・事前に保存する一覧）まで変わる**ため。今の形では、本番の出力で変わるのは、足された `s-boot-*.js`・`s-boot-*.css`（事前の保存からも外してある：`vite.config.ts`）と、入のときだけ読む土台の束の分かれ方（`settings-*.js` に入っていた部品が `parts-*.js` へ分かれる。合わせた大きさは同じ）だけで、切のときに読むファイルの数と名前・本体の CSS は main と同じ。新しい画面で本体の関数を使うときは、`uxsDeps` に 1 行足して `D.名前` で呼ぶ（`tests/island-uix2s.test.ts` が、直接読んでいないこと・渡し漏れが無いことを確かめる）。
 - **器は今の札**（`open()`・`sheet()`）のまま：閉じ方（✕・外側・幕）・時間の止め方・チュートリアルの一言（`mineTip(ctx, 'workshop')`）・✕ の強調は今のまま。`open()` に「中身を作り直さない」（`keep`）を足し、画面は 1 回だけ組んで `sync()` で値だけ合わせる（動きが作り直しで切れない）。
 - **見出し**：名前（工房・町工場・大工場）・添え札（本店／1×2・2×2）・稼働のランプ（稼働中・待機中・工事中）・✕。
 - **タブ**（520ms・8 段の横送り）：作業台／見くらべ／設備投資。チュートリアルのあいだは、設備投資（と建て替え）を出さない（今の画面と同じ）。

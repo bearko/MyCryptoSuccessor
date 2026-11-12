@@ -288,11 +288,11 @@ html.is-uxc.is-cvd .uxs-chip-k.is-bad {
   background: #8a4408;
   color: var(--ux-paper);
 }
-html.is-uxc .uxs-note {
+html.is-uxc .uxs-memo {
   color: #6a5f40;
   line-height: 1.4;
 }
-html.is-uxc .uxs-note.is-warn {
+html.is-uxc .uxs-memo.is-warn {
   color: #9c2238;
 }
 

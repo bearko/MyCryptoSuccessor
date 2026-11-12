@@ -6,48 +6,7 @@
  * 器は今の札（p1/screens.ts の open()）をそのまま使う：閉じ方・チュートリアルの一言・時間の止め方は今のまま。
  * 中身は 1 回だけ組み、あとは sync() で値だけ合わせる（動きが作り直しで切れないように）。数字とゲームの決まりは p1/model.ts のまま。
  */
-import { heroFacesRight } from '../../../game/catalog';
 import { t } from '../../../i18n';
-import { assetUrl } from '../../../render/images';
-import { DEF } from '../../defs';
-import { FACTORY, INVESTS, MATS, type Mat, type Sku } from '../../p1/data';
-import { benchAfter, upWhy } from '../../p1/factoryui';
-import { aptShow, extCard, lotsFromStock, pickExt, pickHero, profitPerDay, rankOf } from '../../p1/heroui';
-import {
-  assign,
-  batchOf,
-  benchCount,
-  bName,
-  craftCheck,
-  craftDays,
-  facLv,
-  has,
-  invest,
-  investCost,
-  invLv,
-  jamOf,
-  myShops,
-  poolCap,
-  poolUsed,
-  recipeOf,
-  recommend,
-  setAutoCraft,
-  setCraftPlan,
-  shelvesAuto,
-  speed,
-  staffOf,
-  upCheck,
-  upSpots,
-  wsAny,
-  type P1State,
-  type PBuilding,
-  type Slot,
-} from '../../p1/model';
-import { applyPlan, manualPlan } from '../../p1/plan';
-import { CRAFT_ERR, chooseMake, craftErr, craftable, mineTip, open, type Ctx } from '../../p1/screens';
-import { pickMake } from '../../p1/stockui';
-import { aptitude, sku as skuOf } from '../../p1/data';
-import { fmt, heroIcon, heroName, matIcon, skuIcon, skuName } from '../../p1/ui';
 import { el } from '../dom';
 import { coinsFly } from '../fx';
 import { loop } from '../loop';
@@ -58,6 +17,10 @@ import { sIcon } from './s-icons';
 import { safe } from './s-press';
 import type { WsOpt } from './s-slots';
 import './workshop.css';
+import type { Mat, Sku } from '../../p1/data';
+import type { P1State, PBuilding, Slot } from '../../p1/model';
+import type { Ctx } from '../../p1/screens';
+import { D } from './s-deps';
 
 /** タブの横送り（見本：520ms・8 段） */
 export const TAB_MS = 520;
@@ -73,32 +36,32 @@ export type BenchState = 'empty' | 'run' | 'rest' | 'stop' | 'idle';
  * err は今の画面と同じ決まり（職人がいなければ worker・作る物があれば craftCheck）
  */
 export function benchState(s: P1State, sl: Slot): { state: BenchState; err: string | null } {
-  const err = sl.worker == null ? 'worker' : sl.sku ? craftCheck(s, sl.sku, sl.worker, sl.back !== undefined) : null;
-  if (sl.running && sl.sku) return { state: sl.worker != null && staffOf(s, sl.worker)?.resting ? 'rest' : 'run', err };
+  const err = sl.worker == null ? 'worker' : sl.sku ? D.craftCheck(s, sl.sku, sl.worker, sl.back !== undefined) : null;
+  if (sl.running && sl.sku) return { state: sl.worker != null && D.staffOf(s, sl.worker)?.resting ? 'rest' : 'run', err };
   if (sl.worker == null) return { state: 'empty', err };
   return { state: err ? 'stop' : 'idle', err };
 }
 /** 進み（0〜1）と、あと何日か（作っていなければ null） */
 export function benchProgress(s: P1State, sl: Slot): { p: number; left: number } | null {
   if (!sl.running || !sl.sku) return null;
-  const need = craftDays(s, sl.sku);
-  const st = sl.worker != null ? staffOf(s, sl.worker) : null;
-  return { p: Math.max(0, Math.min(1, sl.progress / need)), left: Math.max(0, Math.ceil((need - sl.progress) / (st ? speed(st, 'craft', s) : 1))) };
+  const need = D.craftDays(s, sl.sku);
+  const st = sl.worker != null ? D.staffOf(s, sl.worker) : null;
+  return { p: Math.max(0, Math.min(1, sl.progress / need)), left: Math.max(0, Math.ceil((need - sl.progress) / (st ? D.speed(st, 'craft', s) : 1))) };
 }
 /** 作る数の添え書き（今の画面の「作るもの」の枠の小さな字と同じ言葉） */
 export function planText(s: P1State, sl: Slot, k: number): string {
   if (!sl.sku) return '';
   if (sl.back !== undefined) {
-    const n = (sl.left ?? 0) + (sl.running && !s.deleg?.pend?.[k] ? batchOf(sl.sku, s) : 0);
-    return sl.back ? t(`いまの素材で あと ${n} 個 → ${skuName(sl.back)}に戻る`, `From stock: ${n} more → back to ${skuName(sl.back)}`) : t(`いまの素材で あと ${n} 個`, `From stock: ${n} more`);
+    const n = (sl.left ?? 0) + (sl.running && !s.deleg?.pend?.[k] ? D.batchOf(sl.sku, s) : 0);
+    return sl.back ? t(`いまの素材で あと ${n} 個 → ${D.skuName(sl.back)}に戻る`, `From stock: ${n} more → back to ${D.skuName(sl.back)}`) : t(`いまの素材で あと ${n} 個`, `From stock: ${n} more`);
   }
   if (sl.repeat) return t('自動製造', 'Auto');
   return (sl.left ?? 0) > 0 ? t(`あと ${sl.left} 個`, `${sl.left} more`) : t('この 1 ロットで止める', 'Stops after this lot');
 }
 /** 作る数のつまみの範囲（今の画面の craftPlan と同じ）：0〜手持ちの素材で作れる最大。1 ロットずつ */
 export function planRange(s: P1State, sl: Slot): { batch: number; max: number; cur: number } {
-  const batch = sl.sku ? batchOf(sl.sku, s) : 1;
-  const max = sl.sku ? lotsFromStock(s, sl.sku) * batch : 0;
+  const batch = sl.sku ? D.batchOf(sl.sku, s) : 1;
+  const max = sl.sku ? D.lotsFromStock(s, sl.sku) * batch : 0;
   return { batch, max, cur: sl.repeat ? max : Math.min(sl.left ?? 0, max) };
 }
 /** 作る数を 1 ロットの倍数にそろえる（0〜max） */
@@ -111,10 +74,10 @@ export const wsTabs = (tut: boolean): WsTab[] => (tut ? ['bench', 'cmp'] : ['ben
 /** 見出しの名前と添え札：「工房（本店）」→ 工房・本店／町工場 → 町工場・1×2 */
 export function wsTitle(b: { id: string; lv?: number } | null): [string, string] {
   if (!b) return [t('工房', 'Workshop'), ''];
-  const name = bName(b);
+  const name = D.bName(b);
   const m = /^(.*?)\s*[（(](.+)[）)]\s*$/.exec(name);
   if (m) return [m[1], m[2]];
-  return [name, b.lv ? FACTORY.shape[b.lv] : ''];
+  return [name, b.lv ? D.FACTORY.shape[b.lv] : ''];
 }
 
 // ---------------------------------------------------------------- 小さな道具
@@ -190,13 +153,13 @@ function benchView(ctx: Ctx, done: () => void): BenchView {
     const st = s();
     const sl = st.slots[k];
     if (!sl) return;
-    pickHero(ctx.root, st, {
+    D.pickHero(ctx.root, st, {
       title: t(`作業台 ${k + 1} の職人`, `Crafter for bench ${k + 1}`),
       task: 'craft',
       current: sl.worker,
       onPick: (v) => {
-        if (v == null && sl.worker != null) assign(st, sl.worker, null);
-        else if (v != null) assign(st, v, 'craft', k);
+        if (v == null && sl.worker != null) D.assign(st, sl.worker, null);
+        else if (v != null) D.assign(st, v, 'craft', k);
         done();
       },
     });
@@ -207,15 +170,15 @@ function benchView(ctx: Ctx, done: () => void): BenchView {
     if (!sl) return;
     const title = t(`作業台 ${k + 1} で作るもの`, `What bench ${k + 1} makes`);
     // 段 UI5c：チュートリアルのあとは、並び（いまの素材で作れる）・絞り込み・ランクアップの印つき
-    if (!ctx.step?.()) pickMake(ctx, k, { title, items: craftable(st), onPick: (x) => chooseMake(ctx, st, k, x) });
+    if (!ctx.step?.()) D.pickMake(ctx, k, { title, items: D.craftable(st), onPick: (x) => D.chooseMake(ctx, st, k, x) });
     else
-      pickExt(ctx.root, st, {
+      D.pickExt(ctx.root, st, {
         title,
-        items: craftable(st, true),
+        items: D.craftable(st, true),
         current: sl.sku,
         worker: sl.worker,
-        badge: ctx.step?.() === 'craft' ? { x: skuOf(recommend(st), 'C'), text: t('マインちゃんのおすすめ', 'Mine-chan’s pick') } : null,
-        onPick: (x) => x && chooseMake(ctx, st, k, x),
+        badge: ctx.step?.() === 'craft' ? { x: D.sku(D.recommend(st), 'C'), text: t('マインちゃんのおすすめ', 'Mine-chan’s pick') } : null,
+        onPick: (x) => x && D.chooseMake(ctx, st, k, x),
       });
   }
   // 台の絵を押しても同じ（左：職人・右：作る物）
@@ -255,14 +218,14 @@ function benchView(ctx: Ctx, done: () => void): BenchView {
     }
     ctlSig = sig;
     const apply = (v: number) => {
-      setCraftPlan(st, k, planSnap(v, batch, max));
+      D.setCraftPlan(st, k, planSnap(v, batch, max));
       done();
     };
     const auto = uxToggle({
       label: t('自動製造', 'Auto'),
       value: sl.repeat,
       onChange: (v) => {
-        setAutoCraft(st, k, v);
+        D.setAutoCraft(st, k, v);
         done();
       },
     });
@@ -316,7 +279,7 @@ function benchView(ctx: Ctx, done: () => void): BenchView {
       const st = s();
       const sl = st.slots[k];
       if (!sl) return;
-      const hero = sl.worker != null ? staffOf(st, sl.worker) : null;
+      const hero = sl.worker != null ? D.staffOf(st, sl.worker) : null;
       const { state, err } = benchState(st, sl);
       const tut = ctx.step?.();
       setText(no, String(k + 1));
@@ -327,9 +290,9 @@ function benchView(ctx: Ctx, done: () => void): BenchView {
       if (heroId !== sl.worker) {
         heroId = sl.worker;
         if (sl.worker != null) {
-          heroSp = heroIcon(sl.worker, 64);
+          heroSp = D.heroIcon(sl.worker, 64);
           heroSp.classList.add('ux-hero');
-          heroRight = heroFacesRight(sl.worker);
+          heroRight = D.heroFacesRight(sl.worker);
           whoBox.replaceChildren(heroSp);
         } else {
           heroSp = null;
@@ -337,15 +300,15 @@ function benchView(ctx: Ctx, done: () => void): BenchView {
         }
         hopY = NaN;
       }
-      setText(who, hero ? heroName(hero.hero) : t('職人がいません', 'No crafter yet'));
+      setText(who, hero ? D.heroName(hero.hero) : t('職人がいません', 'No crafter yet'));
       stat.hidden = !hero;
       stamina.el.hidden = !hero;
       if (hero) {
-        const apt = Math.round(aptitude(hero.stats, 'craft'));
-        const r = rankOf(apt);
+        const apt = Math.round(D.aptitude(hero.stats, 'craft'));
+        const r = D.rankOf(apt);
         rank.className = `uxs-rank is-${r.toLowerCase()}`;
-        rank.replaceChildren(el('b', r), num(String(aptShow(apt))));
-        rank.title = t(`製造の適性 ${r} ${aptShow(apt)}`, `Crafting aptitude ${r} ${aptShow(apt)}`);
+        rank.replaceChildren(el('b', r), num(String(D.aptShow(apt))));
+        rank.title = t(`製造の適性 ${r} ${D.aptShow(apt)}`, `Crafting aptitude ${r} ${D.aptShow(apt)}`);
         setText(lv, (hero.level ?? 1) > 1 ? `Lv ${hero.level}` : '');
         const v = hero.stamina / hero.stats.hp;
         stamina.set(v);
@@ -356,12 +319,12 @@ function benchView(ctx: Ctx, done: () => void): BenchView {
       if (itemId !== sl.sku) {
         itemId = sl.sku;
         if (sl.sku) {
-          const ic = skuIcon(sl.sku, 64);
+          const ic = D.skuIcon(sl.sku, 64);
           ic.classList.add('ux-ext');
           itemBox.replaceChildren(ic);
         } else itemBox.replaceChildren(el('span.uxs-bench-none', sIcon('plus', { color: '#4a5486', scale: 3 })));
       }
-      setText(name, sl.sku ? skuName(sl.sku) : t('作る物を選びましょう', 'Choose what to make'));
+      setText(name, sl.sku ? D.skuName(sl.sku) : t('作る物を選びましょう', 'Choose what to make'));
       name.classList.toggle('ux-t-dim', !sl.sku);
       fresh.hidden = !row.classList.contains('is-new');
       // ---- 進みと様子（色だけに頼らない：ランプ・言葉）
@@ -387,28 +350,28 @@ function benchView(ctx: Ctx, done: () => void): BenchView {
       itemKey.classList.toggle('is-hot', tut === 'craft' && k === 0 && sl.worker != null && !sl.sku);
       itemKey.classList.toggle('is-warn', !!sl.sku && !sl.running && !!err);
       // ---- 素材 → 商品（足りない素材は、色・下線・「不足」の言葉で）
-      const recipe = sl.sku ? (Object.entries(recipeOf(sl.sku)) as [Mat, number][]) : [];
-      const sig = sl.sku ? `${sl.sku}|${batchOf(sl.sku, st)}|${recipe.map(([m, q]) => `${m}${(st.mats[m] ?? 0) < q ? '!' : ''}`).join(',')}` : '';
+      const recipe = sl.sku ? (Object.entries(D.recipeOf(sl.sku)) as [Mat, number][]) : [];
+      const sig = sl.sku ? `${sl.sku}|${D.batchOf(sl.sku, st)}|${recipe.map(([m, q]) => `${m}${(st.mats[m] ?? 0) < q ? '!' : ''}`).join(',')}` : '';
       if (sig !== bomSig) {
         bomSig = sig;
         bom.hidden = !sl.sku;
         if (sl.sku) {
-          const out = skuIcon(sl.sku, 32);
+          const out = D.skuIcon(sl.sku, 32);
           out.classList.add('ux-ext');
           bom.replaceChildren(
             ...recipe.map(([m, q]) => {
               const short = (st.mats[m] ?? 0) < q;
-              const c = el(`span.uxs-bom-mat${short ? '.is-short' : ''}`, matIcon(m, 24), num(`×${q}`), short ? el('small', t('不足', 'short')) : null);
-              c.title = `${MATS[m].name} ${st.mats[m] ?? 0}`;
+              const c = el(`span.uxs-bom-mat${short ? '.is-short' : ''}`, D.matIcon(m, 24), num(`×${q}`), short ? el('small', t('不足', 'short')) : null);
+              c.title = `${D.MATS[m].name} ${st.mats[m] ?? 0}`;
               return c;
             }),
             el('span.uxs-bom-arrow', sIcon('next', { color: '#ffb81f', scale: 1 })),
-            el('span.uxs-bom-out', out, num(`×${batchOf(sl.sku, st)}`)),
+            el('span.uxs-bom-out', out, num(`×${D.batchOf(sl.sku, st)}`)),
           );
         }
       }
       // ---- 製造と販売の連動（段 UI5a）：作る物はお店に自動で並ぶ。主力にするかは 1 行で。チュートリアルのあいだは出さない
-      const shops = sl.sku && shelvesAuto(st) ? myShops(st) : [];
+      const shops = sl.sku && D.shelvesAuto(st) ? D.myShops(st) : [];
       const not = shops.filter((b) => st.shops[b.uid]?.shelves[0] !== sl.sku);
       const nsig = shops.length ? `${sl.sku}|${shops.map((b) => b.uid).join(',')}|${not.length}` : '';
       if (nsig !== noteSig) {
@@ -416,7 +379,7 @@ function benchView(ctx: Ctx, done: () => void): BenchView {
         note.hidden = !shops.length;
         if (shops.length && sl.sku) {
           const x = sl.sku;
-          const names = [...new Set(shops.map((b) => DEF[b.id]?.name ?? ''))].join(t('・', ', '));
+          const names = [...new Set(shops.map((b) => D.DEF[b.id]?.name ?? ''))].join(t('・', ', '));
           note.replaceChildren(
             el('span.uxs-make-shop', sIcon('shop', { scale: 1 }), el('span', t(`${names}に自動で並びます`, `Goes on the shelves at ${names}`))),
             not.length
@@ -424,10 +387,10 @@ function benchView(ctx: Ctx, done: () => void): BenchView {
                   t('主力にする', 'Make it the main item'),
                   safe(() => {
                     const cur = s();
-                    const todo = myShops(cur).filter((b) => cur.shops[b.uid]?.shelves[0] !== x);
-                    applyPlan(cur, manualPlan(todo.map((b) => ({ k: 'main' as const, uid: b.uid, x }))));
+                    const todo = D.myShops(cur).filter((b) => cur.shops[b.uid]?.shelves[0] !== x);
+                    D.applyPlan(cur, D.manualPlan(todo.map((b) => ({ k: 'main' as const, uid: b.uid, x }))));
                     uxSfx('confirm');
-                    ctx.toast(t(`${skuName(x)}を ${todo.length} 軒のお店の主力にしました`, `${skuName(x)} is now the main item at ${todo.length} shop(s)`));
+                    ctx.toast(t(`${D.skuName(x)}を ${todo.length} 軒のお店の主力にしました`, `${D.skuName(x)} is now the main item at ${todo.length} shop(s)`));
                     done();
                   }),
                   { cls: 'uxs-make-main' },
@@ -437,7 +400,7 @@ function benchView(ctx: Ctx, done: () => void): BenchView {
         }
       }
       // ---- 止まっている理由（責めない言い方で、次にやることを添える）
-      const reason = err && !sl.running ? (sl.sku ? craftErr(sl.sku, err, st) : (CRAFT_ERR[err] ?? err)) : '';
+      const reason = err && !sl.running ? (sl.sku ? D.craftErr(sl.sku, err, st) : (D.CRAFT_ERR[err] ?? err)) : '';
       why.hidden = !reason;
       if (reason && why.dataset.text !== reason) {
         why.dataset.text = reason;
@@ -466,7 +429,7 @@ interface InvestView {
   el: HTMLElement;
   sync: () => void;
 }
-function investView(ctx: Ctx, x: (typeof INVESTS)[number], ws: () => PBuilding | null, done: () => void): InvestView {
+function investView(ctx: Ctx, x: (typeof D.INVESTS)[number], ws: () => PBuilding | null, done: () => void): InvestView {
   const s = () => ctx.s();
   const lamp = uxLamp('good');
   const pic = el('div.uxs-inv-pic', sIcon(INVEST_ICON[x.id] ?? 'gear', { scale: 4, color: '#97a1cf', hi: '#f4ecd4', lo: '#3a4266' }), lamp);
@@ -487,7 +450,7 @@ function investView(ctx: Ctx, x: (typeof INVESTS)[number], ws: () => PBuilding |
     const st = s();
     const b = ws();
     if (!b || stamping) return;
-    const cost = investCost(b, x.id);
+    const cost = D.investCost(b, x.id);
     if (cost == null || b.left > 0) {
       uxSfx('flap');
       return;
@@ -500,7 +463,7 @@ function investView(ctx: Ctx, x: (typeof INVESTS)[number], ws: () => PBuilding |
       requestAnimationFrame(() => gapMeter.set(gapRatio(st.money, cost)));
       return;
     }
-    const e = invest(st, b.uid, x.id);
+    const e = D.invest(st, b.uid, x.id);
     if (e) {
       uxSfx('deny');
       if (e === 'money') ctx.toast(t('資金が足りません', 'Not enough funds'));
@@ -516,7 +479,7 @@ function investView(ctx: Ctx, x: (typeof INVESTS)[number], ws: () => PBuilding |
     stamping = true;
     ctx.save();
     ctx.refresh();
-    const lvNow = invLv(b, x.id);
+    const lvNow = D.invLv(b, x.id);
     setTimeout(
       () => {
         stamping = false;
@@ -526,7 +489,7 @@ function investView(ctx: Ctx, x: (typeof INVESTS)[number], ws: () => PBuilding |
         // いま点いた段のランプを光らせる
         const lit = pips.children[lvNow - 1] as HTMLElement | undefined;
         if (lit) replay(lit, 'is-new');
-        if (investCost(b, x.id) == null) replay(stamp, 'is-new');
+        if (D.investCost(b, x.id) == null) replay(stamp, 'is-new');
       },
       isCalm() ? 0 : STAMP_MS,
     );
@@ -539,8 +502,8 @@ function investView(ctx: Ctx, x: (typeof INVESTS)[number], ws: () => PBuilding |
       const st = s();
       const b = ws();
       if (!b) return;
-      const lv = invLv(b, x.id);
-      const cost = investCost(b, x.id);
+      const lv = D.invLv(b, x.id);
+      const cost = D.investCost(b, x.id);
       const max = cost == null;
       const busy = b.left > 0;
       card.classList.toggle('is-owned', lv > 0);
@@ -555,12 +518,12 @@ function investView(ctx: Ctx, x: (typeof INVESTS)[number], ws: () => PBuilding |
       }
       stamp.hidden = !max;
       priceRow.hidden = max;
-      if (!max) setText(price, `${fmt(cost)} G`);
+      if (!max) setText(price, `${D.fmt(cost)} G`);
       // 資金が足りないときは、その場で「あと ○○ G」（今の画面と同じ）と目盛り
       const short = !max && !busy && st.money < cost;
       gap.hidden = !short;
       if (short) {
-        setText(gapTxt, t(`あと ${fmt(cost - st.money)} G。売上がたまれば届きます`, `${fmt(cost - st.money)} G to go. Sales will get you there`));
+        setText(gapTxt, t(`あと ${D.fmt(cost - st.money)} G。売上がたまれば届きます`, `${D.fmt(cost - st.money)} G to go. Sales will get you there`));
         gapMeter.set(gapRatio(st.money, cost));
       }
       keyText(buyKey, max ? t('導入済', 'Installed') : busy ? t('工事中', 'Under construction') : t('買う', 'Buy'));
@@ -576,7 +539,7 @@ function investView(ctx: Ctx, x: (typeof INVESTS)[number], ws: () => PBuilding |
 /** 段の形のマス（1×1・1×2・2×2） */
 function shape(lv: number, cls: string) {
   const g = el(`span.uxs-fac-shape.is-s${lv}${cls ? '.' + cls : ''}`);
-  for (let k = 0; k < FACTORY.size[lv]; k++) g.append(el('i'));
+  for (let k = 0; k < D.FACTORY.size[lv]; k++) g.append(el('i'));
   return g;
 }
 function facView(ctx: Ctx): { el: HTMLElement; sync: () => void } {
@@ -586,19 +549,19 @@ function facView(ctx: Ctx): { el: HTMLElement; sync: () => void } {
     el: box,
     sync() {
       const s = ctx.s();
-      const ws = wsAny(s);
+      const ws = D.wsAny(s);
       const show = !!ws && ws.left <= 0 && !ctx.step?.();
       box.hidden = !show;
       if (!show || !ws) return;
-      const cur = facLv(s);
-      const c = upCheck(s);
-      const tip = cur === 0 && c.lv === 1 && (!c.err || c.err === 'money') && benchCount(s) >= 3 && myShops(s).length > 0 && jamOf(s) === 'craft';
-      const here = c.lv && !c.err ? !!upSpots(s, c.lv)[0]?.here : false;
-      const next = `${cur}|${c.lv}|${c.err}|${c.cost}|${c.days}|${ws.up ? `${ws.up.lv}:${ws.up.left}` : ''}|${c.err === 'money' ? s.money : ''}|${tip}|${here}|${c.lv ? benchAfter(s, c.lv) : ''}`;
+      const cur = D.facLv(s);
+      const c = D.upCheck(s);
+      const tip = cur === 0 && c.lv === 1 && (!c.err || c.err === 'money') && D.benchCount(s) >= 3 && D.myShops(s).length > 0 && D.jamOf(s) === 'craft';
+      const here = c.lv && !c.err ? !!D.upSpots(s, c.lv)[0]?.here : false;
+      const next = `${cur}|${c.lv}|${c.err}|${c.cost}|${c.days}|${ws.up ? `${ws.up.lv}:${ws.up.left}` : ''}|${c.err === 'money' ? s.money : ''}|${tip}|${here}|${c.lv ? D.benchAfter(s, c.lv) : ''}`;
       if (next === sig) return;
       sig = next;
       const steps = el('div.uxs-fac-steps', { role: 'list' });
-      FACTORY.name.forEach((nm, lv) => {
+      D.FACTORY.name.forEach((nm, lv) => {
         if (lv) steps.append(el('span.uxs-fac-arrow', sIcon('next', { color: '#97a1cf', scale: 1 })));
         const cls = lv === cur ? 'is-cur' : lv === (ws.up ? ws.up.lv : c.lv) ? 'is-next' : lv < cur ? 'is-done' : '';
         steps.append(el(`span.uxs-fac-step${cls ? '.' + cls : ''}`, { role: 'listitem' }, shape(lv, cls), el('span', nm), lv === cur ? uxTape(t('いま', 'Now'), 'amber') : null));
@@ -607,30 +570,30 @@ function facView(ctx: Ctx): { el: HTMLElement; sync: () => void } {
       if (ws.up) {
         // 建て替えの途中：進みと残りの日数（そのあいだも作り続ける）
         const m = uxMeter(1 - ws.up.left / ws.up.days);
-        kids.push(el('div.uxs-fac-prog', el('span.uxs-fac-run', sIcon('crane', { color: '#ffb81f', scale: 1 }), t(`${FACTORY.name[ws.up.lv]}へ建て替え中`, `Rebuilding into a ${FACTORY.name[ws.up.lv]}`)), m.el, el('span.ux-t-dim', t(`あと ${ws.up.left} 日・作り続けています`, `${ws.up.left}d left · still working`))));
+        kids.push(el('div.uxs-fac-prog', el('span.uxs-fac-run', sIcon('crane', { color: '#ffb81f', scale: 1 }), t(`${D.FACTORY.name[ws.up.lv]}へ建て替え中`, `Rebuilding into a ${D.FACTORY.name[ws.up.lv]}`)), m.el, el('span.ux-t-dim', t(`あと ${ws.up.left} 日・作り続けています`, `${ws.up.left}d left · still working`))));
       } else if (c.lv) {
         const lv = c.lv;
-        const gain = t(`作業台 ${benchAfter(s, lv)} 台・物置 +${FACTORY.pool[lv]}・工期 ${c.days} 日（そのあいだも作り続けます）`, `${benchAfter(s, lv)} benches · storage +${FACTORY.pool[lv]} · ${c.days} days (keeps working)`);
+        const gain = t(`作業台 ${D.benchAfter(s, lv)} 台・物置 +${D.FACTORY.pool[lv]}・工期 ${c.days} 日（そのあいだも作り続けます）`, `${D.benchAfter(s, lv)} benches · storage +${D.FACTORY.pool[lv]} · ${c.days} days (keeps working)`);
         kids.push(el('p.uxs-fac-gain', gain));
         if (c.err) {
-          kids.push(el('p.uxs-why', sIcon('warn', { scale: 1 }), el('span', upWhy(s, c.err, lv, c.cost, c.days))));
+          kids.push(el('p.uxs-why', sIcon('warn', { scale: 1 }), el('span', D.upWhy(s, c.err, lv, c.cost, c.days))));
           if (c.err === 'money') {
             const m = uxMeter(gapRatio(s.money, c.cost));
             kids.push(el('div.uxs-inv-gap', m.el));
           }
         } else kids.push(el('p.ux-t-dim', here ? t('となりが空いているので、その場で広げられます', 'The lot next door is free: it can grow in place') : t('となりが空いていないので、光った場所へ移って建て替えます', 'No room next door: it moves to a glowing spot')));
-        const label = el('span.uxs-fac-go-l', el('b', t(`${FACTORY.name[lv]}にする（${FACTORY.shape[lv]}）`, `Make it a ${FACTORY.name[lv]} (${FACTORY.shape[lv]})`)), el('span.ux-num', `${fmt(c.cost)} G`));
+        const label = el('span.uxs-fac-go-l', el('b', t(`${D.FACTORY.name[lv]}にする（${D.FACTORY.shape[lv]}）`, `Make it a ${D.FACTORY.name[lv]} (${D.FACTORY.shape[lv]})`)), el('span.ux-num', `${D.fmt(c.cost)} G`));
         const go = uxKey(
           label,
           safe(() => {
-            if (upCheck(ctx.s()).err) return uxSfx('deny');
+            if (D.upCheck(ctx.s()).err) return uxSfx('deny');
             ctx.rebuild?.();
           }),
           { kind: c.err ? '' : 'main', big: true, cls: 'uxs-fac-go', strong: true, disabled: !!c.err && c.err !== 'money' },
         );
         if (c.err === 'money') go.setAttribute('data-ux-quiet', '');
         kids.push(go);
-      } else kids.push(el('p.ux-t-dim', upWhy(s, 'max', null, 0, 0)));
+      } else kids.push(el('p.ux-t-dim', D.upWhy(s, 'max', null, 0, 0)));
       // マインちゃんの助言（作業台が 3 台で製造が詰まっているとき）
       if (tip) kids.push(el('p.uxs-fac-tip', uxTape(t('マインちゃん', 'Mine-chan'), 'amber'), el('span', t('工房を町工場に建て替えると、作業台が 4 台になるよ', 'Rebuild into a town factory and you get 4 benches'))));
       box.replaceChildren(...kids.filter((x): x is HTMLElement => !!x));
@@ -649,15 +612,15 @@ export function openWorkshopUx(ctx: Ctx, o: WsOpt) {
     const free = s0.slots.findIndex((sl) => !sl.sku);
     if (free >= 0) {
       made = free;
-      chooseMake(ctx, s0, free, o.make);
+      D.chooseMake(ctx, s0, free, o.make);
     }
   }
   let view: ReturnType<typeof build> | null = null;
   // 段 FACTORY1a：見出しは段の名前（工房・町工場・大工場）
-  const wsT = wsAny(s0);
-  open(
+  const wsT = D.wsAny(s0);
+  D.open(
     ctx,
-    wsT ? bName(wsT) : t('工房', 'Workshop'),
+    wsT ? D.bName(wsT) : t('工房', 'Workshop'),
     (body) => {
       view ??= build(ctx, body);
       view.sync();
@@ -675,13 +638,13 @@ export function openWorkshopUx(ctx: Ctx, o: WsOpt) {
       const x = o.make;
       const onPick = (p: Sku | null) => {
         if (!p) return;
-        chooseMake(ctx, s0, 0, p);
+        D.chooseMake(ctx, s0, 0, p);
         v.show('bench', '.uxs-bench[data-bench="0"] .uxs-ctl');
       };
       const badge = { x, text: o.from ?? t('市場データで選んだ', 'Picked from market data') };
       const note = t('作業台は全部ふさがっています。作業台 1 の作るものを替えるなら、ここで選びましょう。', 'Every bench is busy. Choose here to switch what bench 1 makes.');
-      if (!ctx.step?.()) pickMake(ctx, 0, { title: t('作業台 1 で作るもの', 'What bench 1 makes'), items: craftable(s0), badge, note, onPick });
-      else pickExt(ctx.root, s0, { title: t('作業台 1 で作るもの', 'What bench 1 makes'), items: craftable(s0, true), current: s0.slots[0].sku, worker: s0.slots[0].worker, badge, note, onPick });
+      if (!ctx.step?.()) D.pickMake(ctx, 0, { title: t('作業台 1 で作るもの', 'What bench 1 makes'), items: D.craftable(s0), badge, note, onPick });
+      else D.pickExt(ctx.root, s0, { title: t('作業台 1 で作るもの', 'What bench 1 makes'), items: D.craftable(s0, true), current: s0.slots[0].sku, worker: s0.slots[0].worker, badge, note, onPick });
     }
   }
 }
@@ -728,8 +691,8 @@ function build(ctx: Ctx, body: HTMLElement) {
   );
   // ---- 工房の絵（今の画面と同じ絵：工房の中・炉の火のゆらぎ・魔法の釜を持っていれば釜）。細い帯にして、作業台を上に見せる
   const scene = el('div.uxs-scene', { 'aria-hidden': 'true' });
-  scene.style.backgroundImage = `url("${assetUrl('mch/Image/CraftBackgrounds/Base/100.webp')}")`;
-  const amb = el<HTMLImageElement>('img.uxs-scene-amb', { alt: '', src: assetUrl('mch/Image/CraftBackgrounds/Base/200.gif') });
+  scene.style.backgroundImage = `url("${D.assetUrl('mch/Image/CraftBackgrounds/Base/100.webp')}")`;
+  const amb = el<HTMLImageElement>('img.uxs-scene-amb', { alt: '', src: D.assetUrl('mch/Image/CraftBackgrounds/Base/200.gif') });
   const pot = el<HTMLImageElement>('img.uxs-scene-pot', { alt: '', hidden: true });
   scene.append(amb, pot);
   const paneBench = el('div.ux-pane.uxs-pane', scene, benchBox, belt, store);
@@ -746,7 +709,7 @@ function build(ctx: Ctx, body: HTMLElement) {
   // ---- 設備投資のタブ（建て替え・設備）
   const fac = facView(ctx);
   const invBox = el('div.uxs-invs');
-  const invs: InvestView[] = INVESTS.filter((x) => x.kind === 'workshop').map((x) => investView(ctx, x, () => wsAny(s()), done));
+  const invs: InvestView[] = D.INVESTS.filter((x) => x.kind === 'workshop').map((x) => investView(ctx, x, () => D.wsAny(s()), done));
   invBox.append(...invs.map((v) => v.el));
   const paneInvest = el(
     'div.ux-pane.uxs-pane',
@@ -817,7 +780,7 @@ function build(ctx: Ctx, body: HTMLElement) {
     flowT += dt;
     if (flowT < 2400) return;
     flowT = 0;
-    const it = skuIcon(stock[flowK++ % stock.length][0], 32);
+    const it = D.skuIcon(stock[flowK++ % stock.length][0], 32);
     it.classList.add('ux-ext', 'uxs-belt-item');
     track.append(it);
     const w = track.clientWidth + 40;
@@ -834,7 +797,7 @@ function build(ctx: Ctx, body: HTMLElement) {
     const st = s();
     const tut = !!ctx.step?.();
     // ---- 見出し
-    const ws = wsAny(st);
+    const ws = D.wsAny(st);
     const [nm, sub] = wsTitle(ws);
     if (h2) setText(h2, nm);
     setText(tape, sub);
@@ -845,7 +808,7 @@ function build(ctx: Ctx, body: HTMLElement) {
     run.classList.toggle('is-idle', !anyRun || !!ws?.up);
     // ---- チュートリアルの一言（画面の下）と、閉じたあとの「いまやること」
     tipBox.replaceChildren();
-    mineTip(ctx, 'workshop', tipBox);
+    D.mineTip(ctx, 'workshop', tipBox);
     // ---- タブ（チュートリアルのあいだは設備投資を出さない）
     const shown = wsTabs(tut);
     for (const x of tabKeys) x.b.hidden = !shown.includes(x.key);
@@ -864,8 +827,8 @@ function build(ctx: Ctx, body: HTMLElement) {
       b.sync(k);
     });
     // ---- 魔法の釜（スキル）を持っていれば、絵に釜が出る（今の画面と同じ）
-    if (has(st, 'pot') && pot.hidden) {
-      pot.src = assetUrl('mch/Image/CraftBackgrounds/Stages/201.gif');
+    if (D.has(st, 'pot') && pot.hidden) {
+      pot.src = D.assetUrl('mch/Image/CraftBackgrounds/Stages/201.gif');
       pot.hidden = false;
     }
     // ---- 出荷のベルトと物置
@@ -873,11 +836,11 @@ function build(ctx: Ctx, body: HTMLElement) {
     const total = entries.reduce((a, [, n]) => a + n, 0);
     shipped.set(total, { dur: 300 });
     belt.classList.toggle('is-idle', !entries.length);
-    const used = poolUsed(st);
-    const cap = poolCap(st);
+    const used = D.poolUsed(st);
+    const cap = D.poolCap(st);
     poolMeter.set(used / Math.max(1, cap));
     poolMeter.el.classList.toggle('is-full', used >= cap);
-    setText(poolTxt, `${fmt(used)}/${fmt(cap)}`);
+    setText(poolTxt, `${D.fmt(used)}/${D.fmt(cap)}`);
     poolTxt.classList.toggle('ux-t-bad', used >= cap);
     const ssig = entries.map(([x, n]) => `${x}:${n}`).join(',');
     if (ssig !== stockSig || !chips.childElementCount) {
@@ -885,9 +848,9 @@ function build(ctx: Ctx, body: HTMLElement) {
       chips.replaceChildren(
         ...(entries.length
           ? entries.map(([x, n]) => {
-              const ic = skuIcon(x, 32);
+              const ic = D.skuIcon(x, 32);
               ic.classList.add('ux-ext');
-              return el('span.uxs-chip', ic, el('span', skuName(x)), num(`×${n}`));
+              return el('span.uxs-chip', ic, el('span', D.skuName(x)), num(`×${n}`));
             })
           : [el('span.ux-t-dim', t('まだありません', 'Nothing yet'))]),
       );
@@ -895,13 +858,13 @@ function build(ctx: Ctx, body: HTMLElement) {
     // ---- 見くらべ（作れるものを先に。技がまだのものはうしろ）：見ているときだけ組み直す
     if (tabNow === 'cmp') {
       const w0 = st.slots[0]?.worker ?? null;
-      const list = [...craftable(st, tut)].sort((a, b) => Number(craftCheck(st, a, null) === 'tech') - Number(craftCheck(st, b, null) === 'tech') || profitPerDay(st, b) - profitPerDay(st, a));
-      const okList = list.filter((x) => lotsFromStock(st, x) > 0 && !craftCheck(st, x, w0));
+      const list = [...D.craftable(st, tut)].sort((a, b) => Number(D.craftCheck(st, a, null) === 'tech') - Number(D.craftCheck(st, b, null) === 'tech') || D.profitPerDay(st, b) - D.profitPerDay(st, a));
+      const okList = list.filter((x) => D.lotsFromStock(st, x) > 0 && !D.craftCheck(st, x, w0));
       const csig = `${list.join(',')}|${okList[0] ?? ''}|${w0}|${st.slots.map((sl) => sl.sku).join(',')}|${JSON.stringify(st.mats)}|${st.money}`;
       if (csig !== cmpSig) {
         cmpSig = csig;
         const y = paneCmp.scrollTop;
-        cmpGrid.replaceChildren(...list.map((x) => extCard(st, x, { worker: w0, best: x === okList[0], on: st.slots.some((sl) => sl.sku === x), onTap: () => chooseMake(ctx, st, 0, x) })));
+        cmpGrid.replaceChildren(...list.map((x) => D.extCard(st, x, { worker: w0, best: x === okList[0], on: st.slots.some((sl) => sl.sku === x), onTap: () => D.chooseMake(ctx, st, 0, x) })));
         paneCmp.scrollTop = y;
       }
     }

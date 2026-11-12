@@ -146,7 +146,6 @@ import { adBreakeven, adGain } from './moves';
 import { craftable, shopInvestOrder } from './orders';
 import { charismaCard, charismaNeeds, openPayroll as openPayrollHr } from './hrui';
 import { hireEmptyLines } from './hr';
-import { uxOn } from '../uix/flag';
 import { uxs } from '../uix/screens/s-slots';
 
 export interface Ctx {
@@ -2236,5 +2235,3 @@ export function openInvest(ctx: Ctx) {
 
 export const P1B_NAME = (id: string) => (P1B[id] ? DEF[id].name : id);
 void isEn;
-// 段 UIX2s：入のときだけ、新しい画面（工房の札・月次報告）を読む。切のときは読まない
-if (uxOn()) void import('../uix/screens/s-boot');

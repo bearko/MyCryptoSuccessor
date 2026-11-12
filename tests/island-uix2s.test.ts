@@ -11,6 +11,8 @@ import { openWorkshop, type Ctx } from '../src/island/p1/screens';
 import { UX_ICONS } from '../src/island/uix/icons';
 import { COUNT_MS, FEED_MS, RANGE_KEY, barBox, growStreak, manText, niceMax, noEmoji, paperCore, rankMove, rankOrder, readRange, reportPages } from '../src/island/uix/screens/report';
 import { S_ICONS } from '../src/island/uix/screens/s-icons';
+import { uxsDeps } from '../src/island/p1/uxs';
+import { setDeps } from '../src/island/uix/screens/s-deps';
 import { uxs } from '../src/island/uix/screens/s-slots';
 import { STAMP_MS, TAB_MS, benchProgress, benchState, gapRatio, planRange, planSnap, planText, wsTabs, wsTitle } from '../src/island/uix/screens/workshop';
 
@@ -19,6 +21,8 @@ const WS = src('uix/screens/workshop.ts');
 const RP = src('uix/screens/report.ts');
 const CSS = ['workshop.css', 'report.css'].map((f) => [f, src(`uix/screens/${f}`).replace(/\/\*[\s\S]*?\*\//g, '')] as const);
 
+// 新しい画面は、本体の関数を束で受け取る（本番では p1/uxs.ts の loadUxs が渡す）
+setDeps(uxsDeps);
 afterEach(() => {
   for (const k of Object.keys(uxs)) delete (uxs as Record<string, unknown>)[k];
 });
@@ -38,14 +42,26 @@ const fakeCtx = (s: P1State): Ctx => ({ s: () => s, root: {} as HTMLElement, sav
 describe('切り替え：入のときだけ新しい画面に分かれる（切のときは今の画面のまま）', () => {
   it('差し込み口は、はじめは空。入のときだけ s-boot.ts を動的に読む（切のときは読まない）', () => {
     expect(Object.keys(uxs)).toEqual([]);
-    const sc = src('p1/screens.ts');
-    expect(sc).toMatch(/if \(uxOn\(\)\) void import\('\.\.\/uix\/screens\/s-boot'\);/);
+    expect(src('p1/main.ts')).toContain('if (uxOn()) void loadUxs();');
+    expect(src('p1/uxs.ts')).toMatch(/export const loadUxs = \(\) => import\('\.\.\/uix\/screens\/s-boot'\)\.then\(\(m\) => m\.install\(uxsDeps\)\);/);
     // 入口のほかに、本体から新しい画面を直接読んでいる所は無い（切のときに読み込まれない）
-    for (const f of ['p1/screens.ts', 'p1/report.ts', 'p1/main.ts', 'p1/factoryui.ts']) expect(src(f), f).not.toMatch(/from '\.\.\/uix\/screens\/(?!s-slots')/);
+    for (const f of ['p1/screens.ts', 'p1/report.ts', 'p1/main.ts', 'p1/factoryui.ts', 'p1/uxs.ts']) expect(src(f), f).not.toMatch(/from '\.\.\/uix\/screens\/(?!s-slots')/);
     // 差し込み口のファイルは、型だけを読む（切のときも増えるのは数行）
     expect(src('uix/screens/s-slots.ts').match(/^import (?!type )/gm)).toBeNull();
     const boot = src('uix/screens/s-boot.ts');
     for (const k of ['workshop', 'report', 'digSummary']) expect(boot).toContain(`uxs.${k} = `);
+  });
+  it('新しい画面の束は、本体のモジュールを自分では読まない（型だけ。本体の束の分かれ方を変えない）。関数は p1/uxs.ts から渡す', () => {
+    for (const f of ['workshop.ts', 'report.ts', 's-boot.ts', 's-deps.ts', 's-icons.ts', 's-press.ts']) {
+      const code = src(`uix/screens/${f}`);
+      for (const m of code.matchAll(/^import (type )?[^;]*? from '([^']+)';/gms)) {
+        const outside = /^\.\.\/\.\.\//.test(m[2]);
+        // uix の外から読んでよいのは、型と、もともと別の束になっている i18n だけ
+        if (outside && !m[1]) expect(m[2], `${f}: ${m[0].slice(0, 60)}`).toBe('../../../i18n');
+      }
+    }
+    // 渡す束に、新しい画面が使う名前が全部ある
+    for (const code of [WS, RP]) for (const m of code.matchAll(/\bD\.([A-Za-z_]\w*)/g)) expect(Object.keys(uxsDeps), m[1]).toContain(m[1]);
   });
   it('工房：差し込み口が入っていれば、今の画面を作らずにそちらへ渡す（開き方はそのまま渡る）', () => {
     const s = town();
@@ -80,8 +96,8 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
 
 describe('今の目印が残る（チュートリアル・BGM の場面・撮影の道具が見ている所）', () => {
   it('工房：今の札の器（open()）で開く。✕ は今のキーのまま。強調は is-hot、一言は mineTip の「workshop」', () => {
-    expect(WS).toMatch(/open\(\s*ctx,/);
-    expect(WS).toContain("mineTip(ctx, 'workshop', tipBox)");
+    expect(WS).toMatch(/D\.open\(\s*ctx,/);
+    expect(WS).toContain("D.mineTip(ctx, 'workshop', tipBox)");
     // 1 か月目の強調：作業台 1 の職人（いないとき）→ 作る物（職人がいて、まだ決めていないとき）。今の画面と同じ条件
     expect(WS).toContain("whoKey.classList.toggle('is-hot', tut === 'craft' && k === 0 && sl.worker == null)");
     expect(WS).toContain("itemKey.classList.toggle('is-hot', tut === 'craft' && k === 0 && sl.worker != null && !sl.sku)");
@@ -136,7 +152,7 @@ describe('出す中身が、今の画面とそろう（主な項目）', () => {
       expect(RP, k).toContain(k);
     }
     // 導線は、今と同じ口へ
-    for (const k of ['hooks.openSkills(STAGE_BRANCH[bn])', 'hooks.openRanking()', 'hooks.openSupply()', 'hooks.openTrade?.()', 'hooks.openNotes?.()', 'hooks.openGrowth?.()', 'hooks.openProps?.()', 'hooks.openPay?.()', 'hooks.openCs?.()', 'hooks.openLegal?.()', 'hooks.openDiplo?.()', 'hooks.openProposal?.(', 'hooks.detail()']) expect(RP, k).toContain(k);
+    for (const k of ['hooks.openSkills(D.STAGE_BRANCH[bn])', 'hooks.openRanking()', 'hooks.openSupply()', 'hooks.openTrade?.()', 'hooks.openNotes?.()', 'hooks.openGrowth?.()', 'hooks.openProps?.()', 'hooks.openPay?.()', 'hooks.openCs?.()', 'hooks.openLegal?.()', 'hooks.openDiplo?.()', 'hooks.openProposal?.(', 'hooks.detail()']) expect(RP, k).toContain(k);
     // 同じ数え方（今の関数をそのまま使う）
     for (const k of ['reportJam(', 'cashGap(', 'salesParts(', 'costParts(', 'monthFall(', 'moneyCandles(', 'reportProposal(', 'whatIf(', 'bestSell(', 'levelUpText(', 'clearCondText(']) expect(RP, k).toContain(k);
   });
@@ -368,7 +384,7 @@ describe('アイコンと CSS の決まり', () => {
     for (const m of RP.matchAll(/ico: '(\w+)'/g)) expect(all.has(m[1]), m[1]).toBe(true);
   });
   it('セレクタはすべて .is-uxc の内側。角は丸めない。字は 1rem（16px）から。新しい class は uxs- で、今の CSS とぶつからない', () => {
-    const old = ['island.css', 'p1/p1.css', 'p1/p2.css', 'p1/factory.css', 'p1/ui8.css', 'uix/parts.css', 'uix/legacy.css', 'uix/base.css'].map((f) => src(f)).join('\n');
+    const old = ['island.css', 'p1/p1.css', 'p1/p2.css', 'p1/factory.css', 'p1/ui8.css', 'uix/parts.css', 'uix/legacy.css', 'uix/base.css', 'uix/kit.css', 'uix/audio/book.css'].map((f) => src(f)).join('\n');
     for (const [f, css] of CSS) {
       let depth = 0;
       let inKeyframes = -1;
