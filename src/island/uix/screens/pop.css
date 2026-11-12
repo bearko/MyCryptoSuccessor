@@ -334,3 +334,10 @@ html.is-uxc #isl-ui.uxm-on .uxm-pop-data .isl-pop-confirm {
 html.is-uxc.is-calm #isl-ui.uxm-on .uxm-pop-stage .isl-btn.is-guide {
   animation: none;
 }
+
+/* ---------- 札が地図を覆っているあいだ：広い画面では今の決まりで吹き出しが開いたまま残るので、
+   札の後ろから半分のぞかないよう隠す（札を閉じると、そのまま戻る） */
+html.is-uxc #isl-ui.uxm-on.uxm-rest .uxm-pop-stage,
+html.is-uxc #isl-ui.uxm-on.uxm-rest .uxm-pop-dim {
+  visibility: hidden;
+}
