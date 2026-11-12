@@ -137,7 +137,7 @@ function build(ctx: Ctx, uid: number) {
           const hot = ctx.step?.() === 'sell' && k === 0 && !y;
           const label = k === 0 ? t('主力商品', 'Main') : t(`棚 ${k + 1}`, `Shelf ${k + 1}`);
           // 今の目印（isl-slot・isl-ext-slot・is-empty・is-warn・is-hot）を、キーに同じ意味で付ける
-          const pick = uxKey(y ? t('替える', 'Change') : t('選ぶ', 'Choose'), () => B.pickShelf(ctx, uid, k, () => done(ctx), B.shelfMoved(ctx)), { cls: `uxb-slot-key isl-slot isl-ext-slot${y ? '' : ' is-empty'}${look === 'out' ? ' is-warn' : ''}${hot ? ' is-hot' : ''}`, attrs: { 'aria-label': `${label}: ${y ? t('替える', 'Change') : t('選ぶ', 'Choose')}` } });
+          const pick = uxKey(y ? t('替える', 'Change') : t('選ぶ', 'Choose'), () => B.pickShelf(ctx, uid, k, () => done(ctx), B.shelfMoved(ctx)), { cls: `uxb-slot-key isl-slot isl-ext-slot${y ? '' : ' is-empty'}${look === 'out' ? ' is-warn' : ''}${hot ? ' is-hot' : ''}`, attrs: { 'aria-label': t(`${label}：${y ? '替える' : '選ぶ'}`, `${label}: ${y ? 'Change' : 'Choose'}`) } });
           const card = el(`div.uxb-shelf.is-${look}${k === 0 ? '.is-main' : ''}`, { 'data-shelf': String(k) }, el('span.uxb-shelf-label', k === 0 ? uxTape([bIcon('target', { color: '#1a1c2e', hi: '#1a1c2e', lo: '#7a3f06', scale: 1 }), el('b', label)], 'amber') : uxTape(label, 'dark')));
           if (y) {
             const shelfOdo = rollNumber(`b.shelf.${uid}.${k}.on`, on, { digits: 3, size: 's' });

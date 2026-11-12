@@ -131,7 +131,7 @@ export interface SlotOpts {
  */
 export function heroSlot(s: P1State, o: SlotOpts): HTMLElement {
   const st = o.hero != null ? B.staffOf(s, o.hero) : null;
-  const key = uxKey(st ? t('かえる', 'Change') : (o.empty ?? t('人を置く', 'Assign')), () => o.onTap(), { cls: `uxb-slot-key isl-slot${st ? '' : ' is-empty'}${o.hot ? ' is-hot' : ''}`, attrs: { 'aria-label': `${o.label}: ${st ? t('かえる', 'Change') : t('人を置く', 'Assign')}` } });
+  const key = uxKey(st ? t('かえる', 'Change') : (o.empty ?? t('人を置く', 'Assign')), () => o.onTap(), { cls: `uxb-slot-key isl-slot${st ? '' : ' is-empty'}${o.hot ? ' is-hot' : ''}`, attrs: { 'aria-label': t(`${o.label}：${st ? 'かえる' : '人を置く'}`, `${o.label}: ${st ? 'Change' : 'Assign'}`) } });
   const box = el(`div.uxb-slot${st ? '' : '.is-empty'}${o.cls ? '.' + o.cls : ''}`, el('span.uxb-slot-label', o.label));
   if (st) {
     const stamina = uxMeter(st.stamina / st.stats.hp, 'good');

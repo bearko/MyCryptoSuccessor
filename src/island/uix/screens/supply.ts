@@ -525,10 +525,9 @@ function build(ctx: Ctx) {
   const how = fold(
     t('数字の見方', 'How to read the numbers'),
     (box) => {
-      const p = (ja: string, en: string) => el('p.uxb-how', t(ja, en));
       box.append(
-        p('4 つの段を商品が流れます。数字は、その段がひと月に流せる商品の数です。数字は大きいほどよく、いちばん小さい段が詰まり（赤いランプと「詰まり」の札）。詰まりの段より多くは売れないので、そこを太くするのが近道。全部をそろえる必要はなく、詰まりを順に直していきましょう。', 'Goods flow through four stages. Each number is how many products that stage can move per month. Bigger is better; the smallest stage is the jam (red lamp and the Jam tag). You can’t sell more than the jam allows, so widen it first. No need to even out everything — fix the jams one by one.'),
-        p('④ 販売は「並べている商品の需要のうち自社が取れる数」（とお店の品出しの速さの小さいほう）。棚やお店を増やしただけでは増えず、別の商品・遠い家の近くの 2 軒目・売り場の強さ・認知で増えます。', '④ Sell is how much of your items’ demand you can take (or how fast shops shelve, whichever is smaller). More shelves or shops alone won’t raise it; another item, a 2nd shop near far homes, stronger shops, or awareness will.'),
+        el('p.uxb-how', t('4 つの段を商品が流れます。数字は、その段がひと月に流せる商品の数です。数字は大きいほどよく、いちばん小さい段が詰まり（赤いランプと「詰まり」の札）。詰まりの段より多くは売れないので、そこを太くするのが近道。全部をそろえる必要はなく、詰まりを順に直していきましょう。', 'Goods flow through four stages. Each number is how many products that stage can move per month. Bigger is better; the smallest stage is the jam (red lamp and the Jam tag). You can’t sell more than the jam allows, so widen it first. No need to even out everything — fix the jams one by one.')),
+        el('p.uxb-how', t('④ 販売は「並べている商品の需要のうち自社が取れる数」（とお店の品出しの速さの小さいほう）。棚やお店を増やしただけでは増えず、別の商品・遠い家の近くの 2 軒目・売り場の強さ・認知で増えます。', '④ Sell is how much of your items’ demand you can take (or how fast shops shelve, whichever is smaller). More shelves or shops alone won’t raise it; another item, a 2nd shop near far homes, stronger shops, or awareness will.')),
       );
     },
     { ico: 'info', open: typeof innerWidth === 'number' && innerWidth >= 600 },
@@ -585,7 +584,7 @@ function build(ctx: Ctx) {
       c.odo.el.hidden = caps[k].stopped;
       c.stop.hidden = !caps[k].stopped;
       if (!caps[k].stopped) c.odo.set(caps[k].perMonth, { dur: grown ? 500 : 900, onTick: () => uxSfx('tick') });
-      c.key.setAttribute('aria-label', `${B.STAGE[k].n} ${B.STAGE[k].name}: ${B.LAMP_NAME[is[k].lamp]}, ${caps[k].stopped ? t('止まっている', 'Stopped') : t(`ひと月 ${caps[k].perMonth} 個`, `${caps[k].perMonth} per month`)}${k === bn ? t('・詰まり', ', jam') : ''}`);
+      c.key.setAttribute('aria-label', B.STAGE[k].n + ' ' + B.STAGE[k].name + t('：', ': ') + B.LAMP_NAME[is[k].lamp] + t('・', ', ') + (caps[k].stopped ? t('止まっている', 'Stopped') : t(`ひと月 ${caps[k].perMonth} 個`, `${caps[k].perMonth} per month`)) + (k === bn ? t('・詰まり', ', jam') : ''));
       // ベルト：点の数が変わったときだけ作り直す（流れを切らない）
       if (c.dots !== dots[k]) {
         c.dots = dots[k];

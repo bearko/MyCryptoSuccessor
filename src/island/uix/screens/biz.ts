@@ -233,7 +233,7 @@ export function openSalesUx(ctx: Ctx) {
           r.shelves.map((x, k) => {
             const out = !!x && (sh.shelf[x] ?? 0) <= 0 && (sh.storage[x] ?? 0) <= 0;
             const label = k === 0 ? t('主力', 'Main') : t(`棚 ${k + 1}`, `Shelf ${k + 1}`);
-            return uxKey(el('span.uxb-shelfkey', el('span.uxb-cap', label), x ? skuPic(x, 32) : bIcon('plus', { color: '#97a1cf', scale: 2 }), el('b', x ? B.skuName(x) : t('空き', 'Empty')), out ? el('span.uxb-chip-w', t('品切れ', 'Out')) : null), () => B.pickShelf(ctx, r.uid, k, after, B.shelfMoved(ctx)), { cls: `uxb-shelfkey-k${x ? '' : ' is-empty'}${out ? ' is-warn' : ''}`, attrs: { 'aria-label': `${label}: ${x ? B.skuName(x) : t('空き', 'Empty')}` } });
+            return uxKey(el('span.uxb-shelfkey', el('span.uxb-cap', label), x ? skuPic(x, 32) : bIcon('plus', { color: '#97a1cf', scale: 2 }), el('b', x ? B.skuName(x) : t('空き', 'Empty')), out ? el('span.uxb-chip-w', t('品切れ', 'Out')) : null), () => B.pickShelf(ctx, r.uid, k, after, B.shelfMoved(ctx)), { cls: `uxb-shelfkey-k${x ? '' : ' is-empty'}${out ? ' is-warn' : ''}`, attrs: { 'aria-label': t(`${label}：${x ? B.skuName(x) : '空き'}`, `${label}: ${x ? B.skuName(x) : 'Empty'}`) } });
           }),
         ),
         // 数字：今月の売上・売れる見込み・認知度
