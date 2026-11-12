@@ -507,6 +507,8 @@ html.is-uxc #isl-ui .isl-sheet-box > .isl-dband :is(span, small, b, button) {
   line-height: 1.4;
 }
 html.is-uxc #isl-ui .isl-sheet-box > .isl-dband :is(.isl-dband-go, button.isl-dband-lead) {
+  flex: none;
+  min-width: 44px;
   min-height: 44px;
   padding: 0 10px;
   border: 0;
