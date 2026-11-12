@@ -32,6 +32,13 @@ export function shake(e: Element | null) {
 export const PRESS_MIN_MS = 70;
 /** press() を通したキーに付く目印（class の接頭辞が ux-・uxp-・uxs-・uxm-・uxc- のどれでも同じに扱うため） */
 export const KEY_ATTR = 'data-ux-key';
+/** 押した所が、b の中に置いた別のキー・ボタン・入力か（押せるカードの中のキーを押したとき、カードまで動かさないため） */
+export function innerKey(b: Element, target: EventTarget | null): boolean {
+  const t = target as { closest?: (sel: string) => Element | null } | null;
+  if (!t || typeof t.closest !== 'function') return false;
+  const inner = t.closest('button, a, input, select, [data-ux-key], [role="switch"], [role="slider"]');
+  return !!inner && inner !== b && b.contains(inner);
+}
 /** 続く click を呑む間（ms）と、同じ場所とみなす幅（px） */
 export const SWALLOW_MS = 400;
 export const SWALLOW_PX = 24;
@@ -88,6 +95,8 @@ export function press<T extends HTMLElement>(b: T, fn?: (b: T) => void, opt: { s
   };
   b.addEventListener('pointerdown', (e) => {
     if (off() || e.button > 0) return;
+    // 中に置いたキー・ボタンを押したときは、外側（押せるカードなど）は動かさない
+    if (innerKey(b, e.target)) return;
     down();
     try {
       b.setPointerCapture(e.pointerId);

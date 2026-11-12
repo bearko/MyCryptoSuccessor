@@ -39,7 +39,7 @@ html.is-uxc #isl-ui .isl-modal.uxc-talk > .uxc-talk-pop {
   width: min(520px, 100%);
   /* 立ち絵が枠の上へはみ出すぶん */
   padding-top: 86px;
-  animation: uxc-talk-in 260ms steps(7, end) both;
+  animation: uxc-talk-in 260ms steps(7, end) backwards;
   transform-origin: 20% 100%;
 }
 @keyframes uxc-talk-in {
@@ -166,7 +166,7 @@ html.is-uxc #isl-ui .isl-modal.uxc-talk > .uxc-talk-stage[hidden] {
   display: none;
 }
 html.is-uxc #isl-ui .isl-modal.uxc-talk > .uxc-talk-stage.is-in {
-  animation: ux-key-in 220ms steps(5, end) both;
+  animation: ux-key-in 220ms steps(5, end) backwards;
 }
 html.is-uxc #isl-ui .uxc-talk-stage .isl-crew {
   gap: 6px;

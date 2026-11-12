@@ -15,7 +15,7 @@ import { uxsBoot } from '../src/island/uix/screens/s-slots';
 import { MINE_SIZE, lightTalk, richParts, speakerOf, tapAct, voiceOf } from '../src/island/uix/screens/talk';
 import { UX_ICONS } from '../src/island/uix/icons';
 import { FRONT_SEL } from '../src/island/uix/front';
-import { KEY_ATTR, SWALLOW_MS, SWALLOW_PX, swallowHit } from '../src/island/uix/parts';
+import { KEY_ATTR, SWALLOW_MS, SWALLOW_PX, innerKey, swallowHit } from '../src/island/uix/parts';
 import { UXP_DRAWER_IN_MS, UXP_DRAWER_OUT_MS, UXP_STAMP_MS, UXP_TAB_MS, uxpGapRatio, uxpGapText, uxpNiceMax, uxpShort } from '../src/island/uix/sparts';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
@@ -132,6 +132,17 @@ describe('土台の直し', () => {
     expect(swallowHit(100, 200, 100, 200, 0)).toBe(false);
     const parts = src('uix/parts.ts');
     expect(parts).toMatch(/if \(hit && isDown\) swallowClick\(e\.clientX, e\.clientY\);\s*up\(hit\);/);
+  });
+  it('押せるカードの中に置いたキーを押しても、カードは動かない（中のキーだけが動く）', () => {
+    const key = { closest: () => key, tag: 'key' } as unknown as Element;
+    const card = { contains: (x: unknown) => x === key } as unknown as Element;
+    expect(innerKey(card, key)).toBe(true);
+    // カードそのもの・カードの外の物・相手が要素でないとき
+    expect(innerKey(card, { closest: () => card } as unknown as Element)).toBe(false);
+    expect(innerKey(card, { closest: () => ({}) } as unknown as Element)).toBe(false);
+    expect(innerKey(card, { closest: () => null } as unknown as Element)).toBe(false);
+    expect(innerKey(card, null)).toBe(false);
+    expect(src('uix/parts.ts')).toContain('if (innerKey(b, e.target)) return;');
   });
   it('キーの初期化と手応えは、class の接頭辞に関係なく効く（press() を通したキーの目印 data-ux-key）', () => {
     expect(KEY_ATTR).toBe('data-ux-key');

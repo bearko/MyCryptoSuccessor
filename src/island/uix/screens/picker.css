@@ -5,7 +5,7 @@
 /* ---------- 一覧の札が、上から順に入る（はじめの 8 枚） */
 html.is-uxc #isl-ui .uxc-pick .uxp-list > *,
 html.is-uxc #isl-ui .uxc-pick .uxc-ext-grid > * {
-  animation: ux-key-in 220ms steps(5, end) both;
+  animation: ux-key-in 220ms steps(5, end) backwards;
   animation-delay: calc(60ms + var(--i, 0) * 30ms);
 }
 html.is-uxc #isl-ui .uxc-pick .uxc-ext-grid.is-in > * {
