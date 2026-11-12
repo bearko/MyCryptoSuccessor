@@ -53,6 +53,7 @@ import { Odo, meterStep, shake, uxFader, uxKey, uxLamp, uxMeter, uxTape, uxToggl
 import { isCalm } from '../prefs';
 import { uxSfx } from '../sound';
 import { sIcon } from './s-icons';
+import { safe } from './s-press';
 import type { WsOpt } from './s-slots';
 import './workshop.css';
 
@@ -172,9 +173,9 @@ function benchView(ctx: Ctx, done: () => void): BenchView {
   const status = el('span.uxs-bench-st');
   const plan = el('span.uxs-bench-plan.ux-t-dim');
   const info = el('div.uxs-bench-info', el('div.uxs-bench-name', no, name, fresh), who, meter.el, el('div.uxs-bench-foot', lamp, status), plan);
-  // ---- 入れ替えのキー（チュートリアルの強調 is-hot はここに付く）
-  const whoKey = uxKey(t('職人をかえる', 'Change crafter'), () => pickWho(), { ico: null, cls: 'uxs-slot uxs-slot--who' });
-  const itemKey = uxKey(t('作る物をかえる', 'Change item'), () => pickItem(), { ico: null, cls: 'uxs-slot uxs-slot--item' });
+  // ---- 入れ替えのキー（チュートリアルの強調 is-hot はここに付く。今の目印 isl-slot・isl-ext-slot も同じ意味で付ける）
+  const whoKey = uxKey(t('職人をかえる', 'Change crafter'), safe(() => pickWho()), { ico: null, cls: 'uxs-slot uxs-slot--who isl-slot' });
+  const itemKey = uxKey(t('作る物をかえる', 'Change item'), safe(() => pickItem()), { ico: null, cls: 'uxs-slot uxs-slot--item isl-slot isl-ext-slot' });
   const keys = el('div.uxs-bench-keys', whoKey, itemKey);
   // ---- 素材 → 商品・お店に並ぶ・止まっている理由・作る数と自動製造
   const bom = el('div.uxs-bom');
@@ -275,7 +276,7 @@ function benchView(ctx: Ctx, done: () => void): BenchView {
       const qty = new Odo({ digits: Math.max(3, String(max).length), value: cur });
       ctlRef.qty = qty;
       const step = (d: number) =>
-        uxKey(el('span.ux-vh', d < 0 ? t('1 ロット減らす', 'One lot less') : t('1 ロット増やす', 'One lot more')), () => apply((ctlRef.fader?.value ?? cur) + d * batch), {
+        uxKey(el('span.ux-vh', d < 0 ? t('1 ロット減らす', 'One lot less') : t('1 ロット増やす', 'One lot more')), safe(() => apply((ctlRef.fader?.value ?? cur) + d * batch)), {
           ico: d < 0 ? 'minus' : 'plus',
           cls: 'uxs-step',
           disabled: max === 0,
@@ -419,14 +420,14 @@ function benchView(ctx: Ctx, done: () => void): BenchView {
             not.length
               ? uxKey(
                   t('主力にする', 'Make it the main item'),
-                  () => {
+                  safe(() => {
                     const cur = s();
                     const todo = myShops(cur).filter((b) => cur.shops[b.uid]?.shelves[0] !== x);
                     applyPlan(cur, manualPlan(todo.map((b) => ({ k: 'main' as const, uid: b.uid, x }))));
                     uxSfx('confirm');
                     ctx.toast(t(`${skuName(x)}を ${todo.length} 軒のお店の主力にしました`, `${skuName(x)} is now the main item at ${todo.length} shop(s)`));
                     done();
-                  },
+                  }),
                   { cls: 'uxs-make-main' },
                 )
               : uxTape(t('主力', 'Main item'), 'good'),
@@ -474,7 +475,7 @@ function investView(ctx: Ctx, x: (typeof INVESTS)[number], ws: () => PBuilding |
   const gapMeter = uxMeter(0);
   const gapTxt = el('span');
   const gap = el('div.uxs-inv-gap', gapMeter.el, gapTxt);
-  const buyKey = uxKey(t('買う', 'Buy'), () => buy(), { kind: 'main', cls: 'uxs-inv-buy', strong: true, attrs: { 'data-ux-quiet': '' } });
+  const buyKey = uxKey(t('買う', 'Buy'), safe(() => buy()), { kind: 'main', cls: 'uxs-inv-buy', strong: true, attrs: { 'data-ux-quiet': '' } });
   const card = el('div.uxs-inv', pic, el('div.uxs-inv-body', el('div.uxs-inv-name', el('b', x.name), pips, stamp), el('p.uxs-inv-desc', x.note), priceRow, gap), buyKey);
   card.dataset.invest = x.id;
   /** 「導入済」を打っている途中（その間は描き直さない） */
@@ -619,10 +620,10 @@ function facView(ctx: Ctx): { el: HTMLElement; sync: () => void } {
         const label = el('span.uxs-fac-go-l', el('b', t(`${FACTORY.name[lv]}にする（${FACTORY.shape[lv]}）`, `Make it a ${FACTORY.name[lv]} (${FACTORY.shape[lv]})`)), el('span.ux-num', `${fmt(c.cost)} G`));
         const go = uxKey(
           label,
-          () => {
+          safe(() => {
             if (upCheck(ctx.s()).err) return uxSfx('deny');
             ctx.rebuild?.();
-          },
+          }),
           { kind: c.err ? '' : 'main', big: true, cls: 'uxs-fac-go', strong: true, disabled: !!c.err && c.err !== 'money' },
         );
         if (c.err === 'money') go.setAttribute('data-ux-quiet', '');
@@ -755,7 +756,7 @@ function build(ctx: Ctx, body: HTMLElement) {
   let tabBusy = false;
   const tabKeys = ALL.map((key) => {
     const lamp = uxLamp('', key === tabNow);
-    const b = uxKey(el('span.ux-tab-l', lamp, el('b', TAB_LABEL[key])), () => setTab(key), { cls: 'ux-tab uxs-tab', attrs: { role: 'tab', 'aria-selected': String(key === tabNow), 'aria-pressed': String(key === tabNow), 'data-tab': key, 'data-ux-quiet': '' } });
+    const b = uxKey(el('span.ux-tab-l', lamp, el('b', TAB_LABEL[key])), safe(() => setTab(key)), { cls: 'ux-tab uxs-tab', attrs: { role: 'tab', 'aria-selected': String(key === tabNow), 'aria-pressed': String(key === tabNow), 'data-tab': key, 'data-ux-quiet': '' } });
     return { key, b, lamp };
   });
   function setTab(key: WsTab, instant = false) {

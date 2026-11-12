@@ -36,6 +36,7 @@ import { Odo, press, shake, uxKey, uxLamp, uxPlate, uxTape, vibrate } from '../p
 import { isCalm } from '../prefs';
 import { uxScene, uxSfx } from '../sound';
 import { inkIcon, sIcon } from './s-icons';
+import { safe } from './s-press';
 import './report.css';
 
 /** ページ送り（見本：600ms・9 段） */
@@ -189,7 +190,7 @@ function rcp(label: Kid, value: Kid, cls = ''): HTMLElement {
 function pkey(label: Kid, fn: () => void, o: { ico?: string; kind?: 'ink' | ''; cls?: string; pressed?: boolean } = {}): HTMLButtonElement {
   const b = el<HTMLButtonElement>(`button.uxs-pkey${o.kind ? '.uxs-pkey--' + o.kind : ''}${o.cls ? '.' + o.cls : ''}`, { type: 'button' }, el('span.uxs-pkey-cap', o.ico ? (o.kind === 'ink' ? sIcon(o.ico, { scale: 1 }) : inkIcon(o.ico, 1)) : null, typeof label === 'string' ? el('b', label) : label));
   if (o.pressed != null) b.setAttribute('aria-pressed', String(o.pressed));
-  return press(b, fn);
+  return press(b, safe(fn));
 }
 /** 折りたたみ（今の画面の details と同じ：押すと中身が出る） */
 function fold(label: Kid, build: () => Kid[]): HTMLElement {
@@ -263,28 +264,32 @@ function vchart(cols: Col[], o: { cls?: string; sel?: number; onSel?: (k: number
       v.style.setProperty('--b', `${topAt.toFixed(2)}%`);
       plot.append(v);
     }
-    const col = el('div.uxs-tr-col', { role: 'button', tabindex: '0' }, plot, el('span.uxs-tr-m', c.label));
-    const pick = () => {
+    const col = el('div.uxs-tr-col', plot, el('span.uxs-tr-m', c.label));
+    // 列を押しても選べる（細い列は押しにくいので、下の ◀ ▶ のキーが主の口）
+    col.addEventListener('click', () => {
       uxSfx('tick');
       select(k);
-    };
-    col.addEventListener('click', pick);
-    col.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        pick();
-      }
     });
     return col;
   });
-  const read = el('div.uxs-tr-read', { 'aria-live': 'polite' });
+  const text = el('div.uxs-tr-read-in', { 'aria-live': 'polite' });
+  let sel = 0;
   const select = (k: number) => {
-    els.forEach((e, i) => e.classList.toggle('is-sel', i === k));
-    read.replaceChildren();
-    const r = cols[k]?.read;
-    if (r != null && r !== false) read.append(r instanceof Node ? r : document.createTextNode(String(r)));
-    o.onSel?.(k);
+    sel = Math.max(0, Math.min(cols.length - 1, k));
+    els.forEach((e, i) => e.classList.toggle('is-sel', i === sel));
+    text.replaceChildren();
+    const r = cols[sel]?.read;
+    if (r != null && r !== false) text.append(r instanceof Node ? r : document.createTextNode(String(r)));
+    prev.setAttribute('aria-disabled', String(sel <= 0));
+    next.setAttribute('aria-disabled', String(sel >= cols.length - 1));
+    o.onSel?.(sel);
   };
+  // 見る列を 1 つずつ送るキー（44px）
+  const prev = pkey(el('span.ux-vh', t('前の列', 'Previous')), () => select(sel - 1), { ico: 'next', cls: 'uxs-tr-step.uxs-tr-step--prev' });
+  const next = pkey(el('span.ux-vh', t('次の列', 'Next')), () => select(sel + 1), { ico: 'next', cls: 'uxs-tr-step' });
+  prev.setAttribute('aria-label', t('前の列', 'Previous'));
+  next.setAttribute('aria-label', t('次の列', 'Next'));
+  const read = el('div.uxs-tr-read', prev, text, next);
   const chart = el(`div.uxs-tr${cols.length > 7 ? '.is-dense' : ''}${o.cls ? '.' + o.cls : ''}`, { role: 'img', 'aria-label': o.aria }, grid, el('div.uxs-tr-cols', els));
   if (cols.length) select(Math.max(0, Math.min(cols.length - 1, o.sel ?? cols.length - 1)));
   return { el: chart, read, cols: els, grow: (k: number) => els[k]?.classList.add('is-on'), growAll: () => els.forEach((e) => e.classList.add('is-on')) };
@@ -405,8 +410,8 @@ function openPaper(ctx: Ctx, o: PaperOpts): void {
     const more = el('span.uxs-rp-more', { 'aria-hidden': 'true' }, inkIcon('down', 2));
     const win = el('div.uxs-rp-win', paper, more);
     const tip = el('span.uxs-rp-tip.ux-t-dim', t('紙を押すと、すぐ出ます', 'Tap the paper to print it at once'));
-    const backKey = uxKey(el('span.ux-vh', t('前のページ', 'Previous page')), () => go(-1), { ico: 'next', cls: 'uxs-rp-back', attrs: { 'aria-label': t('前のページ', 'Previous page') } });
-    const nextKey = uxKey(t('つぎへ', 'Next'), () => go(1), { kind: 'main', big: true, ico: 'next', cls: 'uxs-rp-next', strong: true });
+    const backKey = uxKey(el('span.ux-vh', t('前のページ', 'Previous page')), safe(() => go(-1)), { ico: 'next', cls: 'uxs-rp-back', attrs: { 'aria-label': t('前のページ', 'Previous page') } });
+    const nextKey = uxKey(t('つぎへ', 'Next'), safe(() => go(1)), { kind: 'main', big: true, ico: 'next', cls: 'uxs-rp-next', strong: true });
     body.replaceChildren(printer, win, el('div.uxs-rp-foot', backKey, tip, nextKey));
 
     let cur: HTMLElement | null = null;
@@ -698,7 +703,7 @@ function breakdown(r: Report): Kid[] {
   if (mix.length) {
     const tot = mix.reduce((a, x) => a + x.v, 0);
     const c = vchart(
-      mix.map((x, k) => ({ label: String(k + 1), bars: [{ v: x.v, kind: k === 0 ? 'main' : 'past' }], top: num(pct(x.v, tot)), read: el('span', `${k + 1}. ${x.name} `, num(money(x.v)), `（${pct(x.v, tot)}）`) })),
+      mix.map((x, k) => ({ label: String(k + 1), bars: [{ v: x.v, kind: k === 0 ? 'main' : 'past' }], top: num(pct(x.v, tot)), read: el('span', el('b', `${k + 1}. ${x.name}`), el('span', num(money(x.v)), `（${pct(x.v, tot)}）`)) })),
       { cls: 'is-s', sel: 0, aria: t('商品ごとの売上の割合', 'Sales by product') },
     );
     c.growAll();
@@ -708,7 +713,7 @@ function breakdown(r: Report): Kid[] {
   if (cs.length) {
     const tot = cs.reduce((a, x) => a + x.v, 0);
     const c = vchart(
-      cs.map((x, k) => ({ label: String(k + 1), bars: [{ v: x.v, kind: k === 0 ? 'ink' : 'past' }], top: num(pct(x.v, tot)), read: el('span', `${k + 1}. ${x.name} `, num(money(x.v)), `（${pct(x.v, tot)}）`) })),
+      cs.map((x, k) => ({ label: String(k + 1), bars: [{ v: x.v, kind: k === 0 ? 'ink' : 'past' }], top: num(pct(x.v, tot)), read: el('span', el('b', `${k + 1}. ${x.name}`), el('span', num(money(x.v)), `（${pct(x.v, tot)}）`)) })),
       { cls: 'is-s', sel: 0, aria: t(`費用の合計 ${money(tot)}`, `Total costs ${money(tot)}`) },
     );
     c.growAll();
@@ -940,7 +945,7 @@ function pageTrend(api: PageApi, s: P1State, r: Report, upto: Report[], idx: num
       cols = cs.map((c, k) => ({
         label: monLab(c.month, k === 0),
         bars: [],
-        read: el('span', `${monHead(c.month)}：`, num(`${fmt(c.o)} G`), inkIcon('next', 1), num(`${fmt(c.c)} G`), c.est ? '' : el('span.ux-t-ink2', t(`（高 ${shortN(c.h)}・安 ${shortN(c.l)}）`, ` (high ${shortN(c.h)}, low ${shortN(c.l)})`))),
+        read: el('span', el('b', monHead(c.month)), el('span', num(`${fmt(c.o)} G`), inkIcon('next', 1), num(`${fmt(c.c)} G`)), c.est ? null : el('span.ux-t-ink2', t(`高 ${shortN(c.h)}・安 ${shortN(c.l)}`, `high ${shortN(c.h)}, low ${shortN(c.l)}`))),
       }));
       // ろうそくの胴は、月のはじめ〜月末の高さに置く
       const last = cs[cs.length - 1];
@@ -951,14 +956,14 @@ function pageTrend(api: PageApi, s: P1State, r: Report, upto: Report[], idx: num
         label: monLab(x.month, k === 0),
         bars: [{ v: x.revenue, kind: k === lastK ? 'main' : 'past' }, ...(both ? [{ v: x.profit, kind: x.profit < 0 ? ('neg' as const) : ('ink' as const) }] : [])],
         top: rs.length <= 6 ? man(x.revenue) : undefined,
-        read: el('span', `${monHead(x.month)}：`, t('売上 ', 'sales '), num(money(x.revenue)), t('・利益 ', ', profit '), num(signed(x.profit, money), tone(x.profit))),
+        read: el('span', el('b', monHead(x.month)), el('span', t('売上', 'Sales'), num(money(x.revenue))), el('span', t('利益', 'Profit'), num(signed(x.profit, money), tone(x.profit)))),
       }));
       // 来月の見込み（月次 PDCA）：点線の棒
       if (fc && rs.length)
         cols.push({
           label: t('来月', 'Next'),
           bars: [{ v: fc.sales, kind: 'dash' }, ...(both ? [{ v: fc.profit, kind: 'dash' as const }] : [])],
-          read: el('span', t('来月（見込み）：売上 ', 'Next month (forecast): sales '), num(money(fc.sales)), t('・利益 ', ', profit '), num(signed(fc.profit, money), tone(fc.profit))),
+          read: el('span', el('b', t('来月（見込み）', 'Next month (forecast)')), el('span', t('売上', 'Sales'), num(money(fc.sales))), el('span', t('利益', 'Profit'), num(signed(fc.profit, money), tone(fc.profit)))),
         });
       const last = rs[lastK];
       chart = vchart(cols, { sel: lastK, aria: last ? t(`月次売上推移：${monHead(last.month)}の売上 ${money(last.revenue)}・利益 ${signed(last.profit, money)}`, `Monthly trend: ${monHead(last.month)} sales ${money(last.revenue)}, profit ${signed(last.profit, money)}`) : t('月次売上推移', 'Monthly trend') });
@@ -1015,7 +1020,7 @@ function pageTrend(api: PageApi, s: P1State, r: Report, upto: Report[], idx: num
     legend,
     el('div.ux-rl.uxs-seg', { role: 'group', 'aria-label': t('期間', 'Range') }, rangeKeys.map(([, b]) => b)),
   ];
-  if (times >= 2 && span >= 1) kids.push(line(el('span.uxs-rp-diff.is-good', inkIcon('up', 1), el('b', t(`${span} か月で ${times >= 10 ? Math.round(times) : Math.round(times * 10) / 10} 倍`, `${times >= 10 ? Math.round(times) : Math.round(times * 10) / 10}× in ${span} months`)))));
+  if (times >= 2 && span >= 1 && up >= 1) kids.push(line(el('span.uxs-rp-diff.is-good', inkIcon('up', 1), el('b', t(`${span} か月で ${times >= 10 ? Math.round(times) : Math.round(times * 10) / 10} 倍`, `${times >= 10 ? Math.round(times) : Math.round(times * 10) / 10}× in ${span} months`)))));
   if (up >= 2) kids.push(line(el('span', t(`${up + 1} か月つづけて伸びています。`, `Up ${up + 1} months in a row.`))));
   const page = el('div.ux-rp-page.uxs-rp-page', kids);
 

@@ -80,7 +80,7 @@
 | ux_shelf | 物置の棚 | 設備投資「物置の整理」の絵 | 同上 | 12×12 | a tiny storage shelf with three rows of small boxes, front view, dark 1px outline, pixel art, transparent background; 12px |
 | ux_wrench | 道具（スパナ） | 設備投資「道具の新調」の絵 | 同上 | 12×12 | a tiny wrench laid diagonally, dark 1px outline, pixel art, transparent background; 12px |
 | ux_cup | 休憩所（湯気の立つ湯のみ） | 設備投資「職人の休憩所」の絵 | 同上 | 12×12 | a tiny mug with two wisps of steam, side view, dark 1px outline, pixel art, transparent background; 12px |
-| ux_plus・ux_minus・ux_swap | ＋・−・入れ替え | 作る数の「1 ロット増やす／減らす」のキー・職人や作る物がまだ無い台 | 同上 | 12×12 | コードのままでよい（記号） |
+| ux_plus・ux_minus | ＋・− | 作る数の「1 ロット増やす／減らす」のキー・職人や作る物がまだ無い台 | 同上 | 12×12 | コードのままでよい（記号） |
 | ux_box | 木箱 | 月次報告の「輸入」の行 | 同上（地図の「📦 輸入中」の木箱 feed_crate と同じ題材） | 12×12 | feed_crate と同じ絵を 12px に（a tiny wooden shipping crate, dark 1px outline, pixel art, transparent background） |
 | ux_brick | 素材（積んだれんが） | サプライチェーンの「① 調達」 | 同上 | 12×12 | a tiny stack of three bricks, dark 1px outline, pixel art, transparent background; 12px |
 | ux_pick | つるはし | 各部からの報告「今月の出土品」・まとめ報告の「研究ノート」のキー | 同上 | 12×12 | a tiny pickaxe laid diagonally, dark 1px outline, pixel art, transparent background; 12px |
@@ -92,7 +92,6 @@
 | ux_doc | 提案書 | サプライチェーンのページの「担当者からの提案」のキー | 同上 | 12×12 | a tiny sheet of paper with a folded corner and three lines, dark 1px outline, pixel art, transparent background; 12px |
 | ux_warn | 気をつける（三角の札） | 工房の札の「止まっている理由」・建て替えの押せない理由 | 同上 | 12×12 | a tiny yellow triangular warning sign with a black exclamation mark, dark 1px outline, pixel art, transparent background; 12px |
 | ux_crane | 工事（足場） | 工房の札の「建て替え中」・各部からの報告「復興」 | 同上 | 12×12 | a tiny construction crane with a hanging gold block, side view, dark 1px outline, pixel art, transparent background; 12px |
-| ux_bars | 見くらべ（2 本の棒） | いまは使っていない（見くらべのタブの印の候補） | 同上 | 12×12 | コードのままでよい |
 | ux_fac_shapes | 段の形のマス（1×1 → 1×2 → 2×2） | 工房の札 → 設備投資のタブの「建て替え」（`workshop.css` の `.uxs-fac-shape`） | CSS の四角（いまの段は琥珀・次の段はまたたく枠・済んだ段は緑）。fac_shapes と同じ題材 | 14px の四角を 1・2・4 個 | コードのままでよい（作るなら、各段の地図の絵を 32×32 に縮めたアイコン） |
 | ux_bench_stage | 作業台の小さな舞台 | 工房の札の作業台の左（`.uxs-bench-stage`：職人が立つ台と、作る物） | CSS の暗い箱と木の板の線（見本と同じ）。職人と商品は MCH の絵そのまま | 124×72 | コードのままでよい（作るなら：a small dark workshop nook with a wooden counter line at the bottom, pixel art; 124×72） |
 

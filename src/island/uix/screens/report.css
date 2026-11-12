@@ -355,10 +355,16 @@ html.is-uxc .uxs-pkey {
   display: inline-block;
   min-width: 44px;
   min-height: 44px;
+  margin: 0;
   padding: 0 2px 4px 0;
+  border: 0;
+  background: none;
   color: var(--ux-ink);
+  font: 400 1rem/1.5 var(--ux-jp);
   vertical-align: top;
   text-align: center;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 html.is-uxc .uxs-pkey::before {
   content: '';
@@ -424,7 +430,7 @@ html.is-uxc .uxs-seg {
   gap: 4px 2px;
 }
 html.is-uxc .uxs-seg > .uxs-pkey {
-  flex: 1 1 auto;
+  flex: 1 0 auto;
 }
 html.is-uxc .uxs-seg > .uxs-pkey > .uxs-pkey-cap {
   padding: 2px 4px;
@@ -533,9 +539,11 @@ html.is-uxc .uxs-bd-list li > span:first-child {
 }
 
 /* ---------- 企業ランキング（順位は横の棒） */
+/* 行の高さは字の大きさに合わせる（100% で 52px：見本の値） */
 html.is-uxc .uxs-rk {
+  --rk-h: 3.25rem;
   position: relative;
-  height: calc(52px * var(--n, 4));
+  height: calc(var(--rk-h) * var(--n, 4));
   margin-top: 2px;
 }
 html.is-uxc .uxs-rk-row {
@@ -543,9 +551,9 @@ html.is-uxc .uxs-rk-row {
   left: 0;
   right: 0;
   top: 0;
-  height: 52px;
+  height: var(--rk-h);
   display: grid;
-  grid-template-columns: 30px 1fr auto;
+  grid-template-columns: 1.9rem 1fr auto;
   align-items: center;
   gap: 6px;
   padding: 0 6px 0 4px;
@@ -606,7 +614,7 @@ html.is-uxc .uxs-rk-goal {
   position: absolute;
   left: 0;
   right: 0;
-  top: 52px;
+  top: var(--rk-h);
   z-index: 2;
   height: 0;
   border-top: 2px dashed #9c2238;
@@ -699,7 +707,7 @@ html.is-uxc .uxs-tr-holder {
 }
 html.is-uxc .uxs-tr {
   position: relative;
-  height: 236px;
+  height: 208px;
   margin-top: 4px;
 }
 html.is-uxc .uxs-tr.is-s {
@@ -737,7 +745,6 @@ html.is-uxc .uxs-tr-col {
   flex: 0 1 15%;
   min-width: 6px;
   max-width: 64px;
-  cursor: pointer;
 }
 html.is-uxc .uxs-tr-plot {
   position: absolute;
@@ -834,19 +841,54 @@ html.is-uxc .uxs-tr-col.is-sel .uxs-tr-m {
 html.is-uxc .uxs-tr.is-dense .uxs-tr-col:not(.is-sel):not(:first-child):not(:last-child) .uxs-tr-m {
   display: none;
 }
-html.is-uxc .uxs-tr-read,
 html.is-uxc .uxs-tr-readline {
+  min-width: 0;
+}
+/* 選んだ列の値：◀ 値 ▶（列を 1 つずつ送る） */
+html.is-uxc .uxs-tr-read {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc .uxs-tr-read-in {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.4;
+}
+html.is-uxc .uxs-tr-read-in > span {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 2px 4px;
-  min-height: 1.6rem;
+  gap: 0 10px;
 }
-html.is-uxc .uxs-tr-read > span {
+html.is-uxc .uxs-tr-read-in > span > span {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 2px 4px;
+  gap: 0 4px;
+  min-width: 0;
+}
+html.is-uxc .uxs-tr-step {
+  flex: none;
+  width: 46px;
+}
+html.is-uxc .uxs-tr-step > .uxs-pkey-cap {
+  padding: 2px;
+}
+html.is-uxc .uxs-tr-step--prev .ux-ico {
+  transform: scaleX(-1);
+}
+html.is-uxc .uxs-tr-step[aria-disabled='true'] > .uxs-pkey-cap {
+  background: var(--ux-paper);
+  box-shadow: inset 0 0 0 2px rgba(26, 28, 46, 0.35);
+}
+html.is-uxc .uxs-tr-step[aria-disabled='true']::before {
+  display: none;
+}
+html.is-uxc .uxs-tr-step[aria-disabled='true'] .ux-ico {
+  opacity: 0.35;
 }
 html.is-uxc .uxs-tr-legend {
   display: flex;
@@ -931,7 +973,7 @@ html.is-uxc .uxs-flow-n {
   align-items: center;
 }
 html.is-uxc .uxs-flow-name {
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 html.is-uxc .uxs-flow-arrow {
   flex: none;
@@ -1011,7 +1053,7 @@ html.is-uxc .uxs-rp-next {
 }
 
 /* 数字だけの行でも、行の高さを保つ（数字の書体は行の高さを 0 にしてある） */
-html.is-uxc .uxs-rp-page .uxs-tr-read .ux-num,
+html.is-uxc .uxs-rp-page .uxs-tr-read-in .ux-num,
 html.is-uxc .uxs-rp-page .uxs-rp-text .ux-num,
 html.is-uxc .uxs-rp-page .uxs-rp-sub .ux-num,
 html.is-uxc .uxs-rp-page .uxs-bd-list .ux-num {
@@ -1021,4 +1063,23 @@ html.is-uxc .uxs-rp-page .uxs-bd-list .ux-num {
 }
 html.is-uxc .uxs-flow-col.is-bn {
   flex: 1.5 1 0;
+}
+
+/* 月末ポーズのあいだ、見出しの「とばす」の横に出る「▶ N 月へ」（今のキー isl-next-mini）：入りきらないときは 2 段目へ折り返す */
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-head {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: 2px;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-head > .ux-tape {
+  margin-right: auto;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-head > .isl-btn.isl-next-mini {
+  margin: 0;
+  padding: 2px 6px;
+  --ux-txt: var(--ux-amber);
+  animation: none;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-rp .isl-sheet-head > .isl-btn.isl-next-mini + .isl-btn {
+  margin-left: 0;
 }

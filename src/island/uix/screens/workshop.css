@@ -295,6 +295,17 @@ html.is-uxc .uxs-slot {
   flex: 1 1 0;
   min-width: 0;
 }
+/* 今の目印（isl-slot）も付けてあるので、今の枠の形（幅・縁・光り方）は外す */
+html.is-uxc #isl-ui .uxs-slot.isl-slot {
+  width: auto;
+  justify-items: normal;
+  align-content: normal;
+  gap: 0;
+  border: 0;
+  animation: none;
+  transition: none;
+  transform: none;
+}
 html.is-uxc .uxs-slot > .ux-cap {
   padding: 2px 4px;
 }
@@ -675,7 +686,9 @@ html.is-uxc #isl-ui .uxs-cmp-grid .isl-tag {
   box-shadow: inset 0 -2px 0 var(--ux-paper2);
 }
 html.is-uxc #isl-ui .uxs-cmp-grid .isl-tag.is-bad {
-  background: var(--ux-bad);
+  background: var(--ux-k0);
+  color: var(--ux-amber-hi);
+  box-shadow: inset 0 0 0 2px var(--ux-bad);
 }
 html.is-uxc #isl-ui .uxs-cmp-grid .isl-tag.is-good {
   background: var(--ux-good);
@@ -718,7 +731,7 @@ html.is-uxc .uxs-fac-head {
 }
 html.is-uxc .uxs-fac-steps {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 4px;
   padding: 6px;
   background: #11131f;
@@ -743,7 +756,8 @@ html.is-uxc .uxs-fac-step.is-next {
 }
 html.is-uxc .uxs-fac-arrow {
   flex: none;
-  align-self: center;
+  align-self: flex-start;
+  margin-top: 12px;
 }
 /* 段の形（1×1・1×2・2×2 のマス）。いまの段は琥珀で塗り、次の段はまたたく枠、済んだ段は緑 */
 html.is-uxc .uxs-fac-shape {
@@ -956,4 +970,30 @@ html.is-uxc #isl-ui .uxs-tip .isl-remind b {
   html.is-uxc .uxs-ctl-row--qty {
     justify-content: flex-start;
   }
+}
+
+/* 数字だけが折り返した行でも、行の高さを保つ（数字の書体は行の高さを 0 にしてある） */
+html.is-uxc .uxs-pane .ux-num {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+}
+
+/* 月末ポーズのあいだ、見出しの ✕ の横に出る「▶ N 月へ」（今のキー isl-next-mini）：入りきらないときは 2 段目へ折り返す */
+html.is-uxc #isl-ui .isl-sheet.uxs-ws .isl-sheet-head {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: 2px;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-ws .isl-sheet-head > .uxs-run {
+  margin-right: auto;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-ws .isl-sheet-head > .isl-btn.isl-next-mini {
+  margin: 0;
+  padding: 2px 6px;
+  --ux-txt: var(--ux-amber);
+  animation: none;
+}
+html.is-uxc #isl-ui .isl-sheet.uxs-ws .isl-sheet-head > .isl-btn.isl-next-mini + .isl-btn {
+  margin-left: 0;
 }
