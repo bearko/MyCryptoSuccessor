@@ -15,6 +15,7 @@ import { DAYS, assign, myShops, partMax, setPart, setShelf, shopArea, shopEstima
 import { openSupply } from './scm';
 import { after, craftable, mineTip, open, openShop, pickClerk, pickShelf, shelfMoved, type Ctx } from './screens';
 import { bar, btn, h, heroIcon, heroName, money, skuIcon, skuName } from './ui';
+import { uxb } from '../uix/screens/b-slots';
 
 /** 詰まりの札：商品未定・品切れ・休業中（売り場に人がいない）・店員なし（アルバイトだけ） */
 export type SalesTag = 'unset' | 'out' | 'closed' | 'noclerk';
@@ -236,6 +237,8 @@ export function staffEmptyShops(s: P1State): { uid: number; hero: number }[] {
 let salesSort: SalesSort = 'rev';
 
 export function openSales(ctx: Ctx) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/biz.ts）
+  if (uxb.sales) return uxb.sales(ctx);
   open(ctx, t('販売管理', 'Sales management'), (body) => {
     const s = ctx.s();
     mineTip(ctx, 'sales', body);

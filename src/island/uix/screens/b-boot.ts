@@ -5,6 +5,7 @@
 import type { UxbDeps } from '../../p1/uxb';
 import { setB } from './b-deps';
 import { uxb } from './b-slots';
+import { openAdsUx, openBomUx, openSalesUx } from './biz';
 import { openBuyUx } from './buy';
 import { openShopUx } from './shop';
 import { openSupplyUx } from './supply';
@@ -15,4 +16,7 @@ export function installB(d: UxbDeps) {
   uxb.buy = openBuyUx;
   uxb.shop = openShopUx;
   uxb.supply = openSupplyUx;
+  uxb.bom = openBomUx;
+  uxb.sales = openSalesUx;
+  uxb.ads = openAdsUx;
 }

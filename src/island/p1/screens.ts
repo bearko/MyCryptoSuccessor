@@ -1977,6 +1977,8 @@ export const openPayroll = (ctx: Ctx) => openPayrollHr(ctx);
 // ---------------------------------------------------------------- SCM
 
 export function openBom(ctx: Ctx) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/biz.ts）
+  if (uxb.bom) return uxb.bom(ctx);
   open(ctx, t('BOM（素材 → 商品）', 'BOM (materials → products)'), (body) => {
     const s = ctx.s();
     body.append(h('p', 'isl-dim', t('1 回のクラフトに使う素材と、できる数・日数・1 個あたりの素材代と粗利です（素材はいまの値段）。', 'Materials per craft, output, days, and material cost and gross margin per item (at current prices).')));
@@ -2055,6 +2057,8 @@ export function openMA(ctx: Ctx) {
 // ---------------------------------------------------------------- マーケティング
 
 export function openAds(ctx: Ctx) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/biz.ts）
+  if (uxb.ads) return uxb.ads(ctx);
   open(ctx, t('宣伝広報', 'Advertising'), (body) => {
     const s = ctx.s();
     const now = adBoost(s);

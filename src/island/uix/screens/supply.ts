@@ -133,7 +133,7 @@ function build(ctx: Ctx) {
       const up = bestUp(st, bn);
       put(
         host,
-        el('div.uxb-jam-head', el('span.uxb-jam-k', t('いまの詰まり（ボトルネック）', 'Current jam (bottleneck)')), el('b.uxb-jam-name.isl-scm-bn', bIcon(STAGE_ICO[bn], { color: '#ffb81f', hi: '#ffe394', lo: '#b8650d', scale: 2 }), `${stg.n} ${stg.name}`)),
+        el('div.uxb-jam-head', el('span.uxb-jam-k', t('いまの詰まり（ボトルネック）', 'Current jam (bottleneck)')), el('b.uxb-jam-name', bIcon(STAGE_ICO[bn], { color: '#ffb81f', hi: '#ffe394', lo: '#b8650d', scale: 2 }), `${stg.n} ${stg.name}`)),
         el('p.uxb-jam-say', is[bn].lines[0] ?? t('いちばん細いところです。ここを太くすると、サイクル全体の売上が伸びます。', 'This is the narrowest stage. Widen it and the whole cycle sells more.')),
       );
       if (g) {
@@ -151,7 +151,7 @@ function build(ctx: Ctx) {
         );
       }
       if (up) {
-        const k = uxKey(el('span.uxb-jam-go', el('span.uxb-jam-go-k', t('いちばんの改善案', 'Best fix')), el('b', up.label)), () => runUp(up, host), { kind: 'main', big: true, cls: 'uxb-jam-key isl-sellx-big', strong: true });
+        const k = uxKey(el('span.uxb-jam-go', el('span.uxb-jam-go-k', t('いちばんの改善案', 'Best fix')), el('b', up.label)), () => runUp(up, host), { kind: 'main', big: true, cls: 'uxb-jam-key', strong: true });
         put(host, k, subLine('uxb-jam-sub', up));
       }
     },
@@ -425,7 +425,7 @@ function build(ctx: Ctx) {
   // ---- ④ 販売の内訳（頭打ちの理由・打ち手ごとの見込み・商品ごと・お店ごと）
   let bdFold: ReturnType<typeof fold> | null = null;
   function breakdownFold(st: P1State, openNow: boolean) {
-    bdFold = fold(t('④ 販売の内訳', '④ Sales breakdown'), (box) => breakdown(st, box), { open: openNow, note: t('売れる数が頭打ちの理由と、効く打ち手', 'Why sales are capped, and what helps'), ico: 'bars', cls: 'uxb-bd isl-sellx' });
+    bdFold = fold(t('④ 販売の内訳', '④ Sales breakdown'), (box) => breakdown(st, box), { open: openNow, note: t('売れる数が頭打ちの理由と、効く打ち手', 'Why sales are capped, and what helps'), ico: 'bars', cls: 'uxb-bd' });
     return bdFold.el;
   }
   function breakdown(st: P1State, box: HTMLElement) {
@@ -456,7 +456,7 @@ function build(ctx: Ctx) {
     // 打ち手ごとの見込み（効き目の大きい順に 3 つ。残りは折りたたみ）
     const row = (w: WhatIf, k: number | null) => {
       const u = B.whatIfUp(ctx, st, w);
-      return uxpCard({ pic: el('span.uxb-up-n', k != null ? num(k + 1) : '–'), name: u.label, desc: u.sub, foot: el(`span.uxb-gain${w.ok ? '' : '.is-off'}`, w.ok ? bIcon('up', { color: '#36e08b', scale: 1 }) : null, B.gainText(w)), onTap: () => u.go(), off: !w.ok, cls: 'uxb-up isl-sellx-if' });
+      return uxpCard({ pic: el('span.uxb-up-n', k != null ? num(k + 1) : '–'), name: u.label, desc: u.sub, foot: el(`span.uxb-gain${w.ok ? '' : '.is-off'}`, w.ok ? bIcon('up', { color: '#36e08b', scale: 1 }) : null, B.gainText(w)), onTap: () => u.go(), off: !w.ok, cls: 'uxb-up' });
     };
     put(box, uxpHead(t('打ち手ごとの見込み', 'What each move would add'), { ico: 'up' }), el('div.uxp-list', okW.slice(0, 3).map((w, k) => row(w, k))));
     if (!okW.length) box.append(dim(t(`いまの候補では、どれも +${B.unitsX(2)} 個／月に届きません。まずは月が進むのを待つか、下の一覧で商品とお店を見直しましょう。`, `No move adds ${B.unitsX(2)}+ / mo right now. Check the items and shops below.`)));

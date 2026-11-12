@@ -201,3 +201,21 @@ export function fold(title: string, build: (box: HTMLElement) => void, o: { open
     },
   };
 }
+
+/**
+ * 画面の部品で組み直した画面の器：今の札（open()）に、新しい根（uxb）を入れて中身を作る。値が変わったら、丸ごと作り直す
+ * （数字は rollNumber の鍵で前の値から回る。入ってくる動きは、開いたときの 1 回だけ）。tip：チュートリアルの一言の画面の名前
+ */
+export function sheet(ctx: Ctx, title: string, tip: string | null, cls: string, render: (host: HTMLElement, s: P1State) => void) {
+  let n = 0;
+  B.open(ctx, title, (body) => {
+    const host = n++ ? el(`div.uxb.ux-root.${cls}`) : root(cls);
+    body.append(host);
+    if (tip) {
+      const box = el('div.uxb-tip');
+      host.append(box);
+      B.mineTip(ctx, tip, box);
+    }
+    render(host, ctx.s());
+  });
+}

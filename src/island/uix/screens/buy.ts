@@ -412,7 +412,7 @@ function build(ctx: Ctx) {
                       ctx.toast(on ? t(`${B.MATS[m].name}は、この町の卸問屋で買います`, `${B.MATS[m].name} will be bought here`) : t(`${B.MATS[m].name}は、調達係が${nb.name}から取り寄せます`, `The buyer will import ${B.MATS[m].name} from ${nb.name}`));
                       done(ctx);
                     },
-                    { cls: 'uxb-src isl-trade-src', attrs: { 'aria-pressed': String(on), 'data-ux-quiet': '' } },
+                    { cls: 'uxb-src', attrs: { 'aria-pressed': String(on), 'data-ux-quiet': '' } },
                   )
                 : null,
               st2.el,

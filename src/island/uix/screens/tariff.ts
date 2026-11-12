@@ -20,9 +20,8 @@ export function tradeCmpUx(c: TradeCmp): HTMLElement {
     el(`div.uxb-cmp-row${win ? '.is-win' : ''}`, uxLamp(win ? 'good' : '', win), el('span.uxb-cmp-who', who), el('span.uxb-cmp-calc', parts), win ? uxTape(t('安い', 'Cheaper'), 'good') : null);
   const foot = [c.rate, t(`納期 ${c.days} 日`, `${c.days}-day lead`)];
   if (c.cheap) foot.unshift(t('相手の特産 −20%', 'Their specialty −20%'));
-  // 今の目印（isl-tradecmp）も付ける：吹き出しの中の置き方は今のまま
   return el(
-    'div.uxb-cmp.isl-tradecmp.ux-root',
+    'div.uxb-cmp.ux-root',
     el('span.uxb-cmp-tag', bDim('town'), t('となり町', 'Next town')),
     row(t('ここ', 'Here'), !there, el('b', g(c.here))),
     row(c.name, there, g(c.base), el('span.uxb-cmp-duty', t(' ＋ 関税 ', ' + duty '), g(c.duty)), el('span', t(' ＝ ', ' = ')), el('b', g(total))),

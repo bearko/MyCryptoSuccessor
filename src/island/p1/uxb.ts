@@ -60,6 +60,16 @@ import { bestSell, shopMonthly } from './moves';
 import { GOODS_WHY, LAMP_NAME, STAGE, WHY_NAME, gainText, goodsReason, jamGain, moveUp, nextSkills, scmIssues, scmJam, sellBigUp, shopLabel, upsOf, whatIfUp, whyLine } from './scm';
 import { openAds, openBuy, openData, openHire, openShop, openStaff, openWorkshop } from './screens';
 import { openSkills } from './tree';
+import { sectorProfile } from './company';
+import { ADS, AD_TIER, AWARE_GOODS, PRODUCTS, SALES1_UI, sku, skuParts } from './data';
+import { shopBubbles } from './dash';
+import { UNSELLABLE_TEXT } from './digview';
+import { pickExt } from './heroui';
+import { adBoost, adCost, adLock, adUpper, adWide, batchOf, companyRevenue, market, runAd, townsWithShops, unitCost, unsellableHere } from './model';
+import { adBreakeven, adGain } from './moves';
+import { SALES_SORT, SALES_TAG, emptyShelfCount, fillEmptyShelves, freeHeroes, salesRows, setMainAll, shopBars, staffEmptyShops } from './sales';
+import { openSupply } from './scm';
+import { pickClerk } from './screens';
 export const uxbDeps = {
   assetUrl,
   sectorDef,
@@ -186,5 +196,41 @@ export const uxbDeps = {
   openStaff,
   openWorkshop,
   openSkills,
+  sectorProfile,
+  ADS,
+  AD_TIER,
+  AWARE_GOODS,
+  PRODUCTS,
+  SALES1_UI,
+  sku,
+  skuParts,
+  shopBubbles,
+  UNSELLABLE_TEXT,
+  pickExt,
+  adBoost,
+  adCost,
+  adLock,
+  adUpper,
+  adWide,
+  batchOf,
+  companyRevenue,
+  market,
+  runAd,
+  townsWithShops,
+  unitCost,
+  unsellableHere,
+  adBreakeven,
+  adGain,
+  SALES_SORT,
+  SALES_TAG,
+  emptyShelfCount,
+  fillEmptyShelves,
+  freeHeroes,
+  salesRows,
+  setMainAll,
+  shopBars,
+  staffEmptyShops,
+  openSupply,
+  pickClerk,
 };
 export type UxbDeps = typeof uxbDeps;
