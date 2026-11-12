@@ -14,12 +14,14 @@ import { uxk } from '../src/island/uix/screens/k-slots';
 import { S_ICONS } from '../src/island/uix/screens/s-icons';
 import { W_ICONS } from '../src/island/uix/screens/w-icons';
 import { histHeight, moveWord, rankMove, rankRatio } from '../src/island/uix/screens/ranking';
+import { BUY_MS, INVEST_ICO, buyState, gainText, mainPick } from '../src/island/uix/screens/invest';
+import { INVESTS } from '../src/island/p1/data';
 import { CHAMFER, chainOf, descKey, gaugeSteps, lampOf, routeWires, stairDiamond, stateWord, type NodeDesc } from '../src/island/uix/screens/tree';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
 const TREE = src('p1/tree.ts');
 const TR = src('uix/screens/tree.ts');
-export const K_FILES = ['tree.ts', 'ranking.ts', 'k-icons.ts', 'k-boot.ts', 'k-deps.ts', 'k-slots.ts'];
+export const K_FILES = ['tree.ts', 'ranking.ts', 'invest.ts', 'k-icons.ts', 'k-boot.ts', 'k-deps.ts', 'k-slots.ts'];
 export const K_CSS = ['tree.css', 'k-screens.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -276,5 +278,47 @@ describe('企業ランキング', () => {
     expect(RK).toMatch(/function grow\(bars: HTMLElement\[\], delay = 0\) \{\s*if \(isCalm\(\)\) return;/);
     expect(noComment(src('uix/screens/k-screens.css'))).toMatch(/html\.is-uxc\.is-calm #isl-ui \.uxk-calm \*::after \{\s*animation: none !important;/);
     expect(RK).toContain("el('div.uxk-rk.uxk-calm')");
+  });
+});
+
+describe('設備投資', () => {
+  const IV = src('uix/screens/invest.ts');
+  const UXK = src('p1/uxk.ts');
+  it('入口：openInvest が、差し込み口が入っているときだけ新しい画面へ渡す。器は今の札（open・keep：作り直さずに値だけ合わせる）', () => {
+    expect(src('p1/screens.ts')).toContain('if (uxk.invest) return uxk.invest(ctx);');
+    expect(src('uix/screens/k-boot.ts')).toContain('uxk.invest = openInvestUx;');
+    expect(IV).toMatch(/K\.open\(\s*ctx,\s*t\('設備投資', 'Capital investment'\),[\s\S]*?undefined,\s*true,\s*\);/);
+  });
+  it('中身は今の画面と同じ（自社の建物・屋台の類は除く・その種類の設備・お店はいま効く順・チュートリアルのあいだは並べ替えない・今の目印 data-invest）', () => {
+    for (const k of ["b.owner === 'me' && P1B[b.id]?.kind !== 'food'", 'shopInvestOrder(s, b)', "kind === 'shop' && b.left <= 0 && s.shops[b.uid] && !tut", 'INVESTS.filter((v) => v.kind === kind)', 'investCost(b, x.id)', 'invLv(b, x.id)']) expect(UXK, k).toContain(k);
+    expect(IV).toContain("attrs: { 'data-invest': it0.id }");
+    expect(IV).toContain("t('建物ごとに設備を良くします。地図で自社の建物をタップしても投資できます。'");
+    expect(IV).toContain("t('まだ建物がありません。', 'No buildings yet.')");
+    expect(IV).toContain('t(`工事中 あと ${b.left} 日`');
+    // 設備の絵は、どれも描ける名前
+    for (const x of INVESTS) expect(INVEST_ICO[x.id], x.id).toBeTruthy();
+  });
+  it('キーの様子：導入済・工事中は平ら・足りないときは押せて目盛りが動く（責めない）・買える', () => {
+    expect(buyState({ cost: null }, 100, 0)).toBe('max');
+    expect(buyState({ cost: 500 }, 100, 3)).toBe('busy');
+    expect(buyState({ cost: 500 }, 100, 0)).toBe('short');
+    expect(buyState({ cost: 500 }, 900, 0)).toBe('buy');
+    expect(IV).toContain("if (st === 'short') return gap.nudge();");
+    expect(gainText('sign', { weak: true, units: 0 })).toContain('いまは効かない');
+    expect(gainText('shelves', { weak: false, units: 3.2 })).toContain('別の商品を並べて +3.2');
+  });
+  it('主役のキーは 1 つ（前の層）：上から見て、いま買える・効くいちばん上の設備', () => {
+    const v = [
+      { uid: 1, id: 'general_store', kind: 'shop', name: 'A', left: 0, items: [{ id: 'sign', name: 's', note: '', lv: 0, max: 3, cost: 9000, gain: null }, { id: 'backroom', name: 'b', note: '', lv: 0, max: 3, cost: 1000, gain: { weak: true, units: 0 } }, { id: 'fixtures', name: 'f', note: '', lv: 0, max: 2, cost: 2500, gain: null }] },
+      { uid: 2, id: 'workshop', kind: 'workshop', name: 'B', left: 0, items: [{ id: 'tools', name: 't', note: '', lv: 0, max: 3, cost: 2000, gain: null }] },
+    ] as never;
+    expect(mainPick(v, 3000)).toBe('1:fixtures');
+    expect(mainPick(v, 500)).toBeNull();
+    expect(IV).toContain("key.classList.toggle('ux-key--main', main && !key.disabled);");
+    expect(FRONT_SEL).toContain('.ux-key--main');
+  });
+  it('買う手応え：レジの音・金貨が資金から飛ぶ・資金が回って減る・光って揺れる → 420ms 後に段のランプと「導入済」。動きを減らすと、すぐ', () => {
+    expect(BUY_MS).toBe(420);
+    for (const k of ["uxSfx('cash')", 'coinsFly(from,', 'funds.set(Math.max(0, s.money), 700)', "uxpReplay(c, 'is-bought')", 'shake(c)', 'later(isCalm() ? 0 : BUY_MS', "uxSfx('stamp')", 'stamp.hit(c)', "uxpReplay(lit, 'is-new')", 'ctx.toast(t(`「${name}」を導入しました`']) expect(IV, k).toContain(k);
   });
 });

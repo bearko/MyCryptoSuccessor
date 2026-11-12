@@ -236,6 +236,107 @@ html.is-uxc #isl-ui .uxk-note {
   }
 }
 
+/* ==================================================================== 設備投資 */
+html.is-uxc #isl-ui .uxk-iv {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 4px 0 8px;
+}
+html.is-uxc #isl-ui .uxk-iv .uxk-note {
+  margin: 0;
+}
+html.is-uxc #isl-ui .uxk-iv-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-iv-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ux-k5);
+  white-space: nowrap;
+}
+/* 設備の絵：暗い窓にドットの絵。導入したらランプが点き、絵が明るくなる */
+html.is-uxc #isl-ui .uxk-iv-pic {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+}
+html.is-uxc #isl-ui .uxk-iv-pic > .ux-lamp {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+}
+html.is-uxc #isl-ui .uxk-iv-card:not(.is-owned) .uxk-iv-pic > canvas {
+  opacity: 0.55;
+}
+html.is-uxc #isl-ui .uxk-iv-pips {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+}
+html.is-uxc #isl-ui .uxk-iv-pips:empty {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-iv-pips > .ux-lamp.is-new {
+  animation: uxk-iv-pip 420ms steps(6, end) 1;
+}
+@keyframes uxk-iv-pip {
+  0% { transform: scale(2.2); }
+  50% { transform: scale(0.8); }
+  100% { transform: scale(1); }
+}
+html.is-uxc #isl-ui .uxk-iv-card .uxp-card-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+html.is-uxc #isl-ui .uxk-iv-gain {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxk-iv-gain.is-dim {
+  color: var(--ux-k5);
+}
+html.is-uxc.is-cvd #isl-ui .uxk-iv-gain:not(.is-dim) {
+  color: var(--ux-cyan);
+}
+html.is-uxc #isl-ui .uxk-iv-card.is-weak:not(.is-max) {
+  background: #1d2033;
+}
+html.is-uxc #isl-ui .uxk-iv-card.is-weak:not(.is-max) .uxp-card-name {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-iv-price:empty {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-iv-buy {
+  min-width: 6.5rem;
+}
+/* 買えた：カードが琥珀に光る（1 回。層は残さない） */
+html.is-uxc #isl-ui .uxk-iv-card.is-bought::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ux-amber);
+  pointer-events: none;
+  opacity: 0;
+  animation: uxk-iv-flash 420ms steps(6, end) 1;
+}
+@keyframes uxk-iv-flash {
+  0% { opacity: 0.55; }
+  100% { opacity: 0; }
+}
+html.is-uxc #isl-ui .uxk-iv-card.is-max {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k3), inset -4px -4px 0 0 #191d31, inset 0 -4px 0 0 var(--ux-good-lo);
+}
+
 /* ==================================================================== 動きを減らす：止まった形で、全部すぐ出る（この束の画面の根には uxk-calm を付ける） */
 html.is-uxc.is-calm #isl-ui .uxk-calm *,
 html.is-uxc.is-calm #isl-ui .uxk-calm *::before,
