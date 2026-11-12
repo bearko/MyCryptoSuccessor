@@ -392,6 +392,8 @@ export function openTogether(ctx: Ctx, title: string, opens: (() => void)[], foc
         }
       });
       body.append(jump, ...secs);
+      // 段 UIX3b：新しい画面（入のときだけ）：見出しの貼り札・区切り・開いた所へ送る動き
+      uxb.together?.(body, focus);
     },
     () => parts.forEach((p) => p.onClose?.()),
   );

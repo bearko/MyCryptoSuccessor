@@ -9,10 +9,10 @@ import { t } from '../../../i18n';
 import { el } from '../dom';
 import { rollNumber, uxKey, uxLamp, uxMeter, uxTape } from '../parts';
 import { uxSfx } from '../sound';
-import { uxpBars, uxpCard, uxpGap, uxpHead, uxpPrice, uxpRow, uxpStamp, uxpStat, uxpTabs } from '../sparts';
+import { uxpBars, uxpCard, uxpGap, uxpPrice, uxpRow, uxpStamp, uxpStat, uxpTabs } from '../sparts';
 import { B } from './b-deps';
 import { bDim, bIcon } from './b-icons';
-import { block, dim, done, heroSlot, key, num, payFx, put, root, setText, sigOf, skuPic, stampLater, state, whyLine, type Block } from './b-kit';
+import { bHead, block, dim, done, heroSlot, key, num, payFx, put, root, setText, sigOf, skuPic, stampLater, state, type Block, whyLine } from './b-kit';
 import './shop.css';
 import type { Sku } from '../../p1/data';
 import type { ShopState } from '../../p1/model';
@@ -128,7 +128,7 @@ function build(ctx: Ctx, uid: number) {
         const x = sh();
         const auto = B.shelvesAuto(st);
         const b = here();
-        host.append(uxpHead(t('棚', 'Shelves'), { ico: 'shop' }), dim(auto ? t('左が主力商品。並ぶのは、工房で作っている商品です。', 'Left is the main item; shelves follow the workshop.') : t('左が主力商品です。', 'Left is the main product.')));
+        host.append(bHead(t('棚', 'Shelves'), { ico: 'shop' }), dim(auto ? t('左が主力商品。並ぶのは、工房で作っている商品です。', 'Left is the main item; shelves follow the workshop.') : t('左が主力商品です。', 'Left is the main product.')));
         const grid = el('div.uxb-shelves');
         x.shelves.forEach((y, k) => {
           const on = y ? (x.shelf[y] ?? 0) : 0;
@@ -183,7 +183,7 @@ function build(ctx: Ctx, uid: number) {
         };
         const partOdo = rollNumber(`b.part.${uid}`, x.part, { digits: 2, dur: 160 });
         host.append(
-          uxpHead(t('売り場の人', 'Floor staff'), { ico: 'people' }),
+          bHead(t('売り場の人', 'Floor staff'), { ico: 'people' }),
           heroSlot(st, {
             label: t('店員', 'Clerk'),
             task: 'shop',
@@ -238,14 +238,14 @@ function build(ctx: Ctx, uid: number) {
         put(
           host,
           el('div.uxp-stats', rev.el),
-          uxpHead(t('売上：先月と今月', 'Sales: last month and this month'), { ico: 'bars' }),
+          bHead(t('売上：先月と今月', 'Sales: last month and this month'), { ico: 'bars' }),
           x.last ? null : dim(t('先月の記録は、月の締めのあとに出ます。', 'Last month appears after the first month closes.')),
           bars.el,
           uxpRow(t('今月の費用（素材代・アルバイト代）', 'Costs this month (materials, part-timers)'), `${B.fmt(x.cost)} G`, { ico: 'coin' }),
           x.mu ? uxpRow(t('今月 売れた数', 'Units sold this month'), t(`${B.fmt(x.mu.sold)} 個`, `${B.fmt(x.mu.sold)}`), { ico: 'cart', tone: 'good' }) : null,
           x.mu && x.mu.miss > 0 ? uxpRow(t('棚が空で逃した数（見込み）', 'Missed while shelves were empty (est.)'), t(`${B.fmt(x.mu.miss)} 個`, `${B.fmt(x.mu.miss)}`), { ico: 'warn', tone: 'amber', note: t('品出しが追いつくと、このぶんも売れます', 'Faster shelving would sell these too') }) : null,
           x.muLast ? uxpRow(t('先月 売れた数', 'Units sold last month'), t(`${B.fmt(x.muLast.sold)} 個`, `${B.fmt(x.muLast.sold)}`), { tone: 'dim' }) : null,
-          uxpHead(t('お客さん', 'Customers'), { ico: 'people' }),
+          bHead(t('お客さん', 'Customers'), { ico: 'people' }),
           el('div.uxb-field', el('span.uxb-field-k', bDim('smile'), t('お客さんの満足', 'Customer mood')), satM.el, el('span.uxb-field-v', num(`${Math.round(x.sat * 100)}%`), el('span', satWord(x.sat)))),
           dim(t('棚が空になる日が続くと満足が下がり、売れにくくなります。', 'Empty shelves lower the mood and slow sales.')),
           el('div.uxb-field', el('span.uxb-field-k', bDim('eye'), t('お店の認知度', 'Shop awareness')), awM.el, el('span.uxb-field-v', num(`${Math.round(aw * 100)}%`))),
@@ -268,7 +268,7 @@ function build(ctx: Ctx, uid: number) {
         const st = s();
         const b = here();
         if (!b) return;
-        host.append(uxpHead(t('設備投資', 'Capital investment'), { ico: 'gear' }), dim(t('このお店の棚・アルバイトの上限・看板など。建物ごと（セクタごと）の設備です。', 'Shelves, part-timer limit, signboard and more for this shop. Equipment belongs to each building (each sector).')));
+        host.append(bHead(t('設備投資', 'Capital investment'), { ico: 'gear' }), dim(t('このお店の棚・アルバイトの上限・看板など。建物ごと（セクタごと）の設備です。', 'Shelves, part-timer limit, signboard and more for this shop. Equipment belongs to each building (each sector).')));
         const gains = b.left <= 0 && st.shops[b.uid] && !ctx.step?.() ? B.shopInvestOrder(st, b) : null;
         const list = B.INVESTS.filter((v) => v.kind === 'shop');
         if (gains) list.sort((p, q) => gains.findIndex((g) => g.id === p.id) - gains.findIndex((g) => g.id === q.id));
@@ -310,7 +310,7 @@ function build(ctx: Ctx, uid: number) {
           stamps.set('famous', fs);
           if (mine) fs.show();
           host.append(
-            uxpHead(t('名物店主', 'Famous shopkeeper'), { ico: 'star' }),
+            bHead(t('名物店主', 'Famous shopkeeper'), { ico: 'star' }),
             uxpCard({
               pic: el('span.uxb-inv-pic', bIcon('star', { scale: 3, color: '#ffb81f', hi: '#ffe394', lo: '#b8650d' }), uxLamp('', mine)),
               name: mine ? t('このお店が名物店主のお店です', 'This is your famous shopkeeper’s shop') : t('名物店主のお店にする', 'Make this the famous shop'),

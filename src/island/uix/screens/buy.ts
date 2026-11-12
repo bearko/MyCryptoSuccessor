@@ -9,10 +9,10 @@ import { t } from '../../../i18n';
 import { el } from '../dom';
 import { rollNumber, uxKey, uxLamp, uxMeter, uxTape } from '../parts';
 import { uxSfx } from '../sound';
-import { uxpCard, uxpEmpty, uxpGap, uxpHead, uxpPrice, uxpRow, uxpStamp, uxpTabs } from '../sparts';
+import { uxpCard, uxpGap, uxpPrice, uxpRow, uxpStamp, uxpTabs } from '../sparts';
 import { B } from './b-deps';
 import { bDim, bInk } from './b-icons';
-import { block, dim, done, facePic, heroSlot, key, matPic, num, payFx, put, root, sigOf, skuPic, stampLater, state, whyLine, type Block } from './b-kit';
+import { bEmpty, bHead, block, dim, done, facePic, heroSlot, key, matPic, num, payFx, put, root, sigOf, skuPic, stampLater, state, type Block, whyLine } from './b-kit';
 import './buy.css';
 import { tradeCmpUx } from './tariff';
 import type { Mat } from '../../p1/data';
@@ -158,7 +158,7 @@ function build(ctx: Ctx) {
       (host) => {
         const st = s();
         const mats = B.procMats(st).map((x) => x.m);
-        host.append(uxpHead(t('素材を買い足す（卸問屋）', 'Top up materials (wholesaler)'), { ico: 'shop' }));
+        host.append(bHead(t('素材を買い足す（卸問屋）', 'Top up materials (wholesaler)'), { ico: 'shop' }));
         for (const m of mats.length ? mats : B.MAT_KEYS.filter((k) => B.hasRoute(st, k))) {
           const unit = B.unitPrice(st, m);
           const days = B.leadDays(st);
@@ -432,7 +432,7 @@ function build(ctx: Ctx) {
       const sig = order.join(',');
       if (sig !== orderSig) {
         orderSig = sig;
-        matHost.replaceChildren(uxpHead(t('素材ごとの在庫と月の量', 'Stock and monthly amount'), { ico: 'list' }), ...order.map((m) => matBlocks.get(m)!.el));
+        matHost.replaceChildren(bHead(t('素材ごとの在庫と月の量', 'Stock and monthly amount'), { ico: 'list' }), ...order.map((m) => matBlocks.get(m)!.el));
       }
       for (const m of order) matBlocks.get(m)!.sync();
     };
@@ -443,9 +443,9 @@ function build(ctx: Ctx) {
       () => sigOf(s().orders, B.walkDays(s())),
       (host) => {
         const st = s();
-        host.append(uxpHead(t('注文中', 'On order'), { ico: 'truck', right: st.orders?.length ? num(String(st.orders.length), 'uxb-count') : null }));
+        host.append(bHead(t('注文中', 'On order'), { ico: 'truck', right: st.orders?.length ? num(String(st.orders.length), 'uxb-count') : null }));
         if (!st.orders?.length) {
-          host.append(uxpEmpty(t('いま注文している素材はありません', 'No orders right now'), { ico: 'truck', sub: t('注文すると、納期に問屋の人が工房まで運んできます（工房に入ったら在庫になります）。', 'Ordered materials are carried to the workshop by the wholesaler’s staff on the due day.'), key: key(t('素材を見る', 'See materials'), () => tabs?.set('mats')) }));
+          host.append(bEmpty(t('いま注文している素材はありません', 'No orders right now'), { ico: 'truck', sub: t('注文すると、納期に問屋の人が工房まで運んできます（工房に入ったら在庫になります）。', 'Ordered materials are carried to the workshop by the wholesaler’s staff on the due day.'), key: key(t('素材を見る', 'See materials'), () => tabs?.set('mats')) }));
           return;
         }
         for (const o of st.orders) {
@@ -467,7 +467,7 @@ function build(ctx: Ctx) {
         const st = s();
         const buyer = st.staff.find((x) => x.task === 'buy');
         host.append(
-          uxpHead(t('自動の買い付け', 'Automatic buying'), { ico: 'people' }),
+          bHead(t('自動の買い付け', 'Automatic buying'), { ico: 'people' }),
           heroSlot(st, {
             label: t('調達係', 'Buyer'),
             task: 'buy',
@@ -502,7 +502,7 @@ function build(ctx: Ctx) {
         const bonus = Math.round(B.procBonus(st) * 100);
         const rm = uxMeter(maxed ? 1 : st.proc.exp / need);
         host.append(
-          uxpHead(t('調達ランク', 'Buying rank'), { ico: 'star', right: el('span.uxb-lv', 'Lv.', num(st.proc.lv)) }),
+          bHead(t('調達ランク', 'Buying rank'), { ico: 'star', right: el('span.uxb-lv', 'Lv.', num(st.proc.lv)) }),
           rm.el,
           dim(maxed ? t('最高ランクです', 'Max rank') : t(`次のランクまで ${Math.ceil(need - st.proc.exp)}（買った数と買い付けの回数で上がります）`, `${Math.ceil(need - st.proc.exp)} to the next rank (raised by units and purchases)`)),
           dim(bonus ? t(`今月の調達の枠（月に買える素材の数）は、ランクが上がると増えます（スキルで +${bonus}%）。`, `The monthly quota grows with rank (skills +${bonus}%).`) : t('今月の調達の枠（月に買える素材の数）は、ランクが上がると増えます。スキル「調達枠の拡大」でも増やせます。', 'The monthly quota grows with rank and the “Bigger buying quota” skill.')),
@@ -510,7 +510,7 @@ function build(ctx: Ctx) {
         // 作りたいエクステ
         const items = B.procItems(st);
         host.append(
-          uxpHead(t('作りたいエクステ', 'Extensions to make'), { ico: 'hammer' }),
+          bHead(t('作りたいエクステ', 'Extensions to make'), { ico: 'hammer' }),
           dim(t('選ぶと、必要な素材が「素材」のタブで自動で選ばれます（最初は作業台で作っているもの）。', 'Their materials are selected on the Materials tab automatically (defaults to what the benches make).')),
           el(
             'div.uxb-picks',

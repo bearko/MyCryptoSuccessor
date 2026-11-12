@@ -6,10 +6,10 @@ import { t } from '../../../i18n';
 import { el } from '../dom';
 import { rollNumber, uxKey, uxLamp, uxMeter, uxTape } from '../parts';
 import { uxSfx } from '../sound';
-import { uxpBars, uxpCard, uxpEmpty, uxpGap, uxpHead, uxpPrice, uxpRow, uxpSeg, uxpStamp, uxpStat } from '../sparts';
+import { uxpBars, uxpCard, uxpGap, uxpPrice, uxpRow, uxpSeg, uxpStamp, uxpStat } from '../sparts';
 import { B } from './b-deps';
 import { bDim, bIcon } from './b-icons';
-import { dim, done, facePic, key, matPic, noEmoji, num, payFx, put, rankTag, sheet, skuPic, stampLater, state } from './b-kit';
+import { bEmpty, bHead, dim, done, facePic, key, matPic, noEmoji, num, payFx, put, rankTag, sheet, skuPic, stampLater, state } from './b-kit';
 import './biz.css';
 import type { Mat, Rar, Sku } from '../../p1/data';
 import type { SalesSort, ShopBar } from '../../p1/sales';
@@ -44,7 +44,7 @@ export const adTone = (gain: number): 'good' | 'amber' => (gain > 0 ? 'good' : '
 
 export function openBomUx(ctx: Ctx) {
   sheet(ctx, t('BOM（素材 → 商品）', 'BOM (materials → products)'), null, 'uxb-bom', (host, s) => {
-    host.append(uxpHead(t('素材 → 商品', 'Materials → products'), { ico: 'hammer' }), dim(t('1 回のクラフトに使う素材と、できる数・日数・1 個あたりの素材代と粗利です（素材はいまの値段）。', 'Materials per craft, output, days, and material cost and gross margin per item (at current prices).')));
+    host.append(bHead(t('素材 → 商品', 'Materials → products'), { ico: 'hammer' }), dim(t('1 回のクラフトに使う素材と、できる数・日数・1 個あたりの素材代と粗利です（素材はいまの値段）。', 'Materials per craft, output, days, and material cost and gross margin per item (at current prices).')));
     const list = el('div.uxp-grid.uxb-bom-list');
     for (const p of B.PRODUCTS)
       for (const r of ['C', 'U'] as Rar[]) {
@@ -106,7 +106,7 @@ export function openSalesUx(ctx: Ctx) {
       const many = bs.length > 5;
       put(
         host,
-        uxpHead(t(`お店の売上と利益率（${lastMo ? '先月' : '今月のここまで'}）`, `Shop sales and margin (${lastMo ? 'last month' : 'this month so far'})`), { ico: 'bars' }),
+        bHead(t(`お店の売上と利益率（${lastMo ? '先月' : '今月のここまで'}）`, `Shop sales and margin (${lastMo ? 'last month' : 'this month so far'})`), { ico: 'bars' }),
         dim(t(`いちばん稼いでいるのは${names[bs.indexOf(best)].full}`, `Top earner: ${names[bs.indexOf(best)].full}`)),
         uxpBars(bs.map((x, k) => ({ label: many ? names[k].short : names[k].full, value: x.x, kind: x.y < 0 ? 'bad' : x === best ? 'main' : '', text: many ? '' : undefined })), { height: 132 }).el,
         el('div.uxb-list.uxb-margins', bs.map((x, k) => uxpRow(names[k].full, `${Math.round(x.y)}%`, { tone: x.y < 0 ? 'bad' : x === best ? 'amber' : '', note: [t(`利益率・売上 ${B.fmt(x.x)} G・商圏の家 ${x.r} 軒`, `margin · sales ${B.fmt(x.x)} G · ${x.r} homes`), x.y < 0 ? t('（赤字）', ' (loss)') : ''] }))),
@@ -129,7 +129,7 @@ export function openSalesUx(ctx: Ctx) {
       });
       put(
         host,
-        uxpHead(t('お店ごとの 1 日の数', 'Daily units by shop'), { ico: 'bars' }),
+        bHead(t('お店ごとの 1 日の数', 'Daily units by shop'), { ico: 'bars' }),
         dim(t('棒の高さ＝来るはずのお客さん。押すと商圏を地図で見る', 'Bar height = would-be customers. Tap to see the trade area')),
         el('div.uxb-stacks', { role: 'list' }, cols),
         el('div.uxb-legend', el('span', el('i.is-sold'), t('売れた', 'Sold')), el('span', el('i.is-lost'), t('自店に取られた', 'Taken by own shops')), el('span', el('i.is-miss'), t('棚が空で逃した', 'Missed (empty shelf)'))),
@@ -158,7 +158,7 @@ export function openSalesUx(ctx: Ctx) {
     };
     put(
       host,
-      uxpHead(t('一括で変える', 'Change all at once'), { ico: 'cycle' }),
+      bHead(t('一括で変える', 'Change all at once'), { ico: 'cycle' }),
       dim(t('お店ごとに同じ操作をくり返さなくてよいように。外した商品の棚の残りは裏に戻ります。', 'So you don’t repeat the same step per shop. Items taken off a shelf go to the back room.')),
       el(
         'div.uxb-bulk',
@@ -191,9 +191,9 @@ export function openSalesUx(ctx: Ctx) {
       dim(notes.join(t('・', ' · '))),
     );
     // 一覧
-    host.append(uxpHead(t('お店の一覧', 'Shops'), { ico: 'shop', right: num(String(rows.length), 'uxb-count') }));
+    host.append(bHead(t('お店の一覧', 'Shops'), { ico: 'shop', right: num(String(rows.length), 'uxb-count') }));
     if (!rows.length) {
-      host.append(uxpEmpty(t('お店がまだありません', 'No shops yet'), { ico: 'shop', sub: t('「経営企画」→「建築」で建てましょう。', 'Build one under Strategy → Build.') }));
+      host.append(bEmpty(t('お店がまだありません', 'No shops yet'), { ico: 'shop', sub: t('「経営企画」→「建築」で建てましょう。', 'Build one under Strategy → Build.') }));
       return;
     }
     for (const r of rows) {
@@ -262,7 +262,7 @@ export function openAdsUx(ctx: Ctx) {
     if (fresh.length) {
       put(
         host,
-        uxpHead(t('新しい商品の認知', 'How well new items are known'), { ico: 'eye' }),
+        bHead(t('新しい商品の認知', 'How well new items are known'), { ico: 'eye' }),
         dim(t(`並べている日に +${Math.round(B.AWARE_GOODS.perDay * 100)}%、宣伝が効いている日はさらに +${Math.round(B.AWARE_GOODS.ad * 100)}%。知られていないうちは売れる数が減ります。`, `+${Math.round(B.AWARE_GOODS.perDay * 100)}% a day on shelves, +${Math.round(B.AWARE_GOODS.ad * 100)}% more while an ad runs. Less-known items sell fewer.`)),
         el(
           'div.uxb-list',
@@ -273,7 +273,7 @@ export function openAdsUx(ctx: Ctx) {
         ),
       );
     }
-    host.append(uxpHead(t('宣伝を出す', 'Run an ad'), { ico: 'horn' }));
+    host.append(bHead(t('宣伝を出す', 'Run an ad'), { ico: 'horn' }));
     // いちばん見込みの大きい（元が取れる）宣伝のキーだけ、主役
     const open = B.ADS.filter((a) => !B.adLock(s, a.id) && (s.ads[a.id] ?? 0) <= 0 && s.money >= B.adCost(s, a.id) && B.myShops(s).length > 0);
     const best = open.map((a) => ({ a, g: B.adGain(s, a.id) })).filter((x) => x.g > 0).sort((p, q) => q.g - p.g)[0]?.a.id;
@@ -371,8 +371,8 @@ export function openDataUx(ctx: Ctx) {
       host.append(key(t(`「${B.PRODUCT[rec].name}」の準備：${B.needText(need, s)}`, `Get ${B.PRODUCT[rec].name} ready: ${B.needText(need, s)}`), () => ctx.skills?.(go), { kind: 'main', ico: 'star', cls: 'uxb-wide' }));
     } else if (recRow && !need) host.append(key(t(`「${B.PRODUCT[rec].name}」を工房で作る`, `Make ${B.PRODUCT[rec].name} in the workshop`), () => B.makeInWorkshop(ctx, rec), { kind: 'main', ico: 'hammer', cls: 'uxb-wide' }));
     // 国民のニーズ（縦の棒。琥珀＝おすすめ）
-    put(host, uxpHead(t('国民のニーズ（月）', 'Demand / mo'), { ico: 'bars' }), uxpBars(rows.slice(0, 8).map((r) => ({ label: r.p.name, value: r.demand, kind: r.p.key === rec ? 'main' : r.saturated ? 'dash' : '' })), { max: maxD, height: 132 }).el, dim(t('琥珀の棒＝マインちゃんのおすすめ・点線の棒＝他店で供給が足りている商品', 'Amber bar = Mine-chan’s pick · dashed bar = well supplied by other shops')));
-    host.append(uxpHead(t('商品ごと', 'By item'), { ico: 'list' }));
+    put(host, bHead(t('国民のニーズ（月）', 'Demand / mo'), { ico: 'bars' }), uxpBars(rows.slice(0, 8).map((r) => ({ label: r.p.name, value: r.demand, kind: r.p.key === rec ? 'main' : r.saturated ? 'dash' : '' })), { max: maxD, height: 132 }).el, dim(t('琥珀の棒＝マインちゃんのおすすめ・点線の棒＝他店で供給が足りている商品', 'Amber bar = Mine-chan’s pick · dashed bar = well supplied by other shops')));
+    host.append(bHead(t('商品ごと', 'By item'), { ico: 'list' }));
     for (const r of rows) {
       const who = s.rivals.filter((x) => (x.sells[r.p.key] ?? 0) > 0).map((x) => B.rivalDef(x.id)?.name ?? '');
       const dm = uxMeter(r.demand / maxD);
@@ -402,7 +402,7 @@ export function openDataUx(ctx: Ctx) {
     const relics = B.relicMarket(s);
     const soon = B.relicsSoon(s, relics.length ? 2 : 3);
     if (relics.length || soon.length) {
-      put(host, uxpHead(t('復刻品（遺物の研究 Lv3 で作れる）', 'Revivals (research a relic to Lv3)'), { ico: 'slab' }), relics.length ? dim(t('昔の Lime の品。初めて売った月から 4 か月は、どの会社も真似できない。', 'Goods of old Lime. For 4 months from the first sale, no rival can copy them.')) : null);
+      put(host, bHead(t('復刻品（遺物の研究 Lv3 で作れる）', 'Revivals (research a relic to Lv3)'), { ico: 'slab' }), relics.length ? dim(t('昔の Lime の品。初めて売った月から 4 か月は、どの会社も真似できない。', 'Goods of old Lime. For 4 months from the first sale, no rival can copy them.')) : null);
       const maxR = Math.max(1, ...relics.map((r) => r.demand));
       for (const r of relics) {
         const dm = uxMeter(r.demand / maxR);

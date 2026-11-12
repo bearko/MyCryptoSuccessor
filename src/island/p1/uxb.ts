@@ -79,6 +79,14 @@ import { seriesTag } from './digview';
 import { needText } from './heroui';
 import { recommend, relicMarket, relicSku, relicsSoon } from './model';
 import { makeInWorkshop } from './screens';
+import { RARE_AREA, SALES_MASTERY } from './data';
+import { shareHist } from './dash';
+import { isVacant, takeVacant, vacantCost, vacantErr } from './model';
+import { companyColor, companyShares, quitRule, refillText, siteCandidates, storeName, storeRows, surveyed, vacantLabel } from './trade';
+import { areaMiniMap } from './tradeui';
+import { CLEAR, UNCOMMON } from './data';
+import { clearInfo, cutName, rankUp, storeFull, upPrice } from './stock';
+import { clearChoose, clearOutlook, rankDev, shelfNames, shelfOpts } from './stockui';
 export const uxbDeps = {
   assetUrl,
   sectorDef,
@@ -300,5 +308,34 @@ export const uxbDeps = {
   relicSku,
   relicsSoon,
   makeInWorkshop,
+  RARE_AREA,
+  SALES_MASTERY,
+  shareHist,
+  isVacant,
+  takeVacant,
+  vacantCost,
+  vacantErr,
+  companyColor,
+  companyShares,
+  quitRule,
+  refillText,
+  siteCandidates,
+  storeName,
+  storeRows,
+  surveyed,
+  vacantLabel,
+  areaMiniMap,
+  CLEAR,
+  UNCOMMON,
+  clearInfo,
+  cutName,
+  rankUp,
+  storeFull,
+  upPrice,
+  clearChoose,
+  clearOutlook,
+  rankDev,
+  shelfNames,
+  shelfOpts,
 };
 export type UxbDeps = typeof uxbDeps;

@@ -10,10 +10,10 @@ import { later } from '../loop';
 import { uxKey, uxLamp, uxMeter, uxTape } from '../parts';
 import { isCalm } from '../prefs';
 import { uxSfx } from '../sound';
-import { uxpBars, uxpCard, uxpEmpty, uxpGap, uxpHead, uxpPaper, uxpPrice, uxpRank, uxpRow, uxpSelect, uxpStamp, uxpStat } from '../sparts';
+import { uxpBars, uxpCard, uxpGap, uxpPaper, uxpPrice, uxpRank, uxpRow, uxpSelect, uxpStamp, uxpStat } from '../sparts';
 import { B } from './b-deps';
 import { bDim, bIcon, bInk } from './b-icons';
-import { dim, done, fold, key, noEmoji, num, payFx, put, sheet, stampLater, state } from './b-kit';
+import { bEmpty, bHead, dim, done, fold, key, noEmoji, num, payFx, put, sheet, stampLater, state } from './b-kit';
 import './cs.css';
 import type { Inquiry } from '../../p1/cs';
 import type { CsHooks } from '../../p1/csui';
@@ -138,9 +138,9 @@ export function openInboxUx(ctx: Ctx, hooks: CsHooks = {}) {
   sheet(ctx, t('問い合わせ', 'Inquiries'), null, 'uxb-inbox', (host, s) => {
     const C = B.csOf(s);
     put(host, flameCard(ctx, s, { ...hooks, inbox: undefined }), satGauge(s, false), hooks.sat ? key(t('満足度のくわしい画面', 'Satisfaction details'), () => hooks.sat!(), { ico: 'next', kind: 'weak' }) : null);
-    const list = el('div.uxb-list', { 'data-focus': 'cs-inbox' }, uxpHead(t('受け箱', 'Inbox'), { ico: 'mail', right: num(String(C.inbox.length), 'uxb-count') }));
-    if (!B.csOn(s)) list.append(uxpEmpty(t('Common の町には問い合わせは来ません', 'Common towns send no inquiries'), { ico: 'mail', sub: t('Uncommon 以上の町で、月の締めに先月の様子（品切れ・閉まっていた日・値段）から届きます。', 'In Uncommon+ towns they arrive at the monthly close, based on last month (sell-outs, closed days, prices).') }));
-    else if (!C.inbox.length) list.append(uxpEmpty(t('いまは問い合わせがありません', 'No inquiries right now'), { ico: 'mail', sub: t('月の締めに、先月の様子（品切れ・閉まっていた日・値段）から届きます。', 'They arrive at the monthly close, based on last month (sell-outs, closed days, prices).') }));
+    const list = el('div.uxb-list', { 'data-focus': 'cs-inbox' }, bHead(t('受け箱', 'Inbox'), { ico: 'mail', right: num(String(C.inbox.length), 'uxb-count') }));
+    if (!B.csOn(s)) list.append(bEmpty(t('Common の町には問い合わせは来ません', 'Common towns send no inquiries'), { ico: 'mail', sub: t('Uncommon 以上の町で、月の締めに先月の様子（品切れ・閉まっていた日・値段）から届きます。', 'In Uncommon+ towns they arrive at the monthly close, based on last month (sell-outs, closed days, prices).') }));
+    else if (!C.inbox.length) list.append(bEmpty(t('いまは問い合わせがありません', 'No inquiries right now'), { ico: 'mail', sub: t('月の締めに、先月の様子（品切れ・閉まっていた日・値段）から届きます。', 'They arrive at the monthly close, based on last month (sell-outs, closed days, prices).') }));
     C.inbox.forEach((q, n) => list.append(inquiry(s, q, n === 0)));
     host.append(list);
     host.append(
@@ -262,7 +262,7 @@ export function openSatUx(ctx: Ctx, hooks: CsHooks = {}) {
       const d = hist.length >= 2 ? hist[hist.length - 1].v - hist[hist.length - 2].v : 0;
       put(
         host,
-        uxpHead(t('月の締めの顧客満足度', 'Satisfaction at each close'), { ico: 'bars' }),
+        bHead(t('月の締めの顧客満足度', 'Satisfaction at each close'), { ico: 'bars' }),
         hist.length >= 2 ? el(`span.uxb-gain${d >= 0 ? '' : '.is-wait'}`, bIcon(d >= 0 ? 'up' : 'down', { color: d >= 0 ? '#36e08b' : '#ffb81f', scale: 1 }), t(`先月から ${d >= 0 ? '+' : '−'}${Math.abs(d)}`, `${d >= 0 ? '+' : '−'}${Math.abs(d)} since last month`)) : null,
         uxpBars(hist.map((x, k) => ({ label: B.monLab(x.month), value: x.v, kind: k === hist.length - 1 ? 'main' : x.v <= B.CS.brandLo ? 'bad' : x.v >= B.CS.brandHi ? 'good' : '', text: String(Math.round(x.v)) })), { max: 100, height: 132 }).el,
         dim(t(`${B.CS.brandHi} 以上（緑）で月にブランド力 +1、${B.CS.brandLo} 以下（赤）で −1。`, `Brand +1/month at ${B.CS.brandHi}+ (green), −1 at ${B.CS.brandLo} or less (red).`)),
@@ -302,7 +302,7 @@ export function openForecastUx(ctx: Ctx, hooks: { skills?: () => void; ads?: () 
   sheet(ctx, t('市場の見通し', 'Market outlook'), null, 'uxb-fore', (host, s) => {
     const f = B.forecast(s);
     // 宣伝の打ち時
-    const tips = el('div.uxb-list', { 'data-focus': 'mk-hints' }, uxpHead(t('宣伝の打ち時', 'When to advertise'), { ico: 'horn' }));
+    const tips = el('div.uxb-list', { 'data-focus': 'mk-hints' }, bHead(t('宣伝の打ち時', 'When to advertise'), { ico: 'horn' }));
     for (const x of f.hints) {
       const ad = x.ad ? B.ADS.find((a) => a.id === x.ad) : null;
       const can = !!ad && x.kind !== 'copy' && (s.ads[ad.id] ?? 0) <= 0;
@@ -334,7 +334,7 @@ export function openForecastUx(ctx: Ctx, hooks: { skills?: () => void; ads?: () 
     if (hooks.ads) tips.append(key(t('宣伝広報を開く', 'Open Advertising'), () => hooks.ads!(), { ico: 'next', kind: 'weak' }));
     host.append(tips);
     // 需要の見通し：商品ごとの国民のニーズ（いま）の縦の棒と、先の月・他社
-    const box = el('div.uxb-list', { 'data-focus': 'mk-fore' }, uxpHead(t(`需要の見通し（${f.h} か月先まで）`, `Demand outlook (${f.h} month${f.h > 1 ? 's' : ''} ahead)`), { ico: 'scope' }), dim(t('いまの需要の伸び（月 +1.5%）と、他社が真似してくるまでの数えから読む見通しです。', 'Read from current demand growth (+1.5%/month) and how long until rivals copy you.')));
+    const box = el('div.uxb-list', { 'data-focus': 'mk-fore' }, bHead(t(`需要の見通し（${f.h} か月先まで）`, `Demand outlook (${f.h} month${f.h > 1 ? 's' : ''} ahead)`), { ico: 'scope' }), dim(t('いまの需要の伸び（月 +1.5%）と、他社が真似してくるまでの数えから読む見通しです。', 'Read from current demand growth (+1.5%/month) and how long until rivals copy you.')));
     const rows = f.rows.slice(0, 10);
     const bars = [...rows].sort((a, b) => b.demand[0] - a.demand[0]);
     if (bars.length) {
@@ -365,7 +365,7 @@ export function openForecastUx(ctx: Ctx, hooks: { skills?: () => void; ads?: () 
     }
     host.append(box);
     // 他社の売れ筋（順位だけは横の棒）
-    host.append(uxpHead(t('他社の売れ筋', 'Rivals’ best-sellers'), { ico: 'shop' }));
+    host.append(bHead(t('他社の売れ筋', 'Rivals’ best-sellers'), { ico: 'shop' }));
     if (!f.rivals.length) host.append(dim(t('「市場調査の部署」（パネル）で、他社ごとのいちばん売れている商品と先月の売上が見えます。', 'The Research desk (panel) shows each rival’s best-seller and last month’s sales.')));
     else {
       const mine = s.reports[s.reports.length - 1]?.revenue ?? null;
@@ -401,13 +401,13 @@ export function openPrUx(ctx: Ctx, hooks: CsHooks = {}) {
       ),
       flameCard(ctx, s, hooks),
     );
-    const pr = el('div.uxb-list', { 'data-focus': 'mk-pr' }, uxpHead(t('良いニュースを発表する', 'Release good news'), { ico: 'horn' }));
+    const pr = el('div.uxb-list', { 'data-focus': 'mk-pr' }, bHead(t('良いニュースを発表する', 'Release good news'), { ico: 'horn' }));
     if (!B.prOn(s)) pr.append(dim(t('広報は Uncommon の町に出店してから。町の制覇・研究成果の発表・新商品・新しいお店など、実際に起きた良いニュースを発表すると、ブランド力が上がります。', 'PR opens once you set up in an Uncommon town. Announce real good news — conquering a town, presenting findings, new products, new shops — to raise your brand.')));
     else {
       const wait = B.prWait(s);
       const list = B.newsOf(s);
       const cost = B.prCost(s);
-      if (!list.length) pr.append(uxpEmpty(t('いまは発表できるニュースがありません', 'No news to announce right now'), { ico: 'horn', sub: t('町の制覇・研究成果の発表・新商品・新しいお店が、ニュースになります。', 'Conquests, findings, new products and new shops become news.') }));
+      if (!list.length) pr.append(bEmpty(t('いまは発表できるニュースがありません', 'No news to announce right now'), { ico: 'horn', sub: t('町の制覇・研究成果の発表・新商品・新しいお店が、ニュースになります。', 'Conquests, findings, new products and new shops become news.') }));
       list.forEach((x, n) => {
         const lock = B.prLock(s);
         const gap = uxpGap(s.money, cost);

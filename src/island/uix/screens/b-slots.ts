@@ -5,6 +5,10 @@
  */
 import type { CsHooks } from '../../p1/csui';
 import type { Ctx } from '../../p1/screens';
+import type { TradeCmp } from '../../p1/tariffui';
+import type { Sku } from '../../p1/data';
+import type { Plan } from '../../p1/plan';
+import type { OneShelf, ShelfPick } from '../../p1/stock';
 
 export interface UxbScreens {
   /** 調達 */
@@ -24,6 +28,18 @@ export interface UxbScreens {
   sat?: (ctx: Ctx, hooks: CsHooks) => void;
   forecast?: (ctx: Ctx, hooks: { skills?: () => void; ads?: () => void }) => void;
   pr?: (ctx: Ctx, hooks: CsHooks) => void;
+  /** 営業：商圏の取り合い */
+  trade?: (ctx: Ctx, hooks: { areaView: () => void; panels: () => void }) => void;
+  /** となり町の取り寄せの比べ（関税）の札 */
+  tradeCmp?: (c: TradeCmp) => HTMLElement;
+  /** まとめた画面の器（中身を並べたあと）：見出しの貼り札・区切り・開いた所へ送る動き。focus：はじめに送る部分の番号 */
+  together?: (body: HTMLElement, focus: number) => void;
+  /** 在庫を優先して売りさばく（お店の方針の段を選ぶ引き出し） */
+  clear?: (ctx: Ctx, uid: number, hero: number | null, done: () => void) => void;
+  /** 棚が 1 段のお店の 3 択 */
+  shelfChoice?: (ctx: Ctx, plan: Plan, gate: OneShelf[], go: (p: Plan | null, pick: ShelfPick) => void) => void;
+  /** 商品のランクアップ（Common → Uncommon） */
+  rankUp?: (ctx: Ctx, x: Sku, worker: number | null, onMake: (u: Sku) => void, closeParent?: () => void) => void;
 }
 // 入れ物は uix/hooks.ts に置く（理由はそこに）。ここは型と、同じ物の名前だけ
 export { uxbSlots as uxb } from '../hooks';

@@ -10,7 +10,8 @@ import { later } from '../loop';
 import { shake, uxKey, uxLamp, uxMeter, uxTape, vibrate, type KeyOpts } from '../parts';
 import { isCalm } from '../prefs';
 import { uxSfx } from '../sound';
-import { uxpFace, uxpReplay } from '../sparts';
+import { uxpEmpty, uxpFace, uxpHead, uxpReplay, type HeadOpts } from '../sparts';
+import { UX_ICONS } from '../icons';
 import { B } from './b-deps';
 import { bIcon } from './b-icons';
 import './b-kit.css';
@@ -161,7 +162,14 @@ export function state(kind: '' | 'good' | 'bad' | 'cyan', text: string, blink = 
   return el(`span.uxb-state${kind ? '.is-' + kind : ''}`, uxLamp(kind, true, blink), el('span', text));
 }
 /** 小さなキー（一覧の行の右・札の中）。44px の高さは保つ */
-export const key = (label: Kid, fn: () => void, o: KeyOpts = {}) => uxKey(label, () => fn(), { ...o, cls: `uxb-key ${o.cls ?? ''}`.trim() });
+export const key = (label: Kid, fn: () => void, o: KeyOpts = {}) => uxKey(bLabel(label, o), () => fn(), { ...o, ico: bIco(o.ico), cls: `uxb-key ${o.cls ?? ''}`.trim() });
+/** キーの絵：土台に無い名前は、字の前に絵を入れる（土台の uxKey は土台の絵しか描けない） */
+const bIco = (ico?: string | null) => (ico && !UX_ICONS.includes(ico) ? undefined : ico);
+export function bLabel(label: Kid, o: KeyOpts): Kid {
+  if (!o.ico || UX_ICONS.includes(o.ico)) return label;
+  const dark = !o.disabled && (o.kind === 'main' || o.kind === 'danger');
+  return [bIcon(o.ico, { color: dark ? '#1a1c2e' : '#f4ecd4', hi: dark ? '#1a1c2e' : '#fffdf3', lo: dark ? '#7a3f06' : '#0b0d17' }), typeof label === 'string' ? el('b', label) : label];
+}
 /** ctx の「保存して描き直す」（今の after と同じ） */
 export const done = (ctx: Ctx) => B.after(ctx);
 
@@ -218,4 +226,21 @@ export function sheet(ctx: Ctx, title: string, tip: string | null, cls: string, 
     }
     render(host, ctx.s());
   });
+}
+
+/**
+ * 見出しの貼り札（uxpHead）と空のとき（uxpEmpty）：ico が土台の絵に無い名前（この段・工房・世界の場面の絵）でも描く。
+ * 土台の部品の ico は土台の絵の名前しか描けない（空の絵になる）ため、絵を字の前に入れて渡す
+ */
+export function bHead(title: Kid, o: HeadOpts = {}): HTMLElement {
+  if (!o.ico || UX_ICONS.includes(o.ico)) return uxpHead(title, o);
+  const dark = o.kind === 'dark';
+  const ico = bIcon(o.ico, { color: dark ? '#f4ecd4' : '#1a1c2e', hi: dark ? '#fffdf3' : '#1a1c2e', lo: dark ? '#0b0d17' : '#8a7f5c', scale: 1 });
+  return uxpHead([ico, typeof title === 'string' ? el('b', title) : title], { ...o, ico: undefined });
+}
+export function bEmpty(text: Kid, o: { ico?: string; sub?: Kid; key?: Kid } = {}): HTMLElement {
+  if (!o.ico || UX_ICONS.includes(o.ico)) return uxpEmpty(text, o);
+  const e = uxpEmpty(text, { ...o, ico: 'list' });
+  e.querySelector('.uxp-empty-ico')?.replaceChildren(bIcon(o.ico, { scale: 3, color: '#4a5486', hi: '#97a1cf', lo: '#20253d' }));
+  return e;
 }

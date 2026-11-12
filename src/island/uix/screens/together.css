@@ -1,0 +1,80 @@
+/* 段 UIX3b：今の要素のまま着せ替える所（docs/ISLAND_UIX.md「画面：まとめた画面の器・在庫の引き出し」）。
+   セレクタはすべて html.is-uxc の内側。足す class の接頭辞は uxb-。 */
+
+/* ---------- まとめた画面の器：見出しの貼り札・画面どうしの区切り・近道のキー */
+html.is-uxc #isl-ui .uxb-together > .isl-part {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+/* 区切り：紙テープの切り取り線（点々の罫と、両端の切り欠き） */
+html.is-uxc #isl-ui .uxb-together > .isl-part + .isl-part {
+  margin-top: 14px;
+  padding-top: 16px;
+  border-top: 0;
+  background: repeating-linear-gradient(90deg, var(--ux-k4) 0 6px, transparent 6px 12px) 0 0 / 100% 2px no-repeat;
+}
+html.is-uxc #isl-ui .uxb-part-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ux-paper);
+  font: 400 1rem/1.5 var(--ux-jp);
+}
+html.is-uxc #isl-ui .uxb-part-head > .ux-tape {
+  flex: none;
+  max-width: 100%;
+  min-height: 1.5rem;
+  line-height: 1.5rem;
+  white-space: normal;
+}
+html.is-uxc #isl-ui .uxb-together > .isl-part-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxb-together .isl-part-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxb-together .isl-part-go > .ux-ico {
+  display: inline-block;
+  flex: none;
+}
+/* 開いた所へ送った合図：四隅のかぎと、見出しの札が 1 回光る（900ms。層を残さない） */
+html.is-uxc #isl-ui .uxb-part-focus::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  background:
+    linear-gradient(var(--ux-amber), var(--ux-amber)) 0 0 / 16px 2px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) 0 0 / 2px 16px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) 100% 0 / 16px 2px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) 100% 0 / 2px 16px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) 0 100% / 16px 2px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) 0 100% / 2px 16px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) 100% 100% / 16px 2px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) 100% 100% / 2px 16px no-repeat;
+  opacity: 0;
+  animation: uxb-part 900ms steps(6, end);
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxb-part-focus > .uxb-part-head > .ux-tape {
+  animation: uxb-part-tape 900ms steps(6, end);
+}
+@keyframes uxb-part {
+  0% { opacity: 1; transform: scale(1.02); }
+  40% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
+}
+@keyframes uxb-part-tape {
+  0%, 40% { opacity: 0.4; }
+  20%, 60%, 100% { opacity: 1; }
+}

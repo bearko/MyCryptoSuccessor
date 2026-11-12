@@ -10,10 +10,10 @@ import { el } from '../dom';
 import { Odo, uxKey, uxLamp, uxMeter, uxTape } from '../parts';
 import { isCalm } from '../prefs';
 import { uxSfx } from '../sound';
-import { uxpBars, uxpCard, uxpGap, uxpHead, uxpRow, uxpStamp, uxpStat, uxpTabs } from '../sparts';
+import { uxpBars, uxpCard, uxpGap, uxpRow, uxpStamp, uxpStat, uxpTabs } from '../sparts';
 import { B } from './b-deps';
 import { bDim, bIcon, bInk } from './b-icons';
-import { block, dim, done, facePic, fold, heroSlot, key, matPic, noEmoji, num, payFx, put, root, setText, sigOf, skuPic, stampLater, state, whyLine, type Block } from './b-kit';
+import { bHead, block, dim, done, facePic, fold, heroSlot, key, matPic, noEmoji, num, payFx, put, root, setText, sigOf, skuPic, stampLater, state, type Block, whyLine } from './b-kit';
 import './supply.css';
 import type { Mat, Sku } from '../../p1/data';
 import type { P1State, Stage, WhatIf } from '../../p1/model';
@@ -287,14 +287,14 @@ function build(ctx: Ctx) {
     const stg = B.STAGE[k];
     host.dataset.stage = k;
     host.classList.toggle('is-bn', k === bn);
-    put(host, uxpHead(`${stg.n} ${stg.name}`, { ico: STAGE_ICO[k], kind: k === bn ? 'amber' : 'dark', right: state(look.kind, B.LAMP_NAME[is.lamp], look.blink) }));
+    put(host, bHead(`${stg.n} ${stg.name}`, { ico: STAGE_ICO[k], kind: k === bn ? 'amber' : 'dark', right: state(look.kind, B.LAMP_NAME[is.lamp], look.blink) }));
     // 課題（責めない言い方の 1 行ずつ）と、直す画面へのキー
     for (const line of is.lines.slice(0, 3)) host.append(whyLine(noEmoji(line), is.lamp === 'stop' ? 'warn' : 'info'));
     if (is.lamp === 'stop') host.lastElementChild?.classList.add('is-bad');
     if (is.acts.length) host.append(el('div.uxb-acts', is.acts.map(([label, go, cls]) => key(label, go, { kind: cls === 'is-on' ? '' : 'weak', ico: cls === 'is-on' ? 'next' : null }))));
     // 数字を上げるには（見込みの大きい順）
     const ups = upsFor(st, k);
-    if (ups.length) put(host, uxpHead(t('数字を上げるには', 'To raise the number'), { ico: 'up' }), el('div.uxp-list', ups.map(upCard)));
+    if (ups.length) put(host, bHead(t('数字を上げるには', 'To raise the number'), { ico: 'up' }), el('div.uxp-list', ups.map(upCard)));
     // 担当と、いまの様子
     const buyer = st.staff.find((x) => x.task === 'buy');
     const haulers = st.staff.filter((x) => x.task === 'transport');
@@ -312,7 +312,7 @@ function build(ctx: Ctx) {
       const cargo = tr ? Object.entries(tr.cargo).map(([m, n]) => `${B.MATS[m as Mat].name}×${n}`).join(t('・', ', ')) : '';
       put(
         host,
-        uxpHead(t('担当といまの様子', 'Crew and status'), { ico: 'people' }),
+        bHead(t('担当といまの様子', 'Crew and status'), { ico: 'people' }),
         assignSlot(st, t('調達係', 'Buyer'), 'buy', buyer?.hero ?? null, null),
         el('span.uxb-cap', t('素材の在庫', 'Materials')),
         chips,
@@ -322,7 +322,7 @@ function build(ctx: Ctx) {
         uxpRow(t(`今月${stg.what}`, `${stg.what} this month`), t(`${B.fmt(st.proc.bought)} 個`, B.fmt(st.proc.bought)), { ico: 'box' }),
       );
     } else if (k === 'craft') {
-      put(host, uxpHead(t('担当といまの様子', 'Crew and status'), { ico: 'people' }));
+      put(host, bHead(t('担当といまの様子', 'Crew and status'), { ico: 'people' }));
       st.slots.forEach((sl, i) => {
         const w = sl.worker != null ? B.staffOf(st, sl.worker) : null;
         const p = sl.running && sl.sku && w ? sl.progress / B.craftDays(st, sl.sku) : 0;
@@ -335,7 +335,7 @@ function build(ctx: Ctx) {
       });
       host.append(uxpRow(t(`今月${stg.what}`, `${stg.what} this month`), t(`${B.fmt(st.ws.made)} 個`, B.fmt(st.ws.made)), { ico: 'hammer' }));
     } else if (k === 'haul') {
-      put(host, uxpHead(t('担当といまの様子', 'Crew and status'), { ico: 'people' }));
+      put(host, bHead(t('担当といまの様子', 'Crew and status'), { ico: 'people' }));
       for (const x of haulers) host.append(assignSlot(st, t('運搬係', 'Hauler'), 'transport', x.hero, null));
       if (haulers.length < B.MAX_HAULERS) host.append(assignSlot(st, t('運搬係', 'Hauler'), 'transport', null, null));
       const waiting = Object.entries(st.stock).filter(([, n]) => (n ?? 0) > 0) as [Sku, number][];
@@ -351,7 +351,7 @@ function build(ctx: Ctx) {
       if (!st.trips.length) host.append(dim(t('いま走っている荷車はありません', 'No carts on the road')));
       host.append(uxpRow(t(`今月${stg.what}`, `${stg.what} this month`), t(`${B.fmt(st.ws.hauled ?? 0)} 個`, B.fmt(st.ws.hauled ?? 0)), { ico: 'truck' }));
     } else {
-      put(host, shops.length ? uxpHead(t('お店ごと', 'By shop'), { ico: 'shop' }) : null);
+      put(host, shops.length ? bHead(t('お店ごと', 'By shop'), { ico: 'shop' }) : null);
       for (const b of shops) {
         const sh = st.shops[b.uid];
         const mainX = sh.shelves[0];
@@ -382,7 +382,7 @@ function build(ctx: Ctx) {
     }
     // 詰まりを太くするスキル：その場で習得できる
     const sks = k === bn ? B.nextSkills(st, stg.branch) : [];
-    if (sks.length) host.append(uxpHead(t('詰まりを太くするスキル', 'Skills to widen the jam'), { ico: 'star' }));
+    if (sks.length) host.append(bHead(t('詰まりを太くするスキル', 'Skills to widen the jam'), { ico: 'star' }));
     for (const sk of sks) {
       const research = B.isResearch(sk);
       const cost = research ? B.rpCost(sk) : sk.cost;
@@ -458,12 +458,12 @@ function build(ctx: Ctx) {
       const u = B.whatIfUp(ctx, st, w);
       return uxpCard({ pic: el('span.uxb-up-n', k != null ? num(k + 1) : '–'), name: u.label, desc: u.sub, foot: el(`span.uxb-gain${w.ok ? '' : '.is-off'}`, w.ok ? bIcon('up', { color: '#36e08b', scale: 1 }) : null, B.gainText(w)), onTap: () => u.go(), off: !w.ok, cls: 'uxb-up' });
     };
-    put(box, uxpHead(t('打ち手ごとの見込み', 'What each move would add'), { ico: 'up' }), el('div.uxp-list', okW.slice(0, 3).map((w, k) => row(w, k))));
+    put(box, bHead(t('打ち手ごとの見込み', 'What each move would add'), { ico: 'up' }), el('div.uxp-list', okW.slice(0, 3).map((w, k) => row(w, k))));
     if (!okW.length) box.append(dim(t(`いまの候補では、どれも +${B.unitsX(2)} 個／月に届きません。まずは月が進むのを待つか、下の一覧で商品とお店を見直しましょう。`, `No move adds ${B.unitsX(2)}+ / mo right now. Check the items and shops below.`)));
     const off = [...okW.slice(3), ...ws.filter((w) => !w.ok)];
     if (off.length) box.append(fold(t(`ほかの手（いまはあまり効かない ${off.length}）`, `Other moves (little effect now: ${off.length})`), (b2) => b2.append(el('div.uxp-list', off.map((w) => row(w, null))))).el);
     // 商品ごと（押すと、取れていない理由）
-    put(box, uxpHead(t('商品ごと（並べている商品）', 'By item (on your shelves)'), { ico: 'list' }));
+    put(box, bHead(t('商品ごと（並べている商品）', 'By item (on your shelves)'), { ico: 'list' }));
     for (const g of info.goods) {
       const reason = el('p.uxb-why', { hidden: true }, bIcon('info', { scale: 1 }), el('span', B.goodsReason(st, g)));
       const card = uxpCard({
@@ -488,7 +488,7 @@ function build(ctx: Ctx) {
     }
     box.append(dim(t('札を押すと、その商品が取れていない理由。取り分 30% 未満は赤と「30% 未満」。', 'Tap a card for why. Shares under 30% are red and marked.')));
     // お店ごと（押すと、そのお店の札）
-    put(box, uxpHead(t('お店ごと', 'By shop'), { ico: 'shop' }));
+    put(box, bHead(t('お店ごと', 'By shop'), { ico: 'shop' }));
     for (const r of info.shops)
       box.append(
         uxpCard({
@@ -550,7 +550,7 @@ function build(ctx: Ctx) {
         uxKey(el('span.ux-vh', d < 0 ? t('前の月', 'Earlier month') : t('次の月', 'Later month')), () => ((histAt = Math.max(0, Math.min(fh.length - 1, histAt + d))), uxSfx('page', { step: 3 }), hist.sync()), { ico: d < 0 ? 'next' : 'next', cls: `uxb-hist-key${d < 0 ? ' is-prev' : ''}`, disabled: d < 0 ? histAt <= 0 : histAt >= fh.length - 1, attrs: { 'aria-label': d < 0 ? t('前の月', 'Earlier month') : t('次の月', 'Later month'), 'data-ux-quiet': '' } });
       put(
         host,
-        uxpHead(t('月ごとの流れ（実績の数）', 'Monthly flow (actual units)'), { ico: 'bars' }),
+        bHead(t('月ごとの流れ（実績の数）', 'Monthly flow (actual units)'), { ico: 'bars' }),
         el('div.uxb-hist-nav', move(-1), el('b.uxb-hist-month', B.monLab(cur.month)), move(1)),
         uxpBars(keys.map((k) => ({ label: nm[k], value: cur[k], kind: k === low ? 'bad' : k === 'sold' ? 'main' : '', text: B.fmt(cur[k]) })), { max, height: 148 }).el,
         dim(t(`この月いちばん少なかったのは${nm[low]}（${cur[low]} 個）`, `Lowest this month: ${nm[low]} (${cur[low]})`)),
