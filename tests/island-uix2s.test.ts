@@ -44,8 +44,9 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     expect(Object.keys(uxs)).toEqual([]);
     expect(src('p1/main.ts')).toContain('if (uxOn()) void loadUxs();');
     expect(src('p1/uxs.ts')).toMatch(/export const loadUxs = \(\) => import\('\.\.\/uix\/screens\/s-boot'\)\.then\(\(m\) => m\.install\(uxsDeps\)\);/);
-    // 入口のほかに、本体から新しい画面を直接読んでいる所は無い（切のときに読み込まれない）
-    for (const f of ['p1/screens.ts', 'p1/report.ts', 'p1/main.ts', 'p1/factoryui.ts', 'p1/uxs.ts']) expect(src(f), f).not.toMatch(/from '\.\.\/uix\/screens\/(?!s-slots')/);
+    // 入口のほかに、本体から新しい画面を直接読んでいる所は無い（切のときに読み込まれない）。
+    // 読んでよいのは、空の差し込み口だけ（この段の s-slots と、上と下の帯・吹き出しの段の mhooks）
+    for (const f of ['p1/screens.ts', 'p1/report.ts', 'p1/main.ts', 'p1/factoryui.ts', 'p1/uxs.ts']) expect(src(f), f).not.toMatch(/from '\.\.\/uix\/screens\/(?!s-slots'|mhooks')/);
     // 差し込み口のファイルは、型だけを読む（切のときも増えるのは数行）
     expect(src('uix/screens/s-slots.ts').match(/^import (?!type )/gm)).toBeNull();
     const boot = src('uix/screens/s-boot.ts');
