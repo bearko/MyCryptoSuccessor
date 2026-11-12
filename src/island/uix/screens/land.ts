@@ -75,7 +75,7 @@ export function nameLines(name: string): { parts: string[]; two: number; one: nu
   const cs = [...name];
   const cuts = new Set<number>();
   cs.forEach((c, k) => {
-    if ((c === '・' || c === ' ') && k + 1 < cs.length) cuts.add(k + 1);
+    if ((c === '・' || c === ' ') && k + 1 < cs.length) cuts.add(k + 1); // i18n-ja
   });
   const m = TAIL.exec(name);
   if (m && m.index > 0) cuts.add([...name.slice(0, m.index)].length);

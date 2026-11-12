@@ -113,6 +113,43 @@ export interface DigUx {
   close: (el: HTMLElement) => void;
 }
 
+/** ランクが上がる進出のあとの、災害と徴収の演出（p1/disaster.ts の playDisaster が出していた中身） */
+export interface DisasterView {
+  host: HTMLElement;
+  /** 被災した町（ランクの字と色・絵・廃墟の数） */
+  towns: { id: string; name: string; tier: string; color: string; icon: string; ruins: number }[];
+  /** 徴収額・支度金 */
+  levy: number;
+  grant: number;
+  /** 行き先の町とランクの名前 */
+  to: { name: string; tierName: string };
+  /** 何回めの災害か（協定書の「第 N 回」） */
+  nth: number;
+  /** 残ったもの：研究ポイント・ヒーローの数・引き継いだ研究パネルの数・運んだ骨董の数 */
+  kept: { rp: number; heroes: number; panels: number; antiques: number };
+  /** 店の名前（まだ決めていなければ null：協定書のサインの前に入力する） */
+  storeName: string | null;
+  defaultName: string;
+  /** 店の名前の決まり（幅 16 まで） */
+  fitName: (x: string) => string;
+  nameWidth: (x: string) => number;
+  nameMax: number;
+  /** 店の名前を決めた（セーブに残す） */
+  setName: (name: string) => void;
+  /** 今のドットの雨と稲光（町の札の帯に降らせる）。出せたら true */
+  rain: (map: HTMLElement, host: HTMLElement) => boolean;
+  /** 終わった（演出を見た印を付けて保存し、到着の案内へ） */
+  done: () => void;
+}
+/** 「〇〇への道が開いた！」のお知らせ（p1/landui.ts の startMove が出していた文） */
+export interface RoadView {
+  host: HTMLElement;
+  /** 今の文（そのまま出す） */
+  text: string;
+  /** 開いた町の名前 */
+  names: string[];
+}
+
 export interface UxwScreens {
   /** 研究成果の発表・調査依頼状・制覇 */
   letter?: (v: LetterView) => void;
@@ -126,6 +163,10 @@ export interface UxwScreens {
   sectorCard?: (v: SectorCardView) => void;
   /** 発掘の画面 */
   dig?: DigUx;
+  /** 災害と徴収の演出 */
+  disaster?: (v: DisasterView) => void;
+  /** 「道が開いた」のお知らせ */
+  road?: (v: RoadView) => void;
   /** 地図の上の札（縮小の札）・となりの町の吹き出し：今の要素の絵文字をドットの絵に替える（見た目は CSS で着せ替える） */
   deco?: (e: HTMLElement, kind: 'badge' | 'pop') => void;
 }

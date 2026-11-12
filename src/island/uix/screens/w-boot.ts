@@ -5,6 +5,7 @@
 import type { UxwDeps } from '../../p1/uxw';
 import { openCheerUx, openLetterUx } from './conquer';
 import { digUx } from './dig';
+import { openDisasterUx, roadUx } from './disaster';
 import { decoWorldUx, openLandUx, openRankUpUx, openSectorCardUx } from './land';
 import { setW } from './w-deps';
 import { uxw } from './w-slots';
@@ -19,4 +20,6 @@ export function installW(d: UxwDeps) {
   uxw.sectorCard = openSectorCardUx;
   uxw.deco = decoWorldUx;
   uxw.dig = digUx;
+  uxw.disaster = openDisasterUx;
+  uxw.road = roadUx;
 }

@@ -7,6 +7,7 @@ import { uxsDeps } from '../src/island/p1/uxs';
 import { uxwDeps } from '../src/island/p1/uxw';
 import { FRONT_SEL } from '../src/island/uix/front';
 import { CUT_CALM_MS, CUT_MS, CUT_OUT_MS, ROLL_MS, bare, barWait, cutCore, letterKind, nameParts, plainSay, rpDigits, sayParts } from '../src/island/uix/screens/conquer';
+import { DS, DS_STEPS, disasterCore, ruinTotal } from '../src/island/uix/screens/disaster';
 import { END_AUTO_MS, END_KEYS_MS, FIND_STEP_MS, SPARK_BURSTS, findAt, sparkPicks, statNum, topicLamps } from '../src/island/uix/screens/dig';
 import { gapRate, goKind, nameLines, nameSpans, nodeLook, textEm } from '../src/island/uix/screens/land';
 import { SECTORS } from '../src/island/p1/data';
@@ -21,8 +22,10 @@ const LN = src('uix/screens/land.ts');
 const LANDUI = src('p1/landui.ts');
 const DG = src('uix/screens/dig.ts');
 const DIGUI = src('p1/digui.ts');
-const FILES = ['conquer.ts', 'land.ts', 'dig.ts', 'w-icons.ts', 'w-boot.ts', 'w-deps.ts', 'w-slots.ts'];
-const CSS_FILES = ['conquer.css', 'land.css', 'dig.css'];
+const DS_SRC = src('uix/screens/disaster.ts');
+const DISASTER = src('p1/disaster.ts');
+const FILES = ['conquer.ts', 'land.ts', 'dig.ts', 'disaster.ts', 'w-icons.ts', 'w-boot.ts', 'w-deps.ts', 'w-slots.ts'];
+const CSS_FILES = ['conquer.css', 'land.css', 'dig.css', 'disaster.css'];
 const CSS = CSS_FILES.map((f) => [f, src(`uix/screens/${f}`).replace(/\/\*[\s\S]*?\*\//g, '')] as const);
 
 afterEach(() => {
@@ -37,9 +40,9 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     expect(src('p1/uxs.ts')).toContain('w: uxwDeps,');
     expect(uxsDeps.w).toBe(uxwDeps);
     const boot = src('uix/screens/w-boot.ts');
-    for (const k of ['letter', 'cheer', 'land', 'rankUp', 'sectorCard', 'deco', 'dig']) expect(boot).toContain(`uxw.${k} = `);
+    for (const k of ['letter', 'cheer', 'land', 'rankUp', 'sectorCard', 'deco', 'dig', 'disaster', 'road']) expect(boot).toContain(`uxw.${k} = `);
     // 本体から新しい画面を直接読んでいる所は無い（読んでよいのは、空の差し込み口だけ）
-    for (const f of ['p1/main.ts', 'p1/landui.ts', 'p1/digui.ts', 'p1/uxw.ts']) expect(src(f), f).not.toMatch(/from '\.\.\/uix\/screens\/(?!s-slots'|w-slots'|mhooks')/);
+    for (const f of ['p1/main.ts', 'p1/landui.ts', 'p1/digui.ts', 'p1/disaster.ts', 'p1/uxw.ts']) expect(src(f), f).not.toMatch(/from '\.\.\/uix\/screens\/(?!s-slots'|w-slots'|mhooks')/);
   });
   it('新しい画面の束は、本体のモジュールを自分では読まない（型だけ）。関数は p1/uxw.ts から渡す', () => {
     for (const f of FILES) {
@@ -364,5 +367,112 @@ describe('発掘', () => {
     for (const m of DG.matchAll(/ico: '([a-z]+)'/g)) expect(UX_ICONS, m[1]).toContain(m[1]);
     // キーに添える絵は、土台の絵（uxKey は土台の icons.ts から描く）
     for (const line of LN.split('\n').filter((l) => l.includes('uxKey('))) for (const m of line.matchAll(/ico: '([a-z]+)'/g)) expect(UX_ICONS, m[1]).toContain(m[1]);
+  });
+});
+
+describe('災害と徴収の演出・「道が開いた」のお知らせ', () => {
+  it('入口：playDisaster と startMove の「道が開いた」が、差し込み口が入っているときだけ新しい画面へ渡す（切のときは今の演出とトースト）', () => {
+    expect(DISASTER).toContain('if (uxw.disaster)');
+    expect(DISASTER).toContain("const m = h('div', 'isl-modal isl-disaster');");
+    expect(LANDUI).toContain('uxw.road ? uxw.road({ host: ctx.root, text, names: opened.map((id) => sectorDef(id).name) }) : ctx.toast(text)');
+    // 終わったら、今と同じ：演出を見た印を付けて保存し、到着の案内へ
+    expect(DISASTER).toMatch(/done: \(\) => \{\s*rec\.seen = true;\s*hooks\.save\(\);\s*done\(\);\s*\}/);
+    // 店の名前は、今の決まり（幅 16 まで）でセーブに残す
+    for (const k of ['fitName,', 'nameWidth,', 'nameMax: NAME_MAX,', 's.storeName = name;', "playFx('rain-band'"]) expect(DISASTER, k).toContain(k);
+  });
+  it('今の目印：窓は .isl-modal.isl-disaster（出ているあいだ、時間も到着の案内も止まる）。到着の案内（会話）には触らない', () => {
+    expect(DS_SRC).toContain("el('div.isl-modal.isl-disaster.ux-root.uxw-ds')");
+    expect(MAIN).toContain("disaster: !!root.querySelector('.isl-disaster'),");
+    expect(DS_SRC).not.toContain('isl-talk');
+  });
+  it('出す中身が今の演出とそろう（災害・被害の一覧・通知・協定書の 3 条・店の名前・支度金）', () => {
+    for (const k of [
+      'ランドを大きな災害が襲った…',
+      '開拓した土地は荒れ地に戻り、建物はすべて廃墟に…',
+      'ランド復興局からの通知',
+      'ランドの復興のため、進出企業の資金を全額徴収します。',
+      '研究ポイント・ヒーロー・研究で開けたパネルは、そのまま残ります。',
+      '復興協定書',
+      '第 3 条　乙は、被災した町の復興に努める。',
+      '乙（店の名前）',
+      '店の名前を決めよう（あとのサインでも使います）',
+      '全角 8 文字・英語 16 文字まで',
+      'ランドから復興の支度金',
+    ]) {
+      expect(DISASTER, k).toContain(k);
+      expect(DS_SRC, k).toContain(k);
+    }
+    for (const k of ['v.levy', 'v.grant', 'v.to.name', 'v.to.tierName', 'v.nth', 'v.towns', 'tw.ruins', 'v.kept.rp', 'v.kept.heroes', 'v.kept.panels', 'v.kept.antiques', 'v.setName(x)', 'v.fitName(input.value)', 'v.rain(map, stage)', 'v.done()']) expect(DS_SRC, k).toContain(k);
+    // 段の長さは今の演出と同じ
+    expect(DS).toMatchObject({ storm: 2600, hit: 350, damage: 2600, notice: 4200, char: 220, sign: 1200, stampHit: 260, stamp: 2200, out: 350 });
+    for (const k of ['later(2600, damage)', 'later(4200, sign)', 'later(2200, grant)', '350 * k']) expect(DISASTER, k).toContain(k);
+    expect(ruinTotal([{ ruins: 9 }, { ruins: 5 }, { ruins: 4 }])).toBe(18);
+  });
+  it('進み：押す・時間で次の段へ。打っているあいだ・サインの段は押しても進まない。まとめは自動では終わらない', () => {
+    const log: string[] = [];
+    const ev = { storm: () => log.push('storm'), damage: () => log.push('damage'), notice: () => log.push('notice'), sign: () => log.push('sign'), grant: () => log.push('grant'), finish: () => log.push('finish') };
+    let name = true;
+    const c = disasterCore(ev, () => name);
+    c.start();
+    c.auto('damage'); // 段が違う：何も起きない
+    c.tap();
+    c.setBusy(true);
+    c.tap(); // 札を打っているあいだ：進まない
+    c.setBusy(false);
+    c.auto('damage');
+    c.tap();
+    c.tap(); // サインの段：押しても進まない
+    c.finish(); // まとめの前：終わらない
+    expect(log).toEqual(['storm', 'damage', 'notice', 'sign']);
+    c.stamped();
+    c.auto('stamp');
+    c.auto('stamp');
+    c.tap();
+    expect(log).toEqual(['storm', 'damage', 'notice', 'sign', 'grant']);
+    expect(c.step).toBe('grant');
+    c.finish();
+    c.finish();
+    expect(log.filter((x) => x === 'finish').length).toBe(1);
+    expect(DS_STEPS).toEqual(['storm', 'damage', 'notice', 'sign', 'grant']);
+    // まとめは、時間では終わらない（今の演出は 3.6 秒で自動。新しい画面は、押すまで出したまま）
+    expect(DS_SRC).not.toMatch(/later\(3600/);
+  });
+  it('とばす：店の名前があれば、まとめへ。まだ無ければ、協定書（名前の入力）へ', () => {
+    const log: string[] = [];
+    const ev = { storm: () => log.push('storm'), damage: () => log.push('damage'), notice: () => log.push('notice'), sign: () => log.push('sign'), grant: () => log.push('grant'), finish: () => log.push('finish') };
+    let name = true;
+    const a = disasterCore(ev, () => name);
+    a.start();
+    a.setBusy(true);
+    a.skip();
+    a.skip();
+    expect(log).toEqual(['storm', 'grant']);
+    log.length = 0;
+    name = false;
+    const b = disasterCore(ev, () => name);
+    b.start();
+    b.skip();
+    b.skip(); // 名前の入力の段：とばせない
+    expect(log).toEqual(['storm', 'sign']);
+    name = true;
+    b.skip();
+    expect(log).toEqual(['storm', 'sign', 'grant']);
+  });
+  it('まとめ：手放したもの・残ったものを数字の札で（責めない言い方）。主役は「〇〇へ」の主のキー 1 つ。名前の入力は「サインする」', () => {
+    for (const k of ['手放したもの', '残ったもの', '資金（徴収）', '研究ポイント', 'ヒーロー', '研究で開けたパネル', '運んだ骨董', '町は、手で直すか、ヒーローに任せて復興できます。']) expect(DS_SRC, k).toContain(k);
+    expect(DS_SRC.match(/kind: 'main'/g)?.length).toBe(2);
+    expect(DS_SRC).toContain('safe(() => core.finish())');
+  });
+  it('音と曲：警報・札を打つ・紙・サイン・ハンコ・支度金。曲は、演出のあいだだけ替えて戻す。動きを減らすと、札・サイン・数字はすぐ出る', () => {
+    for (const k of ["uxSfx('error')", "uxSfx('clunk', { pitch: -2 + k })", "uxSfx('page')", "uxSfx('print')", "uxSfx('stamp')", "uxSfx('coin')", "uxSfx('close')", "uxSfx('rankup')", "const sceneOff = uxScene('sector');", 'sceneOff();']) expect(DS_SRC, k).toContain(k);
+    expect(DS_SRC).toContain('cards.forEach((c, k) => hit(c, k, true));');
+    expect(DS_SRC).toContain("spans.forEach((s) => s.classList.add('is-on'));");
+    expect(DS_SRC).not.toMatch(/\p{Extended_Pictographic}/u);
+  });
+  it('道が開いた：災害の演出のあいだに届いたら、まとめの札に出す（窓を重ねない）。ふだんは、押すと消える帯', () => {
+    expect(DS_SRC).toContain('if (active) {');
+    expect(DS_SRC).toContain('active.roads.push(v.text);');
+    expect(DS_SRC).toContain("el<HTMLButtonElement>(\n    'button.uxw-road.ux-root',".replace('\\n', '\n'));
+    expect(DS_SRC).toContain('off = later(4200, close);');
   });
 });

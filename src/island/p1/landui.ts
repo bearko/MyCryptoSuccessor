@@ -116,10 +116,12 @@ export function startMove(ctx: Ctx, target: string) {
     ctx.save();
     ctx.moved?.(target, fresh, hero);
     const opened = gated.filter((id) => sectorState(s.land!, id) !== 'locked');
-    if (opened.length === 1) ctx.toast(t(`${sectorDef(opened[0]).name}への道が開いた！（遊びは次の更新で）`, `The road to ${sectorDef(opened[0]).name} is open! (Playable in a future update)`));
+    // 段 UIX3w：入のときは、管制卓のお知らせの帯で出す（文は同じ。切のときは今のトースト）
+    const road = (text: string) => (uxw.road ? uxw.road({ host: ctx.root, text, names: opened.map((id) => sectorDef(id).name) }) : ctx.toast(text));
+    if (opened.length === 1) road(t(`${sectorDef(opened[0]).name}への道が開いた！（遊びは次の更新で）`, `The road to ${sectorDef(opened[0]).name} is open! (Playable in a future update)`));
     else if (opened.length) {
       const tier = tierLabel(sectorDef(opened[0]).tier);
-      ctx.toast(t(`${tier} ${opened.length} つへの道が開いた！（遊びは次の更新で）`, `Roads to ${opened.length} ${tier}s are open! (Playable in a future update)`));
+      road(t(`${tier} ${opened.length} つへの道が開いた！（遊びは次の更新で）`, `Roads to ${opened.length} ${tier}s are open! (Playable in a future update)`));
     }
   };
   if (!hasBusiness(s)) return go(null);
