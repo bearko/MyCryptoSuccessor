@@ -8,6 +8,7 @@ import type { DigSummary } from '../../p1/digmeet';
 import type { Report } from '../../p1/model';
 import type { DigSummaryHooks, ReportHooks } from '../../p1/report';
 import type { Ctx } from '../../p1/screens';
+import type { UxsDeps } from '../../p1/uxs';
 
 /** 工房の画面の開き方（p1/screens.ts の openWorkshop と同じ） */
 export interface WsOpt {
@@ -24,3 +25,8 @@ export interface UxScreens {
   digSummary?: (ctx: Ctx, sum: DigSummary, hooks: DigSummaryHooks, then?: () => void) => void;
 }
 export const uxs: UxScreens = {};
+/**
+ * 段 UIX3a：束（s-boot.ts）が読めたら、入れ方（install）がここに入る。入のとき、入口が本体より先に束を読んでおくと、
+ * 本体は起動のその場で差し込み口を埋められる（p1/uxs.ts の bootUxs）。切のときは空のまま
+ */
+export const uxsBoot: { install?: (d: UxsDeps) => void } = {};

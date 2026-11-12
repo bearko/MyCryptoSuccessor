@@ -3,9 +3,10 @@
  * 切のときは、このファイルも、ここから読む画面と CSS も読まない。
  */
 import type { UxsDeps } from '../../p1/uxs';
+import { installC } from './c-boot';
 import { openDigSummaryUx, openMonthReportUx } from './report';
 import { setDeps } from './s-deps';
-import { uxs } from './s-slots';
+import { uxs, uxsBoot } from './s-slots';
 import { openWorkshopUx } from './workshop';
 
 /** 本体の関数の束を受け取って、差し込み口へ入れる */
@@ -14,4 +15,7 @@ export function install(d: UxsDeps) {
   uxs.workshop = openWorkshopUx;
   uxs.report = openMonthReportUx;
   uxs.digSummary = openDigSummaryUx;
+  installC(d.uxc);
 }
+// 読めたら、入れ方を差し込み口の横に置く（入口が先に読んだとき、本体が起動のその場で入れる）
+uxsBoot.install = install;

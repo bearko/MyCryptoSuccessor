@@ -1,0 +1,232 @@
+/* 段 UIX3a：マインちゃんの会話（docs/ISLAND_UIX.md「画面：会話」。talk.ts）。class は uxc-。
+   器（紙の吹き出し・伸び縮み・枠破りの立ち絵）は土台の ux-pop-*。ここは、置き場所・暗幕・囲む枠・上の絵・キーの列。
+   いまの class（.isl-modal.isl-talk ほか）を目印として付けているので、いまの CSS（p1.css）に勝つよう #isl-ui を付けて書く。 */
+
+/* ---------- 暗幕と置き場所（下の帯の上・まん中） */
+html.is-uxc #isl-ui .isl-modal.uxc-talk {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 8px calc(var(--foot-h, 0px) + 12px + var(--ux-safe-b));
+  cursor: pointer;
+}
+html.is-uxc #isl-ui .isl-modal.uxc-talk.is-light {
+  background: var(--ux-dz25), rgba(9, 11, 24, 0.2);
+}
+html.is-uxc #isl-ui .isl-modal.uxc-talk.has-focus {
+  background: none;
+}
+/* 入る動きは、吹き出しとキーだけ（囲む枠・上の絵は別の動き） */
+html.is-uxc #isl-ui .isl-modal.uxc-talk > * {
+  animation: none;
+  width: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  filter: none;
+}
+
+/* ---------- 吹き出し：話す人が枠の上に立つ（枠破り）。尻尾は出さない（人が枠に乗っているので） */
+html.is-uxc #isl-ui .isl-modal.uxc-talk > .uxc-talk-pop {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(520px, 100%);
+  /* 立ち絵が枠の上へはみ出すぶん */
+  padding-top: 86px;
+  animation: uxc-talk-in 260ms steps(7, end) both;
+  transform-origin: 20% 100%;
+}
+@keyframes uxc-talk-in {
+  0% { transform: translate3d(0, 28px, 0) scale(1, 0.4); opacity: 0; }
+  40% { transform: translate3d(0, 8px, 0) scale(1, 0.9); opacity: 1; }
+  75% { transform: translate3d(0, -4px, 0) scale(1, 1.03); }
+  100% { transform: translate3d(0, 0, 0) scale(1, 1); }
+}
+html.is-uxc #isl-ui .uxc-talk-bubble {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ux-ink);
+  animation: none;
+  grid-template-columns: none;
+}
+html.is-uxc #isl-ui .uxc-talk-bubble .ux-pop-tail {
+  display: none;
+}
+html.is-uxc #isl-ui .uxc-talk-bubble .ux-pop-rise {
+  padding: 46px 16px 6px;
+}
+html.is-uxc #isl-ui .uxc-talk-bubble .ux-pop-say {
+  min-height: 3.5rem;
+}
+html.is-uxc #isl-ui .uxc-talk-bubble .ux-pop-text {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 400;
+  line-height: 1.6;
+  min-height: 1.6em;
+}
+html.is-uxc #isl-ui .uxc-talk-bubble .ux-pop-who {
+  left: 6px;
+}
+/* 名前の札：立ち絵のすぐ右（絵の幅は人によって違う：案内役 96・ヒーロー 128） */
+html.is-uxc #isl-ui .uxc-talk-bubble .ux-pop-name {
+  left: 106px;
+  top: 12px;
+  min-height: 1.5rem;
+  line-height: 1.5rem;
+}
+html.is-uxc #isl-ui .uxc-talk[data-who='hero'] .ux-pop-name {
+  left: 134px;
+}
+html.is-uxc #isl-ui .uxc-talk-mine {
+  display: block;
+  margin: 0;
+  max-width: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+/* 使者（仮の絵＝ランドの色と紋）：四角い札に */
+html.is-uxc #isl-ui .uxc-talk-crest {
+  display: grid;
+  place-items: center;
+  margin: 0;
+  border: 0;
+  font-size: 3rem;
+  line-height: 1;
+  background: var(--lc, var(--ux-k3));
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 6px 6px 0 0 rgba(255, 255, 255, 0.25), inset -6px -6px 0 0 rgba(4, 6, 14, 0.3);
+  clip-path: var(--ux-notch4);
+}
+/* 強調：紙の上の濃い琥珀・1px の影で太らせる */
+html.is-uxc #isl-ui .uxc-em {
+  color: #a04a08;
+  text-shadow: 1px 0 currentColor;
+}
+
+/* ---------- キーの列：枚の数のランプ・「つぎへ」（主役）と、その枚だけのキー */
+html.is-uxc #isl-ui .uxc-talk-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: default;
+}
+html.is-uxc #isl-ui .uxc-talk-steps {
+  flex: none;
+  display: flex;
+  gap: 4px;
+  padding: 0 4px;
+}
+html.is-uxc #isl-ui .uxc-talk-steps:empty {
+  display: none;
+}
+html.is-uxc #isl-ui .uxc-talk-keys {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+  gap: 8px;
+  cursor: default;
+}
+html.is-uxc #isl-ui .uxc-talk-go {
+  flex: 0 1 220px;
+  min-width: 140px;
+}
+html.is-uxc #isl-ui .uxc-talk-extra {
+  flex: 1 1 0;
+  min-width: 0;
+}
+@media (max-width: 479px) {
+  html.is-uxc #isl-ui .uxc-talk-go {
+    flex: 1 1 0;
+  }
+}
+
+/* ---------- 上の絵（仲間の 3 人・流れの図・お祝いの品・お題の絵）：暗い計器の板にのせる */
+html.is-uxc #isl-ui .isl-modal.uxc-talk > .uxc-talk-stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  max-width: 100%;
+  cursor: default;
+}
+html.is-uxc #isl-ui .isl-modal.uxc-talk > .uxc-talk-stage[hidden] {
+  display: none;
+}
+html.is-uxc #isl-ui .isl-modal.uxc-talk > .uxc-talk-stage.is-in {
+  animation: ux-key-in 220ms steps(5, end) both;
+}
+html.is-uxc #isl-ui .uxc-talk-stage .isl-crew {
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxc-talk-stage .isl-crew-one {
+  width: 108px;
+  padding: 8px 4px 6px;
+  border: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k3), inset -4px -4px 0 0 #191d31;
+  color: var(--ux-paper);
+  transition: transform 180ms steps(4, end), opacity 180ms steps(4, end);
+}
+html.is-uxc #isl-ui .uxc-talk-stage .isl-crew-one b,
+html.is-uxc #isl-ui .uxc-talk-stage .isl-crew-one small {
+  font-size: 1rem;
+  line-height: 1.3;
+}
+html.is-uxc #isl-ui .uxc-talk-stage .isl-crew-one small {
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxc-talk-stage .isl-crew-one .isl-hero {
+  width: 64px !important;
+  height: 64px !important;
+  image-rendering: pixelated;
+}
+html.is-uxc #isl-ui .uxc-talk-stage .isl-crew-one.is-on {
+  background: #2b3050;
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 0 0 4px var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxc-talk-stage .isl-crew-one.is-back {
+  opacity: 0.45;
+}
+html.is-uxc #isl-ui .uxc-talk-stage .isl-cycle,
+html.is-uxc #isl-ui .uxc-talk-stage .isl-gift,
+html.is-uxc #isl-ui .uxc-talk-stage > :not(.isl-crew) {
+  margin: 0;
+  border: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k3), inset -4px -4px 0 0 #191d31;
+  color: var(--ux-paper);
+}
+html.is-uxc #isl-ui .uxc-talk-stage :is(b, small, span, p) {
+  font-size: 1rem;
+}
+
+/* ---------- 画面の中の部分を囲む枠：琥珀の四隅のかぎ（まわりは暗い色で落とす。ぼかさない） */
+html.is-uxc #isl-ui .isl-modal.uxc-talk > .uxc-talk-ring {
+  position: fixed;
+  z-index: 0;
+  border: 0;
+  background:
+    linear-gradient(var(--ux-amber), var(--ux-amber)) 0 0 / 18px 4px no-repeat, linear-gradient(var(--ux-amber), var(--ux-amber)) 0 0 / 4px 18px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) 100% 0 / 18px 4px no-repeat, linear-gradient(var(--ux-amber), var(--ux-amber)) 100% 0 / 4px 18px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) 0 100% / 18px 4px no-repeat, linear-gradient(var(--ux-amber), var(--ux-amber)) 0 100% / 4px 18px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) 100% 100% / 18px 4px no-repeat, linear-gradient(var(--ux-amber), var(--ux-amber)) 100% 100% / 4px 18px no-repeat;
+  box-shadow: 0 0 0 100vmax rgba(9, 11, 24, 0.62), inset 0 0 0 2px rgba(255, 184, 31, 0.5);
+  pointer-events: none;
+  animation: uxc-ring 0.9s steps(2, end) infinite;
+}
+@keyframes uxc-ring {
+  50% { transform: scale(1.03); }
+}

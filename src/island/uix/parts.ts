@@ -387,11 +387,45 @@ export const typePause = (c: string, per: number) => (/[、，,]/.test(c) ? per 
  * 1 字ずつ出す。押すと最後まで出る（skip）。速さは設定（吹き出しの速さ）。字ごとに音の口（blip）を呼ぶ。
  * 先に全部の字を透明で置くので、喋っている途中で枠の大きさが変わらない
  */
-export function typeText(box: HTMLElement, text: string, { voice, cps = TALK_CPS[prefs.talk], onDone }: { voice?: number; cps?: number; onDone?: () => void } = {}): { skip: () => void; readonly done: boolean } {
+export function typeText(box: HTMLElement, text: string, o: TypeOpts = {}): Typing {
+  return typeInto(box, text, o);
+}
+export interface TypeOpts {
+  voice?: number;
+  cps?: number;
+  onDone?: () => void;
+}
+export interface Typing {
+  skip: () => void;
+  readonly done: boolean;
+}
+/**
+ * 1 字ずつ出す（中身が要素でもよい：強調の <b> などを保ったまま、中の字を 1 字ずつ出す）。
+ * content が文字列なら typeText と同じ
+ */
+export function typeInto(box: HTMLElement, content: string | Node, { voice, cps = TALK_CPS[prefs.talk], onDone }: TypeOpts = {}): Typing {
   box.textContent = '';
-  const chars = [...text];
-  const spans = chars.map((c) => el('span', { style: { opacity: '0' } }, c));
-  box.append(...spans);
+  const chars: string[] = [];
+  const spans: HTMLElement[] = [];
+  const put = (text: string, into: Node) => {
+    for (const c of [...text]) {
+      const sp = el('span', { style: { opacity: '0' } }, c);
+      chars.push(c);
+      spans.push(sp);
+      into.appendChild(sp);
+    }
+  };
+  const walk = (n: Node, into: Node) => {
+    if (n.nodeType === 3) put(n.textContent ?? '', into);
+    else if (n.nodeType === 11) for (const k of [...n.childNodes]) walk(k, into);
+    else if (n.nodeType === 1) {
+      const copy = (n as Element).cloneNode(false);
+      into.appendChild(copy);
+      for (const k of [...n.childNodes]) walk(k, copy);
+    }
+  };
+  if (typeof content === 'string') put(content, box);
+  else walk(content, box);
   let i = 0;
   let acc = 0;
   let done = false;
@@ -430,18 +464,28 @@ export function typeText(box: HTMLElement, text: string, { voice, cps = TALK_CPS
  * ヒーローの枠破り：パネルの縁からはみ出して、手前に立つ。息をする（1.8 秒・2px）。hop()：喋りはじめに小さく跳ねる。
  * sprite：ヒーローの絵の要素（p1/ui.ts の heroIcon など）。ドット絵は整数倍で、にじませない（もとの 64px の 1・2・3 倍）
  */
-export function uxStand(sprite: HTMLElement, scale: 1 | 2 | 3 = 2): { el: HTMLElement; hop: () => void } {
-  const px = 64 * scale;
-  sprite.style.width = `${px}px`;
-  sprite.style.height = `${px}px`;
-  sprite.classList.add('ux-hero', 'ux-pop-face');
-  const e = el('span.ux-stand', { 'aria-hidden': 'true', style: { top: `${-Math.round((px * 84) / 128 / 2) * 2}px` } }, sprite);
+export function uxStand(sprite: HTMLElement, scale: 1 | 2 | 3 = 2, size?: { w: number; h: number }): { el: HTMLElement; hop: () => void; set: (sprite: HTMLElement, scale?: 1 | 2 | 3, size?: { w: number; h: number }) => void } {
+  const e = el('span.ux-stand', { 'aria-hidden': 'true' });
+  let cur = sprite;
+  /** 立つ人を替える（会話で話す人が替わるとき）。size：64px の升でない絵（案内役の立ち絵など）の、もとの大きさ × 整数倍 */
+  const set = (sp: HTMLElement, sc: 1 | 2 | 3 = 2, sz?: { w: number; h: number }) => {
+    const h = sz ? sz.h : 64 * sc;
+    const w = sz ? sz.w : 64 * sc;
+    sp.style.width = `${w}px`;
+    sp.style.height = `${h}px`;
+    sp.classList.add('ux-hero', 'ux-pop-face');
+    e.style.top = `${-Math.round((h * 84) / 128 / 2) * 2}px`;
+    e.replaceChildren(sp);
+    cur = sp;
+  };
+  set(sprite, scale, size);
   return {
     el: e,
+    set,
     hop() {
-      sprite.classList.remove('is-hop');
-      void sprite.offsetWidth;
-      sprite.classList.add('is-hop');
+      cur.classList.remove('is-hop');
+      void cur.offsetWidth;
+      cur.classList.add('is-hop');
     },
   };
 }
@@ -461,6 +505,13 @@ export interface BubbleOpts {
   /** 最後のセリフのあと：true なら最初へ戻る（既定）。false なら onEnd を呼ぶ */
   loop?: boolean;
   onEnd?: () => void;
+  /** 立つ人の絵が 64px の升でないとき（案内役の立ち絵など）の大きさ */
+  faceSize?: { w: number; h: number };
+  /**
+   * 押したときの進め方を、呼ぶ側が決める（会話：話す人・上の絵が枚ごとに替わる）。
+   * 喋っている途中に押したときは、器が最後まで出して true を渡す（そのときは次へ進めない）
+   */
+  onTap?: (skipped: boolean) => void;
 }
 /**
  * 吹き出しの器：中身の長さで枠が伸び縮みする（上のふち・まん中・下のふちの 3 つに分け、まん中を縦に伸ばす：transform だけ）。
@@ -473,14 +524,17 @@ export function uxBubble(o: BubbleOpts & { flow?: boolean }) {
   const text = el('p.ux-pop-text');
   const mark = el('span.ux-pop-next', '▼');
   const count = el('span.ux-pop-count', `1/${o.lines.length}`);
-  const say = el('div.ux-pop-say', { role: 'button', tabindex: '0', 'aria-label': t('セリフを送る', 'Next line') }, text, el('div.ux-pop-foot', o.lines.length > 1 ? count : null, mark));
+  const say = el('div.ux-pop-say', { role: 'button', tabindex: '0', 'aria-label': t('セリフを送る', 'Next line') }, text, el('div.ux-pop-foot', o.lines.length > 1 || o.onTap ? count : null, mark));
   const tail = el('span.ux-pop-tail', { html: TAIL });
-  const stand = o.face ? uxStand(o.face, 2) : null;
+  const stand = o.face ? uxStand(o.face, 2, o.faceSize) : null;
+  const nameTape = el('span.ux-tape.ux-pop-name', el('b', o.name ?? ''), o.role ? el('span', o.role) : null);
+  nameTape.style.display = o.name ? '' : 'none';
+  let voice = o.voice;
   const rise = el(
     'div.ux-pop-rise',
     el('div.ux-pop-bg', el('i.ux-pop-t'), bgM, bgB),
     tail,
-    stand ? el('div.ux-pop-who', stand.el, o.name ? el('span.ux-tape.ux-pop-name', el('b', o.name), o.role ? el('span', o.role) : null) : null) : null,
+    stand ? el('div.ux-pop-who', stand.el, nameTape) : null,
     o.onClose ? uxKey(el('span.ux-vh', t('閉じる', 'Close')), () => o.onClose?.(), { ico: 'close', cls: 'ux-pop-x', attrs: { 'aria-label': t('閉じる', 'Close') } }) : null,
     say,
   );
@@ -527,15 +581,31 @@ export function uxBubble(o: BubbleOpts & { flow?: boolean }) {
     tween = { from: curH, to: target, t: 0 };
     off ??= loop.add(step);
   };
-  const speak = (first: boolean) => {
+  /** 中身を喋る（文字列でも、強調の入った要素でもよい） */
+  const sayNow = (content: string | Node, first: boolean, onDone?: () => void) => {
     mark.classList.remove('is-on');
-    count.textContent = `${idx + 1}/${o.lines.length}`;
-    typing = typeText(text, o.lines[idx], { voice: o.voice, onDone: () => mark.classList.add('is-on') });
+    typing?.skip();
+    typing = typeInto(text, content, {
+      voice,
+      onDone: () => {
+        mark.classList.add('is-on');
+        onDone?.();
+      },
+    });
     fit(!first);
     stand?.hop();
   };
+  const speak = (first: boolean) => {
+    count.textContent = `${idx + 1}/${o.lines.length}`;
+    sayNow(o.lines[idx], first);
+  };
   const advance = () => {
     uxSfx('page');
+    if (o.onTap) {
+      const skipped = !!typing && !typing.done;
+      if (skipped) typing?.skip();
+      return o.onTap(skipped);
+    }
     if (typing && !typing.done) return typing.skip();
     if (idx + 1 >= o.lines.length && o.loop === false) return o.onEnd?.();
     idx = (idx + 1) % o.lines.length;
@@ -558,6 +628,24 @@ export function uxBubble(o: BubbleOpts & { flow?: boolean }) {
       tail.style.transform = `translate3d(${Math.round(Math.max(40, Math.min(bw - 60, x - 12)))}px,0,0)`;
     },
     skip: () => typing?.skip(),
+    /** 喋っている途中か */
+    get typing() {
+      return !!typing && !typing.done;
+    },
+    /** 中身を替えて喋る（会話：枚ごとに呼ぶ）。count：右下の「2/4」 */
+    say(content: string | Node, p: { first?: boolean; count?: string; onDone?: () => void } = {}) {
+      if (p.count != null) count.textContent = p.count;
+      sayNow(content, !!p.first, p.onDone);
+    },
+    /** 話す人を替える（絵・名前・肩書き・声） */
+    setWho(p: { face?: HTMLElement; scale?: 1 | 2 | 3; size?: { w: number; h: number }; name?: string; role?: string; voice?: number }) {
+      if (p.face && stand) stand.set(p.face, p.scale ?? 2, p.size);
+      if (p.name !== undefined) {
+        nameTape.replaceChildren(el('b', p.name), ...(p.role ? [el('span', p.role)] : []));
+        nameTape.style.display = p.name ? '' : 'none';
+      }
+      voice = p.voice;
+    },
     get height() {
       return tween ? tween.to : curH;
     },

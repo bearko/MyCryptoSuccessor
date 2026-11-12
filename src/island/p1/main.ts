@@ -156,7 +156,7 @@ import { openSupply } from './scm';
 import { openSales } from './sales';
 import { pickHooks } from './heroui';
 import { openDigSummary, openMonthReport } from './report';
-import { loadUxs } from './uxs';
+import { bootUxs, loadUxs } from './uxs';
 import { openOrg } from './orgui';
 import { openSkills } from './tree';
 import { goalSeen, goalStep } from './goal';
@@ -176,6 +176,7 @@ import { IslandSfx } from './sfx';
 import { setUx, uxOn } from '../uix/flag';
 import { ux } from '../uix/hooks';
 import { uxm } from '../uix/screens/mhooks';
+import { uxc } from '../uix/screens/c-slots';
 import { nextStep, uxLegacy, uxSetVol, uxSfx, uxSound, uxSoundInit, uxVol, type UxScene } from '../uix/sound';
 import { boardDue, boardOf, boardQuarter, closeText } from './board';
 import { openBoard, type BoardHooks } from './boardui';
@@ -257,6 +258,8 @@ sfx.level = vol.se;
 // 段 UIX1s：新しい画面が入（<html class="is-uxc">）のときは、効果音を合成の音へ付け替える（切のときは何も変わらない）
 sfx.route = uxLegacy;
 // 段 UIX2s：入のときだけ、新しい画面（工房の札・月次報告）を読む。切のときは読まない
+// 段 UIX3a：入口（src/island/main.ts）が束を先に読んであれば、その場で入れる（起動のすぐあとの最初の会話から、新しい画面で出す）
+if (uxOn()) bootUxs();
 if (uxOn()) void loadUxs();
 // ブラウザは最初の操作まで音を出せない
 // スマホは指を離したとき（pointerup・touchend・click）がユーザーの操作として数えられる。鳴るまで毎回試す
@@ -3436,7 +3439,11 @@ function flushTalk() {
 }
 /** 会話のセリフ送り（スペース・Enter）：いちばん上の会話の「次へ」か、最後の枚のボタン */
 const talkKeys = new WeakMap<HTMLElement, () => void>();
+/** その枚の上に出す絵（新しい画面の会話へ渡す。今の会話は show() の中で同じ物を作る） */
+const talkStage = (pg: TutPage): HTMLElement | null => (pg.show === 'crew' ? crewEl(pg.hero) : pg.show === 'cycle' ? cycleEl() : pg.show === 'gift' ? giftEl(pg.gift) : pg.el ? pg.el() : null);
 function showTalk(pages: TutPage[], ok: string, then: () => void) {
+  // 段 UIX3a：新しい画面（入）の会話（話す人が枠の上に立つ・1 字ずつ喋る）。切のときは、今の会話のまま
+  if (uxc.talk) return uxc.talk({ root, pages, ok, then, stage: talkStage, keys: (m, fn) => talkKeys.set(m, fn), prep: renderNext });
   const m = h('div', 'isl-modal isl-talk');
   ux.modal?.(m, 'talk');
   const stage = h('div', 'isl-talk-stage');

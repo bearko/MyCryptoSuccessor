@@ -234,7 +234,8 @@ function benchView(ctx: Ctx, done: () => void): BenchView {
       : max === 0
         ? t('素材が足りないので、いまは作れません。', 'Not enough materials right now.')
         : t(`手持ちの素材で最大 ${max} 個（1 ロット ${batch} 個ずつ）。${sl.running ? 'いま作っている 1 ロットのあとに、この数だけ作ります。' : ''}`, `Up to ${max} from stock (${batch} per lot).${sl.running ? ' Counted after the current lot.' : ''}`);
-    const rows: HTMLElement[] = [el('div.uxs-ctl-row', uxTape(t('自動製造', 'Auto')), auto.el)];
+    // 今の目印（チュートリアルの会話が、枠で囲んで見せる所）：isl-plan-auto
+    const rows: HTMLElement[] = [el('div.uxs-ctl-row.isl-plan-auto', uxTape(t('自動製造', 'Auto')), auto.el)];
     ctlRef = { fader: null, qty: null };
     // 自動製造が切のときだけ、作る数を決める（入のときは、今の画面でもつまみは使えない）
     if (!sl.repeat) {
