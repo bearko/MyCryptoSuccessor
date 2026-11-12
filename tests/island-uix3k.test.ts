@@ -21,12 +21,14 @@ import { bsRows, plRows } from '../src/island/p1/uxk';
 import { emptyLedger } from '../src/island/p1/company';
 import { BAND_LAMP, BAND_NAME, DED_KINDS, MORALE_STEPS, dedRatio, moraleSteps, restHot } from '../src/island/uix/screens/tax';
 import { FIT_TAG, heatText, stars, useHot, useRatio } from '../src/island/uix/screens/budget';
+import { FEED_WHY, demandHot, dutyPct } from '../src/island/uix/screens/feed';
+import { arriveTop } from '../src/island/uix/screens/tree';
 import { CHAMFER, chainOf, descKey, gaugeSteps, lampOf, routeWires, stairDiamond, stateWord, type NodeDesc } from '../src/island/uix/screens/tree';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
 const TREE = src('p1/tree.ts');
 const TR = src('uix/screens/tree.ts');
-export const K_FILES = ['tree.ts', 'ranking.ts', 'invest.ts', 'books.ts', 'tax.ts', 'budget.ts', 'k-icons.ts', 'k-boot.ts', 'k-deps.ts', 'k-slots.ts'];
+export const K_FILES = ['tree.ts', 'ranking.ts', 'invest.ts', 'books.ts', 'tax.ts', 'budget.ts', 'feed.ts', 'k-icons.ts', 'k-boot.ts', 'k-deps.ts', 'k-slots.ts'];
 export const K_CSS = ['tree.css', 'k-screens.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -90,7 +92,7 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
 
 describe('スキルツリー（回路図）', () => {
   it('入口：openSkills が、差し込み口が入っているときだけ新しい画面へ渡す（見ている場所・選んだパネルは同じ物）', () => {
-    expect(TREE).toMatch(/if \(uxk\.tree\) \{\s*const lift = liftOnce;\s*liftOnce = false;\s*return uxk\.tree\(ctx, \{ lift \}\);\s*\}\s*open\(ctx, t\('スキルツリー', 'Skill tree'\)/);
+    expect(TREE).toMatch(/if \(uxk\.tree\) \{\s*const lift = liftOnce;\s*liftOnce = false;\s*return uxk\.tree\(ctx, \{ lift, focus \}\);\s*\}\s*open\(ctx, t\('スキルツリー', 'Skill tree'\)/);
     expect(src('uix/screens/k-boot.ts')).toContain('uxk.tree = openSkillsUx;');
     expect(uxkDeps.tree.view).toBeDefined();
     expect(uxkDeps.tree.DOUBLE_MS).toBe(420);
@@ -473,5 +475,38 @@ describe('予算と部門', () => {
     expect(BD).toContain('const motion = (anim || swing) && !isCalm();');
     expect(BD).toContain('const m = uxMeter(motion ? (from ?? 0) : v, kind);');
     expect(BD).toContain('`uxk.bd.a.${d}`');
+  });
+});
+
+describe('部門のパネルへ寄る・輸入の箱', () => {
+  const FD = src('uix/screens/feed.ts');
+  const OLD = src('p1/feedui.ts');
+  it('「この部門のパネルを見る」：寄る先（部門）を新しい木へ渡す。いちばん上のパネルが下半分なら見出しのすぐ下まで送り、見出しがまたたく（1 回だけ）', () => {
+    expect(TREE).toContain('return uxk.tree(ctx, { lift, focus });');
+    expect(TR).toContain('inst = build(ctx, body, key, lift, arrive);');
+    expect(TR).toContain('if (arriveOnce && vp.clientHeight > 0) arriveDept(arriveOnce);');
+    expect(TR).toContain("uxpReplay(h.el, 'is-arrive');");
+    expect(arriveTop([5, 3.2, 9])).toBe(3.2);
+    expect(src('uix/screens/tree.css')).toMatch(/\.uxk-head\.is-arrive \{\s*animation: uxk-arrive/);
+  });
+  it('輸入の箱：feedBox が、差し込み口が入っているときだけ新しい箱へ渡す', () => {
+    expect(OLD).toContain('if (uxk.feed) return uxk.feed(s, b, done);');
+    expect(src('uix/screens/k-boot.ts')).toContain('uxk.feed = feedBoxUx;');
+  });
+  it('輸入の箱：中身と押す先は今の箱と同じ（境の拠点・止まる理由・部長の提案と承認・需要・週の数・値段・選ぶ／外す）', () => {
+    for (const k of ['nb.opened && K.borderDepots(s, nb.id).some(', 'K.feedBlock(s, nb.id)', "why !== 'depot'", 'K.feedSuggest(s, nb.id)', 'K.approveFeed(s, sg)', 'K.feedItems(s, nb.id)', 'K.toggleFeed(s, nb.id, it.sku)', "r === 'full'", "r === 'block'"]) expect(FD, k).toContain(k);
+    for (const k of ['止まっている品：', 'となり町の工房の商品を、毎週トラックでここへ', '（物流の部長）', 'を輸入に足すと この町の売上 月 +', 'に入れ替えると この町の売上 月 +', 'まだ誰も売っていない', 'この町の需要 ×', '（拠点の置き場所で頭打ち）', '（関税 ', 'の輸入をやめました', 'いまは輸入できません', '相手の工房が作っている商品がありません']) {
+      expect(FD, k).toContain(k);
+      expect(OLD, k).toContain(k);
+    }
+    expect(Object.keys(FEED_WHY)).toEqual(['unopened', 'workshop', 'ruin', 'units']);
+    expect(demandHot(1.1, false)).toBe(true);
+    expect(demandHot(1, true)).toBe(true);
+    expect(demandHot(1, false)).toBe(false);
+    expect(dutyPct(0.0612)).toBe('6.1%');
+    // 選んだ物は色だけにしない：ランプと琥珀の枠（uxpCard の selected）・「輸入中」の貼り札。承認はレバー
+    expect(FD).toContain("tags: it.on ? uxTape(t('輸入中', 'Importing'), 'good') : null");
+    expect(FD).toContain('ux.lever?.(ok) ?? ok');
+    expect(FD).toContain("'data-sku': it.sku");
   });
 });

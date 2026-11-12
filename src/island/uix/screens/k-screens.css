@@ -1080,6 +1080,109 @@ html.is-uxc #isl-ui .uxk-bd-rec > .ux-cap {
   gap: 8px;
 }
 
+/* ---------------------------------------------------------------- 物流拠点の「輸入」の箱（吹き出しの「くわしく」の板の中） */
+html.is-uxc #isl-ui .uxk-fd {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 8px;
+}
+html.is-uxc #isl-ui .uxk-fd-next,
+html.is-uxc #isl-ui .uxk-fd-picks,
+html.is-uxc #isl-ui .uxk-fd-qty,
+html.is-uxc #isl-ui .uxk-fd-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-fd-next {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-fd-rule {
+  margin: 0;
+  color: var(--ux-k5);
+  line-height: 1.45;
+}
+html.is-uxc #isl-ui .uxk-fd-town {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-fd-from {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+html.is-uxc #isl-ui .uxk-fd-picks {
+  margin-left: auto;
+  gap: 3px;
+}
+html.is-uxc #isl-ui .uxk-fd-picks > .ux-num {
+  margin-left: 4px;
+}
+html.is-uxc #isl-ui .uxk-fd-stop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  color: var(--ux-paper);
+  background: #2a1820;
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 0 var(--ux-bad);
+  line-height: 1.45;
+}
+html.is-uxc #isl-ui .uxk-fd-paused {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-fd-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 10px;
+  align-items: start;
+}
+html.is-uxc #isl-ui .uxk-fd-say {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  color: var(--ux-ink);
+  background: var(--ux-paper);
+  box-shadow: inset 0 0 0 2px var(--ux-ink);
+  line-height: 1.45;
+}
+html.is-uxc #isl-ui .uxk-fd-lever {
+  grid-column: 1 / -1;
+}
+html.is-uxc #isl-ui .uxk-fd-pic {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  background: var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxk-fd-dm {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-fd-dm.is-good {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxk-fd-card .uxp-card-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+html.is-uxc #isl-ui .uxk-fd-qty,
+html.is-uxc #isl-ui .uxk-fd-price {
+  white-space: normal;
+}
+
 /* ==================================================================== 動きを減らす：止まった形で、全部すぐ出る（この束の画面の根には uxk-calm を付ける） */
 html.is-uxc.is-calm #isl-ui .uxk-calm *,
 html.is-uxc.is-calm #isl-ui .uxk-calm *::before,

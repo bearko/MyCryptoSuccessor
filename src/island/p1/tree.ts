@@ -639,7 +639,7 @@ export function openSkills(ctx: Ctx, focus?: string) {
   if (uxk.tree) {
     const lift = liftOnce;
     liftOnce = false;
-    return uxk.tree(ctx, { lift });
+    return uxk.tree(ctx, { lift, focus });
   }
   open(ctx, t('スキルツリー', 'Skill tree'), (body) => {
     const s = ctx.s();

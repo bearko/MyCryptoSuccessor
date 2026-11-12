@@ -11,6 +11,7 @@ import { openRankingUx } from './ranking';
 import { openSkillsUx } from './tree';
 import { openGaUx, openTaxUx } from './tax';
 import { openBudgetUx } from './budget';
+import { feedBoxUx } from './feed';
 
 /** 本体の関数の束を受け取って、差し込み口へ入れる */
 export function installK(d: UxkDeps) {
@@ -22,4 +23,5 @@ export function installK(d: UxkDeps) {
   uxk.tax = openTaxUx;
   uxk.ga = openGaUx;
   uxk.budget = openBudgetUx;
+  uxk.feed = feedBoxUx;
 }

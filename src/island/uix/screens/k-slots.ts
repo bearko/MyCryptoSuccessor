@@ -7,8 +7,8 @@ import type { Ctx } from '../../p1/screens';
 import type { P1State, PBuilding } from '../../p1/model';
 
 export interface UxkScreens {
-  /** スキルツリー（lift：選んだパネルを、くわしい板の上へ持ち上げて開く。市場データ・助言から） */
-  tree?: (ctx: Ctx, o: { lift: boolean }) => void;
+  /** スキルツリー（lift：選んだパネルを、くわしい板の上へ持ち上げて開く。市場データ・助言から。focus：寄る先（部門の画面の「この部門のパネルを見る」なら部門）） */
+  tree?: (ctx: Ctx, o: { lift: boolean; focus?: string }) => void;
   /** 企業ランキング（tab：はじめに開くタブ） */
   ranking?: (ctx: Ctx, tab: 'area' | 'land' | 'world') => void;
   /** 設備投資（建物ごとの設備を買う） */
