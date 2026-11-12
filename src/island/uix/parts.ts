@@ -30,6 +30,41 @@ export function shake(e: Element | null) {
 // ---------------------------------------------------------------- 押す手応え
 /** すばやく叩いても、沈んだ形が見える長さ（ms） */
 export const PRESS_MIN_MS = 70;
+/** press() を通したキーに付く目印（class の接頭辞が ux-・uxp-・uxs-・uxm-・uxc- のどれでも同じに扱うため） */
+export const KEY_ATTR = 'data-ux-key';
+/** 押した所が、b の中に置いた別のキー・ボタン・入力か（押せるカードの中のキーを押したとき、カードまで動かさないため） */
+export function innerKey(b: Element, target: EventTarget | null): boolean {
+  const t = target as { closest?: (sel: string) => Element | null } | null;
+  if (!t || typeof t.closest !== 'function') return false;
+  const inner = t.closest('button, a, input, select, [data-ux-key], [role="switch"], [role="slider"]');
+  return !!inner && inner !== b && b.contains(inner);
+}
+/** 続く click を呑む間（ms）と、同じ場所とみなす幅（px） */
+export const SWALLOW_MS = 400;
+export const SWALLOW_PX = 24;
+/** 呑むかどうか：押した所の近く（SWALLOW_PX 以内）に来た click だけ。場所の無い click（読み上げ・コードから）は呑まない */
+export const swallowHit = (x: number, y: number, cx: number, cy: number, detail: number) => detail > 0 && Math.abs(cx - x) <= SWALLOW_PX && Math.abs(cy - y) <= SWALLOW_PX;
+/**
+ * 指を離した瞬間（pointerup）に動くキーの守り：そのあとブラウザが同じ場所へ届ける click を 1 回だけ呑む。
+ * 呑まないと、操作で開いたばかりの窓（引き出しの外側＝閉じる）や、札を閉じたあとの地図に、その click が当たる。
+ * 近くに来た click だけを呑むので、すぐ別の所を押した click は通る。SWALLOW_MS のあいだに来なければ、何もしない
+ */
+export function swallowClick(x: number, y: number, ms = SWALLOW_MS) {
+  if (typeof addEventListener !== 'function') return;
+  const stop = (e: Event) => {
+    const m = e as MouseEvent;
+    if (!swallowHit(x, y, m.clientX, m.clientY, m.detail)) return;
+    e.stopPropagation();
+    e.preventDefault();
+    off();
+  };
+  const off = () => {
+    removeEventListener('click', stop, true);
+    clearTimeout(id);
+  };
+  addEventListener('click', stop, true);
+  const id = setTimeout(off, ms);
+}
 /**
  * 押す手応え：押した瞬間に沈む（60〜90ms）・離すと戻る。音は押す／離すで別。
  * 指を離した所がボタンの上（まわり 8px まで）なら fn を呼ぶ。読み上げなどの「クリック」だけが来たときも呼ぶ
@@ -37,6 +72,8 @@ export const PRESS_MIN_MS = 70;
 export function press<T extends HTMLElement>(b: T, fn?: (b: T) => void, opt: { silent?: boolean; strong?: boolean } = {}): T {
   let downAt = 0;
   let isDown = false;
+  // 自分で沈むキーの目印（接頭辞に関係なく、土台の初期化・いまの入口の手応えがこれを見る：base.css・legacy.ts）
+  b.setAttribute(KEY_ATTR, '');
   const off = () => (b as unknown as HTMLButtonElement).disabled || b.getAttribute('aria-disabled') === 'true';
   const up = (fire: boolean) => {
     if (!isDown) return;
@@ -58,6 +95,8 @@ export function press<T extends HTMLElement>(b: T, fn?: (b: T) => void, opt: { s
   };
   b.addEventListener('pointerdown', (e) => {
     if (off() || e.button > 0) return;
+    // 中に置いたキー・ボタンを押したときは、外側（押せるカードなど）は動かさない
+    if (innerKey(b, e.target)) return;
     down();
     try {
       b.setPointerCapture(e.pointerId);
@@ -67,7 +106,10 @@ export function press<T extends HTMLElement>(b: T, fn?: (b: T) => void, opt: { s
   });
   b.addEventListener('pointerup', (e) => {
     const r = b.getBoundingClientRect();
-    up(e.clientX >= r.left - 8 && e.clientX <= r.right + 8 && e.clientY >= r.top - 8 && e.clientY <= r.bottom + 8);
+    const hit = e.clientX >= r.left - 8 && e.clientX <= r.right + 8 && e.clientY >= r.top - 8 && e.clientY <= r.bottom + 8;
+    // 離した瞬間に操作を呼ぶので、このあとブラウザが同じ場所へ届ける click を 1 回だけ呑む（開いたばかりの窓・閉じたあとの地図に当てない）
+    if (hit && isDown) swallowClick(e.clientX, e.clientY);
+    up(hit);
   });
   b.addEventListener('pointercancel', () => up(false));
   b.addEventListener('keydown', (e) => {
@@ -354,11 +396,52 @@ export const typePause = (c: string, per: number) => (/[、，,]/.test(c) ? per 
  * 1 字ずつ出す。押すと最後まで出る（skip）。速さは設定（吹き出しの速さ）。字ごとに音の口（blip）を呼ぶ。
  * 先に全部の字を透明で置くので、喋っている途中で枠の大きさが変わらない
  */
-export function typeText(box: HTMLElement, text: string, { voice, cps = TALK_CPS[prefs.talk], onDone }: { voice?: number; cps?: number; onDone?: () => void } = {}): { skip: () => void; readonly done: boolean } {
+export function typeText(box: HTMLElement, text: string, o: TypeOpts = {}): Typing {
+  return typeInto(box, text, o);
+}
+export interface TypeOpts {
+  voice?: number;
+  cps?: number;
+  onDone?: () => void;
+}
+export interface Typing {
+  skip: () => void;
+  readonly done: boolean;
+}
+/**
+ * 1 字ずつ出す（中身が要素でもよい：強調の <b> などを保ったまま、中の字を 1 字ずつ出す）。
+ * content が文字列なら typeText と同じ
+ */
+export function typeInto(box: HTMLElement, content: string | Node, { voice, cps = TALK_CPS[prefs.talk], onDone }: TypeOpts = {}): Typing {
   box.textContent = '';
-  const chars = [...text];
-  const spans = chars.map((c) => el('span', { style: { opacity: '0' } }, c));
-  box.append(...spans);
+  const chars: string[] = [];
+  const spans: HTMLElement[] = [];
+  const put = (text: string, into: Node) => {
+    for (const c of [...text]) {
+      const sp = el('span', { style: { opacity: '0' } }, c);
+      chars.push(c);
+      spans.push(sp);
+      into.appendChild(sp);
+    }
+  };
+  const walk = (n: Node, into: Node) => {
+    if (n.nodeType === 3) put(n.textContent ?? '', into);
+    else if (n.nodeType === 11) for (const k of [...n.childNodes]) walk(k, into);
+    else if (n.nodeType === 1 && !n.hasChildNodes()) {
+      // 中身の無い要素（ドットの絵の canvas・画像）は、そのまま 1 字ぶんとして出す（写すと絵が消えるため）
+      const e = n as HTMLElement;
+      e.style.opacity = '0';
+      chars.push('*');
+      spans.push(e);
+      into.appendChild(e);
+    } else if (n.nodeType === 1) {
+      const copy = (n as Element).cloneNode(false);
+      into.appendChild(copy);
+      for (const k of [...n.childNodes]) walk(k, copy);
+    }
+  };
+  if (typeof content === 'string') put(content, box);
+  else walk(content, box);
   let i = 0;
   let acc = 0;
   let done = false;
@@ -397,18 +480,28 @@ export function typeText(box: HTMLElement, text: string, { voice, cps = TALK_CPS
  * ヒーローの枠破り：パネルの縁からはみ出して、手前に立つ。息をする（1.8 秒・2px）。hop()：喋りはじめに小さく跳ねる。
  * sprite：ヒーローの絵の要素（p1/ui.ts の heroIcon など）。ドット絵は整数倍で、にじませない（もとの 64px の 1・2・3 倍）
  */
-export function uxStand(sprite: HTMLElement, scale: 1 | 2 | 3 = 2): { el: HTMLElement; hop: () => void } {
-  const px = 64 * scale;
-  sprite.style.width = `${px}px`;
-  sprite.style.height = `${px}px`;
-  sprite.classList.add('ux-hero', 'ux-pop-face');
-  const e = el('span.ux-stand', { 'aria-hidden': 'true', style: { top: `${-Math.round((px * 84) / 128 / 2) * 2}px` } }, sprite);
+export function uxStand(sprite: HTMLElement, scale: 1 | 2 | 3 = 2, size?: { w: number; h: number }): { el: HTMLElement; hop: () => void; set: (sprite: HTMLElement, scale?: 1 | 2 | 3, size?: { w: number; h: number }) => void } {
+  const e = el('span.ux-stand', { 'aria-hidden': 'true' });
+  let cur = sprite;
+  /** 立つ人を替える（会話で話す人が替わるとき）。size：64px の升でない絵（案内役の立ち絵など）の、もとの大きさ × 整数倍 */
+  const set = (sp: HTMLElement, sc: 1 | 2 | 3 = 2, sz?: { w: number; h: number }) => {
+    const h = sz ? sz.h : 64 * sc;
+    const w = sz ? sz.w : 64 * sc;
+    sp.style.width = `${w}px`;
+    sp.style.height = `${h}px`;
+    sp.classList.add('ux-hero', 'ux-pop-face');
+    e.style.top = `${-Math.round((h * 84) / 128 / 2) * 2}px`;
+    e.replaceChildren(sp);
+    cur = sp;
+  };
+  set(sprite, scale, size);
   return {
     el: e,
+    set,
     hop() {
-      sprite.classList.remove('is-hop');
-      void sprite.offsetWidth;
-      sprite.classList.add('is-hop');
+      cur.classList.remove('is-hop');
+      void cur.offsetWidth;
+      cur.classList.add('is-hop');
     },
   };
 }
@@ -428,6 +521,13 @@ export interface BubbleOpts {
   /** 最後のセリフのあと：true なら最初へ戻る（既定）。false なら onEnd を呼ぶ */
   loop?: boolean;
   onEnd?: () => void;
+  /** 立つ人の絵が 64px の升でないとき（案内役の立ち絵など）の大きさ */
+  faceSize?: { w: number; h: number };
+  /**
+   * 押したときの進め方を、呼ぶ側が決める（会話：話す人・上の絵が枚ごとに替わる）。
+   * 喋っている途中に押したときは、器が最後まで出して true を渡す（そのときは次へ進めない）
+   */
+  onTap?: (skipped: boolean) => void;
 }
 /**
  * 吹き出しの器：中身の長さで枠が伸び縮みする（上のふち・まん中・下のふちの 3 つに分け、まん中を縦に伸ばす：transform だけ）。
@@ -440,14 +540,17 @@ export function uxBubble(o: BubbleOpts & { flow?: boolean }) {
   const text = el('p.ux-pop-text');
   const mark = el('span.ux-pop-next', '▼');
   const count = el('span.ux-pop-count', `1/${o.lines.length}`);
-  const say = el('div.ux-pop-say', { role: 'button', tabindex: '0', 'aria-label': t('セリフを送る', 'Next line') }, text, el('div.ux-pop-foot', o.lines.length > 1 ? count : null, mark));
+  const say = el('div.ux-pop-say', { role: 'button', tabindex: '0', 'aria-label': t('セリフを送る', 'Next line') }, text, el('div.ux-pop-foot', o.lines.length > 1 || o.onTap ? count : null, mark));
   const tail = el('span.ux-pop-tail', { html: TAIL });
-  const stand = o.face ? uxStand(o.face, 2) : null;
+  const stand = o.face ? uxStand(o.face, 2, o.faceSize) : null;
+  const nameTape = el('span.ux-tape.ux-pop-name', el('b', o.name ?? ''), o.role ? el('span', o.role) : null);
+  nameTape.style.display = o.name ? '' : 'none';
+  let voice = o.voice;
   const rise = el(
     'div.ux-pop-rise',
     el('div.ux-pop-bg', el('i.ux-pop-t'), bgM, bgB),
     tail,
-    stand ? el('div.ux-pop-who', stand.el, o.name ? el('span.ux-tape.ux-pop-name', el('b', o.name), o.role ? el('span', o.role) : null) : null) : null,
+    stand ? el('div.ux-pop-who', stand.el, nameTape) : null,
     o.onClose ? uxKey(el('span.ux-vh', t('閉じる', 'Close')), () => o.onClose?.(), { ico: 'close', cls: 'ux-pop-x', attrs: { 'aria-label': t('閉じる', 'Close') } }) : null,
     say,
   );
@@ -494,15 +597,31 @@ export function uxBubble(o: BubbleOpts & { flow?: boolean }) {
     tween = { from: curH, to: target, t: 0 };
     off ??= loop.add(step);
   };
-  const speak = (first: boolean) => {
+  /** 中身を喋る（文字列でも、強調の入った要素でもよい） */
+  const sayNow = (content: string | Node, first: boolean, onDone?: () => void) => {
     mark.classList.remove('is-on');
-    count.textContent = `${idx + 1}/${o.lines.length}`;
-    typing = typeText(text, o.lines[idx], { voice: o.voice, onDone: () => mark.classList.add('is-on') });
+    typing?.skip();
+    typing = typeInto(text, content, {
+      voice,
+      onDone: () => {
+        mark.classList.add('is-on');
+        onDone?.();
+      },
+    });
     fit(!first);
     stand?.hop();
   };
+  const speak = (first: boolean) => {
+    count.textContent = `${idx + 1}/${o.lines.length}`;
+    sayNow(o.lines[idx], first);
+  };
   const advance = () => {
     uxSfx('page');
+    if (o.onTap) {
+      const skipped = !!typing && !typing.done;
+      if (skipped) typing?.skip();
+      return o.onTap(skipped);
+    }
     if (typing && !typing.done) return typing.skip();
     if (idx + 1 >= o.lines.length && o.loop === false) return o.onEnd?.();
     idx = (idx + 1) % o.lines.length;
@@ -525,6 +644,24 @@ export function uxBubble(o: BubbleOpts & { flow?: boolean }) {
       tail.style.transform = `translate3d(${Math.round(Math.max(40, Math.min(bw - 60, x - 12)))}px,0,0)`;
     },
     skip: () => typing?.skip(),
+    /** 喋っている途中か */
+    get typing() {
+      return !!typing && !typing.done;
+    },
+    /** 中身を替えて喋る（会話：枚ごとに呼ぶ）。count：右下の「2/4」 */
+    say(content: string | Node, p: { first?: boolean; count?: string; onDone?: () => void } = {}) {
+      if (p.count != null) count.textContent = p.count;
+      sayNow(content, !!p.first, p.onDone);
+    },
+    /** 話す人を替える（絵・名前・肩書き・声） */
+    setWho(p: { face?: HTMLElement; scale?: 1 | 2 | 3; size?: { w: number; h: number }; name?: string; role?: string; voice?: number }) {
+      if (p.face && stand) stand.set(p.face, p.scale ?? 2, p.size);
+      if (p.name !== undefined) {
+        nameTape.replaceChildren(el('b', p.name), ...(p.role ? [el('span', p.role)] : []));
+        nameTape.style.display = p.name ? '' : 'none';
+      }
+      voice = p.voice;
+    },
     get height() {
       return tween ? tween.to : curH;
     },

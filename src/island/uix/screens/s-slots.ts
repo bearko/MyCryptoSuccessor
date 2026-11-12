@@ -23,4 +23,5 @@ export interface UxScreens {
   /** 発掘作業のまとめ報告 */
   digSummary?: (ctx: Ctx, sum: DigSummary, hooks: DigSummaryHooks, then?: () => void) => void;
 }
-export const uxs: UxScreens = {};
+// 入れ物は uix/hooks.ts に置く（理由はそこに）。ここは型と、同じ物の名前だけ
+export { uxsSlots as uxs, uxsBootSlot as uxsBoot } from '../hooks';

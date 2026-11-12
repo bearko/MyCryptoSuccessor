@@ -156,7 +156,8 @@ import { openSupply } from './scm';
 import { openSales } from './sales';
 import { pickHooks } from './heroui';
 import { openDigSummary, openMonthReport } from './report';
-import { loadUxs } from './uxs';
+import { bootUxs, loadUxs } from './uxs';
+import { uxw, type UxwAct } from '../uix/screens/w-slots';
 import { openOrg } from './orgui';
 import { openSkills } from './tree';
 import { goalSeen, goalStep } from './goal';
@@ -176,6 +177,7 @@ import { IslandSfx } from './sfx';
 import { setUx, uxOn } from '../uix/flag';
 import { ux } from '../uix/hooks';
 import { uxm } from '../uix/screens/mhooks';
+import { uxc } from '../uix/screens/c-slots';
 import { nextStep, uxLegacy, uxSetVol, uxSfx, uxSound, uxSoundInit, uxVol, type UxScene } from '../uix/sound';
 import { boardDue, boardOf, boardQuarter, closeText } from './board';
 import { openBoard, type BoardHooks } from './boardui';
@@ -257,6 +259,8 @@ sfx.level = vol.se;
 // 段 UIX1s：新しい画面が入（<html class="is-uxc">）のときは、効果音を合成の音へ付け替える（切のときは何も変わらない）
 sfx.route = uxLegacy;
 // 段 UIX2s：入のときだけ、新しい画面（工房の札・月次報告）を読む。切のときは読まない
+// 段 UIX3a：入口（src/island/main.ts）が束を先に読んであれば、その場で入れる（起動のすぐあとの最初の会話から、新しい画面で出す）
+if (uxOn()) bootUxs();
 if (uxOn()) void loadUxs();
 // ブラウザは最初の操作まで音を出せない
 // スマホは指を離したとき（pointerup・touchend・click）がユーザーの操作として数えられる。鳴るまで毎回試す
@@ -2454,12 +2458,29 @@ function showLetter(rp: number, letter: Tier | null, chief: number | null, left 
     if (conquered && s.cleared && !s.flags.clearSeen) clearModal();
     else f();
   };
-  modal(
-    conquered ? t('👑 研究成果を発表して制覇！', '👑 Findings presented — sector conquered!') : letter ? t('📜 調査依頼状を受け取った！', '📜 Survey request received!') : t('研究成果を発表した！', 'Findings presented!'),
-    body,
-    letter === 'U' || letter === 'R' || letter === 'E' ? [[t('ランドマップを見る', 'Open land map'), then(() => openLand(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]] : [[t('スキルツリーを開く', 'Open skills'), then(() => openSkills(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]],
-    true,
-  );
+  const title = conquered ? t('👑 研究成果を発表して制覇！', '👑 Findings presented — sector conquered!') : letter ? t('📜 調査依頼状を受け取った！', '📜 Survey request received!') : t('研究成果を発表した！', 'Findings presented!');
+  const acts: UxwAct[] = letter === 'U' || letter === 'R' || letter === 'E' ? [[t('ランドマップを見る', 'Open land map'), then(() => openLand(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]] : [[t('スキルツリーを開く', 'Open skills'), then(() => openSkills(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]];
+  // 段 UIX3w：入のときは、管制卓のカットインと札へ（中身は同じ。切のときは今の窓）
+  if (uxw.letter) {
+    const face = s.staff[0]?.hero ?? chief;
+    return uxw.letter({
+      host: root,
+      rp,
+      letter,
+      letterName: letter ? t(`${TIER_NAME[letter]} の調査依頼状`, `${TIER_NAME[letter]} survey request`) : '',
+      letterIcon: letter ? extIcon(letter === 'U' ? 1016 : letter === 'R' ? 2016 : letter === 'E' ? 3016 : 5016, 128) : null,
+      from: letter && chief != null ? t(`町の長 ${heroName(chief)}より`, `From town head ${heroName(chief)}`) : '',
+      conquered,
+      town: sectorDef(s.sector ?? 'c1').name,
+      title,
+      conds: [t('2 か月続けて 1 位 ✔', '#1 two months running ✔'), t('研究成果の発表 ✔', 'Findings presented ✔')],
+      say: presentAfter(letter, left, conquered, sectorDef(s.sector ?? 'c1').tier),
+      hero: face != null ? (size) => heroIcon(face, size) : null,
+      actions: acts,
+      fx: () => letterFx(conquered),
+    });
+  }
+  modal(title, body, acts, true);
   root.querySelector('.isl-modal:last-of-type')?.classList.add('is-letter');
   letterFx(conquered);
 }
@@ -2617,7 +2638,10 @@ function sectorChecks() {
     brandAdd(s, BRAND.landClear, title);
     save();
     sfx.play('win');
-    modal(`👑 ${title}`, `${body} ${t(`ブランド力 +${BRAND.landClear}`, `Brand +${BRAND.landClear}`)}`, [[t('ランドマップを見る', 'Open land map'), () => openLand(ctx), 'is-on'], [t('続ける', 'Keep going'), () => renderAll()]], true);
+    const acts: UxwAct[] = [[t('ランドマップを見る', 'Open land map'), () => openLand(ctx), 'is-on'], [t('続ける', 'Keep going'), () => renderAll()]];
+    // 段 UIX3w：入のときは、管制卓のお祝いの札（ブランド力は桁の回る数字で）
+    if (uxw.cheer) uxw.cheer({ host: root, kind: 'land', title, say: body, bonus: { label: t('ブランド力', 'Brand'), n: BRAND.landClear }, actions: acts });
+    else modal(`👑 ${title}`, `${body} ${t(`ブランド力 +${BRAND.landClear}`, `Brand +${BRAND.landClear}`)}`, acts, true);
     return;
   }
 }
@@ -3436,7 +3460,11 @@ function flushTalk() {
 }
 /** 会話のセリフ送り（スペース・Enter）：いちばん上の会話の「次へ」か、最後の枚のボタン */
 const talkKeys = new WeakMap<HTMLElement, () => void>();
+/** その枚の上に出す絵（新しい画面の会話へ渡す。今の会話は show() の中で同じ物を作る） */
+const talkStage = (pg: TutPage): HTMLElement | null => (pg.show === 'crew' ? crewEl(pg.hero) : pg.show === 'cycle' ? cycleEl() : pg.show === 'gift' ? giftEl(pg.gift) : pg.el ? pg.el() : null);
 function showTalk(pages: TutPage[], ok: string, then: () => void) {
+  // 段 UIX3a：新しい画面（入）の会話（話す人が枠の上に立つ・1 字ずつ喋る）。切のときは、今の会話のまま
+  if (uxc.talk) return uxc.talk({ root, pages, ok, then, stage: talkStage, keys: (m, fn) => talkKeys.set(m, fn), prep: renderNext });
   const m = h('div', 'isl-modal isl-talk');
   ux.modal?.(m, 'talk');
   const stage = h('div', 'isl-talk-stage');
@@ -4151,6 +4179,7 @@ function sectorPop(id: string): { title: string; body: HTMLElement } {
     if (letterLocked(s, id)) body.append(h('p', 'isl-warn', letterLockOf(s, id)));
   } else body.append(h('p', 'isl-warn', `🔒 ${needLine(s, d) ?? ''}`));
   if (row.childElementCount) body.append(row);
+  uxw.deco?.(body, 'pop');
   return { title: st === 'cloud' ? '???' : d.name, body };
 }
 
@@ -4207,6 +4236,7 @@ function badgeEl(b: SectorBadge, mini: boolean): HTMLElement {
       el.append(f);
       if (!mini && b.lastRev != null && !gray) el.append(h('small', 'isl-wbadge-rev', t(`先月 ${money(b.lastRev)}`, `Last month ${money(b.lastRev)}`)));
       el.addEventListener('click', () => badgeClick(b));
+      uxw.deco?.(el, 'badge');
       return el;
     }
   } else if (b.state === 'open' && letterLocked(s, b.id)) row.append(h('span', 'isl-wbadge-note', mini ? '🔒' : letterLockOf(s, b.id)));
@@ -4215,6 +4245,8 @@ function badgeEl(b: SectorBadge, mini: boolean): HTMLElement {
   el.append(row);
   if (!mini && b.lastRev != null && !gray) el.append(h('small', 'isl-wbadge-rev', t(`先月 ${money(b.lastRev)}`, `Last month ${money(b.lastRev)}`)));
   el.addEventListener('click', () => badgeClick(b));
+  // 段 UIX3w：入のときは、絵文字をドットの絵に（見た目は CSS の着せ替え）
+  uxw.deco?.(el, 'badge');
   return el;
 }
 function badgeClick(b: SectorBadge) {
@@ -4240,6 +4272,7 @@ function edgeEl(id: string): HTMLElement {
   el.append(h('span', 'isl-wedge-tier', d.tier), h('b', '', st === 'cloud' ? '???' : d.name));
   if (st === 'mine') el.append(h('small', '', '▶'));
   else if (st !== 'open') el.append(h('small', '', '🔒'));
+  uxw.deco?.(el, 'badge');
   el.addEventListener('click', () => openSectorCard(id));
   return el;
 }
@@ -4251,6 +4284,22 @@ function openSectorCard(id: string) {
   const st = s.land ? sectorState(s.land, id) : 'cloud';
   const adv = advanceOf(s, id);
   const facts = sectorFacts(id);
+  // 段 UIX3w：入のときは、管制卓の窓へ（中身と進出の動きは同じ。切のときは今の窓）
+  if (uxw.sectorCard) {
+    sfx.play('page');
+    return uxw.sectorCard({
+      host: root,
+      id,
+      state: st,
+      kind: adv.k,
+      fee: adv.fee,
+      money: s.money,
+      why: adv.k === 'letter' ? letterLockOf(s, id) : adv.k === 'locked' ? (needLine(s, d) ?? '') : '',
+      rivals: facts.rivals,
+      hot: facts.hot.map((k) => ({ icon: skuIcon(`${k}:C` as SkuT, 24), name: PRODUCT[k]?.name ?? k })),
+      go: () => advanceGo(adv.k, { go: () => goSector(id), move: () => startMove(ctx, id), rankup: () => openRankUp(ctx, id) }),
+    });
+  }
   const m = h('div', 'isl-modal isl-bulk isl-sectm');
   ux.modal?.(m, 'sectm');
   m.dataset.sector = id;
@@ -5481,7 +5530,10 @@ function afterReport() {
 function clearModal() {
   s.flags.clearSeen = true;
   save();
-  modal(t('フェーズ 1 クリア！', 'Phase 1 cleared!'), plain(CLEAR_LINE(gateToll(s))), [[t('関所を見る', 'View the gate'), () => ((speed = 1), showGate(), renderHud()), 'is-on'], [t('続ける', 'Keep going'), () => ((speed = 1), renderHud())]], true);
+  const acts: UxwAct[] = [[t('関所を見る', 'View the gate'), () => ((speed = 1), showGate(), renderHud()), 'is-on'], [t('続ける', 'Keep going'), () => ((speed = 1), renderHud())]];
+  // 段 UIX3w：入のときは、管制卓のお祝いの札（中身は同じ）
+  if (uxw.cheer) return uxw.cheer({ host: root, kind: 'clear', title: t('フェーズ 1 クリア！', 'Phase 1 cleared!'), say: CLEAR_LINE(gateToll(s)), actions: acts });
+  modal(t('フェーズ 1 クリア！', 'Phase 1 cleared!'), plain(CLEAR_LINE(gateToll(s))), acts, true);
 }
 
 /**
@@ -5722,6 +5774,15 @@ window.setTimeout(() => warmFx(), 3000);
   notesOpen: () => openNotes(ctx),
   tablet: (id: string) => debugTablet(id),
   tick: () => renderAll(),
+  /** 段 UIX3a（撮影・確かめ用）：お知らせ・トロフィーのお知らせ・窓・ミッションの一覧・設定を出す */
+  toast: (text: string, img?: string) => toast(text, img),
+  trophyDemo: (d: TrophyDef) => {
+    trophyQ.push(d);
+    trophyFlush();
+  },
+  modalDemo: (title: string, body: string, face = false) => modal(title, body, [[t('やり直す', 'Start over'), () => undefined, 'is-danger'], [t('やめる', 'Cancel'), () => undefined, 'is-on']], face),
+  missions: () => openMissions(ctx),
+  settings: () => openSettings(),
   /** 建てる・置くモードを始める（撮影スクリプト用） */
   place: (id: string) => startPlacing(id),
   /** 段 UX1（撮影スクリプト用）：まだ掘りきっていない荒れ地の 1 マス目 */

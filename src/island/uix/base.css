@@ -57,8 +57,9 @@ html.is-uxc [class^='ux-'],
 html.is-uxc [class*=' ux-'] {
   box-sizing: border-box;
 }
-/* （:where で弱くしておく：部品の class の決まりが、この初期化に必ず勝つ） */
-:where(html.is-uxc) :where(button[class^='ux-'], button[class*=' ux-']) {
+/* （:where で弱くしておく：部品の class の決まりが、この初期化に必ず勝つ）。
+   class の接頭辞（ux-・uxp-・uxs-・uxm-・uxc-）に関係なく、press() を通したキー（data-ux-key）なら同じに初期化する */
+:where(html.is-uxc) :where(button[class^='ux-'], button[class*=' ux-'], button[data-ux-key]) {
   font: inherit;
   color: inherit;
   background: none;

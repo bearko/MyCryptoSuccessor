@@ -1,0 +1,245 @@
+/* 段 UIX3a：選ぶ引き出し（docs/ISLAND_UIX.md「画面：選ぶ引き出し」。picker.ts）。class は uxc-。
+   器・一覧のカード・決めるキーの帯は画面の部品（sparts.css の uxp-）。ここは、ヒーローの札の中身・エクステのカードの選んだ形・
+   作る物の並びの切り替え・器だけ替えた引き出しの中身（今の要素）の着せ替え。 */
+
+/* ---------- 一覧の札が、上から順に入る（はじめの 8 枚） */
+html.is-uxc #isl-ui .uxc-pick .uxp-list > *,
+html.is-uxc #isl-ui .uxc-pick .uxc-ext-grid > * {
+  animation: ux-key-in 220ms steps(5, end) backwards;
+  animation-delay: calc(60ms + var(--i, 0) * 30ms);
+}
+html.is-uxc #isl-ui .uxc-pick .uxc-ext-grid.is-in > * {
+  animation-name: uxc-list-in;
+}
+@keyframes uxc-list-in {
+  0% { transform: translate3d(0, 16px, 0); opacity: 0; }
+  100% { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+/* 決めたあと、しまうまでのあいだは押せない */
+html.is-uxc #isl-ui .uxp-drawer.is-busy {
+  pointer-events: none;
+}
+
+/* ---------- ヒーローの札 */
+html.is-uxc #isl-ui .uxc-pick-card .uxp-card-lamp {
+  right: 8px;
+  bottom: 8px;
+}
+html.is-uxc #isl-ui .uxc-pick-card .uxp-card-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+html.is-uxc #isl-ui .uxc-pick-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  min-height: 1.5rem;
+}
+html.is-uxc #isl-ui .uxc-pick-stamina {
+  flex: 0 1 120px;
+  min-width: 72px;
+  height: 10px;
+}
+html.is-uxc #isl-ui .uxc-pick-stamina.is-low > i {
+  background: var(--ux-bad);
+  box-shadow: inset 0 2px 0 #ffc0c4, inset 0 -2px 0 var(--ux-bad-lo);
+}
+html.is-uxc #isl-ui .uxc-pick-job {
+  white-space: normal;
+  line-height: 1.25rem;
+}
+/* 適性の段と数（段の字は貼り札・数は数字の書体） */
+html.is-uxc .uxc-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding-right: 4px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+  color: var(--ux-paper);
+}
+html.is-uxc .uxc-rank > b {
+  display: inline-block;
+  min-width: 1.25rem;
+  padding: 0 4px;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  text-align: center;
+  line-height: 1.25rem;
+}
+html.is-uxc .uxc-rank.is-amber > b { background: var(--ux-amber); }
+html.is-uxc .uxc-rank.is-good > b { background: var(--ux-good); }
+html.is-uxc .uxc-rank.is-dim > b { background: var(--ux-paper3); }
+html.is-uxc .uxc-rank .ux-num {
+  font-size: var(--ux-n15);
+}
+/* 史実の適性の札（今の要素）：字の大きさだけ合わせる */
+html.is-uxc #isl-ui .uxc-pick .isl-p2g {
+  font-size: 1rem;
+  line-height: 1.25rem;
+  padding: 0 6px;
+}
+/* 「外す」のキー（ほかの担当の人の担当を外す） */
+html.is-uxc #isl-ui .uxc-pick-free {
+  min-width: 64px;
+}
+html.is-uxc #isl-ui .uxc-pick-free.ux-key--danger {
+  --ux-face: var(--ux-bad);
+  --ux-hi: #ffc0c4;
+  --ux-lo: var(--ux-bad-lo);
+  --ux-side: #5e1422;
+  --ux-txt: var(--ux-ink);
+}
+/* 「決定」の札：選んだ札の右上に打たれる */
+html.is-uxc #isl-ui .uxc-pick-stamp {
+  position: absolute;
+  right: 10px;
+  top: 8px;
+  z-index: 3;
+  padding: 0 10px;
+  min-height: 1.75rem;
+  line-height: 1.75rem;
+  font-size: 1.125rem;
+  rotate: -4deg;
+}
+/* 付け替えの一言（決めるキーの上） */
+html.is-uxc #isl-ui .uxc-pick-warn {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: #11131f;
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 0 var(--ux-amber);
+  color: var(--ux-paper);
+  animation: uxp-gap-in 220ms steps(4, end) 1;
+}
+html.is-uxc #isl-ui .uxc-pick-warn p {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxc-pick-warn p > .ux-ico {
+  margin-top: 6px;
+}
+html.is-uxc #isl-ui .uxc-pick-stop {
+  color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxc-pick-ppd {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxc-pick-ppd .ux-num {
+  font-size: var(--ux-n15);
+}
+html.is-uxc #isl-ui .uxc-pick .uxp-foot-pick .ux-ext {
+  width: 32px;
+  height: 32px;
+}
+html.is-uxc #isl-ui .uxc-pick-lead {
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ---------- エクステのカード（今の extCard。板の形は workshop.css の .uxs-cmp-grid）：選んだ形・印・「決定」の札 */
+html.is-uxc #isl-ui .uxc-ext-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 8px;
+  align-items: start;
+}
+html.is-uxc #isl-ui .uxc-ext-grid > p,
+html.is-uxc #isl-ui .uxc-ext-grid > .uxp-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+html.is-uxc #isl-ui .uxc-ext-grid .isl-ext-card.uxc-ext-card {
+  position: relative;
+  width: 100%;
+}
+html.is-uxc #isl-ui .uxc-ext-grid .isl-ext-card.is-sel {
+  background: #2b3050;
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 0 0 4px var(--ux-amber), inset 6px 6px 0 0 var(--ux-k3);
+}
+html.is-uxc #isl-ui .uxc-ext-grid .isl-ext-card.is-pick {
+  animation: uxp-pick 220ms steps(4, end) 1;
+}
+html.is-uxc #isl-ui .uxc-ext-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxc-ext-grid .isl-ext-no {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 1rem;
+  color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxc-ext-grid .isl-ext-gain {
+  font-size: 1rem;
+  color: var(--ux-amber-hi);
+}
+html.is-uxc #isl-ui .uxc-ext-grid .isl-ext-gain :is(b, small) {
+  font-size: 1rem;
+}
+/* ランクアップの行（キー ＋ 一言） */
+html.is-uxc #isl-ui .uxc-rankup {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+html.is-uxc #isl-ui .uxc-rankup-note {
+  flex: 1 1 8rem;
+  color: var(--ux-k5);
+  line-height: 1.4;
+}
+html.is-uxc #isl-ui .uxc-rankup.is-why .uxc-rankup-note {
+  color: var(--ux-amber-hi);
+}
+/* 並びの切り替えと絞り込み */
+html.is-uxc #isl-ui .uxc-make-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+html.is-uxc #isl-ui .uxc-make-tabs {
+  flex: 1 1 280px;
+}
+html.is-uxc #isl-ui .uxc-make-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--ux-paper);
+}
+html.is-uxc #isl-ui .uxc-make-hidden {
+  margin: 0;
+}
+
+/* ---------- 器だけ替えた引き出し（中身は今の要素）：字の大きさと余白を、管制卓の段に寄せる */
+html.is-uxc #isl-ui .uxc-drawer-legacy .uxp-drawer-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 8px;
+}
+html.is-uxc #isl-ui .uxc-drawer-legacy .uxp-drawer-body :is(p, small, span, b, li, label, td, th) {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxc-drawer-legacy .uxp-drawer-body .isl-dim {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxc-drawer-legacy .uxp-drawer-body .isl-row {
+  flex-wrap: wrap;
+  gap: 6px;
+}

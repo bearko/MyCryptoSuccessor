@@ -117,10 +117,10 @@ html.is-uxc #isl-ui .isl-btn:focus-visible::after {
   box-shadow: inset 0 0 0 2px var(--ux-cyan), inset 4px 4px 0 0 var(--ux-hi);
 }
 /* btn() を通らないボタン（h('button') の 94 か所）：形はそのまま、押した手応え（沈む）だけ付ける */
-html.is-uxc #isl-ui button:not(.isl-btn):not([class*='ux-']) {
+html.is-uxc #isl-ui button:not(.isl-btn):not([class*='ux-']):not([data-ux-key]) {
   transition: translate 60ms steps(2, end);
 }
-html.is-uxc #isl-ui button.is-ux-down:not(.isl-btn):not([class*='ux-']) {
+html.is-uxc #isl-ui button.is-ux-down:not(.isl-btn):not([class*='ux-']):not([data-ux-key]) {
   translate: 0 2px;
 }
 

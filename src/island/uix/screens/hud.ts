@@ -42,6 +42,9 @@ function ghost(box: HTMLElement, legacy: HTMLElement): HTMLElement {
   return box;
 }
 
+/** 炎上の札の英語（炎上中／おそれ） */
+const isEnRisk = (fire: boolean) => (fire ? 'Backlash' : 'Risk');
+
 export function buildHud(host: UxmHost) {
   const { hud, api } = host;
   const q = <T extends HTMLElement = HTMLElement>(sel: string) => hud.querySelector<T>(sel);
@@ -135,6 +138,34 @@ export function buildHud(host: UxmHost) {
     tg.key = key;
     tg.face.replaceChildren(...make().filter((x): x is Node | string => x != null));
   };
+
+  /**
+   * 印の列を 1 行に収める（せまい画面で 2 行になると、帯が画面の 2 割を超える）：
+   * 入りきらないときは、まず町の札のピンの絵を、それでも入らなければ札の中の添えの言葉（課題・効き目・「のおそれ」）をたたむ
+   * （格の色の帯・絵・ランプ・数・名前は残る。読み上げは今の札が持つ）。
+   * 並びが変わったときだけ測る
+   */
+  let fitKey = '';
+  let fitRaf = 0;
+  const wraps = () => {
+    const kids = ([...tags.children] as HTMLElement[]).filter((x) => !x.hidden);
+    if (kids.length < 2) return false;
+    const top = kids[0].offsetTop;
+    const name = tSector.face.querySelector('b');
+    return kids.some((x) => x.offsetTop > top + 4) || (!!name && name.scrollWidth > name.clientWidth + 1);
+  };
+  function fitTags() {
+    const key = [tSector, tJam, tEv, tInbox, tFlame].map((x) => (x.box.hidden ? '' : x.key)).join('~') + `|${innerWidth}|${document.documentElement.className}`;
+    if (key === fitKey || fitRaf || tags.hidden) return;
+    fitRaf = requestAnimationFrame(() => {
+      fitRaf = 0;
+      fitKey = key;
+      // 1 段目：飾りの絵（町の札のピン）をたたむ。2 段目：添えの言葉をたたむ
+      tags.classList.remove('is-snug', 'is-tight');
+      if (wraps()) tags.classList.add('is-snug');
+      if (wraps()) tags.classList.add('is-tight');
+    });
+  }
 
   let lastRank: number | null = null;
   let lastDate = '';
@@ -246,7 +277,7 @@ export function buildHud(host: UxmHost) {
     paintTag(tSector, `${s.land?.cur}|${isEn}`, () => {
       const d = api.sectorDef(s.land!.cur);
       tSector.box.style.setProperty('--tc', api.tierColor(d.tier));
-      return [mIcon('pin', { color: '#1a1c2e', hi: '#f4ecd4', scale: 1 }), el('small.uxm-long', api.tierLabel(d.tier)), el('small.uxm-short', d.tier), el('b', d.name)];
+      return [mIcon('pin', { color: '#1a1c2e', hi: '#f4ecd4', scale: 1, cls: 'uxm-pin' }), el('small.uxm-long', api.tierLabel(d.tier)), el('small.uxm-short', d.tier), el('b', d.name)];
     });
     const c = api.chipOf(s);
     paintTag(tJam, c ? `${c.k}|${c.k === 'jam' ? c.stage : ''}|${isEn}` : '', () => {
@@ -254,21 +285,22 @@ export function buildHud(host: UxmHost) {
       tJam.box.classList.toggle('is-build', c.k !== 'jam');
       const name = statJam.querySelector('b')?.textContent?.replace(/^\S+\s/, '') ?? '';
       const ico = c.k === 'jam' ? STAGE_ICO[c.stage] : c.k === 'ws' ? 'hammer' : 'shop';
-      return [uxLamp(c.k === 'jam' ? 'bad' : '', true, true), el('small', c.k === 'jam' ? t('課題', 'Issue') : t('次の一手', 'Next')), mIcon(ico, { color: '#1a1c2e', hi: '#f4ecd4', lo: '#1a1c2e', scale: 1 }), el('b', name)];
+      return [uxLamp(c.k === 'jam' ? 'bad' : '', true, true), el('small.uxm-w', c.k === 'jam' ? t('課題', 'Issue') : t('次の一手', 'Next')), mIcon(ico, { color: '#1a1c2e', hi: '#f4ecd4', lo: '#1a1c2e', scale: 1 }), el('b', name)];
     });
     const fxs = statEv.hidden ? [] : api.activeFx(s);
     paintTag(tEv, fxs.length ? `${fxs.length}|${Math.max(...fxs.map((f) => f.until - s.day))}|${statEv.classList.contains('is-bad')}|${isEn}` : '', () => {
       const d = Math.max(...fxs.map((f) => f.until - s.day));
       const bad = statEv.classList.contains('is-bad');
-      return [uxLamp(bad ? 'bad' : 'good', true), el('small', t('効き目', 'Effect')), mIcon('bolt', { color: '#1a1c2e', scale: 1 }), el('b', `${fxs.length > 1 ? `×${fxs.length} ` : ''}${t(`${d}日`, `${d}d`)}`)];
+      return [uxLamp(bad ? 'bad' : 'good', true), el('small.uxm-w', t('効き目', 'Effect')), mIcon('bolt', { color: '#1a1c2e', scale: 1 }), el('b', `${fxs.length > 1 ? `×${fxs.length} ` : ''}${t(`${d}日`, `${d}d`)}`)];
     });
     const inboxN = statInbox.hidden ? 0 : Number(statInbox.textContent?.match(/\d+/)?.[0] ?? 0);
     paintTag(tInbox, `${inboxN}|${isEn}`, () => [uxLamp('', true, true), mIcon('inbox', { color: '#1a1c2e', scale: 1 }), el('small.uxm-long', t('受け箱', 'Inbox')), el('b.ux-num', String(inboxN))]);
     paintTag(tFlame, `${fire}|${statFlame.querySelector('b')?.textContent}|${isEn}`, () => {
       const pct = statFlame.querySelector('b')?.textContent?.match(/\d+%/)?.[0] ?? '';
-      return [uxLamp('bad', true, fire), mIcon(fire ? 'fire' : 'warn', { color: '#1a1c2e', lo: '#f4ecd4', scale: 1 }), el('b', fire ? t('炎上中', 'Backlash') : t('炎上のおそれ', 'Risk')), pct ? el('b.ux-num', pct) : null];
+      return [uxLamp('bad', true, fire), mIcon(fire ? 'fire' : 'warn', { color: '#1a1c2e', lo: '#f4ecd4', scale: 1 }), el('b', t('炎上', isEnRisk(fire)), el('span.uxm-w', fire ? t('中', '') : t('のおそれ', ''))), pct ? el('b.ux-num', pct) : null];
     });
     tags.hidden = [tSector, tJam, tEv, tInbox, tFlame].every((x) => x.box.hidden);
+    fitTags();
   }
 
   let lastDay = -1;

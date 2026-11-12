@@ -22,6 +22,7 @@ import { btn, h, heroIcon, heroName, money, rich, signed } from './ui';
 import { DONATE_LINE } from './mine';
 import { arw, cvBox, donutEl, fallEl, fallLegend, histBox, shortN, trendEl, trendLegend, vbarsEl, type TSer } from './chartkit';
 import { brandHist, bsParts, plFall, quarterTrend, sectorBars, sectorHist } from './dash';
+import { uxw } from '../uix/screens/w-slots';
 
 // ---------------------------------------------------------------- ランドマップ
 
@@ -29,7 +30,7 @@ import { brandHist, bsParts, plFall, quarterTrend, sectorBars, sectorHist } from
  * 地図の上の道（セクタどうしのつながり）。同じランクの中は、つながった地図の隣どうし（grid が上下左右に 1 違い）。
  * ランクの間は、上のランクへ進む道（つながった地図ではつながらない。ランクが違えば別の階層）。
  */
-const ROADS: [string, string][] = [
+export const ROADS: [string, string][] = [
   ...SECTORS.flatMap((a) => SECTORS.filter((b) => a.id < b.id && adjacent(a.id, b.id)).map((b): [string, string] => [a.id, b.id])),
   ['c3', 'u1'],
   ['c6', 'u2'],
@@ -57,7 +58,7 @@ export const TIER_NOTE: Record<SectorDef['tier'], string> = {
 
 let sel: string | null = null;
 
-const stateText = (s: P1State, d: SectorDef, st: SectorState): string => {
+export const stateText = (s: P1State, d: SectorDef, st: SectorState): string => {
   switch (st) {
     case 'here':
       return t('いまここ', 'You are here');
@@ -78,7 +79,7 @@ const stateText = (s: P1State, d: SectorDef, st: SectorState): string => {
 };
 
 /** 開放の条件（Rare など） */
-function needText(s: P1State, d: SectorDef): string {
+export function needText(s: P1State, d: SectorDef): string {
   if (!d.need) return '';
   const have = (s.land?.mine ?? []).filter((x) => sectorDef(x).tier === d.need!.tier).length;
   const tier = tierLabel(d.need.tier);
@@ -115,10 +116,12 @@ export function startMove(ctx: Ctx, target: string) {
     ctx.save();
     ctx.moved?.(target, fresh, hero);
     const opened = gated.filter((id) => sectorState(s.land!, id) !== 'locked');
-    if (opened.length === 1) ctx.toast(t(`${sectorDef(opened[0]).name}への道が開いた！（遊びは次の更新で）`, `The road to ${sectorDef(opened[0]).name} is open! (Playable in a future update)`));
+    // 段 UIX3w：入のときは、管制卓のお知らせの帯で出す（文は同じ。切のときは今のトースト）
+    const road = (text: string) => (uxw.road ? uxw.road({ host: ctx.root, text, names: opened.map((id) => sectorDef(id).name) }) : ctx.toast(text));
+    if (opened.length === 1) road(t(`${sectorDef(opened[0]).name}への道が開いた！（遊びは次の更新で）`, `The road to ${sectorDef(opened[0]).name} is open! (Playable in a future update)`));
     else if (opened.length) {
       const tier = tierLabel(sectorDef(opened[0]).tier);
-      ctx.toast(t(`${tier} ${opened.length} つへの道が開いた！（遊びは次の更新で）`, `Roads to ${opened.length} ${tier}s are open! (Playable in a future update)`));
+      road(t(`${tier} ${opened.length} つへの道が開いた！（遊びは次の更新で）`, `Roads to ${opened.length} ${tier}s are open! (Playable in a future update)`));
     }
   };
   if (!hasBusiness(s)) return go(null);
@@ -156,6 +159,8 @@ export function reviveLine(rv: NonNullable<ReturnType<typeof reviveView>>): stri
  * 進出すると、いまのセクタのマネージャーを選んで（いまの流れ）、災害と徴収の演出（disaster.ts）へ
  */
 export function openRankUp(ctx: Ctx, target: string) {
+  // 段 UIX3w：入のときは、管制卓の画面へ（切のときは今の画面）
+  if (uxw.rankUp) return uxw.rankUp(ctx, target);
   const d = sectorDef(target);
   open(ctx, t(`${TIER_NAME[d.tier]} への進出`, `Expanding into ${TIER_NAME[d.tier]}`), (body) => {
     const s = ctx.s();
@@ -233,7 +238,7 @@ export function openRankUp(ctx: Ctx, target: string) {
 /**
  * 被災した町（ほかのセクタ）の復興の箱：進み・支援金・担当・「復興を任せる」（ヒーローと支援金）。お題と出土品は手で掘る
  */
-function reviveBox(ctx: Ctx, s: P1State, id: string): HTMLElement {
+export function reviveBox(ctx: Ctx, s: P1State, id: string): HTMLElement {
   const rv = reviveView(s, id)!;
   const box = h('div', 'isl-land-mgr isl-revive-box');
   box.append(h('p', rv.out ? 'isl-bad' : 'isl-warn', reviveLine(rv)));
@@ -340,6 +345,8 @@ function tierPill(tier: SectorDef['tier']): HTMLElement {
 }
 
 export function openLand(ctx: Ctx) {
+  // 段 UIX3w：入のときは、管制卓の航路図へ（切のときは今の画面）
+  if (uxw.land) return uxw.land(ctx);
   open(ctx, t('ランドマップ', 'Land map'), (body) => {
     const s = ctx.s();
     const land = s.land;
@@ -526,7 +533,7 @@ function detail(ctx: Ctx, s: P1State, id: string): HTMLElement {
 }
 
 /** マネージャーが運営しているセクタ：担当・先月の結果・投資の割合 */
-function managerBox(ctx: Ctx, s: P1State, id: string): HTMLElement {
+export function managerBox(ctx: Ctx, s: P1State, id: string): HTMLElement {
   const rec = recOf(s, id);
   const box = h('div', 'isl-land-mgr');
   if (!rec.snap) {

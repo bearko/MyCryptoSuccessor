@@ -1,0 +1,504 @@
+/* 段 UIX3w：災害と徴収の演出・「道が開いた」のお知らせ（方向 C「管制卓」。docs/ISLAND_UIX.md「画面：災害と徴収」）。
+   セレクタはすべて html.is-uxc の内側・class は uxw-。 */
+
+/* ---------- 器（今の .isl-modal.isl-disaster の上書き：全面） */
+html.is-uxc #isl-ui .isl-modal.isl-disaster.uxw-ds {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  place-items: stretch;
+  padding: var(--ux-safe-t) 0 var(--ux-safe-b);
+  background: var(--ux-dz25), #10131f;
+  cursor: pointer;
+  overflow: hidden;
+}
+html.is-uxc #isl-ui .isl-modal.uxw-ds > * {
+  width: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+html.is-uxc .uxw-ds.is-out { animation: ux-fadeout 320ms steps(5, end) both; }
+/* 空：上下の警戒の帯（流れる）と、稲光 */
+html.is-uxc #isl-ui .isl-modal.uxw-ds > .uxw-ds-sky {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+}
+html.is-uxc .uxw-ds-haz {
+  position: absolute;
+  left: -48px;
+  right: 0;
+  top: 0;
+  height: 8px;
+  background: repeating-linear-gradient(90deg, var(--ux-bad) 0 12px, var(--ux-k0) 12px 24px);
+  animation: uxw-ds-haz 1.2s steps(6, end) infinite;
+  will-change: transform;
+}
+html.is-uxc .uxw-ds-haz.is-b { top: auto; bottom: 0; animation-direction: reverse; }
+@keyframes uxw-ds-haz {
+  to { transform: translate3d(24px, 0, 0); }
+}
+html.is-uxc .uxw-ds.is-after .uxw-ds-haz { background: repeating-linear-gradient(90deg, var(--ux-amber) 0 12px, var(--ux-k0) 12px 24px); animation-duration: 2.4s; }
+html.is-uxc .uxw-ds.is-end .uxw-ds-haz { background: repeating-linear-gradient(90deg, var(--ux-good) 0 12px, var(--ux-k0) 12px 24px); }
+html.is-uxc .uxw-ds-flash {
+  position: absolute;
+  inset: 0;
+  background: var(--ux-white);
+  opacity: 0;
+}
+html.is-uxc .uxw-ds.is-storm:not(.is-fxrain) .uxw-ds-flash { animation: uxw-ds-bolt 2.6s steps(1, end) infinite; }
+@keyframes uxw-ds-bolt {
+  0%, 100% { opacity: 0; }
+  30% { opacity: 0.5; }
+  32% { opacity: 0; }
+  36% { opacity: 0.3; }
+  38% { opacity: 0; }
+}
+/* 上：警報の札・進みのランプ・とばす */
+html.is-uxc #isl-ui .isl-modal.uxw-ds > .uxw-ds-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 12px 8px 4px;
+}
+html.is-uxc .uxw-ds-alarm {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  background: var(--ux-bad);
+  color: var(--ux-ink);
+  box-shadow: 2px 2px 0 rgba(4, 6, 14, 0.5);
+}
+html.is-uxc .uxw-ds-alarm b { font-weight: 400; letter-spacing: 0.12em; }
+html.is-uxc .uxw-ds.is-after .uxw-ds-alarm { background: var(--ux-amber); }
+html.is-uxc .uxw-ds.is-end .uxw-ds-alarm { background: var(--ux-good); }
+html.is-uxc .uxw-ds-steps {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxw-ds-steps b {
+  margin-left: 4px;
+  overflow: hidden;
+  font-weight: 400;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+html.is-uxc .uxw-ds.is-after .uxw-ds-steps .ux-lamp { --ux-c: var(--ux-amber); }
+html.is-uxc .uxw-ds.is-end .uxw-ds-steps .ux-lamp { --ux-c: var(--ux-good); }
+html.is-uxc .uxw-ds-skip { flex: none; }
+html.is-uxc .uxw-ds-skip[hidden],
+html.is-uxc .uxw-ds-next[hidden] { display: none; }
+/* 舞台 */
+html.is-uxc #isl-ui .isl-modal.uxw-ds > .uxw-ds-stage {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  padding: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+html.is-uxc .uxw-ds-page {
+  position: relative;
+  width: min(560px, 100%);
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: ux-key-in 220ms steps(5, end) both;
+}
+html.is-uxc .uxw-ds-page > * { flex: none; }
+html.is-uxc .uxw-ds-title {
+  margin: 0;
+  font-size: var(--ux-t15);
+  line-height: 1.3;
+  font-weight: 400;
+  color: var(--ux-white);
+  text-align: center;
+  text-shadow: 2px 2px 0 var(--ux-k0);
+}
+/* 町の札（被災すると赤い札が打たれる） */
+html.is-uxc .uxw-ds-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+html.is-uxc .uxw-ds.is-storm .uxw-ds-map { animation: uxw-ds-quake 0.4s steps(4, end) infinite; }
+@keyframes uxw-ds-quake {
+  25% { transform: translate3d(2px, -2px, 0); }
+  50% { transform: translate3d(-2px, 2px, 0); }
+  75% { transform: translate3d(2px, 2px, 0); }
+}
+html.is-uxc .uxw-ds-town {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 8px;
+  padding: 6px 8px;
+  background: var(--ux-k2);
+  clip-path: var(--ux-notch);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k4), inset -4px -4px 0 0 var(--ux-k1);
+}
+html.is-uxc .uxw-ds-town > img {
+  grid-row: span 2;
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+}
+html.is-uxc .uxw-ds-tname {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc .uxw-ds-tname b {
+  min-width: 0;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--ux-white);
+}
+html.is-uxc .uxw-ds-tstate {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ux-k5);
+  white-space: nowrap;
+}
+html.is-uxc .uxw-ds-tstate b { font-weight: 400; }
+html.is-uxc .uxw-ds-town.is-hit {
+  background: var(--ux-dz50), var(--ux-k3);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 0 0 4px var(--ux-bad-lo);
+}
+html.is-uxc .uxw-ds-town.is-hit > img { opacity: 0.45; }
+html.is-uxc .uxw-ds-town.is-hit .uxw-ds-tstate {
+  justify-self: start;
+  padding: 0 6px;
+  background: var(--ux-bad);
+  color: var(--ux-ink);
+  transform: rotate(-3deg);
+  animation: uxw-ds-tag 200ms steps(4, end) both;
+}
+@keyframes uxw-ds-tag {
+  0% { transform: rotate(-3deg) scale(2); opacity: 0; }
+  100% { transform: rotate(-3deg) scale(1); opacity: 1; }
+}
+html.is-uxc .uxw-ds-sum {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 52px;
+  padding: 2px 10px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc .uxw-ds-sum > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
+html.is-uxc .uxw-ds-sumv { display: inline-flex; align-items: baseline; gap: 4px; }
+html.is-uxc .uxw-ds-sumv b { font-weight: 400; }
+html.is-uxc .uxw-ds-sub { margin: 0; color: var(--ux-paper); }
+/* 紙（通知・協定書） */
+html.is-uxc .uxw-ds-paper {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 14px 14px 16px;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  clip-path: var(--ux-notch4);
+  box-shadow: inset 0 0 0 2px var(--ux-ink), inset 0 -6px 0 0 var(--ux-paper2);
+}
+html.is-uxc .uxw-ds-paper p { margin: 0; line-height: 1.5; }
+html.is-uxc .uxw-ds-paper h3 {
+  margin: 0;
+  font-size: var(--ux-t15);
+  line-height: 1.3;
+  font-weight: 400;
+  text-align: center;
+  letter-spacing: 0.12em;
+  border-bottom: 2px solid var(--ux-ink);
+}
+html.is-uxc .uxw-ds-paper.is-bump { animation: none; }
+html.is-uxc .uxw-ds-office {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px dotted var(--ux-paper3);
+}
+html.is-uxc .uxw-ds-office b { font-weight: 400; text-shadow: 1px 0 0 currentColor; }
+html.is-uxc .uxw-ds-levy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding: 6px 10px;
+  background: var(--ux-ink);
+  color: var(--ux-paper);
+}
+html.is-uxc .uxw-ds-levyv {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--ux-bad);
+}
+html.is-uxc .uxw-ds-levyv > b { font-size: var(--ux-n15); line-height: 1; font-weight: 400; }
+html.is-uxc .uxw-ds-keep {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: #14603a;
+}
+html.is-uxc .uxw-ds-keep > .ux-ico { flex: none; margin-top: 6px; }
+/* サインの行：店の名前が 1 字ずつ書かれ、赤い印が打たれる */
+html.is-uxc .uxw-ds-line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+  min-height: 64px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 2px dotted var(--ux-paper3);
+}
+html.is-uxc .uxw-ds-sig {
+  min-height: 2.25rem;
+  border-bottom: 2px solid var(--ux-ink);
+  font-size: var(--ux-t15);
+  line-height: 2.25rem;
+  overflow-wrap: anywhere;
+}
+html.is-uxc .uxw-ds-sig > i {
+  display: inline-block;
+  font-style: normal;
+  opacity: 0;
+}
+html.is-uxc .uxw-ds-sig > i.is-on {
+  opacity: 1;
+  animation: uxw-ds-ink 160ms steps(3, end) both;
+}
+@keyframes uxw-ds-ink {
+  0% { transform: translate3d(0, -6px, 0); opacity: 0; }
+  100% { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+html.is-uxc .uxw-ds-stampat {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  color: var(--ux-paper3);
+  box-shadow: inset 0 0 0 2px var(--ux-paper3);
+}
+html.is-uxc .uxw-ds-stamp {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  overflow: hidden;
+  background: rgba(255, 89, 100, 0.12);
+  color: #c81e33;
+  box-shadow: inset 0 0 0 2px #c81e33, inset 0 0 0 4px var(--ux-paper), inset 0 0 0 6px #c81e33;
+  line-height: 1.05;
+  text-align: center;
+  overflow-wrap: anywhere;
+  transform: rotate(-8deg) scale(2.4);
+  opacity: 0;
+}
+html.is-uxc .uxw-ds-stamp.is-long { font-size: 1rem; }
+html.is-uxc .uxw-ds-stamp.is-down {
+  opacity: 1;
+  transform: rotate(-8deg) scale(1);
+  transition: transform 240ms steps(4, end), opacity 80ms steps(2, end);
+}
+/* 店の名前の入力 */
+html.is-uxc .uxw-ds-name {
+  display: grid;
+  gap: 8px;
+  padding: 14px 12px 12px;
+  cursor: default;
+}
+html.is-uxc .uxw-ds-name > * { position: relative; }
+html.is-uxc .uxw-ds-name > .ux-screws { position: absolute; }
+html.is-uxc .uxw-ds-name > b { font-weight: 400; color: var(--ux-amber); }
+html.is-uxc .uxw-ds-input {
+  min-height: 48px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  box-shadow: inset 0 0 0 2px var(--ux-ink), inset 0 4px 0 0 var(--ux-paper2);
+  font: 400 var(--ux-t15) / 1.4 var(--ux-jp);
+  user-select: text;
+  -webkit-user-select: text;
+}
+html.is-uxc .uxw-ds-input:focus { outline: 2px solid var(--ux-amber); outline-offset: 2px; }
+html.is-uxc .uxw-ds-hint { color: var(--ux-k5); }
+html.is-uxc .uxw-ds-hint.is-full { color: var(--ux-amber); }
+/* 支度金と、まとめ（手放したもの／残ったもの） */
+html.is-uxc .uxw-ds-grant {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--ux-k2);
+  clip-path: var(--ux-notch4);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k4), inset -4px -4px 0 0 var(--ux-k1);
+}
+html.is-uxc .uxw-ds-mine {
+  flex: none;
+  width: 64px;
+  height: 80px;
+  object-fit: contain;
+  object-position: 50% 100%;
+}
+html.is-uxc .uxw-ds-granttxt {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+html.is-uxc .uxw-ds-granttxt > .ux-tape { white-space: normal; }
+html.is-uxc .uxw-ds-grantv {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ux-amber);
+}
+html.is-uxc .uxw-ds-grantv > b { font-size: var(--ux-n2); line-height: 1; font-weight: 400; }
+html.is-uxc .uxw-ds-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+@media (max-width: 479px) {
+  html.is-uxc .uxw-ds-cols { grid-template-columns: 1fr; }
+}
+html.is-uxc .uxw-ds-col {
+  padding: 8px 10px 10px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 4px 0 0 var(--ux-bad-lo);
+}
+html.is-uxc .uxw-ds-col.is-keep { box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 4px 0 0 var(--ux-good-lo); }
+html.is-uxc .uxw-ds-col h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 4px;
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--ux-bad);
+  text-shadow: 1px 0 0 currentColor;
+}
+html.is-uxc .uxw-ds-col.is-keep h3 { color: var(--ux-good); }
+html.is-uxc .uxw-ds-col ul {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+html.is-uxc .uxw-ds-col li {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 6px;
+  border-bottom: 2px dotted var(--ux-k3);
+}
+html.is-uxc .uxw-ds-col li > .ux-ico { flex: none; align-self: center; }
+html.is-uxc .uxw-ds-col li > span { flex: 1; min-width: 0; color: var(--ux-paper); }
+html.is-uxc .uxw-ds-col li > b {
+  font-size: var(--ux-n15);
+  line-height: 1.1;
+  font-weight: 400;
+  color: var(--ux-white);
+  white-space: nowrap;
+}
+html.is-uxc .uxw-ds-col.is-lose li > b { color: var(--ux-bad); }
+html.is-uxc .uxw-ds-say { margin: 0; color: var(--ux-paper); }
+html.is-uxc .uxw-ds-roads { display: grid; gap: 2px; }
+html.is-uxc .uxw-ds-roads:empty { display: none; }
+html.is-uxc .uxw-ds-roads p {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  color: var(--ux-cyan);
+}
+html.is-uxc .uxw-ds-roads .ux-ico { flex: none; margin-top: 6px; }
+html.is-uxc .uxw-ds-page > .ux-key { width: 100%; }
+/* 下の一行 */
+html.is-uxc #isl-ui .isl-modal.uxw-ds > .uxw-ds-foot {
+  position: relative;
+  display: block;
+  min-height: 1.5rem;
+  padding: 2px 8px 12px;
+  text-align: center;
+}
+html.is-uxc .uxw-ds-next {
+  color: var(--ux-k5);
+  animation: ux-blink 1.2s steps(1, end) infinite;
+}
+
+/* ---------- 「道が開いた」のお知らせ（上から出る帯。押すと消える。会話や札の邪魔をしない） */
+html.is-uxc #isl-ui .uxw-road {
+  position: fixed;
+  left: 50%;
+  top: calc(var(--ux-safe-t) + 8px);
+  z-index: 95;
+  width: min(520px, calc(100% - 16px));
+  min-height: 52px;
+  margin: 0 0 0 calc(min(520px, 100% - 16px) / -2);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ux-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: uxw-road-in 260ms steps(6, end) both;
+}
+@keyframes uxw-road-in {
+  0% { transform: translate3d(0, -72px, 0); }
+  70% { transform: translate3d(0, 4px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+html.is-uxc #isl-ui .uxw-road.is-out { animation: ux-fadeout 180ms steps(4, end) both; }
+html.is-uxc .uxw-road-in {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 6px 10px;
+  background: var(--ux-cyan);
+  clip-path: var(--ux-notch4);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 -4px 0 0 var(--ux-cyan-lo), inset 4px 4px 0 0 rgba(255, 255, 255, 0.6);
+}
+html.is-uxc .uxw-road-in > .ux-ico { flex: none; }
+html.is-uxc .uxw-road-txt {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+}
+html.is-uxc .uxw-road-txt b { font-weight: 400; line-height: 1.3; }

@@ -1,0 +1,658 @@
+/* 段 UIX3w：発掘の画面（方向 C「管制卓」。docs/ISLAND_UIX.md「画面：発掘」）。
+   今の画面（.isl-dig）に足した帯・計器・出土の報告（class は uxw-dg-）と、今の要素の着せ替え。セレクタはすべて html.is-uxc の内側。 */
+
+/* ---------- 画面の地：機械の胴と、うすい網目。角は丸めない */
+html.is-uxc #isl-ui .isl-dig.uxw-dig {
+  background: var(--ux-dz25), #17120f;
+  color: var(--ux-paper);
+  font-family: var(--ux-jp);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+html.is-uxc .uxw-dig,
+html.is-uxc .uxw-dig * { border-radius: 0 !important; }
+
+/* ---------- 上の帯：見出し・残り時間の計器・計器 4 つ */
+html.is-uxc .uxw-dig .isl-dig-top {
+  display: grid;
+  gap: 4px;
+  padding: 6px 6px 4px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 -4px 0 0 var(--ux-k1), inset 4px 4px 0 0 var(--ux-k4);
+}
+html.is-uxc .uxw-dig .isl-dig-head {
+  gap: 8px;
+  padding: 0 0 0 4px;
+}
+/* 今の見出しは読み上げ用に残す（見た目は新しい見出し） */
+html.is-uxc .uxw-dig .isl-dig-head > h2 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+html.is-uxc .uxw-dg-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc .uxw-dg-title b {
+  overflow: hidden;
+  font-size: var(--ux-t15);
+  line-height: 1.2;
+  font-weight: 400;
+  color: var(--ux-white);
+  text-shadow: 2px 2px 0 var(--ux-k0);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+html.is-uxc .uxw-dig .isl-dig-head .isl-btn {
+  flex: none;
+  min-height: 44px;
+  font-size: 1rem;
+}
+/* 残り時間：今の棒は隠して、目盛りの計器に */
+html.is-uxc .uxw-dig .isl-dig-timer { display: none; }
+html.is-uxc .uxw-dg-timer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 2px 6px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc .uxw-dg-timer > span:first-of-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ux-k5);
+  white-space: nowrap;
+}
+html.is-uxc .uxw-dg-bar {
+  position: relative;
+  flex: 1;
+  height: 16px;
+  overflow: hidden;
+  background: #1a1d30;
+}
+html.is-uxc .uxw-dg-bar > i {
+  position: absolute;
+  inset: 2px;
+  background: var(--ux-good);
+  box-shadow: inset 0 2px 0 #b9ffd8, inset 0 -2px 0 var(--ux-good-lo);
+  transform-origin: 0 50%;
+  will-change: transform;
+}
+html.is-uxc .uxw-dg-bar::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: repeating-linear-gradient(90deg, transparent 0 6px, #1a1d30 6px 8px);
+}
+html.is-uxc .uxw-dg-sec {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  min-width: 3.6rem;
+  justify-content: flex-end;
+  color: var(--ux-good);
+}
+html.is-uxc .uxw-dg-sec b {
+  font-size: var(--ux-n15);
+  line-height: 1;
+  font-weight: 400;
+}
+html.is-uxc .uxw-dg-sec small { font-size: 1rem; color: var(--ux-k5); }
+/* 残り 5 秒：赤くまたたく（色だけにしない：ランプも赤に・数字が大きく揺れる） */
+html.is-uxc .uxw-dg-timer.is-warn .uxw-dg-bar > i { background: var(--ux-bad); box-shadow: inset 0 2px 0 #ffc2c7, inset 0 -2px 0 var(--ux-bad-lo); animation: ux-blink 0.4s steps(1, end) infinite; }
+html.is-uxc .uxw-dg-timer.is-warn .uxw-dg-sec { color: var(--ux-bad); animation: uxw-dg-beat 0.5s steps(2, end) infinite; }
+html.is-uxc .uxw-dg-timer.is-warn > .ux-lamp { --ux-c: var(--ux-bad); animation: ux-blink 0.4s steps(1, end) infinite; }
+html.is-uxc .uxw-dg-timer.is-off > .ux-lamp { background: #1a1d30; box-shadow: inset 0 0 0 2px var(--ux-k0); }
+@keyframes uxw-dg-beat {
+  50% { transform: scale(1.12); }
+}
+/* 計器 4 つ */
+html.is-uxc .uxw-dg-gauges {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr 1fr;
+  gap: 2px;
+}
+html.is-uxc .uxw-dg-cell {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 2px 4px 4px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc .uxw-dg-k {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ux-k5);
+  white-space: nowrap;
+}
+html.is-uxc .uxw-dg-v {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 4px;
+  min-height: 1.75rem;
+}
+html.is-uxc .uxw-dg-v2 {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 0 6px;
+}
+html.is-uxc .uxw-dg-v2 > span { display: inline-flex; align-items: center; gap: 2px; color: var(--ux-k5); }
+html.is-uxc .uxw-dg-v > b,
+html.is-uxc .uxw-dg-v2 > b,
+html.is-uxc .uxw-dg-lamps > b {
+  font-size: var(--ux-n15);
+  line-height: 1;
+  font-weight: 400;
+  color: var(--ux-white);
+}
+html.is-uxc .uxw-dg-v > span { color: var(--ux-k5); }
+html.is-uxc .uxw-dg-v > .ux-ico { align-self: center; }
+html.is-uxc .uxw-dg-now {
+  font-size: 1rem;
+  line-height: 1.2;
+  color: var(--ux-good);
+  white-space: nowrap;
+}
+html.is-uxc .uxw-dg-cell .ux-meter { height: 10px; }
+html.is-uxc .uxw-dg-lamps {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 1.75rem;
+}
+html.is-uxc .uxw-dg-lamps small { font-size: 1rem; color: var(--ux-k5); }
+html.is-uxc .uxw-dg-cell.is-done { box-shadow: inset 0 0 0 2px var(--ux-amber); }
+html.is-uxc .uxw-dg-cell.is-flash::after,
+html.is-uxc .uxw-dig .isl-dig-wallbox.is-flash::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ux-white);
+  pointer-events: none;
+  animation: uxw-dg-flash 320ms steps(4, end) both;
+}
+@keyframes uxw-dg-flash {
+  0% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+/* 今の小さな帯（作業時間・1 打・掘れる層・日付・売上・爆弾）：16px の 1 行（横に送れる）。計器に移した札は出さない */
+html.is-uxc .uxw-dig .isl-dig-spec,
+html.is-uxc .uxw-dig .isl-dig-info {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 0;
+  padding: 0 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border: 0;
+  background: none;
+  white-space: nowrap;
+}
+html.is-uxc .uxw-dig .isl-dig-info { padding: 2px 8px; background: var(--ux-k1); box-shadow: inset 0 -2px 0 var(--ux-k0); }
+html.is-uxc .uxw-dig .isl-dig-spec b,
+html.is-uxc .uxw-dig .isl-dig-chip,
+html.is-uxc .uxw-dig .isl-dig-chip small,
+html.is-uxc .uxw-dig .isl-dig-chip b {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 1rem;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--ux-paper);
+}
+html.is-uxc .uxw-dig .isl-dig-spec b { color: var(--ux-k5); }
+html.is-uxc .uxw-dig .isl-dig-chip small { color: var(--ux-k5); }
+html.is-uxc .uxw-dig .isl-dig-chip.is-rp,
+html.is-uxc .uxw-dig .isl-dig-chip.is-got,
+html.is-uxc .uxw-dig .isl-dig-chip.is-bomb ~ .isl-dig-chip { display: none; }
+
+/* 字を大きくした（115%・130%）せまい画面：小さな帯 2 行と層の並びは畳む（見出しを押すと開く）。壁のマスを 44px 以上に保つため、
+   帯の余白も少し詰める。ふだん（100%・広い画面）は見出しを出さない */
+html.is-uxc .uxw-dg-fold { display: none; }
+@media (max-width: 599px) {
+  html.is-uxc .uxw-dig.is-big .uxw-dg-fold {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+    margin: 0;
+    padding: 0 8px;
+    border: 0;
+    background: var(--ux-k0);
+    box-shadow: inset 0 0 0 2px var(--ux-k3);
+    color: var(--ux-paper);
+    font: inherit;
+    line-height: 1.3;
+    text-align: left;
+    cursor: pointer;
+  }
+  /* 見た目は 28px・押せる高さは 44px */
+  html.is-uxc .uxw-dig.is-big .uxw-dg-fold::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 44px;
+    margin-top: -22px;
+  }
+  html.is-uxc .uxw-dig.is-big .uxw-dg-fold > span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ux-k5);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  html.is-uxc .uxw-dig.is-big .uxw-dg-fold > b { flex: none; font-weight: 400; color: var(--ux-amber); }
+  html.is-uxc .uxw-dig.is-big.is-unfold .uxw-dg-fold > .ux-ico { transform: rotate(180deg); }
+  html.is-uxc .uxw-dig.is-big:not(.is-unfold) .isl-dig-spec,
+  html.is-uxc .uxw-dig.is-big:not(.is-unfold) .isl-dig-info,
+  html.is-uxc .uxw-dig.is-big:not(.is-unfold) .isl-dig-legend { display: none; }
+  html.is-uxc .uxw-dig.is-big .isl-dig-top { gap: 2px; padding: 4px 6px 2px; }
+  html.is-uxc .uxw-dig.is-big .isl-dig-foot { gap: 2px; padding-top: 4px; }
+  html.is-uxc .uxw-dig.is-big .isl-dig-why { min-height: 0; }
+}
+
+/* ---------- 壁：機械の窓枠。マスは角を丸めない */
+html.is-uxc .uxw-dig .isl-dig-wallbox { position: relative; }
+html.is-uxc .uxw-dig .isl-dig-wall {
+  background: var(--ux-k0);
+  box-shadow: 0 0 0 2px var(--ux-k0), 0 0 0 6px var(--ux-k3), 0 0 0 8px var(--ux-k0), 8px 8px 0 8px rgba(4, 6, 14, 0.45);
+}
+html.is-uxc .uxw-dig .isl-dig-pick { filter: drop-shadow(2px 2px 0 rgba(4, 6, 14, 0.7)); }
+html.is-uxc .uxw-dig .isl-dig-pick > canvas { display: block; }
+html.is-uxc .uxw-dig .isl-dig-reach-cell { border: 2px dashed var(--ux-amber); }
+html.is-uxc .uxw-dig .isl-dig-lock { display: grid; place-items: center; }
+html.is-uxc .uxw-dig .isl-dig-dmg,
+html.is-uxc .uxw-dig .isl-dig-crit {
+  font-family: var(--ux-num);
+  font-size: var(--ux-n15);
+  font-weight: 400;
+  text-shadow: 2px 0 0 var(--ux-k0), -2px 0 0 var(--ux-k0), 0 2px 0 var(--ux-k0), 0 -2px 0 var(--ux-k0);
+}
+html.is-uxc .uxw-dig .isl-dig-crit { font-family: var(--ux-jp); font-size: 1rem; color: var(--ux-amber); }
+html.is-uxc .uxw-dig .isl-dig-ping,
+html.is-uxc .uxw-dig .isl-dig-float,
+html.is-uxc .uxw-dig .isl-dig-bombtag {
+  border: 0;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  box-shadow: inset 0 0 0 2px var(--ux-ink), 4px 4px 0 rgba(4, 6, 14, 0.5);
+  font-size: 1rem;
+  font-weight: 400;
+}
+html.is-uxc .uxw-dig .isl-dig-ping b,
+html.is-uxc .uxw-dig .isl-dig-ping small,
+html.is-uxc .uxw-dig .isl-dig-float b {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--ux-ink);
+}
+html.is-uxc .uxw-dig .isl-dig-bombtag { padding: 2px 8px; background: var(--ux-amber); display: inline-flex; align-items: center; gap: 4px; }
+
+/* ---------- 下の帯：層の並び・ひとこと・道具 */
+html.is-uxc .uxw-dig .isl-dig-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding: 6px 6px calc(6px + var(--ux-safe-b));
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 4px 0 0 var(--ux-k4);
+}
+html.is-uxc .uxw-dig .isl-dig-legend {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 0 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  font-size: 1rem;
+  white-space: nowrap;
+}
+html.is-uxc .uxw-dig .isl-dig-legend small,
+html.is-uxc .uxw-dig .isl-dig-lay {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--ux-paper);
+}
+html.is-uxc .uxw-dig .isl-dig-legend small { color: var(--ux-k5); }
+html.is-uxc .uxw-dig button.isl-dig-lay {
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: var(--ux-dz50), var(--ux-k3);
+  color: var(--ux-k5);
+}
+html.is-uxc .uxw-dig .isl-dig-why {
+  min-height: 3rem;
+  margin: 0;
+  padding: 2px 8px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+  color: var(--ux-paper);
+  font-size: 1rem;
+  line-height: 1.5;
+  text-align: left;
+}
+html.is-uxc .uxw-dig .isl-dig-why.is-bad { color: var(--ux-bad); }
+html.is-uxc .uxw-dig .isl-dig-why.is-warn { color: var(--ux-amber); }
+html.is-uxc .uxw-dig .isl-dig-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 6px;
+  padding: 0;
+}
+html.is-uxc .uxw-dig .isl-dig-tools .isl-btn { flex: 1 1 auto; justify-content: center; margin: 0; }
+html.is-uxc .uxw-dig .isl-dig-tools .isl-btn,
+html.is-uxc .uxw-dig .isl-dig-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 1rem;
+  font-weight: 400;
+}
+html.is-uxc .uxw-dig .isl-dig-auto {
+  flex: 1 1 56%;
+  min-width: 0;
+  flex-wrap: wrap;
+  padding: 2px 8px;
+  border: 0;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+  color: var(--ux-paper);
+  font-family: inherit;
+  text-align: left;
+}
+html.is-uxc .uxw-dig .isl-dig-auto span,
+html.is-uxc .uxw-dig .isl-dig-auto small { font-size: 1rem; white-space: normal; line-height: 1.3; }
+html.is-uxc .uxw-dig .isl-dig-auto.is-empty { color: var(--ux-k5); background: var(--ux-dz25), var(--ux-k0); }
+html.is-uxc .uxw-dig .isl-dig-auto .isl-hero { flex: none; }
+
+/* ---------- 作業のあいだのマインちゃんのひと言・石板の窓：紙の札 */
+html.is-uxc .uxw-dig .isl-dig-mine,
+html.is-uxc .uxw-dig .isl-dig-read {
+  border: 0;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  box-shadow: inset 0 0 0 2px var(--ux-ink), inset 0 -4px 0 0 var(--ux-paper2), 4px 4px 0 rgba(4, 6, 14, 0.55);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+html.is-uxc .uxw-dig .isl-dig-mine p,
+html.is-uxc .uxw-dig .isl-dig-read p,
+html.is-uxc .uxw-dig .isl-dig-read b,
+html.is-uxc .uxw-dig .isl-dig-read small {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--ux-ink);
+}
+html.is-uxc .uxw-dig .isl-dig-mine .isl-em { color: #a3470a; }
+html.is-uxc .uxw-dig .isl-dig-mine .isl-btn,
+html.is-uxc .uxw-dig .isl-dig-read .isl-btn { min-height: 44px; min-width: 64px; }
+html.is-uxc .uxw-dig .isl-dig-read { z-index: 12; }
+
+/* ---------- 発掘終了：出土の報告 */
+html.is-uxc .uxw-dg-end {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(8px + var(--ux-safe-t)) 8px calc(8px + var(--ux-safe-b));
+  background: var(--ux-dz50s), rgba(9, 11, 24, 0.66);
+}
+html.is-uxc .uxw-dg-endwrap {
+  position: relative;
+  width: min(480px, 100%);
+  max-height: 100%;
+  display: flex;
+  animation: ux-card-in 260ms steps(6, end) both;
+}
+/* 固い影は、ずらした同じ形で描く（filter の影は、中の数字が回るたびに札ごと描き直しになって重い） */
+html.is-uxc .uxw-dg-endwrap::before {
+  content: '';
+  position: absolute;
+  inset: 4px -4px -4px 4px;
+  background: rgba(4, 6, 14, 0.55);
+  clip-path: var(--ux-notch4);
+}
+html.is-uxc .uxw-dg-endcard {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 10px 10px;
+}
+html.is-uxc .uxw-dg-endcard > * { position: relative; flex: none; }
+html.is-uxc .uxw-dg-endcard > .ux-screws { position: absolute; }
+html.is-uxc .uxw-dg-endhead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 6px;
+}
+html.is-uxc .uxw-dg-endhead h2 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--ux-t15);
+  line-height: 1.3;
+  font-weight: 400;
+  color: var(--ux-amber);
+  letter-spacing: 0.06em;
+  text-shadow: 2px 2px 0 var(--ux-k0);
+}
+html.is-uxc .uxw-dg-endcard > .uxw-dg-endbody {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px;
+}
+html.is-uxc .uxw-dg-endbody > * { flex: none; }
+html.is-uxc .uxw-dg-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+}
+html.is-uxc .uxw-dg-stat {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 4px 2px 6px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+  text-align: center;
+}
+html.is-uxc .uxw-dg-stat > span:first-child { color: var(--ux-k5); line-height: 1.3; }
+html.is-uxc .uxw-dg-statv {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--ux-amber);
+}
+html.is-uxc .uxw-dg-statv > b,
+html.is-uxc .uxw-dg-stat > b {
+  font-size: var(--ux-n15);
+  line-height: 1;
+  font-weight: 400;
+}
+html.is-uxc .uxw-dg-deep,
+html.is-uxc .uxw-dg-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  color: var(--ux-amber);
+}
+html.is-uxc .uxw-dg-deep { align-items: center; color: var(--ux-cyan); }
+html.is-uxc .uxw-dg-deep b { font-weight: 400; }
+html.is-uxc .uxw-dg-note > .ux-ico { flex: none; margin-top: 6px; }
+html.is-uxc .uxw-dg-note.is-dim { color: var(--ux-k5); }
+html.is-uxc .uxw-dg-finds {
+  display: grid;
+  gap: 6px;
+  padding: 6px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxw-dg-fhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ux-cyan);
+  border-bottom: 2px dotted var(--ux-k3);
+}
+html.is-uxc .uxw-dg-fhead b { font-weight: 400; }
+html.is-uxc .uxw-dg-fhead span { display: inline-flex; align-items: center; gap: 4px; color: var(--ux-k5); }
+html.is-uxc .uxw-dg-flist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 6px;
+}
+/* 出土品の札：紙の札。1 枚ずつ上から打たれる */
+html.is-uxc .uxw-dg-find {
+  position: relative;
+  min-width: 0;
+  min-height: 44px;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 2px;
+  margin: 0;
+  padding: 6px 4px;
+  overflow: hidden;
+  border: 0;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  box-shadow: inset 0 0 0 2px var(--ux-ink), inset 0 -4px 0 0 var(--ux-paper2);
+  font: inherit;
+  text-align: center;
+  opacity: 0;
+}
+html.is-uxc button.uxw-dg-find { cursor: pointer; }
+html.is-uxc .uxw-dg-find.is-on {
+  opacity: 1;
+  animation: uxw-dg-drop 200ms steps(4, end) both;
+}
+@keyframes uxw-dg-drop {
+  0% { transform: translate3d(0, -16px, 0) scale(1.25); opacity: 0; }
+  70% { transform: translate3d(0, 2px, 0) scale(0.98); opacity: 1; }
+  100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+}
+html.is-uxc .uxw-dg-find > * { position: relative; }
+html.is-uxc .uxw-dg-find.is-big { grid-column: span 2; box-shadow: inset 0 0 0 2px var(--ux-ink), inset 0 0 0 4px var(--ux-amber), inset 0 -6px 0 0 var(--ux-paper2); }
+html.is-uxc .uxw-dg-rays {
+  position: absolute !important;
+  left: 50%;
+  top: 48px;
+  width: 480px;
+  height: 480px;
+  margin: -240px 0 0 -240px;
+  background: repeating-conic-gradient(rgba(255, 184, 31, 0.4) 0 10deg, transparent 10deg 20deg);
+  animation: uxw-dg-spin 9s steps(90, end) infinite;
+  pointer-events: none;
+}
+@keyframes uxw-dg-spin {
+  to { transform: rotate(36deg); }
+}
+html.is-uxc .uxw-dg-findic {
+  flex: none;
+  image-rendering: pixelated;
+  filter: drop-shadow(2px 2px 0 rgba(26, 28, 46, 0.45));
+}
+html.is-uxc .uxw-dg-tag {
+  padding: 0 6px;
+  background: var(--ux-ink);
+  color: var(--ux-paper);
+  font-weight: 400;
+  line-height: 1.4;
+}
+html.is-uxc .uxw-dg-find.is-first .uxw-dg-tag,
+html.is-uxc .uxw-dg-find.is-big .uxw-dg-tag { background: var(--ux-amber); color: var(--ux-ink); box-shadow: inset 0 0 0 2px var(--ux-ink); }
+html.is-uxc .uxw-dg-fname { max-width: 100%; line-height: 1.3; overflow-wrap: anywhere; }
+html.is-uxc .uxw-dg-frp { font-size: 1.1667rem; line-height: 1.1; color: #8a4a06; }
+html.is-uxc .uxw-dg-frecipe,
+html.is-uxc .uxw-dg-fnote { display: inline-flex; align-items: center; gap: 4px; font-size: 1rem; line-height: 1.3; }
+html.is-uxc .uxw-dg-recipes {
+  display: grid;
+  gap: 6px;
+  padding: 6px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-amber-lo);
+}
+html.is-uxc .uxw-dg-rhead { display: flex; align-items: center; gap: 6px; font-weight: 400; color: var(--ux-amber); }
+html.is-uxc .uxw-dg-recipe {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+html.is-uxc .uxw-dg-rtxt { flex: 1 1 140px; min-width: 0; display: grid; }
+html.is-uxc .uxw-dg-rtxt b { font-weight: 400; color: var(--ux-white); }
+html.is-uxc .uxw-dg-rtxt span { color: var(--ux-k5); line-height: 1.3; }
+html.is-uxc .uxw-dg-rtxt small { font-size: 1rem; }
+html.is-uxc .uxw-dg-rtxt small.is-good { color: var(--ux-good); }
+html.is-uxc .uxw-dg-rtxt small.is-bad { color: var(--ux-bad); }
+html.is-uxc .uxw-dg-reckey { width: 100%; }
+html.is-uxc .uxw-dg-rec { display: grid; text-align: left; }
+html.is-uxc .uxw-dg-rec small { font-size: 1rem; color: var(--ux-k5); }
+html.is-uxc .uxw-dg-rec b { font-weight: 400; }
+html.is-uxc .uxw-dg-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 52px;
+}
+html.is-uxc .uxw-dg-keys > * { flex: 1 1 40%; }
+html.is-uxc .uxw-dg-keys > .ux-key--main { flex: 1 1 100%; }
+html.is-uxc .uxw-dg-keys.is-on > * { animation: ux-key-in 220ms steps(5, end) both; }
+
+/* PC（横長）：左の柱に帯が並ぶ（今の置き方のまま）。計器は 2 列に */
+@media (min-width: 900px) and (min-aspect-ratio: 1/1) {
+  html.is-uxc .uxw-dg-gauges { grid-template-columns: 1fr 1fr; }
+  html.is-uxc .uxw-dig .isl-dig-spec,
+  html.is-uxc .uxw-dig .isl-dig-info,
+  html.is-uxc .uxw-dig .isl-dig-legend { flex-wrap: wrap; white-space: normal; }
+  html.is-uxc .uxw-dig .isl-dig-why { background: var(--ux-k0); }
+}
