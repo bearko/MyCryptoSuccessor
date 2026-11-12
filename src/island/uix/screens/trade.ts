@@ -7,10 +7,10 @@ import { t } from '../../../i18n';
 import { el } from '../dom';
 import { uxKey, uxLamp, uxMeter, uxTape } from '../parts';
 import { uxSfx } from '../sound';
-import { uxpBars, uxpCard, uxpGap, uxpPrice, uxpRank, uxpStamp } from '../sparts';
+import { uxpCard, uxpGap, uxpPrice, uxpRank, uxpStamp } from '../sparts';
 import { B } from './b-deps';
 import { bDim, bIcon } from './b-icons';
-import { bEmpty, bHead, dim, done, key, noEmoji, num, payFx, put, sheet, stampLater, state, whyLine } from './b-kit';
+import { bEmpty, bHead, dim, done, histBars, key, noEmoji, num, payFx, put, sheet, stampLater, state, whyLine } from './b-kit';
 import './trade.css';
 import type { Ctx } from '../../p1/screens';
 
@@ -44,14 +44,14 @@ export function openTradeUx(ctx: Ctx, hooks: { areaView: () => void; panels: () 
       key(t('地図で商圏を見る', 'Show trade areas on the map'), () => hooks.areaView(), { kind: 'main', ico: 'compass', cls: 'uxb-wide' }),
     );
     // 自社の取り分の推移（月の締め。縦の棒）
-    const sh = B.shareHist(s.reports).slice(-8);
+    const sh = B.shareHist(s.reports);
     if (sh.length >= 2) {
       const d = sh[sh.length - 1].v - sh[sh.length - 2].v;
       put(
         host,
         bHead(t('自社の取り分の推移（月の締め）', 'Your share at each close'), { ico: 'bars' }),
         el(`span.uxb-gain${d >= 0 ? '' : '.is-wait'}`, bIcon(d >= 0 ? 'up' : 'down', { color: d >= 0 ? '#36e08b' : '#ffb81f', scale: 1 }), t(`先月から ${d >= 0 ? '+' : '−'}${Math.abs(Math.round(d * 10) / 10)} ポイント`, `${d >= 0 ? '+' : '−'}${Math.abs(Math.round(d * 10) / 10)} pts since last month`)),
-        uxpBars(sh.map((x, k) => ({ label: B.monLab(x.month), value: x.v, kind: k === sh.length - 1 ? 'main' : '', text: `${Math.round(x.v * 10) / 10}%` })), { height: 132 }).el,
+        histBars(sh.map((x, k) => ({ label: B.monLab(x.month), value: x.v, kind: k === sh.length - 1 ? 'main' : '', text: `${Math.round(x.v * 10) / 10}%` })), { height: 132 }),
       );
     }
     // 商圏の地図（今の canvas のまま）と、出店の候補地

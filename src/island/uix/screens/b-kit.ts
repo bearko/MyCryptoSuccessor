@@ -10,7 +10,7 @@ import { later } from '../loop';
 import { shake, uxKey, uxLamp, uxMeter, uxTape, vibrate, type KeyOpts } from '../parts';
 import { isCalm } from '../prefs';
 import { uxSfx } from '../sound';
-import { uxpEmpty, uxpFace, uxpHead, uxpReplay, type HeadOpts } from '../sparts';
+import { uxpBars, uxpEmpty, uxpFace, uxpHead, uxpReplay, type BarDef, type HeadOpts } from '../sparts';
 import { UX_ICONS } from '../icons';
 import { B } from './b-deps';
 import { bIcon } from './b-icons';
@@ -243,4 +243,15 @@ export function bEmpty(text: Kid, o: { ico?: string; sub?: Kid; key?: Kid } = {}
   const e = uxpEmpty(text, { ...o, ico: 'list' });
   e.querySelector('.uxp-empty-ico')?.replaceChildren(bIcon(o.ico, { scale: 3, color: '#4a5486', hi: '#97a1cf', lo: '#20253d' }));
   return e;
+}
+
+/** 月ごとの推移の縦の棒：全部の月を出す（今の画面と同じ）。8 か月を超えたら、箱の中を横に送れるようにして、はじめは最新の月を見せる */
+export const HIST_FIT = 8;
+export function histBars(items: BarDef[], o: { max?: number; height?: number; cls?: string } = {}): HTMLElement {
+  const b = uxpBars(items, o);
+  if (items.length <= HIST_FIT) return b.el;
+  b.el.style.minWidth = `${items.length * 3.5}rem`;
+  const box = el('div.uxb-hist', { role: 'group', 'aria-label': t('月ごとの推移（横に送れます）', 'Monthly trend (scrolls sideways)') }, b.el);
+  requestAnimationFrame(() => (box.scrollLeft = box.scrollWidth));
+  return box;
 }

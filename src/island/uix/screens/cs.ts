@@ -13,7 +13,7 @@ import { uxSfx } from '../sound';
 import { uxpBars, uxpCard, uxpGap, uxpPaper, uxpPrice, uxpRank, uxpRow, uxpSelect, uxpStamp, uxpStat } from '../sparts';
 import { B } from './b-deps';
 import { bDim, bIcon, bInk } from './b-icons';
-import { bEmpty, bHead, dim, done, fold, key, noEmoji, num, payFx, put, sheet, stampLater, state } from './b-kit';
+import { bEmpty, bHead, dim, done, fold, histBars, key, noEmoji, num, payFx, put, sheet, stampLater, state } from './b-kit';
 import './cs.css';
 import type { Inquiry } from '../../p1/cs';
 import type { CsHooks } from '../../p1/csui';
@@ -257,14 +257,14 @@ export function openSatUx(ctx: Ctx, hooks: CsHooks = {}) {
       s.cs?.flame ? uxpRow(t('炎上', 'Backlash'), `${signed1((B.visitMul(s) / B.repeatMul(s) - 1) * 100)}%`, { ico: 'fire', tone: 'bad' }) : null,
       uxpRow(t('ブランド力（月の締め）', 'Brand (monthly close)'), v >= B.CS.brandHi ? '+1' : v <= B.CS.brandLo ? '−1' : '±0', { ico: 'star', tone: v >= B.CS.brandHi ? 'good' : v <= B.CS.brandLo ? 'bad' : 'dim' }),
     );
-    const hist = B.satHist(s.reports).slice(-8);
+    const hist = B.satHist(s.reports);
     if (hist.length) {
       const d = hist.length >= 2 ? hist[hist.length - 1].v - hist[hist.length - 2].v : 0;
       put(
         host,
         bHead(t('月の締めの顧客満足度', 'Satisfaction at each close'), { ico: 'bars' }),
         hist.length >= 2 ? el(`span.uxb-gain${d >= 0 ? '' : '.is-wait'}`, bIcon(d >= 0 ? 'up' : 'down', { color: d >= 0 ? '#36e08b' : '#ffb81f', scale: 1 }), t(`先月から ${d >= 0 ? '+' : '−'}${Math.abs(d)}`, `${d >= 0 ? '+' : '−'}${Math.abs(d)} since last month`)) : null,
-        uxpBars(hist.map((x, k) => ({ label: B.monLab(x.month), value: x.v, kind: k === hist.length - 1 ? 'main' : x.v <= B.CS.brandLo ? 'bad' : x.v >= B.CS.brandHi ? 'good' : '', text: String(Math.round(x.v)) })), { max: 100, height: 132 }).el,
+        histBars(hist.map((x, k) => ({ label: B.monLab(x.month), value: x.v, kind: k === hist.length - 1 ? 'main' : x.v <= B.CS.brandLo ? 'bad' : x.v >= B.CS.brandHi ? 'good' : '', text: String(Math.round(x.v)) })), { max: 100, height: 132 }),
         dim(t(`${B.CS.brandHi} 以上（緑）で月にブランド力 +1、${B.CS.brandLo} 以下（赤）で −1。`, `Brand +1/month at ${B.CS.brandHi}+ (green), −1 at ${B.CS.brandLo} or less (red).`)),
       );
     }

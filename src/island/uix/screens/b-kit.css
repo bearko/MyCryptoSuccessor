@@ -351,3 +351,11 @@ html.is-uxc .uxb-fold-box {
 html.is-uxc .uxb-fold-box.is-open {
   animation: uxb-in 180ms steps(3, end) backwards;
 }
+
+/* 月ごとの推移（8 か月を超えたとき）：箱の中を横に送る */
+html.is-uxc .uxb-hist {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  min-width: 0;
+}
