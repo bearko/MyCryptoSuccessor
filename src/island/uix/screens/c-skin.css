@@ -467,25 +467,11 @@ html.is-uxc #isl-ui .isl-bcard.is-off {
 html.is-uxc #isl-ui .isl-bcard.is-secret .isl-bcard-q {
   color: var(--ux-k4);
 }
-/* 光っている札（チュートリアル）：琥珀の枠と四隅のかぎ・小さくはずむ */
+/* 光っている札（チュートリアル）：琥珀の面。四隅のかぎは、指さしの枠（下の「光る枠」）が締まって入る */
 html.is-uxc #isl-ui .isl-bcard.is-guide {
   background: #2b3050;
   box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 0 0 4px var(--ux-amber), inset 6px 6px 0 0 var(--ux-k3);
-  animation: uxc-guide 0.9s steps(2, end) infinite;
-}
-@keyframes uxc-guide {
-  50% { transform: translate3d(0, -4px, 0); }
-}
-html.is-uxc #isl-ui .isl-bcard.is-guide::after {
-  content: '';
-  position: absolute;
-  inset: -4px;
-  background:
-    linear-gradient(var(--ux-amber), var(--ux-amber)) 0 0 / 14px 4px no-repeat, linear-gradient(var(--ux-amber), var(--ux-amber)) 0 0 / 4px 14px no-repeat,
-    linear-gradient(var(--ux-amber), var(--ux-amber)) 100% 0 / 14px 4px no-repeat, linear-gradient(var(--ux-amber), var(--ux-amber)) 100% 0 / 4px 14px no-repeat,
-    linear-gradient(var(--ux-amber), var(--ux-amber)) 0 100% / 14px 4px no-repeat, linear-gradient(var(--ux-amber), var(--ux-amber)) 0 100% / 4px 14px no-repeat,
-    linear-gradient(var(--ux-amber), var(--ux-amber)) 100% 100% / 14px 4px no-repeat, linear-gradient(var(--ux-amber), var(--ux-amber)) 100% 100% / 4px 14px no-repeat;
-  pointer-events: none;
+  animation: none;
 }
 html.is-uxc #isl-ui .isl-bnote {
   font-size: 1rem;
@@ -628,6 +614,327 @@ html.is-uxc #isl-ui .isl-mission-note {
 }
 
 /* ---------- 動きを減らす：出入り・はずみは止め、形と字はそのまま */
-html.is-uxc.is-calm #isl-ui :is(.isl-bcard.is-guide, .isl-tour-tap, .isl-toast.isl-tr-pop, .isl-mission, .isl-bubble, .isl-dock.is-new, .isl-tour-box) {
+html.is-uxc.is-calm #isl-ui :is(.isl-tour-tap, .isl-toast.isl-tr-pop, .isl-mission, .isl-bubble, .isl-dock.is-new, .isl-tour-box) {
   animation: none;
+}
+
+/* ==================================================================== お知らせ：管制卓の信号の帯（c-dress.ts の dressToast）
+   左にランプ（種類で色：済み＝緑・注意＝赤がまたたく・知らせ＝水色）・絵・字 16px（3 行まで）。上の帯のすぐ下に、横いっぱい（せまい画面）。 */
+html.is-uxc #isl-ui .isl-toasts {
+  left: 16px;
+  right: 16px;
+  width: auto;
+  max-width: none;
+  transform: none;
+  justify-items: stretch;
+  gap: 4px;
+}
+@media (min-width: 600px) {
+  html.is-uxc #isl-ui .isl-toasts {
+    left: 8px;
+    right: auto;
+    width: min(420px, calc(100% - 16px));
+  }
+}
+html.is-uxc #isl-ui .isl-toast.uxc-sig {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 10px 6px 8px;
+  border: 0;
+  background: var(--ux-k1);
+  color: var(--ux-paper);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 0 0 4px var(--ux-k3), inset 8px 0 0 0 var(--uxc-sig, var(--ux-cyan-lo)), 4px 4px 0 rgba(4, 6, 14, 0.5);
+  clip-path: var(--ux-notch);
+  font: 400 1rem/1.5 var(--ux-jp);
+  text-align: left;
+  text-shadow: none;
+  animation: uxc-sig-life 3300ms steps(4, end) both;
+}
+html.is-uxc #isl-ui .isl-toast.uxc-sig.is-done { --uxc-sig: var(--ux-good-lo); }
+html.is-uxc #isl-ui .isl-toast.uxc-sig.is-warn { --uxc-sig: var(--ux-bad-lo); }
+html.is-uxc #isl-ui .isl-toast.uxc-sig.is-say { --uxc-sig: var(--ux-amber-lo); }
+/* 短く滑り込む（160ms）→ 3 秒あまり出る → 上へ消える */
+@keyframes uxc-sig-life {
+  0% { transform: translate3d(-24px, 0, 0); opacity: 0; }
+  4.85% { transform: translate3d(0, 0, 0); opacity: 1; }
+  95.15% { transform: translate3d(0, 0, 0); opacity: 1; }
+  100% { transform: translate3d(0, -12px, 0); opacity: 0; }
+}
+html.is-uxc #isl-ui .isl-toast.uxc-sig > .ux-lamp {
+  margin-left: 8px;
+}
+html.is-uxc #isl-ui .uxc-sig-pic {
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+}
+html.is-uxc #isl-ui .uxc-sig-pic > .ux-ico {
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  margin: 0;
+}
+html.is-uxc #isl-ui .uxc-sig-t {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .isl-toast.is-say .uxc-sig-t {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+html.is-uxc #isl-ui .uxc-sig-line {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+html.is-uxc #isl-ui .uxc-sig-n {
+  padding: 0 6px;
+  background: var(--ux-k0);
+  color: var(--ux-amber);
+  font-size: var(--ux-n15);
+  line-height: 1.5rem;
+}
+/* せまい画面：帯が出ているあいだ、右上のミッションの札は見出しだけにたたんで、帯の高さだけ下へよける
+   （帯と重ねない。よけた札が、押してほしい建物を隠さない） */
+@media (max-width: 899px) {
+  html.is-uxc #isl-ui .isl-missions {
+    translate: 0 var(--uxc-toast-h, 0px);
+    transition: translate 160ms steps(4, end);
+  }
+  /* （「クリア！」の印が出ているあいだは、たたまない：印が打たれるのを見せる） */
+  html.is-uxc #isl-ui.uxc-toasting .isl-missions:not(:has(.isl-mis-stamp)) > :not(.isl-missions-head) {
+    display: none;
+  }
+}
+/* トロフィーの絵：琥珀のドットの絵を、墨の窓に大きく */
+html.is-uxc #isl-ui .isl-toast.isl-tr-pop > i .uxc-tr-ico {
+  display: block;
+}
+
+/* ==================================================================== マインちゃんの一言：会話と同じ器（話す人が枠の上に立つ・名前の札・1 字ずつ喋る） */
+html.is-uxc #isl-ui .isl-advisor {
+  /* 出す・隠すは今の決まりのまま（札・窓・吹き出しを開いているあいだは出さない）：display は書かない */
+  flex-direction: column;
+  align-items: stretch;
+  /* 立ち絵（96×128 の等倍）が枠の上へはみ出すぶん。はみ出した所（立ち絵のまわり）は、地図を押せるまま */
+  padding-top: 92px;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .isl-advisor > img {
+  position: absolute;
+  left: 6px;
+  top: 0;
+  z-index: 1;
+  width: 96px;
+  height: 128px;
+  max-width: none;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .isl-advisor > .isl-bubble {
+  position: relative;
+  pointer-events: auto;
+  margin: 0;
+  padding: 40px 12px 10px;
+  min-width: min(280px, 72vw);
+}
+html.is-uxc #isl-ui .isl-advisor > .isl-bubble > p {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ux-ink);
+}
+/* 名前の札（立ち絵のすぐ右） */
+html.is-uxc #isl-ui .isl-advisor > .isl-bubble[data-uxc-name]::before {
+  content: attr(data-uxc-name);
+  position: absolute;
+  left: 108px;
+  top: 8px;
+  padding: 0 8px;
+  background: var(--ux-ink);
+  color: var(--ux-paper);
+  line-height: 1.5rem;
+  text-shadow: 1px 0 currentColor;
+  box-shadow: 2px 2px 0 rgba(4, 6, 14, 0.4);
+}
+/* 画面の中の一言：札の中身を隠さないよう、立ち絵は胸から上だけ（等倍のまま上を切り出す）が、枠の上の縁から顔を出す */
+html.is-uxc #isl-ui .isl-dock {
+  grid-template-columns: minmax(0, 1fr) 44px;
+  padding: 8px 8px 8px 12px;
+  overflow: visible;
+}
+html.is-uxc #isl-ui .isl-dock-mine {
+  position: absolute;
+  left: 4px;
+  bottom: calc(100% - 36px);
+  z-index: 1;
+  grid-row: auto;
+  width: 96px;
+  height: 64px;
+  max-width: none;
+  margin: 0;
+  object-fit: none;
+  object-position: 50% 0;
+  animation: none;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .isl-dock .isl-talk-name {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: center;
+  /* 立ち絵（幅 96px）の右 */
+  margin-left: 96px;
+}
+html.is-uxc #isl-ui .isl-dock-close {
+  grid-column: 2;
+  grid-row: 1;
+}
+html.is-uxc #isl-ui .isl-dock-text {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin-top: 4px;
+}
+
+/* ==================================================================== 光る枠（指さし）：琥珀のかぎが四隅から「カチッ」と締まって入り、ゆっくり脈打つ */
+html.is-uxc .uxc-guide {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: var(--ux-z-fx);
+  pointer-events: none;
+  animation: uxc-guide-pulse 1.6s steps(4, end) infinite;
+}
+html.is-uxc .uxc-guide[hidden] {
+  display: none;
+}
+@keyframes uxc-guide-pulse {
+  50% { opacity: 0.55; }
+}
+html.is-uxc .uxc-guide > i {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background:
+    linear-gradient(var(--ux-amber), var(--ux-amber)) 0 0 / 16px 4px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) 0 0 / 4px 16px no-repeat;
+  filter: drop-shadow(2px 2px 0 rgba(4, 6, 14, 0.6));
+}
+html.is-uxc .uxc-guide > i:nth-child(1) { left: 0; top: 0; --gx: -14px; --gy: -14px; }
+html.is-uxc .uxc-guide > i:nth-child(2) { right: 0; top: 0; rotate: 90deg; --gx: 14px; --gy: -14px; }
+html.is-uxc .uxc-guide > i:nth-child(3) { right: 0; bottom: 0; rotate: 180deg; --gx: 14px; --gy: 14px; }
+html.is-uxc .uxc-guide > i:nth-child(4) { left: 0; bottom: 0; rotate: 270deg; --gx: -14px; --gy: 14px; }
+html.is-uxc .uxc-guide.is-in > i {
+  animation: uxc-guide-snap 180ms steps(3, end) 1;
+}
+@keyframes uxc-guide-snap {
+  0% { translate: var(--gx) var(--gy); opacity: 0; }
+  60% { translate: calc(var(--gx) * -0.15) calc(var(--gy) * -0.15); opacity: 1; }
+  100% { translate: 0 0; }
+}
+html.is-uxc.is-calm .uxc-guide,
+html.is-uxc.is-calm .uxc-guide > i {
+  animation: none;
+}
+
+/* ==================================================================== ミッションのクリア：「クリア！」の印が打たれる */
+html.is-uxc #isl-ui .isl-missions.uxc-clear .isl-mis-stamp {
+  animation: ux-stamp 200ms steps(4, end) 1;
+}
+
+/* ==================================================================== 流れの案内：ランプの段の帯（いまの段が点く・済んだ段はチェック・進むと光が走る） */
+html.is-uxc #isl-ui .isl-tour-steps {
+  position: relative;
+  gap: 0;
+  /* 入りきらないとき（字を大きくした・英語）は、2 行に折る */
+  flex-wrap: wrap;
+  justify-content: center;
+  width: max-content;
+  max-width: calc(100% - 12px);
+  padding: 4px 6px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k4), 4px 4px 0 rgba(4, 6, 14, 0.5);
+  clip-path: var(--ux-notch);
+  overflow: hidden;
+}
+html.is-uxc #isl-ui .isl-tour-step,
+html.is-uxc #isl-ui .isl-tour-step.is-on,
+html.is-uxc #isl-ui .isl-tour-step.is-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  background: none;
+  box-shadow: none;
+  transform: none;
+  white-space: nowrap;
+}
+/* ランプ（消えている・点いている・済み＝チェック） */
+html.is-uxc #isl-ui .isl-tour-step::before {
+  content: '';
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: #1a1d30;
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .isl-tour-step.is-on {
+  color: var(--ux-amber);
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc #isl-ui .isl-tour-step.is-on::before {
+  background: var(--ux-amber);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 rgba(255, 255, 255, 0.7);
+  animation: ux-blink 0.9s steps(1, end) infinite;
+}
+html.is-uxc #isl-ui .isl-tour-step.is-done {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .isl-tour-step.is-done::before {
+  /* チェックの形（ドット） */
+  background: var(--ux-good);
+  clip-path: polygon(0 50%, 20% 30%, 40% 50%, 80% 10%, 100% 30%, 40% 90%);
+  box-shadow: none;
+}
+/* 段が進んだ：光が帯を左から右へ走る（520ms・8 段） */
+html.is-uxc #isl-ui .isl-tour.uxc-run .isl-tour-steps::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 28px;
+  background: linear-gradient(90deg, transparent 0 4px, rgba(255, 255, 255, 0.7) 4px 14px, transparent 14px 18px, rgba(255, 255, 255, 0.45) 18px 22px, transparent 22px);
+  animation: uxc-tour-run 520ms steps(8, end) 1 both;
+  pointer-events: none;
+}
+@keyframes uxc-tour-run {
+  0% { transform: translate3d(-32px, 0, 0); }
+  100% { transform: translate3d(480px, 0, 0); opacity: 0.9; }
+}
+
+/* ==================================================================== ほめる一言：打たれる札 */
+html.is-uxc #isl-ui .isl-praise.uxc-hit {
+  animation: uxc-praise 2600ms steps(4, end) both;
+  transform-origin: 20% 50%;
+}
+@keyframes uxc-praise {
+  0% { transform: scale(2); opacity: 0; }
+  5% { transform: scale(0.94); opacity: 1; }
+  8% { transform: scale(1); opacity: 1; }
+  92% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+}
+html.is-uxc.is-calm #isl-ui :is(.isl-toast.uxc-sig, .isl-praise.uxc-hit, .isl-missions.uxc-clear .isl-mis-stamp, .isl-tour-step.is-on::before) {
+  animation: none;
+}
+html.is-uxc.is-calm #isl-ui .isl-tour.uxc-run .isl-tour-steps::after {
+  display: none;
 }

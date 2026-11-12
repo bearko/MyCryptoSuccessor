@@ -427,7 +427,14 @@ export function typeInto(box: HTMLElement, content: string | Node, { voice, cps 
   const walk = (n: Node, into: Node) => {
     if (n.nodeType === 3) put(n.textContent ?? '', into);
     else if (n.nodeType === 11) for (const k of [...n.childNodes]) walk(k, into);
-    else if (n.nodeType === 1) {
+    else if (n.nodeType === 1 && !n.hasChildNodes()) {
+      // 中身の無い要素（ドットの絵の canvas・画像）は、そのまま 1 字ぶんとして出す（写すと絵が消えるため）
+      const e = n as HTMLElement;
+      e.style.opacity = '0';
+      chars.push('*');
+      spans.push(e);
+      into.appendChild(e);
+    } else if (n.nodeType === 1) {
       const copy = (n as Element).cloneNode(false);
       into.appendChild(copy);
       for (const k of [...n.childNodes]) walk(k, copy);
