@@ -1,0 +1,410 @@
+/* 段 UIX3b：調達の画面（docs/ISLAND_UIX.md「画面：調達」）。板・貼り札・字の段は、工房の札（workshop.css）にそろえる。
+   セレクタはすべて html.is-uxc の内側。class の接頭辞は uxb-。 */
+
+/* ---------- 上の計器：今月の調達の枠・置き場所 */
+html.is-uxc .uxb-gauges {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+html.is-uxc .uxb-gauge {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  min-width: 0;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 #0e1120;
+}
+html.is-uxc .uxb-gauge-k {
+  display: flex;
+}
+html.is-uxc .uxb-gauge-v {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 4px;
+  min-width: 0;
+}
+html.is-uxc .uxb-gauge-cap {
+  color: var(--ux-k5);
+  font-size: var(--ux-n15);
+  line-height: 1.5rem;
+}
+html.is-uxc .uxb-gauge-u,
+html.is-uxc .uxb-gauge-note {
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-gauge-note {
+  line-height: 1.25;
+}
+html.is-uxc .uxb-gauge.is-full .ux-odo-d {
+  color: var(--ux-bad);
+}
+html.is-uxc .ux-meter.is-full > i {
+  background: var(--ux-bad);
+  box-shadow: inset 0 2px 0 #ffc0c4, inset 0 -2px 0 var(--ux-bad-lo);
+}
+
+/* ---------- 素材の札 */
+html.is-uxc .uxb-mat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  min-width: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k3), inset -4px -4px 0 0 #191d31;
+}
+/* 調達に入っている素材：左に琥珀の帯 */
+html.is-uxc .uxb-mat.is-sel {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 6px 0 0 0 var(--ux-amber), inset 4px 4px 0 0 var(--ux-k3), inset -4px -4px 0 0 #191d31;
+  padding-left: 14px;
+}
+html.is-uxc .uxb-mat.is-off {
+  background: var(--ux-k1);
+}
+html.is-uxc .uxb-mat-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+html.is-uxc .uxb-mat-title {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  min-width: 0;
+}
+html.is-uxc .uxb-mat-name {
+  flex: 1 1 auto;
+  font-size: 1rem;
+}
+html.is-uxc .uxb-mat-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+html.is-uxc .uxb-mat-stock {
+  display: inline-flex;
+  flex: none;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-mat-meter {
+  height: 10px;
+}
+html.is-uxc .uxb-mat-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-mat-price .uxp-price {
+  color: var(--ux-paper);
+}
+html.is-uxc .uxb-mat-per {
+  margin-left: -6px;
+}
+html.is-uxc .uxb-mat-ev,
+html.is-uxc .uxb-mat-lead {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+html.is-uxc .uxb-mat-ev {
+  color: var(--ux-amber);
+}
+html.is-uxc .uxb-mat-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+html.is-uxc .uxb-mat-foot > .uxb-dim {
+  flex: 1 1 10em;
+}
+
+/* ---------- 月の量 */
+html.is-uxc .uxb-qty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxb-qty-k {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+html.is-uxc .uxb-qty-how {
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-qty-meter {
+  position: relative;
+  padding-bottom: 8px;
+}
+html.is-uxc .uxb-qty-marks {
+  position: absolute;
+  inset: 0 2px 0 2px;
+  pointer-events: none;
+}
+html.is-uxc .uxb-qty-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ux-white);
+}
+/* 先月の消費＝白い線と下の三角／100% 稼働＝水色の線と下のひし形（色だけにしない） */
+html.is-uxc .uxb-qty-mark::after {
+  content: '';
+  position: absolute;
+  left: -3px;
+  bottom: 0;
+  width: 8px;
+  height: 6px;
+  background: var(--ux-white);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+html.is-uxc .uxb-qty-mark.is-full {
+  background: var(--ux-cyan);
+}
+html.is-uxc .uxb-qty-mark.is-full::after {
+  background: var(--ux-cyan);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+html.is-uxc .uxb-qty-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-qty-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc .uxb-qty-legend .uxb-qty-mark {
+  position: relative;
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  margin: 0 3px;
+}
+html.is-uxc .uxb-qty-row {
+  display: grid;
+  grid-template-columns: 44px 44px minmax(0, 1fr) 44px 44px;
+  align-items: center;
+  gap: 4px;
+}
+html.is-uxc .uxb-step > .ux-cap {
+  padding: 2px 0;
+}
+html.is-uxc .uxb-step .ux-num {
+  font-size: var(--ux-n15);
+  line-height: 1.5rem;
+}
+html.is-uxc .uxb-qty-n {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0 4px;
+  min-width: 0;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-qty-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+html.is-uxc .uxb-qty-keys:empty {
+  display: none;
+}
+
+/* ---------- いま注文する */
+html.is-uxc .uxb-spot {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+html.is-uxc .uxb-spot-k {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-spot-keys {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+html.is-uxc .uxb-order {
+  min-width: 0;
+}
+html.is-uxc .uxb-order > .ux-cap {
+  padding: 2px 6px;
+}
+html.is-uxc .uxb-order-l {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0 8px;
+}
+html.is-uxc .uxb-order-l .ux-num {
+  font-size: var(--ux-n15);
+  line-height: 1.5rem;
+}
+html.is-uxc .uxb-order:not(.ux-key--main):not(.ux-key--flat) .uxb-order-l .ux-num {
+  color: var(--ux-amber);
+}
+/* チュートリアルの「1 ロット注文する」（今のボタンの目印のまま。横いっぱい・字は折り返す） */
+html.is-uxc #isl-ui .uxb-order-tut {
+  width: 100%;
+  white-space: normal;
+  line-height: 1.5;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* ---------- 「注文済」と、届くまでの目盛り */
+html.is-uxc .uxb-pend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-pend:not(:has(> :not([hidden]))) {
+  display: none;
+}
+html.is-uxc .uxb-pend-n .ux-num {
+  color: var(--ux-paper);
+  font-size: var(--ux-n15);
+}
+html.is-uxc .uxb-eta,
+html.is-uxc .uxb-scout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+html.is-uxc .uxb-eta-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+html.is-uxc .uxb-eta-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 8px;
+}
+html.is-uxc .uxb-eta-top .uxb-state > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html.is-uxc .uxb-eta-left {
+  flex: none;
+  color: var(--ux-k5);
+  white-space: nowrap;
+}
+html.is-uxc .uxb-eta-left .ux-num {
+  color: var(--ux-amber);
+  font-size: var(--ux-n15);
+}
+html.is-uxc .uxb-ordercard .uxp-card-desc {
+  display: block;
+}
+
+/* ---------- となり町・物流の部長の提案 */
+html.is-uxc .uxb-trade {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+html.is-uxc .uxb-trade-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+html.is-uxc .uxb-trade-keys {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc .uxb-trade-keys > .ux-key {
+  flex: 1 1 10em;
+}
+html.is-uxc #isl-ui .uxb-src.isl-trade-src {
+  border: 0;
+}
+html.is-uxc .uxb-src-l {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+html.is-uxc .uxb-say {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 2px 0 0 var(--ux-amber);
+}
+html.is-uxc .uxb-say-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+html.is-uxc .uxb-say-body > .ux-tape {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* ---------- 作りたいエクステ（選ぶキー：ランプが点く） */
+html.is-uxc .uxb-picks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+  gap: 6px;
+}
+html.is-uxc .uxb-pick > .ux-cap {
+  padding: 2px 6px;
+}
+html.is-uxc .uxb-pick-l {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc .uxb-pick-l b {
+  min-width: 0;
+  line-height: 1.25;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+html.is-uxc .uxb-pick[aria-pressed='false'] b {
+  color: var(--ux-k5);
+  text-shadow: none;
+}

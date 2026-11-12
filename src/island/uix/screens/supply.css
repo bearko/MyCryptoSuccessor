@@ -1,0 +1,527 @@
+/* 段 UIX3b：サプライチェーンの画面（docs/ISLAND_UIX.md「画面：サプライチェーン」）。
+   セレクタはすべて html.is-uxc の内側。class の接頭辞は uxb-。動かすのは transform と opacity。 */
+
+/* ---------- 流れの計器盤 */
+html.is-uxc .uxb-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 #0e1120;
+}
+html.is-uxc .uxb-flow-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+html.is-uxc .uxb-flow-cols {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+html.is-uxc .uxb-flow-key {
+  min-width: 0;
+}
+html.is-uxc .uxb-flow-key > .ux-cap {
+  display: block;
+  padding: 4px 2px;
+}
+html.is-uxc .uxb-flow-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+html.is-uxc .uxb-flow-name {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  max-width: 100%;
+  white-space: nowrap;
+}
+html.is-uxc .uxb-flow-name .ux-num {
+  padding: 0 4px;
+  background: var(--ux-k0);
+  color: var(--ux-amber);
+  font-size: var(--ux-n15);
+  line-height: 1.25rem;
+}
+html.is-uxc .uxb-flow-st {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+html.is-uxc .uxb-flow-word {
+  color: var(--ux-good);
+  text-shadow: none;
+}
+html.is-uxc .uxb-flow-word.is-warn { color: var(--ux-amber); }
+html.is-uxc .uxb-flow-word.is-stop { color: var(--ux-bad); }
+/* 縦の棒：下から 8 段で伸びる（520ms）。目盛りの線つきの窓 */
+html.is-uxc .uxb-flow-plot {
+  position: relative;
+  width: 100%;
+  height: 72px;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 16px, rgba(151, 161, 207, 0.22) 16px 18px),
+    var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+  overflow: hidden;
+}
+html.is-uxc .uxb-flow-bar {
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  top: 2px;
+  bottom: 0;
+  background: var(--ux-good);
+  box-shadow: inset 2px 0 0 #b9ffd8, inset -2px 0 0 var(--ux-good-lo);
+  transform: scaleY(0);
+  transform-origin: 50% 100%;
+  transition: transform 520ms steps(8, end);
+}
+html.is-uxc .uxb-flow-key.is-bn .uxb-flow-bar {
+  background: var(--ux-bad);
+  box-shadow: inset 2px 0 0 #ffc0c4, inset -2px 0 0 var(--ux-bad-lo);
+}
+html.is-uxc .uxb-flow-key.is-bn .uxb-flow-plot {
+  box-shadow: inset 0 0 0 2px var(--ux-bad);
+}
+html.is-uxc .uxb-flow-jam {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  transform: translate3d(-50%, 0, 0);
+  animation: uxb-jam 1.2s steps(2, end) infinite;
+}
+@keyframes uxb-jam {
+  0% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+html.is-uxc .uxb-flow-n {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.5rem;
+}
+html.is-uxc .uxb-flow-stop {
+  color: var(--ux-bad);
+  line-height: 1.25;
+  white-space: normal;
+  text-align: center;
+}
+/* 開いている段：面が沈んで明るい縁 */
+html.is-uxc .uxb-flow-key[aria-pressed='true'] {
+  --ux-face: var(--ux-k4);
+}
+html.is-uxc .uxb-flow-key[aria-pressed='false'] .uxb-flow-name b {
+  color: var(--ux-k5);
+  text-shadow: none;
+}
+
+/* ---------- ベルト：点が左から右へ流れる。詰まりの段は赤い門。止まった先は流れない */
+html.is-uxc .uxb-flow-belt {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  height: 14px;
+  background: var(--ux-k0);
+}
+html.is-uxc .uxb-belt-seg {
+  position: relative;
+  overflow: hidden;
+  background: repeating-linear-gradient(90deg, transparent 0 6px, rgba(151, 161, 207, 0.25) 6px 8px);
+}
+html.is-uxc .uxb-belt-seg.is-bn {
+  box-shadow: inset -4px 0 0 var(--ux-bad);
+}
+html.is-uxc .uxb-belt-seg.is-stop {
+  background: var(--ux-dz50);
+}
+html.is-uxc .uxb-dot {
+  position: absolute;
+  inset: 0;
+  animation: uxb-flow 2.4s steps(24, end) infinite;
+}
+html.is-uxc .uxb-dot > b {
+  position: absolute;
+  left: -8px;
+  top: 3px;
+  width: 8px;
+  height: 8px;
+  background: var(--ux-amber);
+  box-shadow: inset 2px 2px 0 var(--ux-amber-hi);
+}
+html.is-uxc .uxb-belt-seg.is-bn .uxb-dot > b {
+  background: var(--ux-bad);
+  box-shadow: inset 2px 2px 0 #ffc0c4;
+}
+@keyframes uxb-flow {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(calc(100% + 8px), 0, 0); }
+}
+html.is-uxc.is-calm .uxb-dot {
+  animation: none;
+  transform: translate3d(50%, 0, 0);
+}
+
+/* ---------- 詰まりの札 */
+html.is-uxc .uxb-jam {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 6px 0 0 0 var(--ux-amber), inset 4px 4px 0 0 var(--ux-k3);
+  padding-left: 14px;
+}
+html.is-uxc .uxb-jam.is-stop {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 6px 0 0 0 var(--ux-bad), inset 4px 4px 0 0 var(--ux-k3);
+}
+html.is-uxc .uxb-jam.is-ok {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 6px 0 0 0 var(--ux-good), inset 4px 4px 0 0 var(--ux-k3);
+}
+html.is-uxc .uxb-jam-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+html.is-uxc .uxb-jam-k {
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-jam-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ux-amber);
+  font-size: var(--ux-t15, 1.5rem);
+  line-height: 1.25;
+}
+html.is-uxc .uxb-jam-gap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxb-jam-gap-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 8px;
+}
+html.is-uxc .uxb-jam-gap-top .ux-num {
+  font-size: var(--ux-n15);
+  line-height: 1.5rem;
+  color: var(--ux-amber);
+}
+html.is-uxc .uxb-jam-gap-top .uxb-dim .ux-num {
+  color: var(--ux-paper);
+}
+html.is-uxc .uxb-jam-gap-t {
+  line-height: 1.5;
+}
+html.is-uxc .uxb-jam-key {
+  width: 100%;
+}
+html.is-uxc .uxb-jam-go {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+  line-height: 1.25;
+}
+html.is-uxc .uxb-jam-go-k {
+  font-size: 1rem;
+}
+html.is-uxc .uxb-jam-go b {
+  overflow-wrap: anywhere;
+}
+html.is-uxc .uxb-jam-sub,
+html.is-uxc .uxb-up-sub {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--ux-good);
+  line-height: 1.5;
+}
+html.is-uxc .uxb-jam-sub > .ux-ico,
+html.is-uxc .uxb-up-sub > .ux-ico,
+html.is-uxc .uxb-gain > .ux-ico {
+  flex: none;
+  margin-top: 6px;
+}
+html.is-uxc .uxb-gain {
+  align-items: flex-start;
+  line-height: 1.5;
+}
+html.is-uxc .uxb-gain.is-off {
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-jam-sub.is-short,
+html.is-uxc .uxb-up-sub.is-short {
+  color: var(--ux-amber);
+}
+html.is-uxc .uxb-jam-sub.is-plain,
+html.is-uxc .uxb-up-sub.is-plain {
+  color: var(--ux-k5);
+}
+
+/* ---------- 数字の札・制覇の条件・次に詰まる段 */
+html.is-uxc .uxb-scm-kpi {
+  align-items: stretch;
+}
+html.is-uxc .uxb-scm-rank-n {
+  font-size: var(--ux-n2);
+  line-height: 1.5rem;
+  color: var(--ux-amber);
+}
+html.is-uxc .uxb-scm-cond {
+  display: flex;
+  grid-column: 1 / -1;
+  flex: 1 1 100%;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--ux-k1);
+  color: var(--ux-k5);
+  line-height: 1.5;
+}
+html.is-uxc .uxb-scm-cond > .ux-ico {
+  flex: none;
+  margin-top: 6px;
+}
+html.is-uxc .uxb-scm-cond.is-wait {
+  color: var(--ux-amber);
+}
+html.is-uxc .uxb-next {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 2px 0 0 var(--ux-cyan);
+  line-height: 1.5;
+}
+html.is-uxc .uxb-next > .ux-ico {
+  flex: none;
+  margin-top: 6px;
+}
+html.is-uxc .uxb-next b {
+  color: var(--ux-amber);
+}
+
+/* ---------- 段のくわしい札（タブの並びは出さない：上の計器盤の柱が、段を選ぶキー） */
+html.is-uxc .uxb-stage-tabs > .uxp-tabs {
+  display: none;
+}
+html.is-uxc .uxb-stage {
+  padding-top: 2px;
+}
+html.is-uxc .uxb-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+html.is-uxc .uxb-cap {
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+html.is-uxc .uxb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 2px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc .uxb-chip .ux-num {
+  font-size: var(--ux-n15);
+  line-height: 1.5rem;
+}
+html.is-uxc .uxb-chip.is-low {
+  box-shadow: inset 0 0 0 2px var(--ux-bad-lo);
+}
+html.is-uxc .uxb-chip-w {
+  padding: 0 4px;
+  background: var(--ux-bad);
+  color: var(--ux-ink);
+  line-height: 1.25rem;
+}
+html.is-uxc .uxb-field.is-row {
+  grid-template-columns: minmax(3em, auto) minmax(0, 1fr) auto;
+}
+html.is-uxc .uxb-field.is-row > .uxb-field-k {
+  grid-column: auto;
+}
+html.is-uxc .uxb-up-n {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+  color: var(--ux-amber);
+}
+html.is-uxc .uxb-up-n .ux-num {
+  font-size: var(--ux-n2);
+  line-height: 1;
+}
+html.is-uxc .uxb-q {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  background: var(--ux-k1);
+  outline: 2px dashed var(--ux-k4);
+  outline-offset: -2px;
+  color: var(--ux-k5);
+  font-family: var(--ux-num);
+  font-size: var(--ux-n2);
+}
+html.is-uxc .uxb-benchrow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 4px;
+}
+html.is-uxc .uxb-cart {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc .uxb-shoprev .ux-num {
+  color: var(--ux-amber);
+  font-size: var(--ux-n15);
+  line-height: 1.5rem;
+}
+html.is-uxc .uxb-shopcard .uxp-card-desc,
+html.is-uxc .uxb-goods .uxp-card-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+html.is-uxc .uxb-dim.is-warn {
+  color: var(--ux-amber);
+}
+/* 買い付けの行き帰り：工房 ←→ 卸問屋 のあいだを、調達係が歩く */
+html.is-uxc .uxb-trip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc .uxb-trip-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ux-k5);
+  white-space: nowrap;
+}
+html.is-uxc .uxb-trip-track {
+  position: relative;
+  height: 36px;
+  margin: 0 16px;
+  background: linear-gradient(transparent 0 26px, var(--ux-k4) 26px 28px, transparent 28px);
+}
+html.is-uxc .uxb-trip-who {
+  position: absolute;
+  top: 0;
+  margin-left: -16px;
+}
+html.is-uxc .uxb-trip-who.is-back {
+  transform: scaleX(-1);
+}
+
+/* ---------- ④ 販売の内訳 */
+html.is-uxc .uxb-bd-why {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 2px 0 0 var(--ux-amber);
+}
+html.is-uxc .uxb-bd-why b {
+  color: var(--ux-amber);
+  line-height: 1.5;
+}
+html.is-uxc .uxb-lims {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+html.is-uxc .uxb-lim {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 6px;
+  padding: 6px 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxb-lim.is-on {
+  box-shadow: inset 0 0 0 2px var(--ux-amber);
+}
+html.is-uxc .uxb-lim-k {
+  color: var(--ux-k5);
+  line-height: 1.25;
+}
+html.is-uxc .uxb-lim-v {
+  grid-column: 1 / -1;
+  white-space: nowrap;
+}
+html.is-uxc .uxb-lim-v .ux-num {
+  font-size: var(--ux-n2);
+  line-height: 1.5rem;
+}
+html.is-uxc .uxb-lim.is-on .uxb-lim-v .ux-num {
+  color: var(--ux-amber);
+}
+html.is-uxc .uxb-bd-big {
+  width: 100%;
+}
+html.is-uxc .uxb-bd-big b {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+html.is-uxc .uxb-how {
+  padding: 0 4px;
+  color: var(--ux-paper);
+  line-height: 1.6;
+}
+
+/* ---------- 月ごとの流れ */
+html.is-uxc .uxb-hist:empty {
+  display: none;
+}
+html.is-uxc .uxb-hist-nav {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+html.is-uxc .uxb-hist-key > .ux-cap {
+  padding: 2px;
+  justify-content: center;
+}
+html.is-uxc .uxb-hist-key.is-prev .ux-ico {
+  transform: scaleX(-1);
+}

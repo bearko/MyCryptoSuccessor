@@ -4,6 +4,7 @@
  */
 import { t } from '../../i18n';
 import { h, money } from './ui';
+import { uxb } from '../uix/screens/b-slots';
 
 /** 比べる中身（1 個あたり） */
 export interface TradeCmp {
@@ -22,6 +23,8 @@ export interface TradeCmp {
 
 /** 「となり町」の札：2 行（ここ／となり町）。安いほうに印 */
 export function tradeCmpEl(c: TradeCmp): HTMLElement {
+  // 段 UIX3b：新しい形（入のときだけ。uix/screens/tariff.ts）
+  if (uxb.tradeCmp) return uxb.tradeCmp(c);
   const total = c.base + c.duty;
   const there = total < c.here;
   const el = h('div', 'isl-tradecmp');

@@ -146,6 +146,7 @@ import { adBreakeven, adGain } from './moves';
 import { craftable, shopInvestOrder } from './orders';
 import { charismaCard, charismaNeeds, openPayroll as openPayrollHr } from './hrui';
 import { hireEmptyLines } from './hr';
+import { uxb } from '../uix/screens/b-slots';
 import { uxs } from '../uix/screens/s-slots';
 
 export interface Ctx {
@@ -391,6 +392,8 @@ export function openTogether(ctx: Ctx, title: string, opens: (() => void)[], foc
         }
       });
       body.append(jump, ...secs);
+      // 段 UIX3b：新しい画面（入のときだけ）：見出しの貼り札・区切り・開いた所へ送る動き
+      uxb.together?.(body, focus);
     },
     () => parts.forEach((p) => p.onClose?.()),
   );
@@ -1038,6 +1041,8 @@ export function shopScene(s: P1State, uid: number, onPay?: (yen: number) => void
 }
 
 export function openShop(ctx: Ctx, uid: number) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/shop.ts）
+  if (uxb.shop) return uxb.shop(ctx, uid);
   const s0 = ctx.s();
   const b = s0.buildings.find((x) => x.uid === uid);
   if (!b) return;
@@ -1165,6 +1170,8 @@ function ordersCard(s: P1State): HTMLElement {
 }
 
 export function openBuy(ctx: Ctx) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/buy.ts）
+  if (uxb.buy) return uxb.buy(ctx);
   open(ctx, t('調達', 'Buying'), (body) => {
     const s = ctx.s();
     mineTip(ctx, 'buy', body);
@@ -1656,6 +1663,8 @@ export function openHire(ctx: Ctx, opts: { charisma?: boolean } = {}) {
 // ---------------------------------------------------------------- 市場データ
 
 export function openData(ctx: Ctx) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/biz.ts）
+  if (uxb.data) return uxb.data(ctx);
   const s0 = ctx.s();
   s0.flags.data = true;
   // セクタごとに「市場データを見た」を覚える（2 か所目以降のリサーチの案内）
@@ -1972,6 +1981,8 @@ export const openPayroll = (ctx: Ctx) => openPayrollHr(ctx);
 // ---------------------------------------------------------------- SCM
 
 export function openBom(ctx: Ctx) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/biz.ts）
+  if (uxb.bom) return uxb.bom(ctx);
   open(ctx, t('BOM（素材 → 商品）', 'BOM (materials → products)'), (body) => {
     const s = ctx.s();
     body.append(h('p', 'isl-dim', t('1 回のクラフトに使う素材と、できる数・日数・1 個あたりの素材代と粗利です（素材はいまの値段）。', 'Materials per craft, output, days, and material cost and gross margin per item (at current prices).')));
@@ -2050,6 +2061,8 @@ export function openMA(ctx: Ctx) {
 // ---------------------------------------------------------------- マーケティング
 
 export function openAds(ctx: Ctx) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/biz.ts）
+  if (uxb.ads) return uxb.ads(ctx);
   open(ctx, t('宣伝広報', 'Advertising'), (body) => {
     const s = ctx.s();
     const now = adBoost(s);

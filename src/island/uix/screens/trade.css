@@ -1,0 +1,95 @@
+/* 段 UIX3b：営業「商圏の取り合い」（docs/ISLAND_UIX.md「画面：商圏の取り合い」）。
+   セレクタはすべて html.is-uxc の内側。class の接頭辞は uxb-。 */
+
+html.is-uxc .uxb-dotc {
+  display: inline-block;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  box-shadow: 0 0 0 2px var(--ux-k0);
+}
+/* 商圏の地図：機械の窓枠に、今の地図（canvas）をそのまま */
+html.is-uxc .uxb-areamap {
+  display: grid;
+  place-items: center;
+  padding: 6px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+  overflow: hidden;
+}
+html.is-uxc .uxb-lg-me,
+html.is-uxc .uxb-lg-rival,
+html.is-uxc .uxb-lg-vac,
+html.is-uxc .uxb-lg-cand {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  font-style: normal;
+}
+html.is-uxc .uxb-lg-me {
+  background: radial-gradient(circle, var(--ux-amber) 0 4px, var(--ux-white) 4px 7px, transparent 7px);
+}
+html.is-uxc .uxb-lg-rival {
+  background: var(--ux-k5);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxb-lg-vac {
+  box-shadow: inset 0 0 0 2px var(--ux-paper);
+}
+html.is-uxc .uxb-lg-cand {
+  background: var(--ux-amber);
+  color: var(--ux-ink);
+  font-family: var(--ux-num);
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+html.is-uxc .uxb-up-n.is-cand {
+  background: var(--ux-amber);
+  box-shadow: inset 0 0 0 2px var(--ux-amber-lo);
+  color: var(--ux-ink);
+}
+html.is-uxc .uxb-news {
+  padding: 2px 8px;
+}
+/* 他社の店：名前・取り分・開店のときからの割合の目盛り・撤退の危険のランプ */
+html.is-uxc .uxb-rival {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 8px 10px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k3);
+}
+html.is-uxc .uxb-rival.is-risk {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 6px 0 0 0 var(--ux-amber), inset 4px 4px 0 0 var(--ux-k3);
+  padding-left: 14px;
+}
+html.is-uxc .uxb-rival-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+html.is-uxc .uxb-rival-share {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0 6px;
+}
+html.is-uxc .uxb-rival-share .ux-num {
+  font-size: var(--ux-n15);
+  line-height: 1.5rem;
+  color: var(--ux-amber);
+}
+html.is-uxc .uxb-rival > .ux-meter {
+  height: 10px;
+}
+html.is-uxc .uxb-rival-risk {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}

@@ -10,6 +10,7 @@ import { areaPaint, companyColor, companyShares, quitRule, refillText, siteCandi
 import { btn, h, money } from './ui';
 import { arw, histBox } from './chartkit';
 import { shareHist } from './dash';
+import { uxb } from '../uix/screens/b-slots';
 
 const pct = (v: number) => `${Math.round(v * 1000) / 10}%`;
 
@@ -101,6 +102,8 @@ function riskMeter(weak: number, below: boolean): HTMLElement {
 
 /** 営業の画面 */
 export function openTrade(ctx: Ctx, hooks: { areaView: () => void; panels: () => void }) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/trade.ts）
+  if (uxb.trade) return uxb.trade(ctx, hooks);
   open(ctx, t('営業：商圏の取り合い', 'Sales: trade areas'), (body) => {
     const s = ctx.s();
     if (!s.area) {

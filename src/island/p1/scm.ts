@@ -16,10 +16,11 @@ import { execute } from './deleg';
 import { bar, btn, h, heroIcon, heroName, matIcon, money, rich, skuIcon, skuName } from './ui';
 import { histBox } from './chartkit';
 import { flowHist } from './dash';
+import { uxb } from '../uix/screens/b-slots';
 
-type Lamp = 'ok' | 'warn' | 'stop';
-const LAMP_NAME: Record<Lamp, string> = { ok: t('順調', 'Running'), warn: t('注意', 'Watch'), stop: t('停止', 'Stopped') };
-const STAGE: Record<Stage, { n: string; name: string; branch: string; what: string }> = {
+export type Lamp = 'ok' | 'warn' | 'stop';
+export const LAMP_NAME: Record<Lamp, string> = { ok: t('順調', 'Running'), warn: t('注意', 'Watch'), stop: t('停止', 'Stopped') };
+export const STAGE: Record<Stage, { n: string; name: string; branch: string; what: string }> = {
   buy: { n: '①', name: t('調達', 'Buy'), branch: 'buy', what: t('素材', 'materials') },
   craft: { n: '②', name: t('製造', 'Craft'), branch: 'craft', what: t('作った', 'made') },
   haul: { n: '③', name: t('物流', 'Haul'), branch: 'logi', what: t('運んだ', 'hauled') },
@@ -34,7 +35,7 @@ const canNow = (s: P1State, id: string) => {
   return e === null || e === 'money' || e === 'rp';
 };
 /** まだ取れるスキル（先に要るものを取ってあるもの）を、その段の系統から 2 つ */
-function nextSkills(s: P1State, branch: string) {
+export function nextSkills(s: P1State, branch: string) {
   return SKILLS.filter((k) => k.branch === branch && canNow(s, k.id)).slice(0, 2);
 }
 
@@ -68,7 +69,7 @@ export function jamGain(s: P1State, caps: ReturnType<typeof stageCaps>, bn: Stag
 }
 
 /** 「数字を上げるには」の 1 つ（buy：その場で設備を買う。short：資金が足りない） */
-interface Up {
+export interface Up {
   label: string;
   sub: string;
   go: () => void;
@@ -149,7 +150,7 @@ export function moveUp(ctx: Ctx, s: P1State, w: StageIf): Up {
 }
 
 /** その段の数字を上げる手：見込み（whatIf）の大きい順に（スマホ 2 つ・PC 3 つ）。チュートリアル中は設備投資を出さない */
-function upsOf(ctx: Ctx, s: P1State, list: StageIf[]): Up[] {
+export function upsOf(ctx: Ctx, s: P1State, list: StageIf[]): Up[] {
   const n = innerWidth < 600 ? 2 : 3;
   const tut = !!ctx.step?.();
   return list
@@ -161,12 +162,12 @@ function upsOf(ctx: Ctx, s: P1State, list: StageIf[]): Up[] {
 // ---------------------------------------------------------------- ④ 販売の内訳（docs/ISLAND_PHASE1.md「販売の内訳」）
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
-const shopLabel = (s: P1State, b: PBuilding) => {
+export const shopLabel = (s: P1State, b: PBuilding) => {
   const all = myShops(s).filter((x) => x.id === b.id);
   return all.length > 1 ? `${DEF[b.id].name} ${all.indexOf(b) + 1}` : DEF[b.id].name;
 };
 /** 打ち手の効き目：+N 個／月（≒ +M G） */
-const gainText = (w: WhatIf) => {
+export const gainText = (w: WhatIf) => {
   const n = Math.round(w.units);
   // 効かない手は小数 1 桁（+1.6 を「+2」と丸めて「効かない」と並べない）
   const d = Math.round(w.units * 10) / 10;
@@ -174,7 +175,7 @@ const gainText = (w: WhatIf) => {
   return t(`+${n} 個／月（≒ +${money(w.yen)}）`, `+${n} / mo (≈ +${money(w.yen)})`);
 };
 /** 打ち手 1 つの名前・説明・行き先 */
-function whatIfUp(ctx: Ctx, s: P1State, w: WhatIf): { label: string; sub: string; go: () => void } {
+export function whatIfUp(ctx: Ctx, s: P1State, w: WhatIf): { label: string; sub: string; go: () => void } {
   const shop = w.uid != null ? s.buildings.find((b) => b.uid === w.uid) : undefined;
   const at = shop ? shopLabel(s, shop) : '';
   switch (w.kind) {
@@ -287,14 +288,14 @@ export function sellBigUp(ctx: Ctx, s: P1State, m: SellMove): Up {
   }
 }
 
-const WHY_NAME: Record<SellWhy, string> = {
+export const WHY_NAME: Record<SellWhy, string> = {
   capacity: t('お店の処理力（品出し）が足りない', 'Shops can’t shelve fast enough'),
   demand: t('並べている商品の需要が小さい／他社と取り合っている', 'Your items have little demand or are shared with rivals'),
   far: t('遠くて届かないお客さんが多い', 'Many customers live too far away'),
   known: t('新しい商品がまだ知られていない', 'Your new items aren’t known yet'),
   rival: t('他社の売り場が強い', 'Rival shops pull harder'),
 };
-const GOODS_WHY: Record<GoodsWhy, string> = {
+export const GOODS_WHY: Record<GoodsWhy, string> = {
   saturated: t('飽和', 'Saturated'),
   known: t('認知が低い', 'Little known'),
   far: t('遠い', 'Far'),
@@ -303,7 +304,7 @@ const GOODS_WHY: Record<GoodsWhy, string> = {
 };
 
 /** 頭打ちの理由の説明（数字つき）と、すぐの打ち手 */
-function whyLine(ctx: Ctx, s: P1State, info: SellInfo, best: WhatIf | undefined): { text: string; act: [string, () => void] } {
+export function whyLine(ctx: Ctx, s: P1State, info: SellInfo, best: WhatIf | undefined): { text: string; act: [string, () => void] } {
   const demand = Math.round(info.goods.reduce((a, g) => a + g.demand, 0));
   switch (info.why) {
     case 'capacity': {
@@ -340,7 +341,7 @@ function whyLine(ctx: Ctx, s: P1State, info: SellInfo, best: WhatIf | undefined)
 }
 
 /** 商品の「なぜ取れていないか」の 1 行 */
-function goodsReason(s: P1State, g: SellInfo['goods'][number]): string {
+export function goodsReason(s: P1State, g: SellInfo['goods'][number]): string {
   const rivals = s.rivals.filter((r) => (r.sells[g.key] ?? 0) > 0).length;
   switch (g.why) {
     case 'saturated':
@@ -501,8 +502,101 @@ function lampEl(l: Lamp): HTMLElement {
 
 const sumOf = (o: Partial<Record<string, number>>) => Object.values(o).reduce<number>((a, n) => a + (n ?? 0), 0);
 
+/** 段ごとの状態（ランプ）と課題の文・行き先（openSupply と、段 UIX3b の新しい画面が同じものを使う） */
+export type ScmIssues = Record<Stage, { lamp: Lamp; lines: string[]; acts: [string, () => void, string?][] }>;
+export function scmIssues(ctx: Ctx, s: P1State, caps: ReturnType<typeof stageCaps>): ScmIssues {
+  const ws = myWorkshop(s);
+  const shops = myShops(s);
+  const buyer = s.staff.find((x) => x.task === 'buy');
+  const haulers = s.staff.filter((x) => x.task === 'transport');
+  const stock = sumOf(s.stock);
+  // ---------------------------------------------------------------- 段ごとの状態と課題
+  const issues: Record<Stage, { lamp: Lamp; lines: string[]; acts: [string, () => void, string?][] }> = {
+    buy: { lamp: 'ok', lines: [], acts: [[t('調達を開く', 'Open buying'), () => openBuy(ctx), 'is-on']] },
+    craft: { lamp: 'ok', lines: [], acts: [[t('工房を開く', 'Open workshop'), () => openWorkshop(ctx), 'is-on']] },
+    haul: { lamp: 'ok', lines: [], acts: [[t('ヒーローの配置', 'Assign heroes'), () => openStaff(ctx), 'is-on']] },
+    sell: { lamp: 'ok', lines: [], acts: [] },
+  };
+  const worse = (k: Stage, l: Lamp, line: string) => {
+    const order: Lamp[] = ['ok', 'warn', 'stop'];
+    if (order.indexOf(l) > order.indexOf(issues[k].lamp)) issues[k].lamp = l;
+    issues[k].lines.push(line);
+  };
+  // ① 調達
+  const days = matDays(s);
+  if (!buyer) {
+    worse('buy', caps.buy.stopped ? 'stop' : 'warn', t('調達係がいないので、素材は手で買っています。ヒーローを雇って調達係にすると自動になります。', 'No buyer: you buy by hand. Hire a hero as buyer to automate it.'));
+    issues.buy.acts.push([t('人材登用', 'Recruit'), () => openHire(ctx)]);
+  } else if (buyer.resting) worse('buy', 'warn', t('調達係が休憩中です。', 'The buyer is resting.'));
+  const tripLeft = s.buyTrip ? Math.max(1, Math.ceil(s.buyTrip.left)) : null;
+  if (days != null && days < 4) {
+    if (tripLeft != null) worse('buy', 'warn', t(`素材が残り少なめ。調達係があと ${tripLeft} 日で買い付けから戻ります。`, `Materials are low; the buyer returns in ${tripLeft} d.`));
+    else worse('buy', days < 1 ? 'stop' : 'warn', t(`素材があと約 ${Math.max(0, Math.floor(days))} 日ぶんしかありません。`, `Only ~${Math.max(0, Math.floor(days))} days of materials left.`));
+  }
+  if (poolFree(s) <= 2) {
+    worse('buy', 'stop', t('置き場所がいっぱいで、これ以上買えません。倉庫を建てましょう。', 'Storage is full; build a warehouse to buy more.'));
+    issues.buy.acts.push([t('倉庫を建てる', 'Build a warehouse'), () => ctx.build?.('warehouse')]);
+  }
+  // ② 製造
+  if (!ws) worse('craft', 'stop', t('工房がありません。', 'No workshop yet.'));
+  s.slots.forEach((sl, k) => {
+    const st = sl.worker != null ? staffOf(s, sl.worker) : null;
+    if (!st) worse('craft', 'stop', t(`作業台 ${k + 1} に職人がいません。`, `Bench ${k + 1} has no crafter.`));
+    else if (!sl.sku) worse('craft', 'stop', t(`作業台 ${k + 1} で作るものが決まっていません。`, `Bench ${k + 1} has nothing to make.`));
+    else if (st.resting) worse('craft', 'warn', t(`作業台 ${k + 1} の職人が休憩中です。`, `Bench ${k + 1}'s crafter is resting.`));
+    else if (!sl.running) {
+      const e = craftCheck(s, sl.sku, sl.worker);
+      if (e === 'mats')
+        worse(
+          'craft',
+          tripLeft != null ? 'warn' : 'stop',
+          tripLeft != null ? t(`作業台 ${k + 1}：素材待ち（調達係があと ${tripLeft} 日で戻ります）。`, `Bench ${k + 1}: waiting for materials (buyer back in ${tripLeft} d).`) : t(`作業台 ${k + 1}：素材が足りません。`, `Bench ${k + 1}: not enough materials.`),
+        );
+      else if (e === 'full') worse('craft', 'stop', t(`作業台 ${k + 1}：置き場所がいっぱいです。`, `Bench ${k + 1}: storage is full.`));
+    }
+  });
+  // 作っているのに、どのお店にも並べていない
+  for (const x of new Set(s.slots.map((y) => y.sku).filter((y): y is Sku => !!y)))
+    if (shops.length && !shops.some((b) => s.shops[b.uid].shelves.includes(x))) worse('craft', 'warn', t(`「${skuName(x)}」を並べているお店がありません。`, `No shop sells ${skuName(x)}.`));
+  // ③ 物流
+  if (!haulers.length && shops.length) worse('haul', 'stop', t('物流の担当がいないので、商品がお店に届きません。', 'No hauler: goods never reach the shops.'));
+  else if (haulers.every((x) => x.resting) && haulers.length) worse('haul', 'warn', t('運搬係が全員休憩中です。', 'All haulers are resting.'));
+  if (stock > TRANSPORT.cap * 2) worse('haul', 'warn', t(`工房に運ぶ前の商品が ${stock} 個たまっています。`, `${stock} goods are waiting at the workshop.`));
+  // 工房から遠いお店：運ぶのに日数がかかる（物流拠点・トラックで縮む）
+  for (const b of shops) {
+    const way = oneWay(s, b);
+    if (way.days > 2.5) {
+      worse('haul', 'warn', t(`${DEF[b.id].name}は工房から遠く、片道 ${way.days.toFixed(1)} 日かかります。`, `${DEF[b.id].name} is far: ${way.days.toFixed(1)} days one way.`));
+      if (!issues.haul.acts.some((a) => a[2] === 'hub')) issues.haul.acts.push(has(s, 'hub') ? [t('物流拠点を建てる', 'Build a hub'), () => ctx.build?.('logistics'), 'hub'] : [t('物流拠点を調べる', 'About hubs'), () => openSkills(ctx, 'logi'), 'hub']);
+    }
+  }
+  // ④ 販売
+  if (!shops.length) {
+    worse('sell', 'stop', t('お店がありません。', 'No shop yet.'));
+    issues.sell.acts.push([t('お店を建てる', 'Build a shop'), () => ctx.build?.('general_store'), 'is-on']);
+  }
+  for (const b of shops) {
+    const sh = s.shops[b.uid];
+    const st = sh.staff != null ? staffOf(s, sh.staff) : null;
+    const name = DEF[b.id].name;
+    if (!sh.shelves[0]) worse('sell', 'stop', t(`${name}：並べる商品が決まっていません。`, `${name}: no product chosen.`));
+    if (!st && sh.part === 0) worse('sell', 'stop', t(`${name}：売り場に人がいません。`, `${name}: nobody on the floor.`));
+    else if (st?.resting && sh.part === 0) worse('sell', 'warn', t(`${name}：店員が休憩中です。`, `${name}: the clerk is resting.`));
+    const main = sh.shelves[0];
+    const making = s.slots.map((y) => y.sku).filter((y): y is Sku => !!y);
+    if (main && !making.includes(main) && (sh.shelf[main] ?? 0) <= 0 && (sh.storage[main] ?? 0) <= 0 && !(s.stock[main] ?? 0))
+      worse('sell', 'stop', t(`${name}：「${skuName(main)}」は工房で作っていません。作っているものを並べましょう。`, `${name}: ${skuName(main)} isn't being crafted. Shelve what you make.`));
+    else if (main && (sh.shelf[main] ?? 0) <= 0 && (sh.storage[main] ?? 0) <= 0) worse('sell', 'warn', t(`${name}：主力商品が品切れです。`, `${name}: the main product is sold out.`));
+    if ((sh.aw ?? 1) < 0.7) worse('sell', 'warn', t(`${name}：まだ知られていません（認知度 ${Math.round((sh.aw ?? 1) * 100)}%）。宣伝すると早く広まります。`, `${name}: not well known yet (${Math.round((sh.aw ?? 1) * 100)}%). Ads help.`));
+  }
+  if (shops.length) issues.sell.acts.push([t('お店を開く', 'Open shop'), () => openShop(ctx, shops[0].uid), 'is-on'], [t('宣伝広報', 'Advertising'), () => openAds(ctx)]);
+  return issues;
+}
+
 /** SCM ダッシュボード。breakdown：④ 販売の内訳を開いた状態にして、そこまで送る（販売管理の「販売の内訳」から） */
 export function openSupply(ctx: Ctx, opt: { breakdown?: boolean } = {}) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/supply.ts）
+  if (uxb.supply) return uxb.supply(ctx, opt);
   let toBreakdown = !!opt.breakdown;
   open(ctx, t('サプライチェーン（SCM）', 'Supply chain (SCM)'), (body) => {
     const s = ctx.s();
@@ -510,92 +604,11 @@ export function openSupply(ctx: Ctx, opt: { breakdown?: boolean } = {}) {
     body.classList.add('is-scm');
     mineTip(ctx, 'scm', body);
     const caps = stageCaps(s);
-    const ws = myWorkshop(s);
     const shops = myShops(s);
     const buyer = s.staff.find((x) => x.task === 'buy');
     const haulers = s.staff.filter((x) => x.task === 'transport');
-    const stock = sumOf(s.stock);
 
-    // ---------------------------------------------------------------- 段ごとの状態と課題
-    const issues: Record<Stage, { lamp: Lamp; lines: string[]; acts: [string, () => void, string?][] }> = {
-      buy: { lamp: 'ok', lines: [], acts: [[t('調達を開く', 'Open buying'), () => openBuy(ctx), 'is-on']] },
-      craft: { lamp: 'ok', lines: [], acts: [[t('工房を開く', 'Open workshop'), () => openWorkshop(ctx), 'is-on']] },
-      haul: { lamp: 'ok', lines: [], acts: [[t('ヒーローの配置', 'Assign heroes'), () => openStaff(ctx), 'is-on']] },
-      sell: { lamp: 'ok', lines: [], acts: [] },
-    };
-    const worse = (k: Stage, l: Lamp, line: string) => {
-      const order: Lamp[] = ['ok', 'warn', 'stop'];
-      if (order.indexOf(l) > order.indexOf(issues[k].lamp)) issues[k].lamp = l;
-      issues[k].lines.push(line);
-    };
-    // ① 調達
-    const days = matDays(s);
-    if (!buyer) {
-      worse('buy', caps.buy.stopped ? 'stop' : 'warn', t('調達係がいないので、素材は手で買っています。ヒーローを雇って調達係にすると自動になります。', 'No buyer: you buy by hand. Hire a hero as buyer to automate it.'));
-      issues.buy.acts.push([t('人材登用', 'Recruit'), () => openHire(ctx)]);
-    } else if (buyer.resting) worse('buy', 'warn', t('調達係が休憩中です。', 'The buyer is resting.'));
-    const tripLeft = s.buyTrip ? Math.max(1, Math.ceil(s.buyTrip.left)) : null;
-    if (days != null && days < 4) {
-      if (tripLeft != null) worse('buy', 'warn', t(`素材が残り少なめ。調達係があと ${tripLeft} 日で買い付けから戻ります。`, `Materials are low; the buyer returns in ${tripLeft} d.`));
-      else worse('buy', days < 1 ? 'stop' : 'warn', t(`素材があと約 ${Math.max(0, Math.floor(days))} 日ぶんしかありません。`, `Only ~${Math.max(0, Math.floor(days))} days of materials left.`));
-    }
-    if (poolFree(s) <= 2) {
-      worse('buy', 'stop', t('置き場所がいっぱいで、これ以上買えません。倉庫を建てましょう。', 'Storage is full; build a warehouse to buy more.'));
-      issues.buy.acts.push([t('倉庫を建てる', 'Build a warehouse'), () => ctx.build?.('warehouse')]);
-    }
-    // ② 製造
-    if (!ws) worse('craft', 'stop', t('工房がありません。', 'No workshop yet.'));
-    s.slots.forEach((sl, k) => {
-      const st = sl.worker != null ? staffOf(s, sl.worker) : null;
-      if (!st) worse('craft', 'stop', t(`作業台 ${k + 1} に職人がいません。`, `Bench ${k + 1} has no crafter.`));
-      else if (!sl.sku) worse('craft', 'stop', t(`作業台 ${k + 1} で作るものが決まっていません。`, `Bench ${k + 1} has nothing to make.`));
-      else if (st.resting) worse('craft', 'warn', t(`作業台 ${k + 1} の職人が休憩中です。`, `Bench ${k + 1}'s crafter is resting.`));
-      else if (!sl.running) {
-        const e = craftCheck(s, sl.sku, sl.worker);
-        if (e === 'mats')
-          worse(
-            'craft',
-            tripLeft != null ? 'warn' : 'stop',
-            tripLeft != null ? t(`作業台 ${k + 1}：素材待ち（調達係があと ${tripLeft} 日で戻ります）。`, `Bench ${k + 1}: waiting for materials (buyer back in ${tripLeft} d).`) : t(`作業台 ${k + 1}：素材が足りません。`, `Bench ${k + 1}: not enough materials.`),
-          );
-        else if (e === 'full') worse('craft', 'stop', t(`作業台 ${k + 1}：置き場所がいっぱいです。`, `Bench ${k + 1}: storage is full.`));
-      }
-    });
-    // 作っているのに、どのお店にも並べていない
-    for (const x of new Set(s.slots.map((y) => y.sku).filter((y): y is Sku => !!y)))
-      if (shops.length && !shops.some((b) => s.shops[b.uid].shelves.includes(x))) worse('craft', 'warn', t(`「${skuName(x)}」を並べているお店がありません。`, `No shop sells ${skuName(x)}.`));
-    // ③ 物流
-    if (!haulers.length && shops.length) worse('haul', 'stop', t('物流の担当がいないので、商品がお店に届きません。', 'No hauler: goods never reach the shops.'));
-    else if (haulers.every((x) => x.resting) && haulers.length) worse('haul', 'warn', t('運搬係が全員休憩中です。', 'All haulers are resting.'));
-    if (stock > TRANSPORT.cap * 2) worse('haul', 'warn', t(`工房に運ぶ前の商品が ${stock} 個たまっています。`, `${stock} goods are waiting at the workshop.`));
-    // 工房から遠いお店：運ぶのに日数がかかる（物流拠点・トラックで縮む）
-    for (const b of shops) {
-      const way = oneWay(s, b);
-      if (way.days > 2.5) {
-        worse('haul', 'warn', t(`${DEF[b.id].name}は工房から遠く、片道 ${way.days.toFixed(1)} 日かかります。`, `${DEF[b.id].name} is far: ${way.days.toFixed(1)} days one way.`));
-        if (!issues.haul.acts.some((a) => a[2] === 'hub')) issues.haul.acts.push(has(s, 'hub') ? [t('物流拠点を建てる', 'Build a hub'), () => ctx.build?.('logistics'), 'hub'] : [t('物流拠点を調べる', 'About hubs'), () => openSkills(ctx, 'logi'), 'hub']);
-      }
-    }
-    // ④ 販売
-    if (!shops.length) {
-      worse('sell', 'stop', t('お店がありません。', 'No shop yet.'));
-      issues.sell.acts.push([t('お店を建てる', 'Build a shop'), () => ctx.build?.('general_store'), 'is-on']);
-    }
-    for (const b of shops) {
-      const sh = s.shops[b.uid];
-      const st = sh.staff != null ? staffOf(s, sh.staff) : null;
-      const name = DEF[b.id].name;
-      if (!sh.shelves[0]) worse('sell', 'stop', t(`${name}：並べる商品が決まっていません。`, `${name}: no product chosen.`));
-      if (!st && sh.part === 0) worse('sell', 'stop', t(`${name}：売り場に人がいません。`, `${name}: nobody on the floor.`));
-      else if (st?.resting && sh.part === 0) worse('sell', 'warn', t(`${name}：店員が休憩中です。`, `${name}: the clerk is resting.`));
-      const main = sh.shelves[0];
-      const making = s.slots.map((y) => y.sku).filter((y): y is Sku => !!y);
-      if (main && !making.includes(main) && (sh.shelf[main] ?? 0) <= 0 && (sh.storage[main] ?? 0) <= 0 && !(s.stock[main] ?? 0))
-        worse('sell', 'stop', t(`${name}：「${skuName(main)}」は工房で作っていません。作っているものを並べましょう。`, `${name}: ${skuName(main)} isn't being crafted. Shelve what you make.`));
-      else if (main && (sh.shelf[main] ?? 0) <= 0 && (sh.storage[main] ?? 0) <= 0) worse('sell', 'warn', t(`${name}：主力商品が品切れです。`, `${name}: the main product is sold out.`));
-      if ((sh.aw ?? 1) < 0.7) worse('sell', 'warn', t(`${name}：まだ知られていません（認知度 ${Math.round((sh.aw ?? 1) * 100)}%）。宣伝すると早く広まります。`, `${name}: not well known yet (${Math.round((sh.aw ?? 1) * 100)}%). Ads help.`));
-    }
-    if (shops.length) issues.sell.acts.push([t('お店を開く', 'Open shop'), () => openShop(ctx, shops[0].uid), 'is-on'], [t('宣伝広報', 'Advertising'), () => openAds(ctx)]);
+    const issues = scmIssues(ctx, s, caps);
 
     // 詰まり：月次報告と同じ判定（ひと月に流せる数がいちばん少ない段。jamOf）。段のランプ（停止・注意）は状態の表示だけ
     const bn = scmJam(s);
