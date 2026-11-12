@@ -7,7 +7,7 @@
  * 出す中身・押せる導線は、今の月次報告（p1/report.ts）と同じだけそろえる。器は今の札（open()）：閉じ方・時間の止め方・月末の流れは今のまま。
  * 発掘作業のまとめ報告も、同じ紙テープの 1 ページで出す。
  */
-import { t } from '../../../i18n';
+import { isEn, t } from '../../../i18n';
 import { stallSay, reportProposal } from '../../p1/card';
 import { shortN } from '../../p1/chartkit';
 import { sectorDef } from '../../p1/company';
@@ -73,6 +73,18 @@ export function growStreak(vals: number[]): number {
   let n = 0;
   for (let k = vals.length - 1; k > 0 && vals[k] > vals[k - 1]; k--) n++;
   return n;
+}
+/**
+ * 棒の上の短い金額。日本語は見本と同じく小数 1 桁まで（54.1万・104.7万・1.2億）。1 万未満は 3 桁区切り。
+ * 英語は、今のグラフと同じ短い書き方（shortN：541k・1M）
+ */
+export function manText(v: number): string {
+  if (isEn) return shortN(v);
+  const a = Math.abs(v);
+  const sgn = v < 0 ? '−' : '';
+  if (a >= 1e8) return `${sgn}${+(a / 1e8).toFixed(1)}億`; // i18n-ja
+  if (a >= 1e4) return `${sgn}${+(a / 1e4).toFixed(1)}万`; // i18n-ja
+  return sgn + Math.round(a).toLocaleString('en-US');
 }
 /** 順位の動き（先月の順位 → 今月の順位）。先月が無ければ new */
 export type RankMove = 'new' | 'up' | 'down' | 'keep';
@@ -176,12 +188,17 @@ function rich(text: string): DocumentFragment {
 const num = (text: string, cls = '') => el(`span.ux-num${cls ? '.' + cls : ''}`, text);
 /** 「104.7万」：数字は数字の書体、単位は日本語の書体で */
 function man(v: number): HTMLElement {
-  const m = /^([−\-\d.,]+)(.*)$/.exec(shortN(v));
-  return el('span.uxs-man', num(m ? m[1] : shortN(v)), m?.[2] ?? '');
+  const m = /^([−\-\d.,]+)(.*)$/.exec(manText(v));
+  return el('span.uxs-man', num(m ? m[1] : manText(v)), m?.[2] ?? '');
 }
 /** 増減の色の class（色だけに頼らない：▲▼・符号・言葉を添える） */
 const tone = (v: number) => (Math.round(v) > 0 ? 'is-good' : Math.round(v) < 0 ? 'is-bad' : 'is-even');
-const toneIcon = (v: number) => (Math.round(v) === 0 ? null : inkIcon(v > 0 ? 'up' : 'down', 1));
+/** ▲▼ のアイコン（紙の上の色。色覚に配慮した組では、青と橙） */
+function toneIcon(v: number): HTMLElement | null {
+  if (Math.round(v) === 0) return null;
+  const cvd = document.documentElement.classList.contains('is-cvd');
+  return sIcon(v > 0 ? 'up' : 'down', { color: v > 0 ? (cvd ? '#14568a' : '#14804c') : cvd ? '#8a4408' : '#9c2238', scale: 1 });
+}
 /** 伝票の行（名前 …… 値。点線でつなぐ） */
 function rcp(label: Kid, value: Kid, cls = ''): HTMLElement {
   return el(`span.uxs-rcp${cls ? '.' + cls : ''}`, el('b', label), el('i'), typeof value === 'string' ? num(value) : value);

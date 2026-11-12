@@ -8,6 +8,7 @@
  */
 import { heroFacesRight } from '../../../game/catalog';
 import { t } from '../../../i18n';
+import { assetUrl } from '../../../render/images';
 import { DEF } from '../../defs';
 import { FACTORY, INVESTS, MATS, type Mat, type Sku } from '../../p1/data';
 import { benchAfter, upWhy } from '../../p1/factoryui';
@@ -20,6 +21,7 @@ import {
   craftCheck,
   craftDays,
   facLv,
+  has,
   invest,
   investCost,
   invLv,
@@ -724,7 +726,13 @@ function build(ctx: Ctx, body: HTMLElement) {
     chips,
     el('p.ux-t-dim', t('できた商品は、物流の担当がお店へ運びます。', 'Haulers carry finished goods to your shops.')),
   );
-  const paneBench = el('div.ux-pane.uxs-pane', benchBox, belt, store);
+  // ---- 工房の絵（今の画面と同じ絵：工房の中・炉の火のゆらぎ・魔法の釜を持っていれば釜）。細い帯にして、作業台を上に見せる
+  const scene = el('div.uxs-scene', { 'aria-hidden': 'true' });
+  scene.style.backgroundImage = `url("${assetUrl('mch/Image/CraftBackgrounds/Base/100.webp')}")`;
+  const amb = el<HTMLImageElement>('img.uxs-scene-amb', { alt: '', src: assetUrl('mch/Image/CraftBackgrounds/Base/200.gif') });
+  const pot = el<HTMLImageElement>('img.uxs-scene-pot', { alt: '', hidden: true });
+  scene.append(amb, pot);
+  const paneBench = el('div.ux-pane.uxs-pane', scene, benchBox, belt, store);
 
   // ---- 見くらべのタブ
   const cmpGrid = el('div.uxs-cmp-grid');
@@ -855,6 +863,11 @@ function build(ctx: Ctx, body: HTMLElement) {
       if (fresh.has(k)) b.el.classList.add('is-new');
       b.sync(k);
     });
+    // ---- 魔法の釜（スキル）を持っていれば、絵に釜が出る（今の画面と同じ）
+    if (has(st, 'pot') && pot.hidden) {
+      pot.src = assetUrl('mch/Image/CraftBackgrounds/Stages/201.gif');
+      pot.hidden = false;
+    }
     // ---- 出荷のベルトと物置
     const entries = Object.entries(st.stock).filter(([, n]) => (n ?? 0) > 0) as [Sku, number][];
     const total = entries.reduce((a, [, n]) => a + n, 0);

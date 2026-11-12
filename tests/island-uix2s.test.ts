@@ -9,7 +9,7 @@ import { craftable } from '../src/island/p1/orders';
 import { openDigSummary, openMonthReport, wasAnnounced, type ReportHooks } from '../src/island/p1/report';
 import { openWorkshop, type Ctx } from '../src/island/p1/screens';
 import { UX_ICONS } from '../src/island/uix/icons';
-import { COUNT_MS, FEED_MS, RANGE_KEY, barBox, growStreak, niceMax, noEmoji, paperCore, rankMove, rankOrder, readRange, reportPages } from '../src/island/uix/screens/report';
+import { COUNT_MS, FEED_MS, RANGE_KEY, barBox, growStreak, manText, niceMax, noEmoji, paperCore, rankMove, rankOrder, readRange, reportPages } from '../src/island/uix/screens/report';
 import { S_ICONS } from '../src/island/uix/screens/s-icons';
 import { uxs } from '../src/island/uix/screens/s-slots';
 import { STAMP_MS, TAB_MS, benchProgress, benchState, gapRatio, planRange, planSnap, planText, wsTabs, wsTitle } from '../src/island/uix/screens/workshop';
@@ -89,6 +89,17 @@ describe('今の目印が残る（チュートリアル・BGM の場面・撮影
     expect(WS).toContain("badge: ctx.step?.() === 'craft' ?");
     // ✕ を別のボタンに作り替えない（.isl-sheet-head .isl-btn に is-guide が付く）
     expect(WS).not.toMatch(/isl-sheet-head[^\n]*\.remove\(\)/);
+  });
+  it('指で押したあとの click が、開いたばかりの窓や地図に当たらない守りを、キーに付けている', () => {
+    const sp = src('uix/screens/s-press.ts');
+    expect(sp).toContain("addEventListener('click', stop, true)");
+    // 重なる窓を開く・札を閉じる・画面を替えるキーは、どれも守りつき
+    for (const k of ['safe(() => pickWho())', 'safe(() => pickItem())', 'safe(() => buy())', 'safe(() => setTab(key))', 'ctx.rebuild?.();\n          })']) expect(WS, k).toContain(k);
+    expect(RP).toContain('return press(b, safe(fn));');
+    expect(RP).toContain('safe(() => go(1))');
+    // 今の目印 isl-slot も付ける（今の道具・案内が同じ場所を指せる）
+    expect(WS).toContain("cls: 'uxs-slot uxs-slot--who isl-slot'");
+    expect(WS).toContain("cls: 'uxs-slot uxs-slot--item isl-slot isl-ext-slot'");
   });
   it('工房：チュートリアルのあいだは、設備投資と建て替えを出さない（今の画面と同じ）', () => {
     expect(wsTabs(true)).toEqual(['bench', 'cmp']);
@@ -307,6 +318,13 @@ describe('月次報告の決まり（DOM なしの芯）', () => {
     expect(barBox(50, 0, 100)).toEqual({ b: 0, h: 50 });
     expect(barBox(-50, -100, 100)).toEqual({ b: 25, h: 25 });
     expect(barBox(100, -100, 100)).toEqual({ b: 50, h: 50 });
+    // 棒の上の金額：小数 1 桁まで（見本と同じ書き方）
+    expect(manText(1046849)).toBe('104.7万');
+    expect(manText(540984)).toBe('54.1万');
+    expect(manText(600000)).toBe('60万');
+    expect(manText(4571)).toBe('4,571');
+    expect(manText(-64000)).toBe('−6.4万');
+    expect(manText(123456789)).toBe('1.2億');
     expect(growStreak([1, 2, 3, 4])).toBe(3);
     expect(growStreak([4, 3, 5])).toBe(1);
     expect(growStreak([5, 4])).toBe(0);
