@@ -63,6 +63,7 @@ import { fmt, heroIcon, heroName, matIcon, money, signed, skuIcon, skuName } fro
 import { uxbDeps } from './uxb';
 import { uxwDeps } from './uxw';
 import { uxcDeps } from './uxc';
+import { uxkDeps } from './uxk';
 import { uxsBoot } from '../uix/screens/s-slots';
 
 export const uxsDeps = {
@@ -173,6 +174,8 @@ export const uxsDeps = {
   uxc: uxcDeps,
   // 段 UIX3b：事業の画面（調達・お店・サプライチェーン ほか）の束
   b: uxbDeps,
+  // 段 UIX3k：経営企画の画面（スキルツリー・企業ランキング・設備投資・決算書 ほか）の束
+  k: uxkDeps,
 };
 export type UxsDeps = typeof uxsDeps;
 

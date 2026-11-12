@@ -1,0 +1,482 @@
+/*
+ * 段 UIX3k：経営企画の画面（企業ランキング・設備投資・決算書・税と職場・予算）の見た目。入のときだけ読む（k-boot.ts から）。
+ * すべて html.is-uxc の内側。class の接頭辞は uxk-。値は土台の --ux-*（色・升目 2px・切り欠き）。角は丸めない。
+ * 動きは transform と opacity だけ。出入りは backwards まで（層を残さない）。動きを減らすときは全部止まる（いちばん下）。
+ */
+
+/* ==================================================================== 企業ランキング */
+html.is-uxc #isl-ui .uxk-rk {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 4px 0 8px;
+}
+/* 上：順位の札（左）と、月の売上・次の順位までの差（右） */
+html.is-uxc #isl-ui .uxk-rk-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px 12px;
+  padding: 10px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k4), inset -4px -4px 0 0 var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-rk-left,
+html.is-uxc #isl-ui .uxk-rk-right {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+/* 順位の札：上の帯の札と同じ言葉・同じ色（「エリア」の貼り札・黒い窓に数字・1 位は琥珀） */
+html.is-uxc #isl-ui .uxk-rk-plate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+html.is-uxc #isl-ui .uxk-rk-plate .ux-tape {
+  margin-left: 2px;
+}
+html.is-uxc #isl-ui .uxk-rk-win {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  min-width: 6rem;
+  height: 4rem;
+  padding: 0 10px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 4px 0 0 rgba(0, 0, 0, 0.6), inset 0 -2px 0 0 var(--ux-k1);
+  overflow: hidden;
+}
+html.is-uxc #isl-ui .uxk-rk-num {
+  display: inline-block;
+  font-size: var(--ux-n4);
+  line-height: 4rem;
+  color: var(--ux-paper);
+  transform-origin: 50% 50%;
+}
+html.is-uxc #isl-ui .uxk-rk-unit {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-rk-plate.is-none .uxk-rk-num {
+  color: #3d4468;
+}
+html.is-uxc #isl-ui .uxk-rk-plate.is-top .uxk-rk-num {
+  color: var(--ux-amber);
+  text-shadow: 0 0 0 var(--ux-amber), 2px 2px 0 var(--ux-amber-lo);
+}
+html.is-uxc #isl-ui .uxk-rk-plate.is-top .ux-tape {
+  background: var(--ux-amber);
+  box-shadow: inset 0 -2px 0 var(--ux-amber-lo), 2px 2px 0 rgba(4, 6, 14, 0.5);
+}
+/* 札がめくれる（上の帯と同じ 280ms・4 段） */
+html.is-uxc #isl-ui .uxk-rk-num.is-flip {
+  animation: uxk-rk-flip 280ms steps(4, end) 1;
+}
+@keyframes uxk-rk-flip {
+  0% { transform: scaleY(1); }
+  50% { transform: scaleY(0); }
+  100% { transform: scaleY(1); }
+}
+/* 動き（色だけに頼らない：▲▼ の絵と言葉） */
+html.is-uxc #isl-ui .uxk-rk-move {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 12rem;
+  color: var(--ux-k5);
+  line-height: 1.4;
+}
+html.is-uxc #isl-ui .uxk-rk-move.is-up { color: var(--ux-good); }
+html.is-uxc #isl-ui .uxk-rk-move.is-down { color: var(--ux-bad); }
+html.is-uxc #isl-ui .uxk-rk-move.is-new { color: var(--ux-cyan); }
+html.is-uxc #isl-ui .uxk-rk-move.is-wait { opacity: 0; }
+html.is-uxc #isl-ui .uxk-rk-move.is-shown { animation: uxk-rk-pop 220ms steps(4, end) 1 backwards; }
+@keyframes uxk-rk-pop {
+  0% { opacity: 0; transform: translate3d(0, 6px, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+html.is-uxc #isl-ui .uxk-rk-right .uxp-stat {
+  width: 100%;
+}
+html.is-uxc #isl-ui .uxk-rk-right .uxp-row {
+  min-height: 2.75rem;
+}
+html.is-uxc.is-cvd #isl-ui .uxk-rk-move.is-up { color: var(--ux-cyan); }
+html.is-uxc.is-cvd #isl-ui .uxk-rk-move.is-down { color: #ff9a3c; }
+
+/* エリアの知らせ（反撃・セール）：赤いランプと黒い札 */
+html.is-uxc #isl-ui .uxk-rk-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+html.is-uxc #isl-ui .uxk-rk-alerts:empty {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-rk-alert {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 8px;
+  padding: 6px 8px;
+  background: #241521;
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 0 var(--ux-bad);
+  line-height: 1.4;
+}
+html.is-uxc #isl-ui .uxk-rk-alert > span:last-child {
+  grid-column: 1 / -1;
+  color: var(--ux-paper2);
+}
+html.is-uxc #isl-ui .uxk-rk-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: max-content;
+  max-width: 100%;
+  padding: 0 6px;
+  background: #3a1621;
+  box-shadow: inset 0 -2px 0 0 #1e0b12;
+  color: #ff8a92;
+}
+html.is-uxc #isl-ui .uxp-rank.is-me .uxk-rk-tag {
+  color: var(--ux-ink);
+}
+
+/* 順位の行：わが社の行は琥珀（土台の uxpRank）。わが社の行の右に、ランプがまたたく */
+html.is-uxc #isl-ui .uxk-ranks .uxp-rank.is-me {
+  position: relative;
+}
+html.is-uxc #isl-ui .uxk-ranks .uxp-rank-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* 開いたとき：行が上から順に打たれる（--i 番目。60ms ずつ） */
+html.is-uxc #isl-ui .uxk-rk.is-in .uxk-ranks > .uxp-rank {
+  animation: uxk-rk-row 240ms steps(4, end) 1 backwards;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+@keyframes uxk-rk-row {
+  0% { opacity: 0; transform: translate3d(-16px, 0, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+/* わが社の行：打たれたあと、一度だけ光る */
+html.is-uxc #isl-ui .uxk-rk.is-in .uxk-ranks > .uxp-rank.is-me {
+  animation: uxk-rk-row 240ms steps(4, end) 1 backwards, uxk-rk-me 600ms steps(3, end) 1;
+  animation-delay: calc(var(--i, 0) * 60ms), calc(var(--i, 0) * 60ms + 260ms);
+}
+@keyframes uxk-rk-me {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+/* 1 位と 2 位のあいだのゴールの線 */
+html.is-uxc #isl-ui .uxk-rk-goal {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+}
+html.is-uxc #isl-ui .uxk-rk-goal > i {
+  flex: 1;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--ux-amber) 0 6px, transparent 6px 10px);
+}
+html.is-uxc #isl-ui .uxk-rk-goal .ux-tape {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* 世界：はるか下のわが社（…） */
+html.is-uxc #isl-ui .uxk-rk-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+html.is-uxc #isl-ui .uxk-rk-dots > i {
+  width: 6px;
+  height: 6px;
+  background: var(--ux-k4);
+}
+html.is-uxc #isl-ui .uxk-rk-far .uxp-rank-n {
+  font-size: var(--ux-n15);
+}
+html.is-uxc #isl-ui .uxk-rk-hist {
+  margin: 4px 0 8px;
+}
+html.is-uxc #isl-ui .uxk-note {
+  margin: 8px 0 0;
+  color: var(--ux-k5);
+  line-height: 1.5;
+}
+/* 広い画面：ゆったり（札の幅いっぱいにしない） */
+@media (min-width: 900px) {
+  html.is-uxc #isl-ui .uxk-rk {
+    max-width: 760px;
+  }
+}
+/* せまい画面：札と数字を縦に */
+@media (max-width: 420px) {
+  html.is-uxc #isl-ui .uxk-rk-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html.is-uxc #isl-ui .uxk-rk-left {
+    flex-direction: row;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+  html.is-uxc #isl-ui .uxk-rk-move {
+    max-width: none;
+    flex: 1 1 8rem;
+    padding-bottom: 6px;
+  }
+}
+
+/* ==================================================================== 設備投資 */
+html.is-uxc #isl-ui .uxk-iv {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 4px 0 8px;
+}
+html.is-uxc #isl-ui .uxk-iv .uxk-note {
+  margin: 0;
+}
+html.is-uxc #isl-ui .uxk-iv-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-iv-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ux-k5);
+  white-space: nowrap;
+}
+/* 設備の絵：暗い窓にドットの絵。導入したらランプが点き、絵が明るくなる */
+html.is-uxc #isl-ui .uxk-iv-pic {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+}
+html.is-uxc #isl-ui .uxk-iv-pic > .ux-lamp {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+}
+html.is-uxc #isl-ui .uxk-iv-card:not(.is-owned) .uxk-iv-pic > canvas {
+  opacity: 0.55;
+}
+html.is-uxc #isl-ui .uxk-iv-pips {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+}
+html.is-uxc #isl-ui .uxk-iv-pips:empty {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-iv-pips > .ux-lamp.is-new {
+  animation: uxk-iv-pip 420ms steps(6, end) 1;
+}
+@keyframes uxk-iv-pip {
+  0% { transform: scale(2.2); }
+  50% { transform: scale(0.8); }
+  100% { transform: scale(1); }
+}
+html.is-uxc #isl-ui .uxk-iv-card .uxp-card-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+html.is-uxc #isl-ui .uxk-iv-gain {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxk-iv-gain.is-dim {
+  color: var(--ux-k5);
+}
+html.is-uxc.is-cvd #isl-ui .uxk-iv-gain:not(.is-dim) {
+  color: var(--ux-cyan);
+}
+html.is-uxc #isl-ui .uxk-iv-card.is-weak:not(.is-max) {
+  background: #1d2033;
+}
+html.is-uxc #isl-ui .uxk-iv-card.is-weak:not(.is-max) .uxp-card-name {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-iv-price:empty {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-iv-buy {
+  min-width: 6.5rem;
+}
+/* 買えた：カードが琥珀に光る（1 回。層は残さない） */
+html.is-uxc #isl-ui .uxk-iv-card.is-bought::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ux-amber);
+  pointer-events: none;
+  opacity: 0;
+  animation: uxk-iv-flash 420ms steps(6, end) 1;
+}
+@keyframes uxk-iv-flash {
+  0% { opacity: 0.55; }
+  100% { opacity: 0; }
+}
+html.is-uxc #isl-ui .uxk-iv-card.is-max {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k3), inset -4px -4px 0 0 #191d31, inset 0 -4px 0 0 var(--ux-good-lo);
+}
+
+/* ==================================================================== 決算書 */
+html.is-uxc #isl-ui .uxk-bk {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 4px 0 8px;
+}
+html.is-uxc #isl-ui .uxk-bk .uxk-note {
+  margin: 0;
+}
+/* 四半期のキーの列（多いときは横に送る） */
+html.is-uxc #isl-ui .uxk-bk-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 2px 6px;
+  scrollbar-width: thin;
+}
+html.is-uxc #isl-ui .uxk-bk-q {
+  flex: none;
+}
+html.is-uxc #isl-ui .uxk-bk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-bk-q.is-on > .ux-cap {
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  transform: translate3d(0, 4px, 0);
+}
+html.is-uxc #isl-ui .uxk-bk-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+/* 紙（表）と縦の棒を並べる。せまい画面は縦に */
+html.is-uxc #isl-ui .uxk-bk-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+html.is-uxc #isl-ui .uxk-bk-graph {
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: 10px 8px 6px;
+  background: #11131f;
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 4px 0 0 rgba(0, 0, 0, 0.5);
+}
+html.is-uxc #isl-ui .uxk-bk-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+html.is-uxc #isl-ui .uxk-bk-sub {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ux-k5);
+}
+@media (max-width: 699px) {
+  html.is-uxc #isl-ui .uxk-bk-pair,
+  html.is-uxc #isl-ui .uxk-bk-two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* 紙の見出し・行（数字は右そろえ。小計は上に罫・合計は二重の罫と太字） */
+html.is-uxc #isl-ui .uxk-bk-ttl {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxk-bk-ttl > span {
+  margin-left: auto;
+  color: #6a5f40;
+}
+html.is-uxc #isl-ui .uxk-bk-rows {
+  display: flex;
+  flex-direction: column;
+}
+html.is-uxc #isl-ui .uxk-bk-row .uxp-row-v {
+  min-width: 7rem;
+  text-align: right;
+}
+html.is-uxc #isl-ui .uxk-bk-row.is-sub .uxp-row-k {
+  padding-left: 1rem;
+}
+html.is-uxc #isl-ui .uxk-bk-row.is-head .uxp-row-k,
+html.is-uxc #isl-ui .uxk-bk-row.is-sum .uxp-row-k,
+html.is-uxc #isl-ui .uxk-bk-row.is-total .uxp-row-k {
+  color: var(--ux-ink);
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc #isl-ui .uxk-bk-row.is-sum {
+  border-top: 2px solid rgba(26, 28, 46, 0.5);
+}
+html.is-uxc #isl-ui .uxk-bk-row.is-total {
+  margin-top: 4px;
+  border-top: 2px solid var(--ux-ink);
+  box-shadow: 0 -6px 0 -4px var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxk-bk-row.is-total .uxp-row-v {
+  font-size: var(--ux-n2);
+}
+html.is-uxc #isl-ui .uxp-paper .uxk-bk-row.is-bad .uxp-row-v {
+  color: #b8323f;
+}
+html.is-uxc #isl-ui .uxk-bk-fine {
+  margin: 6px 0 0;
+  color: #6a5f40;
+  line-height: 1.4;
+}
+html.is-uxc #isl-ui .uxk-bk-advice {
+  margin-top: 4px;
+}
+html.is-uxc #isl-ui .uxk-bk-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxk-bk-costs .uxp-rank-name {
+  white-space: normal;
+}
+
+/* ==================================================================== 動きを減らす：止まった形で、全部すぐ出る（この束の画面の根には uxk-calm を付ける） */
+html.is-uxc.is-calm #isl-ui .uxk-calm *,
+html.is-uxc.is-calm #isl-ui .uxk-calm *::before,
+html.is-uxc.is-calm #isl-ui .uxk-calm *::after {
+  animation: none !important;
+  transition: none !important;
+}
+html.is-uxc.is-calm #isl-ui .uxk-rk-move.is-wait {
+  opacity: 1;
+}

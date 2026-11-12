@@ -148,6 +148,7 @@ import { charismaCard, charismaNeeds, openPayroll as openPayrollHr } from './hru
 import { hireEmptyLines } from './hr';
 import { uxb } from '../uix/screens/b-slots';
 import { uxs } from '../uix/screens/s-slots';
+import { uxk } from '../uix/screens/k-slots';
 
 export interface Ctx {
   s: () => P1State;
@@ -1835,6 +1836,8 @@ export function rallyBadge(s: P1State): HTMLElement | null {
 }
 
 export function openRanking(ctx: Ctx, tab: 'area' | 'land' | 'world' = 'area') {
+  // 段 UIX3k：入のときは、新しい画面（uix/screens/ranking.ts）へ
+  if (uxk.ranking) return uxk.ranking(ctx, tab);
   open(ctx, t('企業ランキング（月の売上）', 'Company ranking (monthly sales)'), (body) => {
     const s = ctx.s();
     mineTip(ctx, 'ranking', body);
@@ -2233,6 +2236,8 @@ export function investList(ctx: Ctx, b: PBuilding, onDone: () => void): HTMLElem
 }
 
 export function openInvest(ctx: Ctx) {
+  // 段 UIX3k：入のときは、新しい画面（uix/screens/invest.ts）へ
+  if (uxk.invest) return uxk.invest(ctx);
   open(ctx, t('設備投資', 'Capital investment'), (body) => {
     const s = ctx.s();
     body.append(h('p', 'isl-dim', t('建物ごとに設備を良くします。地図で自社の建物をタップしても投資できます。', 'Upgrade each of your buildings. You can also invest by tapping a building on the map.')));

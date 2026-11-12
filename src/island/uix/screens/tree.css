@@ -1,0 +1,1792 @@
+/* 段 UIX3k：スキルツリー（方向 C「管制卓」の回路図。入のときだけ。docs/ISLAND_UIX.md「画面：スキルツリー」）。
+   今の目印（.isl-tree・.isl-tree-root・.isl-tree-node・.isl-tree-detail）も付けてあるので、今の見た目の決まり（p1.css）は、
+   #isl-ui を付けた強い決まりで外してから（all: unset・::before / ::after を消す）、管制卓の形を書く。
+   色・升目（2px）・切り欠き・網目・動きの長さは土台の値（tokens.css）。動かすのは transform と opacity。 */
+
+html.is-uxc #isl-ui .uxk-tree,
+html.is-uxc #isl-ui .uxk-tree *,
+html.is-uxc #isl-ui .uxk-tree *::before,
+html.is-uxc #isl-ui .uxk-tree *::after {
+  box-sizing: border-box;
+}
+/* 札の中身：木を全面に（今の決まりと同じ） */
+html.is-uxc #isl-ui .isl-sheet-body.is-tree {
+  padding: 0;
+  background: var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxk-tree {
+  position: relative;
+  height: 100%;
+  min-height: 360px;
+  overflow: hidden;
+  background: var(--ux-k0);
+  color: var(--ux-paper);
+  font: 400 1rem/1.4 var(--ux-jp);
+  -webkit-user-select: none;
+  user-select: none;
+}
+html.is-uxc #isl-ui .uxk-vp {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+  touch-action: none;
+}
+html.is-uxc #isl-ui .uxk-vp:active {
+  cursor: grabbing;
+}
+/* 木の地：回路の基板（点の升目） */
+html.is-uxc #isl-ui .uxk-world {
+  --lw: 3px;
+  --hs: 1;
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' shape-rendering='crispEdges'%3E%3Crect x='11' y='11' width='2' height='2' fill='%2320253d'/%3E%3C/svg%3E"), var(--ux-k0);
+}
+
+/* ---------------------------------------------------------------- 配線 */
+html.is-uxc #isl-ui .uxk-wires {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxk-w {
+  fill: none;
+  stroke-width: var(--lw);
+  stroke-linejoin: miter;
+  stroke-linecap: butt;
+  opacity: 0.8;
+}
+/* 通電（取得済みどうし）：明るい実線 */
+html.is-uxc #isl-ui .uxk-w.is-done {
+  opacity: 1;
+}
+/* つながる（手前が済み）：実線・少し暗く */
+html.is-uxc #isl-ui .uxk-w.is-open {
+  opacity: 0.62;
+}
+/* 手前がまだ：細い点線 */
+html.is-uxc #isl-ui .uxk-w.is-lock {
+  stroke-width: calc(var(--lw) * 0.66);
+  stroke-dasharray: 2 6;
+  opacity: 0.4;
+}
+/* 帯が閉じている：薄い点線 */
+html.is-uxc #isl-ui .uxk-w.is-closed {
+  stroke-width: calc(var(--lw) * 0.66);
+  stroke-dasharray: 2 10;
+  opacity: 0.2;
+}
+/* n 個要る：破線 */
+html.is-uxc #isl-ui .uxk-w.is-any:not(.is-closed):not(.is-lock) {
+  stroke-dasharray: 10 6;
+}
+html.is-uxc #isl-ui .uxk-w.is-cross {
+  stroke-width: calc(var(--lw) * 0.5);
+  stroke-dasharray: 2 4;
+}
+html.is-uxc #isl-ui .uxk-w.is-path {
+  opacity: 1;
+  stroke-width: calc(var(--lw) + 1px);
+}
+html.is-uxc #isl-ui .uxk-w.is-dimf {
+  opacity: 0.1;
+}
+html.is-uxc #isl-ui .uxk-w.is-trunk {
+  stroke-width: calc(var(--lw) + 1px);
+  opacity: 0.9;
+}
+html.is-uxc #isl-ui .uxk-dot {
+  opacity: 0.85;
+}
+/* 選んだパネルのつながり：先に要る側＝琥珀の実線・その先＝水色の破線。暗い縁取りを下に敷いて、ほかの線から浮かせる */
+html.is-uxc #isl-ui .uxk-hl {
+  fill: none;
+  stroke-linejoin: miter;
+  stroke-width: calc(var(--lw) + 2px);
+  animation: uxk-hl-in 240ms steps(3, end) 1 backwards;
+}
+html.is-uxc #isl-ui .uxk-hl.is-rim {
+  stroke: var(--ux-k0);
+  stroke-width: calc(var(--lw) + 8px);
+  animation: none;
+}
+html.is-uxc #isl-ui .uxk-hl.is-up.is-core {
+  stroke: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxk-hl.is-down.is-core {
+  stroke: var(--ux-cyan);
+  stroke-dasharray: 12 4;
+}
+@keyframes uxk-hl-in {
+  0% { opacity: 0; }
+  34% { opacity: 1; }
+  67% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+/* ランクの帯 */
+html.is-uxc #isl-ui .uxk-band {
+  opacity: 0.03;
+}
+html.is-uxc #isl-ui .uxk-band.is-on {
+  opacity: 0.09;
+}
+html.is-uxc #isl-ui .uxk-band.is-glow {
+  animation: uxk-band-glow 1.2s steps(6, end) 2;
+}
+@keyframes uxk-band-glow {
+  0%, 100% { opacity: 0.09; }
+  50% { opacity: 0.3; }
+}
+html.is-uxc #isl-ui .uxk-bandline {
+  fill: none;
+  stroke-width: 2px;
+  stroke-dasharray: 4 8;
+  opacity: 0.35;
+}
+html.is-uxc #isl-ui .uxk-bandline.is-on {
+  stroke-dasharray: none;
+  stroke-width: 4px;
+  opacity: 0.7;
+}
+/* 線の上を走る電気の粒 */
+html.is-uxc #isl-ui .uxk-pulse {
+  position: absolute;
+  left: -6px;
+  top: -6px;
+  z-index: 3;
+  width: 12px;
+  height: 12px;
+  background: var(--ux-white);
+  box-shadow: 0 0 0 2px var(--br), 0 0 0 4px rgba(255, 253, 243, 0.25);
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- 帯の入口・合流点・束の札 */
+html.is-uxc #isl-ui .uxk-gate {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--tc);
+  opacity: 0.6;
+}
+html.is-uxc #isl-ui .uxk-gate.is-on {
+  background: var(--tc);
+  opacity: 1;
+}
+html.is-uxc #isl-ui .uxk-junc {
+  position: absolute;
+  z-index: 2;
+  min-width: 28px;
+  padding: 0 4px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--br);
+  color: var(--ux-paper);
+  font-size: 1.125rem;
+  line-height: 20px;
+  text-align: center;
+  transform: translate(-50%, -50%) scale(var(--hs));
+}
+html.is-uxc #isl-ui .uxk-junc.is-ok {
+  background: var(--ux-good);
+  box-shadow: inset 0 0 0 2px var(--ux-good-lo);
+  color: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxk-knot {
+  position: absolute;
+  z-index: 2;
+  padding: 2px 8px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--br);
+  color: var(--br);
+  font-size: 1rem;
+  line-height: 1.25;
+  white-space: nowrap;
+  text-shadow: 1px 0 currentColor;
+  transform: translate(-50%, -50%) scale(var(--hs));
+}
+
+/* ---------------------------------------------------------------- 本社 */
+html.is-uxc #isl-ui .uxk-root {
+  all: unset;
+  box-sizing: border-box;
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  width: 128px;
+  height: 108px;
+  margin: -54px 0 0 -64px;
+  padding: 8px 6px 6px;
+  color: var(--ux-amber);
+  font: 400 1rem/1.25 var(--ux-jp);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+html.is-uxc #isl-ui .uxk-root::before,
+html.is-uxc #isl-ui .uxk-root::after {
+  content: none;
+}
+html.is-uxc #isl-ui .uxk-root-f {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--ux-amber);
+  clip-path: var(--ux-notch4);
+}
+html.is-uxc #isl-ui .uxk-root-f::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: var(--ux-k2);
+  box-shadow: inset 2px 2px 0 var(--ux-k4), inset -2px -2px 0 var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-root-b {
+  width: 88px;
+  height: 56px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxk-root-n {
+  font-weight: 400;
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc #isl-ui .uxk-root > .ux-lamp {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+}
+html.is-uxc #isl-ui .uxk-root-cta {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--ux-amber);
+  box-shadow: inset 0 -2px 0 var(--ux-amber-lo), 2px 2px 0 rgba(4, 6, 14, 0.5);
+  color: var(--ux-ink);
+  white-space: nowrap;
+  text-shadow: 1px 0 currentColor;
+  translate: -50% 0;
+  animation: uxk-bob 0.9s steps(2, end) infinite;
+}
+@keyframes uxk-bob {
+  50% { transform: translateY(-4px); }
+}
+html.is-uxc #isl-ui .uxk-root.is-sel .uxk-root-f {
+  background: var(--ux-white);
+}
+html.is-uxc #isl-ui .uxk-root.is-ux-down {
+  translate: 0 2px;
+}
+
+/* ---------------------------------------------------------------- パネル（回路の部品） */
+html.is-uxc #isl-ui .uxk-node {
+  all: unset;
+  box-sizing: border-box;
+  --f: var(--ux-k4);
+  --b: var(--ux-k2);
+  --io: 1;
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  color: var(--ux-paper);
+  font: 400 1rem/1 var(--ux-jp);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+html.is-uxc #isl-ui .uxk-node::before,
+html.is-uxc #isl-ui .uxk-node::after {
+  content: none;
+}
+html.is-uxc #isl-ui .uxk-node:focus-visible {
+  outline: 2px solid var(--ux-cyan);
+  outline-offset: 2px;
+}
+html.is-uxc #isl-ui .uxk-node.is-hidden {
+  display: none;
+}
+/* 形：研究ポイント＝四角いチップ（切り欠きの角）・お金＝菱形（階段の縁）。縁の色（--f）と面の色（--b）で状態を出す */
+html.is-uxc #isl-ui .uxk-n-f {
+  position: absolute;
+  inset: 6px;
+  background: var(--f);
+  clip-path: var(--ux-notch4);
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxk-n-f::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: var(--b);
+}
+html.is-uxc #isl-ui .is-money > .uxk-n-f {
+  inset: 0;
+  clip-path: var(--uxk-dia);
+}
+html.is-uxc #isl-ui .is-money > .uxk-n-f::before {
+  clip-path: var(--uxk-dia-in);
+}
+/* 大きめの研究パネル：縁が二重 */
+html.is-uxc #isl-ui .is-dust > .uxk-n-f::before {
+  box-shadow: inset 0 0 0 2px var(--b), inset 0 0 0 4px var(--f);
+}
+/* 光る面（電気が入る・選んだ・呼ばれた）：白い面をまたたかせる */
+html.is-uxc #isl-ui .uxk-n-f::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ux-white);
+  opacity: 0;
+}
+html.is-uxc #isl-ui .uxk-pi {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  opacity: var(--io);
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxk-g {
+  display: block;
+  background: center / contain no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxk-pi.is-dot {
+  width: 24px;
+  height: 24px;
+}
+html.is-uxc #isl-ui .uxk-n-q {
+  position: relative;
+  color: var(--tc);
+  font-size: 2rem;
+  opacity: 0.8;
+}
+/* ランプ（左上）：点く・またたく・消えている */
+html.is-uxc #isl-ui .uxk-n-l {
+  --c: var(--ux-amber);
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 12px;
+  height: 12px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .is-money > .uxk-n-l {
+  left: 8px;
+  top: 8px;
+}
+html.is-uxc #isl-ui .uxk-n-l.is-good { --c: var(--ux-good); }
+html.is-uxc #isl-ui .uxk-n-l.is-cyan { --c: var(--ux-cyan); }
+html.is-uxc #isl-ui .uxk-n-l.is-on {
+  background: var(--c);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 rgba(255, 255, 255, 0.6);
+}
+html.is-uxc #isl-ui .uxk-n-l.is-blink {
+  animation: ux-blink 0.9s steps(1, end) infinite;
+}
+/* 角の印（引いて見ても 12px を下回らないよう、縮んだぶん大きくする） */
+html.is-uxc #isl-ui .uxk-n-m {
+  position: absolute;
+  inset: 0;
+  transform: scale(var(--hs));
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxk-n-st {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  background-color: var(--ux-k0);
+  background-size: 12px 12px;
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc #isl-ui .uxk-n-lv {
+  position: absolute;
+  right: -4px;
+  bottom: -2px;
+  padding: 0 4px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-good-lo);
+  color: var(--ux-good);
+  font-size: 1.125rem;
+  font-weight: 400;
+  line-height: 18px;
+}
+html.is-uxc #isl-ui .uxk-n-lv.is-max {
+  background: var(--ux-amber);
+  box-shadow: inset 0 0 0 2px var(--ux-amber-lo);
+  color: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxk-n-up,
+html.is-uxc #isl-ui .uxk-n-hint {
+  position: absolute;
+  left: -2px;
+  bottom: -2px;
+  width: 16px;
+  height: 16px;
+  background-color: var(--ux-k0);
+  background-size: 12px 12px;
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc #isl-ui .uxk-n-up {
+  animation: uxk-bob 0.9s steps(2, end) infinite;
+}
+html.is-uxc #isl-ui .uxk-n-tags {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% - 4px);
+  display: flex;
+  gap: 2px;
+  translate: -50% 0;
+}
+html.is-uxc #isl-ui .uxk-n-tag {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px 0 2px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-amber-lo);
+  color: var(--ux-amber);
+  font-size: 1.125rem;
+  line-height: 18px;
+}
+html.is-uxc #isl-ui .uxk-n-tag.is-ok {
+  box-shadow: inset 0 0 0 2px var(--ux-good-lo);
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxk-n-tg {
+  width: 12px;
+  height: 12px;
+}
+html.is-uxc #isl-ui .uxk-n-step {
+  position: absolute;
+  right: calc(100% - 6px);
+  top: 50%;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  background: var(--ux-amber);
+  background-size: 12px 12px;
+  box-shadow: inset 0 -2px 0 var(--ux-amber-lo);
+  color: var(--ux-ink);
+  font-size: 1.125rem;
+  font-weight: 400;
+  line-height: 18px;
+  text-align: center;
+  translate: 0 -50%;
+}
+html.is-uxc #isl-ui .uxk-n-wait {
+  position: absolute;
+  left: calc(100% - 6px);
+  top: 50%;
+  padding: 0 4px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-bad-lo);
+  color: var(--ux-paper);
+  font-size: 1rem;
+  line-height: 20px;
+  white-space: nowrap;
+  translate: 0 -50%;
+}
+/* 足りないときの目盛り（パネルの下の 4 段）・修行の進み */
+html.is-uxc #isl-ui .uxk-n-g {
+  position: absolute;
+  left: 50%;
+  top: calc(100% - 4px);
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--ux-k0);
+  translate: -50% 0;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxk-n-g > i {
+  width: 6px;
+  height: 6px;
+  background: var(--ux-k3);
+}
+html.is-uxc #isl-ui .uxk-n-g > i.is-on {
+  background: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxk-n-g.is-leg {
+  position: static;
+  translate: none;
+}
+html.is-uxc #isl-ui .uxk-n-prog {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: calc(100% - 4px);
+  height: 8px;
+  padding: 2px;
+  background: var(--ux-k0);
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxk-n-prog > i {
+  display: block;
+  height: 100%;
+  background: var(--ux-cyan);
+  transform-origin: 0 50%;
+}
+
+/* ---- 状態（色だけに頼らない：ランプ・印・面の網目・目盛り） */
+/* 済み：部門の色の縁・明るい面・緑のランプとチェック */
+html.is-uxc #isl-ui .uxk-node.is-done {
+  --f: var(--br);
+  --b: var(--ux-k3);
+}
+html.is-uxc #isl-ui .uxk-node.is-done.is-max {
+  --f: var(--ux-amber);
+}
+/* 取れる：琥珀の縁・ランプがまたたく */
+html.is-uxc #isl-ui .uxk-node.is-open {
+  --f: var(--ux-amber);
+  --b: var(--ux-k3);
+}
+/* あと少し：点線の縁・目盛り */
+html.is-uxc #isl-ui .uxk-node.is-poor {
+  --f: var(--ux-k5);
+  --b: var(--ux-k2);
+  --io: 0.85;
+}
+/* 手前がまだ：暗い面に網目・錠 */
+html.is-uxc #isl-ui .uxk-node.is-locked,
+html.is-uxc #isl-ui .uxk-node.is-soon {
+  --f: var(--ux-k3);
+  --b: var(--ux-k1);
+  --io: 0.45;
+}
+html.is-uxc #isl-ui .uxk-node.is-locked > .uxk-n-f::before,
+html.is-uxc #isl-ui .uxk-node.is-soon > .uxk-n-f::before,
+html.is-uxc #isl-ui .uxk-node.is-ring > .uxk-n-f::before,
+html.is-uxc #isl-ui .uxk-node.is-sealed > .uxk-n-f::before {
+  background: var(--ux-dz25), var(--b);
+}
+/* 修行中：水色の縁・ランプがまたたく・砂時計 */
+html.is-uxc #isl-ui .uxk-node.is-training {
+  --f: var(--ux-cyan);
+  --b: var(--ux-k3);
+}
+/* 帯が閉じている：ランクの色の細い縁と「?」 */
+html.is-uxc #isl-ui .uxk-node.is-ring,
+html.is-uxc #isl-ui .uxk-node.is-sealed {
+  --f: var(--ux-k3);
+  --b: var(--ux-k1);
+  --io: 0.4;
+}
+html.is-uxc #isl-ui .uxk-node.is-ring.is-goal {
+  --f: var(--tc);
+  --io: 0.6;
+}
+html.is-uxc #isl-ui .uxk-node.is-dimf {
+  opacity: 0.22;
+}
+/* 選んだ：四隅の琥珀のかぎ */
+html.is-uxc #isl-ui .uxk-node.is-sel::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  z-index: 2;
+  background:
+    linear-gradient(var(--ux-white), var(--ux-white)) 0 0 / 14px 4px,
+    linear-gradient(var(--ux-white), var(--ux-white)) 0 0 / 4px 14px,
+    linear-gradient(var(--ux-white), var(--ux-white)) 100% 0 / 14px 4px,
+    linear-gradient(var(--ux-white), var(--ux-white)) 100% 0 / 4px 14px,
+    linear-gradient(var(--ux-white), var(--ux-white)) 0 100% / 14px 4px,
+    linear-gradient(var(--ux-white), var(--ux-white)) 0 100% / 4px 14px,
+    linear-gradient(var(--ux-white), var(--ux-white)) 100% 100% / 14px 4px,
+    linear-gradient(var(--ux-white), var(--ux-white)) 100% 100% / 4px 14px;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  animation: uxk-sel 0.9s steps(2, end) infinite;
+}
+@keyframes uxk-sel {
+  50% { transform: scale(1.08); }
+}
+/* つながっているパネル：縁が白く */
+html.is-uxc #isl-ui .uxk-node.is-rel {
+  --f: var(--ux-white);
+}
+/* チュートリアルで押してほしいパネル：面がまたたく（四隅のかぎは、共通の光る枠が出す） */
+html.is-uxc #isl-ui .uxk-node.is-hot {
+  --f: var(--ux-amber);
+  z-index: 2;
+}
+html.is-uxc #isl-ui .uxk-node.is-hot > .uxk-n-f::after {
+  animation: uxk-hot 0.9s steps(2, end) infinite;
+}
+@keyframes uxk-hot {
+  50% { opacity: 0.35; }
+}
+/* 押して選んだ・呼ばれた・電気が入った・目が覚めた・だめだった */
+html.is-uxc #isl-ui .uxk-node.is-pick {
+  animation: uxk-pick 140ms steps(3, end) 1;
+}
+@keyframes uxk-pick {
+  0% { transform: scale(0.9); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+html.is-uxc #isl-ui .uxk-node.is-poweron {
+  z-index: 3;
+  animation: uxk-power 420ms steps(6, end) 1;
+}
+html.is-uxc #isl-ui .uxk-node.is-poweron > .uxk-n-f::after {
+  animation: uxk-flash 420ms steps(6, end) 1;
+}
+@keyframes uxk-power {
+  0% { transform: scale(0.84); }
+  34% { transform: scale(1.24); }
+  67% { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+@keyframes uxk-flash {
+  0% { opacity: 1; }
+  34% { opacity: 0.2; }
+  50% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+html.is-uxc #isl-ui .uxk-node.is-wake > .uxk-n-f::after {
+  animation: uxk-flash 360ms steps(5, end) 1;
+}
+html.is-uxc #isl-ui .uxk-node.is-wake {
+  animation: uxk-pick 200ms steps(4, end) 1;
+}
+html.is-uxc #isl-ui .uxk-node.is-blip > .uxk-n-f::after {
+  animation: uxk-blip 200ms steps(2, end) 1;
+}
+@keyframes uxk-blip {
+  0% { opacity: 0.5; }
+  100% { opacity: 0; }
+}
+html.is-uxc #isl-ui .uxk-node.is-nope {
+  animation: uxk-nope 200ms steps(4, end) 1;
+}
+@keyframes uxk-nope {
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+html.is-uxc #isl-ui .uxk-node.is-flash > .uxk-n-f::after {
+  animation: uxk-hot 0.45s steps(2, end) 4;
+}
+/* 電源が入る（本社の開放）：上の段から順に点く */
+html.is-uxc #isl-ui .uxk-world.is-burst .uxk-node,
+html.is-uxc #isl-ui .uxk-world.is-burst .uxk-knot,
+html.is-uxc #isl-ui .uxk-world.is-burst .uxk-w:not(.is-trunk),
+html.is-uxc #isl-ui .uxk-world.is-burst .uxk-junc,
+html.is-uxc #isl-ui .uxk-world.is-burst .uxk-gate {
+  animation: uxk-boot 320ms steps(4, end) 1 backwards;
+  animation-delay: var(--d, 0.4s);
+}
+html.is-uxc #isl-ui .uxk-world.is-burst .uxk-w.is-trunk {
+  animation: uxk-boot 300ms steps(4, end) 1 backwards;
+}
+html.is-uxc #isl-ui .uxk-world.is-burst .uxk-root {
+  animation: uxk-power 520ms steps(6, end) 1;
+}
+@keyframes uxk-boot {
+  0% { opacity: 0; }
+  25% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+/* 帯が開く：開くランクのパネルが、上の段から順に点く */
+html.is-uxc #isl-ui .uxk-node.is-ringpop,
+html.is-uxc #isl-ui .uxk-node.is-digpop {
+  animation: uxk-pop 360ms steps(5, end) 1 backwards;
+  animation-delay: var(--d, 0s);
+}
+@keyframes uxk-pop {
+  0% { opacity: 0; transform: scale(0.4); }
+  40% { opacity: 1; transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+/* 引いて見たとき：角の印と字をしまう（形・ランプ・面の色は残る） */
+html.is-uxc #isl-ui .uxk-world.is-far .uxk-n-m,
+html.is-uxc #isl-ui .uxk-world.is-far .uxk-n-g,
+html.is-uxc #isl-ui .uxk-world.is-far .uxk-n-prog,
+html.is-uxc #isl-ui .uxk-world.is-far .uxk-junc {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-world.is-far .uxk-n-l {
+  width: 16px;
+  height: 16px;
+}
+html.is-uxc #isl-ui .uxk-world.is-far .uxk-knot {
+  display: none;
+}
+
+/* ---------------------------------------------------------------- 発掘の枝の雲 */
+html.is-uxc #isl-ui .uxk-cloud {
+  position: absolute;
+  z-index: 2;
+  width: var(--sz);
+  height: calc(var(--sz) * 0.6);
+  margin: calc(var(--sz) * -0.3) 0 0 calc(var(--sz) * -0.5);
+  background: var(--ux-dz50w), var(--ux-k4);
+  clip-path: var(--ux-notch4);
+  pointer-events: none;
+  animation: uxk-drift 3.6s steps(4, end) infinite;
+  animation-delay: var(--d);
+}
+@keyframes uxk-drift {
+  50% { transform: translateX(8px); }
+}
+html.is-uxc #isl-ui .uxk-cloud.is-leaving,
+html.is-uxc #isl-ui .uxk-cloudq.is-leaving {
+  animation: uxk-leave 1.6s steps(8, end) 1 forwards;
+  animation-delay: var(--d, 0s);
+}
+@keyframes uxk-leave {
+  to { opacity: 0; transform: translateY(-24px); }
+}
+html.is-uxc #isl-ui .uxk-cloudq {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k5);
+  color: var(--ux-paper);
+  font-size: 2rem;
+}
+
+/* ---------------------------------------------------------------- 部門の見出し（列の上。画面の上に固定）・帯の札（左に固定） */
+html.is-uxc #isl-ui .uxk-heads {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxk-head {
+  all: unset;
+  box-sizing: border-box;
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto 8px;
+  align-items: center;
+  gap: 0 4px;
+  height: 44px;
+  padding: 4px 6px 2px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 6px 0 0 var(--br);
+  color: var(--ux-paper);
+  font: 400 1rem/1.25 var(--ux-jp);
+  cursor: pointer;
+  pointer-events: auto;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+html.is-uxc #isl-ui .uxk-head.is-cur {
+  background: var(--ux-k3);
+}
+html.is-uxc #isl-ui .uxk-head.is-cloud {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 6px 0 0 var(--ux-k4);
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-head-ic {
+  display: grid;
+  margin-top: 4px;
+}
+html.is-uxc #isl-ui .uxk-head-tx {
+  margin-top: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc #isl-ui .uxk-head-n {
+  margin-top: 4px;
+  color: var(--ux-k5);
+  font-size: 1.125rem;
+}
+html.is-uxc #isl-ui .uxk-head-bar {
+  display: block;
+  width: 8px;
+  height: 28px;
+  margin-top: 4px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc #isl-ui .uxk-head-bar > i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--br);
+  transform-origin: 50% 100%;
+}
+html.is-uxc #isl-ui .uxk-head-lock {
+  position: absolute;
+  inset: 6px 2px 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  background: var(--ux-dz50), var(--ux-k1);
+  color: var(--ux-k5);
+  white-space: nowrap;
+  overflow: hidden;
+}
+html.is-uxc #isl-ui .uxk-head-lock[hidden] {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-head.is-narrow .uxk-head-tx,
+html.is-uxc #isl-ui .uxk-heads.is-far .uxk-head-tx,
+html.is-uxc #isl-ui .uxk-heads.is-far .uxk-head-n,
+html.is-uxc #isl-ui .uxk-head.is-narrow .uxk-head-lock > span,
+html.is-uxc #isl-ui .uxk-heads.is-far .uxk-head-lock > span {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-heads.is-far .uxk-head,
+html.is-uxc #isl-ui .uxk-head.is-narrow {
+  grid-template-columns: auto 8px;
+  justify-content: center;
+}
+html.is-uxc #isl-ui .uxk-head.is-narrow .uxk-head-n {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-band-lab {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  margin-top: -14px;
+  padding: 0 8px 0 4px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k4), inset 6px 0 0 0 var(--tc);
+  color: var(--ux-k5);
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxk-band-lab[hidden] {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-band-lab.is-on {
+  box-shadow: inset 0 0 0 2px var(--tc), inset 6px 0 0 0 var(--tc);
+  color: var(--tc);
+}
+html.is-uxc #isl-ui .uxk-band-lab > img {
+  width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  image-rendering: pixelated;
+}
+html.is-uxc #isl-ui .uxk-band-lab > b {
+  font-weight: 400;
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc #isl-ui .uxk-band-lock {
+  display: grid;
+}
+html.is-uxc #isl-ui .uxk-band-lock[hidden] {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-band-lab.is-glow {
+  animation: uxk-hot 0.45s steps(2, end) 6;
+}
+
+/* ---------------------------------------------------------------- 上の計器の帯 */
+html.is-uxc #isl-ui .uxk-top {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 4;
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 -2px 0 var(--ux-k0), inset 0 -4px 0 var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-tree.is-sealed .uxk-top {
+  background: none;
+  box-shadow: none;
+}
+html.is-uxc #isl-ui .uxk-tip:empty {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-top-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 8px;
+}
+html.is-uxc #isl-ui .uxk-top-row[hidden] {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-curs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-cur {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-cur-k {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-cur-k > b,
+html.is-uxc #isl-ui .uxk-cur > b {
+  font-weight: 400;
+}
+html.is-uxc #isl-ui .uxk-cur > b.ux-num {
+  color: var(--ux-amber);
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+html.is-uxc #isl-ui .uxk-cur-u {
+  color: var(--ux-k5);
+  font-size: 1.125rem;
+}
+html.is-uxc #isl-ui .uxk-odo-rp .ux-odo-d {
+  color: var(--ux-cyan);
+}
+html.is-uxc #isl-ui .uxk-cur.is-money.is-neg .ux-odo-d {
+  color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxk-top.is-boot .ux-odo {
+  animation: uxk-boot 320ms steps(4, end) 1 backwards;
+}
+html.is-uxc #isl-ui .uxk-tkeys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+}
+html.is-uxc #isl-ui .uxk-tkey[hidden] {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-tkey > .ux-cap {
+  min-height: 34px;
+  padding: 0 8px;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxk-tkey b {
+  font-weight: 400;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-tkey.is-set > .ux-cap {
+  background: var(--ux-k4);
+}
+html.is-uxc #isl-ui .uxk-can,
+html.is-uxc #isl-ui .uxk-fchip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxk-can > b.ux-num {
+  color: var(--ux-amber);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+html.is-uxc #isl-ui .uxk-tkey-fchip > .ux-cap {
+  box-shadow: inset 0 0 0 2px var(--br);
+}
+/* 目標の帯 */
+html.is-uxc #isl-ui .uxk-goal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 4px 0 0;
+  box-shadow: inset 0 2px 0 var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxk-goal[hidden] {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-goal-go {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-goal-go > b {
+  max-width: 12em;
+  overflow: hidden;
+  font-weight: 400;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-goal-go > .uxk-pi {
+  width: 20px;
+  height: 20px;
+}
+html.is-uxc #isl-ui .uxk-gkey > .ux-cap {
+  min-height: 34px;
+  padding: 0 8px;
+}
+html.is-uxc #isl-ui .uxk-goal-left {
+  color: var(--ux-paper2);
+}
+html.is-uxc #isl-ui .uxk-goal-next {
+  flex: 1 1 12em;
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxk-goal-next.is-wait {
+  color: var(--ux-amber);
+}
+
+/* ---------------------------------------------------------------- くわしい板（下） */
+html.is-uxc #isl-ui .uxk-board {
+  position: absolute;
+  left: 8px;
+  right: auto;
+  z-index: 5;
+  display: grid;
+  align-items: start;
+  justify-content: stretch;
+  gap: 8px;
+  width: min(600px, calc(100% - 16px));
+  max-height: 58%;
+  padding: 10px;
+  border: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k4), inset -4px -4px 0 0 var(--ux-k1), 4px 4px 0 0 rgba(4, 6, 14, 0.6);
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  animation: uxk-board-in 180ms steps(4, end) 1 backwards;
+}
+html.is-uxc #isl-ui .uxk-board[hidden] {
+  display: none;
+}
+/* 広い画面：下の帯（左に説明・右に「あと N」の目盛りとキー）。木を広く残す */
+html.is-uxc #isl-ui .uxk-tree:not(.is-phone) .uxk-board {
+  right: 8px;
+  width: auto;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  gap: 6px 12px;
+  max-height: 46%;
+}
+html.is-uxc #isl-ui .uxk-tree:not(.is-phone) .uxk-board > .uxk-info {
+  grid-column: 1;
+  grid-row: 1 / span 6;
+}
+html.is-uxc #isl-ui .uxk-tree:not(.is-phone) .uxk-board > :not(.uxk-info) {
+  grid-column: 2;
+}
+html.is-uxc #isl-ui .uxk-tree:not(.is-phone) .uxk-board > .uxk-legend {
+  grid-column: 1 / -1;
+}
+html.is-uxc #isl-ui .uxk-tree:not(.is-phone) .uxk-board > .uxk-acts {
+  align-self: end;
+}
+@keyframes uxk-board-in {
+  0% { opacity: 0; transform: translateY(12px); }
+}
+html.is-uxc #isl-ui .uxk-board.is-nudge,
+html.is-uxc #isl-ui .uxk-board .is-nudge {
+  animation: uxk-nope 200ms steps(4, end) 1;
+}
+html.is-uxc #isl-ui .uxk-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  color: var(--ux-paper2);
+}
+html.is-uxc #isl-ui .uxk-leg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-info {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-dtop {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+html.is-uxc #isl-ui .uxk-dicon {
+  --f: var(--br);
+  --b: var(--ux-k3);
+  --io: 1;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+}
+html.is-uxc #isl-ui .uxk-dicon.is-locked,
+html.is-uxc #isl-ui .uxk-dicon.is-ring,
+html.is-uxc #isl-ui .uxk-dicon.is-sealed,
+html.is-uxc #isl-ui .uxk-dicon.is-soon {
+  --f: var(--ux-k4);
+  --b: var(--ux-k1);
+  --io: 0.55;
+}
+html.is-uxc #isl-ui .uxk-dicon.is-open {
+  --f: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxk-dicon.is-hq {
+  width: 96px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxk-dtxt {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-dhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+html.is-uxc #isl-ui .uxk-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-title > b {
+  font-size: 1.25rem;
+  font-weight: 400;
+  line-height: 1.3;
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc #isl-ui .uxk-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 6px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+  color: var(--ux-paper2);
+  line-height: 24px;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-state > b {
+  font-weight: 400;
+}
+html.is-uxc #isl-ui .uxk-state.is-open {
+  box-shadow: inset 0 0 0 2px var(--ux-amber);
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxk-state.is-done {
+  box-shadow: inset 0 0 0 2px var(--ux-good-lo);
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxk-state.is-gone {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-stamp {
+  margin-left: auto;
+}
+html.is-uxc #isl-ui .uxk-cat {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 6px;
+  color: var(--ux-paper2);
+}
+html.is-uxc #isl-ui .uxk-cat > .uxk-lvl {
+  grid-column: 2;
+}
+html.is-uxc #isl-ui .uxk-lvl {
+  display: flex;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxk-desc {
+  margin: 0;
+  color: var(--ux-paper);
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxk-note,
+html.is-uxc #isl-ui .uxk-need {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--ux-paper2);
+  line-height: 1.4;
+}
+html.is-uxc #isl-ui .uxk-note > canvas,
+html.is-uxc #isl-ui .uxk-need > canvas,
+html.is-uxc #isl-ui .uxk-need > .ux-lamp {
+  flex: none;
+  margin-top: 4px;
+}
+html.is-uxc #isl-ui .uxk-need.is-ok,
+html.is-uxc #isl-ui .uxk-note.is-good {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxk-note.is-warn {
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxk-tier {
+  justify-self: start;
+}
+html.is-uxc #isl-ui .uxk-conds {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+html.is-uxc #isl-ui .uxk-conds-k {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-conds.is-ok .uxk-conds-k {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxk-cond {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 2px 8px 2px 6px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 0 var(--br);
+  color: var(--ux-paper2);
+  font: 400 1rem/1.25 var(--ux-jp);
+}
+html.is-uxc #isl-ui button.uxk-cond {
+  position: relative;
+  cursor: pointer;
+}
+/* 押せる高さは 44px（見た目は 32px） */
+html.is-uxc #isl-ui button.uxk-cond::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  width: 100%;
+  min-width: 44px;
+  height: 44px;
+  translate: 0 -50%;
+}
+html.is-uxc #isl-ui .uxk-cond.is-ok {
+  color: var(--ux-paper);
+}
+html.is-uxc #isl-ui .uxk-cond > .uxk-pi {
+  width: 20px;
+  height: 20px;
+}
+html.is-uxc #isl-ui .uxk-eff {
+  display: grid;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxk-eff-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+html.is-uxc #isl-ui .uxk-eff-k {
+  flex: 1 1 8em;
+  color: var(--ux-paper2);
+}
+html.is-uxc #isl-ui .uxk-eff-v {
+  font-weight: 400;
+}
+html.is-uxc #isl-ui .uxk-eff-v.is-next {
+  color: var(--ux-good);
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc #isl-ui .uxk-train {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-cyan-lo);
+}
+html.is-uxc #isl-ui .uxk-train-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ux-cyan);
+}
+html.is-uxc #isl-ui .uxk-train-top > .ux-hero {
+  flex: none;
+  width: 32px;
+  height: 32px;
+}
+html.is-uxc #isl-ui .uxk-hint {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxk-acts > .uxk-go {
+  flex: 1 1 14em;
+  min-height: 48px;
+  white-space: normal;
+}
+html.is-uxc #isl-ui .uxk-goalkey.is-set > .ux-cap {
+  background: var(--ux-k4);
+}
+/* スマホ：板は横いっぱい・小さく（名前・区分・足りないぶんとキー）。「くわしく」か上に引くと全部 */
+html.is-uxc #isl-ui .uxk-tree.is-phone .uxk-board {
+  left: 4px;
+  right: 4px;
+  width: auto;
+  max-height: 62%;
+  padding: 8px;
+}
+html.is-uxc #isl-ui .uxk-board.is-mini:not(.is-more) .uxk-desc,
+html.is-uxc #isl-ui .uxk-board.is-mini:not(.is-more) .uxk-info .uxk-conds:not(.uxk-keep),
+html.is-uxc #isl-ui .uxk-board.is-mini:not(.is-more) .uxk-info .uxk-need:not(.uxk-keep),
+html.is-uxc #isl-ui .uxk-board.is-mini:not(.is-more) .uxk-note,
+html.is-uxc #isl-ui .uxk-board.is-mini:not(.is-more) .uxk-eff,
+html.is-uxc #isl-ui .uxk-board.is-mini:not(.is-more) .uxk-tier,
+html.is-uxc #isl-ui .uxk-board.is-mini:not(.is-more) .uxk-train,
+html.is-uxc #isl-ui .uxk-board.is-mini:not(.is-more) .uxk-hint,
+html.is-uxc #isl-ui .uxk-board.is-mini:not(.is-more) .uxk-gap .uxp-gap-h {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-more {
+  justify-self: end;
+  margin: -4px 0 -44px;
+  z-index: 1;
+}
+html.is-uxc #isl-ui .uxk-more > .ux-cap {
+  min-height: 30px;
+  padding: 0 8px;
+}
+html.is-uxc #isl-ui .uxk-board.is-mini .uxk-dhead {
+  padding-right: 7.25rem;
+}
+html.is-uxc #isl-ui .uxk-title > .ux-tape {
+  max-width: 100%;
+  white-space: normal;
+}
+
+/* ---------------------------------------------------------------- マウスを乗せたときの札・絞り込みと研究の施策の板 */
+html.is-uxc #isl-ui .uxk-hover {
+  position: absolute;
+  z-index: 7;
+  padding: 10px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k4), inset -4px -4px 0 0 var(--ux-k1), 4px 4px 0 0 rgba(4, 6, 14, 0.6);
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxk-hover[hidden] {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-hfoot {
+  padding-top: 6px;
+  box-shadow: inset 0 2px 0 var(--ux-k0);
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-hfoot.is-good {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxk-hfoot.is-warn {
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxk-panel {
+  position: absolute;
+  right: 8px;
+  top: 56px;
+  z-index: 6;
+  display: grid;
+  gap: 8px;
+  width: min(440px, calc(100% - 16px));
+  max-height: calc(100% - 72px);
+  padding: 10px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k4), inset -4px -4px 0 0 var(--ux-k1), 4px 4px 0 0 rgba(4, 6, 14, 0.6);
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  animation: uxk-panel-in 180ms steps(4, end) 1 backwards;
+}
+html.is-uxc #isl-ui .uxk-panel[hidden] {
+  display: none;
+}
+@keyframes uxk-panel-in {
+  0% { opacity: 0; transform: translateY(-12px); }
+}
+html.is-uxc #isl-ui .uxk-phead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxk-phead > b {
+  font-size: 1.25rem;
+  font-weight: 400;
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc #isl-ui .uxk-phead-n {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: var(--ux-amber);
+  font-size: 1.25rem;
+}
+html.is-uxc #isl-ui .uxk-px > .ux-cap {
+  min-width: 40px;
+  min-height: 34px;
+  padding: 0;
+}
+html.is-uxc #isl-ui .uxk-fq {
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 10px;
+  border: 0;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k4);
+  color: var(--ux-paper);
+  font: 400 1rem/1.25 var(--ux-jp);
+  -webkit-user-select: text;
+  user-select: text;
+}
+html.is-uxc #isl-ui .uxk-fhits {
+  display: grid;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxk-fhits:empty {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-fnone {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-fhitkey > .ux-cap {
+  justify-content: flex-start;
+  box-shadow: inset 4px 0 0 0 var(--br);
+}
+html.is-uxc #isl-ui .uxk-fhit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-fhit > b {
+  font-weight: 400;
+}
+html.is-uxc #isl-ui .uxk-fhit > span {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-fhit > .uxk-pi {
+  width: 24px;
+  height: 24px;
+}
+html.is-uxc #isl-ui .uxk-frow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxk-fopen,
+html.is-uxc #isl-ui .uxk-fdept {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxk-fopen > b,
+html.is-uxc #isl-ui .uxk-fdept > b {
+  font-weight: 400;
+}
+html.is-uxc #isl-ui .uxk-fkey.is-set > .ux-cap {
+  background: var(--ux-k4);
+  box-shadow: inset 0 0 0 2px var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxk-fdepts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxk-fdeptkey > .ux-cap {
+  justify-content: flex-start;
+  box-shadow: inset 4px 0 0 0 var(--br);
+}
+html.is-uxc #isl-ui .uxk-fdeptkey.is-set > .ux-cap {
+  box-shadow: inset 4px 0 0 0 var(--br), inset 0 0 0 2px var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxk-fdept {
+  flex-wrap: wrap;
+  text-align: left;
+}
+html.is-uxc #isl-ui .uxk-fdept-s {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-basis: 100%;
+  color: var(--ux-k5);
+}
+/* 研究の施策：今の中身（施策のボタン・月の入り方の棒）を、暗い計器の板に */
+html.is-uxc #isl-ui .uxk-study {
+  display: grid;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxk-study small,
+html.is-uxc #isl-ui .uxk-study b,
+html.is-uxc #isl-ui .uxk-study p,
+html.is-uxc #isl-ui .uxk-study span {
+  font-size: 1rem;
+  line-height: 1.4;
+}
+html.is-uxc #isl-ui .uxk-study .isl-r2-box {
+  padding: 8px;
+  border: 0;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxk-emo {
+  display: inline-block;
+  margin: 0 2px;
+  vertical-align: -2px;
+}
+
+/* ---------------------------------------------------------------- ズームのキー */
+html.is-uxc #isl-ui .uxk-zoom {
+  position: absolute;
+  right: 8px;
+  bottom: 16px;
+  z-index: 4;
+  display: grid;
+  grid-auto-flow: column;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxk-zoom[hidden] {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-zkey > .ux-cap {
+  min-width: 40px;
+  min-height: 34px;
+  padding: 0 6px;
+}
+html.is-uxc #isl-ui .uxk-tree.is-phone .uxk-zoom {
+  grid-auto-flow: row;
+  grid-template-columns: auto auto;
+  justify-items: end;
+}
+html.is-uxc #isl-ui .uxk-tree.is-phone .uxk-zkey-all {
+  grid-column: 1 / -1;
+}
+
+/* ---------------------------------------------------------------- マインちゃんが止める・帯が開く演出 */
+html.is-uxc #isl-ui .uxk-stop {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(360px, calc(100% - 24px));
+  padding: 8px 12px 8px 8px;
+  background: var(--ux-paper);
+  box-shadow: inset 0 0 0 2px var(--ux-ink), 4px 4px 0 0 rgba(4, 6, 14, 0.6);
+  color: var(--ux-ink);
+  translate: -50% 0;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxk-stop[hidden] {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-stop > img {
+  flex: none;
+  width: 48px;
+  height: 64px;
+  object-fit: cover;
+  object-position: 50% 0;
+  image-rendering: pixelated;
+}
+html.is-uxc #isl-ui .uxk-stop > p {
+  margin: 0;
+  line-height: 1.4;
+}
+html.is-uxc #isl-ui .uxk-stop.is-shake {
+  animation: uxk-nope 200ms steps(4, end) 2;
+}
+html.is-uxc #isl-ui .uxk-curtain {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  display: grid;
+  place-items: end center;
+  padding: 16px;
+}
+html.is-uxc #isl-ui .uxk-curtain[hidden] {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-curtain.is-talk {
+  background: var(--ux-dz50s), rgba(9, 11, 24, 0.45);
+}
+html.is-uxc #isl-ui .uxk-ring-plate {
+  place-self: start center;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(420px, 100%);
+  margin-top: 112px;
+  padding: 12px 14px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 0 0 4px var(--tc), 4px 4px 0 0 rgba(4, 6, 14, 0.6);
+  animation: uxk-board-in 220ms steps(5, end) 1 backwards;
+}
+html.is-uxc #isl-ui .uxk-ring-plate > img {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+}
+html.is-uxc #isl-ui .uxk-ring-main {
+  display: grid;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-ring-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-height: 28px;
+}
+html.is-uxc #isl-ui .uxk-ring-word {
+  color: var(--ux-amber);
+  font-weight: 400;
+  text-shadow: 1px 0 currentColor;
+  animation: ux-blink 0.9s steps(1, end) infinite;
+}
+html.is-uxc #isl-ui .uxk-ring-word[hidden] {
+  display: none;
+}
+html.is-uxc #isl-ui .uxk-ring-lamps {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxk-ringtalk {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  width: min(460px, 100%);
+  margin-bottom: 8px;
+  animation: uxk-board-in 220ms steps(5, end) 1 backwards;
+}
+html.is-uxc #isl-ui .uxk-ringtalk > img {
+  flex: none;
+  width: 96px;
+  height: 128px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+html.is-uxc #isl-ui .uxk-ringtalk-body {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  flex: 1;
+  padding: 10px 12px;
+  background: var(--ux-paper);
+  box-shadow: inset 0 0 0 2px var(--ux-ink), 4px 4px 0 0 rgba(4, 6, 14, 0.6);
+  color: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxk-ringtalk-body > p {
+  margin: 0;
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxk-ringtalk-body .isl-em,
+html.is-uxc #isl-ui .uxk-ringtalk-body em,
+html.is-uxc #isl-ui .uxk-ringtalk-body b {
+  color: #9c2238;
+  font-style: normal;
+  font-weight: 400;
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc #isl-ui .uxk-ring-ok {
+  justify-self: end;
+}
+
+/* ---------------------------------------------------------------- せまいとき：上の帯の字はしまって、絵と数字だけ（スマホは ★・エンブレムを絞り込みの板へ） */
+html.is-uxc #isl-ui .uxk-tree:not(.is-wide) .uxk-cur-k > b,
+html.is-uxc #isl-ui .uxk-tree.is-phone .uxk-cur.is-brand,
+html.is-uxc #isl-ui .uxk-tree.is-phone .uxk-cur.is-emblem,
+html.is-uxc #isl-ui .uxk-tree.is-phone .uxk-tkey-t {
+  display: none;
+}
+/* スマホ：札の見出しの字と ✕（今の決まりは 15px・高さ 34px。16px・44px にそろえる） */
+@media (max-width: 599px) {
+  html.is-uxc #isl-ui .isl-sheet:has(.isl-sheet-body.is-tree) .isl-sheet-head h2 {
+    font-size: 1.25rem;
+  }
+  html.is-uxc #isl-ui .isl-sheet:has(.isl-sheet-body.is-tree) .isl-sheet-head .isl-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+html.is-uxc #isl-ui .uxk-tree.is-phone .uxk-top {
+  padding: 4px 6px 6px;
+}
+html.is-uxc #isl-ui .uxk-tree.is-phone .uxk-curs {
+  gap: 4px 8px;
+}
+html.is-uxc #isl-ui .uxk-tree.is-phone .uxk-tkey > .ux-cap {
+  min-width: 40px;
+  padding: 0 6px;
+}
+html.is-uxc #isl-ui .uxk-tree.is-phone .uxk-panel {
+  left: 4px;
+  right: 4px;
+  width: auto;
+}
+
+/* ---------------------------------------------------------------- 動きを減らす：止まった形で、全部すぐ出る */
+html.is-uxc.is-calm #isl-ui .uxk-tree *,
+html.is-uxc.is-calm #isl-ui .uxk-tree *::before,
+html.is-uxc.is-calm #isl-ui .uxk-tree *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+html.is-uxc #isl-ui .uxk-flip canvas {
+  transform: scaleX(-1);
+}
+
+/* 減ったぶんの「-N」は赤（上掛けの層に出るので、木の外にある） */
+html.is-uxc .ux-delta.uxk-minus {
+  color: var(--ux-bad);
+}

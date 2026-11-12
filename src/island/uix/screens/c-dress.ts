@@ -430,6 +430,8 @@ export function installDress(root: HTMLElement) {
         });
     }
     hadStamp = !!stamp;
+    // 「クリア！」の印が出ている札の目印（CSS の :not(:has(...)) をやめた：せまい画面で、どこを書き換えても文書全体の見た目の計算が走っていたため。段 UIX3k）
+    for (const m of root.querySelectorAll('.isl-missions')) m.classList.toggle('uxc-stamped', !!m.querySelector('.isl-mis-stamp'));
     // ---- 流れの案内：段が進んだら、帯に光が走る・ランプの音（段の位置で音が上がる）
     const tour = root.querySelector<HTMLElement>(':scope > .isl-tour:not([hidden])');
     const steps = tour ? [...tour.querySelectorAll('.isl-tour-step')] : [];
