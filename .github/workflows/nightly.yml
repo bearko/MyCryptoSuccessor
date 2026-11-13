@@ -1,0 +1,79 @@
+name: Nightly
+
+# 毎晩 3 時（日本時間）に回す確認。PR ごとの CI では、重いテスト（tests/heavy.txt）を
+# 「その PR に関係するときだけ」回しているので、ここで全部を回して取りこぼしを拾う。
+#   - full-test：全部のテストを 4 台に分けて回す。前回の通った Nightly から main が変わっていないときは回さない
+#   - prod-smoke：本番のサイトを開いて止まらないかを確かめる（変わっていなくても毎晩。Cloudflare 側の変化も拾う）
+# 落ちたときは、GitHub からメールとアプリに通知が来る（Actions の通知の設定による）。
+# 手で動かすとき：Actions の画面で Nightly を選び「Run workflow」（変わっていなくても全部回す）。
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != "schedule" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          last=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/nightly.yml/runs?status=success&branch=main&per_page=20" \
+            --jq '[.workflow_runs[] | select(.id != '"$GITHUB_RUN_ID"')][0].head_sha // ""')
+          if [ "$last" = "$GITHUB_SHA" ]; then
+            echo "前回の Nightly から main が変わっていないので、テストは回さない"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  full-test:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/sync-assets.mjs
+      - name: 全部のテスト（${{ matrix.shard }} / 4）
+        run: npx vitest run --shard=${{ matrix.shard }}/4
+
+  prod-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: ブラウザを入れる（この確認だけで使う。package.json には足さない）
+        run: |
+          npm i --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+      - name: 本番を開いて確かめる
+        run: node scripts/qa/prod-smoke.mjs https://successor.bearko.games

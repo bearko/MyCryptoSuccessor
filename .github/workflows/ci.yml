@@ -3,9 +3,11 @@ name: CI
 # 本番のブランチへの PR と push で、型チェック・テスト・英訳の確認・絵の確認・ビルドを回す。
 # 公開は Cloudflare Workers Builds が本番のブランチへのマージで行う（ここではしない）。
 #
-# 待ち時間を短くするため、3 つに分けて同時に回す：
+# 待ち時間を短くするため、分けて同時に回す（public のリポジトリなので何台並べても無料）：
 #   - quick：型チェック・英訳・絵・ビルド（30 秒ほど）
-#   - test：テストを 4 台に分ける（vitest --shard）。public のリポジトリなので何台並べても無料
+#   - test-light：軽いテスト（tests/heavy.txt に無いもの）を 4 台に分ける
+#   - test-heavy：重いテスト（tests/heavy.txt）。PR・push では、変わったファイルに関係するものだけ（vitest --changed）。
+#                 手で動かしたとき（workflow_dispatch）は全部。全部は毎晩 Nightly（nightly.yml）でも回す
 #   - ci-ok：上の全部が通ったかをまとめる。main の必須チェックはこれ 1 つ（台数を変えても設定を直さずに済む）
 on:
   pull_request:
@@ -41,7 +43,7 @@ jobs:
       - run: npm run pixel:lint
       - run: npm run build
 
-  test:
+  test-light:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -58,12 +60,38 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/sync-assets.mjs
-      - name: テスト（${{ matrix.shard }} / 4）
-        run: npx vitest run --shard=${{ matrix.shard }}/4
+      - name: 軽いテスト（${{ matrix.shard }} / 4）
+        run: scripts/test-tier.sh light ${{ matrix.shard }}/4
+
+  test-heavy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/sync-assets.mjs
+      - name: 重いテスト（${{ matrix.shard }} / 3）
+        env:
+          # PR は PR の基点から、push は push の前から変わったファイルに関係するものだけ。手で動かしたときは全部
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+        run: |
+          case "$BASE" in 0000000000000000000000000000000000000000) BASE="";; esac
+          scripts/test-tier.sh heavy ${{ matrix.shard }}/3 "$BASE"
 
   ci-ok:
     if: always()
-    needs: [quick, test]
+    needs: [quick, test-light, test-heavy]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

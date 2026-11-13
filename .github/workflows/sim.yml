@@ -8,20 +8,48 @@ name: Sim
 # シードを増やすとき：ブランチ名の後ろに `--seeds-1-2-3-4-5-6` のように付ける（例：sim-run/ui4--seeds-1-2-3-4-5-6-7-8-9）。
 # 結果：docs/ISLAND_BALANCE.md を書き直したコミットを、ブランチ `sim-out/<ブランチ名>` に push する（取り込むかは手で決める）。
 #   git fetch origin sim-out/<ブランチ名> && git show FETCH_HEAD:docs/ISLAND_BALANCE.md > docs/ISLAND_BALANCE.md
+# 週に 1 回（日曜 4 時・日本時間）、main も計測する。前回の通った週の計測から main が変わっていないときは回さない。
+# 結果はブランチ sim-out/main に届く（取り込むかは手で決める）。
 on:
   push:
     branches: ['sim-run/**']
+  schedule:
+    - cron: '0 19 * * 6'
   workflow_dispatch:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: sim-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != "schedule" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          last=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/sim.yml/runs?status=success&event=schedule&per_page=20" \
+            --jq '[.workflow_runs[] | select(.id != '"$GITHUB_RUN_ID"')][0].head_sha // ""')
+          if [ "$last" = "$GITHUB_SHA" ]; then
+            echo "前回の週の計測から main が変わっていないので、回さない"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   shard:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
