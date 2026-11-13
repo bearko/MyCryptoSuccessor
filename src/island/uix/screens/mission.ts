@@ -17,6 +17,11 @@ import { rHead, rLine } from './sector';
 const ink = { color: '#1a1c2e', hi: '#1a1c2e', lo: '#8a7f5c', scale: 1 };
 const amb = { color: '#ffb81f', hi: '#ffe394', lo: '#7a3f06', scale: 1 };
 
+/** 主役のキー（前の層）にする依頼：受け取れる報酬があればそれ、無ければ（まだ受けられるとき）届いている最初の依頼 */
+export function mainMission<M>(active: M[], offers: M[], done: (m: M) => boolean, max: number): M | undefined {
+  return active.find(done) ?? (active.length < max ? offers[0] : undefined);
+}
+
 export function missionsUx(ctx: Ctx) {
   R.open(ctx, t('依頼（ミッション）', 'Requests (missions)'), (body) => {
     const s = ctx.s();
@@ -25,9 +30,7 @@ export function missionsUx(ctx: Ctx) {
     root.append(rLine('note', t(`エリアの人たちからの依頼です。受けた依頼は右上の「ミッション」に出て、達成すると報酬がもらえます（同時に ${R.MISSION_MAX} つまで）。`, `Requests from people in the area. Accepted ones appear under Missions at the top right; complete them for a reward (up to ${R.MISSION_MAX} at once).`), 'dim'));
     const active = R.activeMissions(s);
     const offers = R.offeredMissions(s);
-    // 主役：受け取れる報酬があればそれ、無ければ受けられる最初の依頼
-    const claimable = active.find((m) => s.missions[m.id] === 'done');
-    const main = claimable ?? (active.length < R.MISSION_MAX ? offers[0] : undefined);
+    const main = mainMission(active, offers, (m) => s.missions[m.id] === 'done', R.MISSION_MAX);
     let i = 0;
     const card = (m: Mission) => {
       const st = s.missions[m.id];

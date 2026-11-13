@@ -166,6 +166,12 @@ export function reviveBoxUx(ctx: Ctx, s: P1State, id: string): HTMLElement {
 
 // ---------------------------------------------------------------- 復興を任せる
 
+/** 支援金の 3 つの額のうち、主のキーにする額：直しきれる額のうち、いちばん安い払える額（無ければ、払えるいちばん大きい額。払える額が無ければ無し） */
+export function bestFund<T extends { v: number; n: number; e: string | null }>(amts: T[], short: number, ruins: number): T | null {
+  const ok = amts.filter((a) => !a.e);
+  return ok.find((a) => a.v >= short || a.n >= ruins) ?? ok[ok.length - 1] ?? null;
+}
+
 /** 復興を任せる画面：担当（いまの担当 or ほかのヒーロー）と、送る支援金（3 つの額）。器は今の札 */
 export function delegateUx(ctx: Ctx, id: string, hero0?: number) {
   const d = R.sectorDef(id);
@@ -224,9 +230,7 @@ export function delegateUx(ctx: Ctx, id: string, hero0?: number) {
       }
       return { v, n, e: hero != null ? R.delegateLock(s, id, hero, v) : ('hero' as const) };
     });
-    // 主役：直しきれる額のうち、いちばん安い払える額（無ければ、払えるいちばん大きい額）
-    const ok = amts.filter((a) => !a.e);
-    const best = ok.find((a) => a.v + rv.fund >= short + rv.fund || a.n >= bs.length) ?? ok[ok.length - 1] ?? null;
+    const best = bestFund(amts, short, bs.length);
     const list = el('div.uxp-list.uxr-funds');
     for (const a of amts) {
       const stamp = uxpStamp(t('送金済', 'Sent'), { kind: 'good' });

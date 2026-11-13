@@ -394,3 +394,12 @@ html.is-uxc.uxr-tg #isl-ui.uxm-on .isl-sub.is-guide {
   50% { transform: scale(1.06); }
 }
 html.is-uxc.is-calm #isl-ui :is(.uxr-box, .uxr-del > *, .isl-bcard.uxr-bcard, .uxr-bcat, .uxr-mi-card, .uxr-set-row > *) { animation: none; }
+
+/* 数字の札の名前（「このセクタへ投資」など）を、字を大きくしたせまい画面で切らない（折り返す） */
+html.is-uxc #isl-ui .uxr-stats .uxp-stat-k {
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+}

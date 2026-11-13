@@ -13,7 +13,7 @@ import { hIcon } from './h-kit';
 import { rLine } from './sector';
 
 /** 種類の絵（今の絵文字の代わり。土台・ほかの段の絵の流用：docs/ISLAND_ART_TODO.md） */
-const CAT_ICO: Record<string, string> = { base: 'office', shop: 'shop', logi: 'box', food: 'cup', fun: 'star', big: 'crane', relic: 'pillar' };
+export const CAT_ICO: Record<string, string> = { base: 'office', shop: 'shop', logi: 'box', food: 'cup', fun: 'star', big: 'crane', relic: 'pillar' };
 const lite = { color: '#f4ecd4', hi: '#fffdf3', lo: '#0b0d17', scale: 1 };
 const ink = { color: '#1a1c2e', hi: '#1a1c2e', lo: '#8a7f5c', scale: 1 };
 const amb = { color: '#ffb81f', hi: '#ffe394', lo: '#7a3f06', scale: 1 };
