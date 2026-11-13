@@ -15,6 +15,7 @@ import { after, open, type Ctx } from './screens';
 import { bar, btn, fmt, h, heroIcon, heroName, money } from './ui';
 import { cvBox, fallEl, fallLegend, trendEl, trendLegend, type TSer } from './chartkit';
 import { taxFall } from './dash';
+import { uxk } from '../uix/screens/k-slots';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const TIER_NAME: Record<string, string> = { C: 'Common', U: 'Uncommon', R: 'Rare', E: 'Epic', L: 'Legendary' };
@@ -67,6 +68,8 @@ export function taxReportCard(r: TaxRec): HTMLElement {
 
 /** 経理 → 税と節税 */
 export function openTax(ctx: Ctx, hooks: { books?: () => void; skills?: () => void } = {}) {
+  // 段 UIX3k：入のときは、新しい画面（uix/screens/tax.ts）へ
+  if (uxk.tax) return uxk.tax(ctx, hooks);
   open(ctx, t('税と節税', 'Tax & savings'), (body) => {
     const s = ctx.s();
     const A = acctOf(s);
@@ -210,6 +213,8 @@ const BAND_COLOR: Record<FatigueBand, string> = { fresh: 'var(--isl-good)', ok: 
 
 /** 総務 → 疲れと職場の環境 */
 export function openGa(ctx: Ctx, hooks: { invest?: () => void; skills?: () => void } = {}) {
+  // 段 UIX3k：入のときは、新しい画面（uix/screens/tax.ts）へ
+  if (uxk.ga) return uxk.ga(ctx, hooks);
   open(ctx, t('疲れと職場の環境', 'Fatigue & workplace'), (body) => {
     const s = ctx.s();
     const on = gaOn(s);

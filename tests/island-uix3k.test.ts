@@ -2,7 +2,7 @@
 // 入のときだけ新しい画面に分かれること・今の目印が残ること・出す中身が今の画面とそろうこと・主役のキーが前の層に出ること・
 // 動きを減らすと全部すぐ出ること。
 import { readFileSync } from 'node:fs';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { uxkDeps } from '../src/island/p1/uxk';
 import { uxsDeps } from '../src/island/p1/uxs';
 import { EDGES, POS } from '../src/island/p1/treelayout';
@@ -19,12 +19,16 @@ import { INVESTS } from '../src/island/p1/data';
 import { fallBars, rowTone } from '../src/island/uix/screens/books';
 import { bsRows, plRows } from '../src/island/p1/uxk';
 import { emptyLedger } from '../src/island/p1/company';
+import { BAND_LAMP, BAND_NAME, DED_KINDS, MORALE_STEPS, dedRatio, moraleSteps, restHot } from '../src/island/uix/screens/tax';
+import { FIT_TAG, heatText, stars, useHot, useRatio } from '../src/island/uix/screens/budget';
+import { FEED_WHY, demandHot, dutyPct } from '../src/island/uix/screens/feed';
+import { BLINK_HALF_MS, arriveTop, blinkClock } from '../src/island/uix/screens/tree';
 import { CHAMFER, chainOf, descKey, gaugeSteps, lampOf, routeWires, stairDiamond, stateWord, type NodeDesc } from '../src/island/uix/screens/tree';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
 const TREE = src('p1/tree.ts');
 const TR = src('uix/screens/tree.ts');
-export const K_FILES = ['tree.ts', 'ranking.ts', 'invest.ts', 'books.ts', 'k-icons.ts', 'k-boot.ts', 'k-deps.ts', 'k-slots.ts'];
+export const K_FILES = ['tree.ts', 'ranking.ts', 'invest.ts', 'books.ts', 'tax.ts', 'budget.ts', 'feed.ts', 'k-icons.ts', 'k-boot.ts', 'k-deps.ts', 'k-slots.ts'];
 export const K_CSS = ['tree.css', 'k-screens.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -88,7 +92,7 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
 
 describe('スキルツリー（回路図）', () => {
   it('入口：openSkills が、差し込み口が入っているときだけ新しい画面へ渡す（見ている場所・選んだパネルは同じ物）', () => {
-    expect(TREE).toMatch(/if \(uxk\.tree\) \{\s*const lift = liftOnce;\s*liftOnce = false;\s*return uxk\.tree\(ctx, \{ lift \}\);\s*\}\s*open\(ctx, t\('スキルツリー', 'Skill tree'\)/);
+    expect(TREE).toMatch(/if \(uxk\.tree\) \{\s*const lift = liftOnce;\s*liftOnce = false;\s*return uxk\.tree\(ctx, \{ lift, focus \}\);\s*\}\s*open\(ctx, t\('スキルツリー', 'Skill tree'\)/);
     expect(src('uix/screens/k-boot.ts')).toContain('uxk.tree = openSkillsUx;');
     expect(uxkDeps.tree.view).toBeDefined();
     expect(uxkDeps.tree.DOUBLE_MS).toBe(420);
@@ -375,5 +379,168 @@ describe('決算書', () => {
     expect(BK).toContain('const motion = anim && !isCalm();');
     expect(BK).toContain('uxpPrint(plLines, { gap: 50');
     expect(BK).toContain('uxpPrint(plLines).finish();');
+  });
+});
+
+describe('税と節税・疲れと職場の環境', () => {
+  const TX = src('uix/screens/tax.ts');
+  const ACCT = src('p1/acctui.ts');
+  it('入口：openTax・openGa が、差し込み口が入っているときだけ新しい画面へ渡す（押す先 hooks も渡す）。器は今の札（open・keep）', () => {
+    expect(ACCT).toContain('if (uxk.tax) return uxk.tax(ctx, hooks);');
+    expect(ACCT).toContain('if (uxk.ga) return uxk.ga(ctx, hooks);');
+    expect(src('uix/screens/k-boot.ts')).toContain('uxk.tax = openTaxUx;');
+    expect(src('uix/screens/k-boot.ts')).toContain('uxk.ga = openGaUx;');
+    expect(TX).toMatch(/K\.open\(\s*ctx,\s*title,[\s\S]*?undefined,\s*true,\s*\)/);
+  });
+  it('今の目印（経理・総務の案内が指す所）：tax-plan・tax-tip・fatigue・env・data-hero', () => {
+    for (const k of ["'data-focus': 'tax-plan'", "'data-focus': 'tax-tip'", "'data-focus': 'fatigue'", "'data-focus': 'env'", "'data-hero': String(st.hero)"]) expect(TX, k).toContain(k);
+  });
+  it('出す中身は今の画面と同じ：見込み（利益・区分ごと・差し引ける額・上限・減る税）・あと N G・前の四半期の報告・これまで・しくみ・奥義の予告', () => {
+    for (const k of ['ここまでの課税の対象の利益', '差し引ける額', '節税で減る税', '研究開発なら', '課税の対象の利益', '繰越の損失', '節税の差し引き', '課税される額', '払った税', '節税で減らした税', '繰り越している損失', '払いきれていない税', '節税のしくみ', '奥義と掛け合わせ（予告）', '決算書を見る', '経理のパネル']) {
+      expect(TX, k).toContain(k);
+      expect(ACCT, k).toContain(k);
+    }
+    for (const k of ['疲れの平均', '休憩をやめる', '休ませる', '職場の環境', '総務のパネル', '設備投資', '未取得（総務のパネル）', '未設置（設備投資）', '工房に付いている']) {
+      expect(TX, k).toContain(k);
+      expect(ACCT, k).toContain(k);
+    }
+    expect(DED_KINDS).toEqual(['capex', 'rnd', 'env']);
+    expect(Object.keys(BAND_NAME)).toEqual(['fresh', 'ok', 'tired', 'worn']);
+    expect(BAND_LAMP.worn).toBe('bad');
+  });
+  it('節税の枠の計器・士気の目標の段・休ませたほうがよい人（今の is-on と同じ条件）', () => {
+    expect(dedRatio(50, 100)).toBe(0.5);
+    expect(dedRatio(150, 100)).toBe(1);
+    expect(dedRatio(1, 0)).toBe(0);
+    expect(MORALE_STEPS).toBe(6);
+    expect(moraleSteps(9)).toBe(6);
+    expect(restHot(false, 0.7, 0.6)).toBe(true);
+    expect(restHot(true, 0.9, 0.6)).toBe(false);
+    expect(restHot(false, 0.5, 0.6)).toBe(false);
+    expect(ACCT).toContain("!st.resting && f >= FATIGUE.show ? 'is-on' : ''");
+  });
+  it('主役のキーは 1 つ（下に貼りつく帯の主のキー＝前の層）：税は「決算書を見る」・総務は「総務のパネル」', () => {
+    expect(TX).toContain("kind: 'main', ico: null, cls: 'uxk-tx-books'");
+    expect(TX).toContain("kind: 'main', ico: null, cls: 'uxk-ga-panels'");
+    expect(TX.match(/kind: 'main'/g)?.length).toBe(2);
+    expect(FRONT_SEL).toContain('ux-key--main');
+  });
+  it('開くとき：紙の行が打たれ・棒が伸び・計器が振れる。上限まで使えたら札が打たれる。休ませると「休憩中」が打たれる。動きを減らすと、すぐ出る', () => {
+    expect(TX).toContain('const motion = anim && !isCalm();');
+    expect(TX).toContain('uxpPrint(rows).finish()');
+    expect(TX).toContain('stamp.hit(tip)');
+    expect(TX).toContain('h.stamp.hit(h.card)');
+    expect(TX).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
+  });
+});
+
+describe('予算と部門', () => {
+  const BD = src('uix/screens/budget.ts');
+  const OLD = src('p1/budgetui.ts');
+  it('入口：openBudget が、差し込み口が入っているときだけ新しい画面へ渡す。器は今の札（open・keep）', () => {
+    expect(OLD).toContain('if (uxk.budget) return uxk.budget(ctx);');
+    expect(src('uix/screens/k-boot.ts')).toContain('uxk.budget = openBudgetUx;');
+    expect(BD).toMatch(/K\.open\(\s*ctx,\s*t\('予算と部門', 'Budgets'\),[\s\S]*?undefined,\s*true,\s*\)/);
+  });
+  it('出す中身と押す先は今の画面と同じ（同じ関数を同じ引数で呼ぶ）', () => {
+    for (const k of ['budgetOpen(s)', 'budgetDepts(s)', 'setBudgets(s, Object.fromEntries(ds.map((d) => [d, { lv }])))', 'setBudget(s, d, lv)', "setBudget(s, d, 'X', v)", 'setCrewCap(s, d, B.cap - 1)', 'setCrewCap(s, d, B.cap + 1)', 'setCrewCap(s, d, B.cap + 2)', 'setBudget(s, d, up.lv, up.amt)', 'nextUp(s, d, ', 'approve(s, p.id)', 'nextMoves(s, d, 2, ifs)', 'openGrowth(ctx, H.hero)', 'pickHead(ctx, d, null)', 'setHead(s, d, hero)', 'setHead(s, d, null)', 'laborCap(s, d)', 'effParts(s, d)', 'askText(s, d, ', 'resultText(s, x)', 'budgetHeat(s.reports)']) {
+      expect(BD, k).toContain(k);
+      expect(OLD, k).toContain(k.replace(/^K\./, ''));
+    }
+    for (const k of ['今月の予算（部長のいる部門）', '部長からの頼み', '全部門の予算を', '部長なし（あなた）', '今月の施策（実行済み）', '予算の外：承認を待っている施策', '次に打ちたい施策（月の締めで部長が実行）', '先月の施策の成果', 'いま打てる施策はありません。', '部長を置くと、予算の中で施策を選んで実行します。', 'ほかに、お店の従業員', '月の予算（G）', '0 以上の数を入れてください']) {
+      expect(BD, k).toContain(k);
+      expect(OLD, k).toContain(k);
+    }
+    expect(BD).toContain("'data-dept': d");
+    expect(BD).toContain("k.setAttribute('data-lv', K.BUDGET_LVS[i])");
+    expect(BD).toContain('ux.lever?.(ok, okLabel) ?? ok');
+  });
+  it('札と計器：施策の札（緑と赤・言葉つき）・使った ／ 予算の計器（頼みが出るほど使ったら赤）・ます目（超えた月は「超」）・★', () => {
+    expect(FIT_TAG.ok()[1]).toBe('good');
+    expect(FIT_TAG.labor()[1]).toBe('bad');
+    expect(useRatio(50, 100)).toBe(0.5);
+    expect(useRatio(5, 0)).toBe(0);
+    expect(useHot(90, 100, 0.9)).toBe(true);
+    expect(useHot(80, 100, 0.9)).toBe(false);
+    expect(heatText(120, 4)).toMatch(/120%/);
+    expect(heatText(120, 4)).not.toBe('120%');
+    expect(heatText(40, 1)).toBe('40%');
+    expect(stars(2)).toBe('★★☆');
+  });
+  it('主役のキーは多くて 1 つ：いちばん上の部長の頼みの推奨のキー（主のキー＝前の層）', () => {
+    expect(BD).toContain("kind: mainAsk ? 'main' : ''");
+    expect(BD.match(/kind: 'main'/g)).toBeNull();
+  });
+  it('決める所：段のキー・−／＋・頼みのキーを押すと、描き直して数字が回り、計器が前の値から振れる。動きを減らすと、すぐ出る', () => {
+    expect(BD).toContain('const motion = (anim || swing) && !isCalm();');
+    expect(BD).toContain('const m = uxMeter(motion ? (from ?? 0) : v, kind);');
+    expect(BD).toContain('`uxk.bd.a.${d}`');
+  });
+});
+
+describe('部門のパネルへ寄る・輸入の箱', () => {
+  const FD = src('uix/screens/feed.ts');
+  const OLD = src('p1/feedui.ts');
+  it('「この部門のパネルを見る」：寄る先（部門）を新しい木へ渡す。いちばん上のパネルが下半分なら見出しのすぐ下まで送り、見出しがまたたく（1 回だけ）', () => {
+    expect(TREE).toContain('return uxk.tree(ctx, { lift, focus });');
+    expect(TR).toContain('inst = build(ctx, body, key, lift, arrive);');
+    expect(TR).toContain('if (arriveOnce && vp.clientHeight > 0) arriveDept(arriveOnce);');
+    expect(TR).toContain("uxpReplay(h.el, 'is-arrive');");
+    expect(arriveTop([5, 3.2, 9])).toBe(3.2);
+    expect(src('uix/screens/tree.css')).toMatch(/\.uxk-head\.is-arrive \{\s*animation: uxk-arrive/);
+  });
+  it('輸入の箱：feedBox が、差し込み口が入っているときだけ新しい箱へ渡す', () => {
+    expect(OLD).toContain('if (uxk.feed) return uxk.feed(s, b, done);');
+    expect(src('uix/screens/k-boot.ts')).toContain('uxk.feed = feedBoxUx;');
+  });
+  it('輸入の箱：中身と押す先は今の箱と同じ（境の拠点・止まる理由・部長の提案と承認・需要・週の数・値段・選ぶ／外す）', () => {
+    for (const k of ['nb.opened && K.borderDepots(s, nb.id).some(', 'K.feedBlock(s, nb.id)', "why !== 'depot'", 'K.feedSuggest(s, nb.id)', 'K.approveFeed(s, sg)', 'K.feedItems(s, nb.id)', 'K.toggleFeed(s, nb.id, it.sku)', "r === 'full'", "r === 'block'"]) expect(FD, k).toContain(k);
+    for (const k of ['止まっている品：', 'となり町の工房の商品を、毎週トラックでここへ', '（物流の部長）', 'を輸入に足すと この町の売上 月 +', 'に入れ替えると この町の売上 月 +', 'まだ誰も売っていない', 'この町の需要 ×', '（拠点の置き場所で頭打ち）', '（関税 ', 'の輸入をやめました', 'いまは輸入できません', '相手の工房が作っている商品がありません']) {
+      expect(FD, k).toContain(k);
+      expect(OLD, k).toContain(k);
+    }
+    expect(Object.keys(FEED_WHY)).toEqual(['unopened', 'workshop', 'ruin', 'units']);
+    expect(demandHot(1.1, false)).toBe(true);
+    expect(demandHot(1, true)).toBe(true);
+    expect(demandHot(1, false)).toBe(false);
+    expect(dutyPct(0.0612)).toBe('6.1%');
+    // 選んだ物は色だけにしない：ランプと琥珀の枠（uxpCard の selected）・「輸入中」の貼り札。承認はレバー
+    expect(FD).toContain("tags: it.on ? uxTape(t('輸入中', 'Importing'), 'good') : null");
+    expect(FD).toContain('ux.lever?.(ok) ?? ok');
+    expect(FD).toContain("'data-sku': it.sku");
+  });
+});
+
+describe('スキルツリー：開いたままの重さ', () => {
+  it('ランプのまたたき・上向きの矢印は、パネルごとの CSS の動きにしない（木に 1 つの時計で、data 属性を入れ替える）', () => {
+    const css = noComment(src('uix/screens/tree.css'));
+    expect(css).not.toMatch(/\.uxk-n-l\.is-blink\s*\{[^}]*animation/);
+    expect(css).not.toMatch(/\.uxk-n-up\s*\{[^}]*animation/);
+    expect(css).toContain(".uxk-world[data-ph='1'] .uxk-n-l.is-blink");
+    expect(css).toContain(".uxk-world[data-ph='1'] .uxk-n-up");
+    expect(TR).toContain('offs.push(blinkClock(world));');
+  });
+  it('時計：0.9 秒の半分ごとに入れ替える。動きを減らす・木が外れたときは止まった形', () => {
+    vi.useFakeTimers();
+    try {
+      const el = { isConnected: true, dataset: {} as Record<string, string> } as unknown as HTMLElement;
+      let calm = false;
+      const stop = blinkClock(el, () => calm);
+      expect(BLINK_HALF_MS).toBe(450);
+      vi.advanceTimersByTime(BLINK_HALF_MS);
+      expect(el.dataset.ph).toBe('1');
+      vi.advanceTimersByTime(BLINK_HALF_MS);
+      expect(el.dataset.ph).toBeUndefined();
+      vi.advanceTimersByTime(BLINK_HALF_MS);
+      calm = true;
+      vi.advanceTimersByTime(BLINK_HALF_MS);
+      expect(el.dataset.ph).toBeUndefined();
+      calm = false;
+      stop();
+      vi.advanceTimersByTime(BLINK_HALF_MS * 4);
+      expect(el.dataset.ph).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

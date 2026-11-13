@@ -15,7 +15,7 @@ import { later } from '../loop';
 import { Odo, uxKey, uxLamp, uxMeter, uxPlus, uxTape, vibrate } from '../parts';
 import { isCalm } from '../prefs';
 import { uxSfx } from '../sound';
-import { uxpGap, uxpStamp } from '../sparts';
+import { uxpGap, uxpReplay, uxpStamp } from '../sparts';
 import { K } from './k-deps';
 import { K_EMOJI, dotEmoji, kIcon, kIconUrl, noEmoji } from './k-icons';
 import './tree.css';
@@ -309,8 +309,28 @@ function glyph(name: string, cls: string, color = '#f4ecd4'): HTMLElement {
 }
 const lite = (name: string, color = '#f4ecd4') => kIcon(name, { color, hi: color, lo: '#0b0d17', scale: 1 });
 
+/** またたきの周期の半分（ランプが点いている・消えている時間。今の ux-blink の 0.9 秒の半分） */
+export const BLINK_HALF_MS = 450;
+/**
+ * またたきの時計：BLINK_HALF_MS ごとに el の data-ph を入れ替える（CSS は data-ph="1" のときだけ、ランプを暗く・矢印を上へ）。
+ * class ではなく data 属性にするのは、class の変化を見張っている着せ替え（c-dress.ts）を、またたくたびに起こさないため。
+ * 動きを減らすとき・タブが裏のとき・木が外れたときは止まった形（data-ph なし）。止める関数を返す
+ */
+export function blinkClock(el: HTMLElement, calm: () => boolean = isCalm): () => void {
+  const id = setInterval(() => {
+    if (!el.isConnected || calm() || (typeof document !== 'undefined' && document.hidden)) {
+      if (el.dataset.ph) delete el.dataset.ph;
+      return;
+    }
+    if (el.dataset.ph) delete el.dataset.ph;
+    else el.dataset.ph = '1';
+  }, BLINK_HALF_MS);
+  return () => clearInterval(id);
+}
+/** 部門へ寄るときの目当て：その部門のパネルのいちばん上の段（y の最小） */
+export const arriveTop = (ys: number[]) => Math.min(...ys);
 /** 部門の絵（下の帯のタブと同じ絵） */
-const DEPT_ICO: Record<string, string> = { marketing: 'horn', logistics: 'truck', sales: 'tag', support: 'headset', systems: 'gear', rnd: 'flask', legal: 'scales', hr: 'people', general: 'office', accounting: 'receipt', strategy: 'star4' };
+export const DEPT_ICO: Record<string, string> = { marketing: 'horn', logistics: 'truck', sales: 'tag', support: 'headset', systems: 'gear', rnd: 'flask', legal: 'scales', hr: 'people', general: 'office', accounting: 'receipt', strategy: 'star4' };
 
 /** パネルの絵：今の画面と同じ決め方（建物・商品・エクステ・素材）。絵文字で仮に置いてある分は、ドットの絵に替える */
 function panelIcon(id: string, size: number): HTMLElement {
@@ -328,8 +348,10 @@ function panelIcon(id: string, size: number): HTMLElement {
 // ---------------------------------------------------------------- 開く
 
 /** スキルツリーを開く（p1/tree.ts の openSkills から。見ている場所・選んだパネルは K.tree.view） */
-export function openSkillsUx(ctx: Ctx, o: { lift: boolean }) {
+export function openSkillsUx(ctx: Ctx, o: { lift: boolean; focus?: string }) {
   let lift = o.lift;
+  // 部門へ寄る（部門の画面の「この部門のパネルを見る」）：その部門のいちばん上のパネルが見える所まで送り、見出しを光らせる
+  let arrive: DeptId | null = o.focus && K.DEPT[o.focus as DeptId] ? (o.focus as DeptId) : null;
   K.open(
     ctx,
     t('スキルツリー', 'Skill tree'),
@@ -338,8 +360,9 @@ export function openSkillsUx(ctx: Ctx, o: { lift: boolean }) {
       if (inst && inst.body === body && inst.key === key && body.firstElementChild) return inst.sync();
       inst?.drop();
       body.replaceChildren();
-      inst = build(ctx, body, key, lift);
+      inst = build(ctx, body, key, lift, arrive);
       lift = false;
+      arrive = null;
     },
     () => {
       inst?.drop();
@@ -355,7 +378,7 @@ function structKey(ctx: Ctx): string {
   return `${+sealed}|${ctx.step?.() === 'recruit' ? 'hire' : ''}|${+(!sealed && K.digBranchOpen(s))}|${burst}`;
 }
 
-function build(ctx: Ctx, body: HTMLElement, key: string, liftFirst: boolean) {
+function build(ctx: Ctx, body: HTMLElement, key: string, liftFirst: boolean, arriveAt: DeptId | null = null) {
   const T = K.tree;
   const V = T.view;
   const F = T.filt;
@@ -363,6 +386,7 @@ function build(ctx: Ctx, body: HTMLElement, key: string, liftFirst: boolean) {
   const HQ = T.HQ;
   let alive = true;
   let liftOnce = liftFirst;
+  let arriveOnce = arriveAt;
   const offs: (() => void)[] = [];
   const S = () => ctx.s();
   const s0 = S();
@@ -1539,7 +1563,7 @@ function build(ctx: Ctx, body: HTMLElement, key: string, liftFirst: boolean) {
     place();
   };
   // 絵は自分で入れる（土台のキーの ico は、土台の絵しか描けない）
-  const zk = (ico: string, label: string, fn: () => void, cls = '') => uxKey([lite(ico), el('span.ux-vh', label)], fn, { ico: null, cls: `uxk-zkey ${cls}`.trim(), attrs: { 'aria-label': label, title: label } });
+  const zk = (ico: string, label: string, fn: () => void, cls = '') => uxKey([kIcon(ico, { color: '#f4ecd4', hi: '#f4ecd4', lo: '#0b0d17', scale: 2 }), el('span.ux-vh', label)], fn, { ico: null, cls: `uxk-zkey ${cls}`.trim(), attrs: { 'aria-label': label, title: label } });
   zoomUi.append(
     zk('left', t('左の列へ', 'Previous column'), () => sendCol(-1), 'uxk-zkey-col'),
     zk('left', t('右の列へ', 'Next column'), () => sendCol(1), 'uxk-zkey-col uxk-flip'),
@@ -1813,7 +1837,9 @@ function build(ctx: Ctx, body: HTMLElement, key: string, liftFirst: boolean) {
       const best = K.bestSkillMove(S());
       V.x = best && K.POS.has(best.id) ? K.DEPT_LAYOUT[K.deptOf(K.SKILL[best.id])].cx : K.DEPT_LAYOUT.logistics.cx;
     }
-    V.y = -0.75 + (vp.clientHeight / 2 - insetT) / (UNIT * V.zoom);
+    // 本社が横に見える列：本社と見出しが上に来る。本社が画面の外の列：その列の見出しを上の帯のすぐ下に（本社の段の空きを見せない）
+    const hqSeen = Math.abs(V.x) * UNIT * V.zoom < vp.clientWidth / 2 - 48;
+    V.y = hqSeen ? -0.75 + (vp.clientHeight / 2 - insetT) / (UNIT * V.zoom) : K.HEAD_Y + (vp.clientHeight / 2 - insetT - HEAD_PX + 12) / (UNIT * V.zoom);
   }
   const zoomSteps = () => {
     const keep = { x: V.x, y: V.y, zoom: V.zoom };
@@ -1873,10 +1899,26 @@ function build(ctx: Ctx, body: HTMLElement, key: string, liftFirst: boolean) {
       if (!hide) b.lab.style.transform = `translate3d(0, ${Math.round(y)}px, 0)`;
     }
   }
+  /** 部門へ寄った：その部門のいちばん上のパネルが下半分にあれば、見出しのすぐ下まで送る。見出しを光らせる（1 回だけ） */
+  function arriveDept(d: DeptId) {
+    arriveOnce = null;
+    const ys = K.SKILLS.filter((k) => K.deptOf(k) === d && K.POS.has(k.id)).map((k) => K.POS.get(k.id)!.y);
+    if (ys.length && V.zoom > 0) {
+      const top = arriveTop(ys);
+      const sy = vp.clientHeight / 2 + (top - V.y) * UNIT * V.zoom;
+      if (sy > vp.clientHeight * 0.55) V.y = top - (insetT + HEAD_PX + 72 - vp.clientHeight / 2) / (UNIT * V.zoom);
+    }
+    const h = headEls.find((x) => x.d === d);
+    if (h && !isCalm()) {
+      uxpReplay(h.el, 'is-arrive');
+      uxSfx('lamp', { step: 4 });
+    }
+  }
   function place() {
     if (V.zoom === T.ALL) fitAll();
     if (V.zoom === T.RINGFIT) fitAll(ringFx?.tier);
     if (V.zoom < 0 || !V.zoom) firstView();
+    if (arriveOnce && vp.clientHeight > 0) arriveDept(arriveOnce);
     if (liftOnce && !board.hidden) {
       liftOnce = false;
       V.y += insetB / 2 / (UNIT * V.zoom);
@@ -2051,6 +2093,9 @@ function build(ctx: Ctx, body: HTMLElement, key: string, liftFirst: boolean) {
   });
   // 開いたとき：数字の計器が点く（止まらない画面）
   if (!isCalm() && !sealed) replay(top, 'is-boot');
+
+  // ---- またたきの時計：ランプのまたたきと上向きの矢印を、1 つの時計でそろえて動かす（パネルごとの CSS の動きにしない：開いたままの重さ）
+  offs.push(blinkClock(world));
 
   return {
     body,

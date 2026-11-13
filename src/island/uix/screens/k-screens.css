@@ -470,6 +470,719 @@ html.is-uxc #isl-ui .uxk-bk-costs .uxp-rank-name {
   white-space: normal;
 }
 
+
+/* ==================================================================== 税と節税・疲れと職場の環境・予算と部門（共通の節） */
+html.is-uxc #isl-ui .uxk-tx,
+html.is-uxc #isl-ui .uxk-ga,
+html.is-uxc #isl-ui .uxk-bd {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 4px 0 0;
+}
+html.is-uxc #isl-ui .uxk-tx-page,
+html.is-uxc #isl-ui .uxk-ga-page,
+html.is-uxc #isl-ui .uxk-bd-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-sec .uxk-note {
+  margin: 0;
+}
+/* 計器は 8 段で振れる（開いたとき・値が変わったとき） */
+html.is-uxc #isl-ui .uxk-tx .ux-meter > i,
+html.is-uxc #isl-ui .uxk-ga .ux-meter > i,
+html.is-uxc #isl-ui .uxk-bd .ux-meter > i {
+  transition: transform 520ms steps(8, end);
+}
+/* 奥義の予告：錠の札と、消えたランプの一覧 */
+html.is-uxc #isl-ui .uxk-soon-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  list-style: none;
+  color: var(--ux-k5);
+  background: #11131f;
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxk-soon-list > li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  line-height: 1.45;
+}
+html.is-uxc #isl-ui .uxk-soon-list .ux-lamp {
+  flex: none;
+  transform: translate3d(0, 2px, 0);
+}
+
+/* ---------------------------------------------------------------- 税と節税 */
+html.is-uxc #isl-ui .uxk-tx-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ux-k5);
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-tx-months {
+  display: inline-flex;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxk-tx-off {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k4), inset -4px -4px 0 0 var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-tx-off-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxk-tx-off p {
+  margin: 0;
+  color: var(--ux-k5);
+  line-height: 1.5;
+}
+/* 「あと N G 投資すると」の札：琥珀の縁の板・節税の枠の計器 */
+html.is-uxc #isl-ui .uxk-tx-tip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 0 var(--ux-k4);
+}
+html.is-uxc #isl-ui .uxk-tx-tip.is-hot2 {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 6px 0 0 0 var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxk-tx-tip-t {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  line-height: 1.45;
+}
+html.is-uxc #isl-ui .uxk-tx-tip-t > canvas {
+  flex: none;
+  margin-top: 4px;
+}
+html.is-uxc #isl-ui .uxk-tx-tip-t > b,
+html.is-uxc #isl-ui .uxk-tx-tip-t > span {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-tx-tip-s {
+  color: var(--ux-k5);
+  line-height: 1.45;
+}
+html.is-uxc #isl-ui .uxk-tx-gauge {
+  display: grid;
+  grid-template-columns: minmax(4rem, 1fr) auto;
+  align-items: center;
+  gap: 4px 8px;
+}
+html.is-uxc #isl-ui .uxk-tx-gauge-k {
+  grid-column: 1 / -1;
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-tx-gauge-v {
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-tx-paid {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxk-tx-paid > b {
+  font-size: var(--ux-n2);
+}
+html.is-uxc #isl-ui .uxk-tx-paid > span:last-child {
+  color: #6a5f40;
+}
+html.is-uxc #isl-ui .uxk-tx-say {
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxk-tx-say.is-good {
+  color: #1f7a4a;
+}
+html.is-uxc #isl-ui .uxk-tx-say.is-bad {
+  color: #b8323f;
+}
+/* 税の見込みの差し引き：名前は 2 行まで折り返す（切らない） */
+html.is-uxc #isl-ui .uxk-tx-fall .uxp-bar-l {
+  min-height: 2.5rem;
+  white-space: normal;
+  line-height: 1.25;
+}
+html.is-uxc #isl-ui .uxp-paper .uxk-bk-row.is-good .uxp-row-v {
+  color: #1f7a4a;
+}
+
+/* ---------------------------------------------------------------- 疲れと職場の環境 */
+html.is-uxc #isl-ui .uxk-ga-avg {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: 12px;
+}
+html.is-uxc #isl-ui .uxk-ga-avg-m {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 6px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-ga-marks {
+  position: relative;
+  height: 1.5rem;
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-ga-marks > span {
+  position: absolute;
+  top: 0;
+}
+html.is-uxc #isl-ui .uxk-ga-marks > span:first-child {
+  left: 0;
+}
+html.is-uxc #isl-ui .uxk-ga-marks > span:nth-child(2) {
+  transform: translate3d(-50%, 0, 0);
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxk-ga-marks > span:last-child {
+  right: 0;
+}
+html.is-uxc #isl-ui .uxk-ga-band {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxk-ga-card .uxp-card-name {
+  flex-wrap: wrap;
+}
+html.is-uxc #isl-ui .uxk-ga-eff {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-ga-eff.is-bad {
+  color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxk-ga-meter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 3.5rem;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+html.is-uxc #isl-ui .uxk-ga-meter > .ux-num {
+  text-align: right;
+}
+html.is-uxc #isl-ui .uxk-ga-meter .ux-meter.is-tired > i {
+  background: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxk-ga-meter .ux-meter.is-worn > i {
+  background: var(--ux-bad);
+  box-shadow: inset 0 2px 0 #ffb3b8, inset 0 -2px 0 #8a1f2a;
+}
+html.is-uxc #isl-ui .uxk-ga-card.is-rest .uxp-card-pic {
+  opacity: 0.6;
+}
+html.is-uxc #isl-ui .uxk-ga-rest .ux-cap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-ga-morale {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxk-ga-steps {
+  display: inline-flex;
+  gap: 3px;
+}
+html.is-uxc #isl-ui .uxk-ga-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxk-ga-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxk-ga-item.is-on {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 0 var(--ux-good);
+}
+html.is-uxc #isl-ui .uxk-ga-item-ic {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxk-ga-item-b {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-ga-item-n {
+  color: var(--ux-k5);
+  line-height: 1.4;
+}
+html.is-uxc #isl-ui .uxk-ga-item-s {
+  color: var(--ux-k5);
+  text-align: right;
+}
+html.is-uxc #isl-ui .uxk-ga-item-s.is-good {
+  color: var(--ux-good);
+}
+@media (max-width: 520px) {
+  html.is-uxc #isl-ui .uxk-ga-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  html.is-uxc #isl-ui .uxk-ga-item-s {
+    grid-column: 2;
+    text-align: left;
+  }
+  html.is-uxc #isl-ui .uxk-ga-avg {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (min-width: 900px) {
+  html.is-uxc #isl-ui .uxk-tx,
+  html.is-uxc #isl-ui .uxk-ga,
+  html.is-uxc #isl-ui .uxk-bd {
+    max-width: 820px;
+  }
+}
+
+/* ---------------------------------------------------------------- 予算と部門 */
+html.is-uxc #isl-ui .uxk-bd-lead {
+  margin: 0;
+  color: var(--ux-k5);
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxk-bd-lead > b {
+  display: inline;
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxk-bd-kpis .ux-meter {
+  margin-top: 4px;
+}
+/* 部門 × 月のます目の表（濃いほど使った・超えた月は赤と「超」） */
+html.is-uxc #isl-ui .uxk-bd-heatwrap {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: 8px;
+  background: #11131f;
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxk-bd-heat {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, auto) repeat(var(--cols), minmax(4.25rem, 1fr));
+  gap: 2px;
+  min-width: max-content;
+}
+html.is-uxc #isl-ui .uxk-bd-hc {
+  padding: 2px 4px;
+  color: var(--ux-k5);
+  text-align: center;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-bd-hr {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  white-space: nowrap;
+  box-shadow: inset 4px 0 0 0 var(--c);
+}
+html.is-uxc #isl-ui .uxk-bd-cell {
+  display: grid;
+  place-items: center;
+  min-height: 2rem;
+  padding: 2px 4px;
+  white-space: nowrap;
+  color: var(--ux-paper);
+  background: var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-bd-cell.is-none {
+  color: var(--ux-k4);
+}
+html.is-uxc #isl-ui .uxk-bd-cell.is-h0 { background: var(--ux-k2); color: var(--ux-k5); }
+html.is-uxc #isl-ui .uxk-bd-cell.is-h1 { background: #3a3424; }
+html.is-uxc #isl-ui .uxk-bd-cell.is-h2 { background: #6b5520; }
+html.is-uxc #isl-ui .uxk-bd-cell.is-h3 { background: var(--ux-amber); color: var(--ux-ink); }
+html.is-uxc #isl-ui .uxk-bd-cell.is-h4 {
+  background: repeating-linear-gradient(135deg, var(--ux-bad) 0 4px, #7a1d27 4px 8px);
+  color: #fffdf3;
+  text-shadow: 1px 1px 0 #0b0d17;
+}
+html.is-uxc #isl-ui .uxk-bd-bulk {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxk-bd-k {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-bd-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* 部門の板：部門の色の帯（左）・暗い板 */
+html.is-uxc #isl-ui .uxk-bd-dept {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px 12px 16px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 6px 0 0 0 var(--c), inset 8px 4px 0 0 var(--ux-k4), inset -4px -4px 0 0 var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-bd-dept.is-nohead {
+  background: #1b1f33;
+}
+html.is-uxc #isl-ui .uxk-bd-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxk-bd-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.125rem;
+}
+html.is-uxc #isl-ui .uxk-bd-ic {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  background: var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxk-bd-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-bd-face > .ux-cap {
+  padding: 0;
+  min-width: 44px;
+  min-height: 44px;
+}
+html.is-uxc #isl-ui .uxk-bd-head > .ux-cap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxk-bd-star {
+  color: var(--ux-amber);
+  letter-spacing: 1px;
+}
+html.is-uxc #isl-ui .uxk-bd-nohead {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-bd-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 2px solid var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-bd-line {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+html.is-uxc #isl-ui .uxk-bd-line > .uxk-bd-k {
+  align-self: center;
+  min-width: 4rem;
+}
+html.is-uxc #isl-ui .uxk-bd-gauge {
+  display: grid;
+  grid-template-columns: minmax(4rem, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxk-bd-rest {
+  color: var(--ux-k5);
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-bd-rest.is-bad {
+  color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxk-bd .ux-meter.is-hot > i {
+  background: var(--ux-bad);
+  box-shadow: inset 0 2px 0 #ffb3b8, inset 0 -2px 0 #8a1f2a;
+}
+html.is-uxc #isl-ui .uxk-bd-seg {
+  flex-wrap: wrap;
+}
+html.is-uxc #isl-ui .uxk-bd-num {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  background: var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-bd-input {
+  width: 9rem;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 0;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--ux-amber-hi);
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k4);
+}
+html.is-uxc #isl-ui .uxk-bd-step {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+html.is-uxc #isl-ui .uxk-bd-cap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxk-bd-pm > .ux-cap {
+  min-width: 44px;
+}
+html.is-uxc #isl-ui .uxk-bd-fine {
+  color: var(--ux-k5);
+  line-height: 1.45;
+}
+html.is-uxc #isl-ui .uxk-bd-acts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 2px solid var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-bd-move {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 6px 8px;
+  background: var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxk-bd-move-nm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-bd-move-n {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+html.is-uxc #isl-ui .uxk-bd-cost,
+html.is-uxc #isl-ui .uxk-bd-labor,
+html.is-uxc #isl-ui .uxk-bd-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-bd-labor {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-bd-tag.is-good {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxk-bd-tag.is-bad {
+  color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxk-bd-okwrap {
+  flex: 1 0 100%;
+}
+html.is-uxc #isl-ui .uxk-bd-res {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--ux-k5);
+  line-height: 1.45;
+}
+html.is-uxc #isl-ui .uxk-bd-res.is-good {
+  color: var(--ux-good);
+}
+/* 部長からの頼み：顔と吹き出し（紙）・推奨の札のキー */
+html.is-uxc #isl-ui .uxk-bd-ask {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px 10px;
+}
+html.is-uxc #isl-ui .uxk-bd-ask-say {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  color: var(--ux-ink);
+  background: var(--ux-paper);
+  box-shadow: inset 0 0 0 2px var(--ux-ink);
+  line-height: 1.45;
+}
+html.is-uxc #isl-ui .uxk-bd-ask-say::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 14px;
+  width: 8px;
+  height: 8px;
+  background: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxk-bd-ask-key {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+html.is-uxc #isl-ui .uxk-bd-rec > .ux-cap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------------------------------------------------------------- 物流拠点の「輸入」の箱（吹き出しの「くわしく」の板の中） */
+html.is-uxc #isl-ui .uxk-fd {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 8px;
+}
+html.is-uxc #isl-ui .uxk-fd-next,
+html.is-uxc #isl-ui .uxk-fd-picks,
+html.is-uxc #isl-ui .uxk-fd-qty,
+html.is-uxc #isl-ui .uxk-fd-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxk-fd-next {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-fd-rule {
+  margin: 0;
+  color: var(--ux-k5);
+  line-height: 1.45;
+}
+html.is-uxc #isl-ui .uxk-fd-town {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxk-fd-from {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+html.is-uxc #isl-ui .uxk-fd-picks {
+  margin-left: auto;
+  gap: 3px;
+}
+html.is-uxc #isl-ui .uxk-fd-picks > .ux-num {
+  margin-left: 4px;
+}
+html.is-uxc #isl-ui .uxk-fd-stop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  color: var(--ux-paper);
+  background: #2a1820;
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 0 var(--ux-bad);
+  line-height: 1.45;
+}
+html.is-uxc #isl-ui .uxk-fd-paused {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-fd-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 10px;
+  align-items: start;
+}
+html.is-uxc #isl-ui .uxk-fd-say {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  color: var(--ux-ink);
+  background: var(--ux-paper);
+  box-shadow: inset 0 0 0 2px var(--ux-ink);
+  line-height: 1.45;
+}
+html.is-uxc #isl-ui .uxk-fd-lever {
+  grid-column: 1 / -1;
+}
+html.is-uxc #isl-ui .uxk-fd-pic {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  background: var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxk-fd-dm {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxk-fd-dm.is-good {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxk-fd-card .uxp-card-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+html.is-uxc #isl-ui .uxk-fd-qty,
+html.is-uxc #isl-ui .uxk-fd-price {
+  white-space: normal;
+}
+
 /* ==================================================================== 動きを減らす：止まった形で、全部すぐ出る（この束の画面の根には uxk-calm を付ける） */
 html.is-uxc.is-calm #isl-ui .uxk-calm *,
 html.is-uxc.is-calm #isl-ui .uxk-calm *::before,

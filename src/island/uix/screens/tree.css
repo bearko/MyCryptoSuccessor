@@ -399,8 +399,12 @@ html.is-uxc #isl-ui .uxk-n-l.is-on {
   background: var(--c);
   box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 rgba(255, 255, 255, 0.6);
 }
-html.is-uxc #isl-ui .uxk-n-l.is-blink {
-  animation: ux-blink 0.9s steps(1, end) infinite;
+/*
+ * またたくランプ・上向きの矢印は、パネルごとの CSS の動き（数十個が毎コマ動き、開いたままだと重い）ではなく、
+ * 木に 1 つの時計（tree.ts の blinkClock：450ms ごとに .uxk-world の data-ph を入れ替える）で動かす。見た目は同じ 0.9 秒の周期で、そろってまたたく
+ */
+html.is-uxc #isl-ui .uxk-world[data-ph='1'] .uxk-n-l.is-blink {
+  opacity: 0.25;
 }
 /* 角の印（引いて見ても 12px を下回らないよう、縮んだぶん大きくする） */
 html.is-uxc #isl-ui .uxk-n-m {
@@ -447,8 +451,8 @@ html.is-uxc #isl-ui .uxk-n-hint {
   background-size: 12px 12px;
   box-shadow: inset 0 0 0 2px var(--ux-k3);
 }
-html.is-uxc #isl-ui .uxk-n-up {
-  animation: uxk-bob 0.9s steps(2, end) infinite;
+html.is-uxc #isl-ui .uxk-world[data-ph='1'] .uxk-n-up {
+  translate: 0 -4px;
 }
 html.is-uxc #isl-ui .uxk-n-tags {
   position: absolute;
@@ -801,6 +805,14 @@ html.is-uxc #isl-ui .uxk-head {
   pointer-events: auto;
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
+}
+/* 部門へ寄ったとき（部門の画面の「この部門のパネルを見る」）：見出しが 3 回またたく */
+html.is-uxc #isl-ui .uxk-head.is-arrive {
+  animation: uxk-arrive 900ms steps(1, end) 1;
+}
+@keyframes uxk-arrive {
+  0%, 34%, 68% { box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 0 0 4px var(--ux-amber); }
+  17%, 51%, 85% { box-shadow: none; }
 }
 html.is-uxc #isl-ui .uxk-head.is-cur {
   background: var(--ux-k3);
