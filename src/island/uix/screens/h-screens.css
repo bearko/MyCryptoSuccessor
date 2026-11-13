@@ -1206,6 +1206,242 @@ html.is-uxc #isl-ui .uxh-dex-q {
   text-align: center;
 }
 
+/* ==================================================================== トロフィー（記章の棚） */
+html.is-uxc #isl-ui .uxh-badge,
+html.is-uxc .uxh-trpop .uxh-badge {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+html.is-uxc #isl-ui .uxh-badge-ico,
+html.is-uxc .uxh-trpop .uxh-badge-ico {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  transform: translate(-50%, -50%);
+  line-height: 0;
+}
+html.is-uxc #isl-ui .uxh-tr-head {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 14px;
+  padding: 10px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxh-tr-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxh-tr-hb {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+@media (max-width: 479px) {
+  html.is-uxc #isl-ui .uxh-tr-head {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  html.is-uxc #isl-ui .uxh-tr-hb {
+    grid-column: 1 / -1;
+  }
+}
+html.is-uxc #isl-ui .uxh-shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 8px;
+  padding: 10px 8px 14px;
+  background:
+    linear-gradient(var(--ux-k0), var(--ux-k0)) 0 100% / 100% 6px no-repeat,
+    var(--ux-k1);
+}
+html.is-uxc #isl-ui .uxh-tr.isl-tr {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 4px 10px;
+  padding: 10px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ux-dz25), #171a2c;
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxh-tr.is-got {
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-amber-lo), inset 4px 4px 0 0 var(--ux-k3);
+  color: var(--ux-paper);
+}
+html.is-uxc #isl-ui .uxh-tr-pic {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  background: #11131f;
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 4px 0 0 rgba(0, 0, 0, 0.5);
+}
+html.is-uxc #isl-ui .uxh-tr-pic > .ux-lamp {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+}
+html.is-uxc #isl-ui .uxh-tr-b {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-tr-cond {
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxh-tr-foot.is-got {
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxh-tr > .uxp-stamp {
+  position: absolute;
+  right: 6px;
+  top: -8px;
+  transform: rotate(-8deg);
+}
+/* 取ったときの帯（トーストの列） */
+html.is-uxc #isl-ui .uxh-trpop.isl-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-amber), inset 4px 0 0 0 var(--ux-amber);
+  color: var(--ux-paper);
+}
+html.is-uxc #isl-ui .uxh-trpop-t {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxh-badge.is-hit {
+  animation: uxh-hit 240ms steps(4, end) 120ms backwards;
+}
+@keyframes uxh-hit {
+  from {
+    opacity: 0;
+    transform: scale(2.2) rotate(-12deg);
+  }
+}
+
+/* ==================================================================== 遺物の展示館 */
+html.is-uxc #isl-ui .uxh-next > b {
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxh-next .ux-meter {
+  align-self: stretch;
+}
+html.is-uxc #isl-ui .uxh-mus-bonus p {
+  margin: 0;
+}
+html.is-uxc #isl-ui .uxh-mus-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 6px;
+}
+html.is-uxc #isl-ui .uxh-mus-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+html.is-uxc #isl-ui .uxh-mus-grid.isl-mus-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(46%, 150px), 1fr));
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxh-mus-box {
+  position: relative;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-mus-box > .uxp-stamp {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%) rotate(-8deg);
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxh-mus-slot.isl-mus-slot {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+html.is-uxc #isl-ui .uxh-mus-in {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  min-height: 168px;
+  padding: 6px 0;
+}
+html.is-uxc #isl-ui .uxh-mus-pic {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  background: #11131f;
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxh-mus-name {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+html.is-uxc #isl-ui .uxh-mus-stars {
+  color: var(--ux-amber);
+  letter-spacing: 1px;
+}
+html.is-uxc #isl-ui .uxh-mus-plus {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  margin-top: 20px;
+  box-shadow: inset 0 0 0 2px var(--ux-k4);
+}
+html.is-uxc #isl-ui .uxh-mus-slot.is-empty > .ux-cap {
+  --ux-face: #1a1e33;
+  background-image: var(--ux-dz25);
+}
+html.is-uxc #isl-ui .uxh-mus-slot.is-locked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 180px;
+  padding: 8px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ux-dz50), #151829;
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+  text-align: center;
+}
+html.is-uxc #isl-ui .uxh-rrar {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px 0 8px;
+  background: var(--ux-k0);
+  box-shadow: inset 4px 0 0 0 var(--hc), inset 0 0 0 2px #2a2f4a;
+  color: var(--hc);
+}
+
 /* ==================================================================== 動きを減らす */
 html.is-uxc.is-calm #isl-ui .uxh-in,
 html.is-uxc.is-calm #isl-ui .uxh-cand.is-flip,
@@ -1214,7 +1450,8 @@ html.is-uxc.is-calm #isl-ui .uxh-cand.is-rec::before,
 html.is-uxc.is-calm #isl-ui .uxh-slot.is-hot .uxh-slot-plus,
 html.is-uxc.is-calm #isl-ui .uxh-free.is-armed > .ux-cap,
 html.is-uxc.is-calm .uxh-pf.isl-hpfx,
-html.is-uxc.is-calm .uxh-pf-box {
+html.is-uxc.is-calm .uxh-pf-box,
+html.is-uxc.is-calm #isl-ui .uxh-badge.is-hit {
   animation: none;
 }
 html.is-uxc.is-calm .uxh-pf-flip > .uxh-rar {
@@ -1229,4 +1466,13 @@ html.is-uxc #isl-ui .isl-together .uxh-footbox {
   html.is-uxc #isl-ui .uxh-stats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+
+/* 今の目印（isl-tr）の字の大きさは外す（日本語は 16px から） */
+html.is-uxc #isl-ui .uxh-tr.isl-tr b,
+html.is-uxc #isl-ui .uxh-tr.isl-tr span {
+  font-size: var(--ux-t1);
+}
+html.is-uxc #isl-ui .uxh-tr.isl-tr .ux-num {
+  font-size: var(--ux-n15);
 }

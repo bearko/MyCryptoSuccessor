@@ -8,6 +8,7 @@ import type { P1State } from './model';
 import { open, type Ctx } from './screens';
 import { h } from './ui';
 import { TROPHIES, checkTrophies, globalId, loadTrophies, saveTrophies, type TrophyBook, type TrophyDef } from './trophy';
+import { uxh } from '../uix/screens/h-slots';
 
 /** 手元の記録（はじめに 1 回だけ読む。書けなくても、このセッションのあいだは覚えておく） */
 let book: TrophyBook | null = null;
@@ -27,6 +28,8 @@ export function trophyTick(s: P1State): TrophyDef[] {
  * 取ったときの帯（トーストの列に入れる：トーストと縦に並ぶので重ならない。main.ts が、そのときのトーストが消えてから出す）
  */
 export function trophyEl(d: TrophyDef): HTMLElement {
+  // 段 UIX3h：新しい画面（入のときだけ。記章が打たれる）
+  if (uxh.trophyPop) return uxh.trophyPop(d);
   const el = h('div', 'isl-toast isl-tr-pop');
   const txt = h('span');
   txt.append(h('small', '', t('🏆 トロフィーを手に入れた！', '🏆 Trophy unlocked!')), h('b', '', d.name()));
@@ -41,6 +44,7 @@ const dateText = (iso: string) => {
 
 /** トロフィーの一覧（システム → 設定） */
 export function openTrophies(ctx: Ctx) {
+  if (uxh.trophies) return uxh.trophies(ctx);
   open(ctx, t('トロフィー', 'Trophies'), (body) => {
     const b = trophyBook();
     const n = TROPHIES.filter((x) => b.got[x.id]).length;

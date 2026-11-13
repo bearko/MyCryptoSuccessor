@@ -5,6 +5,7 @@
  */
 import type { Ctx } from '../../p1/screens';
 import type { HeroRarity } from '../../p1/data';
+import type { TrophyDef } from '../../p1/trophy';
 
 export interface UxhScreens {
   /** ヒーローの配置（職人・運搬係・店員の持ち場と、待機中の名簿） */
@@ -23,6 +24,12 @@ export interface UxhScreens {
   lessons?: (ctx: Ctx) => void;
   /** 教えを受け継いだときのお知らせ（トーストの列に入れる要素） */
   lessonPop?: (hero: number, onOpen?: () => void) => HTMLElement;
+  /** トロフィーの一覧（記章の棚） */
+  trophies?: (ctx: Ctx) => void;
+  /** トロフィーを取ったときの帯（トーストの列に入れる要素） */
+  trophyPop?: (d: TrophyDef) => HTMLElement;
+  /** 遺物の展示館 */
+  museum?: (ctx: Ctx) => void;
 }
 // 入れ物は uix/hooks.ts に置く（理由はそこに）。ここは型と、同じ物の名前だけ
 export { uxhSlots as uxh } from '../hooks';

@@ -8,6 +8,7 @@ import { uxh } from './h-slots';
 import { openHireUx, openStaffUx } from './staff';
 import { openCharismaUx, openPayrollUx } from './hr';
 import { lessonPopUx, openGrowthUx, openLessonsUx, playPromotionUx } from './hero';
+import { openMuseumUx, openTrophiesUx, trophyPopUx } from './trophy';
 
 /** 本体の関数の束を受け取って、差し込み口へ入れる */
 export function installH(d: UxhDeps) {
@@ -20,4 +21,7 @@ export function installH(d: UxhDeps) {
   uxh.promotion = playPromotionUx;
   uxh.lessons = openLessonsUx;
   uxh.lessonPop = lessonPopUx;
+  uxh.trophies = openTrophiesUx;
+  uxh.trophyPop = trophyPopUx;
+  uxh.museum = openMuseumUx;
 }

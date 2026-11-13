@@ -4,6 +4,15 @@
  * 本体の側（このファイル。p1/main.ts と同じ束）から、使う関数だけを渡す。
  */
 import { DEF } from '../defs';
+import { RARITY_COLOR, RARITY_JA } from '../../game/catalog';
+import { DIG_BALANCE } from './data';
+import { exhibit, exhibitable, extName, extRank, extRarity, museumKnown, museumMarks, museumOpen, museumSlots, museumValue, relicValue, researchOf } from './model';
+import { extIcon } from './digui';
+import { stars } from './digview';
+import { museumHist } from './dash';
+import { TROPHIES, globalId } from './trophy';
+import { trophyBook } from './trophyui';
+import { refreshSheet } from './screens';
 import { assetUrl } from '../../render/images';
 import { HERO_GROWTH, HERO_RARITIES, LESSON, PASSIVES, PROMO_ITEM, PROMO_ITEMS } from './data';
 import { atCap, capOf, heroRarityOf, nextPassive, passiveName, passiveValue, promoItemOf, promoLock, xpNeed } from './hero';
@@ -130,6 +139,29 @@ export const uxhDeps = {
   lessonLive,
   lessonText,
   lessonTypeName,
+  // ---- トロフィー・展示館（今の p1/trophyui.ts・museumui.ts と同じ関数）
+  TROPHIES,
+  globalId,
+  trophyBook,
+  RARITY_COLOR,
+  RARITY_JA,
+  DIG_BALANCE,
+  exhibit,
+  exhibitable,
+  extName,
+  extRank,
+  extRarity,
+  museumKnown,
+  museumMarks,
+  museumOpen,
+  museumSlots,
+  museumValue,
+  relicValue,
+  researchOf,
+  extIcon,
+  stars,
+  museumHist,
+  refreshSheet,
   after,
   mineTip,
   open,

@@ -16,11 +16,13 @@ import { APT_ORDER, enterDelay, rankTone } from '../src/island/uix/screens/h-kit
 import { APPRENTICES, newlyPut, slotKey } from '../src/island/uix/screens/staff';
 import { MORALE_LAMP, diffWord, markAt } from '../src/island/uix/screens/hr';
 import { DUO_ICO, LESSON_ICO, PROMO_FLIP_MS, RELEASE_MS } from '../src/island/uix/screens/hero';
+import { TROPHY_ICO, dateText, stampDelay, trophyIco } from '../src/island/uix/screens/trophy';
+import { TROPHIES } from '../src/island/p1/trophy';
 import { LESSON_TYPES } from '../src/island/p1/lesson';
 import { H_ART as _HA } from '../src/island/uix/screens/h-icons';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
-export const H_FILES = ['h-boot.ts', 'h-deps.ts', 'h-slots.ts', 'h-kit.ts', 'h-icons.ts', 'staff.ts', 'hr.ts', 'hero.ts'];
+export const H_FILES = ['h-boot.ts', 'h-deps.ts', 'h-slots.ts', 'h-kit.ts', 'h-icons.ts', 'staff.ts', 'hr.ts', 'hero.ts', 'trophy.ts'];
 export const H_CSS = ['h-screens.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 const SCREENS = src('p1/screens.ts');
@@ -54,7 +56,10 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     expect(src('p1/growthui.ts')).toContain('  if (uxh.promotion) return uxh.promotion(root, hero, from, to, done);\n  const ov = h(');
     expect(src('p1/lessonui.ts')).toMatch(/export function openLessons\(ctx: Ctx\) \{\n[^\n]*\n  if \(uxh\.lessons\) return uxh\.lessons\(ctx\);\n  ctx\.root/);
     expect(src('p1/lessonui.ts')).toContain('  if (uxh.lessonPop) return uxh.lessonPop(hero, onOpen);\n  const x = lessonText(hero);');
-    for (const k of ['staff', 'hire', 'charisma', 'payroll', 'growth', 'promotion', 'lessons', 'lessonPop']) expect(boot, k).toMatch(new RegExp(`uxh\\.${k} = \\w+;`));
+    expect(src('p1/trophyui.ts')).toMatch(/export function openTrophies\(ctx: Ctx\) \{\n  if \(uxh\.trophies\) return uxh\.trophies\(ctx\);\n  open\(/);
+    expect(src('p1/trophyui.ts')).toContain('  if (uxh.trophyPop) return uxh.trophyPop(d);\n  const el = h(');
+    expect(src('p1/museumui.ts')).toMatch(/export function openMuseum\(ctx: Ctx\) \{\n[^\n]*\n  if \(uxh\.museum\) return uxh\.museum\(ctx\);\n  pickSlot = null;/);
+    for (const k of ['staff', 'hire', 'charisma', 'payroll', 'growth', 'promotion', 'lessons', 'lessonPop', 'trophies', 'trophyPop', 'museum']) expect(boot, k).toMatch(new RegExp(`uxh\\.${k} = \\w+;`));
   });
   it('新しい画面の束は、本体のモジュールを自分では読まない（型だけ）。関数は p1/uxh.ts から渡す', () => {
     for (const f of H_FILES) {
@@ -94,7 +99,8 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
   });
   it('絵文字を出さない（この段の画面のコードに、絵文字の字を書かない）', () => {
     const emoji = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/u;
-    for (const f of H_FILES) expect(src(`uix/screens/${f}`), f).not.toMatch(emoji);
+    // 「★」「☆」は字として読める記号（ブランド力の★・研究の段）なので残す
+    for (const f of H_FILES) expect(src(`uix/screens/${f}`).replace(/[★☆]/g, ''), f).not.toMatch(emoji);
   });
 });
 
@@ -235,5 +241,34 @@ describe('ヒーローの人事票・育成・昇格・教え・組み合わせ�
     expect(HE).toContain("{ max: top, height, cls: 'uxh-lsbars' }");
     expect(HE).toContain("el('div.isl-toast.isl-ls-pop.uxh-lspop', uxLamp('good', true)");
     expect(src('uix/screens/c-dress.ts')).toContain("if (e.querySelector(':scope > .ux-lamp')) return;");
+  });
+});
+
+describe('トロフィー（記章の棚）・遺物の展示館', () => {
+  const TR = src('uix/screens/trophy.ts');
+  it('記章：全部のトロフィーに絵（表に無ければ記章）。取った物は光ってランプ・取った日と何か月目、まだの物は影と条件', () => {
+    for (const d of TROPHIES) expect(ALL_ICONS.has(trophyIco(d.id)), d.id).toBe(true);
+    expect(Object.keys(TROPHY_ICO).sort()).toEqual(TROPHIES.map((d) => d.id).sort());
+    expect(trophyIco('nope')).toBe('medal');
+    expect(dateText('2026-11-10T10:00:00Z')).toMatch(/^2026\/11\/1[01]$/);
+    expect(dateText('x')).toBe('x');
+    // 今の目印：.isl-tr（is-got）・data-trophy（全体の ID）
+    expect(TR).toContain("el(\n          `div.uxh-tr.isl-tr${r ? '.is-got' : ''}`,\n          { 'data-trophy': H.globalId(d.id) },");
+    for (const x of ['d.cond()', 'd.name()', 'd.from ?', "t('まだ', 'Not yet')", 'Math.floor(r.day / 30) + 1', "t('遊び方ごとの記録です。セーブとは別に、この端末に残ります。'", "t('bearko.games 共通のトロフィーに"]) expect(TR, x).toContain(x);
+  });
+  it('開いたとき、取った記章が順に打たれる（動きを減らすときは打たれたまま）。取った瞬間の帯も記章が打たれる（今の目印 .isl-toast.isl-tr-pop）', () => {
+    expect(stampDelay(0)).toBe(180);
+    expect(stampDelay(20)).toBe(180 + 1400);
+    expect(TR).toContain('if (!anim || isCalm()) for (const h of hits) h.stamp.show();');
+    expect(TR).toContain("el('div.isl-toast.isl-tr-pop.uxh-trpop'");
+    // 帯の着せ替え（c-dress）は、記章の頭の i が無いので組み直さない（火花と音はそのまま）
+    expect(src('uix/screens/c-dress.ts')).toContain("const i = e.querySelector<HTMLElement>(':scope > i');\n  if (!i || i.dataset.uxc) return;");
+  });
+  it('展示館：出す中身が今の画面とそろう（価値・来館・入館料・次の節目・推移・節目のボーナス・工事中・枠と錠・式の説明）。選ぶのは引き出し・外す・続けて次の枠', () => {
+    for (const x of ['H.museumValue(s)', 'H.museumMarks(s)', 'MB.visitors', 'MB.fee', 'H.museumHist(s.reports)', 'H.museumKnown(s)', 'H.museumOpen(s)', 'H.museumSlots(s)', "t('展示室の増築で', 'Gallery extension')", 'H.exhibitable(s)', 'H.exhibit(s, k, null)', 'H.exhibit(s, k, pick)', "e === 'dup'", "ctx.sfx?.('levelup')", 'H.stars(H.researchOf(s, id))', 'H.relicValue(s, id)', "t(`展示中（枠 ${at + 1}）`", 'const next = (s.museum?.items ?? []).findIndex((x, i) => x == null && i < H.museumSlots(s));']) expect(TR, x).toContain(x);
+    // 今の目印：.isl-mus-grid・.isl-mus-slot（is-on・is-empty・is-locked）
+    expect(TR).toContain("el('div.uxh-mus-grid.isl-mus-grid')");
+    expect(TR).toContain("cls: `uxh-mus-slot isl-mus-slot ${id != null ? 'is-on' : 'is-empty'}`");
+    expect(TR).toContain("uxpStamp(t('展示', 'On display'), { kind: 'amber' })");
   });
 });
