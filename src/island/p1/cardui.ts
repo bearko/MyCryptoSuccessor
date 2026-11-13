@@ -57,6 +57,9 @@ import { cardReact, sayToast } from './p2ui';
 import { DUO_BY_ID } from './duo';
 import { ISSUE_ICON, issueName, issueTag, issuesOf } from './issues';
 
+/** 段 UIX3d：組み合わせのカードの史実の一言（新しい画面へ渡す。今の画面の duo の行と同じ中身） */
+export const duoNoteOf = (c: Card) => (c.src === 'duo' && c.duo ? (DUO_BY_ID[c.duo.id]?.note() ?? '') : null);
+
 /** 小さい一行の適性（話し手の持ち場の仕事） */
 const TASK_OF: Partial<Record<Card['src'], Task>> = { clerk: 'shop', crafter: 'craft', buyer: 'buy', cs: 'shop' };
 const TASK_NM: Partial<Record<Task, () => string>> = { shop: () => t('販売', 'Selling'), craft: () => t('製造', 'Crafting'), buy: () => t('調達', 'Buying') };

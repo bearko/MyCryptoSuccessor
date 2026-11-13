@@ -34,7 +34,7 @@ import {
   type ChooseRes,
   type Speech,
 } from './card';
-import { cardChoose, cardNav, showCard, type CardHooks } from './cardui';
+import { cardChoose, cardNav, duoNoteOf, showCard, type CardHooks } from './cardui';
 import { propModel, propSlides, storeBlock, type PropModel, type ProposalOpts } from './proposalui';
 import { SLIDE_NAME, SRC_NAME, askIcon, shortWhat } from './slides';
 import { askTo } from './brief';
@@ -47,23 +47,26 @@ import { landDef, relOf, relTeaser } from './diplo';
 import { after, open, type Ctx } from './screens';
 import { afterOf, applyPlan, dropLine, planOf, planTitle, type Plan } from './plan';
 import { useUpOf } from './proj';
-import { DUO_BY_ID } from './duo';
 import { ISSUE_ICON, issueLv, issueName, issueTag, issuesOf, lvWord, type IssueKey } from './issues';
 import { DEPT } from './data';
 import { heroIcon, heroName, money, rich } from './ui';
-import * as BD from './board';
-import * as BP from './boardplan';
+import { askLine as bdAskLine, auditLines, auditSee, boardFinish, boardOf, boardSummary, budgetOptText, budgetWhy, canRaise, decide, isYearOpening, itemTitle, moraleHint, otherLine, planLine, planOptText, reportLine, roleOf as bdRoleOf, yearOfBoard } from './board';
+const BD = { askLine: bdAskLine, auditLines, auditSee, boardFinish, boardOf, boardSummary, budgetOptText, budgetWhy, canRaise, decide, isYearOpening, itemTitle, moraleHint, otherLine, planLine, planOptText, reportLine, roleOf: bdRoleOf, yearOfBoard };
+import { STAGE_JA, causeChips, causeName, coLive, forecastHint, leverOpts, leverWhy, styleOfHero } from './boardplan';
+const BP = { STAGE_JA, causeChips, causeName, coLive, forecastHint, leverOpts, leverWhy, styleOfHero };
 import { BOARD, unitsX } from './data';
 import { BOARD_ITEM_LINES, BOARD_SCENES, drawSlack } from './boardui';
 import { bulletEl } from './chartkit';
 import { lineOf, styleTags } from './voice';
 import { headOf, heroNm } from './deleg';
-import * as PL from './policy';
+import { START_IDS, askLine as plAskLine, baseFxText, canSetCorp, canSetDept, claimSlot, corpOf, deptPolicyOf, fxLine, isOpen, meetingsOn, openPolicies, openText, polFxOf, policyName, presDepts, recDept, setCorp, setDept, setPolicy, slotLocked, slotNextTier, slotPending, slotsOf } from './policy';
+const PL = { START_IDS, askLine: plAskLine, baseFxText, canSetCorp, canSetDept, claimSlot, corpOf, deptPolicyOf, fxLine, isOpen, meetingsOn, openPolicies, openText, polFxOf, policyName, presDepts, recDept, setCorp, setDept, setPolicy, slotLocked, slotNextTier, slotPending, slotsOf };
 import { POLICIES, POLICY_OF } from './data';
 import { sideText } from './policycards';
 import { openCorpPick, openDeptPick, openPolicyView, policyCard, powerLines } from './policyui';
 import { done as delegDone, openDeleg, openProps, pickFor, pickHead, pickNote, propSee, sectorLines } from './delegui';
-import * as DL from './deleg';
+import { actName, autoDuty, bandText, dutyLine, headLeft, hold, leaderLeft, leaderOf, othersCount, pickBest, pickList, propEst, propWhy, qText, qualityParts, reject, resultText, roleOf as dlRoleOf, roleText, runnerOf, sectorHeadOk, setHead, setLeader } from './deleg';
+const DL = { actName, autoDuty, bandText, dutyLine, headLeft, headOf, hold, leaderLeft, leaderOf, othersCount, pickBest, pickList, propEst, propWhy, qText, qualityParts, reject, resultText, roleOf: dlRoleOf, roleText, runnerOf, sectorHeadOk, setHead, setLeader };
 import { DELEG, DEPT_DUTIES, DUTY, L0, deptAptName } from './data';
 import { deptLevel } from './dept';
 import { policySort } from './brief';
@@ -236,7 +239,7 @@ export function cardView(s: P1State, c: Card): CardView {
     say: sayOf(s, c),
     iss,
     store,
-    duoNote: c.src === 'duo' && c.duo ? (DUO_BY_ID[c.duo.id]?.note() ?? '') : null,
+    duoNote: duoNoteOf(c),
     choices,
     two,
     tut,
@@ -324,7 +327,10 @@ export function propDecide(s: P1State, plan: Plan, M: PropModel) {
 }
 
 // ---------------------------------------------------------------- 経営会議（計算と文は board.ts・boardplan.ts。画面は今の boardui.ts と同じ関数を同じ引数で呼ぶ）
-export const boardKit = { ...BD, ...BP, BOARD, DEPT, unitsX, scenes: BOARD_SCENES, itemLines: BOARD_ITEM_LINES, drawSlack, bulletEl, lineOf, styleTags, heroNm, pickHead, fxLevel };
+export const boardKit = {
+  ...{ askLine: BD.askLine, auditLines: BD.auditLines, auditSee: BD.auditSee, boardFinish: BD.boardFinish, boardOf: BD.boardOf, boardSummary: BD.boardSummary, budgetOptText: BD.budgetOptText, budgetWhy: BD.budgetWhy, canRaise: BD.canRaise, decide: BD.decide, isYearOpening: BD.isYearOpening, itemTitle: BD.itemTitle, moraleHint: BD.moraleHint, otherLine: BD.otherLine, planLine: BD.planLine, planOptText: BD.planOptText, reportLine: BD.reportLine, roleOf: BD.roleOf, yearOfBoard: BD.yearOfBoard },
+  ...{ STAGE_JA: BP.STAGE_JA, causeChips: BP.causeChips, causeName: BP.causeName, coLive: BP.coLive, forecastHint: BP.forecastHint, leverOpts: BP.leverOpts, leverWhy: BP.leverWhy, styleOfHero: BP.styleOfHero },
+  BOARD, DEPT, unitsX, scenes: BOARD_SCENES, itemLines: BOARD_ITEM_LINES, drawSlack, bulletEl, lineOf, styleTags, heroNm, pickHead, fxLevel };
 
 // ---------------------------------------------------------------- 経営方針（決まりと文は policy.ts・policycards.ts）
 export const polKit = { ...PL, POLICIES, POLICY_OF, sideText };
