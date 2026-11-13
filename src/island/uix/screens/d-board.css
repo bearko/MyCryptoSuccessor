@@ -1,0 +1,510 @@
+/*
+ * 段 UIX3d：経営会議（方向 C「管制卓」）。入のときだけ読む（board.ts）。すべて html.is-uxc の内側・class は uxd-。
+ * 動きは transform と opacity だけ。出入りは backwards まで。動きを減らすときは全部止まる（土台の is-calm）。
+ */
+html.is-uxc #isl-ui .isl-modal.isl-board > .uxd-bd {
+  position: relative;
+  width: min(880px, 100%);
+  height: min(100%, 820px);
+  margin: 0 auto;
+  padding: 10px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  border: 0;
+  color: var(--ux-paper);
+  animation: uxd-in 240ms steps(6, end) backwards;
+}
+html.is-uxc .uxd-bd-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  flex: none;
+  padding-right: 52px;
+}
+html.is-uxc .uxd-bd-top > .ux-sheet-x {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+html.is-uxc .uxd-bd-plate {
+  color: var(--ux-k5);
+}
+/* 会議の流れの帯：議題 → 意見 → 決議 */
+html.is-uxc .uxd-bd-flow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 6px 8px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc .uxd-bd-flow-s {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxd-bd-flow-s > b {
+  font-weight: 400;
+}
+html.is-uxc .uxd-bd-flow-s.is-cur {
+  background: var(--ux-amber);
+  color: var(--ux-ink);
+}
+html.is-uxc .uxd-bd-flow-arw {
+  font-style: normal;
+  color: var(--ux-k4);
+}
+html.is-uxc .uxd-bd-count {
+  margin-left: auto;
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+/* 席 */
+html.is-uxc .uxd-bd-seats {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  flex: none;
+  overflow-x: auto;
+  padding: 4px 2px 6px;
+  background:
+    linear-gradient(var(--ux-k3), var(--ux-k3)) 0 100% / 100% 10px no-repeat,
+    var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxd-bd-seat {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+}
+html.is-uxc .uxd-bd-seat.is-on {
+  box-shadow: inset 0 0 0 2px var(--ux-amber);
+  animation: uxd-seat 900ms steps(2, end) infinite;
+}
+@keyframes uxd-seat {
+  50% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+html.is-uxc .uxd-bd-seat.is-pop {
+  animation: uxd-pop 260ms steps(4, end) backwards;
+}
+@keyframes uxd-pop {
+  from {
+    transform: scale(1.25);
+  }
+}
+html.is-uxc .uxd-bd-seat-r {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 1rem;
+}
+html.is-uxc .uxd-bd-mark {
+  font-weight: 400;
+  font-size: 1rem;
+  line-height: 1;
+}
+html.is-uxc .uxd-bd-seat.is-ok .uxd-bd-mark {
+  color: var(--ux-good);
+}
+html.is-uxc .uxd-bd-seat.is-no .uxd-bd-mark {
+  color: var(--ux-bad);
+}
+html.is-uxc .uxd-bd-chair {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  margin-left: auto;
+  padding: 4px 8px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-amber-lo);
+}
+html.is-uxc .uxd-bd-chair > b {
+  font-weight: 400;
+}
+/* 中身の板 */
+html.is-uxc .uxd-bd-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 2px;
+}
+html.is-uxc .uxd-bd-footslot {
+  flex: none;
+}
+html.is-uxc .uxd-bd-footslot:empty {
+  display: none;
+}
+html.is-uxc .uxd-bd-footslot .uxp-foot {
+  position: relative;
+  align-items: center;
+}
+html.is-uxc .uxd-bd-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+html.is-uxc .uxd-bd-lead,
+html.is-uxc .uxd-bd-year {
+  margin: 0;
+}
+html.is-uxc .uxd-bd-agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+html.is-uxc .uxd-bd-agenda > li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 4px;
+  border-bottom: 2px dotted var(--ux-paper3);
+}
+html.is-uxc .uxd-bd-agenda-t {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+html.is-uxc .uxd-bd-audit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 10px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxd-bd-audit.is-off {
+  color: var(--ux-k5);
+}
+/* 意見：話し手が大きく立つ・吹き出し */
+html.is-uxc .uxd-bd-talk {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 8px;
+}
+html.is-uxc .uxd-bd-who {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+html.is-uxc .uxd-bd-name {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxd-bd-name > .ux-tape {
+  font-size: var(--ux-t15);
+  line-height: 2rem;
+  min-height: 2rem;
+}
+html.is-uxc .uxd-bd-star {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+html.is-uxc .uxd-bd-react {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 6px 10px;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  box-shadow: 2px 2px 0 rgba(4, 6, 14, 0.5);
+  animation: uxd-in 220ms steps(5, end) backwards;
+}
+html.is-uxc .uxd-bd-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* 吹き出し（話し手の言葉）：紙の面・左上に尻尾 */
+html.is-uxc .uxd-bd-say {
+  position: relative;
+  margin: 0 0 0 10px;
+  padding: 8px 12px;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  box-shadow: inset 0 -2px 0 var(--ux-paper2), 2px 2px 0 rgba(4, 6, 14, 0.5);
+}
+html.is-uxc .uxd-bd-say::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  background: var(--ux-paper);
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}
+html.is-uxc .uxd-bd-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+html.is-uxc .uxd-bd-meters * {
+  font-size: 1rem;
+  border-radius: 0 !important;
+}
+html.is-uxc .uxd-bd-nums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+html.is-uxc .uxd-bd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc .uxd-bd-cause {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--ux-k1);
+  box-shadow: inset 4px 0 0 var(--ux-amber), inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxd-bd-kbig {
+  font-weight: 400;
+  font-size: var(--ux-t15);
+  line-height: 1.3;
+}
+html.is-uxc .uxd-bd-audit2 {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--ux-k1);
+  box-shadow: inset 4px 0 0 var(--ux-good), inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxd-bd-audit2.is-flag {
+  box-shadow: inset 4px 0 0 var(--ux-bad), inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxd-bd-audit2 > b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 400;
+}
+html.is-uxc .uxd-bd-audit2 > p {
+  margin: 0;
+}
+html.is-uxc .uxd-bd-dim,
+html.is-uxc .uxd-bd-hint,
+html.is-uxc .uxd-bd-recwhy,
+html.is-uxc .uxd-bd-praise {
+  margin: 0;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxd-bd-praise {
+  color: var(--ux-ink);
+}
+html.is-uxc .uxp-grid.uxd-bd-opts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+html.is-uxc .uxp-grid.uxd-bd-opts.is-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 599px) {
+  html.is-uxc .uxp-grid.uxd-bd-opts,
+  html.is-uxc .uxp-grid.uxd-bd-opts.is-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+html.is-uxc .uxd-bd-slack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+html.is-uxc .uxd-bd-slack * {
+  font-size: 1rem;
+  border-radius: 0 !important;
+}
+html.is-uxc .uxd-bd-lever {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 var(--ux-amber);
+}
+html.is-uxc .uxd-bd-lhead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+html.is-uxc .uxd-bd-style {
+  padding: 0 6px;
+  box-shadow: inset 0 0 0 2px var(--ux-k4);
+  color: var(--ux-paper2);
+}
+html.is-uxc .uxd-bd-lbig {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+html.is-uxc .uxd-bd-lname {
+  font-weight: 400;
+  font-size: var(--ux-t15);
+  line-height: 1.3;
+}
+html.is-uxc .uxd-bd-lnum {
+  display: flex;
+  flex-direction: column;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxd-bd-lnum > b {
+  font-weight: 400;
+  color: var(--ux-good);
+}
+html.is-uxc .uxd-bd-stampat {
+  position: absolute;
+  top: 45%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  z-index: 3;
+  pointer-events: none;
+}
+html.is-uxc .uxd-bd-stamp.uxp-stamp {
+  min-height: 3rem;
+  padding: 4px 16px;
+  font-size: var(--ux-t2);
+  line-height: 2.5rem;
+}
+html.is-uxc .uxd-bd-stamp.uxp-stamp.is-ok {
+  background: var(--ux-bad);
+  color: var(--ux-white);
+  box-shadow: inset 0 0 0 4px var(--ux-bad-lo), 4px 4px 0 rgba(4, 6, 14, 0.6);
+}
+/* 決議 */
+html.is-uxc .uxp-paper.uxd-bd-resolve {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+html.is-uxc .uxd-bd-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+html.is-uxc .uxd-bd-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px dotted var(--ux-paper3);
+}
+html.is-uxc .uxd-bd-row-nm {
+  display: flex;
+  flex-direction: column;
+  min-width: 6rem;
+}
+html.is-uxc .uxd-bd-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+html.is-uxc .uxd-bd-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  box-shadow: inset 0 0 0 2px var(--ux-paper3);
+}
+html.is-uxc .uxd-bd-tag.is-no {
+  box-shadow: inset 0 0 0 2px var(--ux-bad-lo);
+}
+html.is-uxc .uxd-bd-tag.is-up {
+  box-shadow: inset 0 0 0 2px var(--ux-amber-lo);
+}
+/* 今の目印（isl-bm・isl-bm-room・isl-bm-seat）を付けてあるので、今の会議室の形（丸い角・縁・高さ・色）は外す */
+html.is-uxc #isl-ui .isl-modal.isl-board > .uxd-bd.isl-bm {
+  display: flex;
+  border-radius: 0;
+  background: var(--ux-k2);
+}
+html.is-uxc #isl-ui .uxd-bd .uxd-bd-seats.isl-bm-room {
+  height: auto;
+  border-bottom: 0;
+  overflow-y: hidden;
+}
+html.is-uxc #isl-ui .uxd-bd .uxd-bd-seat.isl-bm-seat {
+  --sz: 70px;
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  animation: none;
+}
+html.is-uxc #isl-ui .uxd-bd .uxd-bd-seat.isl-bm-seat.is-on {
+  transform: none;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-amber);
+  animation: uxd-seat 900ms steps(2, end) infinite;
+}
+html.is-uxc #isl-ui .uxd-bd .uxd-bd-seat.isl-bm-seat.is-pop {
+  animation: uxd-pop 260ms steps(4, end) backwards;
+}
+/* 方針発表会の席の反応（今は絵文字の顔）：顔は出さず、ランプの色で（喜ぶ＝緑・渋い＝赤・うなずく＝灰） */
+html.is-uxc #isl-ui .uxd-bd .uxd-bd-seat .pc-face {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  overflow: hidden;
+  text-indent: 40px;
+  white-space: nowrap;
+  background: var(--ux-k4);
+  box-shadow: 0 0 0 2px var(--ux-k0);
+  animation: none;
+}
+html.is-uxc #isl-ui .uxd-bd .uxd-bd-seat .pc-face.is-glad {
+  background: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxd-bd .uxd-bd-seat .pc-face.is-sour {
+  background: var(--ux-bad);
+}
+@media (max-width: 599px) {
+  html.is-uxc .uxd-bd-tags {
+    flex-basis: 100%;
+    order: 3;
+  }
+}

@@ -9,10 +9,11 @@ import { newP1 } from '../src/island/p1/model';
 import { choiceText } from '../src/island/p1/card';
 import { uxd } from '../src/island/uix/screens/d-slots';
 import { CLOSE_MS, PAGE_MS } from '../src/island/uix/screens/proposal';
+import { FLOW, NEXT_MS } from '../src/island/uix/screens/board';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
-export const D_FILES = ['card.ts', 'proposal.ts', 'd-kit.ts', 'd-boot.ts', 'd-deps.ts', 'd-slots.ts'];
-export const D_CSS = ['d-card.css', 'd-prop.css'];
+export const D_FILES = ['card.ts', 'proposal.ts', 'board.ts', 'd-kit.ts', 'd-boot.ts', 'd-deps.ts', 'd-slots.ts'];
+export const D_CSS = ['d-card.css', 'd-prop.css', 'd-board.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 afterEach(() => {
@@ -141,5 +142,36 @@ describe('提案書：投影される資料・最後の 1 枚で承認のレバ�
   it('動きを減らすと、ページはすぐ替わり・判のあとすぐ閉じる', () => {
     expect(U).toContain('if (!isCalm()) {');
     expect(U).toContain('later(isCalm() ? 60 : CLOSE_MS');
+  });
+});
+
+describe('経営会議：議題 → 意見 → 決議の帯・出席者の札・決議の判', () => {
+  const O = src('p1/boardui.ts');
+  const U = src('uix/screens/board.ts');
+  it('入口は 1 行の分かれ道（議題が無ければ今と同じく何もしない）', () => {
+    const i = O.indexOf('if (!A || !A.items.some((x) => !x.done)) return false;');
+    expect(O.indexOf('if (uxd.board) return uxd.board(ctx, hooks);')).toBeGreaterThan(i);
+    expect(U).toContain('if (!A || !A.items.some((x) => !x.done)) return false;');
+  });
+  it('決める処理は今と同じ関数（decide・boardFinish・boardSummary）を同じ引数で。差し込みの場面（方針発表会）も同じ口で描く', () => {
+    expect(U).toContain('B.decide(s, it, pick);');
+    expect(U).toContain("B.boardFinish(s, 'bulk');");
+    expect(U).toContain("B.boardFinish(s, how);");
+    expect(U).toContain("B.boardFinish(s, 'one');");
+    expect(U).toMatch(/xs\[i\]\.run\(\s*ctx,\s*A!,\s*panel,/);
+    // 今の目印（席・会議室）：差し込みの場面が席の反応と演出の置き場所に使う
+    expect(U).toContain('div.uxd-bd-seat.isl-bm-seat');
+    expect(U).toContain('div.uxd-bd-seats.isl-bm-room');
+    expect(U).toContain('div.uxd-bd.isl-bm.ux-plate');
+  });
+  it('流れは 3 段・判から次の話し手までは今と同じ長さ・決めるキーは主のキー（前の層）', () => {
+    expect([...FLOW]).toEqual(['agenda', 'talk', 'result']);
+    expect(NEXT_MS).toBe(900);
+    expect(U).toMatch(/uxKey\(t\('判を押す', 'Stamp it'\), \(\) => stamp\(it, pick, card\), \{ kind: 'main'/);
+    expect(U).toMatch(/uxKey\(t\('会議を始める', 'Start'\), \(\) => scenes\(0\), \{\s*kind: 'main'/);
+  });
+  it('演出なし・動きを減らすときは、待ち時間を短く（今と同じ 260ms）', () => {
+    expect(U).toContain("const still = () => B.fxLevel() === 'off' || isCalm();");
+    expect(U).toContain('later(quick ? 260 : NEXT_MS');
   });
 });

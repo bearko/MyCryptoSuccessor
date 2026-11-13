@@ -51,6 +51,15 @@ import { DUO_BY_ID } from './duo';
 import { ISSUE_ICON, issueLv, issueName, issueTag, issuesOf, lvWord, type IssueKey } from './issues';
 import { DEPT } from './data';
 import { heroIcon, heroName, money, rich } from './ui';
+import * as BD from './board';
+import * as BP from './boardplan';
+import { BOARD, unitsX } from './data';
+import { BOARD_ITEM_LINES, BOARD_SCENES, drawSlack } from './boardui';
+import { bulletEl } from './chartkit';
+import { lineOf, styleTags } from './voice';
+import { heroNm } from './deleg';
+import { pickHead } from './delegui';
+import { fxLevel } from '../fx/layer';
 
 /** 小さい一行の適性（話し手の持ち場の仕事）：今の画面と同じ */
 const TASK_OF: Partial<Record<Card['src'], Task>> = { clerk: 'shop', crafter: 'craft', buyer: 'buy', cs: 'shop' };
@@ -301,6 +310,9 @@ export function propDecide(s: P1State, plan: Plan, M: PropModel) {
   };
 }
 
+// ---------------------------------------------------------------- 経営会議（計算と文は board.ts・boardplan.ts。画面は今の boardui.ts と同じ関数を同じ引数で呼ぶ）
+export const boardKit = { ...BD, ...BP, BOARD, DEPT, unitsX, scenes: BOARD_SCENES, itemLines: BOARD_ITEM_LINES, drawSlack, bulletEl, lineOf, styleTags, heroNm, pickHead, fxLevel };
+
 export const uxdDeps = {
   cardView,
   cardChoose,
@@ -312,6 +324,7 @@ export const uxdDeps = {
   propSlides,
   propHead,
   propDecide,
+  boardKit,
   applyPlan,
   after,
   SLIDE_NAME,

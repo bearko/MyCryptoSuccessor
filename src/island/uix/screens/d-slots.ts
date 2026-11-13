@@ -8,6 +8,7 @@ import type { P1State } from '../../p1/model';
 import type { Card, ChooseRes } from '../../p1/card';
 import type { Plan } from '../../p1/plan';
 import type { ProposalOpts } from '../../p1/proposalui';
+import type { BoardHooks } from '../../p1/boardui';
 
 export interface UxdScreens {
   /** 提案・報告のカードの中身（器は今の窓 .isl-modal.isl-cardm。close・quiet は今の画面と同じ閉じ方） */
@@ -20,6 +21,8 @@ export interface UxdScreens {
   issues?: (s: P1State) => HTMLElement;
   /** 担当者からの提案書（器は今の窓 .isl-modal.isl-prop。閉じたら o.done は今と同じ） */
   proposal?: (ctx: Ctx, plan: Plan, o: ProposalOpts) => void;
+  /** 経営会議（器は今の窓 .isl-modal.isl-board。議題があれば true） */
+  board?: (ctx: Ctx, hooks: BoardHooks) => boolean;
 }
 // 入れ物は uix/hooks.ts に置く（理由はそこに）。ここは型と、同じ物の名前だけ
 export { uxdSlots as uxd } from '../hooks';

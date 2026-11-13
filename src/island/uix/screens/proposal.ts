@@ -97,7 +97,7 @@ export function lineBars(now: number[], after: number[], o: { once?: { month: nu
   }
   const prev = uxKey(el('span', kIcon('left', { ...LITE, scale: 2 }), el('span.ux-vh', t('前の月', 'Previous month'))), () => pick(cur - 1), { cls: 'uxd-lb-prev', attrs: { 'aria-label': t('前の月', 'Previous month'), 'data-ux-quiet': '' } });
   const next = uxKey(el('span', kIcon('next', { ...LITE, scale: 2 }), el('span.ux-vh', t('次の月', 'Next month'))), () => pick(cur + 1), { cls: 'uxd-lb-next', attrs: { 'aria-label': t('次の月', 'Next month'), 'data-ux-quiet': '' } });
-  const legend = el('div.uxd-lb-legend', el('span.uxd-lb-key.is-after', el('i'), 'To-Be（承認後）'), el('span.uxd-lb-key.is-now', el('i'), t('As-Is（このまま）', 'As-Is (as is)')), el('span.uxd-lb-unit', t('横：か月', 'Across: months')));
+  const legend = el('div.uxd-lb-legend', el('span.uxd-lb-key.is-after', el('i'), t('To-Be（承認後）', 'To-Be (after)')), el('span.uxd-lb-key.is-now', el('i'), t('As-Is（このまま）', 'As-Is (as is)')), el('span.uxd-lb-unit', t('横：か月', 'Across: months')));
   const e = el(
     'div.uxd-lb.isl-sl-line',
     { role: 'img', 'aria-label': t(`12 か月の利益の累計：このまま ${fmtN(now[n - 1])} G、承認後 ${fmtN(after[n - 1])} G`, `Cumulative profit: as is ${fmtN(now[n - 1])} G, after ${fmtN(after[n - 1])} G`) },

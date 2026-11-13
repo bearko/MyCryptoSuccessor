@@ -43,6 +43,7 @@ import type { Bgm } from '../../audio';
 import type { Ctx } from './screens';
 import { btn, h, heroIcon, recLine } from './ui';
 import { ux } from '../uix/hooks';
+import { uxd } from '../uix/screens/d-slots';
 import { pickHead } from './delegui';
 import { STAGE_JA, causeChips, causeName, coLive, forecastHint, leverOpts, leverWhy, ofSlack, styleOfHero, type Lever } from './boardplan';
 import { styleTags } from './voice';
@@ -90,6 +91,8 @@ export function openBoard(ctx: Ctx, hooks: BoardHooks): boolean {
   const s = ctx.s();
   const A = boardOf(s).agenda;
   if (!A || !A.items.some((x) => !x.done)) return false;
+  // 段 UIX3d：入のときは新しい画面（議題 → 意見 → 決議の帯・出席者の札・決議の判）。決める処理は同じ board.ts
+  if (uxd.board) return uxd.board(ctx, hooks);
   const prevBgm = hooks.bgmNow();
   hooks.bgm('bgmBoard');
   const items = A.items;
@@ -512,7 +515,7 @@ const fmt1 = (v: number) => (v >= 10 ? String(Math.round(v)) : String(Math.round
  * 段 I2b：会社の余力のメーター（UI7d のスライドの予算のメーターと同じ流儀）：上に 3 つの数（見出し・大きな数字・小さなラベル）、
  * 下に区切りの棒（ほかの部門の予算・この部門・増額・余力。月の利益を超えた分は斜線）。選んだ額で描き直す
  */
-function drawSlack(el: HTMLElement, s: P1State, it: BoardItem, pick: BoardPick) {
+export function drawSlack(el: HTMLElement, s: P1State, it: BoardItem, pick: BoardPick) {
   el.replaceChildren();
   // 余力は、先に決めた人の予算を入れた「いま」の値（この人の分は、まだ決める前の額）
   const co = coLive(s, boardOf(s).agenda?.co);
