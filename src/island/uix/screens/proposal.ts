@@ -21,7 +21,7 @@ import type { Plan, PlanRes } from '../../p1/plan';
 import type { ProposalOpts, SlideKit } from '../../p1/proposalui';
 import type { Kpi } from '../../p1/slides';
 import { Q } from './d-deps';
-import { INK, LITE, dDept, dFace, dIco, dStars, dText, dTile, sgnTxt } from './d-kit';
+import { INK, LITE, dDept, dFace, dIco, dMore, dStars, dText, dTile, sgnTxt } from './d-kit';
 import { dotEmoji, kIcon } from './k-icons';
 import './d-card.css';
 import './d-prop.css';
@@ -161,6 +161,9 @@ export function openProposalUx(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
     return w;
   });
   for (const w of wraps.slice(0, -1)) dotEmoji(w, '#1a1c2e');
+  // 続きがあるときだけ、投影の面の下端に「▼ 続き」（いまのページを送り切ると消える）
+  const more = dMore();
+  screen.append(more);
   // ページのランプ（押すとそのページへ）
   const lampKeys = pages.map((p, k) =>
     uxKey(el('span.uxd-pg-in', uxLamp(k === pages.length - 1 ? 'good' : '', false), el('span.uxd-pg-n.ux-num', String(k + 1)), el('span.uxd-pg-name', p.name)), () => go(k), { cls: `uxd-pg${k === pages.length - 1 ? ' is-decide' : ''}`, attrs: { 'aria-label': `${k + 1}. ${p.name}`, 'data-ux-quiet': '' } }),
@@ -201,6 +204,7 @@ export function openProposalUx(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
       }
     }
     if (k === pages.length - 1) dec.shown();
+    more.watch(wraps[k]);
   }
   function go(i: number) {
     const k = Math.max(0, Math.min(pages.length - 1, i));

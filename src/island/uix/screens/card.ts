@@ -22,7 +22,7 @@ import type { Card, ChooseRes } from '../../p1/card';
 import type { P1State } from '../../p1/model';
 import type { CardChoiceView, CardView } from '../../p1/uxd';
 import { Q } from './d-deps';
-import { INK, LITE, dDept, dFace, dIco, dRich, dStars, dText, sgnTxt } from './d-kit';
+import { INK, LITE, dDept, dFace, dIco, dMore, dRich, dStars, dText, sgnTxt } from './d-kit';
 import { K_EMOJI, K_EMOJI_RE, kIcon } from './k-icons';
 import './d-card.css';
 
@@ -119,7 +119,7 @@ export function cardPanelUx(ctx: Ctx, c: Card, o: { close: (res: ChooseRes | nul
   const who = el(
     'div.uxd-card-who',
     el('span.uxd-card-face', dFace(v, 64)),
-    el('span.uxd-card-id', uxTape(el('b', dText(v.name)), 'dark'), v.tag ? el('span.uxd-card-tag', dText(v.tag)) : null),
+    el('span.uxd-card-id', uxTape(el('b', dText(v.name)), 'dark'), v.tagBits ? el('span.uxd-card-tag', v.tagBits.flatMap((b, i) => [i ? el('span.uxd-card-sep', t(' ・ ', ' · ')) : null, el('span.uxd-nw', dText(b))])) : v.tag ? el('span.uxd-card-tag', dText(v.tag)) : null),
   );
   // セリフ（紙に印字）
   const lines: HTMLElement[] = [];
@@ -174,11 +174,16 @@ export function cardPanelUx(ctx: Ctx, c: Card, o: { close: (res: ChooseRes | nul
   // 決めるキー（主のキー・前の層）
   const decLab = el('b', decideLabel(rows[0]?.ch ?? null, !!rows[0]?.trust));
   const decide = uxKey(decLab, () => go(), { kind: 'main', big: true, ico: 'check', cls: 'uxd-decide', strong: true, attrs: { 'data-ux-quiet': '' } });
-  const foot = uxpFoot(el('span.uxd-foot-note', v.footNote ? el('span', dText(v.footNote)) : null), el('span.uxp-foot-main', decide));
+  const foot = uxpFoot(el('span.uxd-foot-note', v.footNote && !v.star ? el('span', dText(v.footNote)) : null), el('span.uxp-foot-main', decide));
   // 計器は、どれかの手に値があるときだけ（知らせ・相談のカードは出さない）。送っても下に貼りつく
   const anyGauge = v.star > 0 || v.iss?.days != null || v.choices.some((ch) => ch.gain || ch.cost || ch.rp || ch.monthly);
-  const body = el('div.uxd-card-body', who, v.quip ? el('p.uxd-quip', `— ${dText(v.quip)}`) : null, paper, iss, v.store ? el('div.uxd-store', v.store) : null, v.duoNote ? el('p.uxd-duo', dText(v.duoNote)) : null, uxpHead(t('どうする？', 'What now?'), { kind: 'dark' }), list, deleg, anyGauge ? gs.el : null);
-  const plate = el('div.uxd-card.ux-plate.ux-root', { 'data-card': String(v.id), role: 'dialog', 'aria-label': `${kd.text} ${dText(v.name)}` }, el('div.ux-screws'), top, el('div.uxd-card-scroll', body), foot);
+  // 下に貼りつく帯：計器と、続きがあるときの「▼ 続き」（送り切ると消える）
+  const more = dMore();
+  const tail = el('div.uxd-tail', more, anyGauge ? gs.el : null);
+  const body = el('div.uxd-card-body', who, v.quip ? el('p.uxd-quip', `— ${dText(v.quip)}`) : null, paper, iss, v.store ? el('div.uxd-store', v.store) : null, v.duoNote ? el('p.uxd-duo', dText(v.duoNote)) : null, uxpHead(t('どうする？', 'What now?'), { kind: 'dark' }), list, deleg, tail);
+  const scroll = el('div.uxd-card-scroll', body);
+  more.watch(scroll);
+  const plate = el('div.uxd-card.ux-plate.ux-root', { 'data-card': String(v.id), role: 'dialog', 'aria-label': `${kd.text} ${dText(v.name)}` }, el('div.ux-screws'), top, scroll, foot);
   plate.style.setProperty('--d', v.color);
   function pick(i: number, feel: boolean) {
     if (busy) return;

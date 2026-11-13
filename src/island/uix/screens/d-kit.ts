@@ -84,3 +84,28 @@ export function dTile(o: { key?: string; label: Kid; ico?: string; v: number; un
 export function dStars(n: number, err: number | null): HTMLElement {
   return el('span.uxd-stars', { role: 'img', 'aria-label': t(`予測精度 ${'★'.repeat(n)}${'☆'.repeat(3 - n)}${err != null ? `（±${err}%）` : ''}`, `Forecast accuracy ${n}/3${err != null ? ` (±${err}%)` : ''}`) }, [0, 1, 2].map((i) => uxLamp('', i < n)), err != null ? el('span.ux-num', `±${err}%`) : null);
 }
+/**
+ * 続きがあるときだけ出る「▼ 続き」の帯（下端の網目と貼り札）。watch(送る箱) で、送り切ると消える。中身の大きさが変わっても見直す
+ */
+export function dMore() {
+  const e = el('span.uxd-more', { 'aria-hidden': 'true', hidden: true }, uxTape([kIcon('down', { color: '#1a1c2e', hi: '#1a1c2e', lo: '#1a1c2e', scale: 1 }), el('b', t('続き', 'More'))], 'amber'));
+  let box: HTMLElement | null = null;
+  const upd = () => {
+    if (!box) return;
+    e.hidden = box.scrollTop + box.clientHeight >= box.scrollHeight - 4;
+  };
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(upd) : null;
+  return Object.assign(e, {
+    upd,
+    /** 見る箱を替える（提案書はページごと） */
+    watch(b: HTMLElement) {
+      box?.removeEventListener('scroll', upd);
+      ro?.disconnect();
+      box = b;
+      b.addEventListener('scroll', upd, { passive: true });
+      ro?.observe(b);
+      if (b.firstElementChild) ro?.observe(b.firstElementChild);
+      requestAnimationFrame(upd);
+    },
+  });
+}

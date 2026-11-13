@@ -118,6 +118,8 @@ export interface CardView {
   name: string;
   /** 名前の下の一行（Lv・適性・性格／できごとの札） */
   tag: string | null;
+  /** 名前の下の一行を区切りごとに（性格の札「…」を途中で折り返さないため） */
+  tagBits: string[] | null;
   hero: number | null;
   crest: { icon: string; color: string } | null;
   mine: string | null;
@@ -146,6 +148,7 @@ export function cardView(s: P1State, c: Card): CardView {
   const eh = eventHead(s, c);
   const st = c.hero != null ? staffOf(s, c.hero) : null;
   let tag: string | null = null;
+  let tagBits: string[] | null = null;
   if (eh) tag = c.hero != null && (c.src === 'event' || c.src === 'duo') ? eh.title : eh.tag;
   else if (st && c.hero != null) {
     const bits = [`Lv ${st.level ?? 1}`];
@@ -153,6 +156,7 @@ export function cardView(s: P1State, c: Card): CardView {
     if (task) bits.push(t(`${TASK_NM[task]?.() ?? ''}の適性 ${rankOf(aptitude(st.stats, task))}`, `${TASK_NM[task]?.() ?? ''} ${rankOf(aptitude(st.stats, task))}`));
     bits.push(t(`「${traitOf(c.hero)}」`, `“${traitOf(c.hero)}”`));
     tag = bits.join(t(' ・ ', ' · '));
+    tagBits = bits;
   }
   const crest = c.src === 'diplo' && c.dip ? { icon: landDef(c.dip.land).icon, color: landDef(c.dip.land).color } : null;
   const sp = speechOf(s, c);
@@ -231,6 +235,7 @@ export function cardView(s: P1State, c: Card): CardView {
     roleText: role.text,
     name: eh && (c.hero == null || c.src === 'diplo') ? eh.title : c.hero != null ? heroName(c.hero) : t('マインちゃん', 'Mine-chan'),
     tag,
+    tagBits,
     hero: c.src === 'diplo' && c.dip ? null : c.hero,
     crest,
     mine: !crest && c.hero == null ? assetUrl('mch/Image/Characters/navi_ain_speak_00_talk.png') : null,

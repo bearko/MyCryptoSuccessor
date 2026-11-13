@@ -223,3 +223,27 @@ describe('任せる・部長との対話', () => {
     expect(D).toContain("rec.classList.add('ux-front')");
   });
 });
+
+describe('仕上げ：続きの印・二重の情報・性格の札', () => {
+  it('続きがあるときだけ「▼ 続き」（カードの送る箱・提案書のいまのページを見る）', () => {
+    expect(src('uix/screens/d-kit.ts')).toContain('e.hidden = box.scrollTop + box.clientHeight >= box.scrollHeight - 4;');
+    expect(src('uix/screens/card.ts')).toContain('more.watch(scroll);');
+    expect(src('uix/screens/proposal.ts')).toContain('more.watch(wraps[k]);');
+  });
+  it('読みの確かさは計器だけ（下の帯に同じ ±N% を二重に出さない）', () => {
+    expect(src('uix/screens/card.ts')).toContain('v.footNote && !v.star ?');
+  });
+  it('名前の下の一行は区切りごとの塊（性格の札「…」を途中で折り返さない）', () => {
+    const s = newP1(3);
+    s.tut = 99;
+    s.cards ??= { inbox: [], mk: 0, popN: 0, heroes: [], last: {}, trust: [], seq: 0 } as never;
+    const hero = s.staff[0]?.hero ?? null;
+    const c = { id: 9, src: 'clerk', kind: 'x', hero, q: 0.8, dept: null, mk: 0, sector: s.sector ?? 'c1', day: s.day, issue: { k: 'sell', share: 0, pile: 0 }, choices: [{ act: { k: 'skip' }, cost: 0 }], pop: true } as never;
+    const v = cardView(s, c);
+    if (hero != null) {
+      expect(v.tagBits?.length).toBeGreaterThanOrEqual(2);
+      expect(v.tag).toBe(v.tagBits!.join(' ・ '));
+    }
+    expect(src('uix/screens/d-card.css')).toMatch(/\.uxd-nw \{\s*display: inline-block;\s*white-space: nowrap;/);
+  });
+});

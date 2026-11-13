@@ -279,10 +279,12 @@ html.is-uxc .uxd-duo {
   color: var(--ux-k5);
 }
 /* 計器 4 つ（選んだ手の値）：送っても下に貼りつく細い帯。スマホは 2 段 */
-html.is-uxc .uxd-gauges {
+html.is-uxc .uxd-tail {
   position: sticky;
   bottom: 0;
   z-index: 2;
+}
+html.is-uxc .uxd-gauges {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
@@ -507,4 +509,39 @@ html.is-uxc .uxd-gone-t {
 html.is-uxc .uxd-gone-stamp {
   flex: none;
   transform: rotate(0deg);
+}
+
+/* 続きがあるときだけ：下端の網目の帯と「▼ 続き」の貼り札（帯の上に重ねる。押す先はふさがない） */
+html.is-uxc .uxd-more {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  height: 32px;
+  padding: 0 2px 4px;
+  background: var(--ux-dz50) 0 100% / 4px 4px repeat-x;
+  background-size: 4px 4px;
+  pointer-events: none;
+  animation: uxd-tick 260ms steps(4, end) backwards;
+}
+html.is-uxc .uxd-more[hidden] {
+  display: none;
+}
+html.is-uxc .uxd-prop-screen > .uxd-more {
+  bottom: 2px;
+  left: 2px;
+  right: 2px;
+  z-index: 2;
+}
+/* 性格の札「…」などは 1 つの塊で折り返す */
+html.is-uxc .uxd-nw {
+  display: inline-block;
+  white-space: nowrap;
+}
+/* 提案書では、右の柱（レバーの下の一言）に重ねないよう左に寄せる */
+html.is-uxc .uxd-prop-screen > .uxd-more {
+  justify-content: flex-start;
 }
