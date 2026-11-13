@@ -12,6 +12,11 @@ html.is-uxc #isl-ui .uxh-page {
   min-width: 0;
   padding: 4px 0 8px;
 }
+/* 段 UIX4r：まとめた画面（営業：商圏の取り合い＋外交 ほか）の中では、中身の長い一行（見出しの添え書き）が部分の幅を押し広げ、
+   せまい画面で札の外へはみ出していた（外交の部分が 600px）。部分の幅に合わせる（中身の幅で外の箱を広げない） */
+html.is-uxc #isl-ui .isl-part .uxh-page {
+  contain: inline-size;
+}
 html.is-uxc #isl-ui .uxh-st,
 html.is-uxc #isl-ui .uxh-hr {
   display: flex;
@@ -1607,6 +1612,23 @@ html.is-uxc #isl-ui .uxh-deal > .uxp-stamp {
   right: 10px;
   top: 40px;
   transform: rotate(-8deg);
+}
+/* 段 UIX4r：打たれた札（提示済・成立）が、段のランプ（交渉・成立）を隠さない：札のぶん、ランプの列を下げる */
+html.is-uxc #isl-ui .uxh-deal:has(> .uxp-stamp:not([hidden])) > .uxh-steps {
+  margin-top: 34px;
+}
+/* 段 UIX4r：話の段の札（「⑤ 成立（次の月の締めで…）」）が長いとき、せまい画面で札の外へはみ出さない：見出しの下の行へ折り返す */
+html.is-uxc #isl-ui .uxh-deal > .uxp-head {
+  flex-wrap: wrap;
+}
+html.is-uxc #isl-ui .uxh-deal > .uxp-head > .uxp-head-right {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+html.is-uxc #isl-ui .uxh-deal > .uxp-head > .uxp-head-right > .ux-tape {
+  height: auto;
+  white-space: normal;
 }
 html.is-uxc #isl-ui .uxh-deal p {
   margin: 0;
