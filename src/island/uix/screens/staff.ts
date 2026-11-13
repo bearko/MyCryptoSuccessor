@@ -252,7 +252,6 @@ function staffScreen(ctx: Ctx, body: HTMLElement) {
           level: x.level,
           desc: bestLine(x.stats, t('向いている：', 'Best at: ')),
           selected: holding === x.hero,
-          breathe: true,
           cls: 'isl-hero-pick is-free',
           right: sheetKey(ctx, x.hero),
           onTap: () => {
@@ -415,7 +414,7 @@ function hireScreen(ctx: Ctx, body: HTMLElement, opts: { charisma?: boolean }) {
     const front = el(
       'div.uxh-cand-front',
       { role: 'button', tabindex: '0', 'aria-expanded': String(open), 'aria-label': t(`${H.heroName(id)}の人事票`, `${H.heroName(id)} details`) },
-      el('span.uxh-cand-pic', face(id, open ? 128 : 56, { scale: open ? 2 : 1, breathe: open })),
+      el('span.uxh-cand-pic', face(id, open ? 128 : 56, { scale: open ? 2 : 1 })),
       el(
         'span.uxh-cand-body',
         el('span.uxh-name', el('b', H.heroName(id)), rarTag(H.heroRarityOf(id))),

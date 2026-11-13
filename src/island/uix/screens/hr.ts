@@ -135,7 +135,7 @@ export function openCharismaUx(ctx: Ctx) {
 export function moraleTag(st: Staff): HTMLElement {
   const b = H.moraleBand(st);
   const m = Math.round(H.moraleOf(st));
-  return el(`span.uxh-mor.is-${b}`, uxLamp(MORALE_LAMP[b], true, b === 'bad'), el('span', t(`士気 ${m}（${H.BAND_NAME[b]}・速さ ×${H.moraleMul(st).toFixed(2)}）`, `Morale ${m} (${H.BAND_NAME[b]}, speed ×${H.moraleMul(st).toFixed(2)})`)));
+  return el(`span.uxh-mor.is-${b}`, uxLamp(MORALE_LAMP[b], true), el('span', t(`士気 ${m}（${H.BAND_NAME[b]}・速さ ×${H.moraleMul(st).toFixed(2)}）`, `Morale ${m} (${H.BAND_NAME[b]}, speed ×${H.moraleMul(st).toFixed(2)})`)));
 }
 
 export function openPayrollUx(ctx: Ctx) {
@@ -201,6 +201,8 @@ function payScreen(ctx: Ctx, body: HTMLElement) {
     // ---- ヒーローごと（辞めたい人 → 士気の低い順）
     const list = [...s.staff].sort((a, b) => Number(b.quit != null) - Number(a.quit != null) || H.moraleOf(a) - H.moraleOf(b));
     const cards = el('div.uxh-paylist');
+    // 主のキー（前の層）は 1 画面に 1 つ：いちばん上の辞めたい人の「引き止めの面談」だけ
+    let mainLeft = 1;
     let hit: { card: HTMLElement; stamp: ReturnType<typeof uxpStamp> } | null = null;
     for (const st of list) {
       const r = payCard(st);
@@ -253,7 +255,7 @@ function payScreen(ctx: Ctx, body: HTMLElement) {
             just = { hero: st.hero, label: t('面談済み', 'Talked') };
             H.after(ctx);
           },
-          { kind: talked ? 'weak' : 'main', ico: null, disabled: talked, cls: 'uxh-talk isl-quit-talk' },
+          { kind: talked ? 'weak' : mainLeft-- > 0 ? 'main' : '', ico: null, disabled: talked, cls: 'uxh-talk isl-quit-talk' },
         );
         card.append(
           uxpPaper(

@@ -199,7 +199,9 @@ function growthScreen(ctx: Ctx, body: HTMLElement) {
     // ---- ヒーローごと（昇格できる人 → Lv の高い順）
     const list = [...s.staff].sort((a, b) => Number(!H.promoLock(b, s.heroItems)) - Number(!H.promoLock(a, s.heroItems)) || (b.level ?? 1) - (a.level ?? 1));
     const grid = el('div.uxh-grow-list');
-    for (const st of list) grid.append(growthCard(ctx, s, st));
+    // 主のキー（前の層・光の帯）は 1 画面に 1 つ：いちばん上の「昇格する」だけ。ほかは、ふつうのキー
+    let mainLeft = 1;
+    for (const st of list) grid.append(growthCard(ctx, s, st, () => mainLeft-- > 0));
     out.push(el('section.uxh-sec', sect(t('ヒーローごと', 'By hero'), 'people', { kind: 'dark' }), list.length ? grid : hEmpty(t('まだヒーローがいません。', 'No heroes yet.'), { ico: 'people' })));
     page.replaceChildren(...out);
     if (motion) enter([...grid.children] as HTMLElement[]);
@@ -213,7 +215,7 @@ function growthScreen(ctx: Ctx, body: HTMLElement) {
 const dimIco = { color: '#97a1cf', hi: '#c9cff0', lo: '#0b0d17', scale: 1 };
 
 /** ヒーローのカード（育成）：人事票の札 */
-function growthCard(ctx: Ctx, s: P1State, st: Staff): HTMLElement {
+function growthCard(ctx: Ctx, s: P1State, st: Staff, takeMain: () => boolean): HTMLElement {
   const rar = rarOf(st);
   const cap = H.atCap(st);
   const up = H.promoItemOf(st);
@@ -223,7 +225,8 @@ function growthCard(ctx: Ctx, s: P1State, st: Staff): HTMLElement {
   const e = H.promoLock(st, s.heroItems);
   const next = H.promoItemOf(st);
   const promo: Kid[] = [];
-  if (!e && next)
+  if (!e && next) {
+    const isMain = takeMain();
     promo.push(
       uxKey([itemIco(next), el('b', t(`昇格する（${H.HERO_RARITY[next].name}へ）`, `Promote (to ${H.HERO_RARITY[next].name})`))], (b) => {
         const r = H.promote(ctx.s(), st.hero);
@@ -232,8 +235,9 @@ function growthCard(ctx: Ctx, s: P1State, st: Staff): HTMLElement {
         const from = mid(b);
         H.after(ctx);
         playPromotionUx(ctx.root, st.hero, r.from, r.to, undefined, from);
-      }, { kind: 'main', ico: null, cls: 'uxh-promo isl-hpromo-go' }),
+      }, { kind: isMain ? 'main' : '', ico: null, cls: 'uxh-promo isl-hpromo-go' }),
     );
+  }
   promo.push(el(`span.uxh-promo-t${e ? '.uxh-dim' : '.is-good'}`, promoText(s, st)));
   const card = heroCard(st.hero, {
     rarity: rar,

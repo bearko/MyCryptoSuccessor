@@ -235,7 +235,7 @@ describe('ヒーローの人事票・育成・昇格・教え・組み合わせ�
     expect(HE).toContain('if (!H.releaseHero(ctx.s(), st.hero)) return;');
   });
   it('育成：強化アイテム・教え・組み合わせ図鑑・ヒーローごと（昇格できる人 → Lv の高い順）・昇格のキー（今の目印 isl-hpromo-go）', () => {
-    for (const x of ['H.PROMO_ITEMS', "t('入り方：研究成果の発表", 'lessonPanel(ctx, s), dexPanel(s)', 'Number(!H.promoLock(b, s.heroItems)) - Number(!H.promoLock(a, s.heroItems)) || (b.level ?? 1) - (a.level ?? 1)', "cls: 'uxh-promo isl-hpromo-go'", "kind: 'main'", 'H.promote(ctx.s(), st.hero)', "ctx.sfx?.('levelup')", "t('昇格できる', 'Can promote')", 'promoText(s, st)']) expect(HE, x).toContain(x);
+    for (const x of ['H.PROMO_ITEMS', "t('入り方：研究成果の発表", 'lessonPanel(ctx, s), dexPanel(s)', 'Number(!H.promoLock(b, s.heroItems)) - Number(!H.promoLock(a, s.heroItems)) || (b.level ?? 1) - (a.level ?? 1)', "cls: 'uxh-promo isl-hpromo-go'", "kind: isMain ? 'main' : ''", 'const isMain = takeMain();', 'H.promote(ctx.s(), st.hero)', "ctx.sfx?.('levelup')", "t('昇格できる', 'Can promote')", 'promoText(s, st)']) expect(HE, x).toContain(x);
   });
   it('昇格：段の札がめくれて上がる（もとの段 → 新しい段・「昇格」が打たれる）。動きを減らすときは、すぐ新しい段', () => {
     expect(PROMO_FLIP_MS).toBeGreaterThanOrEqual(300);
