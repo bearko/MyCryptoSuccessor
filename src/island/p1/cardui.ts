@@ -51,6 +51,7 @@ import { shelfGate } from './stock';
 import { openShelfChoice } from './stockui';
 import { btn, h, heroIcon, heroName, money, recLine, rich } from './ui';
 import { ux } from '../uix/hooks';
+import { uxd } from '../uix/screens/d-slots';
 import { assetUrl } from '../../render/images';
 import { cardReact, sayToast } from './p2ui';
 import { DUO_BY_ID } from './duo';
@@ -202,50 +203,7 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
     if (ch.act.k === 'do' || (ch.act.k === 'approve' && s.deleg?.inbox.some((p) => p.id === (ch.act as { pid: number }).pid))) lab.append(h('small', 'isl-cardm-go', t('📄 提案書を見る ›', '📄 See the proposal ›')));
     if (why) lab.append(h('small', 'isl-bad', why));
     b.append(lab);
-    b.addEventListener('click', () => {
-      // 段 UI5a：手のある選択肢（ヒーローの提案・部長の提案）は、担当者からの提案書を開く（As-Is／To-Be・期待効果・導入コスト → 承認でハンコ → 一気に変更）
-      const plan = ch.act.k === 'do' || ch.act.k === 'approve' ? planOfChoice(s, c, k) : null;
-      if (plan) {
-        const prop = (p: typeof plan) =>
-          openProposal(ctx, p, {
-            say: sayOf(s, c, k),
-            speech: speechOf(s, c, k) ?? undefined,
-            role: roleOfCard(s, c).text,
-            later: true,
-            rec: isRec,
-            card: c.id,
-            iss: c.issues,
-            // 段 UI7d：出どころ（部長の提案・部長からの頼み。倉庫・在庫・担当者は手から決める）
-            ...(c.src === 'head' ? { src: 'head' as const } : c.src === 'budget' ? { src: 'budget' as const } : {}),
-            approve: (pp) => approveCard(s, c.id, pp),
-            done: (w) => {
-              // 段 UI9b：「今後の判断を委任」がオンなら、承認したあと同じ種類の手は次からこの担当に任せる
-              if (w === 'ok' && delegOn && trustOn(s, c)) ctx.toast(t(`🤝 ${heroName(c.hero!)}に、同じ種類の手を任せました（受け箱からいつでも戻せます）`, `🤝 Trusted ${heroName(c.hero!)} with this kind of move (undo any time from the inbox)`));
-              // 段 P2：提案書を承認したら、承認の反応（史実の調査のあるヒーロー）
-              if (w === 'ok' && PROPOSAL_SRC.includes(c.src)) sayToast(ctx.toast, c.hero, 'approved', c.id);
-              if (w === 'ok' || w === 'later' || w === 'gone') quiet();
-            },
-          });
-        // 段 UI5d：売りさばきで棚が 1 段のお店の主力が外れるときは、先に 3 択（主力を外す・残す・棚を拡張する（推奨））
-        const gate = shelfGate(s, plan);
-        if (gate.length) {
-          openShelfChoice(ctx, plan, gate, (p) => {
-            if (p) return prop(p);
-            // 主力を残す（ほかに変えるものが無い）：このカードは「いまはこのままで」
-            const skip = c.choices.findIndex((y) => y.act.k === 'skip');
-            if (skip < 0) return;
-            picked = c.choices[skip];
-            close(chooseCard(s, c.id, skip), choiceText(s, c, c.choices[skip]).label);
-          });
-          return;
-        }
-        prop(plan);
-        return;
-      }
-      const res = chooseCard(s, c.id, k);
-      picked = ch;
-      close(res, x.label);
-    });
+    b.addEventListener('click', () => cardChoose(ctx, s, c, k, isRec, x.label, close, quiet, () => delegOn));
     chs.append(b);
   }
   // 段 UI9b：2 択のカードは、チェックボックス「今後の判断を委任」（★3 の担当だけ。任せる仕組みは段 UI1 の trust のまま）。ほかは従来の「任せる」の行
@@ -286,6 +244,56 @@ function panel(ctx: Ctx, s: P1State, c: Card, close: (res: ChooseRes | null, lab
   inner.append(foot);
   p.append(inner);
   return p;
+}
+
+/**
+ * 選択肢を選んだ（段 UIX3d：今の画面と新しい画面（入のとき）で同じ処理を使うために切り出した。中身は今のまま）：
+ * 手のある選択肢は提案書を開く（棚が 1 段のお店は先に 3 択）。ほかはその場で手を打って閉じる
+ */
+export function cardChoose(ctx: Ctx, s: P1State, c: Card, k: number, isRec: boolean, label: string, close: (res: ChooseRes | null, label: string) => void, quiet: () => void, delegOn: () => boolean) {
+  const ch = c.choices[k];
+  // 段 UI5a：手のある選択肢（ヒーローの提案・部長の提案）は、担当者からの提案書を開く（As-Is／To-Be・期待効果・導入コスト → 承認でハンコ → 一気に変更）
+  const plan = ch.act.k === 'do' || ch.act.k === 'approve' ? planOfChoice(s, c, k) : null;
+  if (plan) {
+    const prop = (p: typeof plan) =>
+      openProposal(ctx, p, {
+        say: sayOf(s, c, k),
+        speech: speechOf(s, c, k) ?? undefined,
+        role: roleOfCard(s, c).text,
+        later: true,
+        rec: isRec,
+        card: c.id,
+        iss: c.issues,
+        // 段 UI7d：出どころ（部長の提案・部長からの頼み。倉庫・在庫・担当者は手から決める）
+        ...(c.src === 'head' ? { src: 'head' as const } : c.src === 'budget' ? { src: 'budget' as const } : {}),
+        approve: (pp) => approveCard(s, c.id, pp),
+        done: (w) => {
+          // 段 UI9b：「今後の判断を委任」がオンなら、承認したあと同じ種類の手は次からこの担当に任せる
+          if (w === 'ok' && delegOn() && trustOn(s, c)) ctx.toast(t(`🤝 ${heroName(c.hero!)}に、同じ種類の手を任せました（受け箱からいつでも戻せます）`, `🤝 Trusted ${heroName(c.hero!)} with this kind of move (undo any time from the inbox)`));
+          // 段 P2：提案書を承認したら、承認の反応（史実の調査のあるヒーロー）
+          if (w === 'ok' && PROPOSAL_SRC.includes(c.src)) sayToast(ctx.toast, c.hero, 'approved', c.id);
+          if (w === 'ok' || w === 'later' || w === 'gone') quiet();
+        },
+      });
+    // 段 UI5d：売りさばきで棚が 1 段のお店の主力が外れるときは、先に 3 択（主力を外す・残す・棚を拡張する（推奨））
+    const gate = shelfGate(s, plan);
+    if (gate.length) {
+      openShelfChoice(ctx, plan, gate, (p) => {
+        if (p) return prop(p);
+        // 主力を残す（ほかに変えるものが無い）：このカードは「いまはこのままで」
+        const skip = c.choices.findIndex((y) => y.act.k === 'skip');
+        if (skip < 0) return;
+        picked = c.choices[skip];
+        close(chooseCard(s, c.id, skip), choiceText(s, c, c.choices[skip]).label);
+      });
+      return;
+    }
+    prop(plan);
+    return;
+  }
+  const res = chooseCard(s, c.id, k);
+  picked = ch;
+  close(res, label);
 }
 
 /** カードを出す（時間が止まる）。選ぶと手を打って閉じる。足りないときはトーストで知らせてカードを残す */
@@ -329,13 +337,15 @@ export function showCard(ctx: Ctx, c: Card, hooks: CardHooks) {
     ctx.save();
     hooks.done();
   };
-  m.append(panel(ctx, s, c, close, quiet));
+  // 段 UIX3d：入のときは新しい画面の中身（器・閉じ方は今のまま）
+  m.append(uxd.cardPanel ? uxd.cardPanel(ctx, c, { close, quiet }) : panel(ctx, s, c, close, quiet));
   ctx.root.append(m);
   ctx.sfx?.('page');
 }
 
 /** 受け箱（経営企画 → 部長の提案）の上の「ヒーローからの提案・報告」と「任せている提案」 */
 export function cardInboxCard(ctx: Ctx): HTMLElement {
+  if (uxd.inbox) return uxd.inbox(ctx);
   const s = ctx.s();
   const hooks: CardHooks = { done: () => (cardNav.done ? cardNav.done() : after(ctx)), open: (to) => cardNav.open?.(to) };
   const c = h('div', 'isl-card2 isl-cardbox');
@@ -379,6 +389,7 @@ export function cardInboxCard(ctx: Ctx): HTMLElement {
 
 /** 段 UI7h：今月取り下げた提案の一行ずつ（「状況が変わったので、○○は取り下げました（理由：…）」）。無ければ null */
 export function goneBox(s: P1State): HTMLElement | null {
+  if (uxd.gone) return uxd.gone(s);
   const xs = goneNow(s);
   if (!xs.length) return null;
   const e = h('div', 'isl-gone');
@@ -398,6 +409,7 @@ export function goneBox(s: P1State): HTMLElement | null {
 /** 段 UI9：カードの課題の、放置したときの 1 行（作ったときの一覧から） */
 const issueLossOf = (c: Pick<Card, 'iss' | 'issues'>) => (c.iss && c.issues?.find((x) => x.key === c.iss!.key)?.loss) || '';
 export function issueList(s: P1State): HTMLElement {
+  if (uxd.issues) return uxd.issues(s);
   const e = h('div', 'isl-iss');
   const xs = issuesOf(s);
   e.append(h('h3', '', t('会社の課題（優先の順）', 'Company issues (by priority)')));
