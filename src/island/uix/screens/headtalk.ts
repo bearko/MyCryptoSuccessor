@@ -41,12 +41,12 @@ export function headTalkDress(body: HTMLElement) {
 /** 士気の札（今の .isl-morale）を、人と管理の画面の士気の札（hr.ts の moraleTag：ランプと字）と同じ形に揃える */
 const MORALE_LAMP: Record<string, '' | 'good' | 'bad' | 'cyan'> = { high: 'cyan', ok: 'good', low: '', bad: 'bad' };
 function dressMorale(body: HTMLElement) {
-  for (const chip of body.querySelectorAll<HTMLElement>('.isl-morale:not(.uxh-mor)')) {
+  for (const chip of body.querySelectorAll<HTMLElement>('.isl-morale:not(.uxd-mor)')) {
     const band = ['high', 'ok', 'low', 'bad'].find((b) => chip.classList.contains('is-' + b)) ?? 'ok';
     const text = document.createElement('span');
     text.textContent = chip.textContent ?? '';
     chip.textContent = '';
-    chip.classList.add('uxh-mor');
+    chip.classList.add('uxd-mor');
     chip.style.removeProperty('--c');
     chip.append(uxLamp(MORALE_LAMP[band], true), text);
   }
