@@ -44,7 +44,7 @@ import { rankOf } from './heroui';
 import { poolCap, staffOf, type P1State } from './model';
 import { traitOf } from './persona';
 import { landDef, relOf, relTeaser } from './diplo';
-import { after, type Ctx } from './screens';
+import { after, open, type Ctx } from './screens';
 import { afterOf, applyPlan, dropLine, planOf, planTitle, type Plan } from './plan';
 import { useUpOf } from './proj';
 import { DUO_BY_ID } from './duo';
@@ -57,7 +57,11 @@ import { BOARD, unitsX } from './data';
 import { BOARD_ITEM_LINES, BOARD_SCENES, drawSlack } from './boardui';
 import { bulletEl } from './chartkit';
 import { lineOf, styleTags } from './voice';
-import { heroNm } from './deleg';
+import { headOf, heroNm } from './deleg';
+import * as PL from './policy';
+import { POLICIES, POLICY_OF } from './data';
+import { sideText } from './policycards';
+import { openCorpPick, openDeptPick, openPolicyView, powerLines } from './policyui';
 import { pickHead } from './delegui';
 import { fxLevel } from '../fx/layer';
 
@@ -313,6 +317,9 @@ export function propDecide(s: P1State, plan: Plan, M: PropModel) {
 // ---------------------------------------------------------------- 経営会議（計算と文は board.ts・boardplan.ts。画面は今の boardui.ts と同じ関数を同じ引数で呼ぶ）
 export const boardKit = { ...BD, ...BP, BOARD, DEPT, unitsX, scenes: BOARD_SCENES, itemLines: BOARD_ITEM_LINES, drawSlack, bulletEl, lineOf, styleTags, heroNm, pickHead, fxLevel };
 
+// ---------------------------------------------------------------- 経営方針（決まりと文は policy.ts・policycards.ts）
+export const polKit = { ...PL, POLICIES, POLICY_OF, sideText };
+
 export const uxdDeps = {
   cardView,
   cardChoose,
@@ -325,6 +332,14 @@ export const uxdDeps = {
   propHead,
   propDecide,
   boardKit,
+  polKit,
+  powerLines,
+  polOpenView: openPolicyView,
+  polOpenCorp: openCorpPick,
+  polOpenDept: openDeptPick,
+  headOf,
+  heroNm,
+  open,
   applyPlan,
   after,
   SLIDE_NAME,

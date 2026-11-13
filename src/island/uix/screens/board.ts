@@ -26,6 +26,7 @@ import { INK, LITE, dDept, dText } from './d-kit';
 import { dotEmoji, kIcon } from './k-icons';
 import './d-card.css';
 import './d-board.css';
+import './d-pol.css';
 
 const g = (v: number) => `${Math.round(v).toLocaleString('en-US')} G`;
 const stars = (n: number) => `${'★'.repeat(n)}${'☆'.repeat(3 - n)}`;
@@ -137,6 +138,7 @@ export function openBoardUx(ctx: Ctx, hooks: BoardHooks): boolean {
   m.addEventListener('click', (e) => e.stopPropagation());
   ctx.root.append(m);
 
+  let sceneWatch: MutationObserver | null = null;
   const total = items.length;
   const heads = items.filter((x) => x.kind === 'dept').length;
   const secs = total - heads;
@@ -195,11 +197,27 @@ export function openBoardUx(ctx: Ctx, hooks: BoardHooks): boolean {
   // ---- 差し込みの場面（段 K。入場のあと・1 人目の前）：今の画面と同じく、中身の板（panel）に描いてもらう
   function scenes(i: number) {
     const xs = B.scenes.filter((x) => x.when(s, A!));
-    if (i >= xs.length) return speaker();
+    if (i >= xs.length) {
+      sceneWatch?.disconnect();
+      sceneWatch = null;
+      return speaker();
+    }
     panel.replaceChildren();
     footSlot.replaceChildren();
     panel.scrollTop = 0;
     let gone = false;
+    // 差し込みの場面（今の画面の部品で描く）の絵文字は、出てきたそばからドットの絵に替える（字は変えない）
+    sceneWatch?.disconnect();
+    let queued = false;
+    sceneWatch = new MutationObserver(() => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        dotEmoji(panel);
+      });
+    });
+    sceneWatch.observe(panel, { childList: true, subtree: true, characterData: true });
     xs[i].run(
       ctx,
       A!,
@@ -537,6 +555,7 @@ export function openBoardUx(ctx: Ctx, hooks: BoardHooks): boolean {
     close();
   }
   function close() {
+    sceneWatch?.disconnect();
     m.remove();
     hooks.bgm(prevBgm && prevBgm !== 'bgmBoard' ? prevBgm : 'bgmCraft');
     hooks.done();

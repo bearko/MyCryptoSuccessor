@@ -12,8 +12,8 @@ import { CLOSE_MS, PAGE_MS } from '../src/island/uix/screens/proposal';
 import { FLOW, NEXT_MS } from '../src/island/uix/screens/board';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
-export const D_FILES = ['card.ts', 'proposal.ts', 'board.ts', 'd-kit.ts', 'd-boot.ts', 'd-deps.ts', 'd-slots.ts'];
-export const D_CSS = ['d-card.css', 'd-prop.css', 'd-board.css'];
+export const D_FILES = ['card.ts', 'proposal.ts', 'board.ts', 'policy.ts', 'd-kit.ts', 'd-boot.ts', 'd-deps.ts', 'd-slots.ts'];
+export const D_CSS = ['d-card.css', 'd-prop.css', 'd-board.css', 'd-pol.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 afterEach(() => {
@@ -173,5 +173,29 @@ describe('経営会議：議題 → 意見 → 決議の帯・出席者の札・
   it('演出なし・動きを減らすときは、待ち時間を短く（今と同じ 260ms）', () => {
     expect(U).toContain("const still = () => B.fxLevel() === 'off' || isCalm();");
     expect(U).toContain('later(quick ? 260 : NEXT_MS');
+  });
+});
+
+describe('方針：同じ形の札・選ぶ引き出し・施行中の札', () => {
+  const O = src('p1/policyui.ts');
+  const U = src('uix/screens/policy.ts');
+  it('入口は 5 か所とも関数の頭の 1 行の分かれ道', () => {
+    for (const x of ['if (uxd.policyPick) return uxd.policyPick(ctx, o);', 'if (uxd.policyCard) return uxd.policyCard(ctx);', 'if (uxd.policyView) return uxd.policyView(ctx);', 'if (uxd.corpPick) return uxd.corpPick(ctx);', 'if (uxd.deptPick) return uxd.deptPick(ctx, d);']) expect(O).toContain(x);
+  });
+  it('選ぶのは引き出し（今の目印 isl-pol・isl-picker）・決めるのは下の主のキー。決める処理は今と同じ関数', () => {
+    expect(U.match(/cls: 'isl-pol uxd-pol-dr'/g)?.length).toBe(3);
+    expect(U).toContain('P.setPolicy(ctx.s(), sel);');
+    expect(U).toContain('P.canSetCorp(s, pick) && P.setCorp(s, pick)');
+    expect(U).toContain('P.setDept(s, d, sel)');
+    // 「あとで決める」は今と同じ（聞いた印を付けて閉じる・then を呼ぶ）
+    expect(U).toContain('if (o.mine) s.flags.policyAsked = true;');
+    expect(U).toContain("kind: 'weak', cls: 'isl-pol-later'");
+  });
+  it('今かかっている方針は「施行中」の札。全社方針の枠はランプ', () => {
+    expect(U).toContain("uxpStamp(t('施行中', 'In force'), { kind: 'good' })");
+    expect(U).toMatch(/Array\.from\(\{ length: n \}, \(_, i\) => uxLamp\('good', i < corp\.length\)\)/);
+  });
+  it('経営方針発表会（会議の中の場面）の絵文字は、出てきたそばからドットの絵に替える', () => {
+    expect(src('uix/screens/board.ts')).toContain('sceneWatch = new MutationObserver');
   });
 });
