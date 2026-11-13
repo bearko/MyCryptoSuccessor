@@ -13,9 +13,9 @@ import { el, type Kid } from '../dom';
 import { isCalm } from '../prefs';
 import { uxKey, uxLamp, uxMeter, Odo } from '../parts';
 import { uxSfx } from '../sound';
-import { uxpBars, uxpEmpty, uxpPaper, uxpRow, uxpStamp, uxpStat, uxpGap } from '../sparts';
+import { uxpBars, uxpPaper, uxpRow, uxpStamp, uxpStat, uxpGap } from '../sparts';
 import { H } from './h-deps';
-import { enter, face, hIcon, ink, keepOpen, keyLabel, lite, liveDraw, rarTag, sect } from './h-kit';
+import { enter, face, hIcon, ink, keepOpen, keyLabel, lite, liveDraw, rarTag, sect, hEmpty } from './h-kit';
 import type { Ctx } from '../../p1/screens';
 import type { HeroRarity } from '../../p1/data';
 import type { P1State, Staff } from '../../p1/model';
@@ -124,7 +124,7 @@ export function openCharismaUx(ctx: Ctx) {
         const n = by.get(r);
         if (n) have.append(el('span.uxh-have-x', rarTag(r), el('b.ux-num', `× ${n}`)));
       }
-      out.push(el('section.uxh-sec.isl-charisma-have', sect(t('いまのヒーロー（もとのレアリティ）', 'Your heroes (original rarity)'), 'people', { kind: 'dark' }), have.childElementCount ? have : uxpEmpty(t('まだヒーローがいません。', 'No heroes yet.'), { ico: 'people' })));
+      out.push(el('section.uxh-sec.isl-charisma-have', sect(t('いまのヒーロー（もとのレアリティ）', 'Your heroes (original rarity)'), 'people', { kind: 'dark' }), have.childElementCount ? have : hEmpty(t('まだヒーローがいません。', 'No heroes yet.'), { ico: 'people' })));
       page.replaceChildren(...out);
     });
   });
@@ -207,7 +207,7 @@ function payScreen(ctx: Ctx, body: HTMLElement) {
       cards.append(r.card);
       if (just && just.hero === st.hero) hit = r;
     }
-    out.push(el('section.uxh-sec', sect(t('ヒーローごと', 'By hero'), 'people', { kind: 'dark' }), list.length ? cards : uxpEmpty(t('まだヒーローがいません。', 'No heroes yet.'), { ico: 'people' })));
+    out.push(el('section.uxh-sec', sect(t('ヒーローごと', 'By hero'), 'people', { kind: 'dark' }), list.length ? cards : hEmpty(t('まだヒーローがいません。', 'No heroes yet.'), { ico: 'people' })));
     out.push(el('p.uxh-note', H.has(s, 'lounge') ? t('休憩室があるので、スタミナの戻りが 1.5 倍です。', 'The lounge makes stamina recover 1.5× faster.') : t('スキル「休憩室」（総務）で、スタミナの戻りが速くなります。', 'The Lounge skill (General Affairs) speeds up stamina recovery.')));
     page.replaceChildren(...out);
     if (motion) enter([...cards.children] as HTMLElement[]);

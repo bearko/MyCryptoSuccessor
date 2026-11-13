@@ -15,9 +15,9 @@ import { el, type Kid } from '../dom';
 import { uxKey, uxLamp, uxMeter } from '../parts';
 import { isCalm } from '../prefs';
 import { uxSfx } from '../sound';
-import { uxpCard, uxpEmpty, uxpGap, uxpPaper, uxpRow, uxpSeg, uxpStamp } from '../sparts';
+import { uxpCard, uxpGap, uxpPaper, uxpRow, uxpSeg, uxpStamp } from '../sparts';
 import { H } from './h-deps';
-import { enter, hIcon, ink, keepOpen, keyLabel, lite, liveDraw, sect, tape } from './h-kit';
+import { enter, hIcon, ink, keepOpen, keyLabel, lite, liveDraw, sect, tape, hEmpty } from './h-kit';
 import type { Ctx } from '../../p1/screens';
 import type { Clauses, Deal, OfferLevel, Supply } from '../../p1/legal';
 import type { P1State } from '../../p1/model';
@@ -168,7 +168,7 @@ export function openLegalMAUx(ctx: Ctx, hooks: LegalHooks = {}, focusRid?: strin
         });
         list.append(card);
       }
-      out.push(el('section.uxh-sec', sect(t('町の他社', 'Rivals in town'), 'shop', { kind: 'dark' }), list.childElementCount ? list : uxpEmpty(t('町に他社がいません。', 'No rivals in town.'), { ico: 'shop' })));
+      out.push(el('section.uxh-sec', sect(t('町の他社', 'Rivals in town'), 'shop', { kind: 'dark' }), list.childElementCount ? list : hEmpty(t('町に他社がいません。', 'No rivals in town.'), { ico: 'shop' })));
       if (M?.bought.length)
         out.push(
           el(
@@ -440,7 +440,7 @@ export function openPatentsUx(ctx: Ctx, hooks: LegalHooks = {}) {
         stampIf(`pat:${k}`, card, t('受付', 'Filed'));
         list.append(card);
       }
-      out.push(el('section.uxh-sec', sect(t('特許にできる復刻品', 'Revivals you can patent'), 'list', { kind: 'dark' }), keys.length ? list : uxpEmpty(t('特許にできる復刻品はまだ無い（Rare・Epic の復刻品のレシピが開いたら）。', 'No revivals to patent yet (once Rare or Epic revival recipes open).'), { ico: 'shield' })));
+      out.push(el('section.uxh-sec', sect(t('特許にできる復刻品', 'Revivals you can patent'), 'list', { kind: 'dark' }), keys.length ? list : hEmpty(t('特許にできる復刻品はまだ無い（Rare・Epic の復刻品のレシピが開いたら）。', 'No revivals to patent yet (once Rare or Epic revival recipes open).'), { ico: 'shield' })));
       out.push(mastery([], LL.CROSS_RND_LEGAL()));
       root.replaceChildren(el('div.uxh-page', out, footer(hooks, 'patent')));
       if (anim && !isCalm()) enter([...list.children] as HTMLElement[]);
@@ -485,7 +485,7 @@ export function openSuitsUx(ctx: Ctx, hooks: LegalHooks = {}) {
         );
         list.append(card);
       }
-      out.push(el('section.uxh-sec', sect(t(`進んでいる裁判（${open0.length}）`, `Trials in progress (${open0.length})`), 'hourglass', { kind: 'dark' }), open0.length ? list : uxpEmpty(t('いま進んでいる裁判は無い。', 'No trials in progress.'), { ico: 'scales' })));
+      out.push(el('section.uxh-sec', sect(t(`進んでいる裁判（${open0.length}）`, `Trials in progress (${open0.length})`), 'hourglass', { kind: 'dark' }), open0.length ? list : hEmpty(t('いま進んでいる裁判は無い。', 'No trials in progress.'), { ico: 'scales' })));
       const done = (s.legal?.suits ?? []).filter((x) => x.status !== 'open').slice(-6).reverse();
       if (done.length) {
         const st = { won: t('勝ち', 'Won'), lost: t('負け', 'Lost'), settled: t('和解', 'Settled'), open: '' };

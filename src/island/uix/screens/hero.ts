@@ -15,9 +15,9 @@ import { shake, uxKey, uxLamp, uxMeter } from '../parts';
 import { sparks } from '../fx';
 import { isCalm } from '../prefs';
 import { uxSfx } from '../sound';
-import { uxpBars, uxpDrawer, uxpEmpty, uxpPaper, uxpStamp } from '../sparts';
+import { uxpBars, uxpDrawer, uxpPaper, uxpStamp } from '../sparts';
 import { H } from './h-deps';
-import { aptBars, bestLine, enter, face, hIcon, heroCard, keepOpen, keyLabel, lite, liveDraw, mid, rarOf, rarTag, sect } from './h-kit';
+import { aptBars, bestLine, enter, face, hIcon, heroCard, keepOpen, keyLabel, lite, liveDraw, mid, rarOf, rarTag, sect, hEmpty } from './h-kit';
 import { moraleTag } from './hr';
 import type { Ctx } from '../../p1/screens';
 import type { HeroRarity, LessonType, PromoItem } from '../../p1/data';
@@ -200,7 +200,7 @@ function growthScreen(ctx: Ctx, body: HTMLElement) {
     const list = [...s.staff].sort((a, b) => Number(!H.promoLock(b, s.heroItems)) - Number(!H.promoLock(a, s.heroItems)) || (b.level ?? 1) - (a.level ?? 1));
     const grid = el('div.uxh-grow-list');
     for (const st of list) grid.append(growthCard(ctx, s, st));
-    out.push(el('section.uxh-sec', sect(t('ヒーローごと', 'By hero'), 'people', { kind: 'dark' }), list.length ? grid : uxpEmpty(t('まだヒーローがいません。', 'No heroes yet.'), { ico: 'people' })));
+    out.push(el('section.uxh-sec', sect(t('ヒーローごと', 'By hero'), 'people', { kind: 'dark' }), list.length ? grid : hEmpty(t('まだヒーローがいません。', 'No heroes yet.'), { ico: 'people' })));
     page.replaceChildren(...out);
     if (motion) enter([...grid.children] as HTMLElement[]);
     if (!scrolled && growthFocus != null) {
@@ -389,7 +389,7 @@ export function openLessonsUx(ctx: Ctx) {
       ),
     );
   }
-  body.append(el('section.uxh-sec', sect(t('受け継いだ教え', 'Inherited'), 'check', { kind: 'dark' }), d.got.length ? got : uxpEmpty(t('まだありません。ヒーローの提案を承認して、手が効くのを待とう。', 'None yet. Approve a hero’s proposal and wait for it to pay off.'), { ico: 'book' })));
+  body.append(el('section.uxh-sec', sect(t('受け継いだ教え', 'Inherited'), 'check', { kind: 'dark' }), d.got.length ? got : hEmpty(t('まだありません。ヒーローの提案を承認して、手が効くのを待とう。', 'None yet. Approve a hero’s proposal and wait for it to pay off.'), { ico: 'book' })));
   const near = el('div.uxh-ls-near');
   for (const r of d.near)
     near.append(

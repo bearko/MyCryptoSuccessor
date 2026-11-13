@@ -10,7 +10,7 @@ import { el, type Kid } from '../dom';
 import { uxIcon } from '../icons';
 import { isCalm } from '../prefs';
 import { uxTape } from '../parts';
-import { uxpBars, uxpCard, uxpFace, uxpHead, type CardOpts } from '../sparts';
+import { uxpBars, uxpCard, uxpEmpty, uxpFace, uxpHead, type CardOpts } from '../sparts';
 import { H } from './h-deps';
 import { H_ART } from './h-icons';
 import { kIcon } from './k-icons';
@@ -204,3 +204,13 @@ export const icoText = (ico: string, text: Kid, o: IcoOpts = dim) => el('span.ux
 export const tape = (label: string, kind: '' | 'amber' | 'good' | 'dark' = '') => uxTape(el('b', label), kind);
 /** 絵（土台の絵の名前だけ。ほかは hIcon） */
 export const baseIcon = (name: string, o: IcoOpts = lite) => uxIcon(name, o);
+/**
+ * 空のとき（uxpEmpty）。土台の uxpEmpty の絵は土台の絵の名前しか描けない（知らない名前は空の四角）ので、
+ * 絵はここで描き直す（この段・経営企画・工房・世界の絵も使える）
+ */
+export function hEmpty(text: Kid, o: { ico?: string; sub?: Kid; key?: Kid } = {}): HTMLElement {
+  const e = uxpEmpty(text, { ...o, ico: 'list' });
+  const slot = e.querySelector('.uxp-empty-ico');
+  if (slot && o.ico) slot.replaceChildren(hIcon(o.ico, { color: '#4a5486', hi: '#97a1cf', lo: '#20253d', scale: 3 }));
+  return e;
+}

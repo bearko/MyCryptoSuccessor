@@ -22,9 +22,9 @@ import { coinsFly } from '../fx';
 import { isCalm } from '../prefs';
 import { rollNumber, shake, uxKey, uxLamp, uxMeter } from '../parts';
 import { uxSfx } from '../sound';
-import { uxpEmpty, uxpFoot, uxpGap, uxpPaper, uxpStamp, uxpStat } from '../sparts';
+import { uxpFoot, uxpGap, uxpPaper, uxpStamp, uxpStat } from '../sparts';
 import { H } from './h-deps';
-import { aptBars, bestLine, bestTask, enter, face, flyTo, hIcon, heroCard, ink, keepOpen, keyLabel, lite, liveDraw, mid, rankChip, rarOf, rarTag, sect } from './h-kit';
+import { aptBars, bestLine, bestTask, enter, face, flyTo, hIcon, heroCard, ink, keepOpen, keyLabel, lite, liveDraw, mid, rankChip, rarOf, rarTag, sect, hEmpty } from './h-kit';
 import { charismaPanel } from './hr';
 import { openHeroSheet } from './hero';
 import './h-screens.css';
@@ -243,7 +243,7 @@ function staffScreen(ctx: Ctx, body: HTMLElement) {
     }
     // ---- 待機中の名簿
     const bench = el('section.uxh-sec.uxh-bench.isl-bench-free', sect(t(`待機中のヒーロー（${free.length}）`, `Free heroes (${free.length})`), 'people', { kind: 'dark' }));
-    if (!free.length) bench.append(uxpEmpty(t('全員が仕事中です。人手が足りなければ「人材登用」で雇えます。', 'Everyone is working. Hire more under Recruiting.'), { ico: 'people' }));
+    if (!free.length) bench.append(hEmpty(t('全員が仕事中です。人手が足りなければ「人材登用」で雇えます。', 'Everyone is working. Hire more under Recruiting.'), { ico: 'people' }));
     else {
       const grid = el('div.uxp-grid.uxh-roster');
       for (const x of free) {
@@ -346,7 +346,7 @@ function hireScreen(ctx: Ctx, body: HTMLElement, opts: { charisma?: boolean }) {
     tipBox.replaceChildren();
     H.mineTip(ctx, 'hire', tipBox);
     if (!H.has(s, 'hire')) {
-      page.replaceChildren(uxpEmpty(t('スキル「人材の募集」（人材）を習得すると、ヒーローを雇えるようになります。', 'Learn the Recruiting skill (People) to hire heroes.'), { ico: 'lock' }));
+      page.replaceChildren(hEmpty(t('スキル「人材の募集」（人材）を習得すると、ヒーローを雇えるようになります。', 'Learn the Recruiting skill (People) to hire heroes.'), { ico: 'lock' }));
       return;
     }
     const out: HTMLElement[] = [];

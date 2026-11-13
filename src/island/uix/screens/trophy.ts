@@ -13,9 +13,9 @@ import { sparks } from '../fx';
 import { uxKey, uxLamp, uxMeter, uxTape } from '../parts';
 import { isCalm } from '../prefs';
 import { uxSfx } from '../sound';
-import { uxpBars, uxpCard, uxpDrawer, uxpEmpty, uxpPaper, uxpSelect, uxpStamp, uxpStat } from '../sparts';
+import { uxpBars, uxpCard, uxpDrawer, uxpPaper, uxpSelect, uxpStamp, uxpStat } from '../sparts';
 import { H } from './h-deps';
-import { enter, hIcon, ink, keepOpen, liveDraw, lite, mid, sect } from './h-kit';
+import { enter, hIcon, ink, keepOpen, liveDraw, lite, mid, sect, hEmpty } from './h-kit';
 import type { Ctx } from '../../p1/screens';
 import type { TrophyDef } from '../../p1/trophy';
 
@@ -254,7 +254,7 @@ function pickRelic(ctx: Ctx, k: number) {
   });
   const cands = H.exhibitable(s);
   if (!cands.length) {
-    d.body.append(uxpEmpty(t('まだ遺物が無い。荒れ地やダンジョンで掘ってみよう。', 'No relics yet. Dig at a wasteland or a dungeon.'), { ico: 'pick' }));
+    d.body.append(hEmpty(t('まだ遺物が無い。荒れ地やダンジョンで掘ってみよう。', 'No relics yet. Dig at a wasteland or a dungeon.'), { ico: 'pick' }));
     return;
   }
   const list = el('div.uxp-list');

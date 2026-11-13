@@ -14,9 +14,9 @@ import { el, type Kid } from '../dom';
 import { uxKey, uxLamp, uxMeter } from '../parts';
 import { isCalm } from '../prefs';
 import { uxSfx } from '../sound';
-import { uxpCard, uxpEmpty, uxpGap, uxpPaper, uxpRow, uxpStamp } from '../sparts';
+import { uxpCard, uxpGap, uxpPaper, uxpRow, uxpStamp } from '../sparts';
 import { H } from './h-deps';
-import { enter, hIcon, keepOpen, keyLabel, lite, liveDraw, sect, tape } from './h-kit';
+import { enter, hIcon, keepOpen, keyLabel, lite, liveDraw, sect, tape, hEmpty } from './h-kit';
 import type { Ctx } from '../../p1/screens';
 import type { P1State } from '../../p1/model';
 import type { MapSetKey } from '../../p1/mapsetui';
@@ -49,7 +49,7 @@ export function openDiploUx(ctx: Ctx) {
       const D = s.diplo;
       if (!D?.lands.length) {
         const m = D?.since != null ? Math.round(s.day / H.DAYS) - D.since : 0;
-        page.replaceChildren(uxpEmpty(t('まだ使者は来ていない', 'No envoy yet'), { ico: 'globe', sub: t(`クリプト・サン・シティの石板「返事の光」を読むか、Epic の町に着いてから ${H.DIPLO.afterMonths} か月で、霧の向こうから使者が来る（いま ${Math.max(0, m)} か月）。`, `An envoy arrives once you read the “Answering light” tablet in Crypto Sun City, or ${H.DIPLO.afterMonths} months after reaching Epic (now ${Math.max(0, m)}).`) }));
+        page.replaceChildren(hEmpty(t('まだ使者は来ていない', 'No envoy yet'), { ico: 'globe', sub: t(`クリプト・サン・シティの石板「返事の光」を読むか、Epic の町に着いてから ${H.DIPLO.afterMonths} か月で、霧の向こうから使者が来る（いま ${Math.max(0, m)} か月）。`, `An envoy arrives once you read the “Answering light” tablet in Crypto Sun City, or ${H.DIPLO.afterMonths} months after reaching Epic (now ${Math.max(0, m)}).`) }));
         return;
       }
       const lands = el('div.uxh-dip-lands');
