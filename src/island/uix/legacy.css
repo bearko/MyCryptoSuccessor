@@ -228,6 +228,14 @@ html.is-uxc #isl-ui .isl-together > .isl-part {
   min-width: 0;
 }
 
+/* ---------- 今の目印の class に残る古い小さな字（段 UIX4a）：新しい画面の中に今の目印として残した要素が、本体の CSS の 12〜13px を
+   子へ引き継いでいた所を、16px にもどす（日本語は 16px が最小）。各段の上書きはそのまま（同じ詳細度なら、あとから読む各段の CSS が勝つ） */
+html.is-uxc #isl-ui .uxs-ctl-row.isl-plan-auto,
+html.is-uxc #isl-ui .isl-together > .isl-part > .isl-dim {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
 /* ---------- 窓の共通の器（.isl-modal）：暗い網目の幕・入る動き。modal() の箱は機械の板 */
 html.is-uxc {
   --ux-dz50s: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h2v2H0zM2 2h2v2H2z' fill-opacity='.35'/%3E%3C/svg%3E");
