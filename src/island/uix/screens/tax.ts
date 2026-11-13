@@ -243,7 +243,7 @@ function taxScreen(ctx: Ctx, body: HTMLElement, hooks: { books?: () => void; ski
       const paid = uxpBars(hs.map((r: { q: number; paid: number }) => ({ label: lab(r), value: r.paid })), { height: 132, cls: 'uxk-bk-trend', auto: !motion });
       const saved = uxpBars(hs.map((r: { q: number; saved: number }) => ({ label: lab(r), value: r.saved, kind: 'good' as const })), { height: 132, cls: 'uxk-bk-trend', auto: !motion });
       for (const b of [paid, saved]) b.el.style.minWidth = `${hs.length * 72}px`;
-      paid.el.setAttribute('aria-label', t('払った税', 'Tax paid') + ': ' + hs.map((r: { q: number; paid: number; rate: number }) => `${lab(r)} ${K.money(r.paid)}（${pct(r.rate)}）`).join(' / '));
+      paid.el.setAttribute('aria-label', t('払った税', 'Tax paid') + ': ' + hs.map((r: { q: number; paid: number; rate: number }) => t(`${lab(r)} ${K.money(r.paid)}（${pct(r.rate)}）`, `${lab(r)} ${K.money(r.paid)} (${pct(r.rate)})`)).join(' / '));
       saved.el.setAttribute('aria-label', t('節税で減った税', 'Tax saved') + ': ' + hs.map((r: { q: number; saved: number }) => `${lab(r)} ${K.money(r.saved)}`).join(' / '));
       grows.push(paid, saved);
       hist.append(el('div.uxk-bk-two', el('div.uxk-bk-graph', el('b.uxk-bk-sub', t('払った税', 'Tax paid')), paid.el), el('div.uxk-bk-graph', el('b.uxk-bk-sub', t('節税で減った税', 'Tax saved')), saved.el)));
@@ -399,7 +399,7 @@ function gaScreen(ctx: Ctx, body: HTMLElement, hooks: { invest?: () => void; ski
       el('span.uxp-card-pic', uxpFace(K.heroIcon(st.hero, 64), { win: 56 })),
       el(
         'span.uxp-card-body',
-        el('span.uxp-card-name', el('b', K.heroName(st.hero)), el('span.uxk-ga-band', uxLamp(BAND_LAMP[band], true, band === 'worn'), uxTape(`${pct(f)}・${BAND_NAME[band]()}`, band === 'worn' ? '' : band === 'tired' ? 'amber' : 'dark')), stamp.el),
+        el('span.uxp-card-name', el('b', K.heroName(st.hero)), el('span.uxk-ga-band', uxLamp(BAND_LAMP[band], true, band === 'worn'), uxTape(t(`${pct(f)}・${BAND_NAME[band]()}`, `${pct(f)} · ${BAND_NAME[band]()}`), band === 'worn' ? '' : band === 'tired' ? 'amber' : 'dark')), stamp.el),
         el('span.uxp-card-desc', el(`span.uxk-ga-eff${load > 0 && !st.resting ? '.is-bad' : ''}`, effect)),
         el('span.uxp-card-foot', el('span.uxk-ga-meter', meter.el, el('span.ux-num', pct(f)))),
       ),

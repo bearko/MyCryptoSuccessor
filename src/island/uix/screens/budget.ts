@@ -324,7 +324,7 @@ function screen(ctx: Ctx, body: HTMLElement) {
     if (H && B.ask) {
       const ask = B.ask;
       const rec = (label: string, fn: () => void) =>
-        uxKey([uxTape(t('推奨', 'Recommended'), 'amber'), el('b', label)], fn, { kind: mainAsk ? 'main' : '', ico: null, cls: 'uxk-bd-rec', attrs: { 'aria-label': `${t('推奨', 'Recommended')} ${label}` } });
+        uxKey([uxTape(t('推奨', 'Recommended'), 'amber'), el('b', label)], fn, { kind: mainAsk ? 'main' : '', ico: null, cls: 'uxk-bd-rec', attrs: { 'aria-label': t(`推奨 ${label}`, `Recommended ${label}`) } });
       let key: HTMLElement;
       if (ask.why === 'labor') {
         const to = Math.min(K.BUDGET.crew.capMax, B.cap + 2);
