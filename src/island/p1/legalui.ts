@@ -65,6 +65,7 @@ import { masteryCard } from './acctui';
 import { type P1State } from './model';
 import { after, open, type Ctx } from './screens';
 import { bar, btn, h, money } from './ui';
+import { uxh } from '../uix/screens/h-slots';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const rname = (rid: string) => rivalDef(rid)?.name ?? rid;
@@ -227,6 +228,8 @@ function dealCard(ctx: Ctx, s: P1State, d: Deal): HTMLElement {
 
 /** 法務 → M&A（他社の一覧・話の札・買った会社） */
 export function openLegalMA(ctx: Ctx, hooks: LegalHooks = {}, focusRid?: string) {
+  // 段 UIX3h：新しい画面（入のときだけ。uix/screens/legal.ts）
+  if (uxh.legalMA) return uxh.legalMA(ctx, hooks, focusRid);
   open(ctx, t('M&A（他社の買収）', 'M&A (acquisitions)'), (body) => {
     const s = ctx.s();
     const nh = notHere(s);
@@ -286,6 +289,7 @@ export function openLegalMA(ctx: Ctx, hooks: LegalHooks = {}, focusRid?: string)
 const supplyPick: { months: number; c: Supply['clauses'] } = { months: 6, c: { noPenalty: true } };
 /** 法務 → 契約（仕入れの契約） */
 export function openContract(ctx: Ctx, hooks: LegalHooks = {}) {
+  if (uxh.contract) return uxh.contract(ctx, hooks);
   open(ctx, t('契約', 'Contracts'), (body) => {
     const s = ctx.s();
     const nh = notHere(s);
@@ -362,6 +366,7 @@ export function openContract(ctx: Ctx, hooks: LegalHooks = {}) {
 
 /** 法務 → 特許 */
 export function openPatents(ctx: Ctx, hooks: LegalHooks = {}) {
+  if (uxh.patents) return uxh.patents(ctx, hooks);
   open(ctx, t('特許', 'Patents'), (body) => {
     const s = ctx.s();
     const nh = notHere(s);
@@ -433,6 +438,7 @@ export function openPatents(ctx: Ctx, hooks: LegalHooks = {}) {
 
 /** 法務 → 争い（裁判の札・和解・記録） */
 export function openSuits(ctx: Ctx, hooks: LegalHooks = {}) {
+  if (uxh.suits) return uxh.suits(ctx, hooks);
   open(ctx, t('争い', 'Disputes'), (body) => {
     const s = ctx.s();
     const head = h('div', 'isl-card2');

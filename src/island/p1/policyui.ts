@@ -42,6 +42,7 @@ import { heroNm, headOf } from './deleg';
 import { after, open, type Ctx } from './screens';
 import { btn, h, recLine } from './ui';
 import { ux } from '../uix/hooks';
+import { uxd } from '../uix/screens/d-slots';
 import type { P1State } from './model';
 import { sideText } from './policycards';
 import './pol.css';
@@ -67,6 +68,7 @@ const nowText = (s: P1State, p: PolicyDef) => polFxOf(s, p).map((f) => fxLine(f.
 
 /** 方針を選ぶ窓（時間が止まる .isl-modal）。mine：マインちゃんが聞く（1 回だけ）。then：閉じたあと（選んだ・あとで） */
 export function openPolicyPick(ctx: Ctx, o: { mine?: boolean; then?: () => void } = {}) {
+  if (uxd.policyPick) return uxd.policyPick(ctx, o);
   const s = ctx.s();
   ctx.root.querySelector('.isl-pol')?.remove();
   const m = h('div', 'isl-modal isl-pol');
@@ -125,6 +127,7 @@ export function openPolicyPick(ctx: Ctx, o: { mine?: boolean; then?: () => void 
 
 /** 経営企画の「受け箱」の上の 1 枚：いまの全社方針・事業別の方針の数と「方針を見る」 */
 export function policyCard(ctx: Ctx): HTMLElement {
+  if (uxd.policyCard) return uxd.policyCard(ctx);
   const s = ctx.s();
   const c = h('div', 'isl-card2 isl-pol-card');
   const corp = corpOf(s).map((id) => POLICY_OF[id]);
@@ -146,6 +149,7 @@ export function policyCard(ctx: Ctx): HTMLElement {
 
 /** 方針の画面（経営企画 → 受け箱の上の札 →「方針を見る」） */
 export function openPolicyView(ctx: Ctx) {
+  if (uxd.policyView) return uxd.policyView(ctx);
   open(ctx, t('経営方針', 'Management policy'), (body) => {
     const s = ctx.s();
     body.classList.add('isl-pv');
@@ -253,6 +257,7 @@ function polRow(s: P1State, p: PolicyDef): HTMLElement {
 
 /** 全社方針を選ぶ窓（枠の数まで。会議が始まったあとは、いまの方針を外せない＝空いた枠を埋めるだけ） */
 export function openCorpPick(ctx: Ctx) {
+  if (uxd.corpPick) return uxd.corpPick(ctx);
   const s = ctx.s();
   const n = slotsOf(s);
   const keep = meetingsOn(s) ? corpOf(s) : [];
@@ -300,6 +305,7 @@ export function openCorpPick(ctx: Ctx) {
 }
 /** 事業別の方針を選ぶ窓 */
 export function openDeptPick(ctx: Ctx, d: DeptId) {
+  if (uxd.deptPick) return uxd.deptPick(ctx, d);
   const s = ctx.s();
   const cur = deptPolicyOf(s, d);
   modal(ctx, t(`${DEPT[d].icon} ${DEPT[d].name}の方針`, `${DEPT[d].icon} ${DEPT[d].name} policy`), (panel, close) => {

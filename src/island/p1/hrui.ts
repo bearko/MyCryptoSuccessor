@@ -39,6 +39,7 @@ import { infoTip } from './slideui';
 import { PALETTE, histBox, legendEl, swatch } from './chartkit';
 import { charismaHist, charismaSegs } from './dash';
 import { charismaOf } from './hr';
+import { uxh } from '../uix/screens/h-slots';
 
 // ---------------------------------------------------------------- カリスマ度
 
@@ -103,7 +104,7 @@ export function charismaCard(s: P1State, opts: { detail?: boolean } = {}): HTMLE
   return card;
 }
 /** レアリティの候補がどこから来るか（雇う画面の一言） */
-function rarityHow(r: HeroRarity): string {
+export function rarityHow(r: HeroRarity): string {
   if (r === 'C') return t('人材の募集（ノービス・コモン）', 'Recruiting (Novice, Common)');
   if (r === 'U') return t('候補に来る（憧れの職場なら必ず 1 人）', 'Come as candidates (always one with Dream employer)');
   if (r === 'R') return t('パネル「ヘッドハンティング」で 1 人', 'One via the Headhunting panel');
@@ -121,6 +122,8 @@ export function charismaNeeds(s: P1State): string[] {
 
 /** 経営企画 → 経営者：カリスマ度のくわしい札 */
 export function openCharisma(ctx: Ctx) {
+  // 段 UIX3h：新しい画面（入のときだけ。uix/screens/hr.ts）
+  if (uxh.charisma) return uxh.charisma(ctx);
   open(ctx, t('経営者（カリスマ度）', 'Executive (charisma)'), (body) => {
     const s = ctx.s();
     body.append(charismaCard(s, { detail: true }));
@@ -161,7 +164,7 @@ export function openCharisma(ctx: Ctx) {
 
 // ---------------------------------------------------------------- 士気と給与
 
-const BAND_NAME: Record<MoraleBand, string> = {
+export const BAND_NAME: Record<MoraleBand, string> = {
   high: t('やる気', 'Fired up'),
   ok: t('ふつう', 'Steady'),
   low: t('低い', 'Low'),
@@ -178,14 +181,14 @@ export function moraleChip(st: Staff): HTMLElement {
   return e;
 }
 /** 相場との差の文 */
-function gapText(st: Staff): string {
+export function gapText(st: Staff): string {
   const g = payGap(st);
   if (Math.abs(g) < 0.25) return t('相場どおり', 'At market');
   const n = Math.abs(g) < 0.75 ? t('少し', 'a little') : t(`${Math.round(Math.abs(g))} 段`, `${Math.round(Math.abs(g))} step(s)`);
   return g > 0 ? t(`相場より${n}上`, `${n} above market`) : t(`相場より${n}下`, `${n} below market`);
 }
 /** 士気の目標の内訳（「目標 52 ＝ ふつう 55・給与 −10・職場 +4・同じ仕事 −2」） */
-function partsText(s: P1State, st: Staff): string {
+export function partsText(s: P1State, st: Staff): string {
   const p = moraleParts(s, st);
   const sg = (v: number) => (v > 0 ? `+${Math.round(v)}` : `${Math.round(v)}`);
   const xs = [
@@ -209,6 +212,7 @@ function partsText(s: P1State, st: Staff): string {
 
 /** 人事 → 給与・労務 */
 export function openPayroll(ctx: Ctx) {
+  if (uxh.payroll) return uxh.payroll(ctx);
   open(ctx, t('給与・労務', 'Pay & welfare'), (body) => {
     const s = ctx.s();
     const total = payroll(s);

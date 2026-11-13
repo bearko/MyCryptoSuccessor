@@ -1,0 +1,542 @@
+/*
+ * 段 UIX3d：担当者からの提案書（方向 C「管制卓」）。入のときだけ読む（proposal.ts）。すべて html.is-uxc の内側・class は uxd-。
+ * 資料の中身（今のスライドの部品 isl-sl-*）は、暗い投影の面に載せたまま、字の段（16px から）・書体・角（丸めない）だけをそろえる。
+ * 動きは transform と opacity だけ。出入りは backwards まで。動きを減らすときは全部止まる（土台の is-calm）。
+ */
+
+/* ==================================================================== 器 */
+html.is-uxc #isl-ui .isl-modal.isl-prop > .uxd-prop {
+  position: absolute;
+  top: calc(var(--hud-h, 56px) + 8px);
+  bottom: calc(var(--foot-h, 0px) + 12px + var(--ux-safe-b));
+  left: 0;
+  right: 0;
+  width: min(960px, calc(100% - 16px));
+  margin: 0 auto;
+  padding: 10px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--ux-paper);
+  animation: uxd-in 240ms steps(6, end) backwards;
+}
+@media (max-width: 599px) and (max-height: 800px) {
+  html.is-uxc #isl-ui .isl-modal.isl-prop > .uxd-prop {
+    top: 8px;
+  }
+}
+/* 話し手 */
+html.is-uxc .uxd-prop-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  min-width: 0;
+}
+html.is-uxc .uxd-prop-face {
+  flex: none;
+}
+html.is-uxc .uxd-prop-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+html.is-uxc .uxd-prop-kick {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxd-prop-name {
+  font-weight: 400;
+  font-size: var(--ux-t15);
+  line-height: 1.3;
+  text-shadow: 1px 0 0 currentColor;
+}
+html.is-uxc .uxd-prop-who .isl-ls-errchip {
+  font-size: 1rem;
+  color: var(--ux-cyan);
+}
+/* ページのランプの帯 */
+html.is-uxc .uxd-prop-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: none;
+}
+html.is-uxc .uxd-prop-strip {
+  display: flex;
+  gap: 0;
+  min-width: 0;
+}
+html.is-uxc .ux-key.uxd-pg {
+  flex: 1 1 0;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 2px;
+}
+html.is-uxc .uxd-pg-in {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+html.is-uxc .uxd-pg-n {
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+html.is-uxc .uxd-pg-name {
+  display: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  html.is-uxc .uxd-pg-name {
+    display: inline;
+  }
+}
+html.is-uxc .ux-key.uxd-pg.is-cur {
+  --ux-face: var(--ux-paper);
+  --ux-txt: var(--ux-ink);
+}
+html.is-uxc .ux-key.uxd-pg.is-decide:not(.is-cur) {
+  --ux-face: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-good-lo);
+}
+html.is-uxc .uxd-prop-pname {
+  font-weight: 400;
+  color: var(--ux-amber);
+}
+/* 投影の面：1 枚ずつ。送りは 600ms・9 段の横送り */
+html.is-uxc .uxd-prop-screen {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 4px 0 2px #0e101c;
+}
+html.is-uxc .uxd-prop-screen:focus-visible {
+  outline: 2px solid var(--ux-amber);
+  outline-offset: -2px;
+}
+html.is-uxc .uxd-prop-page {
+  position: absolute;
+  inset: 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+html.is-uxc .uxd-prop-page[hidden] {
+  display: none;
+}
+html.is-uxc .uxd-prop-page.is-in-next {
+  animation: uxd-page-in-next 600ms steps(9, end) backwards;
+}
+html.is-uxc .uxd-prop-page.is-in-prev {
+  animation: uxd-page-in-prev 600ms steps(9, end) backwards;
+}
+html.is-uxc .uxd-prop-page.is-out-next {
+  animation: uxd-page-out-next 600ms steps(9, end);
+  opacity: 0;
+}
+html.is-uxc .uxd-prop-page.is-out-prev {
+  animation: uxd-page-out-prev 600ms steps(9, end);
+  opacity: 0;
+}
+@keyframes uxd-page-in-next {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+@keyframes uxd-page-in-prev {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+}
+@keyframes uxd-page-out-next {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(-100%, 0, 0);
+  }
+}
+@keyframes uxd-page-out-prev {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+/* ==================================================================== 資料の中身（今の部品）を、字の段・書体・角だけそろえる */
+html.is-uxc .uxd-prop-screen .isl-sl {
+  min-height: 100%;
+  padding: 10px 12px 14px;
+  overflow: visible;
+  color: var(--ux-paper);
+  font-family: var(--ux-jp);
+  gap: 10px;
+}
+html.is-uxc .uxd-prop-screen .isl-sl *,
+html.is-uxc .uxd-prop-screen .isl-sl *::before,
+html.is-uxc .uxd-prop-screen .isl-sl *::after {
+  border-radius: 0 !important;
+}
+html.is-uxc .uxd-prop-screen .isl-sl *:not(svg):not(svg *):not(.ux-odo):not(.ux-odo *):not(.ux-num):not(.uxd-tile-sg):not(.uxd-tile-txt):not(.uxd-lb-m):not(.ux-vh):not(.isl-sl-h) {
+  font-size: 1rem;
+  font-weight: 400;
+}
+html.is-uxc .uxd-prop-screen .isl-sl .isl-sl-h {
+  font-size: var(--ux-t15);
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--ux-amber);
+  text-shadow: 1px 0 0 currentColor;
+}
+html.is-uxc .uxd-prop-screen .isl-sl svg text {
+  font-family: var(--ux-jp);
+  font-size: 16px;
+}
+html.is-uxc .uxd-prop-screen .isl-sl .isl-sl-lab {
+  color: var(--ux-k5);
+}
+html.is-uxc .uxd-prop-screen .isl-sl b,
+html.is-uxc .uxd-prop-screen .isl-sl strong {
+  text-shadow: 1px 0 0 currentColor;
+}
+/* 小さな見出し（グラフの名前）は貼り札の形に */
+html.is-uxc .uxd-prop-screen .isl-sl .isl-sl-ch {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding-top: 4px;
+  border-top: 2px dashed var(--ux-k4);
+}
+html.is-uxc .uxd-prop-screen .isl-sl .isl-sl-ch > b {
+  padding: 0 6px;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  text-shadow: none;
+}
+html.is-uxc .uxd-prop-screen .isl-sl .isl-sl-ch > small {
+  color: var(--ux-k5);
+}
+/* ⓘ の吹き出しのキー：44px */
+html.is-uxc .uxd-prop-screen .isl-tip-btn {
+  min-width: 44px;
+  min-height: 44px;
+  background: none;
+  color: var(--ux-cyan);
+}
+html.is-uxc .uxd-prop-screen .isl-tip-pop {
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  box-shadow: inset 0 0 0 2px var(--ux-ink), 4px 4px 0 rgba(4, 6, 14, 0.6);
+}
+/* 本体のボタン（研究の画面へ・計算のしかた・ほかの品を選ぶ）は、押せる高さ 44px */
+html.is-uxc .uxd-prop-screen .isl-sl .isl-btn {
+  min-height: 44px;
+}
+
+/* ==================================================================== KPI のタイル */
+html.is-uxc .uxd-prop-screen .isl-sl .isl-sl-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+html.is-uxc .uxd-prop-screen .isl-sl .uxd-tile.isl-sl-kpi {
+  padding: 8px;
+  border: 0;
+  background: var(--ux-k2);
+}
+html.is-uxc .uxd-prop-screen .isl-sl .uxd-tile .uxd-tile-k {
+  color: var(--ux-ink);
+}
+html.is-uxc .uxd-prop-screen .isl-sl .uxd-tile[data-once] {
+  opacity: 0.7;
+  background-image: var(--ux-dz25);
+}
+html.is-uxc .uxd-prop-screen .isl-sl .uxd-tile .ux-odo {
+  font-size: var(--ux-n15);
+}
+
+/* ==================================================================== 12 か月の累計（縦の棒） */
+html.is-uxc .uxd-lb {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+html.is-uxc .uxd-lb-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxd-lb-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc .uxd-lb-key > i {
+  width: 12px;
+  height: 12px;
+}
+html.is-uxc .uxd-lb-key.is-after > i {
+  background: var(--ux-amber);
+}
+html.is-uxc .uxd-lb-key.is-now > i {
+  box-shadow: inset 0 0 0 2px var(--ux-k5);
+  background: var(--ux-dz50w);
+  opacity: 0.8;
+}
+html.is-uxc .uxd-lb-plot {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 168px;
+  padding: 0 2px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc .uxd-lb-zero {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--ux-k4);
+}
+html.is-uxc .uxd-lb-col {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0 0;
+  background: none;
+  border: 0;
+  color: var(--ux-k5);
+  cursor: pointer;
+}
+html.is-uxc .uxd-lb-col.is-on {
+  background: var(--ux-k2);
+  color: var(--ux-amber);
+}
+html.is-uxc .uxd-lb-pair {
+  position: relative;
+  flex: 1;
+  margin-bottom: 20px;
+}
+html.is-uxc .uxd-lb-bar {
+  position: absolute;
+  width: 40%;
+  transform-origin: 50% 100%;
+  animation: uxd-grow 520ms steps(8, end) backwards;
+}
+html.is-uxc .uxd-lb-bar.is-neg {
+  transform-origin: 50% 0;
+}
+html.is-uxc .uxd-lb-bar.is-now {
+  left: 8%;
+  box-shadow: inset 0 0 0 2px var(--ux-k5);
+  background: var(--ux-dz50w);
+  opacity: 0.7;
+}
+html.is-uxc .uxd-lb-bar.is-after {
+  right: 8%;
+  background: var(--ux-amber);
+  box-shadow: inset 0 -2px 0 var(--ux-amber-lo);
+}
+html.is-uxc .uxd-lb-col.is-fade .uxd-lb-bar.is-after {
+  background: var(--ux-amber) var(--ux-dz50);
+  opacity: 0.6;
+}
+html.is-uxc .uxd-lb-m {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: var(--ux-n15);
+  line-height: 20px;
+}
+html.is-uxc .uxd-lb-cut {
+  position: absolute;
+  top: 4px;
+  margin-left: -1px;
+  padding-left: 4px;
+  border-left: 2px dashed var(--ux-paper);
+  height: calc(100% - 28px);
+  pointer-events: none;
+}
+html.is-uxc .uxd-lb-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc .uxd-lb-read {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 12px;
+}
+html.is-uxc .uxd-lb-a,
+html.is-uxc .uxd-lb-n {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc .uxd-lb-a .ux-num {
+  color: var(--ux-amber);
+}
+@keyframes uxd-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+/* ==================================================================== 決裁（最後の 1 枚） */
+html.is-uxc .uxd-dc-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+/* スマホも 2 列（レバーは右に貼りつく：読みながら引ける） */
+html.is-uxc .uxd-dc-lever {
+  position: sticky;
+  top: 0;
+}
+html.is-uxc .uxp-paper.uxd-dc-paper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+html.is-uxc .uxd-dc-asks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+html.is-uxc .uxd-dc-asks > li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding-bottom: 4px;
+  border-bottom: 2px dotted var(--ux-paper3);
+}
+html.is-uxc .uxd-dc-asks > li.is-drop {
+  color: var(--ux-bad-lo);
+}
+html.is-uxc .uxd-dc-cost {
+  margin-left: auto;
+}
+html.is-uxc .uxd-dc-funds {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+html.is-uxc .uxd-dc-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+html.is-uxc .uxd-dc-funds .ux-odo {
+  font-size: var(--ux-n15);
+}
+html.is-uxc .uxd-dc-after {
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+html.is-uxc .uxd-dc-res {
+  flex-basis: 100%;
+  color: #5a5442;
+}
+html.is-uxc .uxd-dc-budget,
+html.is-uxc .uxd-dc-why,
+html.is-uxc .uxd-dc-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+html.is-uxc .uxd-dc-block {
+  color: var(--ux-bad-lo);
+}
+html.is-uxc .uxd-dc-lever {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 2px 2px 0 2px var(--ux-k4);
+}
+html.is-uxc .uxd-dc-lamps {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc .ux-lever-box.is-block {
+  opacity: 0.5;
+}
+html.is-uxc .uxd-dc-seal.uxp-stamp {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  margin-left: -3rem;
+  min-width: 6rem;
+  min-height: 3rem;
+  justify-content: center;
+  font-size: var(--ux-t2);
+  line-height: 2.5rem;
+  background: var(--ux-bad);
+  color: var(--ux-white);
+  box-shadow: inset 0 0 0 4px var(--ux-bad-lo), 4px 4px 0 rgba(4, 6, 14, 0.6);
+}
+
+/* ==================================================================== 下に貼りつく帯 */
+html.is-uxc .uxd-prop > .uxp-foot {
+  align-items: center;
+}
+html.is-uxc .uxd-prop-side {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+html.is-uxc .uxp-foot-main.uxd-prop-go {
+  flex: 0 1 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+html.is-uxc .uxd-prop-go .ux-key[hidden] {
+  display: none;
+}
+html.is-uxc .uxd-prop-nm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+}

@@ -1,0 +1,334 @@
+/*
+ * 段 UIX3d：任せる（任せ先を選ぶ引き出し・部門の担当・部長の提案の受け箱・役目の列）と、部長との対話の着せ替え。
+ * 入のときだけ読む（deleg.ts・headtalk.ts）。すべて html.is-uxc の内側・class は uxd-。角は丸めない・日本語 16px から。
+ */
+html.is-uxc .uxd-dl {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+html.is-uxc .uxd-dl-lead,
+html.is-uxc .uxd-dl-dim {
+  margin: 0;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxd-dl-lvrow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  color: var(--ux-paper2);
+}
+html.is-uxc .uxd-dl-role {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 4px 0 0 var(--d, var(--ux-k4)), inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxd-dl-on {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0;
+}
+html.is-uxc .uxd-dl-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+html.is-uxc .uxd-dl-lock,
+html.is-uxc .uxd-dl-runs,
+html.is-uxc .uxd-dl-sec,
+html.is-uxc .uxd-dl-done {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+html.is-uxc .uxd-dl-lock,
+html.is-uxc .uxd-dl-runs.is-hand {
+  color: var(--ux-k5);
+}
+html.is-uxc .uxd-dl-runs {
+  color: var(--ux-good);
+}
+html.is-uxc .uxd-dl-stat {
+  margin: 0;
+  color: var(--ux-paper2);
+}
+html.is-uxc .uxd-dl-duty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxd-dl-duty.is-lock {
+  background: var(--ux-dz25w) var(--ux-k2);
+}
+html.is-uxc .uxd-dl-dh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc .uxd-dl-q {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc .uxd-dl-q > b {
+  font-weight: 400;
+  color: var(--ux-amber);
+}
+html.is-uxc .uxd-dl-pd {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+html.is-uxc .uxd-dl-pd *,
+html.is-uxc .uxd-dl-why {
+  font-size: 1rem;
+}
+html.is-uxc .uxd-dl-why {
+  color: var(--ux-k5);
+}
+html.is-uxc .uxd-dl-star {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+html.is-uxc .uxd-dl-lv {
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+html.is-uxc .uxd-dl-job {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+html.is-uxc .uxd-dl-move {
+  color: var(--ux-amber);
+}
+html.is-uxc .uxd-dl-others {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  color: var(--ux-paper2);
+}
+html.is-uxc .uxp-card.uxd-dl-pick.is-cur {
+  box-shadow: inset 4px 0 0 var(--ux-cyan), inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxd-dl-cnt {
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+html.is-uxc .uxd-dl-res.is-good {
+  color: var(--ux-good-lo);
+}
+html.is-uxc .uxd-dl-res.is-warn {
+  color: var(--ux-bad-lo);
+}
+html.is-uxc .uxp-paper.uxd-dl-paper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+html.is-uxc .uxp-paper.uxd-dl-paper > p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+/* 部長の提案の札 */
+html.is-uxc .uxd-pp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 8px;
+}
+html.is-uxc .uxd-pp {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 8px 8px 12px;
+  background: var(--ux-k2);
+  box-shadow: inset 4px 0 0 var(--d, var(--ux-k4)), inset 0 0 0 2px var(--ux-k0);
+  animation: uxd-in 220ms steps(5, end) backwards;
+}
+html.is-uxc .uxd-pp.is-held {
+  background: var(--ux-dz25w) var(--ux-k2);
+}
+html.is-uxc .uxd-pp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc .uxd-pp-who {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxd-pp-role {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ux-paper);
+}
+html.is-uxc .uxd-pp-title {
+  font-weight: 400;
+  font-size: var(--ux-t15);
+  line-height: 1.3;
+}
+html.is-uxc .uxp-paper.uxd-pp-why > p {
+  margin: 0;
+}
+html.is-uxc .uxd-pp-est,
+html.is-uxc .uxd-pp-cost {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+html.is-uxc .uxd-pp-est {
+  color: var(--ux-good);
+}
+html.is-uxc .uxd-pp-cost {
+  color: var(--ux-k5);
+}
+html.is-uxc .uxd-pp-cost.is-short {
+  color: var(--ux-amber);
+}
+/* 役目の列 */
+html.is-uxc .uxd-roles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+html.is-uxc .uxd-role-tape {
+  flex: none;
+}
+
+/* ==================================================================== 部長との対話（今の画面の着せ替え） */
+html.is-uxc #isl-ui .uxd-ht *:not(svg):not(svg *):not(.ux-ico) {
+  border-radius: 0 !important;
+}
+html.is-uxc #isl-ui .uxd-ht small,
+html.is-uxc #isl-ui .uxd-ht .isl-ht-kpi small,
+html.is-uxc #isl-ui .uxd-ht .isl-tag,
+html.is-uxc #isl-ui .uxd-ht .isl-ht-role,
+html.is-uxc #isl-ui .uxd-ht .isl-ht-line,
+html.is-uxc #isl-ui .uxd-ht p,
+html.is-uxc #isl-ui .uxd-ht .isl-btn,
+html.is-uxc #isl-ui .uxd-ht b {
+  font-size: 1rem;
+}
+/* 会話の箱：紙の吹き出し。話す人は枠の上に立つ */
+html.is-uxc #isl-ui .uxd-ht .isl-ht-talk.uxd-ht-talk {
+  position: relative;
+  margin-top: 28px;
+  padding: 10px 12px 12px;
+  border-top: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k4);
+}
+html.is-uxc #isl-ui .uxd-ht .uxd-ht-talk .isl-ht-who {
+  align-items: flex-end;
+}
+/* 話す人は、枠の上の縁から立ち上がる（息をする） */
+html.is-uxc #isl-ui .uxd-ht .uxd-ht-talk .isl-ht-who > :first-child {
+  position: relative;
+  margin-top: -34px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+  animation: uxd-breathe 2400ms steps(2, end) infinite;
+}
+@keyframes uxd-breathe {
+  50% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+html.is-uxc #isl-ui .uxd-ht .uxd-ht-talk .isl-ht-name {
+  align-self: flex-start;
+  padding: 0 6px;
+  background: var(--ux-k0);
+  color: var(--ux-paper);
+  font-weight: 400;
+}
+html.is-uxc #isl-ui .uxd-ht h3 {
+  font-size: 1rem;
+  font-weight: 400;
+}
+html.is-uxc #isl-ui .uxd-ht .uxd-ht-talk .isl-ht-text {
+  margin: 4px 0;
+  padding: 10px 12px;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  font-family: var(--ux-jp);
+  line-height: 1.6;
+  box-shadow: inset 0 -2px 0 var(--ux-paper2), 2px 2px 0 rgba(4, 6, 14, 0.5);
+}
+html.is-uxc #isl-ui .uxd-ht .uxd-ht-talk .isl-ht-quip {
+  color: var(--ux-paper2);
+}
+html.is-uxc #isl-ui .uxd-ht .isl-ht-opts .isl-btn {
+  min-height: 44px;
+}
+/* 決める所（確認事項の 1 件）：この段の札 */
+html.is-uxc #isl-ui .uxd-ht .isl-ht-item.uxd-ht-item {
+  border: 0;
+  background: var(--ux-k1);
+  box-shadow: inset 4px 0 0 var(--ux-amber), inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxd-ht .uxd-ht-item .isl-ht-count {
+  display: inline-block;
+  padding: 0 6px;
+  background: var(--ux-amber);
+  color: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxd-ht .uxd-ht-item .isl-ht-say {
+  padding: 8px 10px;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxd-ht .uxd-ht-item .isl-ht-choice {
+  border: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc #isl-ui .uxd-ht .uxd-ht-item .isl-ht-choice.is-rec {
+  box-shadow: inset 0 0 0 2px var(--ux-amber);
+}
+html.is-uxc .uxd-dl-q > :first-child {
+  flex: none;
+  width: 6rem;
+}
+html.is-uxc .uxd-dl p,
+html.is-uxc .uxd-dl small {
+  font-size: 1rem;
+}
+
+/* 部長との対話の士気の札：人と管理の画面の士気の札（.uxh-mor）と同じ形（角・字の大きさを新しい見た目に） */
+html.is-uxc #isl-ui .uxd-ht .isl-morale.uxd-mor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--ux-ink);
+  font-size: 16px;
+}
+html.is-uxc #isl-ui .uxd-ht .isl-morale.uxd-mor.is-bad {
+  color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxd-ht .isl-morale.uxd-mor.is-high {
+  color: var(--ux-cyan);
+}

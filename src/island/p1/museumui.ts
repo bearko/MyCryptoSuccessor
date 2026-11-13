@@ -14,6 +14,7 @@ import { btn, h, money } from './ui';
 import { histBox } from './chartkit';
 import { museumHist } from './dash';
 import { FX_PAL, fxAtEl } from '../fx/layer';
+import { uxh } from '../uix/screens/h-slots';
 
 const MB = DIG_BALANCE.museum;
 /** いま選んでいる枠（その下に、飾れる遺物のカードを出す） */
@@ -31,6 +32,8 @@ function rarityTag(id: number): HTMLElement {
 
 /** 展示の画面 */
 export function openMuseum(ctx: Ctx) {
+  // 段 UIX3h：新しい画面（入のときだけ。uix/screens/trophy.ts）
+  if (uxh.museum) return uxh.museum(ctx);
   pickSlot = null;
   open(
     ctx,

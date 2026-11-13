@@ -64,6 +64,8 @@ import { uxbDeps } from './uxb';
 import { uxwDeps } from './uxw';
 import { uxcDeps } from './uxc';
 import { uxkDeps } from './uxk';
+import { uxdDeps } from './uxd';
+import { uxhDeps } from './uxh';
 import { uxsBoot } from '../uix/screens/s-slots';
 
 export const uxsDeps = {
@@ -176,6 +178,10 @@ export const uxsDeps = {
   b: uxbDeps,
   // 段 UIX3k：経営企画の画面（スキルツリー・企業ランキング・設備投資・決算書 ほか）の束
   k: uxkDeps,
+  // 段 UIX3d：決める場面（提案のカード・提案書・経営会議・方針・部長との対話・任せる）の束
+  d: uxdDeps,
+  // 段 UIX3h：人と管理の画面（職人・採用・ヒーロー・人事・法務・トロフィー・図鑑 ほか）の束
+  h: uxhDeps,
 };
 export type UxsDeps = typeof uxsDeps;
 

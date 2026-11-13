@@ -27,6 +27,7 @@ import { pickMake } from './stockui';
 import { craftable } from './orders';
 import { btn, extImage, h, heroIcon, heroName, money, rich, signCls, signed, skuIcon } from './ui';
 import { ux } from '../uix/hooks';
+import { uxd } from '../uix/screens/d-slots';
 import { cardInbox, goneLine, inTutorial, speechText, starOf, withdrawCard, type Speech } from './card';
 import { goodsName } from './moves';
 import { actName } from './deleg';
@@ -142,20 +143,11 @@ function pictureRows(rows: Row[]): Row[] {
 }
 
 /**
- * 提案書を出す（時間が止まる）。承認すると、ハンコの演出のあと一気に変更する。
- * 段 UI7d：スライド型（slides.ts の slideKinds）：① 結論（顔・要約の一言・KPI のタイル・推奨の理由）② 何が変わる（承認事項を手ごとに・Before → After の絵）
- * ③ 効果（来月の利益の棒・手ごとの寄与・12 か月の累計の折れ線・お金以外のメーター）④ 影響とリスク（4 段の地図・リスクの強さ・予算と資金のメーター）
- * ⑤ 付録（As-Is／To-Be。計算の注記は ⓘ の吹き出し：段 UI7g）。横にスワイプ・下の点と矢印・キーボードの ← → で送る。ボタンはどのスライドでも下に固定（推奨の札つき）。
- * 中身は brief.ts（DOM なし）
+ * 段 UIX3d：提案書の中身（見込み・推奨・スライドの種類・セリフ・初めて開いた日の数字）。今の画面と新しい画面（入のとき）で同じ計算を使う。
+ * 推奨が承認でなくなっていたら（チュートリアル以外）、見せずに取り下げて null（理由の一行のお知らせ・o.done('gone')）
  */
-export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
+export function propModel(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   const s: P1State = ctx.s();
-  // 段 UI7c：最初の提案書の前に 1 回だけ、マインちゃんが経営方針を聞く（選ぶと、その方針で提案書を出す）
-  if (askDue(s)) return openPolicyPick(ctx, { mine: true, then: () => openProposal(ctx, plan, o) });
-  ctx.root.querySelector('.isl-prop')?.remove();
-  const m = h('div', 'isl-modal isl-prop');
-  ux.modal?.(m, 'prop');
-  const panel = h('div', 'isl-prop-panel');
   const phone = innerWidth < 600;
   // 見込み（写しに当てて計算する）：このまま（承認しない）と承認後
   const base = baseOf(s);
@@ -168,46 +160,15 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
     if (g) ctx.toast(`🗂 ${goneLine(g)}`);
     ctx.sfx?.('tap');
     o.done?.('gone');
-    return;
+    return null;
   }
   const cost = B.cost;
   const block = B.block;
   const src = o.src ?? srcOfPlan(plan);
-
-  // 話し手（顔・出どころ・肩書き・読みの確かさ）。どのスライドでも上に
-  const head = h('div', 'isl-prop-head');
-  if (plan.hero != null) head.append(heroIcon(plan.hero, phone ? 44 : 56));
-  else {
-    const mi = h('img', 'isl-prop-mine');
-    mi.src = assetUrl('mch/Image/Characters/navi_ain_speak_00_talk.png');
-    mi.alt = '';
-    head.append(mi);
-  }
-  const who = h('div', 'isl-prop-who');
-  const kick = h('span', 'isl-prop-kicker', `📄 ${SRC_NAME[src]()}`);
-  if (B.dept) kick.append(deptChip(B.dept));
-  who.append(kick, h('b', 'isl-prop-name', [o.role ?? '', plan.hero != null ? heroName(plan.hero) : t('マインちゃん', 'Mine-chan')].filter(Boolean).join(t('・', ' · '))));
-  const st = plan.hero != null ? staffOf(s, plan.hero) : null;
-  if (st) {
-    const star = starOf(plan.q, st.level ?? 1);
-    const starEl = h('small', 'isl-prop-star', t(`予測精度 ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（±${pct(B.err)}）`, `Forecast accuracy ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${pct(B.err)})`));
-    // 段 UX1（C-1）：「予測精度 ±N%」の意味（タップで 1 行）
-    starEl.append(infoTip(t(`作った日の見込みに ±${pct(B.err)} の幅があります（担当の読みの誤差。実績はこの幅でぶれる）。開くたびに在庫や他社の動きで少し変わるのは別で、変わった分は KPI の下に小さく出します`, `The forecast carries a ±${pct(B.err)} band (the proposer's reading error; results land within it). Stock and rival moves shift it a little on each open; that shift is shown under the KPIs`), t('予測精度とは', 'About forecast accuracy')));
-    who.append(starEl);
-    // 段 S1：数字の教えで小さくなった誤差の札
-    const ec = errChip(s);
-    if (ec) who.append(ec);
-  }
-  head.append(who);
-  panel.append(head);
-
   const pics = pictureRows(rows);
   // 段 UI7f：倉庫の提案は課題の定義に倉庫のグラフ
   const store = B.theme === 'store';
   const kinds = slideKinds(B);
-  const toMore = () => dk.go(kinds.length - 1);
-  const info = () => btn(t('ⓘ 計算のしかた（付録）', 'ⓘ How it’s worked out (appendix)'), toMore, 'isl-sl-info');
-  const slides: { id: SlideId; name: string; el: HTMLElement }[] = [];
   const say = B.say ?? o.say;
   // 段 UI9：メッセージ型の見出し・一言（課題 → 打ち手 → 効果と回収）。打ち手の短い名前は承認事項の 1 行目
   const what = B.asks[0] ? shortWhat(B.asks[0].what) : plan.acts[0] ? actName(s, plan.acts[0]) : planTitle(s, plan);
@@ -225,6 +186,23 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   const snap = card?.snap ?? null;
   const snapDate = snap ? date({ day: snap.day, open: s.open }) : null;
 
+  return { s, phone, base, aft, rows, unchanged, touched, B, cost, block, src, pics, store, kinds, say, what, speech, card, err, snap, snapDate };
+}
+export type PropModel = NonNullable<ReturnType<typeof propModel>>;
+/** 段 UIX3d：スライドの部品のうち、新しい画面で替える物（KPI のタイル・累計のグラフ） */
+export interface SlideKit {
+  kpiTile: (k: Parameters<typeof kpiTile>[0]) => HTMLElement;
+  lineChart: typeof lineChart;
+}
+const SLIDE_KIT: SlideKit = { kpiTile, lineChart };
+/**
+ * 段 UIX3d：スライドを作る（中身は今のまま。今の画面と新しい画面で同じ物を使う）。nav.go：付録へ送る・nav.close：見送って閉じる
+ */
+export function propSlides(ctx: Ctx, plan: Plan, o: ProposalOpts, M: PropModel, kit: SlideKit, nav: { go: (i: number) => void; close: (what: 'skip' | 'later') => void }) {
+  const { s, phone, base, aft, rows, unchanged, touched, B, cost, block, pics, store, kinds, say, what, speech, card, err, snap, snapDate } = M;
+  const toMore = () => nav.go(kinds.length - 1);
+  const info = () => btn(t('ⓘ 計算のしかた（付録）', 'ⓘ How it’s worked out (appendix)'), toMore, 'isl-sl-info');
+  const slides: { id: SlideId; name: string; el: HTMLElement }[] = [];
   for (const id of kinds) {
     const box = slideBox(slideTitle(id, B, what), id);
     const body = box.body;
@@ -241,7 +219,7 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
         body.append(pitch);
         const grid = h('div', 'isl-sl-kpis');
         for (const k of kpisOf(B, roomKpi(poolUsed(base), poolCap(base), poolCap(aft)), { pick: true, snap })) {
-          const tile = kpiTile(k);
+          const tile = kit.kpiTile(k);
           const m = B.vals.list.find((x) => x.key === k.key);
           if (m) tile.querySelector('.isl-sl-lab')?.append(infoTip(m.why, t(`${k.label}の計算のしかた`, `How ${k.label} is worked out`)));
           grid.append(tile);
@@ -319,7 +297,7 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
         // 段 UI9b：検討した手を状態つきで列挙（効果が薄い・予算不足・実施中・提出済み・未解放）。未解放のパネルは研究の画面へ
         const alts = altsOf(s, plan, B, card, B.iss, base);
         c2.append(chartHead(t('代替案との比較', 'Compared with alternatives'), alts.some((a) => a.status !== 'pick' && a.status !== 'keep') ? t(`検討した手 ${alts.length - 1} 本と、見送った理由`, `${alts.length - 1} other move${alts.length > 2 ? 's' : ''} considered, with why`) : altOnly()), altTable(alts, (id) => {
-          close(o.later ? 'later' : 'skip');
+          nav.close(o.later ? 'later' : 'skip');
           ctx.skills?.(id);
         }));
         if (pics.length) {
@@ -336,7 +314,7 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
         c1.append(chartHead(t('来月の利益予測', 'Next month’s profit forecast'), err), vfallLegend(), vfallEl(fall, t(`来月の利益予測：As-Is ${money(Math.round(B.now.profit))} → To-Be ${money(Math.round(fall[fall.length - 1].v))}`, `Next month’s profit forecast: As-Is ${money(Math.round(B.now.profit))} → To-Be ${money(Math.round(fall[fall.length - 1].v))}`)));
         // 段 UI9b：回収の 1 行はサマリーの「投資回収期間」のタイルと重複するので出さない（月の利益が増えない手だけ注記）
         if (cost.money > 0 && paybackOf(B) == null) c1.append(h('p', 'isl-sl-pay', t(`💳 導入費用 ${money(cost.money)}（月の利益は増えないので、回収は ${POLICY.months} か月の合計で見る）`, `💳 Setup ${money(cost.money)} (no monthly gain; judge by the ${POLICY.months}-month total)`)));
-        longParts(c2, c2, B, s);
+        longParts(c2, c2, B, s, kit);
         // 予算（事業部・会社）と資金：同じ 100% の積み上げ縦棒
         const sts = propStacks(s, B);
         const fs = fundsStack(B.co);
@@ -379,11 +357,64 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
       }
       // ⑦ 付録：背景・期待効果（計算の注記は ⓘ）・月あたりの内訳・導入・リスクの全部・As-Is／To-Be の設定
       case 'more':
-        appendix(body, ctx, s, plan, B, rows, unchanged, () => close('skip'), say);
+        appendix(body, ctx, s, plan, B, rows, unchanged, () => nav.close('skip'), say);
         break;
     }
     slides.push({ id, name: SLIDE_NAME[id](), el: box.el });
   }
+  return slides;
+}
+
+/**
+ * 提案書を出す（時間が止まる）。承認すると、ハンコの演出のあと一気に変更する。
+ * 段 UI7d：スライド型（slides.ts の slideKinds）：① 結論（顔・要約の一言・KPI のタイル・推奨の理由）② 何が変わる（承認事項を手ごとに・Before → After の絵）
+ * ③ 効果（来月の利益の棒・手ごとの寄与・12 か月の累計の折れ線・お金以外のメーター）④ 影響とリスク（4 段の地図・リスクの強さ・予算と資金のメーター）
+ * ⑤ 付録（As-Is／To-Be。計算の注記は ⓘ の吹き出し：段 UI7g）。横にスワイプ・下の点と矢印・キーボードの ← → で送る。ボタンはどのスライドでも下に固定（推奨の札つき）。
+ * 中身は brief.ts（DOM なし）
+ */
+export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
+  const s: P1State = ctx.s();
+  // 段 UI7c：最初の提案書の前に 1 回だけ、マインちゃんが経営方針を聞く（選ぶと、その方針で提案書を出す）
+  if (askDue(s)) return openPolicyPick(ctx, { mine: true, then: () => openProposal(ctx, plan, o) });
+  // 段 UIX3d：入のときは新しい画面（投影される資料・最後の 1 枚で承認のレバー）。中身は同じ propModel・propSlides
+  if (uxd.proposal) return uxd.proposal(ctx, plan, o);
+  ctx.root.querySelector('.isl-prop')?.remove();
+  const m = h('div', 'isl-modal isl-prop');
+  ux.modal?.(m, 'prop');
+  const panel = h('div', 'isl-prop-panel');
+  const phone = innerWidth < 600;
+  const M = propModel(ctx, plan, o);
+  if (!M) return;
+  const { B, block, src } = M;
+
+  // 話し手（顔・出どころ・肩書き・読みの確かさ）。どのスライドでも上に
+  const head = h('div', 'isl-prop-head');
+  if (plan.hero != null) head.append(heroIcon(plan.hero, phone ? 44 : 56));
+  else {
+    const mi = h('img', 'isl-prop-mine');
+    mi.src = assetUrl('mch/Image/Characters/navi_ain_speak_00_talk.png');
+    mi.alt = '';
+    head.append(mi);
+  }
+  const who = h('div', 'isl-prop-who');
+  const kick = h('span', 'isl-prop-kicker', `📄 ${SRC_NAME[src]()}`);
+  if (B.dept) kick.append(deptChip(B.dept));
+  who.append(kick, h('b', 'isl-prop-name', [o.role ?? '', plan.hero != null ? heroName(plan.hero) : t('マインちゃん', 'Mine-chan')].filter(Boolean).join(t('・', ' · '))));
+  const st = plan.hero != null ? staffOf(s, plan.hero) : null;
+  if (st) {
+    const star = starOf(plan.q, st.level ?? 1);
+    const starEl = h('small', 'isl-prop-star', t(`予測精度 ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（±${pct(B.err)}）`, `Forecast accuracy ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${pct(B.err)})`));
+    // 段 UX1（C-1）：「予測精度 ±N%」の意味（タップで 1 行）
+    starEl.append(infoTip(t(`作った日の見込みに ±${pct(B.err)} の幅があります（担当の読みの誤差。実績はこの幅でぶれる）。開くたびに在庫や他社の動きで少し変わるのは別で、変わった分は KPI の下に小さく出します`, `The forecast carries a ±${pct(B.err)} band (the proposer's reading error; results land within it). Stock and rival moves shift it a little on each open; that shift is shown under the KPIs`), t('予測精度とは', 'About forecast accuracy')));
+    who.append(starEl);
+    // 段 S1：数字の教えで小さくなった誤差の札
+    const ec = errChip(s);
+    if (ec) who.append(ec);
+  }
+  head.append(who);
+  panel.append(head);
+
+  const slides = propSlides(ctx, plan, o, M, SLIDE_KIT, { go: (i) => dk.go(i), close: (w) => close(w) });
   const dk = deck(slides, () => ctx.sfx?.('page', 1.4, 0.4));
   panel.append(dk.el, dk.nav);
 
@@ -534,12 +565,12 @@ function twoCols(body: HTMLElement, split: boolean): [HTMLElement, HTMLElement] 
 }
 
 /** 効果の 12 か月：累計の折れ線（このまま vs 承認後）と、お金以外の指標のメーター */
-function longParts(body: HTMLElement, body2: HTMLElement, B: Brief, s: P1State) {
+function longParts(body: HTMLElement, body2: HTMLElement, B: Brief, s: P1State, kit: SlideKit = SLIDE_KIT) {
   const L = longLine(B);
   // 段 UI9b：単発の施策（宣伝・使い切り）は、効き目が切れる月に印を置き、そのあとの線を薄く（As-Is と同じ傾き）
   const once = onceOf(B);
   const cutM = once != null ? Math.max(1, Math.ceil(once / DAYS)) : null;
-  body.append(chartHead(t(`${POLICY.months} か月の利益の累計`, `Profit over ${POLICY.months} months (cumulative)`), once != null ? t('単発', 'One-off') : ''), lineLegend(), lineChart(L.now, L.after, cutM != null ? { once: { month: cutM, label: t(`効き目の終わり（${once} 日）`, `Effect ends (${once} d)`) } } : {}));
+  body.append(chartHead(t(`${POLICY.months} か月の利益の累計`, `Profit over ${POLICY.months} months (cumulative)`), once != null ? t('単発', 'One-off') : ''), lineLegend(), kit.lineChart(L.now, L.after, cutM != null ? { once: { month: cutM, label: t(`効き目の終わり（${once} 日）`, `Effect ends (${once} d)`) } } : {}));
   if (once != null) body.append(h('p', 'isl-sl-shot', t(`📣 単発の施策（効き目 ${once} 日）：効き目が切れたあとの線は As-Is と同じ傾きになる`, `📣 One-off (${once}-day effect): after it ends, the line runs parallel to As-Is`)));
   // 段 UI7e：月ごとの見込み（使い切りの手で作る品がどこで・いつ・いくつ売れるか・倉庫があふれて入荷が止まるか）
   for (const x of projLines(B, (y) => goodsName(y as Sku), (u) => shopNm(s, u))) body.append(h('p', 'isl-sl-shot', x));

@@ -13,6 +13,7 @@ import { after, open, type Ctx } from './screens';
 import { bar, btn, h, heroIcon, heroName } from './ui';
 import { dexCard, fitBlock } from './p2ui';
 import { FX_PAL, FX_RARITY, playFx } from '../fx/layer';
+import { uxh } from '../uix/screens/h-slots';
 
 const pct = (v: number) => Math.round(v * 1000) / 10;
 /** レアリティの札（色の枠と文字。Limited Legendary は虹色の枠） */
@@ -123,6 +124,7 @@ export function itemsCard(s: P1State): HTMLElement {
 
 /** 昇格の演出：レアリティの色の光・札が変わる・マインちゃんの一言（タップで閉じる） */
 export function playPromotion(root: HTMLElement, hero: number, from: HeroRarity, to: HeroRarity, done?: () => void) {
+  if (uxh.promotion) return uxh.promotion(root, hero, from, to, done);
   const ov = h('div', `isl-hpfx is-${to.toLowerCase()}`);
   ov.style.setProperty('--c', HERO_RARITY[to].color);
   const glow = h('div', 'isl-hpfx-glow');
@@ -163,6 +165,8 @@ export function playPromotion(root: HTMLElement, hero: number, from: HeroRarity,
 
 /** 人事 → ヒーローの育成 */
 export function openGrowth(ctx: Ctx, focus?: number) {
+  // 段 UIX3h：新しい画面（入のときだけ。uix/screens/hero.ts）
+  if (uxh.growth) return uxh.growth(ctx, focus);
   open(ctx, t('ヒーローの育成', 'Hero growth'), (body) => {
     const s = ctx.s();
     body.append(h('p', 'isl-dim', t('働くと経験値が入り、Lv が上がるほど能力が少しずつ上がります。Lv の節目でパッシブが開きます。上限 Lv に届いたら、強化アイテムで昇格（レアリティが 1 段上がる）できます。', 'Heroes gain XP by working; each level raises their stats a little. Passives open at milestone levels. At the level cap, use a promotion item to raise their rarity one step.')));

@@ -9,6 +9,7 @@ import { PALETTE } from './chartkit';
 import type { P1State } from './model';
 import { RP_SRCS, STUDY_KINDS, retestRp, museumRp, rpSrcName, runStudy, studyByHead, studyCost, studyDone, studyLock, studyName, studyRp, type RpSrc } from './r2';
 import { btn, h, money } from './ui';
+import { uxh } from '../uix/screens/h-slots';
 
 /** 入り口の色と模様（棒と凡例で同じ） */
 const COL: Record<RpSrc, string> = { dig: PALETTE[5], present: PALETTE[1], study: PALETTE[2], retest: PALETTE[0], museum: PALETTE[3], donate: PALETTE[6], other: PALETTE[4] };
@@ -16,6 +17,8 @@ const PAT: Record<RpSrc, string> = { dig: '', present: 'is-dots', study: 'is-hat
 
 /** 月の RP の入り方の縦の積み上げ棒（過去 5 か月 ＋ 今月） */
 export function rpStackEl(s: P1State): HTMLElement {
+  // 段 UIX3h：新しい画面（入のときだけ。uix/screens/misc.ts）
+  if (uxh.rpStack) return uxh.rpStack(s);
   const box = h('div', 'isl-r2-box');
   const months = s.reports.slice(-5).map((r) => ({ name: t(`${r.month} 月`, `M${r.month}`), v: r.rpSrc ?? {} }));
   months.push({ name: t('今月', 'Now'), v: s.rpSrc ?? {} });
@@ -56,6 +59,7 @@ export function rpStackEl(s: P1State): HTMLElement {
 
 /** 研究の施策のボタン（出土品の整理・文献調査。月に 1 回ずつ）。done：押したあと（描き直し） */
 export function studyEl(s: P1State, o: { done: () => void; toast: (m: string) => void; sfx?: (k: 'error' | 'levelup') => void }): HTMLElement {
+  if (uxh.study) return uxh.study(s, o);
   const box = h('div', 'isl-r2-study');
   if (studyByHead(s)) {
     box.append(h('small', 'isl-dim', t('研究の施策（出土品の整理・文献調査）は R&D 部長が予算で毎月行います', 'The R&D head runs sorting and surveys from the budget every month')));

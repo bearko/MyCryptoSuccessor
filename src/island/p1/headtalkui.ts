@@ -29,6 +29,7 @@ import { done as delegDone, pickHead } from './delegui';
 import { after, open, type Ctx } from './screens';
 import { btn, h, heroIcon, money, recLine, recTag, rich } from './ui';
 import { ux } from '../uix/hooks';
+import { uxd } from '../uix/screens/d-slots';
 import { checkItems, detailOf, doneLine, laterLine, hireCard, itemLine, openLine, talkMode, topicLine, topicsOf, type CheckItem, type TopicId } from './headtalk';
 
 export interface TalkHooks {
@@ -153,6 +154,8 @@ function render(ctx: Ctx, body: HTMLElement, hooks: TalkHooks) {
   body.append(data, box);
   const y = scrollOf.get(key);
   if (y) requestAnimationFrame(() => (data.scrollTop = y));
+  // 段 UIX3d：入のときは、描いたあとに会話の形（立つ話し手・1 字ずつ）と決める札に着せ替える
+  uxd.headTalk?.(body);
 }
 
 /** そのときのひと言（1 枚 60 字。ページに分けたもの） */
