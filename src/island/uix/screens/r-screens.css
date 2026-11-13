@@ -190,6 +190,16 @@ html.is-uxc #isl-ui .uxr-bcat {
   flex: 1 1 auto;
   min-height: 48px;
 }
+/* せまい画面：種類のキーは 1 行で横に送る（建物の札を、下のマインちゃんの一言に隠さない） */
+@media (max-width: 599px) {
+  html.is-uxc #isl-ui .uxr-bcats {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    padding-bottom: 6px;
+  }
+  html.is-uxc #isl-ui .uxr-bcat { flex: none; }
+}
 html.is-uxc #isl-ui .uxr-bc-k {
   display: inline-flex;
   align-items: center;
@@ -201,7 +211,6 @@ html.is-uxc #isl-ui .uxr-bc-n {
   font-size: var(--ux-n15);
   line-height: 1;
 }
-html.is-uxc #isl-ui .uxr-bcat[aria-pressed='true'] .uxr-bc-n { color: #6a5f40; }
 html.is-uxc #isl-ui .uxr-bcat.is-lock { color: var(--ux-k5); }
 html.is-uxc #isl-ui .uxr-bcat.is-unlocking { animation: uxr-pop 520ms steps(6, end) backwards; }
 html.is-uxc #isl-ui .isl-bgrid.uxr-bgrid {
@@ -363,6 +372,18 @@ html.is-uxc #isl-ui .uxr-set-val {
 html.is-uxc #isl-ui .uxr-set-seg { flex-wrap: wrap; }
 html.is-uxc #isl-ui .uxr-set-seg .ux-key { min-height: 44px; }
 html.is-uxc #isl-ui .uxr-set-key { min-height: 44px; }
+
+/* ==================================================================== 下の帯のタブ・サブタブ・速さのキーの強調：光る枠（.uxc-guide）にそろえる
+   帯の側の四隅のかぎ（ゆれる）・サブタブのまたたく縁は出さない。タブの上の矢印と、早送りの絵の小さな動きは残す */
+html.is-uxc.uxr-tg #isl-ui.uxm-on .isl-tab.is-guide::before,
+html.is-uxc.uxr-tg #isl-ui.uxm-on .uxm-hud .isl-speed.is-guide::before {
+  content: none;
+  animation: none;
+}
+html.is-uxc.uxr-tg #isl-ui.uxm-on .isl-sub.is-guide {
+  outline: 0;
+  animation: none;
+}
 
 /* ==================================================================== 動き（transform と opacity だけ。動きを減らすときは止める） */
 @keyframes uxr-in {

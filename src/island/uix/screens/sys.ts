@@ -6,14 +6,33 @@
 import type { SetRow, SettingsView } from './r-slots';
 import { el } from '../dom';
 import { uxFader, uxKey, uxTape, uxToggle } from '../parts';
-import { uxpSeg } from '../sparts';
+import { uxSfx } from '../sound';
 import { hIcon } from './h-kit';
 import { rLine } from './sector';
 
 const cyan = { color: '#5fe4ff', hi: '#c9f6ff', lo: '#0b0d17', scale: 1 };
 
+/** 並んだキーから 1 つ選ぶ（点いているキーは琥珀。入のときの欄の「文字の大きさ」と同じ形） */
+function seg(label: string, opts: { value: string; label: string }[], cur: string, on: (v: string) => void): HTMLElement {
+  const keys = opts.map((o) => {
+    const b = uxKey(
+      o.label,
+      () => {
+        if (b.getAttribute('aria-pressed') === 'true') return;
+        keys.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        uxSfx('confirm');
+        on(o.value);
+      },
+      { attrs: { 'aria-pressed': String(o.value === cur) } },
+    );
+    b.style.setProperty('--ux-lit', 'var(--ux-amber)');
+    return b;
+  });
+  return el('div.ux-seg.uxr-set-seg', { role: 'group', 'aria-label': label }, keys);
+}
+
 function ctl(r: SetRow): HTMLElement {
-  if (r.k === 'seg') return uxpSeg(r.opts, r.value, (v) => r.set(v), { label: r.label, cls: 'uxr-set-seg' }).el;
+  if (r.k === 'seg') return seg(r.label, r.opts, r.value, r.set);
   if (r.k === 'switch') return uxToggle({ label: r.label, value: r.value, on: r.on, off: r.off, onChange: (v) => r.set(v) }).el;
   if (r.k === 'fader') {
     const val = el('span.uxr-set-val.ux-num', String(r.value));

@@ -58,7 +58,13 @@ export function buildUx(body: HTMLElement, v: BuildView) {
   body.classList.add('uxr-bd-body');
   const root = el('div.uxr-bd.ux-root');
   if (v.lotNote) root.append(rLine('pin', v.lotNote, 'gold'));
-  root.append(el('div.uxr-bcats', { role: 'group', 'aria-label': t('建物の種類', 'Building types') }, v.cats.map(catKey)));
+  const cats = el('div.uxr-bcats', { role: 'group', 'aria-label': t('建物の種類', 'Building types') }, v.cats.map(catKey));
+  root.append(cats);
+  // せまい画面で 1 行に送るとき：開いている種類が見える所まで
+  requestAnimationFrame(() => {
+    const on = cats.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (on && cats.scrollWidth > cats.clientWidth) cats.scrollLeft = Math.max(0, on.offsetLeft - cats.offsetLeft - 8);
+  });
   if (v.emptyNote) root.append(rLine('lock', v.emptyNote, 'dim'));
   root.append(el('div.isl-bgrid.uxr-bgrid', v.cards.map((c, i) => buildCard(c, v.money, i))));
   body.append(root);

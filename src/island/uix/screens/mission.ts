@@ -86,7 +86,7 @@ export function missionsUx(ctx: Ctx) {
           { kind: m === main ? 'main' : '', cls: 'uxr-mi-key' },
         );
       c = uxpCard({
-        pic: el('span.uxr-mi-pic', hIcon(st === 'done' ? 'trophy' : st === 'accepted' ? 'flag' : 'mail', st ? amb : { ...amb, color: '#f4ecd4', hi: '#fffdf3', lo: '#0b0d17' })),
+        pic: el('span.uxr-mi-pic', hIcon(st === 'done' ? 'trophy' : st === 'accepted' ? 'flag' : 'mail', { ...(st ? amb : { ...amb, color: '#f4ecd4', hi: '#fffdf3', lo: '#0b0d17' }), scale: 3 })),
         name: el('span.uxr-mi-name', el('b', m.title), stamp.el),
         tags: uxTape(el('b', m.from), 'dark'),
         desc: m.text,
