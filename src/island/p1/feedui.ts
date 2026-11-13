@@ -11,6 +11,7 @@ import { approveFeed, borderDepots, feedBlock, feedItems, feedNext, feedPicks, f
 import { tradeNeighbors } from './tariff';
 import { btn, h, heroIcon, heroName, money, skuIcon, skuName } from './ui';
 import { ux } from '../uix/hooks';
+import { uxk } from '../uix/screens/k-slots';
 import type { P1State, PBuilding } from './model';
 
 const WHY: Record<string, () => string> = {
@@ -22,6 +23,8 @@ const WHY: Record<string, () => string> = {
 
 /** 拠点の吹き出しの「📦 輸入」（この拠点が境の拠点でなければ null） */
 export function feedBox(s: P1State, b: PBuilding, done: (msg?: string) => void): HTMLElement | null {
+  // 段 UIX3k：入のときは、新しい箱（uix/screens/feed.ts）へ
+  if (uxk.feed) return uxk.feed(s, b, done);
   const nbs = tradeNeighbors(s).filter((nb) => nb.opened && borderDepots(s, nb.id).some((x) => x.uid === b.uid));
   if (!nbs.length) return null;
   const box = h('div', 'isl-feed');

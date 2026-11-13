@@ -23,6 +23,7 @@ import { DONATE_LINE } from './mine';
 import { arw, cvBox, donutEl, fallEl, fallLegend, histBox, shortN, trendEl, trendLegend, vbarsEl, type TSer } from './chartkit';
 import { brandHist, bsParts, plFall, quarterTrend, sectorBars, sectorHist } from './dash';
 import { uxw } from '../uix/screens/w-slots';
+import { uxk } from '../uix/screens/k-slots';
 
 // ---------------------------------------------------------------- ランドマップ
 
@@ -610,6 +611,8 @@ export function managerBox(ctx: Ctx, s: P1State, id: string): HTMLElement {
 let qSel: number | null = null;
 
 export function openBooks(ctx: Ctx) {
+  // 段 UIX3k：入のときは、新しい画面（uix/screens/books.ts）へ
+  if (uxk.books) return uxk.books(ctx);
   open(ctx, t('決算書', 'Financial statements'), (body) => {
     const s = ctx.s();
     const books = s.books;

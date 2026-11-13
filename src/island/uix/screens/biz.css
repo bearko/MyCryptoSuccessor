@@ -1,0 +1,234 @@
+/* 段 UIX3b：画面の部品で組み直した事業の画面（docs/ISLAND_UIX.md「画面：素材 → 商品・販売管理・宣伝広報」ほか）。
+   セレクタはすべて html.is-uxc の内側。class の接頭辞は uxb-。 */
+
+/* ---------- 素材 → 商品（BOM） */
+html.is-uxc .uxb-bom-list {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+html.is-uxc .uxb-bomcard .uxp-card-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+html.is-uxc .uxb-recipe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-bottom: 2px;
+}
+html.is-uxc .uxb-chip.is-out {
+  box-shadow: inset 0 0 0 2px var(--ux-amber-lo);
+}
+html.is-uxc .uxb-bomcard .uxp-row-note {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc .uxb-bomcard .uxp-row-note .ux-meter {
+  height: 10px;
+}
+
+/* ---------- 販売管理 */
+html.is-uxc .uxb-sales-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+html.is-uxc .uxb-margins {
+  gap: 2px;
+}
+/* 縦の積み上げ棒：下から 売れた（琥珀）・自店に取られた（斜線）・逃した（点々）。色だけにしない */
+html.is-uxc .uxb-stacks {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  overflow-x: auto;
+}
+html.is-uxc .uxb-stack-key {
+  flex: 1 0 72px;
+  min-width: 72px;
+  max-width: 132px;
+}
+html.is-uxc .uxb-stack-key > .ux-cap {
+  display: block;
+  padding: 4px 2px;
+}
+html.is-uxc .uxb-stack-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+html.is-uxc .uxb-stack-v {
+  font-size: var(--ux-n15);
+  line-height: 1.5rem;
+  color: var(--ux-amber);
+}
+html.is-uxc .uxb-stack-plot {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 28px;
+  height: 96px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxb-stack-plot > i,
+html.is-uxc .uxb-legend i {
+  display: block;
+  flex: none;
+}
+html.is-uxc .uxb .is-sold {
+  background: var(--ux-amber);
+  box-shadow: inset 2px 0 0 var(--ux-amber-hi), inset -2px 0 0 var(--ux-amber-lo);
+}
+html.is-uxc .uxb .is-lost {
+  background: repeating-linear-gradient(135deg, var(--ux-cyan) 0 2px, var(--ux-k1) 2px 6px);
+}
+html.is-uxc .uxb .is-miss {
+  background: var(--ux-dz50w, var(--ux-dz50)), var(--ux-k3);
+}
+html.is-uxc .uxb-stack-l {
+  max-width: 100%;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+html.is-uxc .uxb-stack-key.is-hot2 .uxb-stack-plot {
+  box-shadow: 0 0 0 2px var(--ux-amber);
+}
+html.is-uxc .uxb-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc .uxb-legend i {
+  width: 14px;
+  height: 14px;
+}
+html.is-uxc .uxb-bulk {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+html.is-uxc .uxb-bulk .ux-key b {
+  white-space: normal;
+  line-height: 1.25;
+}
+html.is-uxc .uxb-salesrow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  min-width: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k3), inset -4px -4px 0 0 #191d31;
+}
+html.is-uxc .uxb-salesrow.is-jam {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 6px 0 0 0 var(--ux-amber), inset 4px 4px 0 0 var(--ux-k3);
+  padding-left: 14px;
+}
+html.is-uxc .uxb-salesrow-head,
+html.is-uxc .uxb-salesrow-crew {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+html.is-uxc .uxb-salesrow-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc .uxb-mini {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+html.is-uxc .uxb-mini .uxb-step {
+  width: 44px;
+}
+html.is-uxc .uxb-salesrow-shelves {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+html.is-uxc .uxb-shelfkey-k > .ux-cap {
+  padding: 2px 6px;
+  justify-content: flex-start;
+}
+html.is-uxc .uxb-shelfkey {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  min-width: 0;
+  text-align: left;
+}
+html.is-uxc .uxb-shelfkey > .uxb-cap {
+  flex: 1 1 100%;
+  line-height: 1.25;
+}
+html.is-uxc .uxb-shelfkey b {
+  flex: 1 1 0;
+  min-width: 0;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+html.is-uxc .uxb-shelfkey-k.is-warn > .ux-cap {
+  box-shadow: inset 0 0 0 2px var(--ux-bad), inset 4px 4px 0 0 var(--ux-hi);
+}
+html.is-uxc .uxb-salesrow-nums {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ---------- 宣伝広報 */
+html.is-uxc .uxb-ads-say {
+  display: flex;
+  flex: 1 1 12em;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  line-height: 1.5;
+}
+html.is-uxc .uxb-field.has-pic {
+  grid-template-columns: auto minmax(4em, auto) minmax(0, 1fr) auto;
+}
+html.is-uxc .uxb-gain.is-wait {
+  color: var(--ux-amber);
+}
+html.is-uxc .uxb-ad .uxp-card-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+/* ---------- 市場調査（市場データ） */
+html.is-uxc .uxb-datacard .uxp-card-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+html.is-uxc .uxb-datacard .uxp-card-name {
+  flex-wrap: wrap;
+}
+html.is-uxc .uxb-datacard.is-rec {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 0 0 4px var(--ux-amber-lo);
+}
+html.is-uxc .uxb-shade {
+  filter: brightness(0);
+  opacity: 0.6;
+}

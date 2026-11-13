@@ -1,0 +1,361 @@
+/* 段 UIX3b：事業の画面に共通の形（docs/ISLAND_UIX.md「画面：調達」ほか）。画面の部品（sparts.css：uxp-）で足りない分だけ。
+   セレクタはすべて html.is-uxc の内側。class の接頭辞は uxb-。寸法は 2px の倍数・角は丸めない・動かすのは transform と opacity。 */
+
+html.is-uxc .uxb {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  /* チュートリアルの一言（画面の下）に隠れた所まで送れるように */
+  padding-bottom: var(--dock-h, 0px);
+}
+html.is-uxc .uxb p {
+  margin: 0;
+}
+html.is-uxc .uxb [hidden] {
+  display: none !important;
+}
+html.is-uxc .uxb-tip:empty,
+html.is-uxc .uxb-tip:not(:has(> :not([hidden]))) {
+  display: none;
+}
+html.is-uxc .uxb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+html.is-uxc .uxb-dim {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  color: var(--ux-k5);
+  line-height: 1.5;
+}
+html.is-uxc p.uxb-dim {
+  display: block;
+}
+html.is-uxc .uxb-dim > .ux-ico {
+  display: inline-block;
+  flex: none;
+}
+html.is-uxc .uxb-pic {
+  flex: none;
+  image-rendering: pixelated;
+}
+html.is-uxc .uxb-count {
+  padding: 0 6px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+  color: var(--ux-amber);
+  font-size: var(--ux-n15);
+  line-height: 1.5rem;
+}
+html.is-uxc .uxb-lv {
+  color: var(--ux-k5);
+  font-family: var(--ux-num);
+  font-size: var(--ux-n15);
+  line-height: 1.5rem;
+  white-space: nowrap;
+}
+html.is-uxc .uxb-lv .ux-num {
+  color: var(--ux-amber);
+}
+
+/* ---------- 入ってくる動き（開いたときの 1 回だけ）：板が下から 8px・4 段で入る。終わったら層を残さない */
+html.is-uxc .uxb.is-enter > * {
+  animation: uxb-in 260ms steps(4, end) backwards;
+}
+html.is-uxc .uxb.is-enter > *:nth-child(2) { animation-delay: 60ms; }
+html.is-uxc .uxb.is-enter > *:nth-child(3) { animation-delay: 120ms; }
+html.is-uxc .uxb.is-enter > *:nth-child(n + 4) { animation-delay: 180ms; }
+@keyframes uxb-in {
+  0% { transform: translate3d(0, 8px, 0); opacity: 0; }
+  100% { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+/* 値が変わって作り直した箱：白い面が 1 回だけ消えていく */
+html.is-uxc .uxb .is-fresh {
+  position: relative;
+}
+html.is-uxc .uxb .is-fresh::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ux-white);
+  opacity: 0;
+  animation: uxb-fresh 240ms steps(3, end);
+  pointer-events: none;
+}
+@keyframes uxb-fresh {
+  0% { opacity: 0.22; }
+  100% { opacity: 0; }
+}
+
+/* ---------- 足りない・できないときの 1 行（責めない：琥珀の縁・絵・言葉） */
+html.is-uxc .uxb-why {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 2px 0 0 var(--ux-amber);
+  color: var(--ux-paper);
+  line-height: 1.5;
+}
+html.is-uxc .uxb-why > .ux-ico {
+  flex: none;
+  margin-top: 6px;
+}
+html.is-uxc .uxb-why.is-bad {
+  box-shadow: inset 2px 0 0 var(--ux-bad);
+}
+
+/* ---------- ランプつきの言葉 */
+html.is-uxc .uxb-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--ux-paper);
+}
+html.is-uxc .uxb-state > .ux-lamp {
+  flex: none;
+}
+html.is-uxc .uxb-state.is-good { color: var(--ux-good); }
+html.is-uxc .uxb-state.is-bad { color: var(--ux-bad); }
+html.is-uxc .uxb-state.is-cyan { color: var(--ux-cyan); }
+
+/* ---------- 小さなキー */
+html.is-uxc .uxb-key > .ux-cap {
+  padding: 2px 8px;
+  min-height: 34px;
+}
+html.is-uxc .uxb-key b {
+  white-space: nowrap;
+}
+
+/* ---------- 適性の段と数 */
+html.is-uxc .uxb-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+  color: var(--ux-paper);
+}
+html.is-uxc .uxb-rank b {
+  font-family: var(--ux-num);
+  font-size: var(--ux-n15);
+  line-height: 1.5rem;
+  color: var(--ux-amber);
+  text-shadow: none;
+}
+html.is-uxc .uxb-rank .ux-num {
+  font-size: var(--ux-n15);
+  line-height: 1.5rem;
+}
+
+/* ---------- ヒーローの枠 */
+html.is-uxc .uxb-slot {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 26px 10px 10px;
+  min-width: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k3), inset -4px -4px 0 0 #191d31;
+}
+html.is-uxc .uxb-slot-label {
+  position: absolute;
+  left: 8px;
+  top: 4px;
+  padding: 0 6px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+  color: var(--ux-k5);
+  line-height: 1.25rem;
+  white-space: nowrap;
+}
+html.is-uxc .uxb-slot-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+html.is-uxc .uxb-slot-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html.is-uxc .uxb-slot-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+html.is-uxc .uxb-stamina {
+  height: 10px;
+}
+html.is-uxc .uxb-stamina.is-low > i {
+  background: var(--ux-bad);
+}
+html.is-uxc .uxb-slot-none {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  background: var(--ux-k1);
+  outline: 2px dashed var(--ux-k4);
+  outline-offset: -2px;
+}
+/* 今の目印（isl-slot）も付けてあるので、今の枠の形（幅・縁・光り方）は外す */
+html.is-uxc #isl-ui .uxb-slot-key.isl-slot {
+  width: auto;
+  justify-items: normal;
+  align-content: normal;
+  gap: 0;
+  border: 0;
+  animation: none;
+  transition: none;
+  transform: none;
+}
+html.is-uxc .uxb-slot-key > .ux-cap {
+  padding: 2px 10px;
+}
+html.is-uxc .uxb-slot-key b {
+  white-space: nowrap;
+}
+/* チュートリアルの強調（今の is-hot と同じ意味）：琥珀のキーにして、光をまたたかせる */
+html.is-uxc .uxb .is-hot.ux-key {
+  --ux-face: var(--ux-amber);
+  --ux-hi: var(--ux-amber-hi);
+  --ux-lo: var(--ux-amber-lo);
+  --ux-side: #7a3f06;
+  --ux-txt: var(--ux-ink);
+}
+html.is-uxc .uxb .is-hot.ux-key > .ux-cap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ux-white);
+  opacity: 0;
+  animation: uxb-hot 1.1s steps(4, end) infinite;
+  pointer-events: none;
+}
+@keyframes uxb-hot {
+  0% { opacity: 0.55; }
+  100% { opacity: 0; }
+}
+
+/* ---------- となり町の取り寄せの比べ（関税） */
+html.is-uxc .uxb-cmp {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  min-width: 0;
+  border: 0;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxb-cmp-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-cmp-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 2px 6px;
+  min-height: 1.75rem;
+  border: 0;
+  background: var(--ux-k2);
+}
+html.is-uxc .uxb-cmp-row.is-win {
+  box-shadow: inset 0 0 0 2px var(--ux-good);
+}
+html.is-uxc .uxb-cmp-who {
+  flex: none;
+  min-width: 3em;
+}
+html.is-uxc .uxb-cmp-calc {
+  display: inline-flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 2px;
+  min-width: 0;
+}
+html.is-uxc .uxb-cmp-calc .ux-num {
+  font-size: var(--ux-n15);
+  line-height: 1.5rem;
+}
+html.is-uxc .uxb-cmp-calc b .ux-num {
+  color: var(--ux-amber);
+}
+html.is-uxc .uxb-cmp-duty {
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-cmp-foot {
+  color: var(--ux-k5);
+}
+
+/* ---------- 折りたたみ */
+html.is-uxc .uxb-fold {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc .uxb-fold-key {
+  width: 100%;
+}
+html.is-uxc .uxb-fold-key > .ux-cap {
+  justify-content: flex-start;
+  padding: 2px 8px;
+  text-align: left;
+}
+html.is-uxc .uxb-fold-l {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 0;
+}
+html.is-uxc .uxb-fold-note {
+  flex: 1 1 8em;
+  color: var(--ux-k5);
+  line-height: 1.25;
+}
+html.is-uxc .uxb-fold-chev {
+  margin-left: auto;
+  transition: transform 90ms steps(2, end);
+}
+html.is-uxc .uxb-fold-key[aria-expanded='true'] .uxb-fold-chev {
+  transform: rotate(90deg);
+}
+html.is-uxc .uxb-fold-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+html.is-uxc .uxb-fold-box.is-open {
+  animation: uxb-in 180ms steps(3, end) backwards;
+}
+
+/* 月ごとの推移（8 か月を超えたとき）：箱の中を横に送る */
+html.is-uxc .uxb-hist {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  min-width: 0;
+}

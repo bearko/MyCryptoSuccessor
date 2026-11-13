@@ -34,6 +34,7 @@ import type { P1State } from './model';
 import { after, open, type Ctx } from './screens';
 import { bar, btn, h, heroIcon, recTag, rich } from './ui';
 import { ux } from '../uix/hooks';
+import { uxk } from '../uix/screens/k-slots';
 import './i1.css';
 import { cvBox, heatEl } from './chartkit';
 import { budgetHeat } from './dash';
@@ -255,6 +256,8 @@ function numEdit(ctx: Ctx, s: P1State, d: DeptId, card: HTMLElement) {
 
 /** 予算と部門の画面 */
 export function openBudget(ctx: Ctx) {
+  // 段 UIX3k：入のときは、新しい画面（uix/screens/budget.ts）へ
+  if (uxk.budget) return uxk.budget(ctx);
   open(ctx, t('予算と部門', 'Budgets'), (body) => {
     const s = ctx.s();
     body.classList.add('isl-bd');

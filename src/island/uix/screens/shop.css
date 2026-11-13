@@ -1,0 +1,287 @@
+/* 段 UIX3b：お店の札（docs/ISLAND_UIX.md「画面：お店の札」）。板・貼り札・字の段は、工房の札（workshop.css）にそろえる。
+   セレクタはすべて html.is-uxc の内側。class の接頭辞は uxb-。 */
+
+/* ---------- 見出し：名前・様子のランプ（✕ は今のキー） */
+html.is-uxc #isl-ui .isl-sheet.uxb-sheet .isl-sheet-head {
+  justify-content: flex-start;
+}
+html.is-uxc #isl-ui .isl-sheet.uxb-sheet .isl-sheet-head h2 {
+  flex: 0 1 auto;
+}
+html.is-uxc .uxb-run {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+html.is-uxc .uxb-run .ux-lamp {
+  flex: none;
+}
+html.is-uxc .uxb-run.is-idle {
+  color: var(--ux-amber);
+}
+html.is-uxc .uxb-shop-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* ---------- 店内の様子：機械の窓枠に、今の場面（お客さん・棚・店員）。光る「＋」の枠は今の目印のまま */
+html.is-uxc .uxb-shop-scene {
+  padding: 4px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc .uxb-shop-scene .isl-shop-view {
+  max-width: none;
+}
+html.is-uxc .uxb-shop-scene .isl-shop-scene {
+  max-width: none;
+  border: 0;
+  border-radius: 0;
+}
+html.is-uxc #isl-ui .uxb-shop-scene .isl-shop-spot {
+  border: 2px dashed var(--ux-amber);
+  border-radius: 0;
+  background: var(--ux-dz50), rgba(11, 13, 23, 0.6);
+  color: var(--ux-paper);
+  font-family: var(--ux-jp);
+}
+html.is-uxc #isl-ui .uxb-shop-scene .isl-shop-spot small {
+  font-size: 1rem;
+  font-weight: 400;
+  text-shadow: 1px 0 currentColor;
+}
+html.is-uxc #isl-ui .uxb-shop-scene .isl-shop-spot .isl-slot-plus {
+  border-radius: 0;
+  background: var(--ux-amber);
+  color: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxb-shop-scene .isl-shop-spot.is-hot {
+  animation: uxb-spot 1.1s steps(4, end) infinite;
+}
+@keyframes uxb-spot {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+html.is-uxc #isl-ui .uxb-shop-scene .isl-shop-spot.is-set {
+  border-color: transparent;
+  background: none;
+}
+html.is-uxc #isl-ui .uxb-shop-scene .isl-shop-swap {
+  padding: 0 6px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ux-paper);
+  box-shadow: inset 0 -2px 0 var(--ux-paper2), 2px 2px 0 rgba(4, 6, 14, 0.5);
+  color: var(--ux-ink);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.25rem;
+  opacity: 1;
+}
+html.is-uxc #isl-ui .uxb-shop-scene .isl-shop-tag {
+  padding: 0 6px 0 2px;
+  border-radius: 0;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxb-shop-scene .isl-shop-tag small {
+  font-size: 1rem;
+  font-weight: 400;
+}
+html.is-uxc #isl-ui .uxb-shop-scene .isl-shop-crew {
+  margin: 4px 2px 0;
+  color: var(--ux-k5);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxb-shop-scene .isl-shop-crew.is-self {
+  color: var(--ux-good);
+}
+
+/* ---------- 棚 */
+html.is-uxc .uxb-shelves {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+}
+html.is-uxc .uxb-shelf {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 28px 10px 10px;
+  min-width: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k3), inset -4px -4px 0 0 #191d31;
+}
+html.is-uxc .uxb-shelf.is-main {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 0 0 4px var(--ux-amber-lo);
+}
+html.is-uxc .uxb-shelf.is-out {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 0 0 4px var(--ux-bad-lo);
+}
+html.is-uxc .uxb-shelf-label {
+  position: absolute;
+  left: 8px;
+  top: 4px;
+}
+html.is-uxc .uxb-shelf-pic {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3), inset 0 -8px 0 0 #3a2416;
+}
+html.is-uxc .uxb-shelf-pic.is-none {
+  background: var(--ux-k1);
+  box-shadow: none;
+  outline: 2px dashed var(--ux-k4);
+  outline-offset: -2px;
+}
+html.is-uxc .uxb-shelf-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+html.is-uxc .uxb-shelf-name {
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+html.is-uxc .uxb-shelf-n {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 4px;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-shelf-body .ux-meter {
+  height: 10px;
+}
+html.is-uxc .uxb-shelf-body .uxb-state {
+  align-items: flex-start;
+  line-height: 1.25;
+}
+html.is-uxc .uxb-shelf-body .uxb-state > .ux-lamp {
+  margin-top: 4px;
+}
+/* 品切れの棚の「替える」：縁を急ぎの色に（言葉は左に出す） */
+html.is-uxc .uxb-slot-key.is-warn > .ux-cap {
+  box-shadow: inset 0 0 0 2px var(--ux-bad), inset 4px 4px 0 0 var(--ux-hi);
+}
+
+/* ---------- 従業員（アルバイト） */
+html.is-uxc .uxb-part {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 28px 10px 10px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k3), inset -4px -4px 0 0 #191d31;
+}
+html.is-uxc .uxb-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 8px;
+  min-height: 36px;
+  background: var(--ux-k0);
+}
+html.is-uxc .uxb-person.is-on {
+  animation: uxb-breathe 1.8s steps(2, end) infinite;
+}
+@keyframes uxb-breathe {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -2px, 0); }
+}
+html.is-uxc .uxb-part-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc .uxb-part-n {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-step > .ux-cap {
+  justify-content: center;
+}
+
+/* ---------- 売れ行き */
+html.is-uxc .uxb-shop-bars {
+  max-width: 280px;
+}
+html.is-uxc .uxb-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 8px;
+}
+html.is-uxc .uxb-field-k {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  grid-column: 1 / -1;
+  color: var(--ux-k5);
+}
+html.is-uxc .uxb-field-v {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+html.is-uxc .uxb-field-v .ux-num {
+  font-size: var(--ux-n15);
+  line-height: 1.5rem;
+  color: var(--ux-amber);
+}
+
+/* ---------- 設備 */
+html.is-uxc .uxb-inv-pic {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc .uxb-inv-pic > .ux-lamp {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+}
+html.is-uxc .uxb-pips {
+  display: inline-flex;
+  gap: 4px;
+}
+html.is-uxc .uxb-pips > .is-new {
+  animation: uxb-pip 420ms steps(4, end);
+}
+@keyframes uxb-pip {
+  0% { transform: scale(2.5); opacity: 0.2; }
+  100% { transform: scale(1); opacity: 1; }
+}
+html.is-uxc .uxb-gain {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ux-good);
+}
+html.is-uxc .uxb-buykey > .ux-cap {
+  padding: 2px 12px;
+}
+html.is-uxc .uxb-buykey b {
+  white-space: nowrap;
+}

@@ -9,10 +9,11 @@ import { DEF } from '../defs';
 import { FX_PAL, fxAtEl } from '../fx/layer';
 import { develop, sellNow, staffOf, type P1State } from './model';
 import { afterOf, applyPlan, manualPlan, type Plan } from './plan';
-import { clearInfo, clearUnits, cutName, gatePlan, growBlock, rankUp, shelfGate, storeFull, upPrice, type OneShelf, type ShelfPick } from './stock';
+import { clearInfo, clearUnits, cutName, gatePlan, growBlock, rankUp, shelfGate, storeFull, upPrice, type OneShelf, type RankUp, type ShelfPick } from './stock';
 import { drawer, pickExt } from './heroui';
 import { after, chooseMake, type Ctx } from './screens';
 import { btn, h, heroName, money, recLine, skuIcon, skuName } from './ui';
+import { uxb } from '../uix/screens/b-slots';
 
 // ---------------------------------------------------------------- 在庫を優先して売りさばく（お店の方針）
 
@@ -28,6 +29,8 @@ export function clearOutlook(s: P1State, uid: number, cut: number | null): { uni
  * 選ぶとすぐそのお店の方針に（applyPlan）。在庫品のアイコンと数を上に
  */
 export function pickClear(ctx: Ctx, uid: number, hero: number | null, done: () => void) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/stock.ts）
+  if (uxb.clear) return uxb.clear(ctx, uid, hero, done);
   const s = ctx.s();
   const sh = s.shops[uid];
   if (!sh) return;
@@ -57,39 +60,44 @@ export function pickClear(ctx: Ctx, uid: number, hero: number | null, done: () =
       b.addEventListener('click', () => {
         close();
         if (on) return;
-        const plan = manualPlan([{ k: 'clear', uid, cut }], hero);
-        const say = (msg: string) => ctx.toast(hero != null ? t(`${heroName(hero)}「${msg}」`, `${heroName(hero)}: “${msg}”`) : msg);
-        const run = (p: Plan) => {
-          const r = applyPlan(s, p);
-          if (!r.ok) {
-            ctx.sfx?.('error');
-            ctx.toast(r.err === 'money' ? t('資金が足りません', 'Not enough funds') : t('いまはできません', 'Can’t do that now'));
-            return;
-          }
-          ctx.sfx?.(p.steps.some((x) => x.k === 'shelf') ? 'spend' : 'tap');
-          const grow = p.steps.some((x) => x.k === 'shelf');
-          say(cut == null ? t('売りさばきをやめます', 'Back to normal selling') : grow ? t(`棚を 1 段増やして、主力と在庫品を両方並べます（${cutName(cut)}）`, `added a shelf: main item and stock items both on sale (${cutName(cut)})`) : t(`在庫品を先に並べます（${cutName(cut)}）`, `Stock items go first (${cutName(cut)})`));
-          after(ctx);
-          done();
-        };
-        // 段 UI5d：棚が 1 段のお店は、主力商品が棚から外れるので 3 択（主力を外す・主力を残す・棚を拡張する（推奨））
-        const gate = shelfGate(s, plan);
-        if (gate.length) {
-          openShelfChoice(ctx, plan, gate, (p, pick) => {
-            if (p) run(p);
-            else if (pick === 'keep') {
-              ctx.sfx?.('tap');
-              say(t('主力商品を残します（在庫品は先に並べません）', 'keeping the main item (stock items don’t jump the queue)'));
-              done();
-            }
-          });
-          return;
-        }
-        run(plan);
+        clearChoose(ctx, uid, hero, cut, done);
       });
       body.append(b);
     }
   });
+}
+/** 売りさばきの段を選んだあと（選んだ段がいまの方針と違うとき）：お店の方針に入れる。棚が 1 段のお店は 3 択の窓へ（段 UIX3b：新しい画面と共通） */
+export function clearChoose(ctx: Ctx, uid: number, hero: number | null, cut: number | null, done: () => void) {
+  const s = ctx.s();
+  const plan = manualPlan([{ k: 'clear', uid, cut }], hero);
+  const say = (msg: string) => ctx.toast(hero != null ? t(`${heroName(hero)}「${msg}」`, `${heroName(hero)}: “${msg}”`) : msg);
+  const run = (p: Plan) => {
+    const r = applyPlan(s, p);
+    if (!r.ok) {
+      ctx.sfx?.('error');
+      ctx.toast(r.err === 'money' ? t('資金が足りません', 'Not enough funds') : t('いまはできません', 'Can’t do that now'));
+      return;
+    }
+    ctx.sfx?.(p.steps.some((x) => x.k === 'shelf') ? 'spend' : 'tap');
+    const grow = p.steps.some((x) => x.k === 'shelf');
+    say(cut == null ? t('売りさばきをやめます', 'Back to normal selling') : grow ? t(`棚を 1 段増やして、主力と在庫品を両方並べます（${cutName(cut)}）`, `added a shelf: main item and stock items both on sale (${cutName(cut)})`) : t(`在庫品を先に並べます（${cutName(cut)}）`, `Stock items go first (${cutName(cut)})`));
+    after(ctx);
+    done();
+  };
+  // 段 UI5d：棚が 1 段のお店は、主力商品が棚から外れるので 3 択（主力を外す・主力を残す・棚を拡張する（推奨））
+  const gate = shelfGate(s, plan);
+  if (gate.length) {
+    openShelfChoice(ctx, plan, gate, (p, pick) => {
+      if (p) run(p);
+      else if (pick === 'keep') {
+        ctx.sfx?.('tap');
+        say(t('主力商品を残します（在庫品は先に並べません）', 'keeping the main item (stock items don’t jump the queue)'));
+        done();
+      }
+    });
+    return;
+  }
+  run(plan);
 }
 
 // ---------------------------------------------------------------- 段 UI5d：棚が 1 段のお店の売りさばき（3 択）
@@ -101,6 +109,44 @@ function gateOutlook(s: P1State, p: Plan | null, items: Sku[]): { units: number;
   return { units: clearUnits(aft, items), sales: sellNow(aft).yen - sellNow(s).yen };
 }
 
+/** 3 択の 1 つ（段 UIX3b：新しい画面と共通）。plan()：選んだときに渡す作り直した plan・units・sales：見込み（月） */
+export interface ShelfOpt {
+  pick: ShelfPick;
+  name: string;
+  sub: string;
+  rec?: boolean;
+  off?: string | null;
+  plan: () => Plan | null;
+  units: number;
+  sales: number;
+  cost: number;
+}
+/** 棚が 1 段のお店の名前と、主力商品の名前（「・」でつなぐ） */
+export function shelfNames(s: P1State, gate: OneShelf[]): { names: string; mainNm: string } {
+  const shopNm = (uid: number) => DEF[s.buildings.find((x) => x.uid === uid)?.id ?? '']?.name ?? t('お店', 'Shop');
+  const names = gate.map((x) => shopNm(x.uid)).join(t('・', ', '));
+  const mains = gate.map((x) => (x.main ? skuName(x.main) : '')).filter(Boolean);
+  return { names, mainNm: [...new Set(mains)].join(t('・', ', ')) };
+}
+/** 棚が 1 段のお店の 3 択（主力を外す・主力を残す・棚を拡張する）。拡張が押せないときは、推奨を押せる手へ */
+export function shelfOpts(s: P1State, plan: Plan, gate: OneShelf[], mainNm: string): ShelfOpt[] {
+  const items = clearInfo(s).items.map((y) => y.x);
+  const cost = gate.reduce((a, x) => a + (x.cost ?? 0), 0);
+  const block = growBlock(gate, s.money);
+  const sales = (v: number) => t(`売上 ${v >= 0 ? '+' : '−'}${money(Math.abs(v))}／月`, `Sales ${v >= 0 ? '+' : '−'}${money(Math.abs(v))}/mo`);
+  const opts: ShelfOpt[] = [];
+  const pd = gatePlan(plan, gate, 'drop');
+  const od = gateOutlook(s, pd, items);
+  opts.push({ pick: 'drop', name: t(`主力商品（${mainNm}）を外して、在庫品だけ売る`, `Take ${mainNm} off; sell stock items only`), sub: [t('費用なし', 'Free'), t(`在庫品 月 ${Math.round(od.units)} 個ほど`, `~${Math.round(od.units)} stock items/mo`), sales(od.sales)].join(t('・', ' · ')), plan: () => pd, units: od.units, sales: od.sales, cost: 0 });
+  opts.push({ pick: 'keep', name: t('主力商品を残して、在庫品は売らない', 'Keep the main item; don’t clear stock'), sub: t('方針はオンにしない・いまのまま', 'Policy stays off · as now'), plan: () => gatePlan(plan, gate, 'keep'), units: 0, sales: 0, cost: 0 });
+  const pg = gatePlan(plan, gate, 'grow');
+  const og = block ? { units: 0, sales: 0 } : gateOutlook(s, pg, items);
+  opts.push({ pick: 'grow', name: t('棚を拡張して、両方売れるようにする', 'Add a shelf and sell both'), sub: [t(`棚の拡張 ${money(cost)}`, `Extra shelf ${money(cost)}`), ...(block ? [] : [t(`在庫品 月 ${Math.round(og.units)} 個ほど`, `~${Math.round(og.units)} stock items/mo`), sales(og.sales)])].join(t('・', ' · ')), rec: !block, off: block, plan: () => pg, units: og.units, sales: og.sales, cost });
+  // 拡張が押せないときは、推奨を押せる手へ（売上の見込みの大きいほう：主力を外す／残す）
+  if (block) opts[od.sales > 0 ? 0 : 1].rec = true;
+  return opts;
+}
+
 /**
  * 棚が 1 段のお店で売りさばきを選んだときの 3 択の窓（決まり：選択肢と推奨を明示する）。
  * - 主力商品を外して出土品（在庫品）だけ売る（plan のまま）
@@ -109,15 +155,11 @@ function gateOutlook(s: P1State, p: Plan | null, items: Sku[]): { units: number;
  * 選ぶと go(作り直した plan, 選んだもの)。✕・外を押したら何もしない
  */
 export function openShelfChoice(ctx: Ctx, plan: Plan, gate: OneShelf[], go: (p: Plan | null, pick: ShelfPick) => void) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/stock.ts）
+  if (uxb.shelfChoice) return uxb.shelfChoice(ctx, plan, gate, go);
   const s = ctx.s();
   const info = clearInfo(s);
-  const items = info.items.map((y) => y.x);
-  const shopNm = (uid: number) => DEF[s.buildings.find((x) => x.uid === uid)?.id ?? '']?.name ?? t('お店', 'Shop');
-  const names = gate.map((x) => shopNm(x.uid)).join(t('・', ', '));
-  const mains = gate.map((x) => (x.main ? skuName(x.main) : '')).filter(Boolean);
-  const mainNm = [...new Set(mains)].join(t('・', ', '));
-  const cost = gate.reduce((a, x) => a + (x.cost ?? 0), 0);
-  const block = growBlock(gate, s.money);
+  const { names, mainNm } = shelfNames(s, gate);
   drawer(ctx.root, t('棚が 1 段のお店です', 'This shop has one shelf'), t(`${names}の棚は 1 段だけです。在庫品を先に並べると、主力の${mainNm}が棚から外れます。`, `${names} has a single shelf. Putting stock items first takes ${mainNm} (the main item) off it.`), (body, close) => {
     body.parentElement?.classList.add('isl-gate');
     const top = h('div', 'isl-gate-top');
@@ -135,17 +177,7 @@ export function openShelfChoice(ctx: Ctx, plan: Plan, gate: OneShelf[], go: (p: 
     }
     top.append(row);
     body.append(top);
-    const sales = (v: number) => t(`売上 ${v >= 0 ? '+' : '−'}${money(Math.abs(v))}／月`, `Sales ${v >= 0 ? '+' : '−'}${money(Math.abs(v))}/mo`);
-    const opts: { pick: ShelfPick; name: string; sub: string; rec?: boolean; off?: string | null }[] = [];
-    const pd = gatePlan(plan, gate, 'drop');
-    const od = gateOutlook(s, pd, items);
-    opts.push({ pick: 'drop', name: t(`主力商品（${mainNm}）を外して、在庫品だけ売る`, `Take ${mainNm} off; sell stock items only`), sub: [t('費用なし', 'Free'), t(`在庫品 月 ${Math.round(od.units)} 個ほど`, `~${Math.round(od.units)} stock items/mo`), sales(od.sales)].join(t('・', ' · ')) });
-    opts.push({ pick: 'keep', name: t('主力商品を残して、在庫品は売らない', 'Keep the main item; don’t clear stock'), sub: t('方針はオンにしない・いまのまま', 'Policy stays off · as now') });
-    const pg = gatePlan(plan, gate, 'grow');
-    const og = block ? { units: 0, sales: 0 } : gateOutlook(s, pg, items);
-    opts.push({ pick: 'grow', name: t('棚を拡張して、両方売れるようにする', 'Add a shelf and sell both'), sub: [t(`棚の拡張 ${money(cost)}`, `Extra shelf ${money(cost)}`), ...(block ? [] : [t(`在庫品 月 ${Math.round(og.units)} 個ほど`, `~${Math.round(og.units)} stock items/mo`), sales(og.sales)])].join(t('・', ' · ')), rec: !block, off: block });
-    // 拡張が押せないときは、推奨を押せる手へ（売上の見込みの大きいほう：主力を外す／残す）
-    if (block) opts[od.sales > 0 ? 0 : 1].rec = true;
+    const opts = shelfOpts(s, plan, gate, mainNm);
     for (const o of opts) {
       const b = h('button', `isl-clear-opt isl-gate-opt ${o.rec ? 'is-rec' : ''}`);
       b.type = 'button';
@@ -158,7 +190,7 @@ export function openShelfChoice(ctx: Ctx, plan: Plan, gate: OneShelf[], go: (p: 
         // 棚を拡張する：小さな手応え（効果の層。1 秒に 1 つまで）
         if (o.pick === 'grow') fxAtEl('collect-burst', b, { palette: FX_PAL.gold, dy: 30, thin: 'shelf-gate' });
         close();
-        go(o.pick === 'drop' ? pd : o.pick === 'grow' ? pg : gatePlan(plan, gate, 'keep'), o.pick);
+        go(o.plan(), o.pick);
       });
       body.append(b);
     }
@@ -172,6 +204,8 @@ export function openShelfChoice(ctx: Ctx, plan: Plan, gate: OneShelf[], go: (p: 
  * （スキルツリーで魔法の釜を見る・開発を始める・アンコモンを作る）。できない理由は 1 行で
  */
 export function openRankUp(ctx: Ctx, x: Sku, worker: number | null, onMake: (u: Sku) => void, closeParent?: () => void) {
+  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/stock.ts）
+  if (uxb.rankUp) return uxb.rankUp(ctx, x, worker, onMake, closeParent);
   const s = ctx.s();
   const r = rankUp(s, x, worker);
   if (!r) return;
@@ -205,16 +239,7 @@ export function openRankUp(ctx: Ctx, x: Sku, worker: number | null, onMake: (u: 
     else if (r.next === 'dev')
       row.append(
         btn(t(`開発を始める（${money(r.cost)}・${r.days} 日）`, `Start development (${money(r.cost)}, ${r.days} d)`), () => {
-          const e = develop(s, r.key);
-          if (e) {
-            ctx.sfx?.('error');
-            ctx.toast(e === 'money' ? t('資金が足りません', 'Not enough funds') : t('いまは開発できません', 'Can’t develop now'));
-            return;
-          }
-          ctx.sfx?.('spend');
-          ctx.toast(t(`${skuName(r.to)}の開発を始めました（${r.days} 日）。できたら作業台で作れます`, `Started developing ${skuName(r.to)} (${r.days} d). Make it once it’s ready`));
-          finish();
-          after(ctx);
+          rankDev(ctx, r, finish);
         }, 'is-on'),
       );
     else if (r.next === 'make')
@@ -227,6 +252,21 @@ export function openRankUp(ctx: Ctx, x: Sku, worker: number | null, onMake: (u: 
     row.append(btn(t('閉じる', 'Close'), close));
     body.append(row);
   });
+}
+
+/** ランクアップの開発を始める（段 UIX3b：新しい画面と共通）。始められたら finish（閉じる）→ 描き直し。始められなければ false */
+export function rankDev(ctx: Ctx, r: Pick<RankUp, 'key' | 'to' | 'days'>, finish: () => void): boolean {
+  const e = develop(ctx.s(), r.key);
+  if (e) {
+    ctx.sfx?.('error');
+    ctx.toast(e === 'money' ? t('資金が足りません', 'Not enough funds') : t('いまは開発できません', 'Can’t develop now'));
+    return false;
+  }
+  ctx.sfx?.('spend');
+  ctx.toast(t(`${skuName(r.to)}の開発を始めました（${r.days} 日）。できたら作業台で作れます`, `Started developing ${skuName(r.to)} (${r.days} d). Make it once it’s ready`));
+  finish();
+  after(ctx);
+  return true;
 }
 
 // ---------------------------------------------------------------- 作業台の作る物を選ぶ（段 UI5c の並び・絞り込み・ランクアップ）

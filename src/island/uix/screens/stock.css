@@ -1,0 +1,223 @@
+/* 段 UIX3b：在庫と倉庫の引き出し（docs/ISLAND_UIX.md「画面：在庫・倉庫」）。
+   セレクタはすべて html.is-uxc の内側。class の接頭辞は uxb-。寸法は 2px の倍数・角は丸めない・動かすのは transform と opacity。 */
+
+html.is-uxc .uxb-stockd .uxb {
+  padding-bottom: 0;
+}
+/* 倉庫：使っている割合の計器 */
+html.is-uxc .uxb-store {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k2);
+}
+html.is-uxc .uxb-store.is-full {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 6px 0 0 0 var(--ux-amber), inset 4px 4px 0 0 var(--ux-k2);
+  padding-left: 16px;
+}
+html.is-uxc .uxb-store-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: var(--ux-paper);
+}
+html.is-uxc .uxb-store-top > .ux-ico {
+  flex: none;
+}
+html.is-uxc .uxb-store-rate {
+  margin-left: auto;
+  color: var(--ux-amber);
+  font-size: var(--ux-n2);
+  line-height: 1;
+}
+html.is-uxc .uxb-store > .ux-meter {
+  height: 12px;
+}
+html.is-uxc .uxb-store > .uxb-dim {
+  align-items: baseline;
+}
+html.is-uxc .uxb-store > .uxb-dim > .ux-num {
+  font-size: var(--ux-n15);
+  line-height: 1.2;
+}
+/* 在庫品の札 */
+html.is-uxc .uxb-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 6px;
+}
+html.is-uxc .uxb-chip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 4px 8px 4px 4px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+  color: var(--ux-paper);
+}
+html.is-uxc .uxb-chip.is-main {
+  grid-template-columns: auto auto minmax(0, 1fr);
+  box-shadow: inset 0 0 0 2px var(--ux-amber);
+}
+html.is-uxc .uxb-chip-n {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+html.is-uxc .uxb-chip-q {
+  color: var(--ux-amber);
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+/* 段のカード：左の絵の窓（値札・✕・＋・−） */
+html.is-uxc .uxb-cut {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc .uxb-cut.is-off {
+  background: var(--ux-k1);
+}
+html.is-uxc .uxb-stock-list > .uxb-stock-card {
+  animation: uxb-stock-in var(--ux-d-in) steps(4, end) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+@keyframes uxb-stock-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+html.is-uxc .uxb-stock-card .uxp-card-desc,
+html.is-uxc .uxb-stock-card .uxp-card-foot {
+  white-space: normal;
+}
+html.is-uxc .uxb-stock-card .uxp-card-foot > .uxp-gap {
+  flex: 1 1 100%;
+}
+/* 打たれた札（決定）：カードの右上 */
+html.is-uxc .uxb-stock-stamp {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 2;
+}
+html.is-uxc .uxb-stock-card {
+  position: relative;
+}
+html.is-uxc .uxb-clear-bars .uxp-bar {
+  transition: none;
+}
+
+/* ランクアップ：いまの商品 → アンコモン */
+html.is-uxc .uxb-rank-head {
+  display: grid;
+  grid-template-columns: auto auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 10px;
+  padding: 10px 12px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc .uxb-rank-pic {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc .uxb-rank-pic.is-to {
+  box-shadow: inset 0 0 0 2px var(--ux-amber);
+}
+html.is-uxc .uxb-rank-pic > .ux-tape {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+}
+html.is-uxc .uxb-rank-pic.is-to > .uxb-pic {
+  animation: uxb-rank-bob 1.6s steps(2, end) infinite;
+}
+@keyframes uxb-rank-bob {
+  50% {
+    transform: translateY(-2px);
+  }
+}
+html.is-uxc .uxb-rank-price {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+html.is-uxc .uxb-rank-yen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: var(--ux-n15);
+  color: var(--ux-paper);
+}
+html.is-uxc .uxb-rank-up {
+  color: var(--ux-amber);
+}
+html.is-uxc .uxb-rank-count .ux-num {
+  font-size: var(--ux-n15);
+  color: var(--ux-paper);
+}
+html.is-uxc .uxb-rank-meter > .ux-meter {
+  height: 10px;
+}
+html.is-uxc .uxb-rank-needs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+html.is-uxc .uxb-need {
+  padding: 4px 8px;
+  background: var(--ux-k1);
+}
+html.is-uxc .uxb-need.is-ng {
+  box-shadow: inset 4px 0 0 var(--ux-amber);
+  padding-left: 12px;
+}
+html.is-uxc .uxb-need.is-ok {
+  box-shadow: inset 4px 0 0 var(--ux-good);
+  padding-left: 12px;
+}
+html.is-uxc .uxb-need-k {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc .uxb-need-k > .ux-ico {
+  flex: none;
+  margin-top: 4px;
+}
+html.is-uxc .uxb-need .uxp-row-main {
+  align-items: flex-start;
+}
+html.is-uxc .uxb-need .uxp-row-k {
+  white-space: normal;
+}
+@media (max-width: 480px) {
+  html.is-uxc .uxb-rank-head {
+    grid-template-columns: auto auto auto;
+  }
+  html.is-uxc .uxb-rank-price {
+    grid-column: 1 / -1;
+  }
+}
+html.is-uxc.is-calm .uxb-stock-list > .uxb-stock-card,
+html.is-uxc.is-calm .uxb-rank-pic.is-to > .uxb-pic {
+  animation: none;
+}

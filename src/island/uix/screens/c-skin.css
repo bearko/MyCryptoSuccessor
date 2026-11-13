@@ -709,8 +709,9 @@ html.is-uxc #isl-ui .uxc-sig-n {
     translate: 0 var(--uxc-toast-h, 0px);
     transition: translate 160ms steps(4, end);
   }
-  /* （「クリア！」の印が出ているあいだは、たたまない：印が打たれるのを見せる） */
-  html.is-uxc #isl-ui.uxc-toasting .isl-missions:not(:has(.isl-mis-stamp)) > :not(.isl-missions-head) {
+  /* （「クリア！」の印が出ているあいだは、たたまない：印が打たれるのを見せる。印のある札には c-dress.ts が uxc-stamped を付ける。
+     「〜を含まない」の :has を否定で書かない：せまい画面で、どこを書き換えても文書全体の見た目の計算が走るため） */
+  html.is-uxc #isl-ui.uxc-toasting .isl-missions:not(.uxc-stamped) > :not(.isl-missions-head) {
     display: none;
   }
 }
