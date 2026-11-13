@@ -55,6 +55,7 @@ import { fitTag, sayToast } from './p2ui';
 import { lineOf } from './voice';
 import { budgetLine } from './budget';
 import { isLocked, rankLocked, rankLockText, stageName } from './stage';
+import { uxd } from '../uix/screens/d-slots';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 /** 役目の札（リーダー・部長・セクター長。形で見分ける：リーダーは角、部長は丸、セクター長は二重の枠） */
@@ -85,6 +86,7 @@ export function pickNote(dept: DeptId, want: PickRole): string {
  * 持ち場の仕事の人は灰色にしない。おすすめは出している中の選べる人から
  */
 export function pickFor(ctx: Ctx, want: PickRole, title: string, current: number | null, onPick: (hero: number) => void, onClear?: () => void) {
+  if (uxd.pickFor) return uxd.pickFor(ctx, want, title, current, onPick, onClear);
   const s = ctx.s();
   const dept = want.kind === 'head' ? want.dept : DUTY[want.duty].dept;
   let showOthers = false;
@@ -165,6 +167,7 @@ export function pickHead(ctx: Ctx, dept: DeptId, current: number | null, onPick?
 
 /** 部門の担当（部門の画面の上の帯の「担当」から）：事業部長・業務ごとのチームリーダー */
 export function openDeleg(ctx: Ctx, dept: DeptId) {
+  if (uxd.deleg) return uxd.deleg(ctx, dept);
   const d = DEPT[dept];
   open(ctx, t(`${d.icon} ${d.name}の担当`, `${d.icon} ${d.name}: delegation`), (body) => {
     const s = ctx.s();
@@ -280,6 +283,28 @@ export function done(ctx: Ctx, e: string | null, ok: string) {
   after(ctx);
 }
 
+/** 段 UIX3d：部長の提案の「提案書を見る」（今の画面と新しい画面で同じ処理。中身は今のまま切り出した） */
+export function propSee(ctx: Ctx, s: P1State, p: Proposal) {
+  const d = DEPT[p.dept];
+  const c = cardInbox(s).find((x) => x.src === 'head' && x.pid === p.id);
+  if (c) return showCard(ctx, c, { done: () => after(ctx) });
+  const st = staffOf(s, p.hero);
+  openProposal(ctx, planOf(s, [p.act], { hero: p.hero, q: st ? quality(st, p.dept) : DELEG.q.lo, dept: p.dept }), {
+    src: 'head',
+    role: t(`${d.name}部長`, `${d.name} head`),
+    approve: () => {
+      const name = actName(s, p.act);
+      const act = p.act;
+      const plan = act.k === 'stock' ? stockPlan(s, act) : null;
+      const e = approve(s, p.id);
+      if (e === 'money' || e === 'rp') return { ok: false, err: e, did: [] };
+      if (e) return { ok: false, err: 'gone', did: [] };
+      return { ok: true, did: [name, ...(plan && act.k === 'stock' ? [stockMsg(plan, act.key)] : [])] };
+    },
+    done: () => after(ctx),
+  });
+}
+
 /** 提案のカード（承認／却下／保留） */
 function propCard(ctx: Ctx, s: P1State, p: Proposal): HTMLElement {
   const d = DEPT[p.dept];
@@ -300,25 +325,7 @@ function propCard(ctx: Ctx, s: P1State, p: Proposal): HTMLElement {
   c.append(h('small', p.cost > s.money ? 'isl-bad' : 'isl-dim', cost));
   const row = h('div', 'isl-row isl-prop-btns');
   // 段 UI9：受け箱から直接は承認させない。承認は提案書（課題・推奨・効果）を開いてから（カードがあればカード、無ければ提案書）
-  const seeProposal = () => {
-    const c = cardInbox(s).find((x) => x.src === 'head' && x.pid === p.id);
-    if (c) return showCard(ctx, c, { done: () => after(ctx) });
-    const st = staffOf(s, p.hero);
-    openProposal(ctx, planOf(s, [p.act], { hero: p.hero, q: st ? quality(st, p.dept) : DELEG.q.lo, dept: p.dept }), {
-      src: 'head',
-      role: t(`${d.name}部長`, `${d.name} head`),
-      approve: () => {
-        const name = actName(s, p.act);
-        const act = p.act;
-        const plan = act.k === 'stock' ? stockPlan(s, act) : null;
-        const e = approve(s, p.id);
-        if (e === 'money' || e === 'rp') return { ok: false, err: e, did: [] };
-        if (e) return { ok: false, err: 'gone', did: [] };
-        return { ok: true, did: [name, ...(plan && act.k === 'stock' ? [stockMsg(plan, act.key)] : [])] };
-      },
-      done: () => after(ctx),
-    });
-  };
+  const seeProposal = () => propSee(ctx, s, p);
   row.append(
     btn(t('📄 提案書を見る', '📄 See the proposal'), seeProposal, 'is-on'),
     btn(t('却下', 'Reject'), () => {
@@ -337,6 +344,7 @@ function propCard(ctx: Ctx, s: P1State, p: Proposal): HTMLElement {
 
 /** 部長の提案の受け箱（経営企画 → 部長の提案・月次報告の「担当の報告」から） */
 export function openProps(ctx: Ctx) {
+  if (uxd.props) return uxd.props(ctx);
   open(ctx, t('部長の提案', 'Proposals from your heads'), (body) => {
     const s = ctx.s();
     body.classList.add('isl-dl');
@@ -417,6 +425,7 @@ function sectorCard(s: P1State): HTMLElement {
 
 /** 人事の画面の「役目」の列：役目のあるヒーロー（リーダー・部長・セクター長の札） */
 export function rolesCard(ctx: Ctx, s: P1State): HTMLElement | null {
+  if (uxd.roles) return uxd.roles(ctx, s);
   const rows = s.staff.map((st) => ({ st, r: roleOf(st) })).filter((x): x is { st: Staff; r: Role } => !!x.r);
   const c = h('div', 'isl-card2 isl-roles');
   c.append(h('h3', '', t(`役目（${rows.length}）`, `Roles (${rows.length})`)));

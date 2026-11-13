@@ -10,6 +10,7 @@ import type { Plan } from '../../p1/plan';
 import type { ProposalOpts } from '../../p1/proposalui';
 import type { BoardHooks } from '../../p1/boardui';
 import type { DeptId } from '../../p1/data';
+import type { PickRole } from '../../p1/deleg';
 
 export interface UxdScreens {
   /** 提案・報告のカードの中身（器は今の窓 .isl-modal.isl-cardm。close・quiet は今の画面と同じ閉じ方） */
@@ -30,6 +31,13 @@ export interface UxdScreens {
   policyView?: (ctx: Ctx) => void;
   corpPick?: (ctx: Ctx) => void;
   deptPick?: (ctx: Ctx, d: DeptId) => void;
+  /** 任せ先を選ぶ引き出し・部門の担当・部長の提案の受け箱・人事の「役目」の列 */
+  pickFor?: (ctx: Ctx, want: PickRole, title: string, current: number | null, onPick: (hero: number) => void, onClear?: () => void) => void;
+  deleg?: (ctx: Ctx, dept: DeptId) => void;
+  props?: (ctx: Ctx) => void;
+  roles?: (ctx: Ctx, s: P1State) => HTMLElement | null;
+  /** 部長との対話：今の画面を描いたあとの着せ替え */
+  headTalk?: (body: HTMLElement) => void;
 }
 // 入れ物は uix/hooks.ts に置く（理由はそこに）。ここは型と、同じ物の名前だけ
 export { uxdSlots as uxd } from '../hooks';

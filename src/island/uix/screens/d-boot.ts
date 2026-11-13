@@ -8,6 +8,8 @@ import { uxd } from './d-slots';
 import { cardPanelUx, goneUx, inboxUx, issuesUx } from './card';
 import { openProposalUx } from './proposal';
 import { openBoardUx } from './board';
+import { headTalkDress } from './headtalk';
+import { openDelegUx, openPropsUx, pickForUx, rolesCardUx } from './deleg';
 import { openCorpPickUx, openDeptPickUx, openPolicyPickUx, openPolicyViewUx, policyCardUx } from './policy';
 
 /** 本体の関数の束を受け取って、差し込み口へ入れる */
@@ -24,4 +26,9 @@ export function installD(d: UxdDeps) {
   uxd.policyView = openPolicyViewUx;
   uxd.corpPick = openCorpPickUx;
   uxd.deptPick = openDeptPickUx;
+  uxd.pickFor = pickForUx;
+  uxd.deleg = openDelegUx;
+  uxd.props = openPropsUx;
+  uxd.roles = rolesCardUx;
+  uxd.headTalk = headTalkDress;
 }

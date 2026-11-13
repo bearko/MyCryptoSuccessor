@@ -492,12 +492,13 @@ html.is-uxc .uxd-iss-loss {
 html.is-uxc .uxp-paper.uxd-gone-row {
   position: relative;
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 10px;
   padding: 6px 10px;
-  opacity: 0.78;
-  background-image: var(--ux-dz25);
-  background-color: var(--ux-paper2);
+  background: var(--ux-paper2);
+  color: #4a4636;
+  box-shadow: inset 0 0 0 2px var(--ux-paper3);
 }
 html.is-uxc .uxd-gone-t {
   flex: 1;

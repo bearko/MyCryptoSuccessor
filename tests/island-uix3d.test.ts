@@ -12,8 +12,8 @@ import { CLOSE_MS, PAGE_MS } from '../src/island/uix/screens/proposal';
 import { FLOW, NEXT_MS } from '../src/island/uix/screens/board';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
-export const D_FILES = ['card.ts', 'proposal.ts', 'board.ts', 'policy.ts', 'd-kit.ts', 'd-boot.ts', 'd-deps.ts', 'd-slots.ts'];
-export const D_CSS = ['d-card.css', 'd-prop.css', 'd-board.css', 'd-pol.css'];
+export const D_FILES = ['card.ts', 'proposal.ts', 'board.ts', 'policy.ts', 'deleg.ts', 'headtalk.ts', 'd-kit.ts', 'd-boot.ts', 'd-deps.ts', 'd-slots.ts'];
+export const D_CSS = ['d-card.css', 'd-prop.css', 'd-board.css', 'd-pol.css', 'd-deleg.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 afterEach(() => {
@@ -197,5 +197,29 @@ describe('方針：同じ形の札・選ぶ引き出し・施行中の札', () =
   });
   it('経営方針発表会（会議の中の場面）の絵文字は、出てきたそばからドットの絵に替える', () => {
     expect(src('uix/screens/board.ts')).toContain('sceneWatch = new MutationObserver');
+  });
+});
+
+describe('任せる・部長との対話', () => {
+  const O = src('p1/delegui.ts');
+  const U = src('uix/screens/deleg.ts');
+  it('入口は関数の頭の 1 行の分かれ道。部長の提案の「提案書を見る」は切り出した同じ処理（propSee）', () => {
+    for (const x of ['if (uxd.pickFor) return uxd.pickFor(ctx, want, title, current, onPick, onClear);', 'if (uxd.deleg) return uxd.deleg(ctx, dept);', 'if (uxd.props) return uxd.props(ctx);', 'if (uxd.roles) return uxd.roles(ctx, s);']) expect(O).toContain(x);
+    expect(O).toContain('const seeProposal = () => propSee(ctx, s, p);');
+    expect(U).toContain('K.propSee(ctx, s, p)');
+  });
+  it('任せ先は選ぶ引き出し（はじめにおすすめを選んでおく）・決めるのは下の主のキー。今の目印 data-hero・data-best', () => {
+    expect(U).toContain('uxpDrawer({');
+    expect(U).toContain("'data-hero': String(st.hero)");
+    expect(U).toContain("'data-best': '1'");
+    expect(U).toContain('onPick(hero);');
+    expect(U).toMatch(/K\.sayToast\(ctx\.toast, hero, 'greet', s\.day\)/);
+  });
+  it('部長との対話は、今の画面を描いたあとに着せ替える（話題・確認事項・押した先は今のまま）', () => {
+    const H = src('p1/headtalkui.ts');
+    expect(H).toContain('uxd.headTalk?.(body);');
+    const D = src('uix/screens/headtalk.ts');
+    expect(D).toContain('typeInto(tx, wrap');
+    expect(D).toContain("rec.classList.add('ux-front')");
   });
 });

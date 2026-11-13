@@ -61,8 +61,17 @@ import { headOf, heroNm } from './deleg';
 import * as PL from './policy';
 import { POLICIES, POLICY_OF } from './data';
 import { sideText } from './policycards';
-import { openCorpPick, openDeptPick, openPolicyView, powerLines } from './policyui';
-import { pickHead } from './delegui';
+import { openCorpPick, openDeptPick, openPolicyView, policyCard, powerLines } from './policyui';
+import { done as delegDone, openDeleg, openProps, pickFor, pickHead, pickNote, propSee, sectorLines } from './delegui';
+import * as DL from './deleg';
+import { DELEG, DEPT_DUTIES, DUTY, L0, deptAptName } from './data';
+import { deptLevel } from './dept';
+import { policySort } from './brief';
+import { jobLabel } from './heroui';
+import { fitTag, sayToast } from './p2ui';
+import { isLocked, rankLocked, rankLockText, stageName } from './stage';
+import { sectorDef } from './company';
+import { cardInboxCard, goneBox } from './cardui';
 import { fxLevel } from '../fx/layer';
 
 /** 小さい一行の適性（話し手の持ち場の仕事）：今の画面と同じ */
@@ -320,6 +329,9 @@ export const boardKit = { ...BD, ...BP, BOARD, DEPT, unitsX, scenes: BOARD_SCENE
 // ---------------------------------------------------------------- 経営方針（決まりと文は policy.ts・policycards.ts）
 export const polKit = { ...PL, POLICIES, POLICY_OF, sideText };
 
+// ---------------------------------------------------------------- 任せる（決まりと文は deleg.ts。押した先は今の画面と同じ関数）
+export const delegKit = { ...DL, DELEG, L0, DUTY, DEPT_DUTIES, deptAptName, deptLevel, policySort, pickNote, done: delegDone, propSee, sectorLines, pickHead, pickFor, jobLabel, fitTag, sayToast, isLocked, rankLocked, rankLockText, stageName, sectorDef, policyCard, goneBox, cardInboxCard, cardInbox, withdrawStale };
+
 export const uxdDeps = {
   cardView,
   cardChoose,
@@ -333,6 +345,10 @@ export const uxdDeps = {
   propDecide,
   boardKit,
   polKit,
+  delegKit,
+  delegOpenProps: openProps,
+  delegOpen: openDeleg,
+  starOf,
   powerLines,
   polOpenView: openPolicyView,
   polOpenCorp: openCorpPick,
