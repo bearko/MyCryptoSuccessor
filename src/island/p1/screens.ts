@@ -150,6 +150,7 @@ import { uxb } from '../uix/screens/b-slots';
 import { uxs } from '../uix/screens/s-slots';
 import { uxk } from '../uix/screens/k-slots';
 import { uxh } from '../uix/screens/h-slots';
+import { uxr } from '../uix/screens/r-slots';
 
 export interface Ctx {
   s: () => P1State;
@@ -2132,6 +2133,8 @@ export function openAds(ctx: Ctx) {
 }
 
 export function openMissions(ctx: Ctx) {
+  // 段 UIX4r：入のときは、管制卓の一覧へ（器は同じ札）
+  if (uxr.missions) return uxr.missions(ctx);
   open(ctx, t('依頼（ミッション）', 'Requests (missions)'), (body) => {
     const s = ctx.s();
     body.append(h('p', 'isl-dim', t(`エリアの人たちからの依頼です。受けた依頼は右上の「ミッション」に出て、達成すると報酬がもらえます（同時に ${MISSION_MAX} つまで）。`, `Requests from people in the area. Accepted ones appear under Missions at the top right; complete them for a reward (up to ${MISSION_MAX} at once).`)));

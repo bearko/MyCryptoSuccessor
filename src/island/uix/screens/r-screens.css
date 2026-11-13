@@ -1,0 +1,375 @@
+/* 段 UIX4r：残りの画面（セクター長の箱・復興の箱・復興を任せる・建築の札・ミッションの一覧・設定）。すべて html.is-uxc の内側。class は uxr- */
+
+/* ==================================================================== 共通 */
+html.is-uxc #isl-ui .uxr-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  color: var(--ux-paper);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxr-line > .ux-ico { flex: none; margin-top: 4px; }
+html.is-uxc #isl-ui .uxr-line > span { min-width: 0; overflow-wrap: anywhere; }
+html.is-uxc #isl-ui .uxr-line.is-dim { color: var(--ux-k5); }
+html.is-uxc #isl-ui .uxr-line.is-warn,
+html.is-uxc #isl-ui .uxr-line.is-gold { color: var(--ux-amber-hi, #ffe394); }
+html.is-uxc #isl-ui .uxr-line.is-bad { color: var(--ux-bad-hi, #ffb3b8); }
+html.is-uxc #isl-ui .uxr-line.is-good { color: var(--ux-good-hi, #b4f7d2); }
+html.is-uxc #isl-ui .uxr-dim { color: var(--ux-k5); font-size: 1rem; }
+html.is-uxc #isl-ui .uxr-name {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxr-name > b { font-size: 1rem; }
+html.is-uxc #isl-ui .uxr-rate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxr-rate > b {
+  color: var(--ux-amber);
+  font-size: var(--ux-n2);
+  line-height: 1;
+}
+html.is-uxc #isl-ui .uxr-stats { grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
+html.is-uxc #isl-ui .uxr-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxr-keys > .ux-key { flex: 1 1 auto; min-height: 44px; }
+html.is-uxc #isl-ui .uxr-cnt { color: var(--ux-amber); font-size: var(--ux-n15); }
+html.is-uxc #isl-ui .uxr-nohead {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  background: var(--ux-k0);
+  background-image: var(--ux-dz25);
+}
+html.is-uxc #isl-ui .uxr-head-card.is-none { box-shadow: inset 0 0 0 2px var(--ux-bad); }
+
+/* ==================================================================== セクター長の箱・復興の箱（ランドマップのくわしい札の中） */
+html.is-uxc #isl-ui .uxr-box {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+  animation: uxr-in var(--ux-d-in, 260ms) steps(4, end) backwards;
+}
+html.is-uxc #isl-ui .uxr-box > * { min-width: 0; }
+html.is-uxc #isl-ui .uxr-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+@media (max-width: 599px) {
+  html.is-uxc #isl-ui .uxr-charts { grid-template-columns: 1fr; }
+}
+html.is-uxc #isl-ui .uxr-chart {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px;
+  background: var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxr-chart-k { color: var(--ux-k5); font-size: 1rem; }
+html.is-uxc #isl-ui .uxr-chart-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+html.is-uxc #isl-ui .uxr-chart-scroll .uxp-bars { width: max-content; min-width: 100%; }
+html.is-uxc #isl-ui .uxr-chart-scroll .uxp-bar-col { flex: 0 0 48px; max-width: none; }
+html.is-uxc #isl-ui .uxr-seg { flex-wrap: wrap; }
+html.is-uxc #isl-ui .uxr-seg .ux-key { min-height: 44px; min-width: 64px; }
+
+/* 復興の進み */
+html.is-uxc #isl-ui .uxr-revive-g {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  background: var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxr-revive-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxr-revive-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ux-amber);
+  font-size: 1rem;
+}
+html.is-uxc #isl-ui .uxr-revive-n {
+  color: var(--ux-paper);
+  font-size: 1rem;
+}
+html.is-uxc #isl-ui .uxr-revive-n > b {
+  font-family: var(--ux-num);
+  font-size: var(--ux-n3);
+  font-weight: 400;
+  line-height: 1;
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxr-revive-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+}
+html.is-uxc #isl-ui .uxr-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxr-who.is-none > b { color: var(--ux-amber-hi, #ffe394); }
+
+/* 復興を任せる（札） */
+html.is-uxc #isl-ui .uxr-del {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxr-del > * { min-width: 0; animation: uxr-in var(--ux-d-in, 260ms) steps(4, end) backwards; }
+html.is-uxc #isl-ui .uxr-amt-pic {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  background: var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxr-amt > b {
+  color: var(--ux-amber);
+  font-family: var(--ux-num);
+  font-size: var(--ux-n2);
+  font-weight: 400;
+  line-height: 1;
+}
+html.is-uxc #isl-ui .uxr-fund.is-best { box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 0 0 4px var(--ux-amber); }
+
+/* 任せる画面の「セクター長」の節 */
+html.is-uxc #isl-ui .uxr-heads {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxr-town {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ==================================================================== 建築の札 */
+html.is-uxc #isl-ui .uxr-bd {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxr-bcats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: max-content;
+  margin: 0;
+  padding: 4px 0 8px;
+  overflow: visible;
+}
+html.is-uxc #isl-ui .uxr-bcat {
+  flex: 1 1 auto;
+  min-height: 48px;
+}
+html.is-uxc #isl-ui .uxr-bc-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxr-bc-n {
+  color: var(--ux-k5);
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+html.is-uxc #isl-ui .uxr-bcat[aria-pressed='true'] .uxr-bc-n { color: #6a5f40; }
+html.is-uxc #isl-ui .uxr-bcat.is-lock { color: var(--ux-k5); }
+html.is-uxc #isl-ui .uxr-bcat.is-unlocking { animation: uxr-pop 520ms steps(6, end) backwards; }
+html.is-uxc #isl-ui .isl-bgrid.uxr-bgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+}
+@media (max-width: 599px) {
+  html.is-uxc #isl-ui .isl-bgrid.uxr-bgrid { grid-template-columns: 1fr; }
+}
+html.is-uxc #isl-ui .isl-bcard.uxr-bcard {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  justify-items: stretch;
+  align-items: start;
+  gap: 10px;
+  min-height: 112px;
+  padding: 8px 10px 10px 8px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k3), inset -4px -4px 0 0 #191d31;
+  clip-path: var(--ux-notch4);
+  color: var(--ux-paper);
+  text-align: left;
+  animation: uxr-in var(--ux-d-in, 260ms) steps(4, end) var(--d, 0ms) backwards;
+}
+html.is-uxc #isl-ui .isl-bcard.uxr-bcard.is-ux-down { transform: translate3d(0, 4px, 0); }
+html.is-uxc #isl-ui .isl-bcard.uxr-bcard.is-poor,
+html.is-uxc #isl-ui .isl-bcard.uxr-bcard.is-off { background: #1a1e33; box-shadow: inset 0 0 0 2px var(--ux-k0); }
+html.is-uxc #isl-ui .isl-bcard.uxr-bcard.is-off .uxr-bcard-pic img { opacity: 0.5; }
+html.is-uxc #isl-ui .isl-bcard.uxr-bcard.is-secret { background: #171a2c; background-image: var(--ux-dz25); }
+html.is-uxc #isl-ui .isl-bcard.uxr-bcard.is-guide {
+  background: #2b3050;
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 0 0 4px var(--ux-amber), inset 6px 6px 0 0 var(--ux-k3);
+}
+html.is-uxc #isl-ui .uxr-bcard-pic {
+  display: grid;
+  place-items: end center;
+  width: 96px;
+  height: 96px;
+  background: var(--ux-k0);
+  overflow: hidden;
+}
+html.is-uxc #isl-ui .uxr-bcard-pic.is-q { place-items: center; }
+html.is-uxc #isl-ui .isl-bcard.uxr-bcard .uxr-bcard-pic img {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  object-position: bottom;
+  image-rendering: pixelated;
+  filter: none;
+}
+html.is-uxc #isl-ui .isl-bcard.uxr-bcard.is-poor .uxr-bcard-pic img { filter: grayscale(1) brightness(0.75); }
+html.is-uxc #isl-ui .uxr-bcard-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxr-bcard-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .isl-bcard.uxr-bcard .uxr-bcard-name { font-size: 1rem; line-height: 1.4; }
+html.is-uxc #isl-ui .isl-bcard.uxr-bcard :is(span, small, b) { font-size: 1rem; line-height: 1.4; }
+html.is-uxc #isl-ui .isl-bcard.uxr-bcard .uxp-price .ux-num { font-size: var(--ux-n2); line-height: 1; color: var(--ux-amber); }
+html.is-uxc #isl-ui .isl-bcard.uxr-bcard .uxr-bcard-note,
+html.is-uxc #isl-ui .isl-bcard.uxr-bcard .uxr-bcard-spec { color: var(--ux-k5); }
+html.is-uxc #isl-ui .uxr-bcard-spec {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxr-bcard-spec > .ux-ico { flex: none; margin-top: 4px; }
+
+/* ==================================================================== ミッションの一覧 */
+html.is-uxc #isl-ui .uxr-mi {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxr-mi-card { animation: uxr-in var(--ux-d-in, 260ms) steps(4, end) var(--d, 0ms) backwards; }
+html.is-uxc #isl-ui .uxr-mi-card.is-done { box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 0 0 4px var(--ux-amber); }
+html.is-uxc #isl-ui .uxr-mi-pic {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  background: var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxr-mi-name {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxr-mi-pr {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxr-mi-pr > .ux-num { color: var(--ux-paper); font-size: var(--ux-n15); line-height: 1; }
+html.is-uxc #isl-ui .uxr-mi-rw {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxr-mi-rw > b { font-size: 1rem; }
+html.is-uxc #isl-ui .uxr-mi-on {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 8px;
+  color: var(--ux-good-hi, #b4f7d2);
+  font-size: 1rem;
+}
+html.is-uxc #isl-ui .uxr-mi-lamps { display: inline-flex; gap: 4px; }
+html.is-uxc #isl-ui .uxr-mi-sum {
+  display: grid;
+  grid-template-columns: auto minmax(60px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--ux-k0);
+  color: var(--ux-k5);
+  font-size: 1rem;
+}
+html.is-uxc #isl-ui .uxr-mi-sum > span { display: inline-flex; align-items: center; gap: 6px; }
+html.is-uxc #isl-ui .uxr-mi-sum > b { color: var(--ux-paper); font-size: var(--ux-n15); font-weight: 400; }
+
+/* ==================================================================== 設定 */
+html.is-uxc #isl-ui .uxr-set {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxr-set-row > * { animation: uxr-in var(--ux-d-in, 260ms) steps(4, end) backwards; }
+html.is-uxc #isl-ui .uxr-set-fader {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 3ch;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+html.is-uxc #isl-ui .uxr-set-val {
+  display: grid;
+  place-items: center;
+  min-height: 32px;
+  background: var(--ux-k0);
+  color: var(--ux-amber);
+  font-size: var(--ux-n2);
+  line-height: 1;
+}
+html.is-uxc #isl-ui .uxr-set-seg { flex-wrap: wrap; }
+html.is-uxc #isl-ui .uxr-set-seg .ux-key { min-height: 44px; }
+html.is-uxc #isl-ui .uxr-set-key { min-height: 44px; }
+
+/* ==================================================================== 動き（transform と opacity だけ。動きを減らすときは止める） */
+@keyframes uxr-in {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+}
+@keyframes uxr-pop {
+  0% { transform: scale(0.9); }
+  50% { transform: scale(1.06); }
+}
+html.is-uxc.is-calm #isl-ui :is(.uxr-box, .uxr-del > *, .isl-bcard.uxr-bcard, .uxr-bcat, .uxr-mi-card, .uxr-set-row > *) { animation: none; }

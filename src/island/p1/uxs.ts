@@ -66,6 +66,7 @@ import { uxcDeps } from './uxc';
 import { uxkDeps } from './uxk';
 import { uxdDeps } from './uxd';
 import { uxhDeps } from './uxh';
+import { uxrDeps } from './uxr';
 import { uxsBoot } from '../uix/screens/s-slots';
 
 export const uxsDeps = {
@@ -182,6 +183,7 @@ export const uxsDeps = {
   d: uxdDeps,
   // 段 UIX3h：人と管理の画面（職人・採用・ヒーロー・人事・法務・トロフィー・図鑑 ほか）の束
   h: uxhDeps,
+  r: uxrDeps,
 };
 export type UxsDeps = typeof uxsDeps;
 
