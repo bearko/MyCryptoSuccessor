@@ -8,6 +8,7 @@ import type { HeroRarity } from '../../p1/data';
 import type { TrophyDef } from '../../p1/trophy';
 import type { LegalHooks } from '../../p1/legalui';
 import type { P1State } from '../../p1/model';
+import type { MapSetApi } from './misc-types';
 
 export interface UxhScreens {
   /** ヒーローの配置（職人・運搬係・店員の持ち場と、待機中の名簿） */
@@ -47,7 +48,7 @@ export interface UxhScreens {
   /** M&A（法務の部門が開く前の説明） */
   ma?: (ctx: Ctx) => void;
   /** 地図の表示（changed：地図を描き直す） */
-  mapSet?: (ctx: Ctx, changed: () => void) => void;
+  mapSet?: (ctx: Ctx, changed: () => void, api: MapSetApi) => void;
   /** 月の研究ポイントの入り方（研究ノート・スキルツリーの中の部品） */
   rpStack?: (s: P1State) => HTMLElement;
   /** 研究の施策のキー（研究ノート・スキルツリーの中の部品） */

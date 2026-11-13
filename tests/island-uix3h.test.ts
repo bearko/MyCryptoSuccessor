@@ -25,7 +25,7 @@ import { LESSON_TYPES } from '../src/island/p1/lesson';
 import { H_ART as _HA } from '../src/island/uix/screens/h-icons';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
-export const H_FILES = ['h-boot.ts', 'h-deps.ts', 'h-slots.ts', 'h-kit.ts', 'h-icons.ts', 'staff.ts', 'hr.ts', 'hero.ts', 'trophy.ts', 'legal.ts', 'misc.ts'];
+export const H_FILES = ['h-boot.ts', 'h-deps.ts', 'h-slots.ts', 'h-kit.ts', 'h-icons.ts', 'staff.ts', 'hr.ts', 'hero.ts', 'trophy.ts', 'legal.ts', 'misc.ts', 'misc-types.ts'];
 export const H_CSS = ['h-screens.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 const SCREENS = src('p1/screens.ts');
@@ -68,7 +68,7 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     expect(src('p1/diploui.ts')).toMatch(/export function openDiplo\(ctx: Ctx\) \{\n[^\n]*\n  if \(uxh\.diplo\) return uxh\.diplo\(ctx\);\n  const s0/);
     expect(SCREENS).toContain('export function openDev(ctx: Ctx) {\n  if (uxh.dev) return uxh.dev(ctx);\n  open(');
     expect(SCREENS).toContain('export function openMA(ctx: Ctx) {\n  if (uxh.ma) return uxh.ma(ctx);\n  open(');
-    expect(src('p1/mapsetui.ts')).toMatch(/export function openMapSet\(ctx: Ctx, changed: \(\) => void\) \{\n[^\n]*\n  if \(uxh\.mapSet\) return uxh\.mapSet\(ctx, changed\);\n  open\(/);
+    expect(src('p1/mapsetui.ts')).toContain('  if (uxh.mapSet) return uxh.mapSet(ctx, changed, { MAPSET_ITEMS, mapSetLocked, mapSetOn, toggleMapSet });\n  open(');
     expect(src('p1/r2ui.ts')).toMatch(/export function rpStackEl\(s: P1State\): HTMLElement \{\n[^\n]*\n  if \(uxh\.rpStack\) return uxh\.rpStack\(s\);/);
     expect(src('p1/r2ui.ts')).toContain('  if (uxh.study) return uxh.study(s, o);\n  const box = h(');
     for (const k of ['staff', 'hire', 'charisma', 'payroll', 'growth', 'promotion', 'lessons', 'lessonPop', 'trophies', 'trophyPop', 'museum', 'legalMA', 'contract', 'patents', 'suits', 'diplo', 'dev', 'ma', 'mapSet', 'rpStack', 'study']) expect(boot, k).toMatch(new RegExp(`uxh\\.${k} = \\w+;`));
@@ -324,7 +324,7 @@ describe('外交・商品開発・M&A（法務の前）・地図の表示・研�
     expect(MI).toContain('H.museumRp(s)');
   });
   it('出す中身が今の画面とそろう：外交（仲・交易・依頼・使者）・開発（済み・開発中・開発する・止まる理由）・地図の表示（3 項目・見本・スイッチ・いつ）・研究の施策', () => {
-    for (const x of ['H.tierEntered(ctx.s(), \'E\')', 'H.relTeaser(L.rel)', 'D.trades.find((x) => x.land === L.id)', 'D.reqs.filter((x) => x.land === L.id)', "H.cardInbox(s).filter((x) => x.src === 'diplo')", 'H.showCard(c, x,', 's.dev.includes(p.key)', 's.lab?.key === p.key', 'H.develop(s, p.key)', "H.has(s, 'pot')", 'H.MAPSET_ITEMS', 'H.toggleMapSet(ctx.s(), key)', 'H.mapSetLocked(s, key)', 'H.MARK_LEGEND', 'H.studyByHead(s)', 'H.runStudy(s, k)', 'H.studyDone(s, k)']) expect(MI, x).toContain(x);
+    for (const x of ['H.tierEntered(ctx.s(), \'E\')', 'H.relTeaser(L.rel)', 'D.trades.find((x) => x.land === L.id)', 'D.reqs.filter((x) => x.land === L.id)', "H.cardInbox(s).filter((x) => x.src === 'diplo')", 'H.showCard(c, x,', 's.dev.includes(p.key)', 's.lab?.key === p.key', 'H.develop(s, p.key)', "H.has(s, 'pot')", 'api.MAPSET_ITEMS', 'api.toggleMapSet(ctx.s(), key)', 'api.mapSetLocked(s, key)', 'H.MARK_LEGEND', 'H.studyByHead(s)', 'H.runStudy(s, k)', 'H.studyDone(s, k)']) expect(MI, x).toContain(x);
     // 今の目印：地図の表示の札（data-key・role=switch）
     expect(MI).toContain("el('div.uxh-ms.isl-mapset-item', { 'data-key': key })");
     expect(MI).toContain("role: 'switch', 'aria-checked': String(on)");

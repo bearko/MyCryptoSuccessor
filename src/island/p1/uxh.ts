@@ -10,7 +10,6 @@ import { LAND_IDS, landDef, relTeaser } from './diplo';
 import { cardInbox } from './card';
 import { cardNav, showCard } from './cardui';
 import { skuIcon, skuName } from './ui';
-import { MAPSET_ITEMS, mapSetLocked, mapSetOn, toggleMapSet } from './mapsetui';
 import { MAPVIZ_COLOR } from './mapviz';
 import { MARK_KIND, MARK_LEGEND } from './mapmarks';
 import { RP_SRCS, STUDY_KINDS, museumRp, retestRp, rpSrcName, runStudy, studyByHead, studyCost, studyDone, studyLock, studyName, studyRp } from './r2';
@@ -194,10 +193,6 @@ export const uxhDeps = {
   skuPrice,
   devCost,
   develop,
-  MAPSET_ITEMS,
-  mapSetLocked,
-  mapSetOn,
-  toggleMapSet,
   MAPVIZ_COLOR,
   MARK_KIND,
   MARK_LEGEND,

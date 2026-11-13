@@ -20,6 +20,7 @@ import { enter, hIcon, keepOpen, keyLabel, lite, liveDraw, sect, tape } from './
 import type { Ctx } from '../../p1/screens';
 import type { P1State } from '../../p1/model';
 import type { MapSetKey } from '../../p1/mapsetui';
+import type { MapSetApi } from './misc-types';
 import type { RpSrc } from '../../p1/r2';
 
 // ---------------------------------------------------------------- DOM なしの芯（テストから読む）
@@ -173,30 +174,30 @@ export function openMAUx(ctx: Ctx) {
 }
 
 // ================================================================= 地図の表示
-export function openMapSetUx(ctx: Ctx, changed: () => void) {
+export function openMapSetUx(ctx: Ctx, changed: () => void, api: MapSetApi) {
   keepOpen(ctx, t('地図の表示', 'Map display'), (c, body) => {
     const page = el('div.uxh-page.uxh-mapset');
     body.append(page);
     return liveDraw(page, () => {
       const list = el('div.uxh-ms-list.isl-mapset');
-      for (const it of H.MAPSET_ITEMS) list.append(mapItem(c, it.key, changed));
+      for (const it of api.MAPSET_ITEMS) list.append(mapItem(c, it.key, changed, api));
       page.replaceChildren(el('p.uxh-note', t('地図に重ねて出すものを選びます。', 'Choose what to overlay on the map.')), list);
     });
   });
 }
 /** 1 項目の札（名前・説明・色の見本・スイッチ・いつ出るか）。押したら札だけ描き直す（今と同じ） */
-function mapItem(ctx: Ctx, key: MapSetKey, changed: () => void): HTMLElement {
-  const it = H.MAPSET_ITEMS.find((x) => x.key === key)!;
+function mapItem(ctx: Ctx, key: MapSetKey, changed: () => void, api: MapSetApi): HTMLElement {
+  const it = api.MAPSET_ITEMS.find((x) => x.key === key)!;
   const row = el('div.uxh-ms.isl-mapset-item', { 'data-key': key });
   const draw = (feel = false) => {
     const s = ctx.s();
-    const locked = H.mapSetLocked(s, key);
-    const on = !locked && H.mapSetOn(s, key);
+    const locked = api.mapSetLocked(s, key);
+    const on = !locked && api.mapSetOn(s, key);
     row.classList.toggle('is-off', !on);
     row.classList.toggle('is-locked', locked);
     const sw = uxKey(el('span.uxh-sw', uxLamp('good', on), el('b', locked ? '—' : on ? t('オン', 'On') : t('オフ', 'Off'))), () => {
-      if (H.mapSetLocked(ctx.s(), key)) return;
-      H.toggleMapSet(ctx.s(), key);
+      if (api.mapSetLocked(ctx.s(), key)) return;
+      api.toggleMapSet(ctx.s(), key);
       ctx.sfx?.('tap');
       uxSfx('toggle', { step: on ? 0 : 2 });
       ctx.save();
