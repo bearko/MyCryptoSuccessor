@@ -78,7 +78,8 @@ export function lineBars(now: number[], after: number[], o: { once?: { month: nu
   const plot = el('div.uxd-lb-plot', el('i.uxd-lb-zero', { style: { bottom: `${zero}%` } }));
   for (let k = 0; k < n; k++) {
     const fade = cut != null && k > cut ? '.is-fade' : '';
-    const c = el(`button.uxd-lb-col${fade}`, { type: 'button', 'aria-label': t(`${k + 1} か月目まで`, `Through month ${k + 1}`) }, el('span.uxd-lb-pair', bar(now[k], 'is-now'), bar(after[k], 'is-after')), el('span.uxd-lb-m.ux-num', String(k + 1)));
+    // 列を押しても選べる（押しやすいのは下の ◀ ▶ のキー：44px。列は読み上げでは 1 枚の絵の一部）
+    const c = el(`div.uxd-lb-col${fade}`, { 'aria-hidden': 'true' }, el('span.uxd-lb-pair', bar(now[k], 'is-now'), bar(after[k], 'is-after')), el('span.uxd-lb-m.ux-num', String(k + 1)));
     c.addEventListener('click', (e) => {
       e.stopPropagation();
       pick(k);

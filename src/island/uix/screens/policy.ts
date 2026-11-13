@@ -156,7 +156,7 @@ export function policyViewBody(ctx: Ctx, body: HTMLElement) {
   for (const x of locked) body.append(el('p.uxd-pv-lock', kIcon('lock', LITE), t(`${x.n} 枠目：${TIER_EN[x.tier]} の町に進出すると取れる`, `Slot ${x.n}: expand to a ${TIER_EN[x.tier]} town`)));
   if (n < 5 && !tier) body.append(el('p.uxd-pv-dim', t('枠は、上のランクの町に初めて進出するたびに 1 つ増えます（無償の特別なパネル。Legendary の進出で 5 つ）。', 'You gain a slot each time you first expand to a higher-rank town (a free special panel; 5 at Legendary).')));
   // 事業別の方針
-  body.append(uxpHead(t('事業別の方針', 'Division policies'), { kind: 'amber', ico: 'office' }));
+  body.append(uxpHead(t('事業別の方針', 'Division policies'), { kind: 'amber', ico: 'list' }));
   const ds = P.presDepts(s);
   if (!ds.length) body.append(uxpEmpty(t('まだ選べる事業別の方針がありません', 'No division policies yet'), { ico: 'flag', sub: t('スキルツリーの各部門の「経営方針」パネルと、石板のノウハウで開きます', 'Unlock them with each department’s “Policy” panel and tablet know-how') }));
   for (const d of ds) {

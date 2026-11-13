@@ -234,7 +234,7 @@ export function inboxUx(ctx: Ctx): HTMLElement {
   const box = el('div.uxd-inbox.ux-root');
   box.append(issuesUx(s));
   box.append(uxpHead(t('ヒーローからの提案・報告', 'From your heroes'), { right: el('span.uxd-count.ux-num', String(V.list.length)) }));
-  if (!V.list.length) box.append(uxpEmpty(t('月の締めのあとに、持ち場のヒーローや手の空いたヒーローが提案を持ってきます。', 'After each monthly close, heroes at their posts or with free hands bring proposals.'), { ico: 'mail', sub: t('時間を止めて出すのは月に数枚まで（あふれたものはここに入ります）', 'Only a few a month pop up; the rest wait here') }));
+  if (!V.list.length) box.append(uxpEmpty(t('月の締めのあとに、持ち場のヒーローや手の空いたヒーローが提案を持ってきます。', 'After each monthly close, heroes at their posts or with free hands bring proposals.'), { ico: 'note', sub: t('時間を止めて出すのは月に数枚まで（あふれたものはここに入ります）', 'Only a few a month pop up; the rest wait here') }));
   const list = el('div.uxp-list.uxd-inbox-list');
   for (const x of V.list) {
     const say = dRich(x.say);

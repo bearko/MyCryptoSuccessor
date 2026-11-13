@@ -144,7 +144,7 @@ export function delegBody(ctx: Ctx, dept: DeptId, body: HTMLElement) {
   // ---- 事業部長（役目の札）
   const hl = K.headLeft(s, dept) ?? 0;
   const H = K.headOf(s, dept);
-  const hc = el('section.uxd-dl-role.isl-dl-head', uxpHead(t('事業部長（部門を丸ごと）', 'Division head (whole department)'), { kind: 'amber', ico: 'office' }));
+  const hc = el('section.uxd-dl-role.isl-dl-head', uxpHead(t('事業部長（部門を丸ごと）', 'Division head (whole department)'), { kind: 'amber', ico: 'people' }));
   if (H) {
     const n = (s.deleg?.inbox ?? []).filter((p) => p.dept === dept).length;
     const st = uxpStamp(t('おまかせ中', 'Delegated'), { kind: 'good' });
@@ -238,10 +238,10 @@ export function propsBody(ctx: Ctx, body: HTMLElement) {
   if (hasCards) body.append(K.cardInboxCard(ctx));
   const here = s.sector ?? 'c1';
   const inbox = (s.deleg?.inbox ?? []).filter((p) => (p.sector ?? here) === here);
-  body.append(uxpHead(t('部長の提案', 'Proposals from your heads'), { kind: 'amber', ico: 'office', right: el('span.ux-num.uxd-dl-cnt', String(inbox.length)) }));
+  body.append(uxpHead(t('部長の提案', 'Proposals from your heads'), { kind: 'amber', ico: 'people', right: el('span.ux-num.uxd-dl-cnt', String(inbox.length)) }));
   if (!inbox.length) {
     const hasHead = Object.keys(Q.DEPT).some((d) => K.headOf(s, d as DeptId));
-    body.append(uxpEmpty(hasHead ? t('いまは提案がありません（月の締めで届きます）', 'No proposals right now (they arrive at the monthly close)') : t(`事業部長を置くと（部門の理解度 ${K.DELEG.headAt} から。部門の画面の上の「担当」）、ここに提案が届きます`, `Place a division head (from understanding ${K.DELEG.headAt}, via “Lead” on a department’s band) to get proposals here`), { ico: 'mail' }));
+    body.append(uxpEmpty(hasHead ? t('いまは提案がありません（月の締めで届きます）', 'No proposals right now (they arrive at the monthly close)') : t(`事業部長を置くと（部門の理解度 ${K.DELEG.headAt} から。部門の画面の上の「担当」）、ここに提案が届きます`, `Place a division head (from understanding ${K.DELEG.headAt}, via “Lead” on a department’s band) to get proposals here`), { ico: 'note' }));
   }
   const grid = el('div.uxd-pp-grid');
   for (const p of K.policySort(s, inbox)) grid.append(propCardUx(ctx, s, p));
@@ -269,7 +269,7 @@ export function propsBody(ctx: Ctx, body: HTMLElement) {
   body.append(
     el(
       'section.uxd-dl-role.isl-prop-sector',
-      uxpHead(t('セクター長（セクタを任せる）', 'Sector heads (whole sectors)'), { kind: 'dark', ico: 'office' }),
+      uxpHead(t('セクター長（セクタを任せる）', 'Sector heads (whole sectors)'), { kind: 'dark', ico: 'people' }),
       el('p.uxd-dl-dim', ok.ready ? t(`新しく任命する条件：事業部長が ${ok.need} 部門以上（いま ${ok.heads}）`, `To appoint: ${ok.need}+ division heads (now ${ok.heads})`) : t(`新しく任命する条件：事業部長が ${ok.need} 部門以上（いま ${ok.heads}。準備中：いまは条件なしで任命できます）`, `To appoint: ${ok.need}+ division heads (now ${ok.heads}; coming soon — no condition for now)`)),
       lines.length ? lines.map((l: string) => el('p.uxd-dl-sec', kIcon('office', LITE), el('span', dText(l)))) : el('p.uxd-dl-dim', t('ほかのセクタに出店して離れるときに、セクター長を選びます（ランドマップ）。', 'You pick a sector head when you leave a sector you opened in (land map).')),
       el('p.uxd-dl-dim', t('セクター長のいるセクタは任せきり：会社に事業部長がいれば、そのセクタでも部長たちが提案を出し、セクター長が自分で承認します（1 件ごとに利益の 1 割をそのセクタへ投資）。', 'Sectors with a head run on their own: if the company has division heads, their proposals there are approved by the sector head (each puts 10% of the profit back into that sector).')),

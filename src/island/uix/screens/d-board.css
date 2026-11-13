@@ -89,12 +89,6 @@ html.is-uxc .uxd-bd-seat {
 }
 html.is-uxc .uxd-bd-seat.is-on {
   box-shadow: inset 0 0 0 2px var(--ux-amber);
-  animation: uxd-seat 900ms steps(2, end) infinite;
-}
-@keyframes uxd-seat {
-  50% {
-    transform: translate3d(0, -2px, 0);
-  }
 }
 html.is-uxc .uxd-bd-seat.is-pop {
   animation: uxd-pop 260ms steps(4, end) backwards;
@@ -477,7 +471,6 @@ html.is-uxc #isl-ui .uxd-bd .uxd-bd-seat.isl-bm-seat.is-on {
   transform: none;
   background: var(--ux-k2);
   box-shadow: inset 0 0 0 2px var(--ux-amber);
-  animation: uxd-seat 900ms steps(2, end) infinite;
 }
 html.is-uxc #isl-ui .uxd-bd .uxd-bd-seat.isl-bm-seat.is-pop {
   animation: uxd-pop 260ms steps(4, end) backwards;
