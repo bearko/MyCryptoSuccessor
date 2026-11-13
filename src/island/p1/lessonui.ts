@@ -15,6 +15,7 @@ import type { P1State } from './model';
 import type { Ctx } from './screens';
 import { btn, h, heroIcon, heroName } from './ui';
 import { ux } from '../uix/hooks';
+import { uxh } from '../uix/screens/h-slots';
 
 /** 型の札（アイコンと名前。縁の色は型ごと） */
 export function typeChip(k: LessonType, n?: number): HTMLElement {
@@ -25,6 +26,7 @@ export function typeChip(k: LessonType, n?: number): HTMLElement {
 
 /** 受け継いだときのお知らせ（main.ts がトーストの列に入れる。押すと図鑑） */
 export function lessonPopEl(hero: number, onOpen?: () => void): HTMLElement {
+  if (uxh.lessonPop) return uxh.lessonPop(hero, onOpen);
   const x = lessonText(hero);
   const el = h('div', 'isl-toast isl-ls-pop');
   el.append(heroIcon(hero, 44));
@@ -114,6 +116,8 @@ function nearCell(r: LessonRow): HTMLElement {
  * スマホでシートの見出しの下に付く部門の帯（sticky）が、図鑑の上に重ならないように。✕・外を押す・Esc で閉じる（下の育成の画面はそのまま）
  */
 export function openLessons(ctx: Ctx) {
+  // 段 UIX3h：新しい画面（入のときだけ。uix/screens/hero.ts）
+  if (uxh.lessons) return uxh.lessons(ctx);
   ctx.root.querySelector('.isl-ls-modal')?.remove();
   const m = h('div', 'isl-modal isl-ls-modal');
   ux.modal?.(m, 'lesson');

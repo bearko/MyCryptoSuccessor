@@ -5,7 +5,7 @@
  * - 決める所（確認事項の 1 件・選択肢）はこの段の札（板・貼り札）とキー。承認はレバー（土台の口 ux.lever：今のまま）
  * - いちばん上の選択肢（推奨・確認事項）を主役（前の層）に。絵文字はドットの絵
  */
-import { typeInto, type Typing } from '../parts';
+import { typeInto, uxLamp, type Typing } from '../parts';
 import { uxSfx } from '../sound';
 import { dotEmoji } from './k-icons';
 import './d-deleg.css';
@@ -21,6 +21,7 @@ export function headTalkDress(body: HTMLElement) {
   const rec = body.querySelector<HTMLElement>('.isl-ht-opts > .isl-btn.is-rec');
   if (rec && !body.querySelector('.isl-ht-opts .ux-lever')) rec.classList.add('ux-front');
   dotEmoji(body);
+  dressMorale(body);
   const tx = body.querySelector<HTMLElement>('.isl-ht-text');
   if (!tx) return;
   const txt = tx.textContent ?? '';
@@ -35,4 +36,18 @@ export function headTalkDress(body: HTMLElement) {
   typing = typeInto(tx, wrap, { onDone: () => (typing = null) });
   uxSfx('open');
   tx.addEventListener('click', () => typing?.skip(), { capture: true, once: true });
+}
+
+/** 士気の札（今の .isl-morale）を、人と管理の画面の士気の札（hr.ts の moraleTag：ランプと字）と同じ形に揃える */
+const MORALE_LAMP: Record<string, '' | 'good' | 'bad' | 'cyan'> = { high: 'cyan', ok: 'good', low: '', bad: 'bad' };
+function dressMorale(body: HTMLElement) {
+  for (const chip of body.querySelectorAll<HTMLElement>('.isl-morale:not(.uxh-mor)')) {
+    const band = ['high', 'ok', 'low', 'bad'].find((b) => chip.classList.contains('is-' + b)) ?? 'ok';
+    const text = document.createElement('span');
+    text.textContent = chip.textContent ?? '';
+    chip.textContent = '';
+    chip.classList.add('uxh-mor');
+    chip.style.removeProperty('--c');
+    chip.append(uxLamp(MORALE_LAMP[band], true), text);
+  }
 }

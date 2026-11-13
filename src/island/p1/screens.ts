@@ -149,6 +149,7 @@ import { hireEmptyLines } from './hr';
 import { uxb } from '../uix/screens/b-slots';
 import { uxs } from '../uix/screens/s-slots';
 import { uxk } from '../uix/screens/k-slots';
+import { uxh } from '../uix/screens/h-slots';
 
 export interface Ctx {
   s: () => P1State;
@@ -1485,6 +1486,7 @@ function buyerSlot(ctx: Ctx, s: P1State): HTMLElement {
 let holding: number | null = null;
 
 export function openStaff(ctx: Ctx) {
+  if (uxh.staff) return uxh.staff(ctx);
   holding = null;
   open(ctx, t('ヒーローの配置', 'Hero assignment'), (body) => {
     const s = ctx.s();
@@ -1604,6 +1606,7 @@ export function openStaff(ctx: Ctx) {
 
 /** opts.charisma=false：まとめた画面（候補の一覧 → カリスマ）の前の部分。カリスマの札は後ろの部分（経営者）に 1 つだけ出す */
 export function openHire(ctx: Ctx, opts: { charisma?: boolean } = {}) {
+  if (uxh.hire) return uxh.hire(ctx, opts);
   open(ctx, t('人材登用', 'Recruiting'), (body) => {
     const s = ctx.s();
     mineTip(ctx, 'hire', body);
@@ -2016,6 +2019,7 @@ export function openBom(ctx: Ctx) {
 // ---------------------------------------------------------------- 経営企画（建築）・R&D（商品開発）
 
 export function openDev(ctx: Ctx) {
+  if (uxh.dev) return uxh.dev(ctx);
   open(ctx, t('商品開発', 'Product development'), (body) => {
     const s = ctx.s();
     body.append(h('p', 'isl-dim', t(`アンコモンを開発すると、値段 ${UNCOMMON.price} 倍・売り場の強さ ${UNCOMMON.pull} 倍の商品を作れます。開発には「魔法の釜」（スキル・工房）が要り、1 つずつ ${DEV.days} 日かかります。作るには製造の適性 ${UNCOMMON.minCraft} 以上の職人が要ります。`, `Developing an Uncommon gives ${UNCOMMON.price}× price and ${UNCOMMON.pull}× pull. Needs the Magic Pot skill; one at a time, ${DEV.days} days each. Crafting needs aptitude ${UNCOMMON.minCraft}+.`)));
@@ -2047,6 +2051,7 @@ export function openDev(ctx: Ctx) {
 
 /** 経営企画 → M&A（法務の部門が開く前：Epic の町に進出すると、法務の部門が他社の買収を受け持つ。開いたあとは法務 → M&A へ。main.ts） */
 export function openMA(ctx: Ctx) {
+  if (uxh.ma) return uxh.ma(ctx);
   open(ctx, t('M&A', 'M&A'), (body) => {
     body.append(h('p', 'isl-dim', t('他社の買収（M&A）は、Epic の町に進出すると開く法務の部門が受け持ちます。他社のお店をタップして「調査」しておくと、相手のことがよく分かります。', 'Acquiring rivals (M&A) is handled by the Legal department, which opens when you enter an Epic town. Research rival stores (tap them on the map) to learn about them.')));
     for (const [name, note] of [

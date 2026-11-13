@@ -12,6 +12,7 @@ import { open, type Ctx } from './screens';
 import { propsOpen } from './stage';
 import { h } from './ui';
 import './mapset.css';
+import { uxh } from '../uix/screens/h-slots';
 
 export type MapSetKey = 'flow' | 'marks' | 'area';
 
@@ -130,6 +131,9 @@ function itemEl(ctx: Ctx, it: Item, changed: () => void): HTMLElement {
 
 /** 設定の画面の「🗺 地図の表示」（まとめた設定の画面の 1 節） */
 export function openMapSet(ctx: Ctx, changed: () => void) {
+  // 段 UIX3h：新しい画面（入のときだけ。uix/screens/misc.ts）
+  // 項目と切り替えは、ここから渡す（新しい画面の束を本体の束へつなぐ p1/uxh.ts がこのファイルを読むと、地図の表示の CSS の並びが変わるため）
+  if (uxh.mapSet) return uxh.mapSet(ctx, changed, { MAPSET_ITEMS, mapSetLocked, mapSetOn, toggleMapSet });
   open(ctx, t('🗺 地図の表示', '🗺 Map display'), (body) => {
     body.append(h('p', 'isl-dim', t('地図に重ねて出すものを選びます。', 'Choose what to overlay on the map.')));
     const list = h('div', 'isl-mapset');

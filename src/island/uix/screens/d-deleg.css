@@ -314,3 +314,21 @@ html.is-uxc .uxd-dl p,
 html.is-uxc .uxd-dl small {
   font-size: 1rem;
 }
+
+/* 部長との対話の士気の札：人と管理の画面の士気の札（.uxh-mor）と同じ形（角・字の大きさを新しい見た目に） */
+html.is-uxc #isl-ui .uxd-ht .isl-morale.uxh-mor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--ux-ink);
+  font-size: 16px;
+}
+html.is-uxc #isl-ui .uxd-ht .isl-morale.uxh-mor.is-bad {
+  color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxd-ht .isl-morale.uxh-mor.is-high {
+  color: var(--ux-cyan);
+}
