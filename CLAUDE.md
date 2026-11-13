@@ -6,5 +6,5 @@
 - ゲームの全体像は `docs/SUCCESSOR_VISION.md`、ロードマップと各機能の設計は `docs/SUCCESSOR_ROADMAP.md`。新しい機能はこの方向に沿って作る。
 - チェック：`npx tsc --noEmit`・`npm test`・`npm run i18n:check`・`npm run build`・`npm run pixel:lint`・`npm run island:audit`（反映されない投資が 0）・`npm run island:sim`（1 台だと 1 時間ほど。`docs/ISLAND_BALANCE.md` を書き直す）。
 - 全部のテストは CI（GitHub Actions の `CI`。テストを 4 台に分けて同時に回す。public なので無料）に任せる。手元（作業環境は CPU 2 つ）では、触ったファイルに関係するテストだけ回す：`npx vitest run --changed origin/main` または `npx vitest related <ファイル>`。型・英訳・絵・ビルドの確認は軽いので手元で回してよい。
-- PR を作ったら、自動マージを予約する：`gh pr merge <番号> --auto --squash`。main は `ci-ok`（CI のまとめ）と Denylist の `check` が通らないとマージできない設定になっている。CI は `gh pr checks <番号> --watch` の 1 回で待つ（何度も見に行かない）。落ちたら `gh run view <run id> --log-failed` で失敗した所のログだけを読む。
+- main は `ci-ok`（CI のまとめ）と Denylist の `check` が通らないとマージできない設定になっている。PR の確認は `scripts/pr-wait.sh <番号>` の 1 回で待つ（全部終わるまで待って結果を 1 行ずつ出す。何度も見に行かない）。落ちたら `gh run view <run id> --log-failed` で失敗した所のログだけを読む。クラウドの作業環境では GitHub の GraphQL が使えないので、`gh pr checks`・`gh pr merge --auto` ではなく REST（`gh api`）を使う。
 - 計測は GitHub Actions の `Sim`（`.github/workflows/sim.yml`）で 16 台に分けて回せる：ブランチを `git push origin HEAD:sim-run/<名前>` で push → 10〜15 分で `sim-out/<名前>` に `docs/ISLAND_BALANCE.md` を書き直したコミットが届く（`git fetch origin sim-out/<名前> && git show FETCH_HEAD:docs/ISLAND_BALANCE.md > docs/ISLAND_BALANCE.md`）。手元で重い計測を並べて回さない（CPU は 2 つ）。
