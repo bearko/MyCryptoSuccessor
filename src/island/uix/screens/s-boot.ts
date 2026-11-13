@@ -12,6 +12,13 @@ import { openDigSummaryUx, openMonthReportUx } from './report';
 import { setDeps } from './s-deps';
 import { uxs, uxsBoot } from './s-slots';
 import { installW } from './w-boot';
+// 段 UIX4a：段の絵の表を全部登録しておく（土台の部品の ico が、どの段の絵の名前でも描けるように。どれも上の束がもう読んでいるので、束の分かれ方は変わらない）
+import './micons';
+import './s-icons';
+import './w-icons';
+import './b-icons';
+import './k-icons';
+import './h-icons';
 import { openWorkshopUx } from './workshop';
 
 /** 本体の関数の束を受け取って、差し込み口へ入れる */

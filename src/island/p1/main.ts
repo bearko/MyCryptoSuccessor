@@ -2254,6 +2254,10 @@ function meetAfterDig() {
 }
 
 /** 地図の上の印：荒れ地の上の 📜（手紙）・👆（タップしてもらう）と、町の長の家の上の顔（発表できるときは吹き出し「研究成果を発表する」） */
+/** 段 UIX4a：hidden を、値が変わるときだけ書く（毎コマ同じ値を付け直すと、入のときの着せ替えの見張りが毎コマ動いていた） */
+const setHidden = (e: HTMLElement, v: boolean) => {
+  if (e.hidden !== v) e.hidden = v;
+};
 const meetEl = h('button', 'isl-meet');
 meetEl.type = 'button';
 meetEl.hidden = true;
@@ -2273,7 +2277,7 @@ function updateMarks() {
   const tapping = (s.flags.digMeet === 'tap' || s.flags.digMeet === 'open') && !s.digRun && !digOpen();
   const m = s.dig ? wasteMid(meetSite()) : null;
   const showMeet = !busy && !!m && (meetPing || (tapping && !pop)) && !sheetOpen();
-  meetEl.hidden = !showMeet;
+  setHidden(meetEl, !showMeet);
   if (showMeet && m) {
     const ping = meetPing;
     meetEl.classList.toggle('is-tap', !ping);
@@ -2288,7 +2292,7 @@ function updateMarks() {
   const home = digMet(s) ? chiefHome(s) : null;
   const chief = s.dig ? chiefOf(s.dig.sector) : null;
   const showChief = !busy && !!home && chief != null && !sheetOpen() && !s.digRun && !(pop && home && pop[0] === home.i && pop[1] === home.j);
-  chiefEl.hidden = !showChief;
+  setHidden(chiefEl, !showChief);
   if (!showChief || !home || chief == null) return;
   const ready = canPresent(s);
   const key = `${chief}|${ready}|${isEn}`;
@@ -2376,7 +2380,7 @@ function markEl(m: MapMark): HTMLElement {
 }
 function updateIssues(now: number) {
   const busy = !!placing || !!tour || overviewOn() || digOpen() || !!s.digRun || sheetOpen() || !marksOn(s);
-  issueEl.hidden = busy;
+  setHidden(issueEl, busy);
   if (busy) return;
   // 中身はいまの状態から（1 日ごと・0.5 秒に 1 回まで）。直れば消える
   if (now - issueAt > 500) {
@@ -2950,7 +2954,7 @@ function updatePoint() {
   const what = pointOf(tutStep());
   const b = what === 'workshop' ? myWorkshop(s) : what === 'shop' ? myShops(s)[0] : undefined;
   const show = !!b && !placing && !pop && !sheetOpen() && !root.querySelector('.isl-modal');
-  pointEl.hidden = !show;
+  setHidden(pointEl, !show);
   if (!show || !b) return;
   const x = ((b.i - b.j) * 100 - cam.x) * cam.zoom + W / 2;
   const y = ((b.i + b.j) * 55 - cam.y) * cam.zoom + H / 2;

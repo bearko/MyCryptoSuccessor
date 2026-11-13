@@ -2,6 +2,8 @@
  * 段 UIX1a：UI の上の効果（上掛けの canvas 1 枚。docs/ISLAND_UIX.md）：金貨・火花・紙ふぶき・押した印・網目の幕。
  * 手触りラボ C（public/uixlab/c/js/fx.js・ui.js の Wipe）の値をそのまま移した。粒は 2px の格子に乗せ、重いときは数を自動で減らす（loop.ts の quality）。
  * 動かすものが無いあいだは描かない（rAF も回さない）。地図の canvas（#isl-map）には触らない。
+ * 段 UIX4a：動かすものが無いあいだは、canvas そのものも隠す（hidden）。隠さないと、画面いっぱいの透明な層が 1 枚残り、
+ * 走査線の流れる帯が動くたびに重ね直しになる（2 倍の画面・1280 で 1 コマ 3ms ほど重かった）。幕の札（.ux-wipe-label）も、幕が晴れたら字を消して隠す。
  */
 import { later, loop, quality } from './loop';
 import { isCalm } from './prefs';
@@ -42,6 +44,8 @@ export function initFx(): HTMLCanvasElement {
   cv.className = 'ux-fx';
   cv.setAttribute('aria-hidden', 'true');
   ctx = cv.getContext('2d');
+  // 動かすものが無いあいだは隠す（wake で出す）
+  cv.hidden = true;
   document.body.append(cv);
   size();
   addEventListener('resize', size);
@@ -67,14 +71,18 @@ function tick(dtMs: number) {
   if (!parts.length && !wipeDraw) {
     // 動かすものが無くなったら、止める（待機のときの負荷は 0）
     ctx.clearRect(0, 0, vw(), vh());
+    cv.hidden = true;
     off?.();
     off = null;
   }
 }
 function wake() {
   if (!cv) initFx();
+  if (cv) cv.hidden = false;
   if (!off) off = loop.add(tick);
 }
+/** 上掛けの canvas が出ているか（確かめ用。動かすものが無いあいだは隠れている） */
+export const fxShown = () => !!cv && !cv.hidden;
 function push(p: Part) {
   if (parts.length >= MAX_PARTS) {
     p.end?.();
@@ -371,6 +379,9 @@ export function wipe(origin: Pt, mid?: () => void, o: WipeOpts = {}): Promise<vo
         if (k >= 1) {
           alive = false;
           wipeBusy = false;
+          // 札の字を消す（空の札は CSS で隠れる：層を残さない）
+          lab.classList.remove('is-on');
+          lab.textContent = '';
           res();
         }
       }

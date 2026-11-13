@@ -382,10 +382,15 @@ export function openTogether(ctx: Ctx, title: string, opens: (() => void)[], foc
       body.classList.add('isl-together');
       const jump = h('div', 'isl-part-jump');
       const secs: HTMLElement[] = [];
+      // 段 UIX4a：新しい画面（入）では、部分の箱を先に画面へ入れてから描く（「画面に入っていなければ描かない」描き方の画面が、空にならないように）。
+      // 切のときは今までどおり（描いてから並べる）
+      const live = document.documentElement.classList.contains('is-uxc');
+      if (live) body.append(jump);
       parts.forEach((p, k) => {
         const sec = h('section', 'isl-part');
         sec.dataset.part = String(k);
         sec.append(h('h3', 'isl-part-title', p.title));
+        if (live) body.append(sec);
         p.render(sec);
         secs.push(sec);
         if (k > 0) {
@@ -393,7 +398,7 @@ export function openTogether(ctx: Ctx, title: string, opens: (() => void)[], foc
           jump.append(b);
         }
       });
-      body.append(jump, ...secs);
+      if (!live) body.append(jump, ...secs);
       // 段 UIX3b：新しい画面（入のときだけ）：見出しの貼り札・区切り・開いた所へ送る動き
       uxb.together?.(body, focus);
     },

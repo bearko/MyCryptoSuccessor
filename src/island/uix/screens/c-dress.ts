@@ -9,7 +9,7 @@
 import { t } from '../../../i18n';
 import { el } from '../dom';
 import { sparks } from '../fx';
-import { UX_ICONS, uxIcon } from '../icons';
+import { EMOJI_DOT, hasIcon, uxIcon } from '../icons';
 import { loop } from '../loop';
 import { typeInto, uxLamp, uxTape, type Typing } from '../parts';
 import { isCalm } from '../prefs';
@@ -20,83 +20,8 @@ import { M_ICONS, mIcon } from './micons';
 import { S_ICONS, sIcon } from './s-icons';
 import './c-skin.css';
 
-/** 絵文字 → ドットの絵の名前（土台 icons.ts・上と下の帯の micons.ts・工房と報告の s-icons.ts の絵を使う。仮の絵は docs/ISLAND_ART_TODO.md） */
-export const EMOJI_ICO: Record<string, string> = {
-  '⏩': 'ff',
-  '⏸': 'pause',
-  '👑': 'crown',
-  '🏆': 'crown',
-  '🏅': 'crown',
-  '📜': 'mail',
-  '📩': 'mail',
-  '✉': 'mail',
-  '🏪': 'shop',
-  '🏬': 'shop',
-  '🔒': 'lock',
-  '🔓': 'unlock',
-  '⛏': 'pick',
-  '📍': 'pin',
-  '⚠': 'warn',
-  '🔥': 'fire',
-  '🎯': 'flag',
-  '🚩': 'flag',
-  '🌱': 'flag',
-  '👆': 'up',
-  '☝': 'up',
-  '👈': 'left',
-  '✔': 'check',
-  '✅': 'check',
-  '📦': 'box',
-  '🌐': 'globe',
-  '🌍': 'globe',
-  '🗺': 'compass',
-  '🧭': 'compass',
-  '🧾': 'receipt',
-  '🔨': 'hammer',
-  '🏗': 'crane',
-  '🏭': 'hammer',
-  '🛒': 'cart',
-  '🛍': 'cart',
-  '🛃': 'gate',
-  '🤝': 'tag',
-  '💡': 'bulb',
-  '💴': 'coin',
-  '💰': 'coin',
-  '🪙': 'coin',
-  '💬': 'bubble',
-  '😴': 'zzz',
-  '⬆': 'up',
-  '⬇': 'down',
-  '📣': 'horn',
-  '⭐': 'star',
-  '🌟': 'star',
-  '✨': 'star',
-  '🎁': 'star',
-  '🎉': 'star',
-  '📰': 'list',
-  '📖': 'list',
-  '📋': 'list',
-  '👤': 'person',
-  '👥': 'people',
-  '💼': 'folder',
-  '📁': 'folder',
-  '🏛': 'office',
-  '🏠': 'shop',
-  '🏚': 'warn',
-  '🚚': 'truck',
-  '⚙': 'gear',
-  '🔧': 'wrench',
-  '🔍': 'compass',
-  '📊': 'list',
-  '📈': 'up',
-  '📉': 'down',
-  '🎵': 'note',
-  '🔔': 'horn',
-  '⚡': 'bolt',
-  '⚖': 'scales',
-  '🧪': 'flask',
-  '🎧': 'headset',
-};
+/** 絵文字 → ドットの絵の名前（段 UIX4a：全段で 1 つの表 EMOJI_DOT。土台 icons.ts） */
+export const EMOJI_ICO: Record<string, string> = EMOJI_DOT;
 const KEYS = Object.keys(EMOJI_ICO).sort((a, b) => b.length - a.length);
 /** 絵文字を探す（うしろの異体字の印 U+FE0F も一緒に取る） */
 export const EMOJI_RE = new RegExp(`(${KEYS.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\uFE0F?`, 'u');
@@ -114,12 +39,13 @@ export function splitByEmoji(text: string): { text: string; ico?: string }[] {
   if (rest) out.push({ text: rest });
   return out;
 }
-/** 絵の名前から canvas を作る（3 つの絵の表から探す） */
+/** 絵の名前から canvas を作る（上と下の帯 → 工房と報告 → 土台と登録した段の表） */
 function iconOf(name: string, color: string): HTMLCanvasElement {
   const o = { color, hi: color, lo: color === '#1a1c2e' ? '#8a7f5c' : '#0b0d17', scale: 1, cls: 'uxc-emo' };
   if (M_ICONS.includes(name)) return mIcon(name, o);
   if (S_ICONS.includes(name)) return sIcon(name, o);
-  return uxIcon(UX_ICONS.includes(name) ? name : 'star', o);
+  // 土台と、登録した段の絵の表（段 UIX4a）。どこにも無ければ星
+  return uxIcon(hasIcon(name) ? name : 'star', o);
 }
 /** 字の色の明るさ（暗い字＝紙の上：墨の絵。明るい字＝板の上：紙の色の絵） */
 function inkOf(e: Element): string {
@@ -353,6 +279,12 @@ export const DRESS_SEL = [
 /** 主役のボタン（前の層に出す 1 つ）：建てるモードの「建てる」・窓の主のボタン・マインちゃんの一言の先のボタン */
 export const FRONT_PICK = ['.isl-place-bar .isl-btn.is-on.is-big', '.isl-modal.ux-modal--plain .isl-btn.is-on', '.isl-advisor .isl-btn.is-on'];
 
+/** 見張りの記録が、本当に何かを変えたか（属性は、古い値と今の値が同じなら変わっていない：hidden を同じ値で付け直したなど） */
+export function changedRec(r: { type: string; oldValue: string | null; attributeName: string | null; target: unknown }): boolean {
+  if (r.type !== 'attributes' || !r.attributeName) return true;
+  const now = (r.target as Element).getAttribute?.(r.attributeName) ?? null;
+  return now !== r.oldValue;
+}
 export function installDress(root: HTMLElement) {
   let queued = false;
   const seenTrophy = new WeakSet<Element>();
@@ -467,5 +399,9 @@ export function installDress(root: HTMLElement) {
     queueMicrotask(run);
   };
   run();
-  if (typeof MutationObserver === 'function') new MutationObserver(kick).observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'hidden'] });
+  // 段 UIX4a：値の変わらない書き直し（毎コマ hidden を付け直す所がある）では動かない。古い値と今の値をくらべて、変わった記録があるときだけ
+  if (typeof MutationObserver === 'function')
+    new MutationObserver((recs) => {
+      if (recs.some(changedRec)) kick();
+    }).observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'hidden'] });
 }

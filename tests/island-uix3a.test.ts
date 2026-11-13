@@ -13,7 +13,14 @@ import { KIND_ORDER, PICK_STAMP_MS, extOrder, heroTap, preselect } from '../src/
 import { S_ICONS } from '../src/island/uix/screens/s-icons';
 import { uxsBoot } from '../src/island/uix/screens/s-slots';
 import { MINE_SIZE, lightTalk, richParts, speakerOf, tapAct, voiceOf } from '../src/island/uix/screens/talk';
-import { UX_ICONS } from '../src/island/uix/icons';
+import { UX_ICONS, hasIcon } from '../src/island/uix/icons';
+// 段 UIX4a：入のときは、新しい画面の束（s-boot）が段の絵の表を全部登録する。ここでも同じにする
+import '../src/island/uix/screens/micons';
+import '../src/island/uix/screens/s-icons';
+import '../src/island/uix/screens/w-icons';
+import '../src/island/uix/screens/b-icons';
+import '../src/island/uix/screens/k-icons';
+import '../src/island/uix/screens/h-icons';
 import { FRONT_SEL } from '../src/island/uix/front';
 import { KEY_ATTR, SWALLOW_MS, SWALLOW_PX, innerKey, swallowHit } from '../src/island/uix/parts';
 import { UXP_DRAWER_IN_MS, UXP_DRAWER_OUT_MS, UXP_STAMP_MS, UXP_TAB_MS, uxpGapRatio, uxpGapText, uxpNiceMax, uxpShort } from '../src/island/uix/sparts';
@@ -311,9 +318,9 @@ describe('選ぶ引き出し', () => {
 });
 
 describe('今の要素のまま着せ替える画面（お知らせ・窓・チュートリアル ほか）', () => {
-  it('絵文字 → ドットの絵：表の絵は、どれも 3 つの絵の表のどこかにある', () => {
+  it('絵文字 → ドットの絵：表の絵は、どれも描ける（3 つの絵の表か、段 UIX4a で登録した段の絵の表のどこかにある）', () => {
     const all = new Set([...UX_ICONS, ...M_ICONS, ...S_ICONS]);
-    for (const [e, name] of Object.entries(EMOJI_ICO)) expect(all.has(name), `${e} → ${name}`).toBe(true);
+    for (const [e, name] of Object.entries(EMOJI_ICO)) expect(all.has(name) || hasIcon(name), `${e} → ${name}`).toBe(true);
   });
   it('字を、絵文字とそれ以外に分ける（知らない絵文字は字のまま。異体字の印も一緒に取る）', () => {
     expect(splitByEmoji('工事中だよ。右上の ⏩ で早送り')).toEqual([{ text: '工事中だよ。右上の ' }, { text: '⏩', ico: 'ff' }, { text: ' で早送り' }]);
@@ -368,7 +375,8 @@ describe('お知らせ：管制卓の信号の帯', () => {
   });
   it('上の帯を隠さない：札・窓を開いているあいだも、上の帯のすぐ下', () => {
     const legacy = src('uix/legacy.ts');
-    expect(legacy).toMatch(/return hud && hud\.height \? hud\.bottom \+ 6 : y;/);
+    // （段 UIX4a：選ぶ引き出しの見出しもよけるため、いったん top に入れてから返す）
+    expect(legacy).toMatch(/if \(hud && hud\.height\) top = hud\.bottom \+ 6;/);
     expect(legacy).not.toMatch(/\? 8 : y\)/);
   });
   it('せまい画面：帯が出ているあいだ、ミッションの札は見出しだけにたたんで下へよける（クリアの印が出ているあいだは、たたまない）', () => {

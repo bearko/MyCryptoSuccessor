@@ -25,6 +25,12 @@ export const wipeLabel = (title: string) => {
   return c.length > 10 ? c.slice(0, 10).join('') + '…' : c.join('');
 };
 
+/** お知らせを、見出し（head）に重ねない位置へ：上端 y・高さ h のお知らせが見出しにかかるなら、見出しのすぐ下へ（段 UIX4a） */
+export function toastClear(y: number, h: number, head: { top: number; bottom: number }): number {
+  const hh = Math.max(40, h);
+  return y < head.bottom && y + hh > head.top ? Math.round(head.bottom + 6) : y;
+}
+
 /**
  * 閉じるのを、幕が閉じきるまで待つ：play(mid) の mid で fn を呼ぶ（そのあいだに別の経路で消えていたら呼ばない）。
  * 同じ札で 2 回目に呼ばれたら何もしない（✕ の連打・外側の押し直し）
@@ -149,9 +155,16 @@ export function installLegacy() {
   // 段 UIX3a：札・窓を開いているあいだも、上の帯（資金・速さのキー）は隠さない：帯のすぐ下に出す（札の見出しには重なる）
   ux.toastTop = (y) => {
     const ui = root();
-    if (!ui?.querySelector(':scope > .isl-sheet, :scope > .isl-modal')) return y;
-    const hud = (ui.querySelector('.uxm-hud') ?? ui.querySelector('.isl-hud'))?.getBoundingClientRect();
-    return hud && hud.height ? hud.bottom + 6 : y;
+    if (!ui) return y;
+    let top = y;
+    if (ui.querySelector(':scope > .isl-sheet, :scope > .isl-modal')) {
+      const hud = (ui.querySelector('.uxm-hud') ?? ui.querySelector('.isl-hud'))?.getBoundingClientRect();
+      if (hud && hud.height) top = hud.bottom + 6;
+    }
+    // 段 UIX4a：選ぶ引き出しが開いているときは、その見出し（名前と ✕）に重ねない
+    const head = document.querySelector('.uxp-drawer:not(.is-out) .uxp-drawer-head')?.getBoundingClientRect();
+    const h = ui.querySelector<HTMLElement>(':scope > .isl-toasts')?.offsetHeight ?? 0;
+    return head && head.height ? toastClear(top, h, head) : top;
   };
 
   // ---- 承認のボタン → レバー

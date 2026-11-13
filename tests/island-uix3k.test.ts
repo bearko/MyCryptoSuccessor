@@ -8,7 +8,14 @@ import { uxsDeps } from '../src/island/p1/uxs';
 import { EDGES, POS } from '../src/island/p1/treelayout';
 import { SKILLS } from '../src/island/p1/data';
 import { FRONT_SEL } from '../src/island/uix/front';
-import { UX_ICONS } from '../src/island/uix/icons';
+import { UX_ICONS, hasIcon } from '../src/island/uix/icons';
+// 段 UIX4a：入のときは、新しい画面の束（s-boot）が段の絵の表を全部登録する。ここでも同じにする
+import '../src/island/uix/screens/micons';
+import '../src/island/uix/screens/s-icons';
+import '../src/island/uix/screens/w-icons';
+import '../src/island/uix/screens/b-icons';
+import '../src/island/uix/screens/k-icons';
+import '../src/island/uix/screens/h-icons';
 import { K_ART, K_EMOJI, K_ICONS, headEmoji, noEmoji } from '../src/island/uix/screens/k-icons';
 import { uxk } from '../src/island/uix/screens/k-slots';
 import { S_ICONS } from '../src/island/uix/screens/s-icons';
@@ -83,7 +90,8 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
       expect(UX_ICONS, k).not.toContain(k);
     }
     const all = new Set([...UX_ICONS, ...K_ICONS, ...S_ICONS, ...W_ICONS]);
-    for (const [e, name] of Object.entries(K_EMOJI)) expect(all.has(name), `${e} → ${name}`).toBe(true);
+    // （段 UIX4a：絵文字の表は全段で 1 つになり、ほかの段の絵の名前も入る。kIcon は土台の口から、登録した段の表も引ける）
+    for (const [e, name] of Object.entries(K_EMOJI)) expect(all.has(name) || hasIcon(name), `${e} → ${name}`).toBe(true);
     expect(headEmoji('🔒 ブランド力 30 が要る')).toEqual(['lock', 'ブランド力 30 が要る']);
     expect(headEmoji('ふつうの文')).toEqual([null, 'ふつうの文']);
     expect(noEmoji('🔬 研究の施策')).toBe('研究の施策');

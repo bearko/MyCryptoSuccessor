@@ -6,6 +6,7 @@
  */
 import { S_ICONS, sIcon } from './s-icons';
 import { wIcon } from './w-icons';
+import { uxArt } from '../icons';
 
 export const B_ART: Record<string, string[]> = {
   // 歩く人（買い付けの行き帰り・お客さん）
@@ -38,6 +39,8 @@ export const B_ART: Record<string, string[]> = {
 const PAL: Record<string, string> = { a: '#ffb81f', r: '#ff5964', g: '#36e08b', c: '#5fe4ff', w: '#fffdf3', k: '#0b0d17' };
 /** この段で足したアイコンの名前 */
 export const B_ICONS = Object.keys(B_ART);
+/** 土台の部品の ico からも引けるように登録する（段 UIX4a） */
+uxArt(B_ART, 4);
 export interface BIconOpts {
   color?: string;
   hi?: string;

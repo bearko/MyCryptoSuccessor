@@ -4,7 +4,7 @@
  * 上と下の帯の段の絵（micons.ts）と同じ絵も、ここに写して持つ：micons.ts を読むと、帯の束とこの束のあいだに共有の束ができ、事前に保存する一覧が変わるため。
  * 記号： . 透明 / # 主の色 / + 明るい色 / - 暗い色 / a 金 / r 赤 / g 緑 / c 水色 / w 白 / k 黒
  */
-import { uxIcon } from '../icons';
+import { uxArt, uxIcon } from '../icons';
 
 export interface IcoOpts {
   color?: string;
@@ -45,6 +45,8 @@ export const W_ART: Record<string, string[]> = {
 };
 /** この段で足したアイコンの名前 */
 export const W_ICONS = Object.keys(W_ART);
+/** 土台の部品の ico からも引けるように登録する（段 UIX4a） */
+uxArt(W_ART, 3);
 const PAL: Record<string, string> = { a: '#ffb81f', r: '#ff5964', g: '#36e08b', c: '#5fe4ff', w: '#fffdf3', k: '#0b0d17' };
 /** アイコンの canvas（足した絵。無ければ土台の絵）。scale：1 画素を何 CSS px にするか（rem で伸びる） */
 export function wIcon(name: string, o: IcoOpts = {}): HTMLCanvasElement {

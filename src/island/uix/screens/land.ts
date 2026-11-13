@@ -9,6 +9,7 @@
  */
 import { t } from '../../../i18n';
 import { el, type Kid } from '../dom';
+import { EMOJI_DOT } from '../icons';
 import { later } from '../loop';
 import { rollNumber, uxKey, uxLamp, uxLever, uxMeter, uxTape, type LampKind } from '../parts';
 import { isCalm } from '../prefs';
@@ -602,7 +603,8 @@ export function openSectorCardUx(v: SectorCardView) {
 
 // ---------------------------------------------------------------- 地図の上の札（縮小の札・境界の名前・吹き出し）の着せ替え
 
-const EMOJI_ICO: Record<string, string> = { '👑': 'crown', '📍': 'pin', '🔒': 'lock', '📦': 'box', '📜': 'mail', '🗺': 'compass', '🏪': 'shop', '🔥': 'fire', '💴': 'coin', '🏚': 'warn', '🏗': 'hammer', '⚠': 'warn', '⛏': 'pick', '💣': 'bomb', '⏱': 'clock', '📅': 'cal', '🔩': 'drill', '📖': 'book', '💥': 'fire' };
+/** 絵文字 → ドットの絵（段 UIX4a：全段の表 EMOJI_DOT に、この段だけの絵を重ねる） */
+const EMOJI_ICO: Record<string, string> = { ...EMOJI_DOT, '🏗': 'hammer', '📖': 'book', '💥': 'fire' };
 /** 文の中の絵文字を、ドットの絵に替える（知らない絵文字は外す）。root の中の文字だけを書き換える（要素・聞き手はそのまま） */
 export function swapEmoji(root: HTMLElement, color = '#1a1c2e') {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
