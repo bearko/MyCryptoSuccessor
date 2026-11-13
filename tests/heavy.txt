@@ -1,0 +1,14 @@
+# 重いテスト（CI で 1 ファイル 30 秒をこえるもの。2026-11 の計測）
+# PR では「その PR が触ったファイルに関係するとき」だけ回す（vitest --changed）。全部は毎晩の Nightly で回す。
+# 1 行に 1 ファイル。# の行は読まない。足したり外したりするときは、CI の記録の所要時間を見て決める。
+tests/island-p1-ui9b.test.ts
+tests/island-p1-audit.test.ts
+tests/island-p1-epic.test.ts
+tests/island-p1-stagei2.test.ts
+tests/island-p1-stagek.test.ts
+tests/island-p1-ui9.test.ts
+tests/island-p1-ui7h.test.ts
+tests/island-p1-legal.test.ts
+tests/island-p1-dig.test.ts
+tests/island-p1-ui7e.test.ts
+tests/island-p1-acct.test.ts

@@ -1,7 +1,14 @@
 name: CI
 
-# 本番のブランチへの PR と push で、型チェック・テスト・英訳の確認・ビルドを回す。
+# 本番のブランチへの PR と push で、型チェック・テスト・英訳の確認・絵の確認・ビルドを回す。
 # 公開は Cloudflare Workers Builds が本番のブランチへのマージで行う（ここではしない）。
+#
+# 待ち時間を短くするため、分けて同時に回す（public のリポジトリなので何台並べても無料）：
+#   - quick：型チェック・英訳・絵・ビルド（30 秒ほど）
+#   - test-light：軽いテスト（tests/heavy.txt に無いもの）を 4 台に分ける
+#   - test-heavy：重いテスト（tests/heavy.txt）。PR・push では、変わったファイルに関係するものだけ（vitest --changed）。
+#                 手で動かしたとき（workflow_dispatch）は全部。全部は毎晩 Nightly（nightly.yml）でも回す
+#   - ci-ok：上の全部が通ったかをまとめる。main の必須チェックはこれ 1 つ（台数を変えても設定を直さずに済む）
 on:
   pull_request:
     branches: [main]
@@ -17,8 +24,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  quick:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,9 +36,70 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # sync-assets（素材の同期）は pretest・prebuild で走る。typecheck は生成カタログを読むので test のあとに
-      - run: npm test
-      - run: npm run pixel:lint
+      # 素材の同期（生成カタログも作る。typecheck はそれを読む）
+      - run: node scripts/sync-assets.mjs
       - run: npm run typecheck
       - run: npm run i18n:check
+      - run: npm run pixel:lint
       - run: npm run build
+
+  test-light:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/sync-assets.mjs
+      - name: 軽いテスト（${{ matrix.shard }} / 4）
+        run: scripts/test-tier.sh light ${{ matrix.shard }}/4
+
+  test-heavy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/sync-assets.mjs
+      - name: 重いテスト（${{ matrix.shard }} / 3）
+        env:
+          # PR は PR の基点から、push は push の前から変わったファイルに関係するものだけ。手で動かしたときは全部
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+        run: |
+          case "$BASE" in 0000000000000000000000000000000000000000) BASE="";; esac
+          scripts/test-tier.sh heavy ${{ matrix.shard }}/3 "$BASE"
+
+  ci-ok:
+    if: always()
+    needs: [quick, test-light, test-heavy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 全部が通ったかをまとめる
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "結果：$RESULTS"
+          for r in $RESULTS; do
+            if [ "$r" != "success" ]; then echo "通っていないジョブがあります"; exit 1; fi
+          done
