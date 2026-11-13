@@ -12,7 +12,8 @@ import { H_ART, H_ICONS } from '../src/island/uix/screens/h-icons';
 import { K_ICONS } from '../src/island/uix/screens/k-icons';
 import { S_ICONS } from '../src/island/uix/screens/s-icons';
 import { W_ICONS } from '../src/island/uix/screens/w-icons';
-import { APT_ORDER, enterDelay, rankTone } from '../src/island/uix/screens/h-kit';
+import { APT_ORDER, aptPx, aptTicks, enterDelay, rankTone } from '../src/island/uix/screens/h-kit';
+import { RANKS, RANK_AT } from '../src/island/p1/heroui';
 import { APPRENTICES, newlyPut, slotKey } from '../src/island/uix/screens/staff';
 import { MORALE_LAMP, diffWord, markAt } from '../src/island/uix/screens/hr';
 import { DUO_ICO, LESSON_ICO, PROMO_FLIP_MS, RELEASE_MS } from '../src/island/uix/screens/hero';
@@ -121,6 +122,22 @@ describe('共通の道具（ヒーローの札・段の札・ランクの札・�
   it('能力の棒は、今のレーダーと同じ 6 つの仕事を同じ順で', () => {
     expect(APT_ORDER).toEqual(['buy', 'craft', 'transport', 'shop', 'intel', 'explore']);
     expect(src('p1/heroui.ts')).toContain("const RADAR: Task[] = ['buy', 'craft', 'transport', 'shop', 'intel', 'explore'];");
+  });
+  it('能力の棒：0〜100 の同じ尺度で底の線から伸び、ランクの境目（本体の RANK_AT）に目盛りの線と字。ランクと数は各棒のすぐ上', () => {
+    expect(aptTicks(RANKS, RANK_AT)).toEqual(RANK_AT.map((at, k) => ({ r: RANKS[k + 1], at })));
+    expect(aptTicks(RANKS, RANK_AT).map((x) => x.r)).toEqual(['F', 'E', 'D', 'C', 'B', 'A', 'S']);
+    // 高さは値に比例（2px の升目）。42 と 43 も同じ尺度で、境目の線とくらべて読める
+    expect(aptPx(0, 200)).toBe(0);
+    expect(aptPx(50, 200)).toBe(100);
+    expect(aptPx(100, 200)).toBe(200);
+    expect(aptPx(140, 200)).toBe(200);
+    expect(aptPx(0.1, 200)).toBe(2);
+    expect(aptPx(43, 200)).toBeGreaterThanOrEqual(aptPx(42, 200));
+    const kit = src('uix/screens/h-kit.ts');
+    expect(kit).toContain("el('span.uxh-apt-v', { style: { bottom: `${px + 2}px` } }");
+    expect(kit).toContain("el('i.uxh-apt-bar', { style: { height: `${px}px` } })");
+    expect(kit).toContain('aptTicks(H.RANKS, H.RANK_AT)');
+    expect(noComment(src('uix/screens/h-screens.css'))).toMatch(/\.uxh-apt-plot \{[^}]*border-bottom: 2px solid/);
   });
   it('ランクの組（色だけにしない：字と数を必ず出す）', () => {
     expect(rankTone('S')).toBe('top');

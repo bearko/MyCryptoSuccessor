@@ -524,7 +524,7 @@ My Crypto Successor の UI・部品・動きを作り直すための決まりと
 - **差し込み**：口は `h-slots.ts`（`uxh`。型だけ。入れ物は `uix/hooks.ts` の `uxhSlots`）、本体の関数の束は `p1/uxh.ts`（`uxsDeps.h`。法務の関数は `legal` の下にまとめ、画面では `L` で使う）、中身を入れるのは `h-boot.ts`（`s-boot.ts` の `install()` から）。本体の入口は関数の頭の 1 行だけ（`openStaff`・`openHire`・`openCharisma`・`openPayroll`・`openGrowth`・`playPromotion`・`openLessons`・`lessonPopEl`・`openTrophies`・`trophyEl`・`openMuseum`・`openLegalMA`・`openContract`・`openPatents`・`openSuits`・`openDiplo`・`openDev`・`openMA`・`openMapSet`・`rpStackEl`・`studyEl`）。
 - **地図の表示**の項目と切り替え（`p1/mapsetui.ts`）は、`openMapSet` から呼ぶときに渡す：`p1/uxh.ts` がこのファイルを読むと、地図の表示の CSS が本体の CSS の中で前へ移り、本体の CSS の名前（ハッシュ）が変わるため。
 - **器は今の札**（`open()`・`keep`）：1 回だけ組み、描き直しは中身を差し替える（`h-kit.ts` の `keepOpen`・`liveDraw`）。まとめた画面（人事の「ヒーローの配置」＝配置・組織図・バイト など）の中では、描き直しのたびに新しい箱で呼ばれるので、入る動きはその札で 1 回だけ。打つ札（配置・採用・展示）は、前の値を外に覚えて比べる。
-- **ヒーローの札**はどの画面でも同じ形（顔の窓・名前・段の札（レアリティ：色の帯と字 N〜LL）・Lv・いちばん向いている仕事とランクの札（G〜S と数））。能力は、今のレーダーと同じ 6 つの仕事の縦の棒（いちばん向いている仕事は琥珀）。
+- **ヒーローの札**はどの画面でも同じ形（顔の窓・名前・段の札（レアリティ：色の帯と字 N〜LL）・Lv・いちばん向いている仕事とランクの札（G〜S と数））。能力は、今のレーダーと同じ 6 つの仕事の縦の棒：0〜100 の同じ尺度で底の線から伸び、ランクの境目（本体の `RANK_AT`：F 30・E 42・D 55・C 62・B 69・A 77・S 85）に横の細い点線とランクの字（左右の余白に互い違い）、各棒のすぐ上にランクと数、下に仕事の名前（2 段に互い違い）。いちばん向いている仕事は琥珀。
 
 | 画面 | 入のとき |
 |---|---|

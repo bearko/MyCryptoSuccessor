@@ -35,7 +35,7 @@ import { DUOS, condName, duoDex, duoFoundN, duosOfHero, fxText, kindName } from 
 import { LESSON_COLOR, LESSON_TYPES, fxLine, lessonCounts, lessonDex, lessonLive, lessonText, lessonTypeName } from './lesson';
 import { CHARISMA, HERO_RARITY, HIRE_RARITIES, MORALE, PAY, SALARY, TASKS, aptitude } from './data';
 import { capAt, charismaLine, charismaOf, charismaParts, cutPay, hireCap, hireEmptyLines, marketPay, marketStep, moraleAvg, moraleBand, moraleMul, moraleOf, payOf, payStep, payroll, quitLeft, stepWage, talk, wantsToQuit } from './hr';
-import { RANKS, TASK_NAME, aptShow, jobLabel, rankOf } from './heroui';
+import { RANKS, RANK_AT, TASK_NAME, aptShow, jobLabel, rankOf } from './heroui';
 import { MAX_HAULERS, assign, bonus, bonusCost, has, heroStats, hire, myShops, raise, setRest, signFee, staffOf, wageMul, wageOf } from './model';
 import { rolesCard } from './delegui';
 import { BAND_NAME, charismaNeeds, gapText, openPayroll, partsText, rarityHow } from './hrui';
@@ -54,6 +54,7 @@ export const uxhDeps = {
   heroRarityOf,
   hireEmptyLines,
   RANKS,
+  RANK_AT,
   TASK_NAME,
   aptShow,
   jobLabel,

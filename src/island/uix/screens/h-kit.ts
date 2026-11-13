@@ -10,7 +10,7 @@ import { el, type Kid } from '../dom';
 import { uxIcon } from '../icons';
 import { isCalm } from '../prefs';
 import { uxTape } from '../parts';
-import { uxpBars, uxpCard, uxpEmpty, uxpFace, uxpHead, type CardOpts } from '../sparts';
+import { uxpCard, uxpEmpty, uxpFace, uxpHead, type CardOpts } from '../sparts';
 import { H } from './h-deps';
 import { H_ART } from './h-icons';
 import { kIcon } from './k-icons';
@@ -89,19 +89,47 @@ export function bestTask(stats: Stats, keys?: Task[]): { key: Task; name: string
   const best = list.reduce((a, k) => (H.aptitude(stats, k.key) > H.aptitude(stats, a.key) ? k : a), list[0]);
   return { key: best.key, name: best.name, apt: H.aptitude(stats, best.key) };
 }
+/** ランクの目盛り（本体の決まり：RANK_AT の下限で F・E・D・C・B・A・S に替わる）。下から順 */
+export function aptTicks(ranks: readonly string[], at: readonly number[]): { r: string; at: number }[] {
+  return at.map((v, k) => ({ r: ranks[k + 1], at: v }));
+}
+/** 値 → 棒の高さ（px。0〜100 を同じ尺度で、2px の升目に乗せる。値があれば 2px は出す） */
+export const aptPx = (v: number, h: number) => (v <= 0 ? 0 : Math.max(2, Math.round((Math.min(100, v) / 100) * (h / 2)) * 2));
 /**
- * 能力の縦の棒（今のレーダーと同じ情報：仕事 6 つの名前・ランク・数。図の上は 100 で頭打ち）。いちばん向いている仕事は琥珀。
- * 棒の上に「ランク 数」、下に仕事の名前
+ * 能力の縦の棒（今のレーダーと同じ情報：仕事 6 つの名前・ランク・数。図の上は 100 で頭打ち）。
+ * 0〜100 の同じ尺度で、底の線から伸ばす。横の細い線とランクの字（左右の余白に互い違い）で、ランクの境目（本体の RANK_AT）の目盛り。
+ * 各棒のすぐ上に「ランク 数」、下に仕事の名前（せまい幅でも読めるよう、名前は 2 段に互い違い）。いちばん向いている仕事は琥珀
  */
 export function aptBars(stats: Stats, o: { height?: number; auto?: boolean } = {}) {
+  const H0 = o.height ?? 200;
   const vals = APT_ORDER.map((k) => H.aptitude(stats, k));
   const top = Math.max(...vals);
-  const bars = uxpBars(
-    APT_ORDER.map((k, i) => ({ label: H.TASK_NAME[k], value: Math.max(1, Math.min(100, Math.round(vals[i]))), text: `${H.rankOf(vals[i])} ${H.aptShow(vals[i])}`, kind: vals[i] === top ? ('main' as const) : ('' as const) })),
-    { max: 100, height: o.height ?? 136, auto: o.auto, cls: 'uxh-apt' },
+  const ticks = el(
+    'span.uxh-apt-ticks',
+    { 'aria-hidden': 'true' },
+    // 字は左右の余白に互い違い（境目が近い所でも重ならない）
+    aptTicks(H.RANKS, H.RANK_AT).map((x, k) => el(`span.uxh-apt-tick${k % 2 ? '.is-r' : ''}`, { style: { bottom: `${aptPx(x.at, H0)}px` } }, el('b.ux-num.uxh-apt-tr', x.r), el('i.uxh-apt-tl'))),
   );
-  bars.el.setAttribute('aria-label', APT_ORDER.map((k, i) => `${H.TASK_NAME[k]} ${H.rankOf(vals[i])} ${H.aptShow(vals[i])}`).join(' / '));
-  return bars;
+  const cols = APT_ORDER.map((_k, i) => {
+    const v = vals[i];
+    const px = aptPx(Math.max(0, Math.round(v)), H0);
+    return el(
+      `span.uxh-apt-col${v === top ? '.is-main' : ''}`,
+      el('i.uxh-apt-bar', { style: { height: `${px}px` } }),
+      el('span.uxh-apt-v', { style: { bottom: `${px + 2}px` } }, el('b.ux-num', H.rankOf(v)), el('span.ux-num', String(H.aptShow(v)))),
+    );
+  });
+  const names = APT_ORDER.map((k, i) => el(`span.uxh-apt-n${i % 2 ? '.is-low' : ''}`, el('span', H.TASK_NAME[k])));
+  const e = el(
+    'div.uxh-apt',
+    { role: 'img', 'aria-label': APT_ORDER.map((k, i) => `${H.TASK_NAME[k]} ${H.rankOf(vals[i])} ${H.aptShow(vals[i])}`).join(' / ') },
+    el('div.uxh-apt-plot', { style: { height: `${H0}px` } }, ticks, el('span.uxh-apt-cols', cols)),
+    el('div.uxh-apt-names', names),
+  );
+  const grow = () => e.classList.add('is-grown');
+  if (isCalm()) grow();
+  else if (o.auto !== false) requestAnimationFrame(() => requestAnimationFrame(grow));
+  return { el: e, grow };
 }
 
 // ---------------------------------------------------------------- ヒーローの札（どの画面でも同じ形）

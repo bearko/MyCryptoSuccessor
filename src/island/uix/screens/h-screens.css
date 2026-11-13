@@ -163,12 +163,146 @@ html.is-uxc #isl-ui .uxh-card.is-small .uxp-card-pic {
   min-width: 40px;
   min-height: 40px;
 }
-/* 能力の縦の棒（人事票） */
+/* 能力の縦の棒（人事票）：0〜100 の同じ尺度・底の線から伸びる・ランクの境目の目盛り（横の細い線と字）・棒のすぐ上にランクと数 */
 html.is-uxc #isl-ui .uxh-apt {
+  --uxh-apt-ink: var(--ux-paper);
+  --uxh-apt-dim: #6b76a8;
+  --uxh-apt-bar: var(--ux-k4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  color: var(--uxh-apt-ink);
+}
+html.is-uxc #isl-ui .uxp-paper .uxh-apt {
+  --uxh-apt-ink: var(--ux-ink);
+  --uxh-apt-dim: #8a7f5c;
+  --uxh-apt-bar: #5b5640;
+}
+html.is-uxc #isl-ui .uxh-apt-plot {
+  position: relative;
+  margin: 1.5rem 1.5rem 0;
+  border-bottom: 2px solid var(--uxh-apt-ink);
+}
+html.is-uxc #isl-ui .uxh-apt-ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxh-apt-tick {
+  position: absolute;
+  left: -1.5rem;
+  right: -1.5rem;
+  height: 0;
+}
+html.is-uxc #isl-ui .uxh-apt-tl {
+  position: absolute;
+  left: 1.5rem;
+  right: 1.5rem;
+  top: 0;
+  border-top: 2px dotted var(--uxh-apt-dim);
+}
+html.is-uxc #isl-ui .uxh-apt-tr {
+  position: absolute;
+  left: 0;
+  width: 1.25rem;
+  top: 0;
+  transform: translateY(-50%);
+  color: var(--uxh-apt-dim);
+  font-size: 1rem;
+  line-height: 1;
+  text-align: center;
+}
+html.is-uxc #isl-ui .uxh-apt-tick.is-r .uxh-apt-tr {
+  left: auto;
+  right: 0;
+}
+html.is-uxc #isl-ui .uxh-apt-cols {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  padding: 0 4px;
+}
+html.is-uxc #isl-ui .uxh-apt-col {
+  position: relative;
   min-width: 0;
 }
-html.is-uxc #isl-ui .uxh-apt .uxp-bar-v {
+html.is-uxc #isl-ui .uxh-apt-bar {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: 0;
+  background: var(--uxh-apt-bar);
+  box-shadow: inset 0 2px 0 0 rgba(255, 253, 243, 0.25), inset 0 0 0 2px rgba(11, 13, 23, 0.35);
+  transform: scaleY(0);
+  transform-origin: 50% 100%;
+}
+html.is-uxc #isl-ui .uxh-apt-col.is-main .uxh-apt-bar {
+  background: var(--ux-amber);
+  box-shadow: inset 0 2px 0 0 var(--ux-amber-hi), inset 0 0 0 2px var(--ux-amber-lo);
+}
+html.is-uxc #isl-ui .uxh-apt-v {
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 2px;
+  font-size: var(--ux-n15);
+  line-height: 1;
   white-space: nowrap;
+  opacity: 0;
+}
+html.is-uxc #isl-ui .uxh-apt-col.is-main .uxh-apt-v > b {
+  color: var(--ux-amber);
+  text-shadow: 1px 1px 0 var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxp-paper .uxh-apt-col.is-main .uxh-apt-v > b {
+  color: var(--ux-amber-lo);
+  text-shadow: none;
+}
+html.is-uxc #isl-ui .uxh-apt.is-grown .uxh-apt-bar {
+  transform: scaleY(1);
+  transition: transform 520ms steps(8, end);
+}
+html.is-uxc #isl-ui .uxh-apt.is-grown .uxh-apt-v {
+  opacity: 1;
+  transition: opacity 120ms steps(2, end) 420ms;
+}
+/* 仕事の名前：2 段に互い違い（となりの列の幅まで使えるので、英語の長い名前も切れない） */
+html.is-uxc #isl-ui .uxh-apt-names {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 1.5rem;
+  padding: 0 4px;
+  height: 2.75rem;
+}
+html.is-uxc #isl-ui .uxh-apt-n {
+  position: relative;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-apt-n > span {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  line-height: 1.25rem;
+}
+html.is-uxc #isl-ui .uxh-apt-n.is-low > span {
+  top: 1.375rem;
+}
+html.is-uxc #isl-ui .uxh-apt-n.is-low::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  height: 1.375rem;
+  border-left: 2px dotted var(--uxh-apt-dim);
 }
 /* 入る動き（はじめて開いたときだけ。順に 30ms ずつ） */
 html.is-uxc #isl-ui .uxh-in {
@@ -541,13 +675,6 @@ html.is-uxc #isl-ui .uxh-sheet-k {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-html.is-uxc #isl-ui .uxh-cand-back .uxp-bars {
-  --uxp-bar-ink: var(--ux-ink);
-}
-html.is-uxc #isl-ui .uxh-cand-back .uxp-bar-v,
-html.is-uxc #isl-ui .uxh-cand-back .uxp-bar-l {
-  color: var(--ux-ink);
 }
 html.is-uxc #isl-ui .uxh-cand-rows {
   display: flex;
@@ -1944,6 +2071,10 @@ html.is-uxc.is-calm .uxh-pf-box,
 html.is-uxc.is-calm #isl-ui .uxh-badge.is-hit,
 html.is-uxc.is-calm #isl-ui .uxh-ms.is-flip {
   animation: none;
+}
+html.is-uxc.is-calm #isl-ui .uxh-apt .uxh-apt-bar,
+html.is-uxc.is-calm #isl-ui .uxh-apt .uxh-apt-v {
+  transition: none;
 }
 html.is-uxc.is-calm #isl-ui .uxh-rp-bars .uxh-rp-bar {
   transform: none;
