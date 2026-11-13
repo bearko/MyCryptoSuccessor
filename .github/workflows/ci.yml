@@ -1,7 +1,12 @@
 name: CI
 
-# 本番のブランチへの PR と push で、型チェック・テスト・英訳の確認・ビルドを回す。
+# 本番のブランチへの PR と push で、型チェック・テスト・英訳の確認・絵の確認・ビルドを回す。
 # 公開は Cloudflare Workers Builds が本番のブランチへのマージで行う（ここではしない）。
+#
+# 待ち時間を短くするため、3 つに分けて同時に回す：
+#   - quick：型チェック・英訳・絵・ビルド（30 秒ほど）
+#   - test：テストを 4 台に分ける（vitest --shard）。public のリポジトリなので何台並べても無料
+#   - ci-ok：上の全部が通ったかをまとめる。main の必須チェックはこれ 1 つ（台数を変えても設定を直さずに済む）
 on:
   pull_request:
     branches: [main]
@@ -17,8 +22,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  quick:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,9 +34,44 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # sync-assets（素材の同期）は pretest・prebuild で走る。typecheck は生成カタログを読むので test のあとに
-      - run: npm test
-      - run: npm run pixel:lint
+      # 素材の同期（生成カタログも作る。typecheck はそれを読む）
+      - run: node scripts/sync-assets.mjs
       - run: npm run typecheck
       - run: npm run i18n:check
+      - run: npm run pixel:lint
       - run: npm run build
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/sync-assets.mjs
+      - name: テスト（${{ matrix.shard }} / 4）
+        run: npx vitest run --shard=${{ matrix.shard }}/4
+
+  ci-ok:
+    if: always()
+    needs: [quick, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 全部が通ったかをまとめる
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "結果：$RESULTS"
+          for r in $RESULTS; do
+            if [ "$r" != "success" ]; then echo "通っていないジョブがあります"; exit 1; fi
+          done
