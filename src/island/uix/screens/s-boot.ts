@@ -6,6 +6,7 @@ import type { UxsDeps } from '../../p1/uxs';
 import { installB } from './b-boot';
 import { installC } from './c-boot';
 import { installK } from './k-boot';
+import { installH } from './h-boot';
 import { openDigSummaryUx, openMonthReportUx } from './report';
 import { setDeps } from './s-deps';
 import { uxs, uxsBoot } from './s-slots';
@@ -22,6 +23,7 @@ export function install(d: UxsDeps) {
   installC(d.uxc);
   installB(d.b);
   installK(d.k);
+  installH(d.h);
 }
 // 読めたら、入れ方を差し込み口の横に置く（入口が先に読んだとき、本体が起動のその場で入れる）
 uxsBoot.install = install;

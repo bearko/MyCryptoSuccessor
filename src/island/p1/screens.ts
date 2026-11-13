@@ -149,6 +149,7 @@ import { hireEmptyLines } from './hr';
 import { uxb } from '../uix/screens/b-slots';
 import { uxs } from '../uix/screens/s-slots';
 import { uxk } from '../uix/screens/k-slots';
+import { uxh } from '../uix/screens/h-slots';
 
 export interface Ctx {
   s: () => P1State;
@@ -1485,6 +1486,7 @@ function buyerSlot(ctx: Ctx, s: P1State): HTMLElement {
 let holding: number | null = null;
 
 export function openStaff(ctx: Ctx) {
+  if (uxh.staff) return uxh.staff(ctx);
   holding = null;
   open(ctx, t('ヒーローの配置', 'Hero assignment'), (body) => {
     const s = ctx.s();
@@ -1604,6 +1606,7 @@ export function openStaff(ctx: Ctx) {
 
 /** opts.charisma=false：まとめた画面（候補の一覧 → カリスマ）の前の部分。カリスマの札は後ろの部分（経営者）に 1 つだけ出す */
 export function openHire(ctx: Ctx, opts: { charisma?: boolean } = {}) {
+  if (uxh.hire) return uxh.hire(ctx, opts);
   open(ctx, t('人材登用', 'Recruiting'), (body) => {
     const s = ctx.s();
     mineTip(ctx, 'hire', body);

@@ -1,0 +1,772 @@
+/*
+ * 段 UIX3h：人と管理の画面（職人・採用・人事と給与・ヒーロー・トロフィー・図鑑 ほか）の見た目。入のときだけ読む（h-boot.ts から）。
+ * すべて html.is-uxc の内側。class の接頭辞は uxh-。値は土台の --ux-*（色・升目 2px・切り欠き）。角は丸めない。
+ * 動きは transform と opacity だけ。出入りは backwards まで（層を残さない）。動きを減らすときは全部止まる（いちばん下）。
+ */
+
+/* ==================================================================== 共通 */
+html.is-uxc #isl-ui .uxh-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 4px 0 8px;
+}
+html.is-uxc #isl-ui .uxh-st,
+html.is-uxc #isl-ui .uxh-hr {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-note {
+  margin: 0;
+  color: var(--ux-k5);
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxh-dim {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxh-amber {
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxh-warn {
+  margin: 0;
+  color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxh-need {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxh-it {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxh-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxh-big {
+  font-size: var(--ux-n2);
+  line-height: 1;
+}
+html.is-uxc #isl-ui .uxh-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+html.is-uxc #isl-ui .uxh-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxh-keys > .ux-key {
+  flex: 1 1 10rem;
+}
+/* 名前の行：名前・段の札・Lv */
+html.is-uxc #isl-ui .uxh-name {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-name > b {
+  overflow-wrap: anywhere;
+}
+html.is-uxc #isl-ui .uxh-lv {
+  color: var(--ux-k5);
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+/* 段の札（レアリティ）：暗い窓に色の帯と字。色だけにしない（字を必ず出す） */
+html.is-uxc #isl-ui .uxh-rar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 1.5rem;
+  padding: 0 6px 0 8px;
+  background: var(--ux-k0);
+  box-shadow: inset 4px 0 0 0 var(--hc, #b9b9b9), inset 0 0 0 2px #2a2f4a;
+  color: var(--hc, #b9b9b9);
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+html.is-uxc #isl-ui .uxh-rar.is-big {
+  min-width: 4rem;
+  height: 3rem;
+  font-size: var(--ux-n3);
+  box-shadow: inset 6px 0 0 0 var(--hc, #b9b9b9), inset 0 0 0 2px #2a2f4a;
+}
+html.is-uxc #isl-ui .uxh-rar.is-ll {
+  background: repeating-linear-gradient(90deg, #ff5fc8 0 4px, #ffb627 4px 8px, #4fa8ff 8px 12px) left / 4px 100% no-repeat, var(--ux-k0);
+}
+/* ランクの札（G〜S と数） */
+html.is-uxc #isl-ui .uxh-rk {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 4px;
+  height: 1.5rem;
+  padding: 0 6px;
+  background: var(--ux-k0);
+  box-shadow: inset 0 0 0 2px #2a2f4a;
+  color: var(--ux-paper);
+  font-size: var(--ux-n15);
+  line-height: 1;
+  white-space: nowrap;
+}
+/* 紙の上のランクの札：墨の縁と字 */
+html.is-uxc #isl-ui .uxp-paper .uxh-rk {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--ux-ink);
+  color: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxp-paper .uxh-rk > b {
+  color: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxh-rk > b {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxh-rk.is-top > b {
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxh-rk.is-hi > b {
+  color: var(--ux-cyan);
+}
+html.is-uxc #isl-ui .uxh-rk.is-mid > b {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxh-best {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+html.is-uxc #isl-ui .uxh-best-k {
+  color: var(--ux-k5);
+}
+/* ヒーローの札（一覧のカード）：顔の窓は伸びない */
+html.is-uxc #isl-ui .uxh-card .uxp-face {
+  flex: none;
+}
+html.is-uxc #isl-ui .uxh-card.is-small .uxp-card-pic {
+  min-width: 40px;
+  min-height: 40px;
+}
+/* 能力の縦の棒（人事票） */
+html.is-uxc #isl-ui .uxh-apt {
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-apt .uxp-bar-v {
+  white-space: nowrap;
+}
+/* 入る動き（はじめて開いたときだけ。順に 30ms ずつ） */
+html.is-uxc #isl-ui .uxh-in {
+  animation: uxh-in 220ms steps(4, end) backwards;
+  animation-delay: var(--uxh-d, 0ms);
+}
+@keyframes uxh-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+}
+/* 飛んで入る札の写し（body の直下） */
+html.is-uxc .uxh-ghost {
+  position: fixed;
+  z-index: var(--ux-z-fx);
+  margin: 0;
+  pointer-events: none;
+}
+/* 打たれる札は、札の右上に重ねる */
+html.is-uxc #isl-ui .uxh-slotbox > .uxp-stamp,
+html.is-uxc #isl-ui .uxh-rface > .uxp-stamp {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  transform: translate(-50%, -50%) rotate(-8deg);
+  pointer-events: none;
+}
+/* 下に貼りつく帯の箱 */
+html.is-uxc #isl-ui .uxh-footbox {
+  position: sticky;
+  bottom: calc(var(--dock-h, 0px) * 0);
+  z-index: 3;
+}
+html.is-uxc #isl-ui .uxh-footbox .uxp-foot {
+  flex-wrap: wrap;
+}
+
+/* ==================================================================== ヒーローの配置 */
+html.is-uxc #isl-ui .uxh-lanes.isl-lanes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 10px;
+}
+html.is-uxc #isl-ui .uxh-lane {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 4px 0 0 rgba(0, 0, 0, 0.35);
+}
+html.is-uxc #isl-ui .uxh-lane-n {
+  margin-right: 4px;
+}
+html.is-uxc #isl-ui .uxh-lane-c {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ux-k5);
+  font-size: var(--ux-n15);
+}
+html.is-uxc #isl-ui .uxh-lane-note {
+  margin: 0;
+  color: var(--ux-k5);
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxh-slots.isl-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxh-slotbox {
+  position: relative;
+  flex: 0 1 148px;
+  min-width: 132px;
+}
+/* 枠：押すキー。今の目印（isl-slot）の形（幅・縁・丸み・光り方）は外す */
+html.is-uxc #isl-ui .uxh-slot.isl-slot {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  padding: 2px 2px 8px;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(var(--ux-k0) 0 8px, var(--ux-side) 8px);
+  animation: none;
+  transition: none;
+  transform: none;
+  font-family: inherit;
+}
+html.is-uxc #isl-ui .uxh-slot > .ux-cap {
+  padding: 6px 6px 8px;
+}
+html.is-uxc #isl-ui .uxh-slot-in {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 160px;
+}
+html.is-uxc #isl-ui .uxh-slot-label {
+  align-self: stretch;
+  padding: 0 4px;
+  background: var(--ux-k0);
+  color: var(--ux-k5);
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+html.is-uxc #isl-ui .uxh-slot.has-x .uxh-slot-label {
+  margin-right: 30px;
+}
+html.is-uxc #isl-ui .uxh-slot-name {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+html.is-uxc #isl-ui .uxh-slot-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxh-slot-sta {
+  align-self: stretch;
+  padding: 0 4px;
+}
+html.is-uxc #isl-ui .uxh-slot-sta .ux-meter {
+  height: 8px;
+}
+html.is-uxc #isl-ui .uxh-slot-rest {
+  padding: 0 6px;
+  background: var(--ux-cyan-lo);
+  color: var(--ux-white);
+}
+html.is-uxc #isl-ui .uxh-slot.is-empty > .ux-cap {
+  --ux-face: #1a1e33;
+  box-shadow: inset 0 0 0 2px var(--ux-k4);
+  background-image: var(--ux-dz25);
+}
+html.is-uxc #isl-ui .uxh-slot-plus {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-top: 12px;
+  box-shadow: inset 0 0 0 2px var(--ux-k4);
+}
+html.is-uxc #isl-ui .uxh-slot-hint {
+  color: var(--ux-k5);
+}
+/* チュートリアルの強調（今の is-hot と同じ意味）・待機中の人を選んだときの「置ける枠」：琥珀の面とまたたき */
+html.is-uxc #isl-ui .uxh-slot.is-hot {
+  --ux-face: var(--ux-amber);
+  --ux-hi: var(--ux-amber-hi);
+  --ux-lo: var(--ux-amber-lo);
+  --ux-side: #7a3f06;
+  --ux-txt: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxh-slot.is-hot > .ux-cap {
+  background-image: none;
+  box-shadow: inset 2px 2px 0 var(--ux-hi), inset -2px -2px 0 var(--ux-lo);
+}
+html.is-uxc #isl-ui .uxh-slot.is-hot .uxh-slot-label,
+html.is-uxc #isl-ui .uxh-slot.is-hot .uxh-slot-hint {
+  color: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxh-slot.is-hot .uxh-slot-label {
+  background: rgba(26, 28, 46, 0.18);
+}
+html.is-uxc #isl-ui .uxh-slot.is-hot .uxh-slot-plus {
+  box-shadow: inset 0 0 0 2px var(--ux-ink);
+  animation: uxh-blink 900ms steps(1, end) infinite;
+}
+@keyframes uxh-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+/* 外す（枠の右上） */
+html.is-uxc #isl-ui .uxh-slot-x {
+  position: absolute;
+  right: -4px;
+  top: -6px;
+  z-index: 1;
+}
+html.is-uxc #isl-ui .uxh-slot-x > .ux-cap {
+  min-height: 30px;
+  padding: 2px 6px;
+}
+html.is-uxc #isl-ui .uxh-hold {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 10px;
+  background: var(--ux-amber);
+  color: var(--ux-ink);
+}
+
+/* ==================================================================== 人材登用 */
+html.is-uxc #isl-ui .uxh-gorow {
+  display: flex;
+}
+html.is-uxc #isl-ui .uxh-gorow > .isl-btn {
+  flex: 1 1 auto;
+}
+html.is-uxc #isl-ui .uxh-money .uxp-stat-k {
+  display: inline-flex;
+  align-items: center;
+}
+/* 名簿の顔の列（雇った人が飛んで入る） */
+html.is-uxc #isl-ui .uxh-rbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxh-rbox-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxh-rlist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-rface {
+  position: relative;
+  display: inline-flex;
+}
+html.is-uxc #isl-ui .uxh-rmore {
+  display: inline-grid;
+  place-items: center;
+  min-width: 40px;
+  height: 40px;
+  color: var(--ux-k5);
+  font-size: var(--ux-n15);
+}
+html.is-uxc #isl-ui .uxh-cands.isl-hire-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  align-items: start;
+  gap: 10px;
+}
+/* 候補の札：今の目印（isl-hero-card・is-rec）の形は外す */
+html.is-uxc #isl-ui .uxh-cand.isl-hero-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k3), inset -4px -4px 0 0 #191d31;
+}
+html.is-uxc #isl-ui .uxh-cand.is-open {
+  box-shadow: inset 0 0 0 2px var(--ux-amber), inset 4px 4px 0 0 var(--ux-k3), inset -4px -4px 0 0 #191d31;
+}
+html.is-uxc #isl-ui .uxh-cand.is-rec {
+  margin-top: 12px;
+}
+html.is-uxc #isl-ui .uxh-cand.is-rec::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--ux-amber), var(--ux-amber)) left top / 14px 4px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) left top / 4px 14px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) right top / 14px 4px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) right top / 4px 14px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) left bottom / 14px 4px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) left bottom / 4px 14px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) right bottom / 14px 4px no-repeat,
+    linear-gradient(var(--ux-amber), var(--ux-amber)) right bottom / 4px 14px no-repeat;
+  animation: uxh-pulse 1200ms steps(2, end) infinite;
+}
+@keyframes uxh-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+html.is-uxc #isl-ui .uxh-rec.isl-best {
+  position: absolute;
+  left: 8px;
+  top: -14px;
+  z-index: 1;
+  padding: 0 8px;
+  background: var(--ux-amber);
+  box-shadow: inset 0 -2px 0 var(--ux-amber-lo), 2px 2px 0 rgba(4, 6, 14, 0.5);
+  color: var(--ux-ink);
+  border-radius: 0;
+  font-size: var(--ux-t1);
+}
+html.is-uxc #isl-ui .uxh-cand-front {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 10px;
+  min-height: 44px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+html.is-uxc #isl-ui .uxh-cand-pic {
+  display: grid;
+  place-items: center;
+  background: #11131f;
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 4px 0 0 rgba(0, 0, 0, 0.5);
+}
+html.is-uxc #isl-ui .uxh-cand-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-cand-pay {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxh-cand-flip {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+}
+/* めくる：横に縮んで、裏（人事票）が出る */
+html.is-uxc #isl-ui .uxh-cand.is-flip {
+  animation: uxh-flip 120ms steps(3, end) 1;
+}
+@keyframes uxh-flip {
+  to {
+    transform: scaleX(0.1);
+  }
+}
+html.is-uxc #isl-ui .uxh-cand.is-open .uxh-cand-back {
+  animation: uxh-unflip 180ms steps(4, end) backwards;
+}
+@keyframes uxh-unflip {
+  from {
+    opacity: 0;
+    transform: scaleY(0.4);
+  }
+}
+html.is-uxc #isl-ui .uxh-cand-back {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--ux-paper);
+  color: var(--ux-ink);
+  box-shadow: inset 0 0 0 2px #8a7f5c;
+  transform-origin: 50% 0;
+}
+html.is-uxc #isl-ui .uxh-sheet-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxh-cand-back .uxp-bars {
+  --uxp-bar-ink: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxh-cand-back .uxp-bar-v,
+html.is-uxc #isl-ui .uxh-cand-back .uxp-bar-l {
+  color: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxh-cand-rows {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+html.is-uxc #isl-ui .uxh-cand-back .uxp-gap {
+  color: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxh-why > p {
+  margin: 0;
+}
+
+/* ==================================================================== カリスマ度 */
+html.is-uxc #isl-ui .uxh-cha {
+  padding: 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 0 var(--hc, var(--ux-amber));
+}
+html.is-uxc #isl-ui .uxh-cha-v {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxh-cha-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 0;
+}
+html.is-uxc #isl-ui .uxh-cha-gauge {
+  position: relative;
+  padding-bottom: 32px;
+}
+html.is-uxc #isl-ui .uxh-cha-marks {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxh-cha-mark {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateX(-50%);
+  opacity: 0.55;
+}
+html.is-uxc #isl-ui .uxh-cha-mark.is-on {
+  opacity: 1;
+}
+html.is-uxc #isl-ui .uxh-cha-mark > i {
+  display: block;
+  width: 2px;
+  height: 22px;
+  background: var(--ux-white);
+}
+html.is-uxc #isl-ui .uxh-cha-next {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxh-cha-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxh-cha-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 4px 6px;
+  background: var(--ux-k2);
+  opacity: 0.7;
+}
+html.is-uxc #isl-ui .uxh-cha-row.is-on {
+  opacity: 1;
+}
+html.is-uxc #isl-ui .uxh-cha-row-b {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-cha-row-b > span,
+html.is-uxc #isl-ui .uxh-cha-row-at {
+  color: var(--ux-k5);
+}
+@media (max-width: 479px) {
+  html.is-uxc #isl-ui .uxh-cha-row {
+    grid-template-columns: auto auto minmax(0, 1fr);
+  }
+  html.is-uxc #isl-ui .uxh-cha-row-at {
+    grid-column: 3;
+  }
+}
+html.is-uxc #isl-ui .uxh-have {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+html.is-uxc #isl-ui .uxh-have-x {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--ux-n15);
+}
+
+/* ==================================================================== 給与と労務 */
+html.is-uxc #isl-ui .uxh-quitstat.is-bad .uxp-stat-v {
+  color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxh-quitstat .uxp-stat-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxh-paylist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 10px;
+}
+html.is-uxc #isl-ui .uxh-paycard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 0 var(--hc, #b9b9b9), inset -4px -4px 0 0 #191d31;
+}
+html.is-uxc #isl-ui .uxh-paycard.is-quit {
+  box-shadow: inset 0 0 0 2px var(--ux-bad), inset 4px 0 0 0 var(--hc, #b9b9b9), inset -4px -4px 0 0 #191d31;
+}
+html.is-uxc #isl-ui .uxh-paycard-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-paycard-n {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-paycard-n .uxp-stamp {
+  position: absolute;
+  right: 0;
+  top: -6px;
+}
+html.is-uxc #isl-ui .uxh-mor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxh-mor.is-bad {
+  color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxh-mor.is-high {
+  color: var(--ux-cyan);
+}
+html.is-uxc #isl-ui .uxh-paycard-mor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxh-paycard-mor .ux-meter.is-bad > i,
+html.is-uxc #isl-ui .uxh-sta .ux-meter.is-low > i,
+html.is-uxc #isl-ui .uxh-slot-sta .ux-meter.is-low > i {
+  background-color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxh-quit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxh-quit > p {
+  margin: 0;
+}
+html.is-uxc #isl-ui .uxh-quit-h {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxh-slip .uxp-row-v {
+  margin-left: auto;
+  text-align: right;
+}
+html.is-uxc #isl-ui .uxh-sta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ==================================================================== 動きを減らす */
+html.is-uxc.is-calm #isl-ui .uxh-in,
+html.is-uxc.is-calm #isl-ui .uxh-cand.is-flip,
+html.is-uxc.is-calm #isl-ui .uxh-cand.is-open .uxh-cand-back,
+html.is-uxc.is-calm #isl-ui .uxh-cand.is-rec::before,
+html.is-uxc.is-calm #isl-ui .uxh-slot.is-hot .uxh-slot-plus {
+  animation: none;
+}
+
+/* まとめた画面の中では、帯は貼りつかせない（下にほかの部分が続くので、送っても中身を隠さない） */
+html.is-uxc #isl-ui .isl-together .uxh-footbox {
+  position: static;
+}
+@media (max-width: 479px) {
+  html.is-uxc #isl-ui .uxh-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
