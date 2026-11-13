@@ -1675,6 +1675,263 @@ html.is-uxc #isl-ui .uxh-suit-p {
   gap: 8px;
 }
 
+/* ==================================================================== 外交・商品開発・M&A（法務の前） */
+html.is-uxc #isl-ui .uxh-crest {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  background: var(--hc, #97a1cf);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 0 -4px 0 0 rgba(0, 0, 0, 0.3);
+}
+html.is-uxc #isl-ui .uxh-dip-lands {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxh-dip-land.isl-dip-land {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 0 var(--hc, #97a1cf);
+}
+html.is-uxc #isl-ui .uxh-dip-h {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+html.is-uxc #isl-ui .uxh-dip-n {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-dip-rel {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxh-dip-rel > b {
+  font-size: var(--ux-n2);
+  line-height: 1;
+}
+html.is-uxc #isl-ui .uxh-dip-open.isl-cardbox-row {
+  display: inline-block;
+  width: auto;
+  border: 0;
+  border-radius: 0;
+}
+html.is-uxc #isl-ui .uxh-dev-pic {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+html.is-uxc #isl-ui .uxh-devc.isl-dev {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+}
+html.is-uxc #isl-ui .uxh-devc > .uxp-card-body .uxp-stamp,
+html.is-uxc #isl-ui .uxh-devc .uxp-card-foot > .uxp-stamp {
+  align-self: flex-start;
+}
+html.is-uxc #isl-ui .uxh-dev-run {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxh-ma0c {
+  display: grid;
+  border: 0;
+  border-radius: 0;
+  background: var(--ux-dz25), var(--ux-k2);
+  opacity: 1;
+}
+
+/* ==================================================================== 地図の表示 */
+html.is-uxc #isl-ui .uxh-ms-list.isl-mapset {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxh-ms.isl-mapset-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 0 var(--ux-good);
+  opacity: 1;
+}
+html.is-uxc #isl-ui .uxh-ms.is-off {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 0 var(--ux-k4);
+}
+html.is-uxc #isl-ui .uxh-ms.is-locked {
+  background: var(--ux-dz25), var(--ux-k2);
+}
+html.is-uxc #isl-ui .uxh-ms.is-flip {
+  animation: uxh-in 200ms steps(4, end) backwards;
+}
+html.is-uxc #isl-ui .uxh-ms p {
+  margin: 0;
+}
+html.is-uxc #isl-ui .uxh-ms-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxh-ms-h > b {
+  flex: 1;
+}
+html.is-uxc #isl-ui .uxh-ms-sw.isl-mapset-sw {
+  min-width: 6rem;
+}
+html.is-uxc #isl-ui .uxh-sw {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxh-ms-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+html.is-uxc #isl-ui .uxh-ms-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxh-ms-line {
+  display: inline-block;
+  width: 28px;
+  height: 0;
+  border-top: 4px dashed;
+}
+html.is-uxc #isl-ui .uxh-ms-area {
+  display: inline-block;
+  width: 20px;
+  height: 14px;
+  background: var(--c);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+  opacity: 0.8;
+}
+html.is-uxc #isl-ui .uxh-ms-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  background: var(--c);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+
+/* ==================================================================== 研究ポイントの入り方・研究の施策 */
+html.is-uxc #isl-ui .uxh-rp.isl-r2-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxh-rp p {
+  margin: 0;
+}
+html.is-uxc #isl-ui .uxh-rp-bars {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  height: 160px;
+}
+html.is-uxc #isl-ui .uxh-rp-col {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  text-align: center;
+}
+html.is-uxc #isl-ui .uxh-rp-v {
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+html.is-uxc #isl-ui .uxh-rp-plot {
+  position: relative;
+  flex: 1;
+  background:
+    linear-gradient(var(--ux-k4), var(--ux-k4)) 0 100% / 100% 2px no-repeat;
+}
+html.is-uxc #isl-ui .uxh-rp-bar {
+  position: absolute;
+  left: 15%;
+  right: 15%;
+  bottom: 2px;
+  top: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  transform: scaleY(0);
+  transform-origin: 50% 100%;
+}
+html.is-uxc #isl-ui .uxh-rp-bars.is-grown .uxh-rp-bar {
+  transform: scaleY(1);
+  transition: transform 520ms steps(8, end);
+}
+html.is-uxc #isl-ui .uxh-rp-seg {
+  display: block;
+  flex: none;
+  box-shadow: inset 0 2px 0 0 rgba(11, 13, 23, 0.6);
+}
+html.is-uxc #isl-ui .uxh-rp-seg.is-dots,
+html.is-uxc #isl-ui .uxh-rp-sw.is-dots {
+  background-image: var(--ux-dz25);
+}
+html.is-uxc #isl-ui .uxh-rp-seg.is-hatch,
+html.is-uxc #isl-ui .uxh-rp-sw.is-hatch {
+  background-image: repeating-linear-gradient(135deg, rgba(11, 13, 23, 0.55) 0 2px, transparent 2px 6px);
+}
+html.is-uxc #isl-ui .uxh-rp-col.is-now .uxh-rp-m {
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxh-rp-m {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html.is-uxc #isl-ui .uxh-rp-leg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+html.is-uxc #isl-ui .uxh-rp-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxh-rp-sw {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxh-study.isl-r2-study {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxh-study p {
+  margin: 0;
+}
+html.is-uxc #isl-ui .uxh-study-x {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* ==================================================================== 動きを減らす */
 html.is-uxc.is-calm #isl-ui .uxh-in,
 html.is-uxc.is-calm #isl-ui .uxh-cand.is-flip,
@@ -1684,8 +1941,13 @@ html.is-uxc.is-calm #isl-ui .uxh-slot.is-hot .uxh-slot-plus,
 html.is-uxc.is-calm #isl-ui .uxh-free.is-armed > .ux-cap,
 html.is-uxc.is-calm .uxh-pf.isl-hpfx,
 html.is-uxc.is-calm .uxh-pf-box,
-html.is-uxc.is-calm #isl-ui .uxh-badge.is-hit {
+html.is-uxc.is-calm #isl-ui .uxh-badge.is-hit,
+html.is-uxc.is-calm #isl-ui .uxh-ms.is-flip {
   animation: none;
+}
+html.is-uxc.is-calm #isl-ui .uxh-rp-bars .uxh-rp-bar {
+  transform: none;
+  transition: none;
 }
 html.is-uxc.is-calm .uxh-pf-flip > .uxh-rar {
   transition: none;

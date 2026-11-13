@@ -4,6 +4,17 @@
  * 本体の側（このファイル。p1/main.ts と同じ束）から、使う関数だけを渡す。
  */
 import { DEF } from '../defs';
+import { DEV, DIPLO, PRODUCTS, UNCOMMON, sku, skuPrice } from './data';
+import { DAYS, devCost, develop, tierEntered } from './model';
+import { LAND_IDS, landDef, relTeaser } from './diplo';
+import { cardInbox } from './card';
+import { cardNav, showCard } from './cardui';
+import { skuIcon, skuName } from './ui';
+import { MAPSET_ITEMS, mapSetLocked, mapSetOn, toggleMapSet } from './mapsetui';
+import { MAPVIZ_COLOR } from './mapviz';
+import { MARK_KIND, MARK_LEGEND } from './mapmarks';
+import { RP_SRCS, STUDY_KINDS, museumRp, retestRp, rpSrcName, runStudy, studyByHead, studyCost, studyDone, studyLock, studyName, studyRp } from './r2';
+import { PALETTE } from './chartkit';
 import * as legalMod from './legal';
 import { CROSS_RND_LEGAL, CROSS_SALES_LEGAL, LEGAL, LEGAL_MASTERY, PRODUCT, rivalDef } from './data';
 import { RARITY_COLOR, RARITY_JA } from '../../game/catalog';
@@ -164,6 +175,45 @@ export const uxhDeps = {
   stars,
   museumHist,
   refreshSheet,
+  // ---- 外交・商品開発・地図の表示・研究の施策（今の p1/diploui.ts・screens.ts・mapsetui.ts・r2ui.ts と同じ関数）
+  DAYS,
+  DIPLO,
+  LAND_IDS,
+  landDef,
+  relTeaser,
+  tierEntered,
+  cardInbox,
+  cardNav,
+  showCard,
+  DEV,
+  PRODUCTS,
+  UNCOMMON,
+  sku,
+  skuIcon,
+  skuName,
+  skuPrice,
+  devCost,
+  develop,
+  MAPSET_ITEMS,
+  mapSetLocked,
+  mapSetOn,
+  toggleMapSet,
+  MAPVIZ_COLOR,
+  MARK_KIND,
+  MARK_LEGEND,
+  RP_SRCS,
+  STUDY_KINDS,
+  museumRp,
+  retestRp,
+  rpSrcName,
+  runStudy,
+  studyByHead,
+  studyCost,
+  studyDone,
+  studyLock,
+  studyName,
+  studyRp,
+  PALETTE,
   // ---- 法務（今の p1/legalui.ts と同じ関数。L として使う）
   legal: {
     LEGAL,

@@ -2019,6 +2019,7 @@ export function openBom(ctx: Ctx) {
 // ---------------------------------------------------------------- 経営企画（建築）・R&D（商品開発）
 
 export function openDev(ctx: Ctx) {
+  if (uxh.dev) return uxh.dev(ctx);
   open(ctx, t('商品開発', 'Product development'), (body) => {
     const s = ctx.s();
     body.append(h('p', 'isl-dim', t(`アンコモンを開発すると、値段 ${UNCOMMON.price} 倍・売り場の強さ ${UNCOMMON.pull} 倍の商品を作れます。開発には「魔法の釜」（スキル・工房）が要り、1 つずつ ${DEV.days} 日かかります。作るには製造の適性 ${UNCOMMON.minCraft} 以上の職人が要ります。`, `Developing an Uncommon gives ${UNCOMMON.price}× price and ${UNCOMMON.pull}× pull. Needs the Magic Pot skill; one at a time, ${DEV.days} days each. Crafting needs aptitude ${UNCOMMON.minCraft}+.`)));
@@ -2050,6 +2051,7 @@ export function openDev(ctx: Ctx) {
 
 /** 経営企画 → M&A（法務の部門が開く前：Epic の町に進出すると、法務の部門が他社の買収を受け持つ。開いたあとは法務 → M&A へ。main.ts） */
 export function openMA(ctx: Ctx) {
+  if (uxh.ma) return uxh.ma(ctx);
   open(ctx, t('M&A', 'M&A'), (body) => {
     body.append(h('p', 'isl-dim', t('他社の買収（M&A）は、Epic の町に進出すると開く法務の部門が受け持ちます。他社のお店をタップして「調査」しておくと、相手のことがよく分かります。', 'Acquiring rivals (M&A) is handled by the Legal department, which opens when you enter an Epic town. Research rival stores (tap them on the map) to learn about them.')));
     for (const [name, note] of [

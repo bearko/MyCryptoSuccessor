@@ -11,6 +11,7 @@ import { LAND_IDS, landDef, relTeaser, type LandRel } from './diplo';
 import { DAYS, tierEntered } from './model';
 import { after, open, type Ctx } from './screens';
 import { h } from './ui';
+import { uxh } from '../uix/screens/h-slots';
 
 const g = (v: number) => `${Math.round(v).toLocaleString('en-US')} G`;
 
@@ -49,6 +50,8 @@ function landRow(ctx: Ctx, L: LandRel): HTMLElement {
 
 /** 外交の一覧（Epic の町に進出していなければ開かない＝まとめた画面から外れる） */
 export function openDiplo(ctx: Ctx) {
+  // 段 UIX3h：新しい画面（入のときだけ。uix/screens/misc.ts）
+  if (uxh.diplo) return uxh.diplo(ctx);
   const s0 = ctx.s();
   if (!tierEntered(s0, 'E')) return;
   open(ctx, t('外交（霧の向こうのランド）', 'Diplomacy (lands beyond the mist)'), (body) => {

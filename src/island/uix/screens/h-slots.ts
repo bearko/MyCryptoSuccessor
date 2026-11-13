@@ -7,6 +7,7 @@ import type { Ctx } from '../../p1/screens';
 import type { HeroRarity } from '../../p1/data';
 import type { TrophyDef } from '../../p1/trophy';
 import type { LegalHooks } from '../../p1/legalui';
+import type { P1State } from '../../p1/model';
 
 export interface UxhScreens {
   /** ヒーローの配置（職人・運搬係・店員の持ち場と、待機中の名簿） */
@@ -39,6 +40,18 @@ export interface UxhScreens {
   patents?: (ctx: Ctx, hooks: LegalHooks) => void;
   /** 法務 → 争い */
   suits?: (ctx: Ctx, hooks: LegalHooks) => void;
+  /** 外交（霧の向こうのランド） */
+  diplo?: (ctx: Ctx) => void;
+  /** 商品開発（R&D） */
+  dev?: (ctx: Ctx) => void;
+  /** M&A（法務の部門が開く前の説明） */
+  ma?: (ctx: Ctx) => void;
+  /** 地図の表示（changed：地図を描き直す） */
+  mapSet?: (ctx: Ctx, changed: () => void) => void;
+  /** 月の研究ポイントの入り方（研究ノート・スキルツリーの中の部品） */
+  rpStack?: (s: P1State) => HTMLElement;
+  /** 研究の施策のキー（研究ノート・スキルツリーの中の部品） */
+  study?: (s: P1State, o: { done: () => void; toast: (m: string) => void; sfx?: (k: 'error' | 'levelup') => void }) => HTMLElement;
 }
 // 入れ物は uix/hooks.ts に置く（理由はそこに）。ここは型と、同じ物の名前だけ
 export { uxhSlots as uxh } from '../hooks';

@@ -19,11 +19,13 @@ import { DUO_ICO, LESSON_ICO, PROMO_FLIP_MS, RELEASE_MS } from '../src/island/ui
 import { TROPHY_ICO, dateText, stampDelay, trophyIco } from '../src/island/uix/screens/trophy';
 import { TROPHIES } from '../src/island/p1/trophy';
 import { LEGAL_ICO, dealSteps, oddsTone } from '../src/island/uix/screens/legal';
+import { RP_PAT, stackPct } from '../src/island/uix/screens/misc';
+import { RP_SRCS } from '../src/island/p1/r2';
 import { LESSON_TYPES } from '../src/island/p1/lesson';
 import { H_ART as _HA } from '../src/island/uix/screens/h-icons';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
-export const H_FILES = ['h-boot.ts', 'h-deps.ts', 'h-slots.ts', 'h-kit.ts', 'h-icons.ts', 'staff.ts', 'hr.ts', 'hero.ts', 'trophy.ts', 'legal.ts'];
+export const H_FILES = ['h-boot.ts', 'h-deps.ts', 'h-slots.ts', 'h-kit.ts', 'h-icons.ts', 'staff.ts', 'hr.ts', 'hero.ts', 'trophy.ts', 'legal.ts', 'misc.ts'];
 export const H_CSS = ['h-screens.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 const SCREENS = src('p1/screens.ts');
@@ -63,7 +65,13 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     const LG = src('p1/legalui.ts');
     expect(LG).toMatch(/export function openLegalMA\(ctx: Ctx, hooks: LegalHooks = \{\}, focusRid\?: string\) \{\n[^\n]*\n  if \(uxh\.legalMA\) return uxh\.legalMA\(ctx, hooks, focusRid\);\n  open\(/);
     for (const [f, k] of [['openContract', 'contract'], ['openPatents', 'patents'], ['openSuits', 'suits']]) expect(LG).toContain(`export function ${f}(ctx: Ctx, hooks: LegalHooks = {}) {\n  if (uxh.${k}) return uxh.${k}(ctx, hooks);\n  open(`);
-    for (const k of ['staff', 'hire', 'charisma', 'payroll', 'growth', 'promotion', 'lessons', 'lessonPop', 'trophies', 'trophyPop', 'museum', 'legalMA', 'contract', 'patents', 'suits']) expect(boot, k).toMatch(new RegExp(`uxh\\.${k} = \\w+;`));
+    expect(src('p1/diploui.ts')).toMatch(/export function openDiplo\(ctx: Ctx\) \{\n[^\n]*\n  if \(uxh\.diplo\) return uxh\.diplo\(ctx\);\n  const s0/);
+    expect(SCREENS).toContain('export function openDev(ctx: Ctx) {\n  if (uxh.dev) return uxh.dev(ctx);\n  open(');
+    expect(SCREENS).toContain('export function openMA(ctx: Ctx) {\n  if (uxh.ma) return uxh.ma(ctx);\n  open(');
+    expect(src('p1/mapsetui.ts')).toMatch(/export function openMapSet\(ctx: Ctx, changed: \(\) => void\) \{\n[^\n]*\n  if \(uxh\.mapSet\) return uxh\.mapSet\(ctx, changed\);\n  open\(/);
+    expect(src('p1/r2ui.ts')).toMatch(/export function rpStackEl\(s: P1State\): HTMLElement \{\n[^\n]*\n  if \(uxh\.rpStack\) return uxh\.rpStack\(s\);/);
+    expect(src('p1/r2ui.ts')).toContain('  if (uxh.study) return uxh.study(s, o);\n  const box = h(');
+    for (const k of ['staff', 'hire', 'charisma', 'payroll', 'growth', 'promotion', 'lessons', 'lessonPop', 'trophies', 'trophyPop', 'museum', 'legalMA', 'contract', 'patents', 'suits', 'diplo', 'dev', 'ma', 'mapSet', 'rpStack', 'study']) expect(boot, k).toMatch(new RegExp(`uxh\\.${k} = \\w+;`));
   });
   it('新しい画面の束は、本体のモジュールを自分では読まない（型だけ）。関数は p1/uxh.ts から渡す', () => {
     for (const f of H_FILES) {
@@ -301,5 +309,24 @@ describe('法務（M&A・契約・特許・争い）', () => {
     // 足りないときは「あと N G」（押すと目盛りが進む）。主役（結ぶ・出願）は主のキー
     expect(LGX).toContain("if (lock === 'money') return gap.nudge();");
     expect(LGX).toContain("{ kind: 'main', ico: null, disabled: !!lock, cls: 'uxh-sup-sign' }");
+  });
+});
+
+describe('外交・商品開発・M&A（法務の前）・地図の表示・研究ポイントの入り方', () => {
+  const MI = src('uix/screens/misc.ts');
+  it('研究ポイントの入り口：網目と名前の見本（色だけにしない）・積み上げの高さ', () => {
+    expect(Object.keys(RP_PAT).sort()).toEqual([...RP_SRCS].sort());
+    expect(stackPct(5, 10)).toBe(50);
+    expect(stackPct(0, 10)).toBe(0);
+    expect(stackPct(30, 10)).toBe(100);
+    expect(MI).toContain("months.push({ name: t('今月', 'Now'), v: s.rpSrc ?? {} });");
+    expect(MI).toContain('H.retestRp(s)');
+    expect(MI).toContain('H.museumRp(s)');
+  });
+  it('出す中身が今の画面とそろう：外交（仲・交易・依頼・使者）・開発（済み・開発中・開発する・止まる理由）・地図の表示（3 項目・見本・スイッチ・いつ）・研究の施策', () => {
+    for (const x of ['H.tierEntered(ctx.s(), \'E\')', 'H.relTeaser(L.rel)', 'D.trades.find((x) => x.land === L.id)', 'D.reqs.filter((x) => x.land === L.id)', "H.cardInbox(s).filter((x) => x.src === 'diplo')", 'H.showCard(c, x,', 's.dev.includes(p.key)', 's.lab?.key === p.key', 'H.develop(s, p.key)', "H.has(s, 'pot')", 'H.MAPSET_ITEMS', 'H.toggleMapSet(ctx.s(), key)', 'H.mapSetLocked(s, key)', 'H.MARK_LEGEND', 'H.studyByHead(s)', 'H.runStudy(s, k)', 'H.studyDone(s, k)']) expect(MI, x).toContain(x);
+    // 今の目印：地図の表示の札（data-key・role=switch）
+    expect(MI).toContain("el('div.uxh-ms.isl-mapset-item', { 'data-key': key })");
+    expect(MI).toContain("role: 'switch', 'aria-checked': String(on)");
   });
 });
