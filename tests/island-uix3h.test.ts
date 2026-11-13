@@ -18,11 +18,12 @@ import { MORALE_LAMP, diffWord, markAt } from '../src/island/uix/screens/hr';
 import { DUO_ICO, LESSON_ICO, PROMO_FLIP_MS, RELEASE_MS } from '../src/island/uix/screens/hero';
 import { TROPHY_ICO, dateText, stampDelay, trophyIco } from '../src/island/uix/screens/trophy';
 import { TROPHIES } from '../src/island/p1/trophy';
+import { LEGAL_ICO, dealSteps, oddsTone } from '../src/island/uix/screens/legal';
 import { LESSON_TYPES } from '../src/island/p1/lesson';
 import { H_ART as _HA } from '../src/island/uix/screens/h-icons';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
-export const H_FILES = ['h-boot.ts', 'h-deps.ts', 'h-slots.ts', 'h-kit.ts', 'h-icons.ts', 'staff.ts', 'hr.ts', 'hero.ts', 'trophy.ts'];
+export const H_FILES = ['h-boot.ts', 'h-deps.ts', 'h-slots.ts', 'h-kit.ts', 'h-icons.ts', 'staff.ts', 'hr.ts', 'hero.ts', 'trophy.ts', 'legal.ts'];
 export const H_CSS = ['h-screens.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 const SCREENS = src('p1/screens.ts');
@@ -59,7 +60,10 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     expect(src('p1/trophyui.ts')).toMatch(/export function openTrophies\(ctx: Ctx\) \{\n  if \(uxh\.trophies\) return uxh\.trophies\(ctx\);\n  open\(/);
     expect(src('p1/trophyui.ts')).toContain('  if (uxh.trophyPop) return uxh.trophyPop(d);\n  const el = h(');
     expect(src('p1/museumui.ts')).toMatch(/export function openMuseum\(ctx: Ctx\) \{\n[^\n]*\n  if \(uxh\.museum\) return uxh\.museum\(ctx\);\n  pickSlot = null;/);
-    for (const k of ['staff', 'hire', 'charisma', 'payroll', 'growth', 'promotion', 'lessons', 'lessonPop', 'trophies', 'trophyPop', 'museum']) expect(boot, k).toMatch(new RegExp(`uxh\\.${k} = \\w+;`));
+    const LG = src('p1/legalui.ts');
+    expect(LG).toMatch(/export function openLegalMA\(ctx: Ctx, hooks: LegalHooks = \{\}, focusRid\?: string\) \{\n[^\n]*\n  if \(uxh\.legalMA\) return uxh\.legalMA\(ctx, hooks, focusRid\);\n  open\(/);
+    for (const [f, k] of [['openContract', 'contract'], ['openPatents', 'patents'], ['openSuits', 'suits']]) expect(LG).toContain(`export function ${f}(ctx: Ctx, hooks: LegalHooks = {}) {\n  if (uxh.${k}) return uxh.${k}(ctx, hooks);\n  open(`);
+    for (const k of ['staff', 'hire', 'charisma', 'payroll', 'growth', 'promotion', 'lessons', 'lessonPop', 'trophies', 'trophyPop', 'museum', 'legalMA', 'contract', 'patents', 'suits']) expect(boot, k).toMatch(new RegExp(`uxh\\.${k} = \\w+;`));
   });
   it('新しい画面の束は、本体のモジュールを自分では読まない（型だけ）。関数は p1/uxh.ts から渡す', () => {
     for (const f of H_FILES) {
@@ -70,6 +74,7 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
         if (outside && !m[1]) expect(m[2], `${f}: ${m[0].slice(0, 60)}`).toBe('../../../i18n');
       }
       for (const m of code.matchAll(/\bH\.([A-Za-z_]\w*)/g)) expect(Object.keys(uxhDeps), `${f}: H.${m[1]}`).toContain(m[1]);
+      for (const m of code.matchAll(/\bL(?:L|\(\))\.([A-Za-z_]\w*)/g)) expect(Object.keys(uxhDeps.legal), `${f}: L.${m[1]}`).toContain(m[1]);
     }
   });
   it('新しい CSS は、すべて html.is-uxc の内側。class の接頭辞は uxh-。角は丸めない・字は 16px 以上・ぼかさない・層を残さない', () => {
@@ -270,5 +275,31 @@ describe('トロフィー（記章の棚）・遺物の展示館', () => {
     expect(TR).toContain("el('div.uxh-mus-grid.isl-mus-grid')");
     expect(TR).toContain("cls: `uxh-mus-slot isl-mus-slot ${id != null ? 'is-on' : 'is-empty'}`");
     expect(TR).toContain("uxpStamp(t('展示', 'On display'), { kind: 'amber' })");
+  });
+});
+
+describe('法務（M&A・契約・特許・争い）', () => {
+  const LGX = src('uix/screens/legal.ts');
+  it('話の段のランプ（打診 → 調査 → 交渉 → 成立）：今の画面と同じ決め方', () => {
+    expect(dealSteps('offer', false)).toEqual(['now', '', '', '']);
+    expect(dealSteps('talk', false)).toEqual(['done', 'now', '', '']);
+    expect(dealSteps('talk', true)).toEqual(['done', 'done', '', '']);
+    expect(dealSteps('nego', true)).toEqual(['done', 'done', 'now', '']);
+    expect(dealSteps('signed', true)).toEqual(['done', 'done', 'done', 'now']);
+  });
+  it('見込みの組（色だけにしない：% と言葉）・法務の画面の絵', () => {
+    expect(oddsTone(0.7)).toBe('good');
+    expect(oddsTone(0.4)).toBe('amber');
+    expect(oddsTone(0.1)).toBe('bad');
+    expect(oddsTone(0.45, 0.6, 0.4)).toBe('amber');
+    for (const v of Object.values(LEGAL_ICO)) expect(ALL_ICONS.has(v), v).toBe(true);
+  });
+  it('出す中身が今の画面とそろう：Epic の町でないときの紙・他社の一覧と打診・調査・条項・3 段の提示・取り下げ・買った会社・契約・特許・裁判・予告', () => {
+    for (const x of ["t('法務の遊びは Epic の町で'", 'L().legalHere(s)', 'LL.startDeal(s, r.id)', 'LL.MA_LOCK_TEXT[lock]()', 'LL.startDD(s, d.id)', 'LL.ddFacts(s, d)', 'LL.clauseSlots(s)', 'LL.offerChance(s, d.rid, lv, c)', 'LL.sendOffer(s, d.id, lv, c)', 'L().cancelDeal(s, d.id)', 'M?.bought.length', 'LL.supplyPenalty(s)', 'LL.cancelSupply(s)', 'LL.signSupply(s, supplyPick.months, supplyPick.c)', 'LL.LEGAL.supply.terms', 'LL.patentable(s)', 'LL.filePatent(s, k)', 'LL.setLicense(s, k, !p.license)', 'LL.sueInfringer(s, k, rid)', 'LL.suitsOpen(s)', 'LL.suitParts(s, x)', 'LL.settle(s, x.id)', 'LL.legalLv(s)', 'LL.LEGAL_MASTERY()', 'LL.CROSS_SALES_LEGAL()', 'LL.CROSS_RND_LEGAL()']) expect(LGX, x).toContain(x);
+    // 今の目印（data-focus）
+    for (const f of ['ma-deal', 'ma-facts', 'ma-nego', 'ma-clauses', 'ma-list', 'lg-supply', 'lg-patents', 'lg-suits']) expect(LGX, f).toContain(`'data-focus': '${f}'`);
+    // 足りないときは「あと N G」（押すと目盛りが進む）。主役（結ぶ・出願）は主のキー
+    expect(LGX).toContain("if (lock === 'money') return gap.nudge();");
+    expect(LGX).toContain("{ kind: 'main', ico: null, disabled: !!lock, cls: 'uxh-sup-sign' }");
   });
 });

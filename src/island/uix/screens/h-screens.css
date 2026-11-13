@@ -1442,6 +1442,239 @@ html.is-uxc #isl-ui .uxh-rrar {
   color: var(--hc);
 }
 
+/* ==================================================================== 法務 */
+html.is-uxc #isl-ui .uxh-lg {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-lg-soon p,
+html.is-uxc #isl-ui .uxh-soon-x {
+  margin: 0;
+}
+html.is-uxc #isl-ui .uxh-soon-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxh-soon-x {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--ux-dz25), var(--ux-k1);
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxh-keys.is-col {
+  flex-direction: column;
+  align-items: stretch;
+}
+html.is-uxc #isl-ui .uxh-deal {
+  position: relative;
+  padding: 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 0 var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxh-deal > .uxp-stamp {
+  position: absolute;
+  right: 10px;
+  top: 40px;
+  transform: rotate(-8deg);
+}
+html.is-uxc #isl-ui .uxh-deal p {
+  margin: 0;
+}
+html.is-uxc #isl-ui .uxh-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxh-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 2rem;
+  padding: 0 4px;
+  background: var(--ux-k0);
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxh-step.is-done {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxh-step.is-now {
+  background: var(--ux-amber);
+  color: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxh-days {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+html.is-uxc #isl-ui .uxh-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(46%, 150px), 1fr));
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxh-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  background: #11131f;
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-fact-k {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxh-fact > b {
+  overflow-wrap: anywhere;
+}
+html.is-uxc #isl-ui .uxh-fact.is-locked {
+  background: var(--ux-dz25), #11131f;
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxh-fact.is-bad > b {
+  color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxh-fact.is-good > b {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxh-nego,
+html.is-uxc #isl-ui .uxh-clauses,
+html.is-uxc #isl-ui .uxh-offers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxh-clause {
+  width: 100%;
+  text-align: left;
+}
+html.is-uxc #isl-ui .uxh-clause > .ux-cap {
+  justify-content: flex-start;
+  padding: 6px 10px;
+}
+html.is-uxc #isl-ui .uxh-cl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 10px;
+  width: 100%;
+}
+html.is-uxc #isl-ui .uxh-cl-b {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  white-space: normal;
+}
+html.is-uxc #isl-ui .uxh-cl-s {
+  min-width: 2rem;
+  padding: 0 6px;
+  background: var(--ux-k0);
+  text-align: center;
+}
+html.is-uxc #isl-ui .uxh-clause.is-on .uxh-cl-s {
+  background: var(--ux-good-lo);
+  color: var(--ux-white);
+}
+html.is-uxc #isl-ui .uxh-odds {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-odds-t {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxh-odds-t > b {
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+html.is-uxc #isl-ui .uxh-odds.is-good .uxh-odds-t > b {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxh-odds.is-amber .uxh-odds-t > b {
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxh-odds.is-bad .uxh-odds-t > b {
+  color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxh-odds .ux-meter.is-bad > i {
+  background-color: var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxh-offer.isl-ma-offer,
+html.is-uxc #isl-ui .uxh-ma-row.isl-ma-row,
+html.is-uxc #isl-ui .uxh-pat.isl-ma-row {
+  display: grid;
+  border: 0;
+  border-radius: 0;
+  min-height: 0;
+  width: auto;
+}
+html.is-uxc #isl-ui .uxh-ma-row.is-hot {
+  box-shadow: inset 0 0 0 2px var(--ux-amber), inset 4px 4px 0 0 var(--ux-k3);
+}
+html.is-uxc #isl-ui .uxh-active {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+html.is-uxc #isl-ui .uxh-terms {
+  flex-wrap: wrap;
+}
+html.is-uxc #isl-ui .uxh-pat-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+html.is-uxc #isl-ui .uxh-pat {
+  position: relative;
+}
+html.is-uxc #isl-ui .uxh-pat > .uxp-stamp {
+  position: absolute;
+  right: 8px;
+  top: -8px;
+  transform: rotate(-8deg);
+}
+html.is-uxc #isl-ui .uxh-suit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 0 var(--ux-bad);
+}
+html.is-uxc #isl-ui .uxh-suit.is-plain {
+  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 0 0 0 var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxh-suit p {
+  margin: 0;
+}
+html.is-uxc #isl-ui .uxh-suit-h {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+html.is-uxc #isl-ui .uxh-suit-n {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxh-suit-p {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
 /* ==================================================================== 動きを減らす */
 html.is-uxc.is-calm #isl-ui .uxh-in,
 html.is-uxc.is-calm #isl-ui .uxh-cand.is-flip,
@@ -1475,4 +1708,15 @@ html.is-uxc #isl-ui .uxh-tr.isl-tr span {
 }
 html.is-uxc #isl-ui .uxh-tr.isl-tr .ux-num {
   font-size: var(--ux-n15);
+}
+html.is-uxc #isl-ui .uxh-steps.isl-ma-steps > .uxh-step,
+html.is-uxc #isl-ui .uxh-steps.isl-ma-steps span {
+  font-size: var(--ux-t1);
+}
+html.is-uxc #isl-ui .uxh-lgnav.isl-legal-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 2px solid var(--ux-k0);
 }

@@ -9,6 +9,7 @@ import { openHireUx, openStaffUx } from './staff';
 import { openCharismaUx, openPayrollUx } from './hr';
 import { lessonPopUx, openGrowthUx, openLessonsUx, playPromotionUx } from './hero';
 import { openMuseumUx, openTrophiesUx, trophyPopUx } from './trophy';
+import { openContractUx, openLegalMAUx, openPatentsUx, openSuitsUx } from './legal';
 
 /** 本体の関数の束を受け取って、差し込み口へ入れる */
 export function installH(d: UxhDeps) {
@@ -24,4 +25,8 @@ export function installH(d: UxhDeps) {
   uxh.trophies = openTrophiesUx;
   uxh.trophyPop = trophyPopUx;
   uxh.museum = openMuseumUx;
+  uxh.legalMA = openLegalMAUx;
+  uxh.contract = openContractUx;
+  uxh.patents = openPatentsUx;
+  uxh.suits = openSuitsUx;
 }

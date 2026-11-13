@@ -6,6 +6,7 @@
 import type { Ctx } from '../../p1/screens';
 import type { HeroRarity } from '../../p1/data';
 import type { TrophyDef } from '../../p1/trophy';
+import type { LegalHooks } from '../../p1/legalui';
 
 export interface UxhScreens {
   /** ヒーローの配置（職人・運搬係・店員の持ち場と、待機中の名簿） */
@@ -30,6 +31,14 @@ export interface UxhScreens {
   trophyPop?: (d: TrophyDef) => HTMLElement;
   /** 遺物の展示館 */
   museum?: (ctx: Ctx) => void;
+  /** 法務 → M&A（focusRid：その他社の札を光らせて送る） */
+  legalMA?: (ctx: Ctx, hooks: LegalHooks, focusRid?: string) => void;
+  /** 法務 → 契約 */
+  contract?: (ctx: Ctx, hooks: LegalHooks) => void;
+  /** 法務 → 特許 */
+  patents?: (ctx: Ctx, hooks: LegalHooks) => void;
+  /** 法務 → 争い */
+  suits?: (ctx: Ctx, hooks: LegalHooks) => void;
 }
 // 入れ物は uix/hooks.ts に置く（理由はそこに）。ここは型と、同じ物の名前だけ
 export { uxhSlots as uxh } from '../hooks';
