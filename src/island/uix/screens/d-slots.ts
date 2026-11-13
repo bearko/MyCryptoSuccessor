@@ -6,6 +6,8 @@
 import type { Ctx } from '../../p1/screens';
 import type { P1State } from '../../p1/model';
 import type { Card, ChooseRes } from '../../p1/card';
+import type { Plan } from '../../p1/plan';
+import type { ProposalOpts } from '../../p1/proposalui';
 
 export interface UxdScreens {
   /** 提案・報告のカードの中身（器は今の窓 .isl-modal.isl-cardm。close・quiet は今の画面と同じ閉じ方） */
@@ -16,6 +18,8 @@ export interface UxdScreens {
   gone?: (s: P1State) => HTMLElement | null;
   /** 会社の課題（優先の順） */
   issues?: (s: P1State) => HTMLElement;
+  /** 担当者からの提案書（器は今の窓 .isl-modal.isl-prop。閉じたら o.done は今と同じ） */
+  proposal?: (ctx: Ctx, plan: Plan, o: ProposalOpts) => void;
 }
 // 入れ物は uix/hooks.ts に置く（理由はそこに）。ここは型と、同じ物の名前だけ
 export { uxdSlots as uxd } from '../hooks';

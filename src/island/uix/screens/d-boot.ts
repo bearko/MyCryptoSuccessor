@@ -6,6 +6,7 @@ import type { UxdDeps } from '../../p1/uxd';
 import { setQ } from './d-deps';
 import { uxd } from './d-slots';
 import { cardPanelUx, goneUx, inboxUx, issuesUx } from './card';
+import { openProposalUx } from './proposal';
 
 /** 本体の関数の束を受け取って、差し込み口へ入れる */
 export function installD(d: UxdDeps) {
@@ -14,4 +15,5 @@ export function installD(d: UxdDeps) {
   uxd.inbox = inboxUx;
   uxd.gone = goneUx;
   uxd.issues = issuesUx;
+  uxd.proposal = openProposalUx;
 }

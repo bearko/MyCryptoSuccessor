@@ -8,10 +8,11 @@ import { uxsDeps } from '../src/island/p1/uxs';
 import { newP1 } from '../src/island/p1/model';
 import { choiceText } from '../src/island/p1/card';
 import { uxd } from '../src/island/uix/screens/d-slots';
+import { CLOSE_MS, PAGE_MS } from '../src/island/uix/screens/proposal';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
-export const D_FILES = ['card.ts', 'd-kit.ts', 'd-boot.ts', 'd-deps.ts', 'd-slots.ts'];
-export const D_CSS = ['d-card.css'];
+export const D_FILES = ['card.ts', 'proposal.ts', 'd-kit.ts', 'd-boot.ts', 'd-deps.ts', 'd-slots.ts'];
+export const D_CSS = ['d-card.css', 'd-prop.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 afterEach(() => {
@@ -106,5 +107,39 @@ describe('提案のカード：出す中身は今のカードと同じ', () => {
     const code = src('uix/screens/card.ts');
     expect(code).toContain('later(isCalm() ? 0 : 420');
     expect(code).toContain('uxpPrint(lines');
+  });
+});
+
+describe('提案書：投影される資料・最後の 1 枚で承認のレバー', () => {
+  const P = src('p1/proposalui.ts');
+  const U = src('uix/screens/proposal.ts');
+  it('入口は 1 行の分かれ道（方針を聞くのは今のまま先に）。中身は今の画面と同じ propModel・propSlides', () => {
+    const i = P.indexOf('if (askDue(s)) return openPolicyPick');
+    const j = P.indexOf('if (uxd.proposal) return uxd.proposal(ctx, plan, o);');
+    expect(i).toBeGreaterThan(0);
+    expect(j).toBeGreaterThan(i);
+    expect(P).toContain('const M = propModel(ctx, plan, o);');
+    expect(P).toContain('const slides = propSlides(ctx, plan, o, M, SLIDE_KIT,');
+    expect(U).toContain('Q.propModel(ctx, plan, o)');
+    expect(U).toContain('Q.propSlides(ctx, plan, o, M, KIT,');
+  });
+  it('KPI は桁の回る数字の札・12 か月の累計は縦の棒（今の目印 isl-sl-kpi・data-kpi・isl-sl-lab を残す）', () => {
+    expect(U).toContain("x.el.classList.add('isl-sl-kpi');");
+    expect(U).toContain("x.el.querySelector('.uxd-tile-k')?.classList.add('isl-sl-lab');");
+    expect(U).toContain('const KIT: SlideKit = { kpiTile: kpiTileUx, lineChart: lineBars };');
+    expect(U).not.toMatch(/<path|polyline/);
+  });
+  it('送りは 600ms（見本の報告と同じ）・承認はレバー（主役・前の層）。承認の処理は今と同じ（o.approve か applyPlan → after → お知らせ → done("ok")）', () => {
+    expect(PAGE_MS).toBe(600);
+    expect(CLOSE_MS).toBeGreaterThanOrEqual(500);
+    expect(U).toContain('const lever = uxLever({');
+    expect(U).toContain("can: () => !DC.block.length && !engaged");
+    expect(U).toMatch(/o\.approve \?\? \(\(p: Plan\) => Q\.applyPlan\(ctx\.s\(\), p\)\)/);
+    expect(U).toContain("close('ok');");
+    expect(U).toContain("kind: 'main', big: true, ico: 'next', cls: 'uxd-prop-next'");
+  });
+  it('動きを減らすと、ページはすぐ替わり・判のあとすぐ閉じる', () => {
+    expect(U).toContain('if (!isCalm()) {');
+    expect(U).toContain('later(isCalm() ? 60 : CLOSE_MS');
   });
 });

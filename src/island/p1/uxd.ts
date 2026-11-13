@@ -35,13 +35,17 @@ import {
   type Speech,
 } from './card';
 import { cardChoose, cardNav, showCard, type CardHooks } from './cardui';
-import { storeBlock } from './proposalui';
+import { propModel, propSlides, storeBlock, type PropModel, type ProposalOpts } from './proposalui';
+import { SLIDE_NAME, SRC_NAME, askIcon, shortWhat } from './slides';
+import { askTo } from './brief';
+import { errChip } from './lessonui';
+import { starOf } from './card';
 import { rankOf } from './heroui';
 import { poolCap, staffOf, type P1State } from './model';
 import { traitOf } from './persona';
 import { landDef, relOf, relTeaser } from './diplo';
 import { after, type Ctx } from './screens';
-import { afterOf, planOf } from './plan';
+import { afterOf, applyPlan, dropLine, planOf, planTitle, type Plan } from './plan';
 import { useUpOf } from './proj';
 import { DUO_BY_ID } from './duo';
 import { ISSUE_ICON, issueLv, issueName, issueTag, issuesOf, lvWord, type IssueKey } from './issues';
@@ -262,6 +266,41 @@ export function issuesView(s: P1State) {
     .map((x) => ({ key: x.key, pri: x.pri, icon: ISSUE_ICON[x.key], name: issueName(x.key), note: x.note, loss: x.loss, lv: issueLv(x), lvWord: lvWord(issueLv(x)), n: inbox.filter((c) => c.iss?.key === x.key).length }));
 }
 
+// ---------------------------------------------------------------- 提案書
+/** 提案書の上の話し手（顔・出どころ・部門・名前・読みの確かさ・数字の教えの札） */
+export function propHead(s: P1State, plan: Plan, M: PropModel, o: ProposalOpts) {
+  const st = plan.hero != null ? staffOf(s, plan.hero) : null;
+  return {
+    hero: plan.hero,
+    kicker: SRC_NAME[M.src](),
+    dept: M.B.dept ?? null,
+    name: [o.role ?? '', plan.hero != null ? heroName(plan.hero) : t('マインちゃん', 'Mine-chan')].filter(Boolean).join(t('・', ' · ')),
+    star: st ? starOf(plan.q, st.level ?? 1) : 0,
+    err: Math.round(M.B.err * 100),
+    errChip: st ? errChip(s) : null,
+  };
+}
+/** 最後の 1 枚（決裁）の中身：承認事項（手ごとの 1 行）・止まる商品・資金の前後・予算・止める理由・推奨 */
+export function propDecide(s: P1State, plan: Plan, M: PropModel) {
+  const B = M.B;
+  const asks = B.asks.map((a) => ({ dept: a.dept, icon: askIcon(a.kind), what: shortWhat(a.what), cost: [a.money ? money(a.money) : '', a.rp ? `${a.rp} RP` : '', a.monthly ? t(`毎月 ${money(a.monthly)}`, `${money(a.monthly)}/mo`) : ''].filter(Boolean).join(t('・', ' · ')) || t('費用なし', 'free'), ask: a.own ? null : askTo(a.dept) }));
+  return {
+    asks,
+    title: asks.length ? null : planTitle(s, plan),
+    drop: dropLine(s, plan),
+    cash: B.co.cash,
+    left: B.co.left,
+    reserve: B.co.reserve,
+    money: B.cost.money,
+    rp: B.cost.rp ?? 0,
+    budget: B.budget ? { inside: B.budget.inside, name: DEPT[B.budget.dept].name, over: B.budget.need - B.budget.rest } : null,
+    block: B.block,
+    rec: B.rec,
+    why: B.why,
+    storeName: s.storeName || '',
+  };
+}
+
 export const uxdDeps = {
   cardView,
   cardChoose,
@@ -269,6 +308,13 @@ export const uxdDeps = {
   inboxView,
   goneView,
   issuesView,
+  propModel,
+  propSlides,
+  propHead,
+  propDecide,
+  applyPlan,
+  after,
+  SLIDE_NAME,
   PROPOSAL_SRC,
   DEPT,
   heroIcon,
