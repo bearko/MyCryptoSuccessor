@@ -4,8 +4,15 @@
  * 本体の側（このファイル。p1/main.ts と同じ束）から、使う関数だけを渡す。
  */
 import { DEF } from '../defs';
+import { assetUrl } from '../../render/images';
+import { HERO_GROWTH, HERO_RARITIES, LESSON, PASSIVES, PROMO_ITEM, PROMO_ITEMS } from './data';
+import { atCap, capOf, heroRarityOf, nextPassive, passiveName, passiveValue, promoItemOf, promoLock, xpNeed } from './hero';
+import { promote } from './model';
+import { releaseHero } from './heroui';
+import { FIT_KEYS, GRADE_COLOR, bestFits, fitLine, fitName, gradeOf, lineOf, whyOf } from './voice';
+import { DUOS, condName, duoDex, duoFoundN, duosOfHero, fxText, kindName } from './duo';
+import { LESSON_COLOR, LESSON_TYPES, fxLine, lessonCounts, lessonDex, lessonLive, lessonText, lessonTypeName } from './lesson';
 import { CHARISMA, HERO_RARITY, HIRE_RARITIES, MORALE, PAY, SALARY, TASKS, aptitude } from './data';
-import { heroRarityOf } from './hero';
 import { capAt, charismaLine, charismaOf, charismaParts, cutPay, hireCap, hireEmptyLines, marketPay, marketStep, moraleAvg, moraleBand, moraleMul, moraleOf, payOf, payStep, payroll, quitLeft, stepWage, talk, wantsToQuit } from './hr';
 import { RANKS, TASK_NAME, aptShow, jobLabel, rankOf } from './heroui';
 import { MAX_HAULERS, assign, bonus, bonusCost, has, heroStats, hire, myShops, raise, setRest, signFee, staffOf, wageMul, wageOf } from './model';
@@ -81,6 +88,48 @@ export const uxhDeps = {
   moraleHist,
   openPayroll,
   openGrowth,
+  // ---- ヒーローの人事票・育成・昇格（今の p1/growthui.ts・p2ui.ts・heroui.ts と同じ関数）
+  assetUrl,
+  HERO_GROWTH,
+  HERO_RARITIES,
+  PASSIVES,
+  PROMO_ITEM,
+  PROMO_ITEMS,
+  atCap,
+  capOf,
+  nextPassive,
+  passiveName,
+  passiveValue,
+  promoItemOf,
+  promoLock,
+  xpNeed,
+  promote,
+  releaseHero,
+  FIT_KEYS,
+  GRADE_COLOR,
+  bestFits,
+  fitLine,
+  fitName,
+  gradeOf,
+  lineOf,
+  whyOf,
+  DUOS,
+  condName,
+  duoDex,
+  duoFoundN,
+  duosOfHero,
+  fxText,
+  kindName,
+  // ---- 教え（今の p1/lessonui.ts と同じ関数）
+  LESSON,
+  LESSON_COLOR,
+  LESSON_TYPES,
+  fxLine,
+  lessonCounts,
+  lessonDex,
+  lessonLive,
+  lessonText,
+  lessonTypeName,
   after,
   mineTip,
   open,

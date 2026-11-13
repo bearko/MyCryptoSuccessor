@@ -26,6 +26,7 @@ import { uxpEmpty, uxpFoot, uxpGap, uxpPaper, uxpStamp, uxpStat } from '../spart
 import { H } from './h-deps';
 import { aptBars, bestLine, bestTask, enter, face, flyTo, hIcon, heroCard, ink, keepOpen, keyLabel, lite, liveDraw, mid, rankChip, rarOf, rarTag, sect } from './h-kit';
 import { charismaPanel } from './hr';
+import { openHeroSheet } from './hero';
 import './h-screens.css';
 import type { Ctx } from '../../p1/screens';
 import type { Task } from '../../p1/data';
@@ -236,7 +237,7 @@ function staffScreen(ctx: Ctx, body: HTMLElement) {
       for (const x of others) {
         const train = x.task === 'train' && s.training?.hero === x.hero ? s.training : null;
         const m = train ? uxMeter(1 - train.left / train.total) : null;
-        list.append(heroCard(x.hero, { win: 40, rarity: rarOf(x), level: x.level, desc: el(`span${x.task === 'train' ? '.uxh-amber' : ''}`, H.jobLabel(s, x)), foot: m ? m.el : undefined, cls: 'is-small' }));
+        list.append(heroCard(x.hero, { win: 40, rarity: rarOf(x), level: x.level, desc: el(`span${x.task === 'train' ? '.uxh-amber' : ''}`, H.jobLabel(s, x)), foot: m ? m.el : undefined, cls: 'is-small', right: sheetKey(ctx, x.hero) }));
       }
       out.push(el('section.uxh-sec', sect(t('そのほかの仕事', 'Other jobs'), 'compass'), list));
     }
@@ -253,6 +254,7 @@ function staffScreen(ctx: Ctx, body: HTMLElement) {
           selected: holding === x.hero,
           breathe: true,
           cls: 'isl-hero-pick is-free',
+          right: sheetKey(ctx, x.hero),
           onTap: () => {
             holding = holding === x.hero ? null : x.hero;
             redraw();
@@ -284,6 +286,9 @@ function staffScreen(ctx: Ctx, body: HTMLElement) {
     lastSlots = now;
   });
 }
+
+/** 人事票を開く小さなキー（名簿の札の右） */
+const sheetKey = (ctx: Ctx, hero: number) => uxKey(keyLabel('doc', t('人事票', 'Profile')), () => openHeroSheet(ctx, hero), { kind: 'weak', ico: null, cls: 'uxh-k-sheet', attrs: { 'aria-label': t(`${H.heroName(hero)}の人事票`, `${H.heroName(hero)} profile`) } });
 
 /** 持ち場の枠（今の slot() と同じ中身：ラベル・顔・名前・その仕事のランク・スタミナ・Lv・休憩中。外すのは右上の「外す」のキー） */
 function slotEl(s: P1State, o: { label: string; task: Task; hero: number | null; hot?: boolean; onTap: () => void; onRemove?: () => void }): HTMLElement {

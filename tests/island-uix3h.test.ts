@@ -15,15 +15,20 @@ import { W_ICONS } from '../src/island/uix/screens/w-icons';
 import { APT_ORDER, enterDelay, rankTone } from '../src/island/uix/screens/h-kit';
 import { APPRENTICES, newlyPut, slotKey } from '../src/island/uix/screens/staff';
 import { MORALE_LAMP, diffWord, markAt } from '../src/island/uix/screens/hr';
+import { DUO_ICO, LESSON_ICO, PROMO_FLIP_MS, RELEASE_MS } from '../src/island/uix/screens/hero';
+import { LESSON_TYPES } from '../src/island/p1/lesson';
+import { H_ART as _HA } from '../src/island/uix/screens/h-icons';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
-export const H_FILES = ['h-boot.ts', 'h-deps.ts', 'h-slots.ts', 'h-kit.ts', 'h-icons.ts', 'staff.ts', 'hr.ts'];
+export const H_FILES = ['h-boot.ts', 'h-deps.ts', 'h-slots.ts', 'h-kit.ts', 'h-icons.ts', 'staff.ts', 'hr.ts', 'hero.ts'];
 export const H_CSS = ['h-screens.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 const SCREENS = src('p1/screens.ts');
 const HRUI = src('p1/hrui.ts');
 const ST = src('uix/screens/staff.ts');
 const HR = src('uix/screens/hr.ts');
+const HE = src('uix/screens/hero.ts');
+const ALL_ICONS = new Set([...UX_ICONS, ...K_ICONS, ...S_ICONS, ...W_ICONS, ...Object.keys(_HA)]);
 
 afterEach(() => {
   for (const k of Object.keys(uxh)) delete (uxh as Record<string, unknown>)[k];
@@ -45,7 +50,11 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     expect(HRUI).toMatch(/export function openCharisma\(ctx: Ctx\) \{\n[^\n]*\n  if \(uxh\.charisma\) return uxh\.charisma\(ctx\);\n  open\(/);
     expect(HRUI).toMatch(/export function openPayroll\(ctx: Ctx\) \{\n  if \(uxh\.payroll\) return uxh\.payroll\(ctx\);\n  open\(/);
     const boot = src('uix/screens/h-boot.ts');
-    for (const k of ['staff', 'hire', 'charisma', 'payroll']) expect(boot, k).toMatch(new RegExp(`uxh\\.${k} = \\w+;`));
+    expect(src('p1/growthui.ts')).toMatch(/export function openGrowth\(ctx: Ctx, focus\?: number\) \{\n[^\n]*\n  if \(uxh\.growth\) return uxh\.growth\(ctx, focus\);\n  open\(/);
+    expect(src('p1/growthui.ts')).toContain('  if (uxh.promotion) return uxh.promotion(root, hero, from, to, done);\n  const ov = h(');
+    expect(src('p1/lessonui.ts')).toMatch(/export function openLessons\(ctx: Ctx\) \{\n[^\n]*\n  if \(uxh\.lessons\) return uxh\.lessons\(ctx\);\n  ctx\.root/);
+    expect(src('p1/lessonui.ts')).toContain('  if (uxh.lessonPop) return uxh.lessonPop(hero, onOpen);\n  const x = lessonText(hero);');
+    for (const k of ['staff', 'hire', 'charisma', 'payroll', 'growth', 'promotion', 'lessons', 'lessonPop']) expect(boot, k).toMatch(new RegExp(`uxh\\.${k} = \\w+;`));
   });
   it('新しい画面の束は、本体のモジュールを自分では読まない（型だけ）。関数は p1/uxh.ts から渡す', () => {
     for (const f of H_FILES) {
@@ -191,5 +200,40 @@ describe('人事（カリスマ度・経営者・給与と労務）', () => {
     expect(HR).toContain("{ max: 100, height: 150, cls: 'uxh-hist' }");
     expect(HR).toContain("uxpPaper(\n          { plain: true, cls: 'uxh-slip' },");
     expect(noComment(src('uix/screens/h-screens.css'))).toMatch(/\.uxh-slip \.uxp-row-v \{\s*margin-left: auto;\s*text-align: right;/);
+  });
+});
+
+describe('ヒーローの人事票・育成・昇格・教え・組み合わせ図鑑', () => {
+  it('人事票：顔・段の札・Lv と経験値・いまの仕事・スタミナ・士気・能力の縦の棒・史実の適性・パッシブ。名簿・そのほかの仕事・育成の札から開く', () => {
+    for (const x of ["face(st.hero, 128, { scale: 2", 'rarTag(rar)', 'H.xpNeed(st.level ?? 1)', 'H.jobLabel(ctx.s(), st)', 'moraleTag(st)', 'aptBars(st.stats).el', 'fitPanel(s, st.hero, !!st.resting)', 'passives(st)']) expect(HE, x).toContain(x);
+    expect(ST).toContain('openHeroSheet(ctx, hero)');
+    expect(HE).toContain("right: uxKey(keyLabel('doc', t('人事票', 'Profile')), () => openHeroSheet(ctx, st.hero)");
+  });
+  it('担当を外すは 2 回押し（1 回目で「もう一度で外す」・3 秒で戻る）。外せない人（修行・セクター長・リーダー）には出さない', () => {
+    expect(RELEASE_MS).toBe(3000);
+    expect(HE).toContain("const canFree = st.task != null && st.task !== 'train' && st.task !== 'manager' && st.task !== 'lead';");
+    expect(HE).toContain("lab.textContent = t('もう一度で外す', 'Tap again to unassign');");
+    expect(HE).toContain('if (!H.releaseHero(ctx.s(), st.hero)) return;');
+  });
+  it('育成：強化アイテム・教え・組み合わせ図鑑・ヒーローごと（昇格できる人 → Lv の高い順）・昇格のキー（今の目印 isl-hpromo-go）', () => {
+    for (const x of ['H.PROMO_ITEMS', "t('入り方：研究成果の発表", 'lessonPanel(ctx, s), dexPanel(s)', 'Number(!H.promoLock(b, s.heroItems)) - Number(!H.promoLock(a, s.heroItems)) || (b.level ?? 1) - (a.level ?? 1)', "cls: 'uxh-promo isl-hpromo-go'", "kind: 'main'", 'H.promote(ctx.s(), st.hero)', "ctx.sfx?.('levelup')", "t('昇格できる', 'Can promote')", 'promoText(s, st)']) expect(HE, x).toContain(x);
+  });
+  it('昇格：段の札がめくれて上がる（もとの段 → 新しい段・「昇格」が打たれる）。動きを減らすときは、すぐ新しい段', () => {
+    expect(PROMO_FLIP_MS).toBeGreaterThanOrEqual(300);
+    expect(HE).toContain("flip.classList.add('is-turn');");
+    expect(HE).toContain("flip.classList.add('is-done');\n    stamp.show();\n    return;");
+    expect(HE).toContain('el(`div.isl-hpfx.uxh-pf.is-${to.toLowerCase()}`');
+    expect(HE).toContain("t('タップで進む', 'Tap to continue')");
+  });
+  it('教えの型・組み合わせの種類は、絵文字の代わりにドットの絵（どれも、どこかの表にある）', () => {
+    expect(Object.keys(LESSON_ICO).sort()).toEqual([...LESSON_TYPES].sort());
+    for (const v of [...Object.values(LESSON_ICO), ...Object.values(DUO_ICO)]) expect(ALL_ICONS.has(v), v).toBe(true);
+    expect(Object.keys(DUO_ICO).sort()).toEqual(['ally', 'kin', 'mentor', 'rival', 'tension']);
+  });
+  it('教えの図鑑：今と同じ窓の目印（.isl-modal.isl-ls-modal）・型ごとの数は縦の棒・受け継いだ教え・まだの人。お知らせは .isl-toast.isl-ls-pop（帯の着せ替えが組み直さない）', () => {
+    expect(HE).toContain("el('div.isl-modal.isl-ls-modal.uxh-lsm')");
+    expect(HE).toContain("{ max: top, height, cls: 'uxh-lsbars' }");
+    expect(HE).toContain("el('div.isl-toast.isl-ls-pop.uxh-lspop', uxLamp('good', true)");
+    expect(src('uix/screens/c-dress.ts')).toContain("if (e.querySelector(':scope > .ux-lamp')) return;");
   });
 });
