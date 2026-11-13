@@ -309,9 +309,27 @@ function glyph(name: string, cls: string, color = '#f4ecd4'): HTMLElement {
 }
 const lite = (name: string, color = '#f4ecd4') => kIcon(name, { color, hi: color, lo: '#0b0d17', scale: 1 });
 
-/** 部門の絵（下の帯のタブと同じ絵） */
+/** またたきの周期の半分（ランプが点いている・消えている時間。今の ux-blink の 0.9 秒の半分） */
+export const BLINK_HALF_MS = 450;
+/**
+ * またたきの時計：BLINK_HALF_MS ごとに el の data-ph を入れ替える（CSS は data-ph="1" のときだけ、ランプを暗く・矢印を上へ）。
+ * class ではなく data 属性にするのは、class の変化を見張っている着せ替え（c-dress.ts）を、またたくたびに起こさないため。
+ * 動きを減らすとき・タブが裏のとき・木が外れたときは止まった形（data-ph なし）。止める関数を返す
+ */
+export function blinkClock(el: HTMLElement, calm: () => boolean = isCalm): () => void {
+  const id = setInterval(() => {
+    if (!el.isConnected || calm() || (typeof document !== 'undefined' && document.hidden)) {
+      if (el.dataset.ph) delete el.dataset.ph;
+      return;
+    }
+    if (el.dataset.ph) delete el.dataset.ph;
+    else el.dataset.ph = '1';
+  }, BLINK_HALF_MS);
+  return () => clearInterval(id);
+}
 /** 部門へ寄るときの目当て：その部門のパネルのいちばん上の段（y の最小） */
 export const arriveTop = (ys: number[]) => Math.min(...ys);
+/** 部門の絵（下の帯のタブと同じ絵） */
 export const DEPT_ICO: Record<string, string> = { marketing: 'horn', logistics: 'truck', sales: 'tag', support: 'headset', systems: 'gear', rnd: 'flask', legal: 'scales', hr: 'people', general: 'office', accounting: 'receipt', strategy: 'star4' };
 
 /** パネルの絵：今の画面と同じ決め方（建物・商品・エクステ・素材）。絵文字で仮に置いてある分は、ドットの絵に替える */
@@ -2075,6 +2093,9 @@ function build(ctx: Ctx, body: HTMLElement, key: string, liftFirst: boolean, arr
   });
   // 開いたとき：数字の計器が点く（止まらない画面）
   if (!isCalm() && !sealed) replay(top, 'is-boot');
+
+  // ---- またたきの時計：ランプのまたたきと上向きの矢印を、1 つの時計でそろえて動かす（パネルごとの CSS の動きにしない：開いたままの重さ）
+  offs.push(blinkClock(world));
 
   return {
     body,

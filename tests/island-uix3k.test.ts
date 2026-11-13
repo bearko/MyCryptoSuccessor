@@ -2,7 +2,7 @@
 // 入のときだけ新しい画面に分かれること・今の目印が残ること・出す中身が今の画面とそろうこと・主役のキーが前の層に出ること・
 // 動きを減らすと全部すぐ出ること。
 import { readFileSync } from 'node:fs';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { uxkDeps } from '../src/island/p1/uxk';
 import { uxsDeps } from '../src/island/p1/uxs';
 import { EDGES, POS } from '../src/island/p1/treelayout';
@@ -22,7 +22,7 @@ import { emptyLedger } from '../src/island/p1/company';
 import { BAND_LAMP, BAND_NAME, DED_KINDS, MORALE_STEPS, dedRatio, moraleSteps, restHot } from '../src/island/uix/screens/tax';
 import { FIT_TAG, heatText, stars, useHot, useRatio } from '../src/island/uix/screens/budget';
 import { FEED_WHY, demandHot, dutyPct } from '../src/island/uix/screens/feed';
-import { arriveTop } from '../src/island/uix/screens/tree';
+import { BLINK_HALF_MS, arriveTop, blinkClock } from '../src/island/uix/screens/tree';
 import { CHAMFER, chainOf, descKey, gaugeSteps, lampOf, routeWires, stairDiamond, stateWord, type NodeDesc } from '../src/island/uix/screens/tree';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
@@ -508,5 +508,39 @@ describe('部門のパネルへ寄る・輸入の箱', () => {
     expect(FD).toContain("tags: it.on ? uxTape(t('輸入中', 'Importing'), 'good') : null");
     expect(FD).toContain('ux.lever?.(ok) ?? ok');
     expect(FD).toContain("'data-sku': it.sku");
+  });
+});
+
+describe('スキルツリー：開いたままの重さ', () => {
+  it('ランプのまたたき・上向きの矢印は、パネルごとの CSS の動きにしない（木に 1 つの時計で、data 属性を入れ替える）', () => {
+    const css = noComment(src('uix/screens/tree.css'));
+    expect(css).not.toMatch(/\.uxk-n-l\.is-blink\s*\{[^}]*animation/);
+    expect(css).not.toMatch(/\.uxk-n-up\s*\{[^}]*animation/);
+    expect(css).toContain(".uxk-world[data-ph='1'] .uxk-n-l.is-blink");
+    expect(css).toContain(".uxk-world[data-ph='1'] .uxk-n-up");
+    expect(TR).toContain('offs.push(blinkClock(world));');
+  });
+  it('時計：0.9 秒の半分ごとに入れ替える。動きを減らす・木が外れたときは止まった形', () => {
+    vi.useFakeTimers();
+    try {
+      const el = { isConnected: true, dataset: {} as Record<string, string> } as unknown as HTMLElement;
+      let calm = false;
+      const stop = blinkClock(el, () => calm);
+      expect(BLINK_HALF_MS).toBe(450);
+      vi.advanceTimersByTime(BLINK_HALF_MS);
+      expect(el.dataset.ph).toBe('1');
+      vi.advanceTimersByTime(BLINK_HALF_MS);
+      expect(el.dataset.ph).toBeUndefined();
+      vi.advanceTimersByTime(BLINK_HALF_MS);
+      calm = true;
+      vi.advanceTimersByTime(BLINK_HALF_MS);
+      expect(el.dataset.ph).toBeUndefined();
+      calm = false;
+      stop();
+      vi.advanceTimersByTime(BLINK_HALF_MS * 4);
+      expect(el.dataset.ph).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
