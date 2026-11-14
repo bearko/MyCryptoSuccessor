@@ -24,6 +24,7 @@ import { arw, cvBox, donutEl, fallEl, fallLegend, histBox, shortN, trendEl, tren
 import { brandHist, bsParts, plFall, quarterTrend, sectorBars, sectorHist } from './dash';
 import { uxw } from '../uix/screens/w-slots';
 import { uxk } from '../uix/screens/k-slots';
+import { uxr } from '../uix/screens/r-slots';
 
 // ---------------------------------------------------------------- ランドマップ
 
@@ -240,6 +241,8 @@ export function openRankUp(ctx: Ctx, target: string) {
  * 被災した町（ほかのセクタ）の復興の箱：進み・支援金・担当・「復興を任せる」（ヒーローと支援金）。お題と出土品は手で掘る
  */
 export function reviveBox(ctx: Ctx, s: P1State, id: string): HTMLElement {
+  // 段 UIX4r：入のときは、管制卓の箱へ（切のときは今の箱）
+  if (uxr.reviveBox) return uxr.reviveBox(ctx, s, id);
   const rv = reviveView(s, id)!;
   const box = h('div', 'isl-land-mgr isl-revive-box');
   box.append(h('p', rv.out ? 'isl-bad' : 'isl-warn', reviveLine(rv)));
@@ -262,6 +265,7 @@ export function reviveBox(ctx: Ctx, s: P1State, id: string): HTMLElement {
 
 /** 復興を任せる画面：担当（いまの担当 or ほかのヒーロー）と、送る支援金（3 つの額） */
 export function openDelegate(ctx: Ctx, id: string, hero0?: number) {
+  if (uxr.delegate) return uxr.delegate(ctx, id, hero0);
   const d = sectorDef(id);
   open(ctx, t(`「${d.name}」の復興を任せる`, `Leave ${d.name}’s recovery`), (body) => {
     const s = ctx.s();
@@ -535,6 +539,7 @@ function detail(ctx: Ctx, s: P1State, id: string): HTMLElement {
 
 /** マネージャーが運営しているセクタ：担当・先月の結果・投資の割合 */
 export function managerBox(ctx: Ctx, s: P1State, id: string): HTMLElement {
+  if (uxr.managerBox) return uxr.managerBox(ctx, s, id);
   const rec = recOf(s, id);
   const box = h('div', 'isl-land-mgr');
   if (!rec.snap) {

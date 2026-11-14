@@ -19,6 +19,7 @@ import { LITE, dDept, dIco, dRich, dText } from './d-kit';
 import { dotEmoji, kIcon } from './k-icons';
 import './d-card.css';
 import './d-deleg.css';
+import { uxr } from './r-slots';
 
 const stars = (n: number) => `${'★'.repeat(n)}${'☆'.repeat(3 - n)}`;
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -263,7 +264,11 @@ export function propsBody(ctx: Ctx, body: HTMLElement) {
       ),
     );
   }
-  // セクター長（任せきり）
+  // セクター長（任せきり）。段 UIX4r：町ごとの札（r の画面）
+  if (uxr.sectorHeads) {
+    body.append(uxr.sectorHeads(s));
+    return;
+  }
   const ok = K.sectorHeadOk(s);
   const lines = K.sectorLines(s);
   body.append(

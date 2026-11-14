@@ -421,7 +421,9 @@ function detail(ctx: Ctx, s: P1State, id: string): HTMLElement {
     if (W.hasBusiness(s)) box.append(line(null, t('いまのセクタは、セクター長に任せます（次に選びます）。', 'You will pick a sector head for the current sector next.'), 'dim'));
   } else if (kind === 'go') {
     const rv = W.reviveView(s, id);
-    box.append(legacyBox(rv && rv.ruins > 0 ? W.reviveBox(ctx, s, id) : W.managerBox(ctx, s, id)));
+    // 段 UIX4r：セクター長・復興の箱は管制卓の箱（data-uxr）。今の要素の箱だけを着せ替えの板に入れる
+    const mb = rv && rv.ruins > 0 ? W.reviveBox(ctx, s, id) : W.managerBox(ctx, s, id);
+    box.append(mb.dataset.uxr ? mb : legacyBox(mb));
     box.append(uxKey(t('このセクタへ移動する', 'Go to this sector'), safe(() => W.startMove(ctx, id)), { kind: 'main', big: true, ico: 'next' }));
   } else if (kind === 'locked') {
     const have = d.need ? land.mine.filter((x) => W.sectorDef(x).tier === d.need!.tier).length : 0;
