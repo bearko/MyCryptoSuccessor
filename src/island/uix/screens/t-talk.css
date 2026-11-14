@@ -8,11 +8,14 @@ html.is-uxc #isl-ui .isl-sheet-body.uxt-ht {
   flex-direction: column;
   padding: 0;
   gap: 0;
-  overflow: hidden;
+  /* 器とキーが札に収まらないとき（せまい画面の承認のレバー）は、札ごと送れる（器を切らない） */
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 html.is-uxc #isl-ui .uxt-data {
   flex: 1 1 auto;
-  min-height: 96px;
+  /* せまい画面（札の高さが 300px ほど）でも、会話の器とキーは切れない：データは 64px まで縮む */
+  min-height: 64px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-auto-rows: max-content;

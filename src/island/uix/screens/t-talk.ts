@@ -273,24 +273,26 @@ function optIco(o: HtOpt): string {
   if (/人材|recruit/i.test(o.label)) return 'hire';
   return 'people';
 }
-const STAMP: Partial<Record<HtOpt['k'], [string, string, TapeKind]>> = {
-  approve: ['承認済', 'Approved', 'good'],
-  choice: ['決定', 'Decided', 'good'],
-  reject: ['却下', 'Rejected', 'dark'],
-  later: ['あとで', 'Later', 'amber'],
+/** 決めると打たれる判（字・色） */
+const STAMP: Partial<Record<HtOpt['k'], () => [string, TapeKind]>> = {
+  approve: () => [t('承認済', 'Approved'), 'good'],
+  choice: () => [t('決定', 'Decided'), 'good'],
+  reject: () => [t('却下', 'Rejected'), 'dark'],
+  later: () => [t('あとで', 'Later'), 'amber'],
 };
 
 /** 決める（承認・却下・あとで・手を選ぶ）：決めた札を写して、本体の関数を呼ぶ。描き直しのあとで、その札がもう無ければ判を打って送り出す */
 function decide(body: HTMLElement, c: HtCall, o: HtOpt) {
-  const st = STAMP[o.k];
+  const st = STAMP[o.k]?.();
   const card = body.querySelector<HTMLElement>('.uxt-deal');
   const data = body.querySelector<HTMLElement>('.uxt-data');
   if (st && card && data && !isCalm()) {
+    // 札（body）の中の位置（body は送れる箱なので、送った分を足す）
     const r = card.getBoundingClientRect();
-    const d = data.getBoundingClientRect();
+    const d = body.getBoundingClientRect();
     const copy = card.cloneNode(true) as HTMLElement;
     copy.removeAttribute('data-uxt-key');
-    ghost = { el: copy, x: r.left - d.left, y: r.top - d.top, w: r.width, label: t(st[0], st[1]), kind: st[2], key: itemKey(c), force: o.k === 'later' };
+    ghost = { el: copy, x: r.left - d.left + body.scrollLeft, y: r.top - d.top + body.scrollTop, w: r.width, label: st[0], kind: st[1], key: itemKey(c), force: o.k === 'later' };
   } else ghost = null;
   o.on();
 }
@@ -307,7 +309,7 @@ function playGhost(body: HTMLElement, c: HtCall) {
   g.el.classList.add('uxt-ghost');
   g.el.append(stamp.el);
   Object.assign(g.el.style, { left: `${Math.round(g.x / 2) * 2}px`, top: `${Math.round(g.y / 2) * 2}px`, width: `${Math.round(g.w)}px` });
-  data.parentElement?.append(g.el);
+  body.append(g.el);
   stamp.hit(g.el);
   setTimeout(() => {
     g.el.classList.add('is-out');
@@ -368,6 +370,8 @@ export function headTalkUx(body: HTMLElement, c: HtCall) {
   let lever: HTMLElement | null = null;
   if (!c.last) keys.append(uxKey(t('つぎへ', 'Next'), () => c.more(), { kind: 'main', ico: 'next', cls: 'uxt-next', attrs: { 'data-ux-quiet': '' } }));
   for (const o of c.opts) {
+    // 採用の状況の「提案書を見る」は、部長の提案の札の中に同じキーがある（今の画面は札と選択肢の 2 か所）。せまい器を空けるため、札の中の 1 つにまとめる
+    if (o.k === 'plan' && c.topic === 'hire' && !c.item) continue;
     const label = bare(o.label);
     const rec = /\bis-rec\b/.test(o.cls);
     // 部長の提案の承認はレバー（今と同じ：「✔ 承認」で始まる選択肢）
