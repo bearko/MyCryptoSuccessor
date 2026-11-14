@@ -1,0 +1,30 @@
+{
+  "stop": [
+    "boot.js",
+    "kit.js",
+    "s-boot.js",
+    "mapui.js",
+    "free.js",
+    "book.js"
+  ],
+  "js": [
+    "hooks.js",
+    "i18n.js",
+    "index.js",
+    "main.js",
+    "render.js",
+    "sound.js",
+    "ui.js"
+  ],
+  "css": [
+    "main.css",
+    "render.css"
+  ],
+  "lazy": [
+    "duotalk.js",
+    "growthui.js",
+    "lesson.js",
+    "plan.js",
+    "voice.js"
+  ]
+}

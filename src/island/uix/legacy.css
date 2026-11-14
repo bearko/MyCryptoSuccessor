@@ -213,7 +213,27 @@ html.is-uxc #isl-ui .isl-sheet.ux-leaving > * {
 }
 /* 札から札へ（部門のサブタブなど）：短い出入り（220ms） */
 html.is-uxc #isl-ui .isl-sheet.ux-swap .isl-sheet-body {
-  animation: ux-key-in 220ms steps(5, end) both;
+  /* 層を残さない：fill は backwards まで（段 UIX4a。終わったあとも both で最後の形を当て続けると、開いているあいだ合成の層が残る） */
+  animation: ux-key-in 220ms steps(5, end) backwards;
+}
+
+/* ---------- まとめた画面（openTogether）の部分（段 UIX4a）：縦 1 列・幅いっぱい。
+   本体の CSS には .isl-part が 2 つあり（人の札の並び用の flex・align-items: center と、まとめた画面の grid）、
+   入のときに中身が中央に寄ることがあったので、ここで揃える（事業の段の回避は外した。flex に替えると、中の広い表が枠からはみ出していた） */
+html.is-uxc #isl-ui .isl-together > .isl-part {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  justify-items: stretch;
+  min-width: 0;
+}
+
+/* ---------- 今の目印の class に残る古い小さな字（段 UIX4a）：新しい画面の中に今の目印として残した要素が、本体の CSS の 12〜13px を
+   子へ引き継いでいた所を、16px にもどす（日本語は 16px が最小）。各段の上書きはそのまま（同じ詳細度なら、あとから読む各段の CSS が勝つ）。
+   工房の「作る数・自動製造」の段（.isl-plan-auto）は workshop.css */
+html.is-uxc #isl-ui .isl-together > .isl-part > .isl-dim {
+  font-size: 1rem;
+  line-height: 1.5;
 }
 
 /* ---------- 窓の共通の器（.isl-modal）：暗い網目の幕・入る動き。modal() の箱は機械の板 */
@@ -224,7 +244,8 @@ html.is-uxc #isl-ui .isl-modal.ux-modal {
   background: var(--ux-dz50s), rgba(9, 11, 24, 0.62);
 }
 html.is-uxc #isl-ui .isl-modal.ux-modal:not(.ux-modal--disaster) > * {
-  animation: ux-modal-in 260ms steps(6, end) both;
+  /* 層を残さない：fill は backwards まで（段 UIX4a。both だと、窓が開いているあいだ中身が合成の層のまま残り、重なる層が増えて重い） */
+  animation: ux-modal-in 260ms steps(6, end) backwards;
 }
 /* いまの画面は transform で位置を決めている所があるので、入る動きは translate・scale の別の口で重ねる */
 @keyframes ux-modal-in {

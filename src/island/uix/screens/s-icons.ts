@@ -4,7 +4,7 @@
  * ここの絵はコードで描いた仮の絵（docs/ISLAND_ART_TODO.md「新しい画面のアイコン」）。
  * 記号： . 透明 / # 主の色 / + 明るい色 / - 暗い色 / a 金 / r 赤 / g 緑 / c 水色 / w 白 / k 黒
  */
-import { UX_ICONS, uxIcon } from '../icons';
+import { UX_ICONS, uxArt, uxIcon } from '../icons';
 
 const ART: Record<string, string[]> = {
   // 作業台（万力つきの台）
@@ -45,6 +45,8 @@ const ART: Record<string, string[]> = {
 const PAL: Record<string, string> = { a: '#ffb81f', r: '#ff5964', g: '#36e08b', c: '#5fe4ff', w: '#fffdf3', k: '#0b0d17' };
 /** この段で足したアイコンの名前 */
 export const S_ICONS = Object.keys(ART);
+/** 土台の部品の ico からも引けるように登録する（段 UIX4a） */
+uxArt(ART, 2);
 export interface IconOpts {
   color?: string;
   hi?: string;

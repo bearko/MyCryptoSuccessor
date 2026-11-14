@@ -174,8 +174,10 @@ export function syncFront(force = false): string {
   if (root.classList.contains('is-crt') && !wipeIsBusy()) {
     const els = document.querySelectorAll(FRONT_SEL);
     if (els.length) {
-      const W = root.clientWidth || window.innerWidth;
-      const H = root.clientHeight || window.innerHeight;
+      // 画面の大きさは、変わったときだけ読む（毎コマ画面の幅を読むと、ほかの書き換えのあとでレイアウトの計算をやり直させる）
+      if (!vw) measure();
+      const W = vw;
+      const H = vh;
       const env = domEnv(W, H);
       const shapes = frontShapes(els, env);
       const key = shapes.map((x) => `${x.box.x},${x.box.y},${x.box.w},${x.box.h}`).join(';');
@@ -189,6 +191,16 @@ export function syncFront(force = false): string {
     lines.style.clipPath = d ? `path(evenodd, "${d}")` : '';
   }
   return d;
+}
+
+/** 画面の大きさ（resize のときだけ読み直す。段 UIX4a） */
+let vw = 0;
+let vh = 0;
+let sized = false;
+function measure() {
+  const root = document.documentElement;
+  vw = root.clientWidth || window.innerWidth;
+  vh = root.clientHeight || window.innerHeight;
 }
 
 let hops = 0;
@@ -207,6 +219,12 @@ export function initFront(el: HTMLElement) {
   lines = el;
   last = '';
   lastShape = '';
+  vw = 0;
+  if (!sized && typeof addEventListener === 'function') {
+    sized = true;
+    addEventListener('resize', () => (vw = 0));
+    window.visualViewport?.addEventListener?.('resize', () => (vw = 0));
+  }
   const ok = typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('clip-path', 'path(evenodd, "M0 0H1V1H0Z")');
   if (!ok || raf || typeof requestAnimationFrame !== 'function') return;
   raf = requestAnimationFrame(frame);

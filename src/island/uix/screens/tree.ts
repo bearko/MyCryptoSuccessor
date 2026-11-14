@@ -579,12 +579,15 @@ function build(ctx: Ctx, body: HTMLElement, key: string, liftFirst: boolean, arr
       puff.style.top = `${q.y}px`;
       puff.style.setProperty('--sz', `${Math.round(((1.8 + (k % 3) * 0.35) * UNIT) / 4) * 4}px`);
       puff.style.setProperty('--d', `${(k * 0.08).toFixed(2)}s`);
+      // 消える雲は、動きが終わったら外す（forwards で残すと、透明な雲が合成の層のまま残る。段 UIX4a）
+      if (digOn) puff.addEventListener('animationend', () => puff.remove(), { once: true });
       world.append(puff);
     });
     const c = px(T.digCloudAt());
     const q = el(`div.uxk-cloudq.ux-num${digOn ? '.is-leaving' : ''}`, { title: t('雲の向こうに、まだ何かある', 'Something lies beyond the clouds') }, '?');
     q.style.left = `${c.x}px`;
     q.style.top = `${c.y}px`;
+    if (digOn) q.addEventListener('animationend', () => q.remove(), { once: true });
     world.append(q);
   }
 

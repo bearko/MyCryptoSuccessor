@@ -499,7 +499,9 @@ html.is-uxc .ux-crt::after {
   top: -120px;
   height: 120px;
   background: linear-gradient(transparent, rgba(190, 230, 255, 0.045) 40%, rgba(190, 230, 255, 0.07) 50%, rgba(190, 230, 255, 0.045) 60%, transparent);
-  animation: ux-roll 7.5s linear infinite;
+  /* 段 UIX4a：カクカク動く（130 段：約 8px ずつ・1 秒に 17 回）。毎コマ動かすと、そのたびに画面の全部の層を重ね直すことになり、
+     2 倍の画面で札・窓を開いたままのコマが重かった（スキルツリー 1 コマ 27ms → 18ms）。色・幅・1 周の長さは同じ */
+  animation: ux-roll 7.5s steps(130, end) infinite;
   will-change: transform;
 }
 @keyframes ux-roll {
@@ -623,7 +625,8 @@ html.is-uxc .ux-pop-rise {
   padding: 50px 14px 6px;
   transform-origin: 66% 0;
 }
-html.is-uxc .ux-pop.is-in .ux-pop-rise { animation: ux-pop-in 260ms steps(7, end) both; }
+/* 層を残さない：入る動きの fill は backwards まで（段 UIX4a） */
+html.is-uxc .ux-pop.is-in .ux-pop-rise { animation: ux-pop-in 260ms steps(7, end) backwards; }
 @keyframes ux-pop-in {
   0% { transform: scale(0.3, 0.04); opacity: 0; }
   30% { transform: scale(0.6, 0.5); opacity: 1; }
@@ -751,7 +754,7 @@ html.is-uxc .ux-pop-actions {
   gap: 6px;
   pointer-events: auto;
 }
-html.is-uxc .ux-pop.is-in .ux-pop-actions > * { animation: ux-key-in 220ms steps(5, end) both; }
+html.is-uxc .ux-pop.is-in .ux-pop-actions > * { animation: ux-key-in 220ms steps(5, end) backwards; }
 html.is-uxc .ux-pop.is-in .ux-pop-actions > :nth-child(1) { animation-delay: 120ms; }
 html.is-uxc .ux-pop.is-in .ux-pop-actions > :nth-child(2) { animation-delay: 190ms; }
 @keyframes ux-key-in {

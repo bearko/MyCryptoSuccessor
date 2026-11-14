@@ -353,11 +353,47 @@ const ART: Record<string, string[]> = {
 };
 
 const PAL: Record<string, string> = { a: '#ffb81f', r: '#ff5964', g: '#36e08b', c: '#5fe4ff', w: '#fffdf3', k: '#0b0d17' };
+/** 土台の絵の名前（段の絵の表は入らない） */
 export const UX_ICONS = Object.keys(ART);
+
+// ---------------------------------------------------------------- 段 UIX4a：どの段の絵の表でも引ける口
+/** 段の絵の表（登録した順）。土台の部品（uxKey・uxpHead・uxpEmpty・uxpTabs・uxpDrawer ほか）の ico は、ここからも引ける */
+const MORE: { table: Record<string, string[]>; order: number }[] = [];
+/**
+ * 段の絵の表を登録する（各段の *-icons.ts が、読まれたときに 1 回だけ呼ぶ）。order は段の順（読まれた順に寄らず、同じ結果にするため）：
+ * 上と下の帯 1・工房と報告 2・世界 3・事業 4・経営企画 5・人と管理 6。
+ * 同じ名前は、土台の絵 → order の小さい表 の順で決まる（段の道具 mIcon・kIcon などは、今までどおり自分の表を先に引く）
+ */
+export function uxArt(table: Record<string, string[]>, order: number): void {
+  if (MORE.some((x) => x.table === table)) return;
+  MORE.push({ table, order });
+  MORE.sort((a, b) => a.order - b.order);
+}
+/** 名前の絵（土台 → 登録した段の表）。無ければ undefined */
+export function artOf(name: string): string[] | undefined {
+  const a = ART[name];
+  if (a) return a;
+  for (const x of MORE) {
+    const b = x.table[name];
+    if (b) return b;
+  }
+  return undefined;
+}
+/** その名前の絵があるか（土台か、登録した段の表に） */
+export const hasIcon = (name: string): boolean => !!artOf(name);
+const warned = new Set<string>();
+/** 知らない名前：開発のときだけ、1 つの名前につき 1 回コンソールに出す（本番では出さない。絵は空の四角になる） */
+export function unknownIcon(name: string): boolean {
+  if (!import.meta.env.DEV || warned.has(name)) return false;
+  warned.add(name);
+  console.warn(`[uxIcon] 知らない絵の名前「${name}」：空の四角になります。src/island/uix/icons.ts か、段の絵の表（uxArt で登録）に足してください`); // i18n-ja：開発者だけが見る警告（遊ぶ人には出ない）
+  return true;
+}
 
 /** アイコンの canvas を返す。scale は 1 画素を何 CSS px にするか（整数。文字の大きさの設定に合わせて rem で伸びる） */
 export function uxIcon(name: string, { color = '#f4ecd4', hi = '#fffdf3', lo = '#0b0d17', scale = 2, cls = '' }: { color?: string; hi?: string; lo?: string; scale?: number; cls?: string } = {}): HTMLCanvasElement {
-  const art = ART[name];
+  const art = artOf(name);
+  if (!art) unknownIcon(name);
   const cv = document.createElement('canvas');
   const n = art ? art.length : 12;
   cv.width = n;
@@ -377,3 +413,119 @@ export function uxIcon(name: string, { color = '#f4ecd4', hi = '#fffdf3', lo = '
     }
   return cv;
 }
+
+// ---------------------------------------------------------------- 段 UIX4a：絵文字 → ドットの絵（全段で 1 つの表）
+/**
+ * 絵文字 → ドットの絵の名前。お知らせ・窓の着せ替え（c-dress.ts）・経営企画ほかの今の要素の札（k-icons.ts の dotEmoji）・
+ * 地図の上の札（land.ts の swapEmoji）が、この 1 つの表を引く（前は 3 つの表があった）。
+ * 段によって別の絵にしたい字（経営企画の 🏆＝杯・📊＝棒 など）は、呼ぶ側がこの表の上に重ねて渡す（その段の表に書く）。
+ * 「▲▼★✓」のように字として読める記号は入れない（着せ替えで字が絵に替わると困る所がある）。仮の絵は docs/ISLAND_ART_TODO.md。
+ */
+export const EMOJI_DOT: Record<string, string> = {
+  '⏩': 'ff',
+  '⏸': 'pause',
+  '👑': 'crown',
+  '🏆': 'crown',
+  '🏅': 'crown',
+  '📜': 'mail',
+  '📩': 'mail',
+  '✉': 'mail',
+  '🏪': 'shop',
+  '🏬': 'shop',
+  '🔒': 'lock',
+  '🔓': 'unlock',
+  '⛏': 'pick',
+  '📍': 'pin',
+  '⚠': 'warn',
+  '🔥': 'fire',
+  '🎯': 'flag',
+  '🚩': 'flag',
+  '🌱': 'flag',
+  '👆': 'up',
+  '☝': 'up',
+  '👈': 'left',
+  '✔': 'check',
+  '✅': 'check',
+  '📦': 'box',
+  '🌐': 'globe',
+  '🌍': 'globe',
+  '🗺': 'compass',
+  '🧭': 'compass',
+  '🧾': 'receipt',
+  '🔨': 'hammer',
+  '🏗': 'crane',
+  '🏭': 'hammer',
+  '🛒': 'cart',
+  '🛍': 'cart',
+  '🛃': 'gate',
+  '🤝': 'tag',
+  '💡': 'bulb',
+  '💴': 'coin',
+  '💰': 'coin',
+  '🪙': 'coin',
+  '💬': 'bubble',
+  '😴': 'zzz',
+  '⬆': 'up',
+  '⬇': 'down',
+  '📣': 'horn',
+  '⭐': 'star',
+  '🌟': 'star',
+  '✨': 'star',
+  '🎁': 'star',
+  '🎉': 'star',
+  '📰': 'list',
+  '📖': 'list',
+  '📋': 'list',
+  '👤': 'person',
+  '👥': 'people',
+  '💼': 'folder',
+  '📁': 'folder',
+  '🏛': 'office',
+  '🏠': 'shop',
+  '🏚': 'warn',
+  '🚚': 'truck',
+  '⚙': 'gear',
+  '🔧': 'wrench',
+  '🔍': 'compass',
+  '📊': 'list',
+  '📈': 'up',
+  '📉': 'down',
+  '🎵': 'note',
+  '🔔': 'horn',
+  '⚡': 'bolt',
+  '⚖': 'scales',
+  '🧪': 'flask',
+  '🎧': 'headset',
+  '💥': 'bomb',
+  '🧨': 'bomb',
+  '🏹': 'arrow',
+  '🏷': 'tag',
+  '💳': 'card',
+  '🧹': 'broom',
+  '🌙': 'moon',
+  '🚧': 'gate',
+  '🔁': 'cycle',
+  '🔄': 'cycle',
+  '🗓': 'cal',
+  '🌾': 'wheat',
+  '🧮': 'calc',
+  '📨': 'mail',
+  '👣': 'steps',
+  '🤖': 'robot',
+  '💎': 'gem',
+  '🔬': 'flask',
+  '🛋': 'sofa',
+  '⏳': 'hourglass',
+  '🏦': 'office',
+  '💹': 'chart',
+  '🛡': 'shield',
+  '📝': 'doc',
+  '📄': 'sheet',
+  '📑': 'sheet',
+  '💸': 'coin',
+  '☕': 'cup',
+  '💣': 'bomb',
+  '⏱': 'clock',
+  '📅': 'cal',
+  '🔩': 'drill',
+};

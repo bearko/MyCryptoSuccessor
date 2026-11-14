@@ -3,7 +3,7 @@
  * 記号は uix/icons.ts と同じ： . 透明 / # 主の色 / + 明るい色 / - 暗い色 / a 金 / r 赤 / g 緑 / c 水色 / w 白 / k 黒
  * ここに無い名前は、土台の uxIcon（icons.ts）で描く。
  */
-import { uxIcon } from '../icons';
+import { uxArt, uxIcon } from '../icons';
 
 export const M_ART: Record<string, string[]> = {
   plus: ['............', '....####....', '....####....', '....####....', '.##########.', '.##########.', '.##########.', '.##########.', '....####....', '....####....', '....####....', '............'],
@@ -36,6 +36,8 @@ export const M_ART: Record<string, string[]> = {
   bolt: ['............', '......###...', '.....###....', '....###.....', '...######...', '..######....', '.....###....', '....###.....', '...###......', '..###.......', '..#.........', '............'],
 };
 export const M_ICONS = Object.keys(M_ART);
+/** 土台の部品の ico からも引けるように登録する（段 UIX4a） */
+uxArt(M_ART, 1);
 
 const PAL: Record<string, string> = { a: '#ffb81f', r: '#ff5964', g: '#36e08b', c: '#5fe4ff', w: '#fffdf3', k: '#0b0d17' };
 export interface IcoOpts {

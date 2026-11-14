@@ -178,6 +178,7 @@ import { setUx, uxOn } from '../uix/flag';
 import { ux } from '../uix/hooks';
 import { uxm } from '../uix/screens/mhooks';
 import { uxc } from '../uix/screens/c-slots';
+import { uxr } from '../uix/screens/r-slots';
 import { nextStep, uxLegacy, uxSetVol, uxSfx, uxSound, uxSoundInit, uxVol, type UxScene } from '../uix/sound';
 import { boardDue, boardOf, boardQuarter, closeText } from './board';
 import { openBoard, type BoardHooks } from './boardui';
@@ -1281,6 +1282,75 @@ function openBuildSheet() {
     if (guideId) buildCat = BUILD_CATS.find((c) => c.ids.includes(guideId))?.id ?? buildCat;
     buildCat ??= buildCatOpen(s, 'shop') ? 'shop' : 'base';
     mineTip(ctx, 'build', body);
+    /** 建物の札を押した：建てられなければ音とお知らせ。建てられれば置くモードへ（チュートリアルは建ててもらう場所へ寄る） */
+    const pickCard = (id: string) => {
+      const e = canBuild(s, id);
+      if (e) {
+        sfx.play('error');
+        toast(errOf(id, e));
+        return;
+      }
+      closeSheet();
+      selected = null;
+      const sp = guideId === id ? tutSpot(s, id) : null;
+      const at = sp ? ([sp[0], sp[1]] as [number, number]) : (buildAt ?? undefined);
+      buildAt = null;
+      startPlacing(id, { at, dir: sp?.[2] });
+      // チュートリアル：建ててもらう場所を大きく
+      if (sp) tween = { x0: cam.x, y0: cam.y, x1: (sp[0] - sp[1]) * 100, y1: (sp[0] + sp[1]) * 55, t0: performance.now(), z0: cam.zoom, z1: innerWidth < 600 ? 0.6 : 0.85, dur: 700 };
+    };
+    // 段 UIX4r：入のときは、管制卓の札で組む（中身・押した先・チュートリアルの目印は同じ）
+    if (uxr.build) {
+      const seen = (s.flags.buildCats ??= ['base']);
+      const fresh: string[] = [];
+      const cats = BUILD_CATS.filter((c) => !(c.id === 'relic' && !revivedSites(s).length && !s.museum?.at)).map((c) => {
+        const open = buildCatOpen(s, c.id);
+        const isNew = open && !seen.includes(c.id);
+        if (isNew) fresh.push(c.id);
+        return {
+          id: c.id,
+          icon: c.icon,
+          name: c.name,
+          known: c.ids.filter((id) => buildKnown(s, id)).length,
+          total: c.ids.length,
+          open,
+          isNew,
+          on: buildCat === c.id,
+          pick: () => {
+            buildCat = c.id;
+            sfx.play('tap');
+            refreshSheet();
+          },
+        };
+      });
+      if (fresh.length) {
+        seen.push(...fresh);
+        save();
+        sfx.play('levelup');
+        for (const id of fresh) toast(t(`「${BUILD_CATS.find((c) => c.id === id)?.name}」の建物が建てられるようになりました！`, `New buildings available: ${BUILD_CATS.find((c) => c.id === id)?.name}!`));
+      }
+      const cat = BUILD_CATS.find((c) => c.id === buildCat)!;
+      const cards = cat.ids
+        .filter((id) => P1B[id])
+        .map((id) => {
+          const b = P1B[id]!;
+          const err = canBuild(s, id);
+          if (!buildKnown(s, id))
+            return { id, secret: true, hint: secretHint(id), name: '???', img: null, cost: '', costN: 0, err, note: '', spec: '', guide: false, pick: () => (sfx.play('error'), toast(secretHint(id))) };
+          const im = image(`b/${artId(id)}/rd.png`).cloneNode() as HTMLImageElement;
+          im.alt = '';
+          const cost = err === 'limit' ? t('建設済み', 'Built') : err === 'locked' ? lockNote(id) : b.cost ? money(b.cost) : t('無料', 'Free');
+          return { id, secret: false, hint: '', name: DEF[id].name, img: im, cost, costN: b.cost, err, note: kindNote(b) ?? '', spec: t(`工期 ${b.days} 日・維持費 ${money(b.upkeep)}/月`, `${b.days} days · upkeep ${money(b.upkeep)}/mo`), guide: guideId === id, pick: () => pickCard(id) };
+        });
+      uxr.build(body, {
+        money: s.money,
+        lotNote: buildAt ? t('選んだマスに建てます。建物を選んでください。', 'Choose a building for the selected lot.') : null,
+        emptyNote: buildCatOpen(s, cat.id) ? null : t('このカテゴリの建物は、まだ建てられません。スキルや会社の成長で、ひとつずつ解放されます。', 'Nothing here can be built yet. Skills and company growth unlock them one by one.'),
+        cats,
+        cards,
+      });
+      return;
+    }
     if (buildAt) body.append(h('p', 'isl-dim', t('選んだマスに建てます。建物を選んでください。', 'Choose a building for the selected lot.')));
     // カテゴリのタブ（建てられる建物が 1 つも無いものはロック。開いたら一度だけロックが外れる演出）
     const seen = (s.flags.buildCats ??= ['base']);
@@ -1350,22 +1420,7 @@ function openBuildSheet() {
       if (note) c.append(h('small', 'isl-dim', note));
       c.append(h('small', 'isl-dim', t(`工期 ${b.days} 日・維持費 ${money(b.upkeep)}/月`, `${b.days} days · upkeep ${money(b.upkeep)}/mo`)));
       if (err === 'money') c.append(h('small', 'isl-bad', t(`あと ${money(b.cost - s.money)} 足りない`, `${money(b.cost - s.money)} short`)));
-      c.addEventListener('click', () => {
-        const e = canBuild(s, id);
-        if (e) {
-          sfx.play('error');
-          toast(errOf(id, e));
-          return;
-        }
-        closeSheet();
-        selected = null;
-        const sp = guideId === id ? tutSpot(s, id) : null;
-        const at = sp ? ([sp[0], sp[1]] as [number, number]) : (buildAt ?? undefined);
-        buildAt = null;
-        startPlacing(id, { at, dir: sp?.[2] });
-        // チュートリアル：建ててもらう場所を大きく
-        if (sp) tween = { x0: cam.x, y0: cam.y, x1: (sp[0] - sp[1]) * 100, y1: (sp[0] + sp[1]) * 55, t0: performance.now(), z0: cam.zoom, z1: innerWidth < 600 ? 0.6 : 0.85, dur: 700 };
-      });
+      c.addEventListener('click', () => pickCard(id));
       grid.append(c);
     }
     body.append(grid);
@@ -2254,6 +2309,10 @@ function meetAfterDig() {
 }
 
 /** 地図の上の印：荒れ地の上の 📜（手紙）・👆（タップしてもらう）と、町の長の家の上の顔（発表できるときは吹き出し「研究成果を発表する」） */
+/** 段 UIX4a：hidden を、値が変わるときだけ書く（毎コマ同じ値を付け直すと、入のときの着せ替えの見張りが毎コマ動いていた） */
+const setHidden = (e: HTMLElement, v: boolean) => {
+  if (e.hidden !== v) e.hidden = v;
+};
 const meetEl = h('button', 'isl-meet');
 meetEl.type = 'button';
 meetEl.hidden = true;
@@ -2273,7 +2332,7 @@ function updateMarks() {
   const tapping = (s.flags.digMeet === 'tap' || s.flags.digMeet === 'open') && !s.digRun && !digOpen();
   const m = s.dig ? wasteMid(meetSite()) : null;
   const showMeet = !busy && !!m && (meetPing || (tapping && !pop)) && !sheetOpen();
-  meetEl.hidden = !showMeet;
+  setHidden(meetEl, !showMeet);
   if (showMeet && m) {
     const ping = meetPing;
     meetEl.classList.toggle('is-tap', !ping);
@@ -2288,7 +2347,7 @@ function updateMarks() {
   const home = digMet(s) ? chiefHome(s) : null;
   const chief = s.dig ? chiefOf(s.dig.sector) : null;
   const showChief = !busy && !!home && chief != null && !sheetOpen() && !s.digRun && !(pop && home && pop[0] === home.i && pop[1] === home.j);
-  chiefEl.hidden = !showChief;
+  setHidden(chiefEl, !showChief);
   if (!showChief || !home || chief == null) return;
   const ready = canPresent(s);
   const key = `${chief}|${ready}|${isEn}`;
@@ -2376,7 +2435,7 @@ function markEl(m: MapMark): HTMLElement {
 }
 function updateIssues(now: number) {
   const busy = !!placing || !!tour || overviewOn() || digOpen() || !!s.digRun || sheetOpen() || !marksOn(s);
-  issueEl.hidden = busy;
+  setHidden(issueEl, busy);
   if (busy) return;
   // 中身はいまの状態から（1 日ごと・0.5 秒に 1 回まで）。直れば消える
   if (now - issueAt > 500) {
@@ -2950,7 +3009,7 @@ function updatePoint() {
   const what = pointOf(tutStep());
   const b = what === 'workshop' ? myWorkshop(s) : what === 'shop' ? myShops(s)[0] : undefined;
   const show = !!b && !placing && !pop && !sheetOpen() && !root.querySelector('.isl-modal');
-  pointEl.hidden = !show;
+  setHidden(pointEl, !show);
   if (!show || !b) return;
   const x = ((b.i - b.j) * 100 - cam.x) * cam.zoom + W / 2;
   const y = ((b.i + b.j) * 55 - cam.y) * cam.zoom + H / 2;
@@ -3800,6 +3859,8 @@ const FX_LEVEL_NOTE: Record<FxLevel, () => string> = {
   off: () => t('効果を出さない', 'no effects'),
 };
 function openSettings() {
+  // 段 UIX4r：入のときは、スイッチ・つまみの設定の札（器・押した先・入のときの欄は同じ）
+  if (uxr.settings) return openSettingsUx();
   sysSheet(t('設定', 'Settings'), t('言語・マインちゃんの案内・音・街の人通りを切り替えます。', 'Language, Mine-chan’s guide, sound and crowd.'), () => [
     [isEn ? '日本語' : 'English', () => setLang(isEn ? 'ja' : 'en')], // i18n-ja
     [
@@ -3866,6 +3927,112 @@ function openSettings() {
         ]
       : []),
   ], (body) => ux.settings?.(body));
+}
+
+/** 段 UIX4r：入のときの設定の札（今のキーの列と同じ項目・同じ押した先。字の切り替えの代わりにスイッチ・つまみ・選びのキー） */
+function openSettingsUx() {
+  const done = () => renderAll();
+  const crowd = (k: string) => {
+    crowdLevel = Math.max(0, CROWD_LEVELS.findIndex((x) => x.key === k));
+    try {
+      localStorage.setItem(CROWD_KEY, CROWD_LEVELS[crowdLevel].key);
+    } catch {
+      // 保存できなくても切り替える
+    }
+    toast(t(`街の人通り：${CROWD_LEVELS[crowdLevel].name}（重いときは少なく）`, `Crowd: ${CROWD_LEVELS[crowdLevel].name} (lower it if the game feels slow)`));
+    done();
+  };
+  const v = uxVol();
+  openSheet(ctx, t('設定', 'Settings'), (body) => {
+    uxr.settings!(body, {
+      note: t('言語・マインちゃんの案内・音・街の人通りを切り替えます。', 'Language, Mine-chan’s guide, sound and crowd.'),
+      groups: [
+        {
+          title: t('ことばと案内', 'Language and guide'),
+          ico: 'globe',
+          rows: [
+            { k: 'seg', id: 'lang', label: t('言語', 'Language'), opts: [{ value: 'ja', label: '日本語' }, { value: 'en', label: 'English' }], value: isEn ? 'en' : 'ja', set: (x) => setLang(x === 'en' ? 'en' : 'ja') }, // i18n-ja
+            {
+              k: 'switch',
+              id: 'guide',
+              label: t('マインちゃんの案内', 'Mine-chan’s guide'),
+              value: guideOn,
+              set: (x) => {
+                guideOn = x;
+                try {
+                  localStorage.setItem(GUIDE, guideOn ? 'on' : 'off');
+                } catch {
+                  // 保存できなくても切り替える
+                }
+                done();
+              },
+            },
+          ],
+        },
+        {
+          title: t('音', 'Sound'),
+          ico: 'note',
+          rows: [
+            { k: 'fader', id: 'bgm', label: 'BGM', value: v.bgm, max: 10, set: (n) => uxSetVol({ bgm: n }) },
+            { k: 'fader', id: 'se', label: t('効果音', 'Effects'), value: v.se, max: 10, set: (n) => (uxSetVol({ se: n }), uxSfx('deposit')) },
+            { k: 'switch', id: 'mute', label: t('消音', 'Mute'), value: v.mute, on: t('消音', 'Muted'), off: t('鳴らす', 'On'), set: (x) => uxSetVol({ mute: x }) },
+          ],
+        },
+        {
+          title: t('街と演出', 'Town and effects'),
+          ico: 'office',
+          rows: [
+            { k: 'seg', id: 'crowd', label: t('街の人通り', 'Crowd'), opts: CROWD_LEVELS.map((x) => ({ value: x.key, label: x.name })), value: CROWD_LEVELS[crowdLevel].key, set: crowd, note: t('重いときは少なく', 'Lower it if the game feels slow') },
+            {
+              k: 'seg',
+              id: 'fx',
+              label: t('演出', 'Effects'),
+              opts: FX_LEVELS.map((x) => ({ value: x, label: FX_LEVEL_NAME[x]() })),
+              value: fxLevel(),
+              set: (x) => {
+                const next = x as FxLevel;
+                setFxLevel(next);
+                toast(t(`演出：${FX_LEVEL_NAME[next]()}（${FX_LEVEL_NOTE[next]()}）`, `Effects: ${FX_LEVEL_NAME[next]()} (${FX_LEVEL_NOTE[next]()})`));
+                if (next !== 'off') fxAtEl('collect-burst', root.querySelector('.isl-sheet-body [data-set="fx"]'), { palette: FX_PAL.gold, dy: 30 });
+                done();
+              },
+              note: FX_LEVEL_NOTE[fxLevel()](),
+            },
+            {
+              k: 'switch',
+              id: 'uix',
+              label: t('新しい画面（試作）', 'New screens (preview)'),
+              value: uxOn(),
+              note: t('切り替えると、画面を読み直します', 'Switching reloads the page'),
+              set: (x) => {
+                setUx(x);
+                save();
+                const u = new URL(location.href);
+                u.searchParams.delete('uix');
+                location.replace(u.toString());
+              },
+            },
+            ...(tutOf(s) < TUT_DONE
+              ? [
+                  {
+                    k: 'key' as const,
+                    id: 'tut',
+                    label: t('チュートリアルを終える', 'End the tutorial'),
+                    fn: () => {
+                      s.tut = TUT_DONE;
+                      save();
+                      refreshSheet();
+                      renderAll();
+                    },
+                  },
+                ]
+              : []),
+          ],
+        },
+      ],
+    });
+    ux.settings?.(body);
+  });
 }
 
 /** 進行速度：標準・1.5 倍・2 倍（スキルで選べるようになる） */

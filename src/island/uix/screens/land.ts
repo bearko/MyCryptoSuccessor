@@ -9,6 +9,7 @@
  */
 import { t } from '../../../i18n';
 import { el, type Kid } from '../dom';
+import { EMOJI_DOT } from '../icons';
 import { later } from '../loop';
 import { rollNumber, uxKey, uxLamp, uxLever, uxMeter, uxTape, type LampKind } from '../parts';
 import { isCalm } from '../prefs';
@@ -420,7 +421,9 @@ function detail(ctx: Ctx, s: P1State, id: string): HTMLElement {
     if (W.hasBusiness(s)) box.append(line(null, t('いまのセクタは、セクター長に任せます（次に選びます）。', 'You will pick a sector head for the current sector next.'), 'dim'));
   } else if (kind === 'go') {
     const rv = W.reviveView(s, id);
-    box.append(legacyBox(rv && rv.ruins > 0 ? W.reviveBox(ctx, s, id) : W.managerBox(ctx, s, id)));
+    // 段 UIX4r：セクター長・復興の箱は管制卓の箱（data-uxr）。今の要素の箱だけを着せ替えの板に入れる
+    const mb = rv && rv.ruins > 0 ? W.reviveBox(ctx, s, id) : W.managerBox(ctx, s, id);
+    box.append(mb.dataset.uxr ? mb : legacyBox(mb));
     box.append(uxKey(t('このセクタへ移動する', 'Go to this sector'), safe(() => W.startMove(ctx, id)), { kind: 'main', big: true, ico: 'next' }));
   } else if (kind === 'locked') {
     const have = d.need ? land.mine.filter((x) => W.sectorDef(x).tier === d.need!.tier).length : 0;
@@ -602,7 +605,8 @@ export function openSectorCardUx(v: SectorCardView) {
 
 // ---------------------------------------------------------------- 地図の上の札（縮小の札・境界の名前・吹き出し）の着せ替え
 
-const EMOJI_ICO: Record<string, string> = { '👑': 'crown', '📍': 'pin', '🔒': 'lock', '📦': 'box', '📜': 'mail', '🗺': 'compass', '🏪': 'shop', '🔥': 'fire', '💴': 'coin', '🏚': 'warn', '🏗': 'hammer', '⚠': 'warn', '⛏': 'pick', '💣': 'bomb', '⏱': 'clock', '📅': 'cal', '🔩': 'drill', '📖': 'book', '💥': 'fire' };
+/** 絵文字 → ドットの絵（段 UIX4a：全段の表 EMOJI_DOT に、この段だけの絵を重ねる） */
+const EMOJI_ICO: Record<string, string> = { ...EMOJI_DOT, '🏗': 'hammer', '📖': 'book', '💥': 'fire' };
 /** 文の中の絵文字を、ドットの絵に替える（知らない絵文字は外す）。root の中の文字だけを書き換える（要素・聞き手はそのまま） */
 export function swapEmoji(root: HTMLElement, color = '#1a1c2e') {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);

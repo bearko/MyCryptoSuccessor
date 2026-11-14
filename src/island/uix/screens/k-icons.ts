@@ -7,6 +7,7 @@
  */
 import { S_ICONS, sIcon } from './s-icons';
 import { wIcon } from './w-icons';
+import { EMOJI_DOT, uxArt } from '../icons';
 
 export interface IcoOpts {
   color?: string;
@@ -76,6 +77,8 @@ export const K_ART: Record<string, string[]> = {
 };
 /** この段で足したアイコンの名前 */
 export const K_ICONS = Object.keys(K_ART);
+/** 土台の部品の ico からも引けるように登録する（段 UIX4a） */
+uxArt(K_ART, 5);
 const PAL: Record<string, string> = { a: '#ffb81f', r: '#ff5964', g: '#36e08b', c: '#5fe4ff', w: '#fffdf3', k: '#0b0d17' };
 
 function paint(cv: HTMLCanvasElement, art: string[], color: string, hi: string, lo: string) {
@@ -128,75 +131,21 @@ export function kIconUrl(name: string, color = '#f4ecd4', hi = '#fffdf3', lo = '
 
 /** 絵文字 → ドットの絵（この段の画面に出る絵文字。表に無い字は null：呼ぶ側が外すか、決めた代わりの絵にする） */
 export const K_EMOJI: Record<string, string> = {
-  '💥': 'bomb',
-  '🧨': 'bomb',
-  '🏹': 'arrow',
-  '🏷': 'tag',
-  '🎁': 'gift',
-  '💳': 'card',
-  '🧹': 'broom',
-  '💡': 'bulb',
-  '🌙': 'moon',
-  '🗺': 'compass',
-  '🤝': 'tag',
-  '🚚': 'truck',
-  '🛃': 'gate',
-  '📦': 'box',
-  '🚧': 'gate',
-  '🔁': 'cycle',
-  '🔄': 'cycle',
-  '🧾': 'receipt',
-  '🗓': 'cal',
-  '📊': 'bars',
+  // 段 UIX4a：全段の表（EMOJI_DOT）に、この段だけの絵を重ねる
+  ...EMOJI_DOT,
+  '🏆': 'trophy',
   '📜': 'doc',
-  '🌾': 'wheat',
-  '💰': 'coin',
-  '🎯': 'target',
-  '🧮': 'calc',
-  '📨': 'mail',
-  '📈': 'chart',
-  '👣': 'steps',
-  '🤖': 'robot',
-  '🛒': 'cart',
-  '💎': 'gem',
-  '✦': 'star4',
-  '📣': 'horn',
-  '🎧': 'headset',
-  '⚙': 'gear',
-  '🔬': 'flask',
-  '⚖': 'scales',
-  '👥': 'people',
-  '🛋': 'sofa',
-  '🔒': 'lock',
-  '⏳': 'hourglass',
-  '🏅': 'crown',
-  '★': 'star',
-  '⭐': 'star',
   '🔍': 'search',
+  '📊': 'bars',
+  '📈': 'chart',
+  '🎯': 'target',
+  '🎁': 'gift',
+  '💥': 'bomb',
+  // 字として読める記号も、この段の今の要素の札では絵にする
+  '✦': 'star4',
+  '★': 'star',
   '✓': 'check',
   '✔': 'check',
-  '⚠': 'warn',
-  '🏆': 'trophy',
-  '👑': 'crown',
-  '🏛': 'office',
-  '🏦': 'office',
-  '📉': 'down',
-  '💹': 'chart',
-  '🛡': 'shield',
-  '🔥': 'fire',
-  '📝': 'doc',
-  '📄': 'sheet',
-  '📑': 'sheet',
-  '💴': 'coin',
-  '💸': 'coin',
-  '🪙': 'coin',
-  '🔧': 'wrench',
-  '🔨': 'hammer',
-  '🏭': 'hammer',
-  '🏪': 'shop',
-  '👤': 'person',
-  '☕': 'cup',
-  '⛏': 'pick',
   '▲': 'up',
   '▼': 'down',
 };

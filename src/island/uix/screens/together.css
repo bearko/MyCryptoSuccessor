@@ -2,10 +2,8 @@
    今の要素（section.isl-part・h3.isl-part-title・.isl-part-jump）のまま整える。セレクタはすべて html.is-uxc の内側。足す class は uxb-。 */
 
 html.is-uxc #isl-ui .uxb-together > .isl-part {
+  /* 並べ方（縦 1 列・幅いっぱい）は土台の legacy.css（段 UIX4a で、中央に寄る回避を土台へ移した） */
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
   gap: 8px;
   min-width: 0;
   scroll-margin-top: calc(var(--uxb-jump-h, 0px) + 8px);

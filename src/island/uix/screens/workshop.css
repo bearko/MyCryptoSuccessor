@@ -476,6 +476,10 @@ html.is-uxc .uxs-ctl-row {
 html.is-uxc .uxs-ctl-row > .ux-fader {
   flex: 1 1 120px;
 }
+/* 段 UIX4a：今の目印（.isl-plan-auto）の本体の 13px を引き継がない（スイッチの「入／切」・「自動製造」の札が 13px になっていた） */
+html.is-uxc #isl-ui .uxs-ctl-row.isl-plan-auto {
+  font-size: 1rem;
+}
 html.is-uxc .uxs-ctl-row--qty {
   justify-content: flex-end;
   gap: 2px 6px;
