@@ -36,8 +36,6 @@ export interface UxdScreens {
   deleg?: (ctx: Ctx, dept: DeptId) => void;
   props?: (ctx: Ctx) => void;
   roles?: (ctx: Ctx, s: P1State) => HTMLElement | null;
-  /** 部長との対話：今の画面を描いたあとの着せ替え */
-  headTalk?: (body: HTMLElement) => void;
 }
 // 入れ物は uix/hooks.ts に置く（理由はそこに）。ここは型と、同じ物の名前だけ
 export { uxdSlots as uxd } from '../hooks';

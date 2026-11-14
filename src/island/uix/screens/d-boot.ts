@@ -8,7 +8,6 @@ import { uxd } from './d-slots';
 import { cardPanelUx, goneUx, inboxUx, issuesUx } from './card';
 import { openProposalUx } from './proposal';
 import { openBoardUx } from './board';
-import { headTalkDress } from './headtalk';
 import { openDelegUx, openPropsUx, pickForUx, rolesCardUx } from './deleg';
 import { openCorpPickUx, openDeptPickUx, openPolicyPickUx, openPolicyViewUx, policyCardUx } from './policy';
 
@@ -30,5 +29,4 @@ export function installD(d: UxdDeps) {
   uxd.deleg = openDelegUx;
   uxd.props = openPropsUx;
   uxd.roles = rolesCardUx;
-  uxd.headTalk = headTalkDress;
 }

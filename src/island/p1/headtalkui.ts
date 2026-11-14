@@ -29,7 +29,7 @@ import { done as delegDone, pickHead } from './delegui';
 import { after, open, type Ctx } from './screens';
 import { btn, h, heroIcon, money, recLine, recTag, rich } from './ui';
 import { ux } from '../uix/hooks';
-import { uxd } from '../uix/screens/d-slots';
+import { uxt } from '../uix/screens/t-slots';
 import { checkItems, detailOf, doneLine, laterLine, hireCard, itemLine, openLine, talkMode, topicLine, topicsOf, type CheckItem, type TopicId } from './headtalk';
 
 export interface TalkHooks {
@@ -72,9 +72,9 @@ function go(ctx: Ctx, topic: TopicId | null, say: string | null = null) {
   after(ctx);
 }
 
-function render(ctx: Ctx, body: HTMLElement, hooks: TalkHooks) {
-  if (!cur) return;
-  const c = cur;
+/** 描く前の決まり（今の画面と新しい画面で同じ）：相手が替わったらはじめから・取り下げ・確認事項を見終えたら一言 */
+function prep(ctx: Ctx) {
+  const c = cur!;
   const s = ctx.s();
   const dept = c.dept;
   const mode = talkMode(s, dept) ?? 'mine';
@@ -83,8 +83,6 @@ function render(ctx: Ctx, body: HTMLElement, hooks: TalkHooks) {
     c.topic = null;
     c.say = null;
   }
-  body.classList.add('isl-ht');
-  body.closest('.isl-sheet')?.classList.add('has-ht');
   // 段 UI7h：推奨が承認にならなくなった提案は、確認事項に出さずに取り下げ（理由の一行をトーストで）
   for (const g of withdrawStale(s)) ctx.toast(`🗂 ${goneLine(g)}`);
   const H = headOf(s, dept);
@@ -94,6 +92,16 @@ function render(ctx: Ctx, body: HTMLElement, hooks: TalkHooks) {
     c.say = items.length ? laterLine(s, dept, items.length) : doneLine(s, dept);
   }
   const item = c.topic === 'check' ? (items[c.k] ?? null) : null;
+  return { c, s, dept, mode, H, items, item };
+}
+
+function render(ctx: Ctx, body: HTMLElement, hooks: TalkHooks) {
+  if (!cur) return;
+  // 段 UIX5t：入のときは、会話の器と画面の部品で組み直した画面（中身と押した先は htCall で渡す）
+  if (uxt.headTalk) return uxt.headTalk(body, htCall(ctx, hooks));
+  const { c, s, dept, mode, H, items, item } = prep(ctx);
+  body.classList.add('isl-ht');
+  body.closest('.isl-sheet')?.classList.add('has-ht');
 
   // ---- 上〜中：データ
   const data = h('div', 'isl-ht-data');
@@ -154,8 +162,70 @@ function render(ctx: Ctx, body: HTMLElement, hooks: TalkHooks) {
   body.append(data, box);
   const y = scrollOf.get(key);
   if (y) requestAnimationFrame(() => (data.scrollTop = y));
-  // 段 UIX3d：入のときは、描いたあとに会話の形（立つ話し手・1 字ずつ）と決める札に着せ替える
-  uxd.headTalk?.(body);
+}
+
+/** 段 UIX5t：新しい画面へ渡す中身（会話の状態・ひと言・選択肢・押した先）。描く前の決まり（prep）は、今の画面と同じくここで 1 回通す */
+export interface HtCall {
+  ctx: Ctx;
+  dept: DeptId;
+  mode: 'head' | 'mine';
+  topic: TopicId | null;
+  /** 確認事項の何件目か・その部門の確認事項・いま見ている 1 件 */
+  k: number;
+  items: CheckItem[];
+  item: CheckItem | null;
+  /** ひと言（60 字ずつのページ）：いまの枚・何枚目か・何枚か・最後の枚か */
+  text: string;
+  page: number;
+  pages: number;
+  last: boolean;
+  /** 部長のウィットの一言（あいさつのときだけ） */
+  quip: string | null;
+  /** 選択肢（最後の枚のときだけ出す。今の画面と同じ） */
+  opts: HtOpt[];
+  /** 採用の状況：雇うカードと推奨の手（無ければ card は null） */
+  hire: { card: Card | null; k: number };
+  /** データの部分のスクロール（話題ごと。鍵は今の画面と同じ） */
+  key: string;
+  scroll: Map<string, number>;
+  /** 次の枚へ（今の画面の ▼ と同じ） */
+  more: () => void;
+  /** 詳しい画面（今の「🔧 詳しい画面」と同じ） */
+  detail: () => void;
+  /** 提案書を開く（今の「📄 提案書を見る」と同じ。承認すると会話に戻る） */
+  plan: (card: Card, plan: Plan, rec: boolean, pick?: number) => void;
+}
+function htCall(ctx: Ctx, hooks: TalkHooks): HtCall {
+  const { c, s, dept, mode, H, items, item } = prep(ctx);
+  const pages = linesOf(s, dept, c, item);
+  const pg = Math.min(c.page, pages.length - 1);
+  const last = pg >= pages.length - 1;
+  const quip = H && !c.topic && !c.say ? (voiceQuip(H.hero, 'idle', s.day) ?? quipOf(H.hero, 'idle', s.day) ?? null) : null;
+  const card = !item && c.topic === 'hire' ? hireCard(s) : null;
+  return {
+    ctx,
+    dept,
+    mode,
+    topic: c.topic,
+    k: c.k,
+    items,
+    item,
+    text: pages[pg],
+    page: pg,
+    pages: pages.length,
+    last,
+    quip,
+    opts: last ? optList(ctx, s, dept, mode, item, hooks) : [],
+    hire: { card, k: card ? recIndex(s, card) : -1 },
+    key: `${dept}:${c.topic ?? ''}:${c.k}`,
+    scroll: scrollOf,
+    more: () => {
+      c.page = pg + 1;
+      after(ctx);
+    },
+    detail: () => hooks.detail(detailOf(dept)),
+    plan: (cd, plan, rec, pick) => showPlan(ctx, cd, plan, rec, pick),
+  };
 }
 
 /** そのときのひと言（1 枚 60 字。ページに分けたもの） */
@@ -168,40 +238,58 @@ function linesOf(s: P1State, dept: DeptId, c: NonNullable<typeof cur>, item: Che
 
 // ---------------------------------------------------------------- 選択肢
 
+/** 選択肢の 1 つ（字・押した先・今の class）。k は新しい画面で手応えを決める種類（話題・戻る・承認・却下・あとで・手を選ぶ・提案書・画面を開く） */
+export interface HtOpt {
+  label: string;
+  on: () => void;
+  cls: string;
+  k: 'topic' | 'back' | 'approve' | 'reject' | 'later' | 'choice' | 'plan' | 'open';
+  /** 話題の id（話題の一覧のとき） */
+  id?: TopicId;
+}
+type OptFn = (label: string, on: () => void, cls?: string, k?: HtOpt['k'], id?: TopicId) => void;
+
 /** 選択肢（2〜4）。話題・確認事項の 1 件・戻る */
 function optsOf(ctx: Ctx, s: P1State, dept: DeptId, mode: 'head' | 'mine', item: CheckItem | null, n: number, hooks: TalkHooks): HTMLElement {
   const row = h('div', 'isl-ht-opts');
-  const c = cur!;
-  // 段 UI5d：提案の推奨の選択肢（is-rec。話題の一覧の金色は除く）には「推奨」の札
-  const opt = (label: string, on: () => void, cls = '') => {
+  for (const { label, on, cls } of optList(ctx, s, dept, mode, item, hooks)) {
     const b = btn(label, on, `isl-ht-opt ${cls}`);
+    // 段 UI5d：提案の推奨の選択肢（is-rec。話題の一覧の金色は除く）には「推奨」の札
     if (/\bis-rec\b/.test(cls) && label.startsWith('✔')) b.prepend(recTag());
     // 段 UIX1a：新しい画面（入）では、部長の提案の承認はレバーを引き下ろす（落ちたら、このボタンを 1 回押す）
     row.append(/^✔ (承認|Approve)/.test(label) ? (ux.lever?.(b, label.replace(/^✔\s*/, '')) ?? b) : b);
-  };
-  const back = () => opt(t('← 話題に戻る', '← Back'), () => go(ctx, null), 'is-back');
+  }
+  void n;
+  return row;
+}
+/** 選択肢の中身（今の画面と新しい画面で同じ：字・並び・押した先） */
+function optList(ctx: Ctx, s: P1State, dept: DeptId, mode: 'head' | 'mine', item: CheckItem | null, hooks: TalkHooks): HtOpt[] {
+  const out: HtOpt[] = [];
+  const c = cur!;
+  const opt: OptFn = (label, on, cls = '', k = 'open', id) => void out.push({ label, on, cls, k, ...(id ? { id } : {}) });
+  const back = () => opt(t('← 話題に戻る', '← Back'), () => go(ctx, null), 'is-back', 'back');
   if (item) {
     itemOpts(ctx, s, item, opt);
-    return row;
+    return out;
   }
   switch (c.topic) {
     case 'hire': {
       const card = hireCard(s);
       const k = card ? recIndex(s, card) : -1;
       if (card && k >= 0) {
-        opt(t(`✔ 承認：${choiceText(s, card, card.choices[k]).label}`, `✔ Approve: ${choiceText(s, card, card.choices[k]).label}`), () => decideCard(ctx, card, k), 'is-rec');
+        opt(t(`✔ 承認：${choiceText(s, card, card.choices[k]).label}`, `✔ Approve: ${choiceText(s, card, card.choices[k]).label}`), () => decideCard(ctx, card, k), 'is-rec', 'approve');
         const plan = planOfChoice(s, card, k);
-        if (plan) opt(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, card, plan, true, k));
+        if (plan) opt(t('📄 提案書を見る', '📄 See the proposal'), () => showPlan(ctx, card, plan, true, k), '', 'plan');
       }
       opt(t('人材登用を開く', 'Open recruiting'), () => hooks.detail('hire'));
       back();
-      return row;
+      return out;
     }
     case 'org':
       opt(t('組織図を開く', 'Open org chart'), () => hooks.detail('org'));
       opt(t('給与・労務を開く', 'Open pay & welfare'), () => hooks.detail('pay'));
       back();
-      return row;
+      return out;
     case 'deleg': {
       const H = headOf(s, dept);
       opt(t('部長を替える', 'Change the head'), () => pickHead(ctx, dept, H?.hero ?? null, (hero) => {
@@ -214,7 +302,7 @@ function optsOf(ctx: Ctx, s: P1State, dept: DeptId, mode: 'head' | 'mine', item:
         go(ctx, null);
       });
       back();
-      return row;
+      return out;
     }
   }
   // 話題の一覧（はじめ・片づいたあと）
@@ -228,10 +316,9 @@ function optsOf(ctx: Ctx, s: P1State, dept: DeptId, mode: 'head' | 'mine', item:
           go(ctx, null);
         });
       go(ctx, x.id);
-    }, cls);
+    }, cls, 'topic', x.id);
   }
-  void n;
-  return row;
+  return out;
 }
 
 /** カードのおすすめの手（無ければ最初の手）。手が無ければ −1 */
@@ -244,7 +331,7 @@ function recIndex(s: P1State, c: Card): number {
 const isNo = (x: Choice) => x.act.k === 'skip' || x.act.k === 'reject';
 
 /** 確認事項 1 件の選択肢：承認（手が 2 つなら 2 つ）・却下・あとで（4 つまで） */
-function itemOpts(ctx: Ctx, s: P1State, item: CheckItem, opt: (label: string, on: () => void, cls?: string) => void) {
+function itemOpts(ctx: Ctx, s: P1State, item: CheckItem, opt: OptFn) {
   const next = () => {
     cur!.k++;
     cur!.page = 0;
@@ -266,17 +353,17 @@ function itemOpts(ctx: Ctx, s: P1State, item: CheckItem, opt: (label: string, on
         sayToast(ctx.toast, p.hero, 'approved', p.id);
       }
       after(ctx);
-    }, 'is-rec');
+    }, 'is-rec', 'approve');
     opt(t('✖ 却下', '✖ Reject'), () => {
       reject(s, p.id);
       sayToast(ctx.toast, p.hero, 'rejected', p.id);
       ctx.sfx?.('tap');
       after(ctx);
-    });
+    }, '', 'reject');
     opt(t('⏳ あとで', '⏳ Later'), () => {
       hold(s, p.id);
       next();
-    });
+    }, '', 'later');
     return;
   }
   const card = item.c;
@@ -287,10 +374,10 @@ function itemOpts(ctx: Ctx, s: P1State, item: CheckItem, opt: (label: string, on
   const room = 4 - 1 - (no >= 0 ? 1 : 0);
   for (const { x, k } of acts.slice(0, room)) {
     const label = choiceText(s, card, x).label;
-    opt(acts.length === 1 || k === rk ? t(`✔ ${label}`, `✔ ${label}`) : label, () => decideCard(ctx, card, k), k === rk ? 'is-rec' : '');
+    opt(acts.length === 1 || k === rk ? t(`✔ ${label}`, `✔ ${label}`) : label, () => decideCard(ctx, card, k), k === rk ? 'is-rec' : '', 'choice');
   }
-  if (no >= 0) opt(t('✖ 却下', '✖ Reject'), () => decideCard(ctx, card, no));
-  opt(t('⏳ あとで', '⏳ Later'), next);
+  if (no >= 0) opt(t('✖ 却下', '✖ Reject'), () => decideCard(ctx, card, no), '', 'reject');
+  opt(t('⏳ あとで', '⏳ Later'), next, '', 'later');
 }
 
 const CARD_ERR: Record<string, () => string> = {

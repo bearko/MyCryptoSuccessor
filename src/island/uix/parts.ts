@@ -690,7 +690,7 @@ export interface LeverEvents {
  * 6px 未満の動きで離したら「押した」とみなして自分で落ちる（0.17 秒）。6 割を越えて離したら落ちきる。手前なら戻る。
  * 落ちたら engage を 1 回だけ呼び、そのあとは動かない
  */
-export function leverCore(ev: LeverEvents, calm: () => boolean = () => false) {
+export function leverCore(ev: LeverEvents, calm: () => boolean = () => false, travel: number = LEVER.travel) {
   let pos = 0;
   let engaged = false;
   let drag: { y: number; p0: number; moved: number } | null = null;
@@ -705,7 +705,7 @@ export function leverCore(ev: LeverEvents, calm: () => boolean = () => false) {
     if (d !== lastDet) {
       const down = d > lastDet;
       lastDet = d;
-      if (down || !downOnly) ev.detent?.(pos / LEVER.travel);
+      if (down || !downOnly) ev.detent?.(pos / travel);
     }
   };
   const engage = () => {
@@ -713,7 +713,7 @@ export function leverCore(ev: LeverEvents, calm: () => boolean = () => false) {
     engaged = true;
     drag = null;
     auto = null;
-    setPos(LEVER.travel);
+    setPos(travel);
     ev.engage?.();
   };
   const core = {
@@ -729,7 +729,7 @@ export function leverCore(ev: LeverEvents, calm: () => boolean = () => false) {
     /** 押しただけ：レバーが自分で落ちる */
     pull() {
       if (engaged || auto) return;
-      auto = { from: pos, to: LEVER.travel, t: 0, ms: calm() ? 1 : LEVER.fallMs, then: engage };
+      auto = { from: pos, to: travel, t: 0, ms: calm() ? 1 : LEVER.fallMs, then: engage };
     },
     down(y: number): boolean {
       if (engaged || auto) return false;
@@ -740,9 +740,9 @@ export function leverCore(ev: LeverEvents, calm: () => boolean = () => false) {
       if (!drag || engaged) return;
       const d = y - drag.y;
       drag.moved = Math.max(drag.moved, Math.abs(d));
-      setPos(Math.max(0, Math.min(LEVER.travel, drag.p0 + d)));
+      setPos(Math.max(0, Math.min(travel, drag.p0 + d)));
       det(false);
-      if (pos >= LEVER.travel) engage();
+      if (pos >= travel) engage();
     },
     up() {
       if (!drag) return;
@@ -750,7 +750,7 @@ export function leverCore(ev: LeverEvents, calm: () => boolean = () => false) {
       drag = null;
       if (engaged) return;
       if (d.moved < 6) core.pull();
-      else if (pos > LEVER.travel * 0.6) auto = { from: pos, to: LEVER.travel, t: 0, ms: LEVER.snapMs, then: engage };
+      else if (pos > travel * 0.6) auto = { from: pos, to: travel, t: 0, ms: LEVER.snapMs, then: engage };
       else {
         ev.back?.();
         auto = { from: pos, to: 0, t: 0, ms: LEVER.backMs, then: null };
@@ -774,7 +774,7 @@ export function leverCore(ev: LeverEvents, calm: () => boolean = () => false) {
     /** はじめから落ちた形にする（もう承認してあるとき） */
     preset() {
       engaged = true;
-      setPos(LEVER.travel);
+      setPos(travel);
     },
   };
   return core;
@@ -801,6 +801,8 @@ export interface LeverOpts {
   done?: boolean;
   /** 揺らす箱（既定はレバーの親の板） */
   shakeEl?: () => Element | null;
+  /** 引く距離（px。既定 LEVER.travel）。小さいレバー（せまい画面の部長との対話）は、CSS で高さをこれに合わせる */
+  travel?: number;
 }
 /**
  * レバー（承認の手応え）：引く・押すのどちらでも落ちる。目盛りの「カチ」、下で「ガチャン」、光・揺れ・火花・振動、
@@ -872,6 +874,7 @@ export function uxLever(o: LeverOpts = {}) {
       },
     },
     isCalm,
+    o.travel,
   );
   const run = () => {
     off ??= loop.add((dt) => {

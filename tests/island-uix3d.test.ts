@@ -12,7 +12,7 @@ import { CLOSE_MS, PAGE_MS } from '../src/island/uix/screens/proposal';
 import { FLOW, NEXT_MS } from '../src/island/uix/screens/board';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
-export const D_FILES = ['card.ts', 'proposal.ts', 'board.ts', 'policy.ts', 'deleg.ts', 'headtalk.ts', 'd-kit.ts', 'd-boot.ts', 'd-deps.ts', 'd-slots.ts'];
+export const D_FILES = ['card.ts', 'proposal.ts', 'board.ts', 'policy.ts', 'deleg.ts', 'd-kit.ts', 'd-boot.ts', 'd-deps.ts', 'd-slots.ts'];
 export const D_CSS = ['d-card.css', 'd-prop.css', 'd-board.css', 'd-pol.css', 'd-deleg.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -216,12 +216,10 @@ describe('任せる・部長との対話', () => {
     expect(U).toContain('onPick(hero);');
     expect(U).toMatch(/K\.sayToast\(ctx\.toast, hero, 'greet', s\.day\)/);
   });
-  it('部長との対話は、今の画面を描いたあとに着せ替える（話題・確認事項・押した先は今のまま）', () => {
+  it('部長との対話は、段 UIX5t で会話の器と画面の部品で組み直した（着せ替えはやめた。確かめは island-uix5t.test.ts）', () => {
     const H = src('p1/headtalkui.ts');
-    expect(H).toContain('uxd.headTalk?.(body);');
-    const D = src('uix/screens/headtalk.ts');
-    expect(D).toContain('typeInto(tx, wrap');
-    expect(D).toContain("rec.classList.add('ux-front')");
+    expect(H).not.toContain('uxd.headTalk');
+    expect(H).toContain('if (uxt.headTalk) return uxt.headTalk(body, htCall(ctx, hooks));');
   });
 });
 
