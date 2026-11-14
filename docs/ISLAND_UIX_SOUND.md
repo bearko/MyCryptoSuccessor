@@ -3,7 +3,7 @@
 方向 C「管制卓」の見本（`public/uixlab/c/js/audio.js`・`music.js`・`sfx.js`）の音を、本体（`src/island/uix/`）へ移した段。
 音はすべて WebAudio でその場で合成する（素材のファイルは足していない）。基本のサイクル・ゲームの数字・セーブの版は変えていない。
 
-- 新しい音は **`<html class="is-uxc">`（または URL の `?uix=1`）のときだけ**鳴る。付いていないとき（既定）は、今の音（`IslandSfx` の mp3 の効果音・`Sound` の mp3 の BGM）のままで、何も変わらない。
+- 新しい音は **`<html class="is-uxc">` のとき**鳴る。**段 UIX5a から、この class はいつも付く（新しい画面が既定）ので、鳴るのは新しい音だけ**。今の音（`IslandSfx` の mp3 の効果音・`Sound` の mp3 の BGM）は外した：本体の効果音の呼び出し（`sfx.play`）は `uxLegacy` で新しい音へ付け替え、場面の名前（町・発掘・経営会議）は `p1/main.ts` の `bgmKey` で覚える。下の「切（既定）」の欄は、段 UIX5a までの決まり（音の本体は今も class を見て入り切りする）。
 - 見た目の土台（UIX1a）とは別のファイルで作っている。こちらが見るのは、class と、`window` の `uxc:change`（`detail.on`）だけ。
 - 音の見本帳：`?uix=sound`（SE を全部押して鳴らせ、BGM の場面と層を切り替えられる）。
 

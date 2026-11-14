@@ -148,7 +148,8 @@ describe('提案書（plan.ts）：As-Is ／ To-Be・期待効果・導入コス
       expect(code, f).not.toMatch(/t\([`'][^`']*効く手/);
       expect(code, f).not.toMatch(/この手を打つ/);
     }
-    const report = readFileSync('src/island/p1/report.ts', 'utf8');
+    // 段 UIX5a：月次報告は新しい画面（uix/screens/report.ts）だけ
+    const report = readFileSync('src/island/uix/screens/report.ts', 'utf8');
     expect(report).toContain("t('課題あり', 'Issue')");
     expect(report).toContain('担当者からの提案');
     expect(report).not.toMatch(/t\(`\[\[\$\{STAGE_NAME\[bn\]\}\]\]が詰まり/);

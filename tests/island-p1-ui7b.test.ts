@@ -211,7 +211,9 @@ describe('提案書の画面（proposalui.ts）', () => {
     const pos = keys.map(at);
     expect(pos.every((x) => x > 0)).toBe(true);
     expect([...pos].sort((a, b) => a - b)).toEqual(pos);
-    expect(at('panel.append(dk.el, dk.nav)')).toBeLessThan(at('panel.append(foot)'));
+    // 段 UIX5a：画面は新しい提案書（uix/screens/proposal.ts）だけ。決めるキーの帯は資料の外（下）
+    const ux = readFileSync('src/island/uix/screens/proposal.ts', 'utf8');
+    expect(ux).toMatch(/head, el\('div\.uxd-prop-bar', strip, pageName\), screen, foot\)/);
     expect(src).not.toContain('voiceQuip');
     expect(src).not.toContain('isl-prop-quip');
   });

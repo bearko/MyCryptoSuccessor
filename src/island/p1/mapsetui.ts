@@ -8,7 +8,7 @@ import { t } from '../../i18n';
 import { MARK_KIND, MARK_LEGEND } from './mapmarks';
 import { MAPVIZ_COLOR } from './mapviz';
 import type { P1State } from './model';
-import { open, type Ctx } from './screens';
+import { type Ctx } from './screens';
 import { propsOpen } from './stage';
 import { h } from './ui';
 import './mapset.css';
@@ -91,53 +91,9 @@ export const MAPSET_ITEMS: Item[] = [
   },
 ];
 
-/** 1 項目の行（名前・説明・色の見本・スイッチ）。押したら行だけ描き直す */
-function itemEl(ctx: Ctx, it: Item, changed: () => void): HTMLElement {
-  const row = h('div', 'isl-mapset-item');
-  row.dataset.key = it.key;
-  const draw = () => {
-    const s = ctx.s();
-    const locked = mapSetLocked(s, it.key);
-    const on = !locked && mapSetOn(s, it.key);
-    row.classList.toggle('is-off', !on);
-    row.classList.toggle('is-locked', locked);
-    const head = h('div', 'isl-mapset-head');
-    const sw = h('button', `isl-btn isl-mapset-sw ${on ? 'is-on' : ''}`.trim(), locked ? '—' : on ? t('オン', 'On') : t('オフ', 'Off'));
-    sw.type = 'button';
-    sw.setAttribute('role', 'switch');
-    sw.setAttribute('aria-checked', String(on));
-    sw.setAttribute('aria-label', it.name());
-    sw.disabled = locked;
-    sw.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (mapSetLocked(ctx.s(), it.key)) return;
-      toggleMapSet(ctx.s(), it.key);
-      ctx.sfx?.('tap');
-      ctx.save();
-      changed();
-      draw();
-    });
-    head.append(h('b', 'isl-mapset-name', it.name()), sw);
-    const legend = h('div', 'isl-mapset-legend');
-    legend.append(...it.keys());
-    const kids: HTMLElement[] = [head, h('p', 'isl-mapset-note', it.note()), legend];
-    const when = it.when?.(s);
-    if (when) kids.push(h('small', 'isl-mapset-when', when));
-    row.replaceChildren(...kids);
-  };
-  draw();
-  return row;
-}
-
 /** 設定の画面の「🗺 地図の表示」（まとめた設定の画面の 1 節） */
 export function openMapSet(ctx: Ctx, changed: () => void) {
-  // 段 UIX3h：新しい画面（入のときだけ。uix/screens/misc.ts）
+  // 段 UIX3h：新しい画面（uix/screens/misc.ts）
   // 項目と切り替えは、ここから渡す（新しい画面の束を本体の束へつなぐ p1/uxh.ts がこのファイルを読むと、地図の表示の CSS の並びが変わるため）
-  if (uxh.mapSet) return uxh.mapSet(ctx, changed, { MAPSET_ITEMS, mapSetLocked, mapSetOn, toggleMapSet });
-  open(ctx, t('🗺 地図の表示', '🗺 Map display'), (body) => {
-    body.append(h('p', 'isl-dim', t('地図に重ねて出すものを選びます。', 'Choose what to overlay on the map.')));
-    const list = h('div', 'isl-mapset');
-    list.append(...MAPSET_ITEMS.map((it) => itemEl(ctx, it, changed)));
-    body.append(list);
-  });
+  return uxh.mapSet!(ctx, changed, { MAPSET_ITEMS, mapSetLocked, mapSetOn, toggleMapSet });
 }

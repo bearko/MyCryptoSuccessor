@@ -23,7 +23,7 @@ import { rpStackEl, studyEl } from './r2ui';
 import { DEEP_LOCK, DUNGEON_TAB, EPIC_VALUE_TEXT, RARE_RELIC_NOTE, seriesTag, aimStep, anyPeek, biggestFx, cellOf, cellView, crewInfo, digBlock, digErrText, digRec, digSpec, digSpecText, digStatus, dungeonNotes, findLabel, fxOf, gotLines, lockedLayer, nextLvText, noteEntries, noteTablets, noteTabs, noteTotals, relicLine, runBar, stars, type Aim, type CellView } from './digview';
 import { AGAIN_TIP, DEEP_TIP, MEET_WALL, PEEK_TIP } from './digmeet';
 import { polSync, tabletKnow } from './policy';
-import { FX_PAL, FX_RARITY, fxAtEl, playFx } from '../fx/layer';
+import { FX_PAL, FX_RARITY, playFx } from '../fx/layer';
 import { open, refreshSheet, sheetOpen, type Ctx } from './screens';
 import { btn, extImage, h, heroIcon, matIcon, money, rich } from './ui';
 import { uxw, type UxwAct } from '../uix/screens/w-slots';
@@ -268,7 +268,7 @@ export function openDig(ctx: Ctx, hooks: DigHooks, note?: string) {
   const resize = () => fitWall();
   P = { ctx, hooks, el, title, endBtn, timer, fill, sec, info, spec, tools, why, wallBox, wall, legend, notes, cells: [], cs: 40, sector: s.dig.sector, site: s.dig.cur, lay: null, drillArm: false, deepHit: false, err: note ? { text: note, until: performance.now() + 3500, good: true } : null, ticked: 99, over: false, resize, hover: null, aim: null, dead: null, raf: 0, pick, reach, crew, confirmUntil: 0 };
   addEventListener('resize', resize);
-  // 段 UIX3w：入のときは、管制卓の帯と計器を足す（壁・打つ仕組み・今の要素はそのまま。切のときは何もしない）
+  // 段 UIX3w：管制卓の帯と計器を足す（壁・打つ仕組み・今の要素はそのまま）
   uxw.dig?.open(el);
   buildWall();
   P.raf = requestAnimationFrame(aimLoop);
@@ -581,7 +581,7 @@ export function showEndCard(end: RunEnd, o: { then?: () => void; again?: () => v
   p.drillArm = false;
   p.el.querySelector('.isl-dig-mine')?.remove();
   p.el.querySelector('.isl-dig-endcard')?.remove();
-  // 段 UIX3w：入のときは、管制卓の出土の報告へ（中身・選択肢・そのあとの流れは同じ。切のときは今の札）
+  // 段 UIX3w：管制卓の出土の報告へ（中身・選択肢・そのあとの流れは同じ）
   if (uxw.dig) {
     const finds = end.got.finds ?? [];
     const recipes = end.got.recipes ?? [];
@@ -626,117 +626,11 @@ export function showEndCard(end: RunEnd, o: { then?: () => void; again?: () => v
     refreshTimer();
     return;
   }
-  const card = h('div', 'isl-dig-endcard');
-  const box = h('div', 'isl-dig-endbox');
-  box.append(h('b', 'isl-dig-endtitle', t('⛏ 発掘終了', '⛏ Dig over')), h('small', 'isl-dim', t('今回の出土', 'This dig')));
-  const g = h('div', 'isl-dig-endgrid');
-  for (const [k, v] of gotLines(end.got)) {
-    const c = h('span', 'isl-dig-endstat');
-    c.append(h('small', '', k), h('b', '', v));
-    g.append(c);
-  }
-  box.append(g);
-  // 段 DIG3：見つけた出土品の札（見つけた順。発掘中の演出をここにまとめる：お題・大きな遺物は大きく、石板は読める）
-  const finds = end.got.finds ?? [];
-  if (finds.length) box.append(foundCards(finds, end.got.bombs ?? 0));
-  else if (end.got.bombs) box.append(h('p', 'isl-dim', t(`💣 爆弾 ${end.got.bombs} 個を掘り出した`, `💣 Set off ${end.got.bombs} bomb(s)`)));
-  // ダンジョン：最深記録（初めての層に届いたら「新記録！」）
-  if (end.isDungeon) {
-    const rec = h('p', `isl-dig-deeprec ${end.record ? 'is-new' : ''}`);
-    rec.append(h('b', '', t(`最深 ${end.deep ?? 0} 層`, `Deepest: layer ${end.deep ?? 0}`)));
-    if (end.record) rec.append(h('span', 'isl-dig-newrec', t('新記録！', 'New record!')));
-    box.append(rec);
-  }
-  if (end.found != null) box.append(h('p', 'isl-gold', t('この荒れ地は掘りきった！ 底から古い石の階段が…ダンジョンの入り口が見つかった！', 'This wasteland is fully dug! Old stone stairs at the bottom… a dungeon entrance!')));
-  else if (end.revived) box.append(h('p', 'isl-gold', t(`この荒れ地は掘りきった！ 町に戻ると復興するよ（家 +${end.revived.homes}）`, `This wasteland is fully dug! It will be revived back in town (homes +${end.revived.homes})`)));
-  else if (end.done) box.append(h('p', 'isl-gold', t('この荒れ地は掘りきった！', 'This wasteland is fully dug!')));
-  // 新しいレシピ（復刻品）：エクステの絵 64px と「工房で作る」
-  const recipes = end.got.recipes ?? [];
-  if (recipes.length) box.append(recipeCards(recipes, (key) => p.hooks.make?.(key)));
-  // 次の強化のおすすめ（いちばん安い発掘のパネルの次の Lv。「深い層の許可が要る」マスを押した作業のあとは、深い層の許可）
-  const rec = digRec(p.ctx.s(), p.deepHit ? 'dig_deep' : undefined);
-  if (rec && p.hooks.skill) {
-    const rb = btn('', () => {
-      const go = p.hooks.skill;
-      closeDig();
-      go?.(rec.id);
-    }, 'isl-dig-rec');
-    rb.replaceChildren(h('small', '', t('次の強化のおすすめ（スキル → 発掘）', 'Next upgrade (Skills → Digging)')), document.createTextNode(`▶ ${rec.text}`));
-    box.append(rb);
-  }
-  const acts = h('div', 'isl-row isl-dig-endacts');
-  box.append(acts);
-  card.append(box);
-  p.el.append(card);
-  p.ctx.sfx?.('check');
-  refreshDig();
-  refreshTimer();
-  window.setTimeout(() => {
-    if (P !== p || !p.el.isConnected) return;
-    // 段 DIG3：月の締めと重なっていても、リザルトは必ず見せる（自分で「▶ 月次報告へ」を押すまで残す。前は 1.2 秒で月次報告に飛んでいた）
-    if (end.crossed && o.then) {
-      const go = o.then;
-      acts.append(btn(t('▶ 月次報告へ', '▶ Monthly report'), () => {
-        closeDig();
-        go();
-      }, 'is-on'));
-      o.after?.();
-      return;
-    }
-    const sec = sessionSec(p.ctx.s());
-    if (o.again && !end.done) acts.append(btn(end.isDungeon ? t(`⛏ もう一度潜る（${sec} 秒）`, `⛏ Dive again (${sec} s)`) : t(`⛏ もう一度（${sec} 秒）`, `⛏ Again (${sec} s)`), () => o.again?.(), 'is-on'));
-    acts.append(btn(t('町に戻る', 'Back to town'), () => closeDig()));
-    o.after?.();
-    // 新しいレシピ・出土品の札があるときは、自分で閉じるまで残す（「工房で作る」を押せるように・札を眺められるように）
-    if (!recipes.length && !finds.length)
-      window.setTimeout(() => {
-        if (P === p && p.over && p.el.isConnected) closeDig();
-      }, 6000);
-  }, 1200);
 }
 /** 出土品の札のひと言（お題を発見！・大きな遺物！・新発見！・再発見・研究 Lv・ノートへ） */
 function findTag(f: DigFound, rar: string): string {
   const it = f.item;
   return it.kind === 'tablet' ? t('石板', 'Tablet') : it.kind === 'ext' && it.topic ? t('お題を発見！', 'Target found!') : f.big ? t(`${RARITY_JA[rar as keyof typeof RARITY_JA] ?? ''}の大きな遺物！`, `A large ${rar} relic!`) : f.first ? t('新発見！', 'New find!') : f.again ? t('再発見', 'Found again') : f.lv ? t(`研究 Lv${f.lv}`, `Research Lv${f.lv}`) : t('ノートへ', 'Noted');
-}
-/** 段 DIG3：リザルトの出土品の札（見つけた順）。お題・大きな遺物は大きい札（光つき）、石板は押すと読める。研究ノートに残ったことが分かる */
-function foundCards(finds: DigFound[], bombs: number): HTMLElement {
-  const box = h('div', 'isl-dig-finds');
-  const head = h('div', 'isl-dig-finds-head');
-  head.append(h('b', '', t(`見つけたもの ${finds.length}`, `Finds ${finds.length}`)));
-  if (bombs) head.append(h('small', '', t(`💣 爆弾 ${bombs}`, `💣 bombs ${bombs}`)));
-  box.append(head);
-  const list = h('div', 'isl-dig-finds-list');
-  finds.forEach((f, n) => {
-    const it = f.item;
-    const rar = it.kind === 'ext' ? extRarity(it.id) : 'Common';
-    const c = h(it.kind === 'tablet' ? 'button' : 'div', `isl-dig-find is-${it.kind} is-r${it.kind === 'ext' ? extRank(it.id) : 'C'} ${f.big ? 'is-big' : ''} ${f.first ? 'is-first' : ''}`);
-    c.style.animationDelay = `${Math.min(12, n) * 70}ms`;
-    if (f.big) c.append(h('i', 'isl-dig-big-rays'));
-    const ic = itemIcon(it, f.big ? 96 : 56);
-    c.append(ic);
-    const tag = findTag(f, rar);
-    c.append(h('b', 'isl-dig-find-tag', tag), h('span', 'isl-dig-find-name', it.kind === 'tablet' ? (TABLET[it.id]?.title ?? '') : it.kind === 'ext' ? extName(it.id) : ''));
-    if (f.rp) c.append(h('small', 'isl-gold', `+${f.rp} RP`));
-    if (f.recipe) c.append(h('small', 'isl-dig-find-recipe', t('📜 新レシピ', '📜 New recipe')));
-    if (it.kind === 'tablet' && c instanceof HTMLButtonElement) {
-      c.type = 'button';
-      c.title = t('押すと読む', 'Tap to read');
-      c.addEventListener('click', (e) => {
-        e.stopPropagation();
-        readTablet(it.id, f.rp);
-      });
-    }
-    if (f.big && it.kind === 'ext') {
-      const sg = seriesTag(it.id);
-      if (sg && !sg[1]) c.append(h('small', 'isl-dig-epicval', EPIC_VALUE_TEXT()));
-      window.setTimeout(() => c.isConnected && beamBehind(c, ic, it.id, 2400), 200 + n * 70);
-      window.setTimeout(() => c.isConnected && fxAtEl('collect-burst', ic, { palette: FX_RARITY[rar] ?? FX_PAL.gold, dy: 30 }), 400 + n * 70);
-    }
-    list.append(c);
-  });
-  box.append(list);
-  return box;
 }
 
 /** マス 1 つを描く（面の色・奥まった影・ひび・覗き見・あと何回・🔒） */
@@ -1168,13 +1062,6 @@ function floatUp(c: HTMLElement, ic: HTMLElement, text: string) {
   f.style.top = `${r.top - pr.top}px`;
   p.el.append(f);
   window.setTimeout(() => f.remove(), 1200);
-}
-/** 段 FX2：札・窓の中の絵の後ろに、レアリティの色の光の柱（host の中に。絵の足もとから上へ。放射の模様の上・文字と絵の下） */
-function beamBehind(host: HTMLElement, icon: HTMLElement, id: number, life: number) {
-  const rays = host.querySelector(':scope > .isl-dig-rare-rays, :scope > .isl-dig-big-rays');
-  const x = icon.offsetLeft + icon.offsetWidth / 2;
-  const y = icon.offsetTop + icon.offsetHeight * 0.85;
-  playFx('loot-beam', x, y, { host, under: rays?.nextElementSibling ?? icon, palette: FX_RARITY[extRarity(id)] ?? FX_RARITY.Common, opts: { item: false }, ink: false, scale: innerWidth < 600 ? 4 / 3 : 2, life, seed: id });
 }
 /** 新しいレシピの札（発掘終了の札の中）：エクステの絵 64px・「『復刻 ○○』を工房で作れるようになった」・「工房で作る」 */
 export function recipeCards(keys: string[], make: (key: string) => void): HTMLElement {

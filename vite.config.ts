@@ -22,10 +22,10 @@ function pwa(): Plugin {
         .map((f) => relative(outDir, f).split(sep).join('/'))
         .filter((f) => f !== 'sw.js')
         .sort();
-      // 段 UIX1a：新しい画面（入のときだけ読む分）は事前に保存しない：使ったときに覚える（sw-template.js の「初めて使ったときに保存」）。
-      // 分かれた書体のファイル（120 個あまり）と、入口の boot・見本帳の kit（src/island/uix/boot.ts・kit.ts のチャンク）、
-      // 段 UIX2s の新しい画面の束 s-boot（src/island/uix/screens/s-boot.ts のチャンク）、段 UIX3a で分かれた入のときだけの束（画面の部品 sparts・アイコン micons）
-      const shell = files.filter((f) => SHELL.some((re) => re.test(f)) && !/\.woff2?$/.test(f) && !/^assets\/(boot|kit|s-boot|sparts|micons)-/.test(f));
+      // 段 UIX5a：新しい画面が既定になったので、その束（boot・s-boot・sparts・micons ほか）と分かれた書体のファイル（125 個・合わせて約 0.8MB。
+      // 事前に保存する分の約 7%）も事前に保存する（はじめて開いたあと、通信が無くても同じ見た目で遊べるように）。
+      // 見本帳の kit（src/island/uix/kit.ts のチャンク）だけは、使ったときに覚える（sw-template.js の「初めて使ったときに保存」）
+      const shell = files.filter((f) => SHELL.some((re) => re.test(f)) && !/^assets\/kit-/.test(f));
       const hash = createHash('sha256');
       for (const f of shell) hash.update(f).update(readFileSync(join(outDir, f)));
       const precache = ['./', ...shell.filter((f) => f !== 'index.html')];
@@ -40,7 +40,7 @@ function pwa(): Plugin {
 /**
  * 段 UIX1a：新しい画面（方向 C「管制卓」）の書体（@fontsource/dotgothic16・@fontsource/jersey-10。SIL Open Font License。文は public/fonts/）。
  * unicode-range で分かれた woff2 を自前で配る（外部の CDN からは読まない）。古いブラウザ向けの woff は配らない：CSS から外す。
- * 書体は入のとき（src/island/uix/boot.ts）だけ読む。ブラウザは、画面に出た字を含むファイルだけを取りに行く。
+ * 書体は src/island/uix/boot.ts が読む。ブラウザは、画面に出た字を含むファイルだけを取りに行く（サービスワーカーは全部を事前に保存する）。
  */
 function uxFonts(): Plugin {
   return {
@@ -49,6 +49,46 @@ function uxFonts(): Plugin {
     transform(code, id) {
       if (!/@fontsource[\\/][^?]+\.css/.test(id)) return null;
       return { code: code.replace(/,\s*url\([^)]*\.woff\)\s*format\('woff'\)/g, ''), map: null };
+    },
+  };
+}
+
+/**
+ * 段 UIX5a：起動で読む束を、入口の HTML で先に取りにいく（`<link rel="modulepreload">`・CSS は `<link rel="preload" as="style">`）。
+ * 入口（src/island/main.ts）は、新しい画面の値と部品（boot）→ 画面の束（s-boot）→ 本体（p1/main）→ 上と下の帯（mapui）の順に読む。
+ * 読む順（JS を動かす順・CSS を当てる順）はそのままで、取りにいくのだけを並べて早める（いちばん大きい本体の JS が、前の束を待たずに届く）。
+ * CSS は preload なので、当てるのは今までどおり入口が stylesheet を足したとき（重なりの順は変わらない）。
+ */
+const START = ['src/island/uix/boot.ts', 'src/island/uix/screens/s-boot.ts', 'src/island/p1/main.ts', 'src/island/uix/screens/mapui.ts'];
+function startPreload(): Plugin {
+  return {
+    name: 'mcs-start-preload',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(_html, ctx) {
+        const bundle = ctx.bundle;
+        if (!bundle) return;
+        const chunks = Object.values(bundle).filter((c) => c.type === 'chunk');
+        const byFile = new Map(chunks.map((c) => [c.fileName, c]));
+        const js: string[] = [];
+        const css: string[] = [];
+        const add = (file: string) => {
+          const c = byFile.get(file);
+          if (!c || js.includes(file) || c.isEntry) return;
+          for (const d of c.imports) add(d);
+          js.push(file);
+          for (const f of (c as { viteMetadata?: { importedCss?: Set<string> } }).viteMetadata?.importedCss ?? []) if (!css.includes(f)) css.push(f);
+        };
+        for (const id of START) {
+          const c = chunks.find((x) => x.facadeModuleId?.split(sep).join('/').endsWith(id));
+          if (c) add(c.fileName);
+        }
+        return [
+          ...css.map((f) => ({ tag: 'link', attrs: { rel: 'preload', as: 'style', crossorigin: true, href: `./${f}` }, injectTo: 'head' as const })),
+          ...js.map((f) => ({ tag: 'link', attrs: { rel: 'modulepreload', crossorigin: true, href: `./${f}` }, injectTo: 'head' as const })),
+        ];
+      },
     },
   };
 }
@@ -74,7 +114,7 @@ export default defineConfig({
   build: {
     assetsInlineLimit: 0,
   },
-  plugins: [uxFonts(), pwa(), siteUrl()],
+  plugins: [uxFonts(), pwa(), siteUrl(), startPreload()],
   test: {
     // CI の機械は手元より遅く、町を何年ぶんも回すテストが既定の 5 秒を超えることがある
     // CI は 2 CPU で並列に回すので、性質のテスト（何か月も回す）が 60 秒を超えることがある

@@ -7,28 +7,25 @@
  * plan.ts の applyPlan で一気に変更し、まとめをトーストで出す。計算は plan.ts（DOM なし）。
  */
 import { t } from '../../i18n';
-import { errChip } from './lessonui';
 import { assetUrl, drawRef } from '../../render/images';
 import raw from '../../generated/catalog.json';
-import { FX_PAL, fxAtEl } from '../fx/layer';
 import { DEPT, POLICY, PRODUCT, skuParts, type Sku } from './data';
-import { bottleneck, date, poolCap, poolUsed, stageCaps, staffOf, DAYS, type P1State, type Stage } from './model';
-import { afterOf, applyPlan, baseOf, dropLine, planRows, planTitle, shopNm, type Cell, type Plan, type PlanRes, type Row } from './plan';
+import { bottleneck, date, poolCap, poolUsed, stageCaps, DAYS, type P1State, type Stage } from './model';
+import { afterOf, baseOf, dropLine, planRows, planTitle, shopNm, type Cell, type Plan, type PlanRes, type Row } from './plan';
 import { METRIC_TEXT, askTo, briefOf, chip, type Brief, type Metric } from './brief';
-import { RISK_LV, SLIDE_NAME, SRC_NAME, altOnly, altsOf, askIcon, briefSpeech, counterOf, fallOf, gapRows, headlineOf, issueRows, kpisOf, longLine, metersOf, onceOf, paybackOf, projLines, propStacks, roomKpi, shortWhat, slideKinds, slideTitle, srcOfPlan, stageMap, timelineOf, topRisks, type PropSrc, type SlideId } from './slides';
-import { altTable, budgetLabels, chartHead, deck, deptChip, fundsStack, gapTable, infoTip, issueTable, kpiTile, lineChart, lineLegend, meterEl, riskPair, slideBox, speechEl, stack100El, stack100Of, stageMapEl, storeChartEl, storeLegend, storeNote, timelineEl, vfallEl, vfallLegend } from './slideui';
+import { RISK_LV, SLIDE_NAME, altOnly, altsOf, askIcon, briefSpeech, counterOf, fallOf, gapRows, headlineOf, issueRows, kpisOf, longLine, metersOf, onceOf, paybackOf, projLines, propStacks, roomKpi, shortWhat, slideKinds, slideTitle, srcOfPlan, stageMap, timelineOf, topRisks, type PropSrc, type SlideId } from './slides';
+import { altTable, budgetLabels, chartHead, deptChip, fundsStack, gapTable, infoTip, issueTable, kpiTile, lineChart, lineLegend, meterEl, riskPair, slideBox, speechEl, stack100El, stack100Of, stageMapEl, storeChartEl, storeLegend, storeNote, timelineEl, vfallEl, vfallLegend } from './slideui';
 import { ISSUE_ICON, issueLv, issueName, lvWord, type CoIssue } from './issues';
 import { storeChart } from './storefc';
 import { useUpOf } from './proj';
 import { askDue, policyName } from './policy';
 import { openPolicyPick } from './policyui';
-import { after, chooseMake, type Ctx } from './screens';
+import { chooseMake, type Ctx } from './screens';
 import { pickMake } from './stockui';
 import { craftable } from './orders';
-import { btn, extImage, h, heroIcon, heroName, money, rich, signCls, signed, skuIcon } from './ui';
-import { ux } from '../uix/hooks';
+import { btn, extImage, h, money, rich, signCls, signed, skuIcon } from './ui';
 import { uxd } from '../uix/screens/d-slots';
-import { cardInbox, goneLine, inTutorial, speechText, starOf, withdrawCard, type Speech } from './card';
+import { cardInbox, goneLine, inTutorial, speechText, withdrawCard, type Speech } from './card';
 import { goodsName } from './moves';
 import { actName } from './deleg';
 
@@ -143,7 +140,7 @@ function pictureRows(rows: Row[]): Row[] {
 }
 
 /**
- * 段 UIX3d：提案書の中身（見込み・推奨・スライドの種類・セリフ・初めて開いた日の数字）。今の画面と新しい画面（入のとき）で同じ計算を使う。
+ * 段 UIX3d：提案書の中身（見込み・推奨・スライドの種類・セリフ・初めて開いた日の数字）。新しい画面（段 UIX5a までは今の画面も）で同じ計算を使う。
  * 推奨が承認でなくなっていたら（チュートリアル以外）、見せずに取り下げて null（理由の一行のお知らせ・o.done('gone')）
  */
 export function propModel(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
@@ -376,93 +373,8 @@ export function openProposal(ctx: Ctx, plan: Plan, o: ProposalOpts = {}) {
   const s: P1State = ctx.s();
   // 段 UI7c：最初の提案書の前に 1 回だけ、マインちゃんが経営方針を聞く（選ぶと、その方針で提案書を出す）
   if (askDue(s)) return openPolicyPick(ctx, { mine: true, then: () => openProposal(ctx, plan, o) });
-  // 段 UIX3d：入のときは新しい画面（投影される資料・最後の 1 枚で承認のレバー）。中身は同じ propModel・propSlides
-  if (uxd.proposal) return uxd.proposal(ctx, plan, o);
-  ctx.root.querySelector('.isl-prop')?.remove();
-  const m = h('div', 'isl-modal isl-prop');
-  ux.modal?.(m, 'prop');
-  const panel = h('div', 'isl-prop-panel');
-  const phone = innerWidth < 600;
-  const M = propModel(ctx, plan, o);
-  if (!M) return;
-  const { B, block, src } = M;
-
-  // 話し手（顔・出どころ・肩書き・読みの確かさ）。どのスライドでも上に
-  const head = h('div', 'isl-prop-head');
-  if (plan.hero != null) head.append(heroIcon(plan.hero, phone ? 44 : 56));
-  else {
-    const mi = h('img', 'isl-prop-mine');
-    mi.src = assetUrl('mch/Image/Characters/navi_ain_speak_00_talk.png');
-    mi.alt = '';
-    head.append(mi);
-  }
-  const who = h('div', 'isl-prop-who');
-  const kick = h('span', 'isl-prop-kicker', `📄 ${SRC_NAME[src]()}`);
-  if (B.dept) kick.append(deptChip(B.dept));
-  who.append(kick, h('b', 'isl-prop-name', [o.role ?? '', plan.hero != null ? heroName(plan.hero) : t('マインちゃん', 'Mine-chan')].filter(Boolean).join(t('・', ' · '))));
-  const st = plan.hero != null ? staffOf(s, plan.hero) : null;
-  if (st) {
-    const star = starOf(plan.q, st.level ?? 1);
-    const starEl = h('small', 'isl-prop-star', t(`予測精度 ${'★'.repeat(star)}${'☆'.repeat(3 - star)}（±${pct(B.err)}）`, `Forecast accuracy ${'★'.repeat(star)}${'☆'.repeat(3 - star)} (±${pct(B.err)})`));
-    // 段 UX1（C-1）：「予測精度 ±N%」の意味（タップで 1 行）
-    starEl.append(infoTip(t(`作った日の見込みに ±${pct(B.err)} の幅があります（担当の読みの誤差。実績はこの幅でぶれる）。開くたびに在庫や他社の動きで少し変わるのは別で、変わった分は KPI の下に小さく出します`, `The forecast carries a ±${pct(B.err)} band (the proposer's reading error; results land within it). Stock and rival moves shift it a little on each open; that shift is shown under the KPIs`), t('予測精度とは', 'About forecast accuracy')));
-    who.append(starEl);
-    // 段 S1：数字の教えで小さくなった誤差の札
-    const ec = errChip(s);
-    if (ec) who.append(ec);
-  }
-  head.append(who);
-  panel.append(head);
-
-  const slides = propSlides(ctx, plan, o, M, SLIDE_KIT, { go: (i) => dk.go(i), close: (w) => close(w) });
-  const dk = deck(slides, () => ctx.sfx?.('page', 1.4, 0.4));
-  panel.append(dk.el, dk.nav);
-
-  // ボタン（下に固定）。推奨のボタンに「推奨」の札
-  const foot = h('div', 'isl-prop-foot');
-  const close = (what: 'ok' | 'skip' | 'later') => {
-    dk.off();
-    m.remove();
-    o.done?.(what);
-  };
-  const ok = btn(
-    t('承認する', 'Approve'),
-    () => {
-      if (block.length) return;
-      // 段 UX1（A-6）：押した瞬間に「承認中…」にして、変更を先に反映（資金の帯が減る）。ハンコの演出のあとに閉じる
-      // （前は 800 ms のあいだボタンが灰色のまま・資金も変わらず、反応していないように見えた）
-      ok.disabled = true;
-      const label = ok.textContent;
-      ok.textContent = t('承認中…', 'Approving…');
-      const r = (o.approve ?? ((p: Plan) => applyPlanSafe(ctx, p)))(plan);
-      if (!r.ok) {
-        ctx.sfx?.('error');
-        ctx.toast(r.err === 'money' ? t('資金が足りません', 'Not enough funds') : r.err === 'rp' ? t('研究ポイントが足りません', 'Not enough RP') : t('もう打てない提案でした', 'That proposal is no longer possible'));
-        ok.disabled = false;
-        ok.textContent = label;
-        if (r.err === 'gone') close('skip');
-        return;
-      }
-      after(ctx);
-      stampThen(ctx, panel, () => {
-        ctx.sfx?.('levelup');
-        const sum = r.did.length ? r.did.slice(0, 4).join(t('・', ' · ')) : t('承認しました', 'Approved');
-        ctx.toast('✔ ' + sum);
-        close('ok');
-      });
-    },
-    `is-on isl-prop-ok ${B.rec === 'ok' ? 'is-rec' : ''}`,
-  );
-  ok.disabled = block.length > 0;
-  const skip = btn(t('見送る', 'Pass'), () => close('skip'), `isl-prop-skip ${B.rec === 'skip' ? 'is-rec' : ''}`);
-  // 段 UI9b：「推奨」の札は出さない（承認が基本）。「あとで（受け箱へ）」は残すが目立たせない
-  foot.append(ok, skip);
-  if (o.later) foot.append(btn(phone ? t('あとで', 'Later') : t('あとで（受け箱へ）', 'Later (inbox)'), () => close('later'), 'isl-prop-later is-dim'));
-  panel.append(foot);
-  m.append(panel);
-  m.addEventListener('click', (e) => e.stopPropagation());
-  ctx.root.append(m);
-  ctx.sfx?.('page');
+  // 段 UIX3d：新しい画面（投影される資料・最後の 1 枚で承認のレバー）。中身は同じ propModel・propSlides
+  return uxd.proposal!(ctx, plan, o);
 }
 
 /**
@@ -703,33 +615,4 @@ function appendix(body: HTMLElement, ctx: Ctx, s: P1State, plan: Plan, B: Brief,
   if (rows.length) s5.append(grid);
   // 段 UI7g：変わらない段（※ ○○は変更なし）は、見出しの横の ⓘ に
   if (unchanged.length) s5.querySelector('h4')?.append(infoTip(unchanged.map((u) => u.replace(/^※|^\* /, '')), t('変わらない箇所', 'Unchanged areas')));
-}
-
-/** 既定の承認（applyPlan） */
-function applyPlanSafe(_ctx: Ctx, p: Plan): PlanRes {
-  return applyPlan(_ctx.s(), p);
-}
-
-/**
- * ハンコの演出：提案書の右下に会社のハンコ（店の名前の赤い丸印。災害の協定書のハンコを小さく流用）を押し、
- * 押した瞬間に pixelfx の collect-burst（金）を印の位置で。そのあと then（一気に変更）。押す場所の上に長く残さない（0.8 秒）
- */
-function stampThen(ctx: Ctx, panel: HTMLElement, then: () => void) {
-  const s = ctx.s();
-  const name = s.storeName || t('承認', 'OK');
-  const wrap = h('div', 'isl-prop-stampat');
-  const st = h('span', 'isl-disaster-stamp isl-prop-stamp');
-  st.classList.toggle('is-long', [...name].length > 4);
-  st.textContent = name;
-  wrap.append(st);
-  panel.append(wrap);
-  void st.offsetWidth;
-  st.classList.add('is-down');
-  const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  window.setTimeout(() => {
-    ctx.sfx?.('place', 1.2, 0.8);
-    panel.classList.add('is-bump');
-    fxAtEl('collect-burst', st, { palette: FX_PAL.gold, dy: 30 });
-  }, reduce ? 0 : 260);
-  window.setTimeout(then, reduce ? 50 : 800);
 }

@@ -131,7 +131,7 @@ export function sheet(root: HTMLElement, title: string, onClose: () => void, onU
     onClose();
   };
   // ✕ や外側を押して閉じたとき（別の札に切り替えるときは呼ばない）
-  // 段 UIX1a：新しい画面（入）では、網目の幕が閉じきるのを待ってから消す（切のときは、今までどおりすぐ消す）
+  // 段 UIX1a：網目の幕が閉じきるのを待ってから消す（幕の口 ux.sheetLeave が無いときだけ、すぐ消す）
   const userClose = () => {
     const go = () => {
       close();

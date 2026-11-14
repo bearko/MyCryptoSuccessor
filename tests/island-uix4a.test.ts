@@ -13,7 +13,7 @@ import { H_ICONS } from '../src/island/uix/screens/h-icons';
 import { EMOJI_ICO, changedRec } from '../src/island/uix/screens/c-dress';
 import { toastClear } from '../src/island/uix/legacy';
 // @ts-expect-error 型の無い .mjs（scripts/qa）
-import { bare, cssMarks, FORBID, scan } from '../scripts/qa/off-bundle.mjs';
+import { bare, cssMarks, FORBID, htmlStart, scan } from '../scripts/qa/start-bundle.mjs';
 
 const src = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const noComment = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -122,12 +122,12 @@ describe('絵文字 → ドットの絵：表は 1 つ（EMOJI_DOT）', () => {
 });
 
 describe('まとめた画面（openTogether）と下に貼りつく帯', () => {
-  it('入のときは、部分の箱を先に画面へ入れてから描く（「画面に入っていなければ描かない」画面が空にならない）。切のときは今のまま', () => {
+  it('部分の箱を先に画面へ入れてから描く（「画面に入っていなければ描かない」画面が空にならない。段 UIX5a から、いつも）', () => {
     const s = src('src/island/p1/screens.ts');
     const fn = /export function openTogether[\s\S]*?\n\}/.exec(s)?.[0] ?? '';
-    expect(fn).toMatch(/const live = document\.documentElement\.classList\.contains\('is-uxc'\);/);
-    expect(fn).toMatch(/if \(live\) body\.append\(sec\);\s*p\.render\(sec\);/);
-    expect(fn).toMatch(/if \(!live\) body\.append\(jump, \.\.\.secs\);/);
+    expect(fn).not.toContain("classList.contains('is-uxc')");
+    expect(fn).toMatch(/body\.append\(jump\);/);
+    expect(fn).toMatch(/body\.append\(sec\);\s*p\.render\(sec\);/);
   });
   it('まとめた画面の中では、決めるキーの帯（uxpFoot）は貼りつかせず、節の終わりに置く', () => {
     expect(noComment(src('src/island/uix/sparts.css'))).toMatch(/html\.is-uxc \.isl-together \.uxp-foot \{\s*position: relative;\s*bottom: auto;/);
@@ -153,7 +153,7 @@ describe('お知らせの位置：選ぶ引き出しの見出しに重ねない'
   });
 });
 
-describe('本番の束の分かれ方を守る（scripts/qa/off-bundle.mjs）', () => {
+describe('本番の束の分かれ方を守る（段 UIX5a から scripts/qa/start-bundle.mjs：起動で読む束）', () => {
   it('ハッシュを除いた名前', () => {
     expect(bare('main-CQDAlwi5.css')).toBe('main.css');
     expect(bare('s-boot-AbCd_-12.js')).toBe('s-boot.js');
@@ -177,13 +177,23 @@ describe('本番の束の分かれ方を守る（scripts/qa/off-bundle.mjs）', 
     expect(marks.some((m) => m.file === 'src/island/p1/p1.css')).toBe(true);
     expect(marks.every((m) => m.sel.length > 0)).toBe(true);
   });
+  it('入口の HTML から、入口の script・先に取りにいく JS・当てる順の CSS を読む', () => {
+    const html =
+      '<script type="module" crossorigin src="./assets/index-AAAAAAAA.js"></script>' +
+      '<link rel="preload" as="style" crossorigin href="./assets/boot-BBBBBBBB.css"><link rel="preload" as="style" crossorigin href="./assets/main-CCCCCCCC.css">' +
+      '<link rel="modulepreload" crossorigin href="./assets/boot-DDDDDDDD.js">';
+    expect(htmlStart(html)).toEqual({ entry: 'index-AAAAAAAA.js', js: ['boot-DDDDDDDD.js'], css: ['boot-BBBBBBBB.css', 'main-CCCCCCCC.css'] });
+  });
   it('基準の一覧はリポジトリにあり、CI の quick がビルドのあとに 1 行で回す', () => {
-    expect(existsSync(new URL('../scripts/qa/off-bundle.json', import.meta.url))).toBe(true);
-    const base = JSON.parse(src('scripts/qa/off-bundle.json'));
-    expect(base.js).toContain('index.js');
-    expect(base.js).toContain('main.js');
-    expect(base.css).toContain('main.css');
+    expect(existsSync(new URL('../scripts/qa/start-bundle.json', import.meta.url))).toBe(true);
+    expect(existsSync(new URL('../scripts/qa/off-bundle.json', import.meta.url))).toBe(false);
+    const base = JSON.parse(src('scripts/qa/start-bundle.json'));
+    for (const n of ['index.js', 'boot.js', 's-boot.js', 'main.js', 'mapui.js']) expect(base.js).toContain(n);
+    // 当てる順：新しい画面の値と部品 → 画面の束 → 本体 → 上と下の帯
+    expect(base.css.indexOf('boot.css')).toBeLessThan(base.css.indexOf('s-boot.css'));
+    expect(base.css.indexOf('s-boot.css')).toBeLessThan(base.css.indexOf('main.css'));
+    expect(base.body).toContain('main.css');
     const ci = src('.github/workflows/ci.yml');
-    expect(ci).toMatch(/- run: npm run build\n\s+- run: node scripts\/qa\/off-bundle\.mjs/);
+    expect(ci).toMatch(/- run: npm run build\n\s+- run: node scripts\/qa\/start-bundle\.mjs/);
   });
 });

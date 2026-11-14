@@ -5,40 +5,25 @@
  * - 月次報告の「👥 士気と給与」の文
  */
 import { t } from '../../i18n';
-import { CHARISMA, HERO_RARITY, HIRE_RARITIES, MORALE, PAY, SALARY, type HeroRarity } from './data';
+import { CHARISMA, HERO_RARITY, HIRE_RARITIES, type HeroRarity } from './data';
 import { rarityBadge } from './growthui';
 import {
   capAt,
   charismaLine,
   charismaParts,
-  cutPay,
   hireCap,
-  marketPay,
-  marketStep,
   moraleBand,
   moraleMul,
   moraleOf,
   moraleParts,
   payGap,
-  payOf,
-  payStep,
-  payroll,
-  quitLeft,
-  stepWage,
-  talk,
-  wantsToQuit,
-  moraleAvg,
   type MoraleBand,
 } from './hr';
-import { bonus, bonusCost, has, raise, setRest, wageMul, type P1State, type Report, type Staff } from './model';
-import { after, open, type Ctx } from './screens';
-import { bar, btn, h, heroIcon, heroName, money } from './ui';
-import { cvBox, kpiCardEl, kpiRow, trendEl, trendLegend, type TSer } from './chartkit';
-import { MORALE_REFS, delta, monHead, monLab, moraleHist } from './dash';
-import { infoTip } from './slideui';
-import { PALETTE, histBox, legendEl, swatch } from './chartkit';
-import { charismaHist, charismaSegs } from './dash';
-import { charismaOf } from './hr';
+import { has, type P1State, type Report, type Staff } from './model';
+import { type Ctx } from './screens';
+import { h, heroName } from './ui';
+import { PALETTE, legendEl, swatch } from './chartkit';
+import { charismaSegs } from './dash';
 import { uxh } from '../uix/screens/h-slots';
 
 // ---------------------------------------------------------------- カリスマ度
@@ -122,44 +107,8 @@ export function charismaNeeds(s: P1State): string[] {
 
 /** 経営企画 → 経営者：カリスマ度のくわしい札 */
 export function openCharisma(ctx: Ctx) {
-  // 段 UIX3h：新しい画面（入のときだけ。uix/screens/hr.ts）
-  if (uxh.charisma) return uxh.charisma(ctx);
-  open(ctx, t('経営者（カリスマ度）', 'Executive (charisma)'), (body) => {
-    const s = ctx.s();
-    body.append(charismaCard(s, { detail: true }));
-    // 段 UI8c：カリスマ度の推移（月の締め）としきい値の線
-    const ch = charismaHist(s.reports);
-    const v = charismaOf(s);
-    const refs = HIRE_RARITIES.filter((r) => capAt(r) > 0 && capAt(r) <= Math.max(v, ...ch.map((x) => x.v)) + 20).map((r) => ({ v: capAt(r), label: t(`${HERO_RARITY[r].name} ${capAt(r)}`, `${HERO_RARITY[r].name} ${capAt(r)}`), cls: 'is-goal' }));
-    const hx = histBox({
-      title: t('カリスマ度の推移（月の締め）', 'Charisma at each close'),
-      note: t('金の点線＝雇えるレアリティが増えるところ', 'Gold dotted lines = where a new rarity opens'),
-      months: ch.map((x) => x.month),
-      series: [{ name: t('カリスマ度', 'Charisma'), kind: 'line', cls: 'is-gold', vals: ch.map((x) => x.v) }],
-      refs,
-      lo: 0,
-      fmt: (x) => String(Math.round(x)),
-      axis: (x) => String(x),
-      aria: t(`カリスマ度の推移：いま ${v}`, `Charisma: now ${v}`),
-    });
-    if (hx) body.append(hx);
-    // いまの会社のヒーローのレアリティ（雇ったもとのレアリティ）
-    const by = new Map<HeroRarity, number>();
-    for (const st of s.staff) {
-      const r = st.baseRarity ?? 'C';
-      by.set(r, (by.get(r) ?? 0) + 1);
-    }
-    const row = h('div', 'isl-row isl-charisma-have');
-    row.append(h('small', 'isl-dim', t('いまのヒーロー（もとのレアリティ）', 'Your heroes (original rarity)')));
-    for (const r of ['N', ...HIRE_RARITIES] as HeroRarity[]) {
-      const n = by.get(r);
-      if (!n) continue;
-      const c = h('span', 'isl-chip');
-      c.append(rarityBadge(r), h('small', '', `× ${n}`));
-      row.append(c);
-    }
-    body.append(row);
-  });
+  // 段 UIX3h：新しい画面（uix/screens/hr.ts）
+  return uxh.charisma!(ctx);
 }
 
 // ---------------------------------------------------------------- 士気と給与
@@ -212,129 +161,7 @@ export function partsText(s: P1State, st: Staff): string {
 
 /** 人事 → 給与・労務 */
 export function openPayroll(ctx: Ctx) {
-  if (uxh.payroll) return uxh.payroll(ctx);
-  open(ctx, t('給与・労務', 'Pay & welfare'), (body) => {
-    const s = ctx.s();
-    const total = payroll(s);
-    const market = Math.round(s.staff.reduce((a, x) => a + marketPay(s, x), 0));
-    const quitting = wantsToQuit(s);
-    const head = h('div', 'isl-card2 isl-pay-head');
-    // 段 UI8：数字のカード（前の月の締めとの差 ▲▼）と、士気の平均の推移（帯の基準線つき）。説明は ⓘ に
-    const avg = moraleAvg(s);
-    const hist = moraleHist(s.reports);
-    const prevAvg = hist.length ? hist[hist.length - 1].v : null;
-    const h3 = h('h3', '', t('給与と士気', 'Pay and morale'));
-    h3.append(
-      infoTip(
-        t(
-          `給料は月の締めに払います。相場（レアリティと Lv で決まる）より上だと士気が上がり、下だと下がります。士気が ${MORALE.band.hi} を超えると働きが速くなり（100 で ×${MORALE.band.top}）、${MORALE.band.lo} を切ると遅くなります。休ませる・昇給・賞与・昇進で上がり、働きすぎ（スタミナが尽きるまで）と同じ仕事の続きすぎで下がります。`,
-          `Wages are paid at each month’s close. Paying above market (set by rarity and Lv) lifts morale; below it, morale drops. Over ${MORALE.band.hi} heroes work faster (×${MORALE.band.top} at 100); under ${MORALE.band.lo} they slow down. Rest, raises, bonuses and promotions lift it; overwork (running out of stamina) and staying in one job too long lower it.`,
-        ),
-      ),
-    );
-    head.append(
-      h3,
-      kpiRow([
-        kpiCardEl({ icon: '💴', label: t('月の給料の合計', 'Monthly payroll'), v: money(total), d: total - market, dFmt: (v) => (Math.round(v) >= 0 ? `+${money(Math.round(v))}` : `−${money(-Math.round(v))}`), dLab: t('相場と比べて', 'vs market'), goodUp: true, sub: t(`相場どおりなら ${money(market)}`, `At market: ${money(market)}`) }),
-        kpiCardEl({ icon: '😊', label: t('士気の平均', 'Average morale'), v: avg != null ? String(avg) : '—', d: avg != null ? delta(avg, prevAvg) : null, dLab: t('先月の締めから', 'since last close'), sub: t(`${MORALE.band.hi} 超えで速く・${MORALE.band.lo} 未満で遅く`, `>${MORALE.band.hi} faster · <${MORALE.band.lo} slower`) }),
-        kpiCardEl({ icon: quitting.length ? '😣' : '🙂', label: t('辞めたい', 'Want to quit'), v: t(`${quitting.length} 人`, `${quitting.length}`), sub: quitting.length ? t('下のカードで引き止めを', 'Talk them round below') : t('いまはいない', 'Nobody right now'), cls: quitting.length ? 'is-warn' : '' }),
-      ]),
-    );
-    if (hist.length >= 2) {
-      const refs = MORALE_REFS();
-      const series: TSer[] = [{ name: t('士気の平均', 'Avg morale'), kind: 'line', cls: 'is-gold', vals: hist.map((x) => x.v) }];
-      const g = cvBox(t('士気の平均の推移（月の締め）', 'Average morale at each close'), t('緑の点線より上で働きが速く、赤の点線より下で遅くなる', 'Above the green line work speeds up; below the red line it slows'));
-      g.body.append(trendEl({ labels: hist.map((x, k) => monLab(x.month, k === 0)), heads: hist.map((x) => monHead(x.month)), series, refs, lo: 0, hi: 100, fmt: (v) => String(Math.round(v)), axis: (v) => String(v), aria: t(`士気の平均の推移：いま ${hist[hist.length - 1].v}`, `Average morale: now ${hist[hist.length - 1].v}`), height: 150 }), trendLegend(series, refs));
-      head.append(g.el);
-    }
-    body.append(head);
-    // 並び：辞めたい人 → 士気の低い順
-    const list = [...s.staff].sort((a, b) => Number(b.quit != null) - Number(a.quit != null) || moraleOf(a) - moraleOf(b));
-    const grid = h('div', 'isl-hgrid');
-    for (const st of list) grid.append(payCard(ctx, s, st));
-    body.append(grid);
-    body.append(h('p', 'isl-dim', has(s, 'lounge') ? t('休憩室があるので、スタミナの戻りが 1.5 倍です。', 'The lounge makes stamina recover 1.5× faster.') : t('スキル「休憩室」（総務）で、スタミナの戻りが速くなります。', 'The Lounge skill (General Affairs) speeds up stamina recovery.')));
-  });
-}
-
-/** 給与・労務のヒーローのカード */
-function payCard(ctx: Ctx, s: P1State, st: Staff): HTMLElement {
-  const rar = st.rarity ?? 'C';
-  const card = h('div', `isl-card2 isl-hcard isl-paycard ${st.quit != null ? 'is-quit' : ''}`);
-  card.dataset.hero = String(st.hero);
-  card.style.setProperty('--c', HERO_RARITY[rar].color);
-  const top = h('div', 'isl-hcard-top');
-  const name = h('div', 'isl-hcard-name');
-  const lv = h('div', 'isl-row');
-  lv.append(rarityBadge(rar), h('b', '', heroName(st.hero)), h('small', 'isl-dim', `Lv ${st.level ?? 1}`));
-  name.append(lv, moraleChip(st));
-  top.append(heroIcon(st.hero, 44), name);
-  card.append(top);
-  // 士気のバー
-  const mb = h('div', 'isl-hxp');
-  mb.append(bar(moraleOf(st) / 100, BAND_COLOR[moraleBand(st)]), h('small', 'isl-dim', partsText(s, st)));
-  card.append(mb);
-  // 辞めたい：予告と引き止め
-  if (st.quit != null) {
-    const q = h('div', 'isl-quit');
-    const left = quitLeft(s, st) ?? 0;
-    q.append(
-      h('b', '', t(`😣 辞めたい（あと ${left} 日で辞めます）`, `😣 Wants to quit (leaves in ${left} days)`)),
-      h('small', '', t(`士気が ${MORALE.quit.safe} に戻れば思いとどまります。面談・休み・昇給・賞与で上げよう。`, `They stay if morale gets back to ${MORALE.quit.safe}. Talk, rest, raise or bonus.`)),
-    );
-    const tk = btn(
-      st.talked ? t('面談済み', 'Talked') : t(`引き止めの面談（士気 +${has(s, 'hr_talk') ? MORALE.quit.talkPanel : MORALE.quit.talk}）`, `Stay talk (morale +${has(s, 'hr_talk') ? MORALE.quit.talkPanel : MORALE.quit.talk})`),
-      () => {
-        if (!talk(s, st.hero)) ctx.toast(t(`${heroName(st.hero)}と話し合いました`, `You talked with ${heroName(st.hero)}`));
-        after(ctx);
-      },
-      'is-on isl-quit-talk',
-    );
-    tk.disabled = !!st.talked;
-    q.append(tk);
-    card.append(q);
-  }
-  // 月給と相場・給与の段
-  const lvP = payStep(st);
-  const step = Math.round(stepWage(st.hero) * wageMul(s));
-  const pay = h('div', 'isl-pay-row');
-  pay.append(
-    h('span', '', t(`月給 ${money(Math.round(payOf(s, st)))}`, `Pay ${money(Math.round(payOf(s, st)))}`)),
-    h('small', 'isl-dim', t(`相場 ${money(Math.round(marketPay(s, st)))}・${gapText(st)}`, `Market ${money(Math.round(marketPay(s, st)))}, ${gapText(st)}`)),
-    h('small', 'isl-dim', t(`給与の段 ${lvP > 0 ? '+' : ''}${lvP}（相場の段 ${marketStep(st).toFixed(1)}）`, `Pay step ${lvP > 0 ? '+' : ''}${lvP} (market ${marketStep(st).toFixed(1)})`)),
-  );
-  card.append(pay);
-  const row = h('div', 'isl-row isl-pay-btns');
-  const down = btn(t(`− 1 段（−${money(step)}）`, `− 1 step (−${money(step)})`), () => {
-    if (!cutPay(s, st.hero)) ctx.toast(t(`${heroName(st.hero)}の給与を下げました（士気 ${MORALE.ev.cut}）`, `Cut ${heroName(st.hero)}’s pay (morale ${MORALE.ev.cut})`));
-    after(ctx);
-  });
-  down.disabled = lvP <= SALARY.min || st.wage - stepWage(st.hero) < 0;
-  const up = btn(lvP >= PAY.raiseMax ? t('＋ 1 段（上限）', '+ 1 step (max)') : t(`＋ 1 段（+${money(step)}）`, `+ 1 step (+${money(step)})`), () => {
-    if (!raise(s, st.hero)) ctx.toast(t(`${heroName(st.hero)}を昇給しました（士気 +${MORALE.ev.raise}）`, `Gave ${heroName(st.hero)} a raise (morale +${MORALE.ev.raise})`));
-    after(ctx);
-  }, 'is-on');
-  up.disabled = lvP >= PAY.raiseMax;
-  row.append(down, up);
-  card.append(row);
-  // スタミナ・休み・賞与
-  const sta = h('div', 'isl-field');
-  sta.append(h('span', '', t('スタミナ', 'Stamina')), bar(st.stamina / st.stats.hp, st.stamina / st.stats.hp > 0.3 ? 'var(--isl-good)' : 'var(--isl-bad)'), h('span', 'isl-dim', st.resting ? t('休憩中', 'Resting') : `${Math.round(st.stamina)}/${st.stats.hp}`));
-  card.append(sta);
-  const row2 = h('div', 'isl-row');
-  const b1 = btn(t(`賞与 ${money(bonusCost(st))}（士気 +${MORALE.ev.bonus}・スタミナ満タン）`, `Bonus ${money(bonusCost(st))} (morale +${MORALE.ev.bonus}, full stamina)`), () => {
-    if (bonus(s, st.hero)) ctx.toast(t('資金が足りません', 'Not enough funds'));
-    else ctx.toast(t(`${heroName(st.hero)}が元気になりました`, `${heroName(st.hero)} is refreshed`));
-    after(ctx);
-  });
-  b1.disabled = s.money < bonusCost(st);
-  const b3 = btn(st.resting ? t('休憩をやめる', 'Stop resting') : t('休ませる', 'Rest'), () => {
-    setRest(s, st.hero, !st.resting);
-    after(ctx);
-  });
-  row2.append(b3, b1);
-  card.append(row2);
-  return card;
+  return uxh.payroll!(ctx);
 }
 
 // ---------------------------------------------------------------- 月次報告

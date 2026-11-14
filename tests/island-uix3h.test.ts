@@ -50,28 +50,31 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     expect(src('p1/uxs.ts')).toContain('h: uxhDeps,');
     expect(uxsDeps.h).toBe(uxhDeps);
   });
-  it('本体の入口は、関数の頭の 1 行だけ（切のときの作りは今のまま）', () => {
-    expect(SCREENS).toMatch(/export function openStaff\(ctx: Ctx\) \{\n  if \(uxh\.staff\) return uxh\.staff\(ctx\);\n  holding = null;/);
-    expect(SCREENS).toMatch(/export function openHire\(ctx: Ctx, opts: \{ charisma\?: boolean \} = \{\}\) \{\n  if \(uxh\.hire\) return uxh\.hire\(ctx, opts\);\n  open\(ctx, t\('人材登用'/);
-    expect(HRUI).toMatch(/export function openCharisma\(ctx: Ctx\) \{\n[^\n]*\n  if \(uxh\.charisma\) return uxh\.charisma\(ctx\);\n  open\(/);
-    expect(HRUI).toMatch(/export function openPayroll\(ctx: Ctx\) \{\n  if \(uxh\.payroll\) return uxh\.payroll\(ctx\);\n  open\(/);
+  it('本体の入口は、差し込み口へ渡すだけ（段 UIX5a で、切のときだけ通っていた今の作りは外した）', () => {
+    const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // 関数の本体は「（コメント 1 行）＋差し込み口を呼んで返す」だけ
+    const only = (code: string, head: string, call: string) => expect(code, head).toMatch(new RegExp(`${esc(head)} \\{\\n(?:  //[^\\n]*\\n)?  return ${esc(call)};\\n\\}`));
+    only(SCREENS, 'export function openStaff(ctx: Ctx)', 'uxh.staff!(ctx)');
+    only(SCREENS, 'export function openHire(ctx: Ctx, opts: { charisma?: boolean } = {})', 'uxh.hire!(ctx, opts)');
+    only(HRUI, 'export function openCharisma(ctx: Ctx)', 'uxh.charisma!(ctx)');
+    only(HRUI, 'export function openPayroll(ctx: Ctx)', 'uxh.payroll!(ctx)');
     const boot = src('uix/screens/h-boot.ts');
-    expect(src('p1/growthui.ts')).toMatch(/export function openGrowth\(ctx: Ctx, focus\?: number\) \{\n[^\n]*\n  if \(uxh\.growth\) return uxh\.growth\(ctx, focus\);\n  open\(/);
-    expect(src('p1/growthui.ts')).toContain('  if (uxh.promotion) return uxh.promotion(root, hero, from, to, done);\n  const ov = h(');
-    expect(src('p1/lessonui.ts')).toMatch(/export function openLessons\(ctx: Ctx\) \{\n[^\n]*\n  if \(uxh\.lessons\) return uxh\.lessons\(ctx\);\n  ctx\.root/);
-    expect(src('p1/lessonui.ts')).toContain('  if (uxh.lessonPop) return uxh.lessonPop(hero, onOpen);\n  const x = lessonText(hero);');
-    expect(src('p1/trophyui.ts')).toMatch(/export function openTrophies\(ctx: Ctx\) \{\n  if \(uxh\.trophies\) return uxh\.trophies\(ctx\);\n  open\(/);
-    expect(src('p1/trophyui.ts')).toContain('  if (uxh.trophyPop) return uxh.trophyPop(d);\n  const el = h(');
-    expect(src('p1/museumui.ts')).toMatch(/export function openMuseum\(ctx: Ctx\) \{\n[^\n]*\n  if \(uxh\.museum\) return uxh\.museum\(ctx\);\n  pickSlot = null;/);
+    only(src('p1/growthui.ts'), 'export function openGrowth(ctx: Ctx, focus?: number)', 'uxh.growth!(ctx, focus)');
+    only(src('p1/growthui.ts'), 'export function playPromotion(root: HTMLElement, hero: number, from: HeroRarity, to: HeroRarity, done?: () => void)', 'uxh.promotion!(root, hero, from, to, done)');
+    only(src('p1/lessonui.ts'), 'export function openLessons(ctx: Ctx)', 'uxh.lessons!(ctx)');
+    only(src('p1/lessonui.ts'), 'export function lessonPopEl(hero: number, onOpen?: () => void): HTMLElement', 'uxh.lessonPop!(hero, onOpen)');
+    only(src('p1/trophyui.ts'), 'export function openTrophies(ctx: Ctx)', 'uxh.trophies!(ctx)');
+    only(src('p1/trophyui.ts'), 'export function trophyEl(d: TrophyDef): HTMLElement', 'uxh.trophyPop!(d)');
+    only(src('p1/museumui.ts'), 'export function openMuseum(ctx: Ctx)', 'uxh.museum!(ctx)');
     const LG = src('p1/legalui.ts');
-    expect(LG).toMatch(/export function openLegalMA\(ctx: Ctx, hooks: LegalHooks = \{\}, focusRid\?: string\) \{\n[^\n]*\n  if \(uxh\.legalMA\) return uxh\.legalMA\(ctx, hooks, focusRid\);\n  open\(/);
-    for (const [f, k] of [['openContract', 'contract'], ['openPatents', 'patents'], ['openSuits', 'suits']]) expect(LG).toContain(`export function ${f}(ctx: Ctx, hooks: LegalHooks = {}) {\n  if (uxh.${k}) return uxh.${k}(ctx, hooks);\n  open(`);
-    expect(src('p1/diploui.ts')).toMatch(/export function openDiplo\(ctx: Ctx\) \{\n[^\n]*\n  if \(uxh\.diplo\) return uxh\.diplo\(ctx\);\n  const s0/);
-    expect(SCREENS).toContain('export function openDev(ctx: Ctx) {\n  if (uxh.dev) return uxh.dev(ctx);\n  open(');
-    expect(SCREENS).toContain('export function openMA(ctx: Ctx) {\n  if (uxh.ma) return uxh.ma(ctx);\n  open(');
-    expect(src('p1/mapsetui.ts')).toContain('  if (uxh.mapSet) return uxh.mapSet(ctx, changed, { MAPSET_ITEMS, mapSetLocked, mapSetOn, toggleMapSet });\n  open(');
-    expect(src('p1/r2ui.ts')).toMatch(/export function rpStackEl\(s: P1State\): HTMLElement \{\n[^\n]*\n  if \(uxh\.rpStack\) return uxh\.rpStack\(s\);/);
-    expect(src('p1/r2ui.ts')).toContain('  if (uxh.study) return uxh.study(s, o);\n  const box = h(');
+    only(LG, 'export function openLegalMA(ctx: Ctx, hooks: LegalHooks = {}, focusRid?: string)', 'uxh.legalMA!(ctx, hooks, focusRid)');
+    for (const [f, k] of [['openContract', 'contract'], ['openPatents', 'patents'], ['openSuits', 'suits']]) only(LG, `export function ${f}(ctx: Ctx, hooks: LegalHooks = {})`, `uxh.${k}!(ctx, hooks)`);
+    only(src('p1/diploui.ts'), 'export function openDiplo(ctx: Ctx)', 'uxh.diplo!(ctx)');
+    only(SCREENS, 'export function openDev(ctx: Ctx)', 'uxh.dev!(ctx)');
+    only(SCREENS, 'export function openMA(ctx: Ctx)', 'uxh.ma!(ctx)');
+    expect(src('p1/mapsetui.ts')).toContain('  return uxh.mapSet!(ctx, changed, { MAPSET_ITEMS, mapSetLocked, mapSetOn, toggleMapSet });\n}');
+    only(src('p1/r2ui.ts'), 'export function rpStackEl(s: P1State): HTMLElement', 'uxh.rpStack!(s)');
+    only(src('p1/r2ui.ts'), 'export function studyEl(s: P1State, o: { done: () => void; toast: (m: string) => void; sfx?: (k: \'error\' | \'levelup\') => void }): HTMLElement', 'uxh.study!(s, o)');
     for (const k of ['staff', 'hire', 'charisma', 'payroll', 'growth', 'promotion', 'lessons', 'lessonPop', 'trophies', 'trophyPop', 'museum', 'legalMA', 'contract', 'patents', 'suits', 'diplo', 'dev', 'ma', 'mapSet', 'rpStack', 'study']) expect(boot, k).toMatch(new RegExp(`uxh\\.${k} = \\w+;`));
   });
   it('新しい画面の束は、本体のモジュールを自分では読まない（型だけ）。関数は p1/uxh.ts から渡す', () => {
@@ -197,7 +200,8 @@ describe('人材登用', () => {
   });
   it('はじめにめくっておく札は、チュートリアルなら調達にいちばん向いている人（押す回数は今と同じ）', () => {
     expect(APPRENTICES).toEqual([10001, 10002, 10003]);
-    expect(SCREENS).toContain('!s.staff.some((x) => ![10001, 10002, 10003].includes(x.hero))');
+    // 段 UIX5a：前の画面（同じ条件で並べ替えていた）は外したので、新しい画面の条件だけを見る
+    expect(ST).toContain("ctx.step?.() === 'hire' && !s.staff.some((x) => !APPRENTICES.includes(x.hero))");
     expect(ST).toContain('flipped = recBuy ?? pool[0] ?? null;');
   });
   it('出す中身：契約金と月給・能力（6 つの仕事のランクと数）・候補が 0 人の理由・カリスマ度（1 か月目は出さない）・足りないときは「あと N G」', () => {

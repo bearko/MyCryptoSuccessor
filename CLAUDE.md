@@ -4,6 +4,7 @@
 - アイランド（`src/island/`）で、PixelLab で作るべき絵を仮の絵（コードで描いたもの・ほかの絵の流用）で入れたときや、絵の無いものを足したときは、必ず `docs/ISLAND_ART_TODO.md` に追記する（何を・どこで使っていて・いまの状態・PixelLab への指示）。機能が落ち着いたらまとめて生成する。
 - このリポジトリは独立したゲーム「My Crypto Successor」（もとは My Crypto Workshop の試作モード「アイランド」）。サイトを開くと `index.html` → `src/island/main.ts` でアイランドが始まる。公開は https://successor.bearko.games（Cloudflare Workers の静的配信）。本番のブランチは `main`。
 - ゲームの全体像は `docs/SUCCESSOR_VISION.md`、ロードマップと各機能の設計は `docs/SUCCESSOR_ROADMAP.md`。新しい機能はこの方向に沿って作る。
+- 画面は `docs/ISLAND_UIX.md` の部品（管制卓の見た目）で `src/island/uix/screens/` に作り、本体（`src/island/p1/`）の入口からは差し込み口へ渡す 1 行（`return ux<x>.<名前>!(…)`）にする。本体の DOM や CSS で新しい画面を直接描かない。
 - チェック：`npx tsc --noEmit`・`npm test`・`npm run i18n:check`・`npm run build`・`npm run pixel:lint`・`npm run island:audit`（反映されない投資が 0）・`npm run island:sim`（1 台だと 1 時間ほど。`docs/ISLAND_BALANCE.md` を書き直す）。
 - テストは 3 段で回す（public なので無料）：
   - **PR ごと**（`CI`）：型・英訳・絵・ビルド、軽いテストを 4 台で全部、重いテスト（`tests/heavy.txt`）は PR が触ったファイルに関係するものだけ。

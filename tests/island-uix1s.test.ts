@@ -3,7 +3,6 @@
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
-import { IslandSfx } from '../src/island/p1/sfx';
 import { ALL_SFX, MAX_VOICES, SAME_GAP_MS, SfxBank, UX_SFX, isSfxName } from '../src/island/uix/audio/bank';
 import { UxSound, boxSound, type UxEnv, type UxScene } from '../src/island/uix/audio/core';
 import { Engine, type NoiseOpt, type ToneOpt } from '../src/island/uix/audio/engine';
@@ -125,42 +124,6 @@ describe('段 UIX1s：切り替え（新しい音は <html class="is-uxc"> か ?
     expect(u.stats.legacy).toBe(0);
   });
 
-  it('切のとき、今の効果音（IslandSfx）は 1 つも変わらない：付け替えの口を付けても、同じ音源を同じ大きさで鳴らす', async () => {
-    const run = async (withRoute: boolean) => {
-      const ctx = new FakeCtx();
-      vi.stubGlobal('window', { AudioContext: function () { return ctx; } });
-      vi.stubGlobal('fetch', async () => ({ arrayBuffer: async () => new ArrayBuffer(8) }));
-      const sfx = new IslandSfx();
-      if (withRoute) {
-        // 切の音の本体（何も引き受けない）を、本番と同じ口につなぐ
-        const u = new UxSound(fakeEnv().env);
-        u.init({});
-        sfx.route = (k, g, r) => u.legacy(k, g, r);
-      }
-      sfx.unlock();
-      await new Promise((r) => setTimeout(r, 0));
-      await new Promise((r) => setTimeout(r, 0));
-      expect(sfx.info().loaded).toBe(LEGACY_SFX.length);
-      const nowSpy = vi.spyOn(performance, 'now');
-      let t = 1000;
-      for (const k of LEGACY_SFX) {
-        // 同じ音の 50ms の間引きにかからないよう、時計を進める
-        nowSpy.mockReturnValue((t += 100));
-        sfx.play(k);
-        sfx.play(k, 0.7, 0.8);
-      }
-      await new Promise((r) => setTimeout(r, 0));
-      nowSpy.mockRestore();
-      vi.unstubAllGlobals();
-      return { src: ctx.made.src ?? 0, gains: ctx.srcGains.map((x) => Math.round(x * 1000) / 1000) };
-    };
-    const base = await run(false);
-    const routed = await run(true);
-    // 24 種を 2 回ずつ。2 回めは 50ms 以内なので間引かれる（今のまま）
-    expect(base.src).toBe(LEGACY_SFX.length);
-    expect(routed).toEqual(base);
-  });
-
   it('入：class が付いていれば入。今の BGM を止めてもらい、今の効果音の呼び出しはこちらで引き受ける', () => {
     const f = fakeEnv({ cls: true });
     const u = new UxSound(f.env);
@@ -175,14 +138,8 @@ describe('段 UIX1s：切り替え（新しい音は <html class="is-uxc"> か ?
     expect(f.ctxs.length).toBe(1);
     expect(u.music?.playing).toBe(true);
     expect(u.bank?.played.boot).toBe(1);
-    // 今の効果音：IslandSfx は鳴らさない（route が true を返す）
-    const ctx = new FakeCtx();
-    const sfx = new IslandSfx();
-    (sfx as unknown as { ctx: unknown; buf: Map<string, unknown> }).ctx = ctx;
-    (sfx as unknown as { buf: Map<string, unknown> }).buf.set('levelup', {});
-    sfx.route = (k, g, r) => u.legacy(k, g, r);
-    sfx.play('levelup');
-    expect(ctx.made.src ?? 0).toBe(0);
+    // 今の効果音の名前の呼び出し（p1/main.ts の sfx.play）は、新しい音へ付け替えて鳴らす（段 UIX5a：今の効果音 IslandSfx は外した）
+    expect(u.legacy('levelup')).toBe(true);
     expect(u.bank?.played.stamp).toBe(1);
   });
 

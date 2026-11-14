@@ -24,8 +24,8 @@ describe('入のときだけ、新しい画面に分かれる', () => {
   });
   it('p1/main.ts に足すのは短い分岐だけ：口を呼ぶ所と、入のときだけ動的に読む 1 行', () => {
     for (const call of ['uxm.hud?.()', 'uxm.frame?.(now)', 'uxm.pop?.(title)', 'uxm.placePop?.()', 'uxm.popCam?.(', 'uxm.popClose?.()']) expect(MAIN, call).toContain(call);
-    // 新しい画面の本体は、入のときだけ読む（切のときに読むのは、型と空の口の mhooks.ts だけ）
-    expect(MAIN).toMatch(/if \(uxOn\(\)\) void import\('\.\.\/uix\/screens\/mapui'\)/);
+    // 新しい画面の本体（上と下の帯）は、動的に読む（段 UIX5a から、いつも読む。静的に読むのは、型と空の口の mhooks.ts だけ）
+    expect(MAIN).toMatch(/\nvoid import\('\.\.\/uix\/screens\/mapui'\)/);
     const statics = [...MAIN.matchAll(/^import .* from '\.\.\/uix\/screens\/([a-z]+)';$/gm)].map((m) => m[1]);
     expect(statics).toEqual(['mhooks']);
     // 口のファイルは、型と空の入れ物だけ（中身を読み込まない）

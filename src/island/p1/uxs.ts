@@ -1,8 +1,7 @@
 /**
  * 段 UIX2s：新しい画面（方向 C「管制卓」の工房の札・月次報告。src/island/uix/screens/）へ渡す、本体の関数の束。
- * 新しい画面の束（入のときだけ読む）は、本体のモジュールを自分では読まない：読むと、本番のビルドで本体の束の分かれ方（JS と CSS）が変わり、
- * 切のときの読み込みが今と変わってしまう。そこで、本体の側（このファイル。p1/main.ts と同じ束）から、使う関数だけを渡す。
- * 切のときは、束ねるだけで何も読みに行かない（loadUxs を呼ばない）。
+ * 新しい画面の束は、本体のモジュールを自分では読まない：読むと、本番のビルドで本体の束の分かれ方（JS と CSS）が変わり、
+ * 起動で読むファイルと CSS の当たる順が変わってしまう（scripts/qa/start-bundle.mjs が守る）。そこで、本体の側（このファイル。p1/main.ts と同じ束）から、使う関数だけを渡す。
  */
 import { heroFacesRight } from '../../game/catalog';
 import { assetUrl } from '../../render/images';
@@ -67,6 +66,7 @@ import { uxkDeps } from './uxk';
 import { uxdDeps } from './uxd';
 import { uxhDeps } from './uxh';
 import { uxrDeps } from './uxr';
+import { uxtDeps } from './uxt';
 import { uxsBoot } from '../uix/screens/s-slots';
 
 export const uxsDeps = {
@@ -184,13 +184,14 @@ export const uxsDeps = {
   // 段 UIX3h：人と管理の画面（職人・採用・ヒーロー・人事・法務・トロフィー・図鑑 ほか）の束
   h: uxhDeps,
   r: uxrDeps,
+  t: uxtDeps,
 };
 export type UxsDeps = typeof uxsDeps;
 
-/** 入のときだけ呼ぶ（p1/main.ts）：新しい画面の束を読み、本体の関数を渡して差し込み口（uxs）へ入れる */
+/** p1/main.ts が起動で呼ぶ：新しい画面の束を読み、本体の関数を渡して差し込み口（uxs）へ入れる（入口が先に読んでいるので、取りに行かない） */
 export const loadUxs = () => import('../uix/screens/s-boot').then((m) => m.install(uxsDeps));
 /**
- * 段 UIX3a：束がもう届いていれば（入のとき、入口 src/island/main.ts が本体より先に読む）、その場で差し込み口へ入れる。
+ * 段 UIX3a：束がもう届いていれば（段 UIX5a からいつも。入口 src/island/main.ts が本体より先に読む）、その場で差し込み口へ入れる。
  * 本体の起動のすぐあと（最初の描き直し）に出る会話から、新しい画面で出すため。届いていなければ何もしない（loadUxs があとから入れる）
  */
 export const bootUxs = () => uxsBoot.install?.(uxsDeps);

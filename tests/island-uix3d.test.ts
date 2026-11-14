@@ -12,7 +12,7 @@ import { CLOSE_MS, PAGE_MS } from '../src/island/uix/screens/proposal';
 import { FLOW, NEXT_MS } from '../src/island/uix/screens/board';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
-export const D_FILES = ['card.ts', 'proposal.ts', 'board.ts', 'policy.ts', 'deleg.ts', 'headtalk.ts', 'd-kit.ts', 'd-boot.ts', 'd-deps.ts', 'd-slots.ts'];
+export const D_FILES = ['card.ts', 'proposal.ts', 'board.ts', 'policy.ts', 'deleg.ts', 'd-kit.ts', 'd-boot.ts', 'd-deps.ts', 'd-slots.ts'];
 export const D_CSS = ['d-card.css', 'd-prop.css', 'd-board.css', 'd-pol.css', 'd-deleg.css'];
 const noComment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -30,14 +30,15 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     expect(src('p1/uxs.ts')).toContain('d: uxdDeps,');
     expect(uxsDeps.d).toBe(uxdDeps);
   });
-  it('本体の入口は、差し込み口が空なら今の画面（入口ごとの 1 行の分かれ道）', () => {
+  it('本体の入口は、差し込み口へ渡すだけ（段 UIX5a で、切のときだけ通っていた今の画面は外した）', () => {
     const c = src('p1/cardui.ts');
-    expect(c).toContain('m.append(uxd.cardPanel ? uxd.cardPanel(ctx, c, { close, quiet }) : panel(ctx, s, c, close, quiet));');
-    expect(c).toContain('if (uxd.inbox) return uxd.inbox(ctx);');
-    expect(c).toContain('if (uxd.gone) return uxd.gone(s);');
-    expect(c).toContain('if (uxd.issues) return uxd.issues(s);');
-    // 今のカードのボタンも、切り出した同じ処理（cardChoose）を呼ぶ
-    expect(c).toContain("b.addEventListener('click', () => cardChoose(ctx, s, c, k, isRec, x.label, close, quiet, () => delegOn));");
+    expect(c).toContain('m.append(uxd.cardPanel!(ctx, c, { close, quiet }));');
+    expect(c).toContain('return uxd.inbox!(ctx);\n}');
+    expect(c).toContain('return uxd.gone!(s);\n}');
+    expect(c).toContain('return uxd.issues!(s);\n}');
+    // 決める処理は切り出した同じ処理（cardChoose）。新しい画面へ渡す
+    expect(c).toContain('export function cardChoose(');
+    expect(src('p1/uxd.ts')).toContain('cardChoose');
   });
   it('新しい画面の束は、本体のモジュールを自分では読まない（型だけ）。関数は p1/uxd.ts から渡す', () => {
     for (const f of D_FILES) {
@@ -116,11 +117,11 @@ describe('提案書：投影される資料・最後の 1 枚で承認のレバ�
   const U = src('uix/screens/proposal.ts');
   it('入口は 1 行の分かれ道（方針を聞くのは今のまま先に）。中身は今の画面と同じ propModel・propSlides', () => {
     const i = P.indexOf('if (askDue(s)) return openPolicyPick');
-    const j = P.indexOf('if (uxd.proposal) return uxd.proposal(ctx, plan, o);');
+    const j = P.indexOf('return uxd.proposal!(ctx, plan, o);\n}');
     expect(i).toBeGreaterThan(0);
     expect(j).toBeGreaterThan(i);
-    expect(P).toContain('const M = propModel(ctx, plan, o);');
-    expect(P).toContain('const slides = propSlides(ctx, plan, o, M, SLIDE_KIT,');
+    expect(P).toContain('export function propModel(');
+    expect(P).toContain('export function propSlides(');
     expect(U).toContain('Q.propModel(ctx, plan, o)');
     expect(U).toContain('Q.propSlides(ctx, plan, o, M, KIT,');
   });
@@ -150,7 +151,7 @@ describe('経営会議：議題 → 意見 → 決議の帯・出席者の札・
   const U = src('uix/screens/board.ts');
   it('入口は 1 行の分かれ道（議題が無ければ今と同じく何もしない）', () => {
     const i = O.indexOf('if (!A || !A.items.some((x) => !x.done)) return false;');
-    expect(O.indexOf('if (uxd.board) return uxd.board(ctx, hooks);')).toBeGreaterThan(i);
+    expect(O.indexOf('return uxd.board!(ctx, hooks);\n}')).toBeGreaterThan(i);
     expect(U).toContain('if (!A || !A.items.some((x) => !x.done)) return false;');
   });
   it('決める処理は今と同じ関数（decide・boardFinish・boardSummary）を同じ引数で。差し込みの場面（方針発表会）も同じ口で描く', () => {
@@ -180,7 +181,7 @@ describe('方針：同じ形の札・選ぶ引き出し・施行中の札', () =
   const O = src('p1/policyui.ts');
   const U = src('uix/screens/policy.ts');
   it('入口は 5 か所とも関数の頭の 1 行の分かれ道', () => {
-    for (const x of ['if (uxd.policyPick) return uxd.policyPick(ctx, o);', 'if (uxd.policyCard) return uxd.policyCard(ctx);', 'if (uxd.policyView) return uxd.policyView(ctx);', 'if (uxd.corpPick) return uxd.corpPick(ctx);', 'if (uxd.deptPick) return uxd.deptPick(ctx, d);']) expect(O).toContain(x);
+    for (const x of ['return uxd.policyPick!(ctx, o);\n}', 'return uxd.policyCard!(ctx);\n}', 'return uxd.policyView!(ctx);\n}', 'return uxd.corpPick!(ctx);\n}', 'return uxd.deptPick!(ctx, d);\n}']) expect(O).toContain(x);
   });
   it('選ぶのは引き出し（今の目印 isl-pol・isl-picker）・決めるのは下の主のキー。決める処理は今と同じ関数', () => {
     expect(U.match(/cls: 'isl-pol uxd-pol-dr'/g)?.length).toBe(3);
@@ -204,8 +205,8 @@ describe('任せる・部長との対話', () => {
   const O = src('p1/delegui.ts');
   const U = src('uix/screens/deleg.ts');
   it('入口は関数の頭の 1 行の分かれ道。部長の提案の「提案書を見る」は切り出した同じ処理（propSee）', () => {
-    for (const x of ['if (uxd.pickFor) return uxd.pickFor(ctx, want, title, current, onPick, onClear);', 'if (uxd.deleg) return uxd.deleg(ctx, dept);', 'if (uxd.props) return uxd.props(ctx);', 'if (uxd.roles) return uxd.roles(ctx, s);']) expect(O).toContain(x);
-    expect(O).toContain('const seeProposal = () => propSee(ctx, s, p);');
+    for (const x of ['return uxd.pickFor!(ctx, want, title, current, onPick, onClear);\n}', 'return uxd.deleg!(ctx, dept);\n}', 'return uxd.props!(ctx);\n}', 'return uxd.roles!(ctx, s);\n}']) expect(O).toContain(x);
+    expect(O).toContain('export function propSee(ctx: Ctx, s: P1State, p: Proposal) {');
     expect(U).toContain('K.propSee(ctx, s, p)');
   });
   it('任せ先は選ぶ引き出し（はじめにおすすめを選んでおく）・決めるのは下の主のキー。今の目印 data-hero・data-best', () => {
@@ -215,12 +216,10 @@ describe('任せる・部長との対話', () => {
     expect(U).toContain('onPick(hero);');
     expect(U).toMatch(/K\.sayToast\(ctx\.toast, hero, 'greet', s\.day\)/);
   });
-  it('部長との対話は、今の画面を描いたあとに着せ替える（話題・確認事項・押した先は今のまま）', () => {
+  it('部長との対話は、段 UIX5t で会話の器と画面の部品で組み直した（着せ替えはやめた。確かめは island-uix5t.test.ts）', () => {
     const H = src('p1/headtalkui.ts');
-    expect(H).toContain('uxd.headTalk?.(body);');
-    const D = src('uix/screens/headtalk.ts');
-    expect(D).toContain('typeInto(tx, wrap');
-    expect(D).toContain("rec.classList.add('ux-front')");
+    expect(H).not.toContain('uxd.headTalk');
+    expect(H).toContain('if (uxt.headTalk) return uxt.headTalk(body, htCall(ctx, hooks));');
   });
 });
 

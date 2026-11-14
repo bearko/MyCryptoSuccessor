@@ -12,6 +12,7 @@ import type { UxScreens } from './screens/s-slots';
 import type { UxwScreens } from './screens/w-slots';
 import type { UxdScreens } from './screens/d-slots';
 import type { UxrScreens } from './screens/r-slots';
+import type { UxtScreens } from './screens/t-slots';
 
 export interface UxHooks {
   /** 札（sheet()）を作った直後：器の飾り・✕ のキー・開く動き（幕か、短い出入り） */
@@ -44,5 +45,6 @@ export const uxkSlots: UxkScreens = {};
 export const uxdSlots: UxdScreens = {};
 export const uxhSlots: UxhScreens = {};
 export const uxrSlots: UxrScreens = {};
+export const uxtSlots: UxtScreens = {};
 /** 束（s-boot.ts）が読めたら、入れ方（install）がここに入る（p1/uxs.ts の bootUxs が、起動のその場で呼ぶ）。切のときは空のまま */
 export const uxsBootSlot: { install?: (d: UxsDeps) => void } = {};

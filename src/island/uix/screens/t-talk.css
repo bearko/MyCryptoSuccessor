@@ -1,0 +1,550 @@
+/* 段 UIX5t：部長との対話（方向 C「管制卓」。入のときだけ。docs/ISLAND_UIX.md「画面：部長との対話」）
+   器（紙の吹き出し・伸び縮み・枠破りの話し手）は土台の ux-pop-*、データは画面の部品 uxp-*。ここは置き場所と、この画面だけの札。 */
+
+/* ---------- 全体：上〜中のデータは送れる・下の会話の器は動かさない（今の画面と同じ割り振り） */
+html.is-uxc #isl-ui .isl-sheet-body.uxt-ht {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  gap: 0;
+  /* 器とキーが札に収まらないとき（せまい画面の承認のレバー）は、札ごと送れる（器を切らない） */
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+html.is-uxc #isl-ui .uxt-data {
+  flex: 1 1 auto;
+  /* せまい画面（札の高さが 300px ほど）でも、会話の器とキーは切れない：データは 64px まで縮む */
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: max-content;
+  align-content: start;
+  gap: 10px;
+  padding: 10px 12px 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+html.is-uxc #isl-ui .uxt-data > * {
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxt-in {
+  animation: uxt-in 220ms steps(5, end) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+@keyframes uxt-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+}
+
+/* ---------- データの中の札 */
+html.is-uxc #isl-ui .uxt-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+html.is-uxc #isl-ui .uxt-dash {
+  font-size: var(--ux-n2);
+  line-height: 1;
+}
+html.is-uxc #isl-ui .uxt-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxt-line > canvas {
+  flex: none;
+  margin-top: 4px;
+}
+html.is-uxc #isl-ui .uxt-line.is-dim,
+html.is-uxc #isl-ui .uxt-note {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxt-line.is-good {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxt-line.is-short {
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxt-note {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxt-name,
+html.is-uxc #isl-ui .uxt-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+html.is-uxc #isl-ui .uxt-q.is-good {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxt-q.is-amber {
+  color: var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxt-fit {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+html.is-uxc #isl-ui .uxt-fit-why {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxt-best,
+html.is-uxc #isl-ui .uxt-wage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+/* 部長が回している業務 */
+html.is-uxc #isl-ui .uxt-duties {
+  display: grid;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxt-duty {
+  display: grid;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxt-duty-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxt-duty-n {
+  color: var(--ux-k5);
+  line-height: 1.5;
+}
+/* 組織：部門ごとの行（部門の色の帯） */
+html.is-uxc #isl-ui .uxt-org {
+  display: grid;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxt-orgrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-height: 44px;
+  padding: 6px 8px 6px 14px;
+  background: var(--ux-k1);
+  box-shadow: inset 6px 0 0 var(--d, var(--ux-k3)), inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxt-org-d,
+html.is-uxc #isl-ui .uxt-org-h,
+html.is-uxc #isl-ui .uxt-org-n {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxt-org-d {
+  min-width: 7rem;
+}
+html.is-uxc #isl-ui .uxt-orgrow:not(.is-has) .uxt-org-h {
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxt-orgrow.is-has .uxt-org-h {
+  color: var(--ux-good);
+}
+html.is-uxc #isl-ui .uxt-org-n {
+  margin-left: auto;
+  gap: 12px;
+  color: var(--ux-k5);
+}
+html.is-uxc #isl-ui .uxt-people {
+  display: grid;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxt-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 4px;
+  background: var(--ux-k1);
+  box-shadow: inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxt-person-b {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxt-bars {
+  margin: 0 2px;
+}
+/* 任せ方：部長の札 */
+html.is-uxc #isl-ui .uxt-headcard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+html.is-uxc #isl-ui .uxt-headcard-b {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxt-fitline {
+  color: var(--ux-paper2);
+}
+
+/* ---------- 決める札（確認事項の 1 件・採用の状況の部長の提案） */
+html.is-uxc #isl-ui .uxt-deal {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 10px 10px 10px 14px;
+  background: var(--ux-k1);
+  box-shadow: inset 6px 0 0 var(--ux-amber), inset 0 0 0 2px var(--ux-k0);
+}
+html.is-uxc #isl-ui .uxt-deal-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+html.is-uxc #isl-ui .uxt-who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxt-who-b {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxt-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 10px;
+  min-height: 1.75rem;
+  background: var(--ux-k0);
+  box-shadow: inset 4px 0 0 var(--d, var(--ux-k3));
+  color: var(--ux-paper);
+}
+/* 承認のランプと「未承認 → 承認済」（レバーと組。土台の ux-prop-lamps・ux-prop-done） */
+html.is-uxc #isl-ui .uxt-lv-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxt-lv-side:empty {
+  display: none;
+}
+html.is-uxc #isl-ui .uxt-steps {
+  display: inline-flex;
+  gap: 4px;
+}
+html.is-uxc #isl-ui .uxt-count {
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+html.is-uxc #isl-ui .uxt-why p,
+html.is-uxc #isl-ui .uxt-say p {
+  margin: 0;
+  line-height: 1.6;
+}
+html.is-uxc #isl-ui .uxt-quip {
+  margin: 0;
+  color: var(--ux-paper2);
+}
+html.is-uxc #isl-ui .uxt-offer-t {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+html.is-uxc #isl-ui .uxt-offer-s {
+  margin: 0;
+  color: var(--ux-k5);
+  line-height: 1.5;
+}
+html.is-uxc #isl-ui .uxt-plan {
+  justify-self: start;
+}
+html.is-uxc #isl-ui .uxt-choices {
+  display: grid;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxt-choice {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--ux-k2);
+  box-shadow: inset 0 0 0 2px var(--ux-k3);
+}
+html.is-uxc #isl-ui .uxt-choice.is-rec {
+  box-shadow: inset 0 0 0 2px var(--ux-amber);
+}
+html.is-uxc #isl-ui .uxt-choice-t {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+html.is-uxc #isl-ui .uxt-choice-s {
+  color: var(--ux-k5);
+  line-height: 1.5;
+}
+/* 決めた札の写し：判を打って、送り出す */
+html.is-uxc #isl-ui .uxt-ghost {
+  position: absolute;
+  z-index: 4;
+  margin: 0;
+  pointer-events: none;
+}
+html.is-uxc #isl-ui .uxt-ghost.is-out {
+  opacity: 0;
+  animation: uxt-ghost-out 220ms steps(5, end);
+}
+@keyframes uxt-ghost-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-48px, -12px, 0);
+  }
+}
+html.is-uxc #isl-ui .uxt-stamp {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 1;
+  padding: 4px 12px;
+  box-shadow: 0 0 0 2px var(--ux-ink), 4px 4px 0 rgba(4, 6, 14, 0.5);
+}
+
+/* ---------- 下：会話の器（話す人が枠の上に立つ）と選択肢 */
+html.is-uxc #isl-ui .uxt-talk {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  /* 上は、話す人（64px の顔は枠の上へ 42px・案内役の胸から上は 48px）と名前の札が枠の上へはみ出すぶん。データの字に重ねない */
+  padding: 50px 12px 8px;
+}
+html.is-uxc #isl-ui .uxt-talk.has-lever {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+html.is-uxc #isl-ui .uxt-bub {
+  position: relative;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxt-bubble {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ux-ink);
+  animation: none;
+}
+html.is-uxc #isl-ui .uxt-bubble .ux-pop-tail {
+  display: none;
+}
+/* 話す人の絵の下の端まで（64px の顔：枠の上へ 42px・枠の中へ 22px） */
+html.is-uxc #isl-ui .uxt-bubble .ux-pop-rise {
+  padding: 24px 12px 4px;
+}
+html.is-uxc #isl-ui .uxt-bubble .ux-pop-who {
+  left: 4px;
+}
+/* 名前の札：枠の上の縁にまたがる（話す人のすぐ右） */
+html.is-uxc #isl-ui .uxt-bubble .ux-pop-name {
+  left: 74px;
+  top: -14px;
+  min-height: 1.75rem;
+  line-height: 1.75rem;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+html.is-uxc #isl-ui .uxt-ht[data-uxt-mode='mine'] .uxt-bubble .ux-pop-name {
+  left: 106px;
+}
+html.is-uxc #isl-ui .uxt-bubble .ux-pop-say {
+  min-height: 3rem;
+}
+html.is-uxc #isl-ui .uxt-bubble .ux-pop-text {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+html.is-uxc #isl-ui .uxt-bubble .ux-pop-foot {
+  height: auto;
+  min-height: 22px;
+  flex-wrap: wrap;
+}
+html.is-uxc #isl-ui .uxt-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-right: auto;
+  color: var(--ux-ink);
+}
+html.is-uxc #isl-ui .uxt-meta .ux-num {
+  font-size: var(--ux-n15);
+  line-height: 1;
+}
+html.is-uxc #isl-ui .uxt-meta .uxt-grade {
+  height: 1.5rem;
+}
+html.is-uxc #isl-ui .uxt-bubble .ux-pop-foot {
+  min-height: 0;
+}
+/* 案内役の立ち絵：胸から上だけ（等倍のまま上を切り出す） */
+html.is-uxc #isl-ui .uxt-mine {
+  display: block;
+  margin: 0;
+  max-width: none;
+  object-fit: none;
+  object-position: 50% 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+/* 詳しい画面：札の見出しの ✕ の左 */
+html.is-uxc #isl-ui .isl-sheet-head > .uxt-detail {
+  flex: none;
+  margin-left: auto;
+  margin-right: 8px;
+}
+html.is-uxc #isl-ui .uxt-detail .ux-cap {
+  padding: 0 8px;
+}
+/* 1 枚だけのときは「1/1」と ▼ を出さない（下の段は ★・Lv・史実の適性だけ。部長がいなければ段ごと無し） */
+html.is-uxc #isl-ui .uxt-ht[data-uxt-mode='mine'] .uxt-bubble[data-pages='1'] .ux-pop-foot {
+  display: none;
+}
+html.is-uxc #isl-ui .uxt-bubble[data-pages='1'] .ux-pop-count,
+html.is-uxc #isl-ui .uxt-bubble[data-pages='1'] .ux-pop-next {
+  display: none;
+}
+html.is-uxc #isl-ui .uxt-countbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+html.is-uxc #isl-ui .uxt-quip-top {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+/* 選択肢：2 列（長い字は折り返す） */
+html.is-uxc #isl-ui .uxt-keys {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-end;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+html.is-uxc #isl-ui .uxt-keys > .ux-key {
+  flex: 1 1 auto;
+  min-width: calc(33% - 4px);
+  max-width: 100%;
+  min-height: 44px;
+}
+html.is-uxc #isl-ui .uxt-keys > .ux-key .ux-cap {
+  gap: 4px;
+  padding: 0 6px;
+  white-space: normal;
+}
+html.is-uxc #isl-ui .uxt-talk.is-fresh .uxt-keys > .ux-key {
+  animation: uxt-key-in 220ms steps(5, end) backwards;
+}
+html.is-uxc #isl-ui .uxt-talk.is-fresh .uxt-keys > .ux-key:nth-child(2) {
+  animation-delay: 40ms;
+}
+html.is-uxc #isl-ui .uxt-talk.is-fresh .uxt-keys > .ux-key:nth-child(3) {
+  animation-delay: 80ms;
+}
+html.is-uxc #isl-ui .uxt-talk.is-fresh .uxt-keys > .ux-key:nth-child(n + 4) {
+  animation-delay: 120ms;
+}
+@keyframes uxt-key-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+}
+/* 承認のレバー：吹き出しと選択肢の右に立てる */
+html.is-uxc #isl-ui .uxt-lever {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: end;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+html.is-uxc #isl-ui .uxt-talk.has-lever .uxt-bub,
+html.is-uxc #isl-ui .uxt-talk.has-lever .uxt-keys {
+  grid-column: 1;
+}
+/* せまい画面の小さいレバー（高さ 92px＝8＋つまみ 36＋引く距離 40＋8。t-talk.ts の SMALL_TRAVEL と組）。
+   レバーは吹き出しの右、選択肢のキーは下の 1 段に横いっぱい */
+html.is-uxc #isl-ui .uxt-talk.is-small .uxt-lever {
+  grid-row: 1;
+  align-self: start;
+  /* 名前の札（枠の上の縁にまたがる）の下から */
+  margin-top: 16px;
+}
+/* 下の一行は、レバーの幅（88px）に収める（矢印の絵は外す・長い字は折り返す） */
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-cap {
+  max-width: 88px;
+  justify-content: center;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-cap > canvas {
+  display: none;
+}
+html.is-uxc #isl-ui .uxt-talk.is-small .uxt-keys {
+  grid-column: 1 / -1;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-box {
+  min-width: 88px;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever {
+  width: 88px;
+  height: 92px;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-slot {
+  left: 38px;
+  top: 8px;
+  bottom: 8px;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-scale {
+  top: 16px;
+  bottom: 16px;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-hint {
+  display: none;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-knob {
+  width: 72px;
+  height: 36px;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-grip {
+  bottom: 4px;
+  height: 4px;
+}

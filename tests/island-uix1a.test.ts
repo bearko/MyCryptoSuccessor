@@ -1,8 +1,8 @@
 // 段 UIX1a：新しい画面（方向 C「管制卓」）の土台（docs/ISLAND_UIX.md）。
-// 切り替え（URL・覚える・既定は切）・値の名前・ボタンの種類・器の開閉で消すのを待つこと・桁の回り方・レバー・動きを減らす・音の口
+// 目印（既定で入・前の切り替えは読まない）・値の名前・ボタンの種類・器の開閉で消すのを待つこと・桁の回り方・レバー・動きを減らす・音の口
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { initUx, resolveUx, setUx, uxOn } from '../src/island/uix/flag';
+import { initUx, resolveUx, uxOn } from '../src/island/uix/flag';
 import { ux } from '../src/island/uix/hooks';
 import { WIPE, wipe, wipeOrder } from '../src/island/uix/fx';
 import { SWAP_MS, deferClose, wipeLabel } from '../src/island/uix/legacy';
@@ -38,7 +38,7 @@ function fakePage(search = '', stored: Record<string, string> = {}) {
     ) {}
   };
   G.window = { dispatchEvent: (e: { type: string; init?: { detail?: unknown } }) => events.push({ type: e.type, detail: e.init?.detail }) };
-  G.localStorage = { getItem: (k: string) => store[k] ?? null, setItem: (k: string, v: string) => void (store[k] = v) };
+  G.localStorage = { getItem: (k: string) => store[k] ?? null, setItem: (k: string, v: string) => void (store[k] = v), removeItem: (k: string) => void delete store[k] };
   G.location = { search };
   return {
     cls,
@@ -59,54 +59,31 @@ afterEach(() => {
   for (const k of Object.keys(ux)) delete (ux as Record<string, unknown>)[k];
 });
 
-describe('切り替え（<html class="is-uxc">）', () => {
-  it('既定は切。URL の ?uix=1／?uix=0 が先で、端末に覚える。?uix=kit は覚えない', () => {
-    expect(resolveUx('', null)).toEqual({ on: false, remember: null, kit: false });
-    expect(resolveUx('?test=2', null).on).toBe(false);
-    expect(resolveUx('', '1')).toEqual({ on: true, remember: null, kit: false });
-    expect(resolveUx('', '0').on).toBe(false);
-    expect(resolveUx('?uix=1', null)).toEqual({ on: true, remember: true, kit: false });
-    expect(resolveUx('?uix=1', '0').on).toBe(true);
-    expect(resolveUx('?uix=0', '1')).toEqual({ on: false, remember: false, kit: false });
-    expect(resolveUx('?uix=kit', '0')).toEqual({ on: true, remember: null, kit: true });
-    // 知らない値は、無いのと同じ
-    expect(resolveUx('?uix=2', null).on).toBe(false);
+describe('目印（<html class="is-uxc">。段 UIX5a から既定で入）', () => {
+  it('URL によらず入。?uix=kit は見本帳。前の ?uix=0・?uix=1 は読まない', () => {
+    expect(resolveUx('')).toEqual({ on: true, kit: false });
+    expect(resolveUx('?test=2')).toEqual({ on: true, kit: false });
+    expect(resolveUx('?uix=0')).toEqual({ on: true, kit: false });
+    expect(resolveUx('?uix=1')).toEqual({ on: true, kit: false });
+    expect(resolveUx('?uix=kit')).toEqual({ on: true, kit: true });
   });
-  it('起動：何も無ければ class は付かず、何も覚えない（今の画面のまま）', () => {
-    page = fakePage('');
+  it('起動：何も無くても class が付く。前の切り替えで覚えた値（isl.uxc）は、読まずに消す', () => {
+    page = fakePage('', { 'isl.uxc': '0', other: 'x' });
     const c = initUx('');
-    expect(c.on).toBe(false);
-    expect(uxOn()).toBe(false);
-    expect(page.cls.has('is-uxc')).toBe(false);
-    expect(page.store).toEqual({});
+    expect(c.on).toBe(true);
+    expect(uxOn()).toBe(true);
+    expect(page.cls.has('is-uxc')).toBe(true);
+    expect(page.store).toEqual({ other: 'x' });
     // 音の担当へ：いまの状態を知らせる
-    expect(page.events).toEqual([{ type: 'uxc:change', detail: { on: false } }]);
+    expect(page.events).toEqual([{ type: 'uxc:change', detail: { on: true } }]);
   });
-  it('起動：?uix=1 で入になり、覚える。次は URL が無くても入。?uix=0 で切に戻る', () => {
-    page = fakePage('?uix=1');
-    initUx('?uix=1');
-    expect(uxOn()).toBe(true);
-    expect(page.store['isl.uxc']).toBe('1');
-    expect(page.events.at(-1)).toEqual({ type: 'uxc:change', detail: { on: true } });
-    const kept = { ...page.store };
-    page.restore();
-    page = fakePage('', kept);
-    initUx('');
-    expect(uxOn()).toBe(true);
+  it('?uix=0 を付けても入のまま（覚えない）', () => {
+    page = fakePage('?uix=0');
     initUx('?uix=0');
-    expect(uxOn()).toBe(false);
-    expect(page.store['isl.uxc']).toBe('0');
-  });
-  it('設定から：setUx で class と覚えた値が替わり、uxc:change が出る', () => {
-    page = fakePage('');
-    setUx(true);
     expect(uxOn()).toBe(true);
-    expect(page.store['isl.uxc']).toBe('1');
-    setUx(false);
-    expect(uxOn()).toBe(false);
-    expect(page.events.map((e) => e.detail)).toEqual([{ on: true }, { on: false }]);
+    expect(page.store).toEqual({});
   });
-  it('切のとき、差し込み口は空（呼ぶ側は ux.x?.() と書くので、何も起きない）', () => {
+  it('起動の前は、差し込み口は空（呼ぶ側は ux.x?.() と書くので、何も起きない）', () => {
     expect(Object.keys(ux)).toEqual([]);
   });
 });

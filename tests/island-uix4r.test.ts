@@ -38,22 +38,24 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     expect(src('p1/uxs.ts')).toContain('r: uxrDeps,');
     expect(uxsDeps.r).toBe(uxrDeps);
   });
-  it('本体の入口は、関数の頭の分かれ道だけ（切のときの作りは今のまま）', () => {
-    expect(LAND).toMatch(/export function reviveBox\(ctx: Ctx, s: P1State, id: string\): HTMLElement \{\n[^\n]*\n  if \(uxr\.reviveBox\) return uxr\.reviveBox\(ctx, s, id\);\n  const rv = reviveView/);
-    expect(LAND).toMatch(/export function openDelegate\(ctx: Ctx, id: string, hero0\?: number\) \{\n  if \(uxr\.delegate\) return uxr\.delegate\(ctx, id, hero0\);\n  const d = sectorDef\(id\);/);
-    expect(LAND).toMatch(/export function managerBox\(ctx: Ctx, s: P1State, id: string\): HTMLElement \{\n  if \(uxr\.managerBox\) return uxr\.managerBox\(ctx, s, id\);\n  const rec = recOf/);
-    expect(src('p1/screens.ts')).toMatch(/export function openMissions\(ctx: Ctx\) \{\n[^\n]*\n  if \(uxr\.missions\) return uxr\.missions\(ctx\);\n  open\(ctx, t\('依頼（ミッション）'/);
-    expect(MAIN).toMatch(/function openSettings\(\) \{\n[^\n]*\n  if \(uxr\.settings\) return openSettingsUx\(\);\n  sysSheet\(/);
-    // 建築の札：器（openSheet）・チュートリアルの一言（mineTip）は今のまま。分かれ道は器の中
+  it('本体の入口は、差し込み口へ渡すだけ（段 UIX5a で、切のときだけ通っていた今の作りは外した）', () => {
+    expect(LAND).toMatch(/export function reviveBox\(ctx: Ctx, s: P1State, id: string\): HTMLElement \{\n[^\n]*\n  return uxr\.reviveBox!\(ctx, s, id\);\n\}/);
+    expect(LAND).toMatch(/export function openDelegate\(ctx: Ctx, id: string, hero0\?: number\) \{\n  return uxr\.delegate!\(ctx, id, hero0\);\n\}/);
+    expect(LAND).toMatch(/export function managerBox\(ctx: Ctx, s: P1State, id: string\): HTMLElement \{\n  return uxr\.managerBox!\(ctx, s, id\);\n\}/);
+    expect(src('p1/screens.ts')).toMatch(/export function openMissions\(ctx: Ctx\) \{\n[^\n]*\n  return uxr\.missions!\(ctx\);\n\}/);
+    expect(MAIN).toMatch(/function openSettings\(\) \{\n[^\n]*\n  return openSettingsUx\(\);\n\}/);
+    expect(MAIN).not.toContain("sysSheet(t('設定', 'Settings')");
+    // 建築の札：器（openSheet）・チュートリアルの一言（mineTip）は今のまま。差し込みは器の中で、そのあとに今の札の作りは無い
     expect(MAIN).toMatch(/mineTip\(ctx, 'build', body\);\n[\s\S]{0,1600}if \(uxr\.build\) \{/);
+    expect(MAIN).not.toContain("const tabs = h('div', 'isl-bcats');");
     // 任せる画面（UIX3d の deleg.ts）のセクター長の節・ランドマップ（UIX3w の land.ts）の箱
     expect(src('uix/screens/deleg.ts')).toContain('if (uxr.sectorHeads) {\n    body.append(uxr.sectorHeads(s));\n    return;\n  }');
     expect(src('uix/screens/land.ts')).toContain('box.append(mb.dataset.uxr ? mb : legacyBox(mb));');
     const boot = src('uix/screens/r-boot.ts');
     for (const k of ['managerBox', 'reviveBox', 'delegate', 'sectorHeads', 'missions', 'build', 'settings']) expect(boot, k).toMatch(new RegExp(`uxr\\.${k} = \\w+;`));
   });
-  it('建築の札の押した先は、切のときと同じ関数（pickCard。切のときの札も同じ関数を呼ぶ）', () => {
-    expect(MAIN).toContain("c.addEventListener('click', () => pickCard(id));");
+  it('建築の札の押した先は、段 UIX5a までの今の札と同じ関数（pickCard）', () => {
+    expect(MAIN).toContain('const pickCard = (id: string) => {');
     expect(MAIN).toMatch(/guide: guideId === id, pick: \(\) => pickCard\(id\)/);
     // 設定：入のときの欄（文字の大きさ ほか）は、このあとに今のまま足す
     expect(MAIN).toMatch(/uxr\.settings!\(body, \{[\s\S]*\}\);\n    ux\.settings\?\.\(body\);/);
@@ -175,9 +177,10 @@ describe('ミッションの一覧', () => {
 });
 
 describe('設定', () => {
-  it('今のキーの列と同じ項目・同じ押した先（言語・案内・音量と消音・街の人通り・演出・新しい画面・チュートリアルを終える）', () => {
+  it('今のキーの列と同じ項目・同じ押した先（言語・案内・音量と消音・街の人通り・演出・チュートリアルを終える。段 UIX5a で「新しい画面」の切り替えは外した）', () => {
     const body = MAIN.slice(MAIN.indexOf('function openSettingsUx()'), MAIN.indexOf('/** 進行速度'));
-    for (const x of ["setLang(x === 'en' ? 'en' : 'ja')", 'localStorage.setItem(GUIDE', 'uxSetVol({ bgm: n })', 'uxSetVol({ se: n })', 'uxSetVol({ mute: x })', 'localStorage.setItem(CROWD_KEY', 'setFxLevel(next)', 'setUx(x);', 'tutOf(s) < TUT_DONE', 's.tut = TUT_DONE;']) expect(body).toContain(x);
+    for (const x of ["setLang(x === 'en' ? 'en' : 'ja')", 'localStorage.setItem(GUIDE', 'uxSetVol({ bgm: n })', 'uxSetVol({ se: n })', 'uxSetVol({ mute: x })', 'localStorage.setItem(CROWD_KEY', 'setFxLevel(next)', 'tutOf(s) < TUT_DONE', 's.tut = TUT_DONE;']) expect(body).toContain(x);
+    expect(body).not.toContain('setUx(');
     // 器は今の札（openSheet）。入のときの欄はこのあと
     expect(body).toContain("openSheet(ctx, t('設定', 'Settings'), (body) => {");
   });

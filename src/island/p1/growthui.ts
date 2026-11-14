@@ -3,16 +3,13 @@
  * 強化アイテムの持ち物、昇格の演出。仕様は docs/ISLAND_PHASE1.md「ヒーローの育成」。
  */
 import { isEn, t } from '../../i18n';
-import { lessonCard } from './lessonui';
-import { assetUrl } from '../../render/images';
-import { HERO_GROWTH, HERO_RARITIES, HERO_RARITY, PASSIVES, PROMO_ITEM, PROMO_ITEMS, TASKS, aptitude, type HeroRarity, type PassiveKind, type PromoItem } from './data';
+import { HERO_RARITIES, HERO_RARITY, PASSIVES, PROMO_ITEM, PROMO_ITEMS, TASKS, aptitude, type HeroRarity, type PassiveKind, type PromoItem } from './data';
 import { atCap, capOf, nextPassive, passiveName, passiveValue, promoItemOf, promoLock, xpNeed } from './hero';
 import { rankEl } from './heroui';
-import { promote, type P1State, type Staff } from './model';
-import { after, open, type Ctx } from './screens';
+import { type P1State, type Staff } from './model';
+import { type Ctx } from './screens';
 import { bar, btn, h, heroIcon, heroName } from './ui';
-import { dexCard, fitBlock } from './p2ui';
-import { FX_PAL, FX_RARITY, playFx } from '../fx/layer';
+import { fitBlock } from './p2ui';
 import { uxh } from '../uix/screens/h-slots';
 
 const pct = (v: number) => Math.round(v * 1000) / 10;
@@ -124,71 +121,11 @@ export function itemsCard(s: P1State): HTMLElement {
 
 /** 昇格の演出：レアリティの色の光・札が変わる・マインちゃんの一言（タップで閉じる） */
 export function playPromotion(root: HTMLElement, hero: number, from: HeroRarity, to: HeroRarity, done?: () => void) {
-  if (uxh.promotion) return uxh.promotion(root, hero, from, to, done);
-  const ov = h('div', `isl-hpfx is-${to.toLowerCase()}`);
-  ov.style.setProperty('--c', HERO_RARITY[to].color);
-  const glow = h('div', 'isl-hpfx-glow');
-  const box = h('div', 'isl-hpfx-box');
-  const badges = h('div', 'isl-hpfx-badges');
-  const a = rarityBadge(from, true);
-  a.classList.add('is-from');
-  const b = rarityBadge(to, true);
-  b.classList.add('is-to');
-  badges.append(a, h('span', 'isl-hpfx-arrow', '→'), b);
-  const say = h('div', 'isl-hpfx-say');
-  const mi = h('img');
-  mi.src = assetUrl('mch/Image/Characters/navi_ain_speak_00_talk.png');
-  mi.alt = '';
-  const line =
-    to === 'LL'
-      ? t(`すごい！ ${heroName(hero)}が[[リミテッド・レジェンド]]に！`, `Amazing! ${heroName(hero)} is now [[Limited Legendary]]!`)
-      : t(`${heroName(hero)}が${HERO_RARITY[to].name}に昇格！ 上限 Lv ${HERO_GROWTH.cap[to]}`, `${heroName(hero)} is now ${HERO_RARITY[to].name}! Level cap ${HERO_GROWTH.cap[to]}`);
-  const p = h('p');
-  p.textContent = line.replace(/\[\[(.+?)\]\]/g, '$1');
-  say.append(mi, p);
-  const face = heroIcon(hero, 96);
-  box.append(face, h('b', 'isl-hpfx-title', t('昇格！', 'Promoted!')), badges, say, h('small', 'isl-dim', t('▶ タップで進む', '▶ Tap to continue')));
-  ov.append(glow, box);
-  const close = () => {
-    ov.remove();
-    done?.();
-  };
-  ov.addEventListener('click', close);
-  root.append(ov);
-  requestAnimationFrame(() => ov.classList.add('is-in'));
-  // 段 FX2：顔の後ろに光の放射（新しいレアリティの色。レジェンド以上は金）。2.4 秒で薄れる・閉じたら消える
-  const pal = to === 'L' || to === 'LL' ? FX_PAL.gold : (FX_RARITY[{ N: 'Common', C: 'Common', U: 'Uncommon', R: 'Rare', E: 'Epic' }[to]] ?? FX_PAL.gold);
-  const shone = playFx('sunburst', face.offsetLeft + face.offsetWidth / 2, face.offsetTop + face.offsetHeight / 2, { host: box, palette: pal, ink: false, scale: innerWidth < 600 ? 4 / 3 : 1.5, life: 2400, delay: 150 });
-  // 段 FX2b：光の放射が出るとき（演出「ふつう」「控えめ」）は、全画面の CSS の光（isl-hpfx-glow・LL の回る光）を出さない。「なし」ではいままでどおり
-  ov.classList.toggle('has-fx', shone);
+  return uxh.promotion!(root, hero, from, to, done);
 }
 
 /** 人事 → ヒーローの育成 */
 export function openGrowth(ctx: Ctx, focus?: number) {
-  // 段 UIX3h：新しい画面（入のときだけ。uix/screens/hero.ts）
-  if (uxh.growth) return uxh.growth(ctx, focus);
-  open(ctx, t('ヒーローの育成', 'Hero growth'), (body) => {
-    const s = ctx.s();
-    body.append(h('p', 'isl-dim', t('働くと経験値が入り、Lv が上がるほど能力が少しずつ上がります。Lv の節目でパッシブが開きます。上限 Lv に届いたら、強化アイテムで昇格（レアリティが 1 段上がる）できます。', 'Heroes gain XP by working; each level raises their stats a little. Passives open at milestone levels. At the level cap, use a promotion item to raise their rarity one step.')));
-    body.append(itemsCard(s));
-    // 段 S1：受け継いだ教え（図鑑を開く）
-    body.append(lessonCard(ctx, s));
-    // 段 P2：ヒーローの組み合わせの図鑑
-    body.append(dexCard(s));
-    const grid = h('div', 'isl-hgrid');
-    // 昇格できる人 → Lv の高い順
-    const list = [...s.staff].sort((a, b) => Number(!promoLock(b, s.heroItems)) - Number(!promoLock(a, s.heroItems)) || (b.level ?? 1) - (a.level ?? 1));
-    for (const st of list) {
-      const card = growthCard(ctx, s, st, (x) => {
-        const r = promote(s, x.hero);
-        if (typeof r !== 'object') return;
-        ctx.sfx?.('levelup');
-        after(ctx);
-        playPromotion(ctx.root, x.hero, r.from, r.to);
-      });
-      if (st.hero === focus) card.classList.add('is-focus');
-      grid.append(card);
-    }
-    body.append(grid);
-  });
+  // 段 UIX3h：新しい画面（uix/screens/hero.ts）
+  return uxh.growth!(ctx, focus);
 }

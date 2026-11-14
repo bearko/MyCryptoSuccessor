@@ -74,12 +74,12 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
 describe('町の制覇・研究成果の発表・調査依頼状', () => {
   it('入口：showLetter・clearModal・ランド制覇のお祝いが、差し込み口が入っているときだけ新しい画面へ渡す', () => {
     expect(MAIN).toContain('if (uxw.letter) {');
-    expect(MAIN).toMatch(/if \(uxw\.cheer\) return uxw\.cheer\(\{ host: root, kind: 'clear'/);
-    expect(MAIN).toMatch(/if \(uxw\.cheer\) uxw\.cheer\(\{ host: root, kind: 'land'/);
-    // 切のときの窓（今の modal()）は、そのまま残っている
-    expect(MAIN).toContain('modal(title, body, acts, true);');
-    // 音は今のまま（入のとき、制覇は小太鼓 → 一撃 → 祝いの曲）
-    expect(MAIN).toContain("if (conquered && uxOn()) uxSfx('conquest');");
+    expect(MAIN).toMatch(/return uxw\.cheer!\(\{ host: root, kind: 'clear'/);
+    expect(MAIN).toMatch(/uxw\.cheer!\(\{ host: root, kind: 'land'/);
+    // 段 UIX5a：切のときの窓（今の modal()）は外した
+    expect(MAIN).not.toContain('modal(title, body, acts, true);');
+    // 音（制覇は小太鼓 → 一撃 → 祝いの曲）
+    expect(MAIN).toContain("if (conquered) uxSfx('conquest');");
   });
   it('出す中身が今の窓とそろう：依頼状の絵と名前・差出人・研究ポイント・制覇の 2 条件・ひと言・今の選択肢・今の花火', () => {
     for (const k of ['letterName:', 'letterIcon:', 'from:', 'rp,', 'conds:', 'say: presentAfter(', 'actions: acts', 'fx: () => letterFx(conquered)', 'town:']) expect(MAIN, k).toContain(k);
@@ -177,8 +177,8 @@ describe('町の制覇・研究成果の発表・調査依頼状', () => {
 
 describe('ランドマップ（航路図）・進出', () => {
   it('入口：openLand・openRankUp・openSectorCard が、差し込み口が入っているときだけ新しい画面へ渡す。地図の上の札は今の要素を着せ替える', () => {
-    expect(LANDUI).toContain('if (uxw.land) return uxw.land(ctx);');
-    expect(LANDUI).toContain('if (uxw.rankUp) return uxw.rankUp(ctx, target);');
+    expect(LANDUI).toContain('return uxw.land!(ctx);\n}');
+    expect(LANDUI).toContain('return uxw.rankUp!(ctx, target);\n}');
     expect(MAIN).toContain('if (uxw.sectorCard) {');
     expect(MAIN.match(/uxw\.deco\?\.\(el, 'badge'\)/g)?.length).toBe(3);
     expect(MAIN).toContain("uxw.deco?.(body, 'pop');");
@@ -265,7 +265,7 @@ describe('ランドマップ（航路図）・進出', () => {
       'まだやめておく',
       'ランドのふちの関所を開くと、ほかのランドセクタへ行けるようになります。',
     ]) {
-      expect(LANDUI, k).toContain(k);
+      // 段 UIX5a：今の画面（p1/landui.ts の openLand）は外したので、新しい画面の側だけを見る
       expect(LN, k).toContain(k);
     }
     // 操作：出店（レバー）・移動・ランクアップの確かめ・セクター長と復興の箱（今の要素）・寄付パネル・戻る
@@ -300,19 +300,16 @@ describe('ランドマップ（航路図）・進出', () => {
 describe('発掘', () => {
   it('入口：今の発掘の画面（壁・なぞって掘る・時間）はそのまま。入のときだけ、帯・計器・手応え・出土の報告を足す', () => {
     for (const k of ['uxw.dig?.open(el);', 'uxw.dig?.timer(p.el, rb);', 'uxw.dig?.sync(p.el, st, { run: !!s.digRun, over: p.over });', 'uxw.dig?.hits(p.el, hits, cellAt, big);', 'uxw.dig?.close(p.el);', 'if (uxw.dig) {', 'uxw.dig.end(p.el, {']) expect(DIGUI, k).toContain(k);
-    // 切のときの札（今の作り）は、そのまま残っている
-    expect(DIGUI).toContain("const card = h('div', 'isl-dig-endcard');");
-    expect(DIGUI).toContain('function foundCards(finds: DigFound[], bombs: number): HTMLElement {');
-    // 曲は、今の決まりのまま「発掘」（発掘の画面が開いているあいだ）
-    expect(MAIN).toContain("if (digOpen() || sound.currentBgm() === 'bgmDig') return 'dig';");
+    // 段 UIX5a：切のときの札（今の作り）は外した
+    expect(DIGUI).not.toContain("const card = h('div', 'isl-dig-endcard');");
+    // 曲は、今の決まりのまま「発掘」（発掘の画面が開いているあいだ。場面の名前は bgmKey で覚える）
+    expect(MAIN).toContain("if (digOpen() || bgmKey === 'bgmDig') return 'dig';");
   });
   it('出土の報告：出す中身と選択肢が今の札とそろう（数字・出土品・爆弾・最深・掘りきった・新レシピ・おすすめ・月次報告へ／もう一度／町に戻る）', () => {
     for (const k of ['lines: gotLines(end.got)', 'finds: finds.map(', 'bombs: end.got.bombs ?? 0', 'deep: end.isDungeon ?', 'recipes: recipes.flatMap(', 'rec: rec ?', "t('▶ 月次報告へ', '▶ Monthly report')", "t('町に戻る', 'Back to town')", 'shown: () => o.after?.()', 'read: it.kind ===']) expect(DIGUI, k).toContain(k);
     for (const k of ['e.lines', 'e.finds', 'e.bombs', 'e.deep', 'e.note', 'e.recipes', 'e.rec', 'e.acts', 'e.shown()', 'e.auto', 'f.read', 'r.make', 'f.note', 'f.recipe', 'f.rp']) expect(DG, k).toContain(k);
     // 選択肢は 1.2 秒後・何も出なかったら 6 秒で町へ（今と同じ）
     expect([END_KEYS_MS, END_AUTO_MS, FIND_STEP_MS]).toEqual([1200, 6000, 70]);
-    expect(DIGUI).toContain('}, 1200);');
-    expect(DIGUI).toContain('}, 6000);');
   });
   it('数字の数え上げ・火花の間引き・札を打つ順', () => {
     expect(statNum('+9')).toEqual({ n: 9, plus: true });
@@ -372,9 +369,10 @@ describe('発掘', () => {
 
 describe('災害と徴収の演出・「道が開いた」のお知らせ', () => {
   it('入口：playDisaster と startMove の「道が開いた」が、差し込み口が入っているときだけ新しい画面へ渡す（切のときは今の演出とトースト）', () => {
-    expect(DISASTER).toContain('if (uxw.disaster)');
-    expect(DISASTER).toContain("const m = h('div', 'isl-modal isl-disaster');");
-    expect(LANDUI).toContain('uxw.road ? uxw.road({ host: ctx.root, text, names: opened.map((id) => sectorDef(id).name) }) : ctx.toast(text)');
+    expect(DISASTER).toContain('return uxw.disaster!(');
+    // 段 UIX5a：切のときの今の演出は外した
+    expect(DISASTER).not.toContain("const m = h('div', 'isl-modal isl-disaster');");
+    expect(LANDUI).toContain('uxw.road!({ host: ctx.root, text, names: opened.map((id) => sectorDef(id).name) })');
     // 終わったら、今と同じ：演出を見た印を付けて保存し、到着の案内へ
     expect(DISASTER).toMatch(/done: \(\) => \{\s*rec\.seen = true;\s*hooks\.save\(\);\s*done\(\);\s*\}/);
     // 店の名前は、今の決まり（幅 16 まで）でセーブに残す
@@ -399,13 +397,11 @@ describe('災害と徴収の演出・「道が開いた」のお知らせ', () =
       '全角 8 文字・英語 16 文字まで',
       'ランドから復興の支度金',
     ]) {
-      expect(DISASTER, k).toContain(k);
       expect(DS_SRC, k).toContain(k);
     }
     for (const k of ['v.levy', 'v.grant', 'v.to.name', 'v.to.tierName', 'v.nth', 'v.towns', 'tw.ruins', 'v.kept.rp', 'v.kept.heroes', 'v.kept.panels', 'v.kept.antiques', 'v.setName(x)', 'v.fitName(input.value)', 'v.rain(map, stage)', 'v.done()']) expect(DS_SRC, k).toContain(k);
     // 段の長さは今の演出と同じ
     expect(DS).toMatchObject({ storm: 2600, hit: 350, damage: 2600, notice: 4200, char: 220, sign: 1200, stampHit: 260, stamp: 2200, out: 350 });
-    for (const k of ['later(2600, damage)', 'later(4200, sign)', 'later(2200, grant)', '350 * k']) expect(DISASTER, k).toContain(k);
     expect(ruinTotal([{ ruins: 9 }, { ruins: 5 }, { ruins: 4 }])).toBe(18);
   });
   it('進み：押す・時間で次の段へ。打っているあいだ・サインの段は押しても進まない。まとめは自動では終わらない', () => {

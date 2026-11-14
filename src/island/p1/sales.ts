@@ -5,16 +5,10 @@
  * docs/ISLAND_PHASE1.md「販売管理」。
  */
 import { t } from '../../i18n';
-import { bubbleEl, cvBox, legendEl } from './chartkit';
-import { shopBubbles } from './dash';
 import { DEF } from '../defs';
-import { aptitude, SALES1_UI, SHOP, skuParts, type Sku } from './data';
-import { UNSELLABLE_TEXT } from './digview';
-import { pickExt, rankEl } from './heroui';
-import { DAYS, assign, myShops, partMax, setPart, setShelf, shopArea, shopEstimates, shopSplit, staffOf, unsellableHere, type P1State, type PBuilding, type Staff } from './model';
-import { openSupply } from './scm';
-import { after, craftable, mineTip, open, openShop, pickClerk, pickShelf, shelfMoved, type Ctx } from './screens';
-import { bar, btn, h, heroIcon, heroName, money, skuIcon, skuName } from './ui';
+import { aptitude, SALES1_UI, type Sku } from './data';
+import { DAYS, assign, myShops, partMax, setShelf, shopArea, shopEstimates, shopSplit, staffOf, type P1State, type PBuilding, type Staff } from './model';
+import { type Ctx } from './screens';
 import { uxb } from '../uix/screens/b-slots';
 
 /** 詰まりの札：商品未定・品切れ・休業中（売り場に人がいない）・店員なし（アルバイトだけ） */
@@ -130,56 +124,6 @@ export function shopBars(s: P1State): ShopBar[] {
   for (const x of out) if (count[x.name] > 1) x.name = `${x.name} ${(seen[x.name] = (seen[x.name] ?? 0) + 1)}`;
   return out;
 }
-const n1 = (v: number) => (v >= 10 ? `${Math.round(v)}` : v.toFixed(1));
-/** 段 SALES1：お店ごとの縦の積み上げ棒（下から 売れた・自店に取られた・逃した）。押すとそのお店の商圏を地図で見る */
-export function shopBarsEl(ctx: Ctx, bars: ShopBar[]): HTMLElement {
-  const box = cvBox(t('お店ごとの 1 日の数', 'Daily units by shop'), t('棒の高さ＝来るはずのお客さん。押すと商圏を地図で見る', 'Bar height = would-be customers. Tap to see the trade area'), 'isl-s1-box');
-  const max = Math.max(1, ...bars.map((x) => x.sold + x.lost + x.miss));
-  const row = h('div', 'isl-s1-bars');
-  row.setAttribute('role', 'list');
-  for (const x of bars) {
-    const col = h('button', `isl-s1-col ${x.hot ? 'is-hot' : ''}`);
-    col.type = 'button';
-    col.setAttribute('role', 'listitem');
-    col.setAttribute('aria-label', t(`${x.name}：売れた ${n1(x.sold)}・自店に取られた ${n1(x.lost)}・逃した ${n1(x.miss)}（1 日）`, `${x.name}: sold ${n1(x.sold)}, taken by own shops ${n1(x.lost)}, missed ${n1(x.miss)} (a day)`));
-    const top = h('b', 'isl-s1-top', n1(x.sold));
-    const stack = h('div', 'isl-s1-stack');
-    const seg = (cls: string, v: number) => {
-      const e = h('i', `isl-s1-seg ${cls}`);
-      e.style.height = `${(v / max) * 100}%`;
-      return e;
-    };
-    // 下から：売れた（金）・自店に取られた（橙）・逃した（灰の斜線）。column-reverse で下から積む
-    stack.append(seg('is-sold', x.sold), seg('is-lost', x.lost), seg('is-miss', x.miss));
-    const name = h('small', 'isl-s1-name', x.name);
-    col.append(top, stack, name);
-    if (x.hot) col.append(h('small', 'isl-s1-hot', t(`取り合い ${Math.round(x.share * 100)}%`, `Overlap ${Math.round(x.share * 100)}%`)));
-    col.addEventListener('click', () => {
-      ctx.sfx?.('tap');
-      ctx.showShop?.(x.uid);
-    });
-    row.append(col);
-  }
-  box.body.append(
-    row,
-    legendEl([
-      { cls: 'is-bar is-gold', name: t('売れた', 'Sold') },
-      { cls: 'is-bar isl-s1-k-lost', name: t('自店に取られた', 'Taken by own shops') },
-      { cls: 'is-bar isl-s1-k-miss', name: t('棚が空で逃した', 'Missed (empty shelf)') },
-    ]),
-  );
-  const hot = bars.filter((x) => x.hot);
-  box.body.append(
-    h(
-      'p',
-      'isl-cv-line1',
-      hot.length
-        ? t(`橙の枠：自店どうしの取り合いが ${Math.round(SALES1_UI.hot * 100)}% 以上（${hot.map((x) => x.name).join('・')}）。離して建てるか、営業の「ドミナント出店」で減らせます`, `Orange frame: ${Math.round(SALES1_UI.hot * 100)}%+ lost to your own shops (${hot.map((x) => x.name).join(', ')}). Build farther apart, or take Dominant clustering`)
-        : t('自店どうしの取り合いは少なめ', 'Little overlap between your shops'),
-    ),
-  );
-  return box.el;
-}
 
 // ---------------------------------------------------------------- 一括の操作（純粋な操作。s を書き換えて、変えた数を返す）
 
@@ -232,178 +176,7 @@ export function staffEmptyShops(s: P1State): { uid: number; hero: number }[] {
   return out;
 }
 
-// ---------------------------------------------------------------- 画面
-
-let salesSort: SalesSort = 'rev';
-
 export function openSales(ctx: Ctx) {
-  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/biz.ts）
-  if (uxb.sales) return uxb.sales(ctx);
-  open(ctx, t('販売管理', 'Sales management'), (body) => {
-    const s = ctx.s();
-    mineTip(ctx, 'sales', body);
-    const rows = salesRows(s, salesSort);
-    const items = () => craftable(s, !!ctx.step?.());
-    const making = s.slots.map((y) => y.sku).filter((y): y is Sku => !!y);
-    const badge = making[0] ? { x: making[0], text: t('工房で作っている', 'Being crafted') } : null;
-
-    // 上：並び替えと「販売の内訳」
-    const top = h('div', 'isl-sales-top');
-    const sorts = h('div', 'isl-sales-sort');
-    sorts.setAttribute('role', 'group');
-    for (const k of Object.keys(SALES_SORT) as SalesSort[])
-      sorts.append(
-        btn(SALES_SORT[k], () => {
-          salesSort = k;
-          ctx.sfx?.('tap');
-          after(ctx);
-        }, salesSort === k ? 'is-on' : ''),
-      );
-    top.append(sorts, btn(t('販売の内訳（ダッシュボード）', 'Sales breakdown (dashboard)'), () => openSupply(ctx, { breakdown: true }), 'isl-sales-dash'));
-    body.append(top);
-    // 段 UI8：お店ごとの売上 × 利益率（大きさ＝商圏の家）のバブル。右上ほど稼いでいる・下の赤い点線の円は赤字の店
-    const bs = shopBubbles(rows, s.shops);
-    if (bs.length >= 2) {
-      const lastMo = bs.every((x) => x.last);
-      const best = [...bs].sort((a, b) => b.x * b.y - a.x * a.y)[0];
-      const box = cvBox(t(`お店の売上と利益率（${lastMo ? '先月' : '今月のここまで'}）`, `Shop sales and margin (${lastMo ? 'last month' : 'this month so far'})`), t(`右上ほど稼ぐ店・いちばんは${best.name}`, `Top right earns most · best: ${best.name}`));
-      box.body.append(
-        bubbleEl(bs, {
-          xName: t('売上', 'Sales'),
-          yName: t('利益率', 'Margin'),
-          rName: t('商圏の家', 'Homes'),
-          xFmt: money,
-          yFmt: (v) => `${Math.round(v)}%`,
-          rFmt: (v) => t(`${v} 軒`, `${v}`),
-          aria: t(`お店 ${bs.length} 軒の売上と利益率`, `Sales and margin of ${bs.length} shops`),
-          yRef: { v: 0, label: t('0%（これより下は赤字）', '0% (below = loss)'), cls: 'is-lo' },
-        }),
-        h('p', 'isl-cv-line1', t('利益率＝（売上 − 素材代とアルバイト代）÷ 売上。円の大きさ＝商圏の家の数（維持費は入れない）', 'Margin = (sales − materials and part-timers) ÷ sales. Circle size = homes nearby (upkeep not included)')),
-      );
-      body.append(box.el);
-    }
-    // 段 SALES1：お店ごとの 1 日の数（縦の積み上げ棒）
-    const sb = shopBars(s);
-    if (sb.length) body.append(shopBarsEl(ctx, sb));
-
-    // 一括の操作
-    const bulk = h('div', 'isl-card2 isl-sales-bulk');
-    bulk.append(h('h3', '', t('一括で変える', 'Change all at once')), h('p', 'isl-dim', t('お店ごとに同じ操作をくり返さなくてよいように。外した商品の棚の残りは裏に戻ります。', 'So you don’t repeat the same step per shop. Items taken off a shelf go to the back room.')));
-    const row = h('div', 'isl-row');
-    const pickAll = (title: string, note: string, apply: (x: Sku) => void) =>
-      pickExt(ctx.root, s, { title, items: items(), current: null, making, badge, note, onPick: (x) => x && apply(x), blocked: (x) => unsellableHere(s, skuParts(x)[0]), onBlocked: (x) => ctx.toast(t(`${skuName(x)}：${UNSELLABLE_TEXT(skuParts(x)[0])}`, `${skuName(x)}: ${UNSELLABLE_TEXT(skuParts(x)[0])}`)) });
-    const bMain = btn(t('全店の主力商品をまとめて替える…', 'Change every shop’s main product…'), () =>
-      pickAll(t('全店の主力商品にするもの', 'Main product for every shop'), t('全部のお店の 1 番目の棚をこの商品にします。', 'Every shop’s first shelf will sell this.'), (x) => {
-        const n = setMainAll(s, x);
-        ctx.sfx?.('tap');
-        ctx.toast(n ? t(`全店の主力商品を${skuName(x)}にしました（${n} 軒）`, `Main product set to ${skuName(x)} in ${n} shop(s)`) : t(`もう全店の主力商品が${skuName(x)}です`, `${skuName(x)} is already the main product everywhere`));
-        after(ctx);
-      }),
-    );
-    const empty = emptyShelfCount(s);
-    const bFill = btn(t(`空き棚（${empty}）をまとめて埋める…`, `Fill all ${empty} empty shelves…`), () =>
-      pickAll(t('空き棚に並べるもの', 'What to put on empty shelves'), t('全部のお店の空いている棚にこの商品を並べます。', 'Every empty shelf in every shop will sell this.'), (x) => {
-        const n = fillEmptyShelves(s, x);
-        ctx.sfx?.('tap');
-        ctx.toast(t(`空き棚 ${n} つに${skuName(x)}を並べました`, `${skuName(x)} put on ${n} empty shelf(ves)`));
-        after(ctx);
-      }),
-    );
-    bFill.disabled = empty === 0;
-    const noClerk = rows.filter((r) => r.staff == null).length;
-    const free = freeHeroes(s).length;
-    const bStaff = btn(t('店員のいないお店に、いちばん向いている待機中のヒーローを置く', 'Put the best free hero in each shop without a clerk'), () => {
-      const put = staffEmptyShops(s);
-      ctx.sfx?.('tap');
-      const shopName = (uid: number) => DEF[s.buildings.find((b) => b.uid === uid)?.id ?? '']?.name ?? '';
-      const who = put.map((p) => t(`${shopName(p.uid)}に${heroName(p.hero)}`, `${heroName(p.hero)} to ${shopName(p.uid)}`)).join(t('・', ', '));
-      ctx.toast(put.length ? t(`${who}を置きました`, `Assigned ${who}`) : t('置ける人がいません', 'Nobody free to assign'));
-      after(ctx);
-    });
-    bStaff.disabled = noClerk === 0 || free === 0;
-    row.append(bMain, bFill, bStaff);
-    bulk.append(row);
-    const notes: string[] = [];
-    if (empty === 0) notes.push(t('空き棚はありません', 'No empty shelves'));
-    if (noClerk === 0) notes.push(t('どのお店にも店員がいます', 'Every shop has a clerk'));
-    else if (free === 0) notes.push(t(`店員のいないお店 ${noClerk} 軒。待機中のヒーローがいません（人材登用で雇えます）`, `${noClerk} shop(s) without a clerk, but nobody is free (hire under Recruiting)`));
-    else notes.push(t(`店員のいないお店 ${noClerk} 軒・待機中 ${free} 人`, `${noClerk} shop(s) without a clerk · ${free} free hero(es)`));
-    bulk.append(h('p', 'isl-dim', notes.join(t('・', ' · '))));
-    body.append(bulk);
-
-    // 一覧
-    if (!rows.length) {
-      body.append(h('p', 'isl-dim', t('お店がまだありません。「経営企画」→「建築」で建てましょう。', 'No shops yet. Build one under Strategy → Build.')));
-      return;
-    }
-    const list = h('div', 'isl-sales-list');
-    for (const r of rows) {
-      const sh = s.shops[r.uid];
-      const card = h('div', `isl-card2 isl-sales-row ${r.tags.length ? 'is-jam' : ''}`);
-      // 名前・場所・札
-      const name = h('button', 'isl-sales-name');
-      name.type = 'button';
-      name.append(h('b', '', r.name), h('small', 'isl-dim', t(`商圏の家 ${r.homes} 軒`, `${r.homes} homes nearby`)));
-      if (r.tags.length) {
-        const tags = h('div', 'isl-sales-tags');
-        for (const k of r.tags) tags.append(h('span', `isl-tag ${k === 'closed' || k === 'unset' ? 'is-bad' : 'is-warn'}`, SALES_TAG[k]));
-        name.append(tags);
-      }
-      name.addEventListener('click', () => openShop(ctx, r.uid));
-      card.append(name);
-      // 店員（顔・ランク。押して替える）
-      const clerk = h('button', `isl-sales-clerk ${r.staff ? '' : 'is-empty'}`);
-      clerk.type = 'button';
-      clerk.append(h('small', 'isl-slot-label', t('店員', 'Clerk')));
-      if (r.staff) clerk.append(heroIcon(r.staff.hero, 40), rankEl(r.apt));
-      else clerk.append(h('span', 'isl-slot-plus', '+'));
-      if (r.staff?.resting) clerk.append(h('span', 'isl-slot-tag', t('休憩中', 'Resting')));
-      clerk.addEventListener('click', () => pickClerk(ctx, r.uid, () => after(ctx)));
-      card.append(clerk);
-      // アルバイト −／＋
-      const part = h('div', 'isl-sales-part');
-      part.append(h('small', 'isl-slot-label', t('アルバイト', 'Part-timers')));
-      const pr = h('div', 'isl-row');
-      const minus = btn('−', () => {
-        setPart(s, r.uid, sh.part - 1);
-        after(ctx);
-      });
-      const plus = btn('+', () => {
-        setPart(s, r.uid, sh.part + 1);
-        after(ctx);
-      });
-      minus.disabled = r.part <= 0;
-      plus.disabled = r.part >= r.partMax;
-      pr.append(minus, h('b', '', `${r.part}`), plus);
-      part.append(pr, h('small', 'isl-dim', t(`${SHOP.partTimeWage} G／日`, `${SHOP.partTimeWage} G/day`)));
-      card.append(part);
-      // 棚（絵と名前。空き棚は「＋」。押して替える）
-      const shelves = h('div', 'isl-sales-shelves');
-      r.shelves.forEach((x, k) => {
-        const b = h('button', `isl-sales-shelf ${x ? '' : 'is-empty'} ${x && (sh.shelf[x] ?? 0) <= 0 && (sh.storage[x] ?? 0) <= 0 ? 'is-warn' : ''}`);
-        b.type = 'button';
-        b.append(h('small', 'isl-slot-label', k === 0 ? t('主力', 'Main') : t(`棚 ${k + 1}`, `Shelf ${k + 1}`)));
-        if (x) b.append(skuIcon(x, 36), h('small', 'isl-sales-shelf-name', skuName(x)));
-        else b.append(h('span', 'isl-slot-plus', '+'));
-        b.addEventListener('click', () => pickShelf(ctx, r.uid, k, () => after(ctx), shelfMoved(ctx)));
-        shelves.append(b);
-      });
-      card.append(shelves);
-      // 数字：今月の売上・売れる見込み・認知度
-      const nums = h('div', 'isl-sales-nums');
-      const num = (label: string, value: HTMLElement | string) => {
-        const d = h('div');
-        d.append(h('small', 'isl-dim', label), typeof value === 'string' ? h('b', '', value) : value);
-        nums.append(d);
-      };
-      num(t('今月の売上', 'Sales this month'), money(r.rev));
-      num(t('売れる見込み／月', 'Forecast / mo'), t(`${r.est} 個`, `${r.est} pcs`));
-      const awEl = h('div', 'isl-sales-aw');
-      awEl.append(bar(r.aw, 'var(--isl-gold)'), h('b', '', `${Math.round(r.aw * 100)}%`));
-      num(t('認知度', 'Awareness'), awEl);
-      card.append(nums);
-      list.append(card);
-    }
-    body.append(list);
-  });
+  // 段 UIX3b：新しい画面（uix/screens/biz.ts）
+  return uxb.sales!(ctx);
 }

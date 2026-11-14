@@ -42,7 +42,7 @@ jobs:
       - run: npm run i18n:check
       - run: npm run pixel:lint
       - run: npm run build
-      - run: node scripts/qa/off-bundle.mjs
+      - run: node scripts/qa/start-bundle.mjs
 
   test-light:
     runs-on: ubuntu-latest
