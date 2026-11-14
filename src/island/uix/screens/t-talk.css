@@ -21,8 +21,7 @@ html.is-uxc #isl-ui .uxt-data {
   grid-auto-rows: max-content;
   align-content: start;
   gap: 10px;
-  /* 下は、話す人と名前の札が枠の上へはみ出すぶん */
-  padding: 10px 12px 48px;
+  padding: 10px 12px 12px;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -339,7 +338,8 @@ html.is-uxc #isl-ui .uxt-talk {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
-  padding: 0 12px 8px;
+  /* 上は、話す人（64px の顔は枠の上へ 42px・案内役の胸から上は 48px）と名前の札が枠の上へはみ出すぶん。データの字に重ねない */
+  padding: 50px 12px 8px;
 }
 html.is-uxc #isl-ui .uxt-talk.has-lever {
   grid-template-columns: minmax(0, 1fr) auto;
