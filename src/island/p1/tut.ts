@@ -8,7 +8,6 @@
  * 進み具合は P1State.tut（段の番号、TUT_DONE で終わり）。各段は done() が真になったら次へ進む。
  */
 import { t } from '../../i18n';
-import { uxOn } from '../uix/flag';
 import { SKILL, rpCost } from './data';
 import { DAYS, has, hqOpen, myShops, type P1State } from './model';
 
@@ -18,11 +17,6 @@ export const TUT_DONE = 99;
 export type TutGo = 'build' | 'workshop' | 'shop' | 'staff' | 'hire' | 'buy' | 'scm' | 'ranking' | 'skills' | 'hr';
 
 /** マインちゃんの会話の 1 枚。show：一緒に見せる絵 */
-/**
- * 段 UIX3a：新しい画面（入）のときだけ、言い方を替える（指す先がキーの形に替わった所）。切のときは今の文のまま。
- * 文は呼ぶたびに作る（t(ja, en) と同じ）
- */
-const uxText = (off: string, on: string) => (uxOn() ? on : off);
 
 export interface TutPage {
   text: string;
@@ -150,8 +144,8 @@ export const TUT: TutStep[] = [
     tips: {
       workshop: (s) =>
         s.slots[0].worker == null
-          ? uxText(t('光っている四角をタップして、[[MCHアーティスト]]を選ぼう！', 'Tap the glowing square and choose [[MCH Artist]]!'), t('光っている「[[職人を置く]]」のキーを押して、[[MCHアーティスト]]に決めよう！', 'Press the glowing [[Assign crafter]] key and confirm [[MCH Artist]]!'))
-          : uxText(t('次は作るもの。持ってきた素材で作れる[[センス]]がおすすめだよ！', 'Now what to make. [[Sensu]] works with the materials we brought!'), t('次は作るもの。光っている「[[作る物を選ぶ]]」を押そう。持ってきた素材で作れる[[センス]]がおすすめだよ！', 'Now what to make. Press the glowing [[Choose item]] key. [[Sensu]] works with the materials we brought!')),
+          ? t('光っている「[[職人を置く]]」のキーを押して、[[MCHアーティスト]]に決めよう！', 'Press the glowing [[Assign crafter]] key and confirm [[MCH Artist]]!')
+          : t('次は作るもの。光っている「[[作る物を選ぶ]]」を押そう。持ってきた素材で作れる[[センス]]がおすすめだよ！', 'Now what to make. Press the glowing [[Choose item]] key. [[Sensu]] works with the materials we brought!'),
     },
     checks: [
       [t('地図の工房をタップして開く', 'Tap the workshop and open it'), (_s, seen) => seen.has('workshop')],
@@ -161,7 +155,7 @@ export const TUT: TutStep[] = [
     sheetTalk: {
       pages: [
         { text: t('これで[[工房]]の設定は完了！', 'The [[workshop]] is all set!') },
-        { text: uxText(t('[[自動製造]]にチェックが入っていると、素材があるかぎり、エクステを作り続けてくれるよ！', 'With [[Auto]] checked, it keeps making Extensions as long as there are materials!'), t('[[自動製造]]のスイッチが「入」になっていると、素材があるかぎり、エクステを作り続けてくれるよ！', 'With the [[Auto]] switch on, it keeps making Extensions as long as there are materials!')), focus: '.isl-plan-auto' },
+        { text: t('[[自動製造]]のスイッチが「入」になっていると、素材があるかぎり、エクステを作り続けてくれるよ！', 'With the [[Auto]] switch on, it keeps making Extensions as long as there are materials!'), focus: '.isl-plan-auto' },
         { text: t('でも、今ある[[素材]]がなくなると、製造が止まっちゃうんだ。', 'But when the [[materials]] run out, crafting stops.') },
         { text: t('次は[[素材]]の調達。画面の下の「[[物流]]」タブから開こう！', 'Next, [[materials]]. Open them from the [[Logistics]] tab at the bottom!') },
       ],

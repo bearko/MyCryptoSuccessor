@@ -4,7 +4,7 @@
  */
 import '../island.css';
 import './p1.css';
-import { Sound } from '../../audio';
+import type { Bgm } from '../../audio';
 import { allSeries, getExtension, heroById } from '../../game/catalog';
 import { isEn, setLang, t } from '../../i18n';
 import { assetUrl } from '../../render/images';
@@ -173,8 +173,8 @@ import { csOn } from './cs';
 import { gradeName, gradeOf } from './mkt';
 import { taxHint } from './acct';
 import { quitLeft, type HrDay } from './hr';
-import { IslandSfx } from './sfx';
-import { setUx, uxOn } from '../uix/flag';
+import type { Sfx } from './sfx';
+import { uxOn } from '../uix/flag';
 import { ux } from '../uix/hooks';
 import { uxm } from '../uix/screens/mhooks';
 import { uxc } from '../uix/screens/c-slots';
@@ -214,7 +214,6 @@ const TEST = q.get('test') === '2';
 // 経済の数字を大きく変えたので v2（v1 のセーブは使わない）
 const SAVE = 'mycryptoisland.p1.v2';
 const GUIDE = 'mycryptoisland.p1.guide';
-const SOUND = 'mycryptoisland.p1.sound';
 
 function load(): P1State {
   try {
@@ -243,39 +242,20 @@ try {
   // 既定は表示
 }
 
-// ---------------------------------------------------------------- 音（BGM と効果音は mycryptoheroes の音源）
+// ---------------------------------------------------------------- 音（段 UIX5a：新しい音だけ。uix/sound.ts）
 
-const sound = new Sound();
-let vol = { bgm: 1, se: 1 };
-try {
-  vol = { ...vol, ...(JSON.parse(localStorage.getItem(SOUND) ?? '{}') as Partial<typeof vol>) };
-} catch {
-  // 既定は両方あり
-}
-sound.setVolumes(vol);
-sound.playBgm('bgmCraft');
-// 効果音はコードで作った音（scripts/island/sfx.py）。BGM だけ mycryptoheroes の曲
-const sfx = new IslandSfx();
-sfx.level = vol.se;
-// 段 UIX1s：新しい画面が入（<html class="is-uxc">）のときは、効果音を合成の音へ付け替える（切のときは何も変わらない）
-sfx.route = uxLegacy;
-// 段 UIX2s：入のときだけ、新しい画面（工房の札・月次報告）を読む。切のときは読まない
+/**
+ * 段 UIX5a：今の BGM（mp3）と効果音（IslandSfx）は鳴らさない（新しい画面が既定になり、新しい音がいつも鳴るため）。
+ * 場面の名前（町・発掘・経営会議）だけは覚えておき、新しい音の場面（uxSceneNow）に使う。
+ */
+let bgmKey: Bgm = 'bgmCraft';
+const setBgm = (k: Bgm) => void (bgmKey = k);
+// 効果音の呼び出しは、新しい音へ付け替える（uix/audio/legacy.ts の表）
+const sfx = { play: (k: Sfx, gain = 1, rate = 1) => void uxLegacy(k, gain, rate) };
+// 段 UIX2s：新しい画面（工房の札・月次報告ほか）を入れる
 // 段 UIX3a：入口（src/island/main.ts）が束を先に読んであれば、その場で入れる（起動のすぐあとの最初の会話から、新しい画面で出す）
 if (uxOn()) bootUxs();
 if (uxOn()) void loadUxs();
-// ブラウザは最初の操作まで音を出せない
-// スマホは指を離したとき（pointerup・touchend・click）がユーザーの操作として数えられる。鳴るまで毎回試す
-for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'])
-  addEventListener(
-    ev,
-    () => {
-      // 段 UIX1s：入のあいだは、今の音（mp3）を始めない（新しい音は uix/sound.ts が自分で始める）
-      if (uxOn()) return;
-      sound.unlock();
-      sfx.unlock();
-    },
-    { capture: true },
-  );
 // ボタンを押したら軽いクリック音（会話の「次へ」はポン）
 addEventListener(
   'click',
@@ -2023,7 +2003,7 @@ function startDig(k: number) {
   placing = null;
   sfx.play('dig');
   // BGM：町の曲をフェードアウト → 発掘の曲（MCH の land）
-  sound.fadeBgm('bgmDig');
+  setBgm('bgmDig');
   openDigPanel(note);
 }
 /** 発掘画面（全画面）を開く。開いているあいだは町を描かない（ゲームの計算は進める）。閉じたら町の描画と BGM を戻す */
@@ -2033,7 +2013,7 @@ function openDigPanel(note?: string) {
     {
       end: () => finishDig(),
       closed: () => {
-        sound.fadeBgm('bgmCraft');
+        setBgm('bgmCraft');
         flushToasts();
         renderAll();
         // 町に戻ったら：復興（土 → 草地）・ダンジョンの入り口が見つかった演出
@@ -3736,8 +3716,8 @@ function maybeCard(now: number) {
 /** 段 I2：経営会議の画面の道具（効果音・BGM・閉じたら描き直す） */
 const boardHooks = (): BoardHooks => ({
   sfx: (k, gain, rate) => sfx.play(k, gain, rate),
-  bgm: (k) => sound.fadeBgm(k),
-  bgmNow: () => sound.currentBgm(),
+  bgm: setBgm,
+  bgmNow: () => bgmKey,
   done: () => {
     save();
     renderAll();
@@ -3874,13 +3854,8 @@ function openSettings() {
         }
       },
     ],
-    // 段 UIX1s：新しい画面が入のときは、音の欄を音量（5 段）と消音に替える。切のときは今の入り切りのまま
-    ...(uxOn()
-      ? uxVolRows()
-      : ([
-          [vol.bgm > 0 ? t('BGM を消す', 'BGM off') : t('BGM を流す', 'BGM on'), () => setVol({ bgm: vol.bgm > 0 ? 0 : 1 })],
-          [vol.se > 0 ? t('効果音を消す', 'Sound effects off') : t('効果音を出す', 'Sound effects on'), () => setVol({ se: vol.se > 0 ? 0 : 1 })],
-        ] as [string, () => void, string?][])),
+    // 段 UIX1s：音の欄は音量（5 段）と消音
+    ...uxVolRows(),
     [
       t(`街の人通り：${CROWD_LEVELS[crowdLevel].name}`, `Crowd: ${CROWD_LEVELS[crowdLevel].name}`),
       () => {
@@ -3903,17 +3878,6 @@ function openSettings() {
         if (next !== 'off') fxAtEl('collect-burst', root.querySelector('.isl-sheet-body .isl-btn.is-fxlevel'), { palette: FX_PAL.gold, dy: 30 });
       },
       'is-fxlevel',
-    ],
-    // 段 UIX1a：新しい画面（方向 C「管制卓」の試作）の入り切り。切り替えたら、画面を読み直す（URL の ?uix=1／?uix=0 でも替えられる）
-    [
-      uxOn() ? t('新しい画面（試作）：入', 'New screens (preview): on') : t('新しい画面（試作）：切', 'New screens (preview): off'),
-      () => {
-        setUx(!uxOn());
-        save();
-        const u = new URL(location.href);
-        u.searchParams.delete('uix');
-        location.replace(u.toString());
-      },
     ],
     ...(tutOf(s) < TUT_DONE
       ? [
@@ -3997,20 +3961,6 @@ function openSettingsUx() {
                 done();
               },
               note: FX_LEVEL_NOTE[fxLevel()](),
-            },
-            {
-              k: 'switch',
-              id: 'uix',
-              label: t('新しい画面（試作）', 'New screens (preview)'),
-              value: uxOn(),
-              note: t('切り替えると、画面を読み直します', 'Switching reloads the page'),
-              set: (x) => {
-                setUx(x);
-                save();
-                const u = new URL(location.href);
-                u.searchParams.delete('uix');
-                location.replace(u.toString());
-              },
             },
             ...(tutOf(s) < TUT_DONE
               ? [
@@ -4096,17 +4046,6 @@ function uxVolRows(): [string, () => void, string?][] {
       'is-uxs-mute',
     ],
   ];
-}
-
-function setVol(v: Partial<typeof vol>) {
-  vol = { ...vol, ...v };
-  sound.setVolumes(vol);
-  sfx.level = vol.se;
-  try {
-    localStorage.setItem(SOUND, JSON.stringify(vol));
-  } catch {
-    // 保存できなくても切り替える
-  }
 }
 
 function openSaveMenu() {
@@ -5073,15 +5012,13 @@ addEventListener('visibilitychange', () => {
 
 /** いまの場面（BGM が替わる）。出ている画面から読むだけ。新しい画面は uxScene() で自分から指定する */
 function uxSceneNow(): UxScene {
-  if (digOpen() || sound.currentBgm() === 'bgmDig') return 'dig';
-  if (sound.currentBgm() === 'bgmBoard') return 'board';
+  if (digOpen() || bgmKey === 'bgmDig') return 'dig';
+  if (bgmKey === 'bgmBoard') return 'board';
   if (root.querySelector('.is-report-sheet, .isl-rp-reveal')) return 'report';
   if (root.querySelector('.isl-sheet .isl-land')) return 'sector';
   return 'map';
 }
 uxSoundInit({
-  // 入のあいだは、今の BGM（mp3）を止める（流すはずの曲の名前は覚えたままなので、切に戻すと続きの場面の曲が鳴る）
-  legacyBgm: (paused) => sound.setVolumes({ bgm: paused ? 0 : vol.bgm }),
   scene: uxSceneNow,
   // 地図の曲の層を決める数字（読むだけ）：直近のエリアの順位・今月と先月の売上
   momentum: () => {
@@ -5913,7 +5850,7 @@ window.setTimeout(() => warmFx(), 3000);
   menu: (m: Menu | null) => (m ? pickMenu(m) : ((menu = null), renderAll())),
   /** 下の帯の小メニューを開く（撮影スクリプト用） */
   sub: goSub,
-  bgm: () => ({ key: sound.currentBgm(), src: sound.bgmSrc(), playing: sound.bgmPlaying(), sfx: sfx.info() }),
+  bgm: () => ({ key: bgmKey }),
   // 段 UIX1s：新しい音の様子（確かめ用）
   uxs: () => uxSound(),
   /** 段 I2（撮影・確かめ用）：いまの状態で経営会議の議題を作る（四半期の締めと同じ）・開く・議題の中身 */

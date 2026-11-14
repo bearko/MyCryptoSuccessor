@@ -179,7 +179,9 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
   });
   it('本体から読むのは、空の差し込み口だけ。入のときは、入口が束を先に読み、本体は起動のその場で差し込む', () => {
     for (const f of ['p1/main.ts', 'p1/heroui.ts', 'p1/tut.ts', 'p1/uxc.ts']) expect(src(f), f).not.toMatch(/from '\.\.\/uix\/screens\/(?![a-z]-slots'|mhooks')/);
-    expect(src('main.ts')).toMatch(/import\('\.\/uix\/boot'\)\s*\.then\(\(\) => import\('\.\/uix\/screens\/s-boot'\)\)\s*\.then\(start, start\)/);
+    // 段 UIX5a：入口は、束（boot → s-boot）を読んでから本体を始める（読めなければ、もう 1 回読みにいき、それでもだめなら失敗の表示。今の画面では始めない）
+    expect(src('main.ts')).toMatch(/const loadUx = \(\) => import\('\.\/uix\/boot'\)\.then\(\(\) => import\('\.\/uix\/screens\/s-boot'\)\);/);
+    expect(src('main.ts')).toContain('loadUxRetry().then(start).catch(fail);');
     expect(src('uix/screens/s-boot.ts')).toContain('uxsBoot.install = install;');
     expect(src('p1/main.ts')).toContain('if (uxOn()) bootUxs();');
     expect(uxsBoot.install).toBeUndefined();
@@ -191,8 +193,9 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     expect(src('uix/screens/c-slots.ts')).toContain("export { uxcSlots as uxc } from '../hooks';");
     expect(src('uix/screens/w-slots.ts')).toContain("export { uxwSlots as uxw } from '../hooks';");
     for (const f of ['uix/screens/s-slots.ts', 'uix/screens/c-slots.ts', 'uix/screens/w-slots.ts']) expect(src(f), f).not.toMatch(/^export (const|let|function|class) /m);
-    // 入のときだけの束（画面の部品・アイコン）は、事前に保存しない
-    expect(src('../../vite.config.ts')).toContain('(boot|kit|s-boot|sparts|micons)-');
+    // 段 UIX5a：新しい画面の束（画面の部品・アイコンほか）と書体も事前に保存する。見本帳の kit だけは使ったときに覚える
+    expect(src('../../vite.config.ts')).toContain("!/^assets\\/kit-/.test(f)");
+    expect(src('../../vite.config.ts')).not.toContain('(boot|kit|s-boot|sparts|micons)-');
   });
   it('引き出し・ヒーロー選び・エクステ選び：差し込み口が入っていれば、今の画面を作らずにそちらへ渡す（引数はそのまま）', () => {
     const s = newP1(1, 'C', 'c1');
@@ -306,11 +309,13 @@ describe('選ぶ引き出し', () => {
     // 選べる操作は今と同じ：外す・担当を外す（枠を空に）・並べない・ランクアップ・並びの切り替え・絞り込み
     for (const w of ["t('担当を外す', 'Unassign')", "t('外す', 'Free')", "t('並べない', 'Clear')", "t('ランクアップ', 'Rank up')", "t('おすすめ（効率）', 'Best (efficiency)')", "t('いまの素材で作れる', 'From what we have')", "t('今のセクタで売れるもの', 'Sells in this sector')"]) expect(code, w).toContain(w);
   });
-  it('チュートリアルの言い方：入のときだけ、キーの形に合わせる（切のときの文は今のまま残す）', () => {
+  it('チュートリアルの言い方：キーの形に合わせる（段 UIX5a で、新しい画面の文だけにした）', () => {
     const tut = src('p1/tut.ts');
-    expect(tut).toContain("const uxText = (off: string, on: string) => (uxOn() ? on : off);");
-    expect(tut).toContain("t('光っている四角をタップして、[[MCHアーティスト]]を選ぼう！'");
+    expect(tut).not.toContain('uxText');
+    expect(tut).not.toContain("t('光っている四角をタップして、[[MCHアーティスト]]を選ぼう！'");
     expect(tut).toContain('光っている「[[職人を置く]]」のキーを押して');
+    expect(tut).toContain('光っている「[[作る物を選ぶ]]」を押そう');
+    expect(tut).toContain('[[自動製造]]のスイッチが「入」になっていると');
     expect(tut).toContain("focus: '.isl-plan-auto'");
     // 新しい工房の札にも、会話が囲む所の目印がある
     expect(src('uix/screens/workshop.ts')).toContain('div.uxs-ctl-row.isl-plan-auto');
@@ -403,8 +408,8 @@ describe('チュートリアル：一言・光る枠・クリア・流れの案�
   const TS = src('uix/screens/c-dress.ts');
   it('手順・条件・順番は変えない：本体のチュートリアルの段（p1/tut.ts の TUT）には、入のときの言い方のほか触らない', () => {
     const tut = src('p1/tut.ts');
-    // 入のときだけ替えるのは、文の 3 か所だけ
-    expect(tut.match(/uxText\(/g)?.length).toBe(3);
+    // 段 UIX3a で入のときだけ替えた文の 3 か所は、段 UIX5a で新しい画面の文だけにした（段の手順・条件・順番は同じ）
+    expect(tut).not.toContain('uxText(');
     for (const f of ['uix/screens/c-dress.ts', 'uix/screens/talk.ts', 'uix/screens/picker.ts']) expect(src(f), f).not.toMatch(/\.tut\s*=[^=]/);
   });
   it('マインちゃんの一言：会話と同じ器（枠の上に立つ・名前の札・1 字ずつ喋る）。出す・隠すは今の決まりのまま', () => {

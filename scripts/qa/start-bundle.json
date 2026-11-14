@@ -1,24 +1,34 @@
 {
   "stop": [
-    "boot.js",
     "kit.js",
-    "s-boot.js",
-    "mapui.js",
     "free.js",
     "book.js"
   ],
   "js": [
+    "boot.js",
     "hooks.js",
-    "i18n.js",
     "index.js",
     "main.js",
+    "mapui.js",
+    "micons.js",
+    "parts.js",
     "render.js",
+    "s-boot.js",
+    "settings.js",
     "sound.js",
+    "sparts.js",
     "ui.js"
   ],
   "css": [
+    "boot.css",
+    "s-boot.css",
+    "render.css",
     "main.css",
-    "render.css"
+    "mapui.css"
+  ],
+  "body": [
+    "render.css",
+    "main.css"
   ],
   "lazy": [
     "duotalk.js",

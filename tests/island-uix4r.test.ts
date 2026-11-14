@@ -175,9 +175,10 @@ describe('ミッションの一覧', () => {
 });
 
 describe('設定', () => {
-  it('今のキーの列と同じ項目・同じ押した先（言語・案内・音量と消音・街の人通り・演出・新しい画面・チュートリアルを終える）', () => {
+  it('今のキーの列と同じ項目・同じ押した先（言語・案内・音量と消音・街の人通り・演出・チュートリアルを終える。段 UIX5a で「新しい画面」の切り替えは外した）', () => {
     const body = MAIN.slice(MAIN.indexOf('function openSettingsUx()'), MAIN.indexOf('/** 進行速度'));
-    for (const x of ["setLang(x === 'en' ? 'en' : 'ja')", 'localStorage.setItem(GUIDE', 'uxSetVol({ bgm: n })', 'uxSetVol({ se: n })', 'uxSetVol({ mute: x })', 'localStorage.setItem(CROWD_KEY', 'setFxLevel(next)', 'setUx(x);', 'tutOf(s) < TUT_DONE', 's.tut = TUT_DONE;']) expect(body).toContain(x);
+    for (const x of ["setLang(x === 'en' ? 'en' : 'ja')", 'localStorage.setItem(GUIDE', 'uxSetVol({ bgm: n })', 'uxSetVol({ se: n })', 'uxSetVol({ mute: x })', 'localStorage.setItem(CROWD_KEY', 'setFxLevel(next)', 'tutOf(s) < TUT_DONE', 's.tut = TUT_DONE;']) expect(body).toContain(x);
+    expect(body).not.toContain('setUx(');
     // 器は今の札（openSheet）。入のときの欄はこのあと
     expect(body).toContain("openSheet(ctx, t('設定', 'Settings'), (body) => {");
   });
