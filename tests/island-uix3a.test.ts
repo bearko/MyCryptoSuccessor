@@ -183,7 +183,7 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     expect(src('main.ts')).toMatch(/const loadUx = \(\) => import\('\.\/uix\/boot'\)\.then\(\(\) => import\('\.\/uix\/screens\/s-boot'\)\);/);
     expect(src('main.ts')).toContain('loadUxRetry().then(start).catch(fail);');
     expect(src('uix/screens/s-boot.ts')).toContain('uxsBoot.install = install;');
-    expect(src('p1/main.ts')).toContain('if (uxOn()) bootUxs();');
+    expect(src('p1/main.ts')).toContain('\nbootUxs();\n');
     expect(uxsBoot.install).toBeUndefined();
     // 入れ物そのものは uix/hooks.ts（切のときも読む小さな束）に置く：差し込み口のファイルは型と名前だけで、中身（束）を持たない
     // （本番のビルドで、入れ物だけの束が増えて、切のときに読むファイルの数が変わらないように）
@@ -217,9 +217,9 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     // 作る物を選ぶ並び（craft）も、同じ口へ渡る
     expect(e).toHaveBeenCalledWith(root, s, eo);
   });
-  it('会話：入のときだけ uxc.talk へ渡す。今の目印（.isl-modal.isl-talk ほか）は新しい会話にも付く', () => {
+  it('会話：uxc.talk へ渡す（段 UIX5a で今の会話は外した）。今の目印（.isl-modal.isl-talk ほか）は新しい会話にも付く', () => {
     const main = src('p1/main.ts');
-    expect(main).toMatch(/if \(uxc\.talk\) return uxc\.talk\(\{ root, pages, ok, then, stage: talkStage, keys: \(m, fn\) => talkKeys\.set\(m, fn\), prep: renderNext \}\);/);
+    expect(main).toMatch(/return uxc\.talk!\(\{ root, pages, ok, then, stage: talkStage, keys: \(m, fn\) => talkKeys\.set\(m, fn\), prep: renderNext \}\);\n\}/);
     const talk = src('uix/screens/talk.ts');
     expect(talk).toContain("el('div.isl-modal.isl-talk.ux-modal.ux-modal--talk.uxc-talk.ux-root'");
     for (const c of ['isl-talk-text', 'isl-talk-extra', 'isl-talk-focus', 'isl-talk-stage', 'isl-talk-foot']) expect(talk, c).toContain(c);

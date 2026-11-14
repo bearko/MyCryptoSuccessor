@@ -1,17 +1,11 @@
-/**
- * ヒーローとエクステを「絵で選ぶ」ための部品：担当の枠・ヒーローを選ぶ引き出し・エクステのカード（素材 → 商品）・エクステを選ぶ引き出し。
- * プルダウンや数字の入力の代わりに使う（docs/ISLAND_PHASE1.md「人とモノを絵で扱う」）。
- */
-import { gradeChip } from './p2ui';
-import { TASK_FIT } from './voice';
+
 import { t } from '../../i18n';
 import { DEF } from '../defs';
 import { MATS, PRODUCT, rivalDef, SECTORS, SKILL, TASKS, aptitude, skuParts, skuPrice, techSkill, type Mat, type Sku, type Task } from './data';
-import { assign, canSwap, DAYS, relicMinCraft, releaseForSwap, restDaysLeft, swapStops, sellEstimate, batchOf, craftCheck, craftDays, has, knownOf, monopolyLeft, recipeOf, saturated, staffOf, trainingOf, unitCost, type Need, type P1State, type Staff } from './model';
-import { bar, btn, h, heroIcon, heroName, matIcon, money, skuIcon, skuName } from './ui';
+import { assign, canSwap, DAYS, relicMinCraft, sellEstimate, batchOf, craftCheck, craftDays, has, knownOf, monopolyLeft, recipeOf, saturated, staffOf, trainingOf, unitCost, type Need, type P1State, type Staff } from './model';
+import { bar, h, heroIcon, heroName, matIcon, money, skuIcon, skuName } from './ui';
 import { seriesTag } from './digview';
 import { roleOf, roleText } from './deleg';
-import { fromStock, rankUp, rankable, sellFilter, sellNo, upPrice } from './stock';
 import { uxc } from '../uix/screens/c-slots';
 
 export const TASK_NAME: Record<Task, string> = { ...(Object.fromEntries(TASKS.map((x) => [x.key, x.name])) as Record<Task, string>), side: t('バイト', 'Part-time'), manager: t('セクター長', 'Sector head'), train: t('修行', 'Training'), dig: t('発掘', 'Digging'), lead: t('リーダー・部長', 'Leader / head') };
@@ -165,24 +159,8 @@ export function slot(s: P1State, o: { label: string; task: Task; hero: number | 
 
 /** 引き出し（下から出る小さな窓）。閉じる関数を返す */
 export function drawer(root: HTMLElement, title: string, note: string, fill: (box: HTMLElement, close: () => void) => void): () => void {
-  // 段 UIX3a：新しい画面（入）の引き出しの器。切のときは今のまま
-  if (uxc.drawer) return uxc.drawer(root, title, note, fill);
-  const el = h('div', 'isl-picker');
-  const box = h('div', 'isl-picker-box');
-  const head = h('div', 'isl-picker-head');
-  const close = () => el.remove();
-  head.append(h('h3', '', title), btn('✕', close));
-  box.append(head);
-  if (note) box.append(h('p', 'isl-dim', note));
-  const body = h('div', 'isl-picker-body');
-  box.append(body);
-  fill(body, close);
-  el.append(box);
-  el.addEventListener('click', (e) => {
-    if (e.target === el) close();
-  });
-  root.append(el);
-  return close;
+  // 段 UIX3a：新しい画面の引き出しの器
+  return uxc.drawer!(root, title, note, fill);
 }
 
 /** 引き出しの外（main.ts）につなぐもの：トースト・効果音・担当を外したあとの描き直し・チュートリアル中か（付け替えはチュートリアルのあと） */
@@ -190,39 +168,6 @@ export const pickHooks: { toast?: (text: string) => void; sfx?: (k: 'tap' | 'err
 
 /** ほかの担当についている人を押して付け替えられるか（チュートリアルが終わってから。修行中・マネージャー・休憩中は付け替えない） */
 export const swapOn = (st: Staff) => !pickHooks.tutorial?.() && canSwap(st);
-
-/**
- * 付け替えの確認（引き出しの上の小さなダイアログ）：「○○ は いま『△△』の担当です。外して、ここに付けますか？」。
- * 元の場所が無人になって止まるときは赤字で 1 行。「付け替える」で yes
- */
-function swapConfirm(root: HTMLElement, s: P1State, st: Staff, toTask: Task, yes: () => void) {
-  root.querySelector('.isl-swap')?.remove();
-  const el = h('div', 'isl-swap');
-  const box = h('div', 'isl-swap-box');
-  box.setAttribute('role', 'dialog');
-  const from = jobLabel(s, st);
-  const name = heroName(st.hero);
-  const head = h('div', 'isl-swap-head');
-  head.append(heroIcon(st.hero, 40), h('p', '', t(`${name} は いま『${from}』の担当です。外して、ここに付けますか？`, `${name} is now on “${from}”. Move them here?`)));
-  box.append(head);
-  if (swapStops(s, st.hero, toTask)) box.append(h('p', 'isl-bad isl-swap-stop', t(`${from} は担当がいなくなり、止まります`, `${from} will have no one and stop`)));
-  const row = h('div', 'isl-row isl-swap-acts');
-  const close = () => el.remove();
-  row.append(
-    btn(t('付け替える', 'Move here'), () => {
-      close();
-      yes();
-    }, 'is-on'),
-    btn(t('やめる', 'Cancel'), close),
-  );
-  box.append(row);
-  el.append(box);
-  el.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (e.target === el) close();
-  });
-  root.append(el);
-}
 
 /**
  * ヒーロー選びのカードの見分け（docs/ISLAND_PHASE1.md「ヒーロー選びの見分け」）。
@@ -240,16 +185,12 @@ export function pickKind(st: Staff, current: number | null): PickKind {
 export const pickable = (k: PickKind) => k === 'current' || k === 'free';
 /** カードの右上の ✕ で担当を外せるか（ほかの担当についている人。修行中は外せない） */
 export const canRelease = (st: Staff, current: number | null) => st.hero !== current && st.task != null && st.task !== 'train' && st.task !== 'manager' && st.task !== 'lead';
-/** 並び：待機中 → いまの担当 → ほかの担当 → 休憩中 → 修行中 */
-const KIND_ORDER: Record<PickKind, number> = { free: 0, current: 1, busy: 2, resting: 3, training: 4 };
 /** 引き出しの ✕：担当を外す（選べる状態に戻る）。外せなければ false */
 export function releaseHero(s: P1State, hero: number): boolean {
   const st = staffOf(s, hero);
   if (!st || st.task == null || st.task === 'train' || st.task === 'manager' || st.task === 'lead') return false;
   return assign(s, hero, null) == null;
 }
-/** 休憩中の札（「スタミナ 12%」） */
-const staminaPct = (st: Staff) => Math.round((st.stamina / st.stats.hp) * 100);
 
 /** ヒーローを選ぶ引き出し：待機中が先、担当済み・休憩中はあと（灰色）。同じ組の中は、その仕事の適性が高い順 */
 export function pickHero(
@@ -257,139 +198,8 @@ export function pickHero(
   s: P1State,
   o: { title: string; task: Task; current: number | null; onPick: (hero: number | null) => void; note?: string; extra?: (st: Staff) => string | null; badge?: string },
 ) {
-  // 段 UIX3a：新しい画面（入）のヒーローを選ぶ引き出し（選んで、下のキーで決める）。切のときは今のまま
-  if (uxc.pickHero) return uxc.pickHero(root, s, o);
-  // ほかのセクタのセクター長と、チームリーダー・事業部長（役目。段 D）は、ここにはいない（役目は部門の画面の「担当」で）。
-  // ただしセクター長を選ぶときは、リーダー・部長も出す（昇進）
-  const promo = o.task === 'manager';
-  const list = [...s.staff].filter((x) => x.task !== 'manager' && (x.task !== 'lead' || promo)).sort((a, b) => KIND_ORDER[pickKind(a, o.current)] - KIND_ORDER[pickKind(b, o.current)] || aptitude(b.stats, o.task) - aptitude(a.stats, o.task));
-  const best = Math.max(0, ...list.filter((x) => x.task !== 'train' && !x.resting).map((x) => Math.round(aptitude(x.stats, o.task))));
-  const swapNote = !pickHooks.tutorial?.();
-  const defNote = swapNote
-    ? t(`数字は「${TASK_NAME[o.task]}」の適性です。灰色のヒーローはほかの担当か休憩中。ほかの担当の人は、押すとここへ付け替えられます（右上の ✕ で外すだけもできます）。`, `Numbers are ${TASK_NAME[o.task]} aptitude. Grey heroes are busy or resting. Tap a busy hero to move them here (or ✕ at the top right just frees them).`)
-    : t(`数字は「${TASK_NAME[o.task]}」の適性です。灰色のヒーローはほかの担当か休憩中。右上の ✕ で担当を外すと選べます。`, `Numbers are ${TASK_NAME[o.task]} aptitude. Grey heroes are busy or resting; use ✕ at the top right to free them.`);
-  let boxEl: HTMLElement | null = null;
-  drawer(root, o.title, o.note ?? defNote, (body, close) => {
-    boxEl = body.parentElement;
-    const grid = h('div', 'isl-pick-grid');
-    /** ✕ を 1 回押して「担当を外す」になっているカード（もう一度で外す。ほかを押すか 3 秒で戻る） */
-    let armed: { card: HTMLElement; undo: () => void; timer: number } | null = null;
-    const disarm = () => {
-      if (!armed) return;
-      clearTimeout(armed.timer);
-      armed.undo();
-      armed = null;
-    };
-    body.addEventListener('click', () => disarm());
-    const fill = (card: HTMLButtonElement, st: Staff) => {
-      const kind = pickKind(st, o.current);
-      const apt = Math.round(aptitude(st.stats, o.task));
-      card.className = `isl-hero-pick is-${kind} ${kind === 'current' ? 'is-on' : ''} ${kind === 'busy' || kind === 'resting' ? 'is-grey' : ''}`;
-      card.replaceChildren();
-      card.disabled = kind === 'training';
-      card.append(heroIcon(st.hero, 56), h('b', '', heroName(st.hero)), rankEl(apt), stamina(st));
-      // 段 P2：その持ち場の史実の適性の札（速さに小さな倍率）
-      const fc = TASK_FIT[o.task] ? gradeChip(st.hero, TASK_FIT[o.task]!) : null;
-      if (fc) card.append(fc);
-      if (kind === 'resting') card.append(h('span', 'isl-pick-rest', t('😴 休憩中', '😴 Resting')), h('small', 'isl-bad', t(`スタミナ ${staminaPct(st)}%`, `Stamina ${staminaPct(st)}%`)));
-      const job = h('small', kind === 'free' ? 'isl-good isl-pick-job' : kind === 'training' ? 'isl-warn isl-pick-job' : 'isl-dim isl-pick-job', kind === 'current' ? t('いまの担当', 'Current') : jobLabel(s, st));
-      if (kind !== 'resting' || st.task != null) card.append(job);
-      const ex = kind !== 'training' ? o.extra?.(st) : null;
-      if (ex) card.append(h('small', 'isl-gold', ex));
-      if (promo && st.task === 'lead') card.append(h('span', 'isl-best is-promo', t('↑ セクター長へ昇進', '↑ Promote to sector head')));
-      if (kind !== 'training' && kind !== 'resting' && best > 0 && apt === best) card.append(h('span', 'isl-best', o.badge ?? t('いちばん向いている', 'Best fit')));
-      if (canRelease(st, o.current)) {
-        const x = h('span', 'isl-pick-x', '✕');
-        x.title = t('担当を外す', 'Unassign');
-        x.setAttribute('role', 'button');
-        const release = () => {
-          disarm();
-          if (!releaseHero(s, st.hero)) return;
-          pickHooks.sfx?.('tap');
-          pickHooks.changed?.();
-          fill(card, st);
-        };
-        x.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (armed?.card === card) return release();
-          disarm();
-          // 1 回目：「担当を外す」に変わる（✕ は ↩）
-          card.classList.add('is-armed');
-          x.textContent = '↩';
-          job.textContent = t('担当を外す', 'Unassign');
-          job.className = 'isl-bad isl-pick-job';
-          armed = {
-            card,
-            undo: () => {
-              card.classList.remove('is-armed');
-              fill(card, st);
-            },
-            timer: window.setTimeout(() => disarm(), 3000),
-          };
-        });
-        card.append(x);
-      }
-    };
-    for (const st of list) {
-      const card = h('button', 'isl-hero-pick');
-      card.type = 'button';
-      fill(card, st);
-      card.addEventListener('click', (e) => {
-        e.stopPropagation();
-        // 「担当を外す」になっているカードを押した：外す（✕ をもう一度押したのと同じ）
-        if (armed?.card === card) {
-          (card.querySelector('.isl-pick-x') as HTMLElement | null)?.click();
-          return;
-        }
-        disarm();
-        const kind = pickKind(st, o.current);
-        if (kind === 'resting') {
-          pickHooks.sfx?.('error');
-          const n = restDaysLeft(s, st);
-          pickHooks.toast?.(t(`休憩中（あと ${n} 日）`, `Resting (${n} more ${n === 1 ? 'day' : 'days'})`));
-          return;
-        }
-        // セクター長への昇進（リーダー・部長から）：役目を外して、セクター長に
-        if (promo && st.task === 'lead') {
-          close();
-          o.onPick(st.hero);
-          return;
-        }
-        if (kind === 'busy' && swapOn(st)) {
-          // ほかの担当の人：確認してから、元の担当から外してここに付ける
-          pickHooks.sfx?.('tap');
-          swapConfirm(boxEl ?? body, s, st, o.task, () => {
-            const from = jobLabel(s, st);
-            if (!releaseForSwap(s, st.hero)) return;
-            close();
-            o.onPick(st.hero);
-            const to = staffOf(s, st.hero);
-            const dest = to && to.task != null ? jobLabel(s, to) : o.title;
-            pickHooks.toast?.(t(`${heroName(st.hero)} を『${from}』から『${dest}』に付け替えました`, `Moved ${heroName(st.hero)} from “${from}” to “${dest}”`));
-            pickHooks.changed?.();
-          });
-          return;
-        }
-        if (kind === 'busy') {
-          pickHooks.sfx?.('error');
-          pickHooks.toast?.(t(`いまは「${jobLabel(s, st)}」の担当です。右上の ✕ で外すと選べます`, `Busy with ${jobLabel(s, st)}. Use ✕ at the top right to free them`));
-          return;
-        }
-        if (!pickable(kind)) return;
-        close();
-        o.onPick(st.hero);
-      });
-      grid.append(card);
-    }
-    body.append(grid);
-    if (o.current != null)
-      body.append(
-        btn(t('担当を外す', 'Unassign'), () => {
-          close();
-          o.onPick(null);
-        }),
-      );
-  });
+  // 段 UIX3a：新しい画面のヒーローを選ぶ引き出し（選んで、下のキーで決める）
+  return uxc.pickHero!(root, s, o);
 }
 
 // ---------------------------------------------------------------- エクステ（素材 → 商品）
@@ -419,23 +229,6 @@ export function needText(n: Need, s?: P1State): string {
     case 'dev':
       return t('アンコモン：商品開発がまだ（R&D → 商品開発）', 'Uncommon: not developed yet (R&D → Product development)');
   }
-}
-
-/** 素材 → 商品のつながり（BOM）：素材のアイコン×数 → エクステ×できる数 */
-export function bomRow(s: P1State, x: Sku, size = 22): HTMLElement {
-  const row = h('div', 'isl-bom-row');
-  for (const [m, q] of Object.entries(recipeOf(x))) {
-    const have = s.mats[m as Mat] ?? 0;
-    const c = h('span', `isl-bom-mat ${have < (q ?? 0) ? 'is-bad' : ''}`);
-    c.title = `${MATS[m as Mat].name} ${have}`;
-    c.append(matIcon(m as Mat, size), h('small', '', `×${q}`));
-    row.append(c);
-  }
-  row.append(h('span', 'isl-bom-arrow', '→'));
-  const out = h('span', 'isl-bom-out');
-  out.append(skuIcon(x, size + 6), h('small', '', `×${batchOf(x)}`));
-  row.append(out);
-  return row;
 }
 
 /** いまの素材で作れるロット数 */
@@ -579,186 +372,11 @@ export function pickExt(
     craft?: { stock: (x: Sku) => void; rank: (x: Sku, close: () => void) => void; tab?: 'all' | 'stock' };
   },
 ) {
-  // 段 UIX3a：新しい画面（入）のエクステを選ぶ引き出し（作る物を選ぶ並びも）。切のときは今のまま
-  if (uxc.pickExt) return uxc.pickExt(root, s, o);
-  if (o.craft) return pickMake(root, s, o as Parameters<typeof pickExt>[2] & { craft: NonNullable<Parameters<typeof pickExt>[2]['craft']> });
-  // 技がまだの商品はうしろへ（カードに「技：○○が要る」）
-  const locked = (x: Sku) => Number(craftCheck(s, x, null) === 'tech');
-  // この町で売れない商品（棚に並べられない）は、いちばんうしろへ
-  const off = (x: Sku) => Number(!!o.blocked?.(x));
-  const list = o.keep ? [...o.items] : [...o.items].sort((a, b) => off(a) - off(b) || locked(a) - locked(b) || profitPerDay(s, b) - profitPerDay(s, a));
-  // 印をつけたもの（おすすめ・工房で作っているもの）を先頭に
-  if (o.badge && list.includes(o.badge.x)) list.splice(0, 0, ...list.splice(list.indexOf(o.badge.x), 1));
-  const ok = list.filter((x) => !off(x) && lotsFromStock(s, x) > 0 && !craftCheck(s, x, o.worker ?? null));
-  const best = ok[0] ?? null;
-  drawer(root, o.title, o.note ?? t('素材 → 商品のつながりと、今の素材で何ロット作れるか、1 日あたりの粗利を見比べて選びましょう。', 'Compare materials → product, how many lots your stock makes, and gross profit per day.'), (body, close) => {
-    const grid = h('div', 'isl-ext-grid');
-    for (const x of list) {
-      const g = o.gain?.(x);
-      const card = extCard(s, x, {
-          worker: o.worker,
-          on: x === o.current,
-          best: !o.badge && x === best,
-          badge: o.badge?.x === x ? o.badge.text : undefined,
-          making: o.making?.includes(x),
-          // この町で売れない商品（棚）：灰色で、押すと止める（引き出しは閉じない）
-          off: o.blocked?.(x),
-          onTap: () => {
-            if (o.blocked?.(x)) {
-              o.onBlocked?.(x);
-              return;
-            }
-            close();
-            o.onPick(x);
-          },
-        });
-      if (g) card.querySelector('.isl-ext-r')?.prepend(h('div', 'isl-ext-gain', g));
-      grid.append(card);
-    }
-    body.append(grid);
-    if (o.allowNone && o.current)
-      body.append(
-        btn(t('並べない', 'Clear'), () => {
-          close();
-          o.onPick(null);
-        }),
-      );
-  });
+  // 段 UIX3a：新しい画面のエクステを選ぶ引き出し（作る物を選ぶ並びも）
+  return uxc.pickExt!(root, s, o);
 }
 
 /** 段 UI5c：作る物の一覧の絞り込み「今のセクタで売れるもの」（初期値オン。この遊びのあいだ覚えておく） */
 export const makeView = { sellable: true };
-
-/**
- * 段 UI5c：作業台の作る物を選ぶ引き出し。上に並びの切り替え（「おすすめ（効率）」「いまの素材で作れる」）と絞り込み「今のセクタで売れるもの」。
- * いまの素材で作れる：作れる数・この町で売れる見込み・余った素材を使うか（stock.ts の fromStock）。選ぶと使い切りの製造（作り終えたら戻る）。
- * 売れないもの（絞り込みをオフにしたとき）は理由を 1 行で。ランクアップできるエクステは「⬆ ランクアップ」（できない理由は 1 行で）
- */
-function pickMake(
-  root: HTMLElement,
-  s: P1State,
-  o: Parameters<typeof pickExt>[2] & { craft: { stock: (x: Sku) => void; rank: (x: Sku, close: () => void) => void; tab?: 'all' | 'stock' } },
-) {
-  let tab: 'all' | 'stock' = o.craft.tab ?? 'all';
-  const locked = (x: Sku) => Number(craftCheck(s, x, null) === 'tech');
-  drawer(root, o.title, o.note ?? '', (body, close) => {
-    const bar0 = h('div', 'isl-make-bar');
-    const tabs = h('div', 'isl-make-tabs');
-    const tAll = h('button', 'isl-make-tab', t('おすすめ（効率）', 'Best (efficiency)'));
-    const tStock = h('button', 'isl-make-tab', t('いまの素材で作れる', 'From what we have'));
-    tAll.type = tStock.type = 'button';
-    tabs.append(tAll, tStock);
-    const fl = h('label', 'isl-make-filter');
-    const cb = h('input');
-    cb.type = 'checkbox';
-    cb.checked = makeView.sellable;
-    fl.append(cb, h('span', '', t('今のセクタで売れるもの', 'Sells in this sector')));
-    bar0.append(tabs, fl);
-    const lead = h('p', 'isl-dim isl-make-lead');
-    const grid = h('div', 'isl-ext-grid');
-    body.append(bar0, lead, grid);
-    const render = () => {
-      tAll.classList.toggle('is-on', tab === 'all');
-      tStock.classList.toggle('is-on', tab === 'stock');
-      grid.replaceChildren();
-      const cur = o.current ? s.slots.find((y) => y.sku === o.current) : undefined;
-      const backTo = cur?.back !== undefined ? cur.back : o.current;
-      lead.textContent =
-        tab === 'stock'
-          ? t(`手持ちの素材で作れるだけ作ります（素材は買い足さない）。${backTo ? `作り終えたら${skuName(backTo)}に戻ります。` : ''}`, `Makes as many as your stock allows (no new materials).${backTo ? ` Then back to ${skuName(backTo)}.` : ''}`)
-          : t('素材 → 商品のつながりと、今の素材で何ロット作れるか、1 日あたりの粗利を見比べて選びましょう。', 'Compare materials → product, how many lots your stock makes, and gross profit per day.');
-      const add = (x: Sku, extra: (card: HTMLElement) => void, onTap: () => void, badge?: string, best?: boolean) => {
-        const no = sellNo(s, x);
-        const card = extCard(s, x, { worker: o.worker, on: x === o.current, best: !badge && !!best, badge, making: o.making?.includes(x), onTap });
-        if (no) card.querySelector('.isl-ext-l')?.append(h('div', 'isl-ext-no', `✕ ${no}`));
-        extra(card);
-        const wrap = h('div', 'isl-ext-wrap');
-        wrap.append(card);
-        // ランクアップ（Common → Uncommon）：印と、そのまま進めるボタン（できない理由は 1 行で）
-        const ru = rankable(s, x) ? rankUp(s, x, o.worker ?? null) : null;
-        if (ru) {
-          const row = h('div', `isl-rankup ${ru.why ? 'is-why' : ''}`);
-          const go = h('button', 'isl-rankup-btn', ru.next === 'make' ? t(`⬆ ランクアップ（${skuName(ru.to)}を作る）`, `⬆ Rank up (make ${skuName(ru.to)})`) : t('⬆ ランクアップ', '⬆ Rank up'));
-          go.type = 'button';
-          go.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (ru.next === 'make') {
-              close();
-              o.onPick(ru.to);
-              return;
-            }
-            o.craft.rank(x, close);
-          });
-          row.append(go, h('small', '', ru.why ?? (ru.next === 'dev' ? t(`開発 ${money(ru.cost)}・${ru.days} 日で ${money(upPrice(x))} の品に`, `Develop ${money(ru.cost)}, ${ru.days} d → a ${money(upPrice(x))} item`) : t(`${money(upPrice(x))} の品`, `a ${money(upPrice(x))} item`))));
-          wrap.append(row);
-        }
-        grid.append(wrap);
-      };
-      if (tab === 'stock') {
-        const xs = fromStock(s, o.worker ?? null, makeView.sellable);
-        if (!xs.length) grid.append(h('p', 'isl-dim', makeView.sellable ? t('いまの素材だけで作れて、この町で売れる商品はありません。', 'Nothing sellable here can be made from stock alone.') : t('いまの素材だけで作れる商品はありません。', 'Nothing can be made from stock alone.')));
-        for (const p of xs)
-          add(
-            p.x,
-            (card) => {
-              const g = h('div', 'isl-ext-gain is-stock');
-              g.append(h('b', '', t(`いまの素材で ${p.units} 個`, `${p.units} from stock`)));
-              if (!p.no) g.append(h('small', '', t(`この町で月 ${Math.round(p.sell)} 個売れる見込み`, `~${Math.round(p.sell)}/mo sell here`)));
-              if (p.spareRate >= 0.5) g.append(h('span', 'isl-tag is-good isl-ext-spare', t('余った素材を使う', 'Uses spare materials')));
-              card.querySelector('.isl-ext-r')?.prepend(g);
-            },
-            () => {
-              close();
-              o.craft.stock(p.x);
-            },
-            p.rec ? t('いまの素材でのおすすめ', 'Best from stock') : undefined,
-          );
-        return;
-      }
-      const items = sellFilter(s, o.items, makeView.sellable);
-      const list = [...items].sort((a, b) => Number(!!sellNo(s, a)) - Number(!!sellNo(s, b)) || locked(a) - locked(b) || profitPerDay(s, b) - profitPerDay(s, a));
-      if (o.badge && list.includes(o.badge.x)) list.splice(0, 0, ...list.splice(list.indexOf(o.badge.x), 1));
-      const best = list.find((x) => !sellNo(s, x) && lotsFromStock(s, x) > 0 && !craftCheck(s, x, o.worker ?? null)) ?? null;
-      const hidden = o.items.length - items.length;
-      if (hidden > 0) grid.append(h('p', 'isl-dim isl-make-hidden', t(`この町で売れない ${hidden} 品を隠しています（「今のセクタで売れるもの」を外すと出ます）`, `${hidden} item(s) that won’t sell here are hidden (untick the filter to show)`)));
-      for (const x of list)
-        add(
-          x,
-          () => undefined,
-          () => {
-            close();
-            o.onPick(x);
-          },
-          o.badge?.x === x ? o.badge.text : undefined,
-          x === best,
-        );
-    };
-    tAll.addEventListener('click', () => {
-      tab = 'all';
-      render();
-    });
-    tStock.addEventListener('click', () => {
-      tab = 'stock';
-      render();
-    });
-    cb.addEventListener('change', () => {
-      makeView.sellable = cb.checked;
-      render();
-    });
-    render();
-  });
-}
-
-/** エクステの四角い枠（棚・作業台の「作るもの」） */
-export function extSlot(o: { label: string; x: Sku | null; sub?: string; onTap: () => void; warn?: boolean; hot?: boolean }): HTMLElement {
-  const b = h('button', `isl-slot isl-ext-slot ${o.x ? '' : 'is-empty'} ${o.warn ? 'is-warn' : ''} ${o.hot ? 'is-hot' : ''}`);
-  b.type = 'button';
-  b.append(h('small', 'isl-slot-label', o.label));
-  if (o.x) b.append(skuIcon(o.x, 52), h('b', 'isl-slot-name', skuName(o.x)));
-  else b.append(h('span', 'isl-slot-plus', '+'), h('small', 'isl-slot-hint', t('タップで選ぶ', 'Tap to choose')));
-  if (o.sub) b.append(h('small', 'isl-dim', o.sub));
-  b.addEventListener('click', o.onTap);
-  return b;
-}
 
 void has;

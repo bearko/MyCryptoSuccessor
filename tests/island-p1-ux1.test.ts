@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { TUT_END } from '../src/island/p1/tut';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/p1/${f}`, import.meta.url), 'utf8');
+/** 段 UIX5a：画面は新しい画面（uix/screens/）だけになったので、画面の決まりはそちらで見る */
+const ux = (f: string) => readFileSync(new URL(`../src/island/uix/screens/${f}`, import.meta.url), 'utf8');
 
 describe('A. 時間の止まり方', () => {
   it('A-1：月末ポーズ（計画中）に ▶⏩ を押すと nextMonth（懐中時計と同じ）。⏩ なら ⏩ のまま', () => {
@@ -40,7 +42,8 @@ describe('A. 時間の止まり方', () => {
     expect(m).toContain("if (v > 0 && tutHold()) {");
     expect(m).toContain('会話を進めると、時間が動くよ');
     expect(m).toContain("speedBox.classList.toggle('is-guide', hm === 'speed'");
-    expect(m).toContain("m.classList.toggle('is-light', pages.length === 1 && !pages[0].focus && !pages[0].show && !pages[0].el)");
+    expect(ux('talk.ts')).toContain("m.classList.toggle('is-light', lightTalk(pages));");
+    expect(ux('talk.ts')).toContain('pages.length === 1 && !pages[0].focus && !pages[0].show && !pages[0].el');
     expect(src('p1.css')).toContain('.isl-modal.isl-talk.is-light');
   });
   it('A-5：流れの案内が終わったら、案内の前の速さに戻す（1 固定をやめる）', () => {
@@ -51,15 +54,14 @@ describe('A. 時間の止まり方', () => {
     expect(body).toContain('speed = tourPrevSpeed;');
     expect(body).not.toContain('speed = 1;');
   });
-  it('A-6：承認は押した瞬間に「承認中…」、変更を先に反映してからハンコの演出、そのあと閉じる', () => {
-    const p = src('proposalui.ts');
-    const i = p.indexOf("t('承認する', 'Approve')");
-    const body = p.slice(i, p.indexOf('isl-prop-ok', i));
+  it('A-6：承認（レバーが落ちた瞬間）に、変更を先に反映してから判の演出、そのあと閉じる（段 UIX5a：新しい提案書の決裁のレバー）', () => {
+    const p = ux('proposal.ts');
+    const i = p.indexOf('const lever = uxLever({');
+    const body = p.slice(i, p.indexOf('lever.el.classList', i));
     const at = (x: string) => body.indexOf(x);
-    expect(at('承認中…')).toBeGreaterThan(0);
-    expect(at('applyPlanSafe(ctx, p)')).toBeLessThan(at('after(ctx)'));
-    expect(at('after(ctx)')).toBeLessThan(at('stampThen(ctx, panel'));
-    expect(at('stampThen(ctx, panel')).toBeLessThan(at("close('ok')"));
+    expect(at('Q.applyPlan(ctx.s(), p)')).toBeGreaterThan(0);
+    expect(at('Q.applyPlan(ctx.s(), p)')).toBeLessThan(at('Q.after(ctx)'));
+    expect(at('Q.after(ctx)')).toBeLessThan(at("close('ok')"));
   });
 });
 
@@ -152,11 +154,12 @@ describe('C. 数字の説明', () => {
     expect(snap.find((k) => k.key === 'short')).toMatchObject({ v: 1000, renow: 1200 });
     expect(snap.find((k) => k.key === 'long')).toMatchObject({ v: 3000 });
     expect(snap.find((k) => k.key === 'long')?.renow).toBeUndefined();
-    // 提案書：カードを初めて開いたときに snap を覚える。「予測精度」の札に説明の ⓘ
+    // 提案書：カードを初めて開いたときに snap を覚える（新しい提案書も同じ propModel を通る）
     const p = src('proposalui.ts');
     expect(p).toContain('if (card && !card.snap) {');
     expect(p).toContain('card.snap = { day: s.day, short: S.d, long: L.d };');
-    expect(p).toContain('予測精度とは');
+    // 段 UIX5a：「予測精度」の説明の ⓘ（今の提案書だけにあった）は、今の提案書を外したので無い。新しい提案書は星のランプと ±N%
+    expect(ux('d-kit.ts')).toContain('予測精度');
   });
   it('C-2：利益に入らない入出金（flowAdd）を月ごとに積み、「資金の変化 − 利益」＝内訳の合計＋残り（cashGap）', async () => {
     const { flowAdd, cashGap, FLOW_KEYS } = await import('../src/island/p1/model');
@@ -179,7 +182,7 @@ describe('C. 数字の説明', () => {
     expect(m).toContain("...(s.flow && Object.keys(s.flow).length ? { cash: { ...s.flow } } : {})");
     expect(m).toContain('s.flow = {};');
     expect(m).toContain("flowAdd(s, 'preopen'");
-    expect(src('report.ts')).toContain('利益との差 ${signed(cg.gap, money)}');
+    expect(ux('report.ts')).toContain("el('b', t('利益との差', 'Gap vs profit')), num(D.signed(cg.gap, D.money))");
   });
   it('C-3：大口注文の売上はお店の画面の売上（sh.rev）にも入る。C-5：選択肢の 2 行目は売上の額と「ふだんより +M G 得」', async () => {
     const { newP1, build, allowedDirs, myShops, syncShop, skuOf: sku } = await import('../src/island/p1/model');
@@ -271,10 +274,11 @@ describe('C. 数字の説明', () => {
   it('C-8：帯の速さの上限は 1.6 倍。月次報告 KPI ② の初期表示は売上だけ', async () => {
     const { newsSpeed } = await import('../src/island/p1/ticker');
     expect(newsSpeed(true, 99) / newsSpeed(true, 0)).toBeCloseTo(1.6, 5);
-    const r = src('report.ts');
-    expect(r).toContain("let trendView: 'sales' | 'both' | 'cash' = 'sales';");
-    expect(r).toContain("sales: btn(t('売上', 'Sales')");
-    expect(r).toContain("both: btn(t('売上と利益', 'Sales & profit')");
+    const r = ux('report.ts');
+    expect(r).toContain("export type TrendView = 'sales' | 'both' | 'cash';");
+    expect(r).toContain("let trendView: TrendView = 'sales';");
+    expect(r).toContain("sales: pkey(t('売上', 'Sales')");
+    expect(r).toContain("both: pkey(t('売上と利益', 'Sales & profit')");
   });
   it('C-9：scm 段の intro は 1 枚。「SCM」は初出だけ併記。「研究ポイント（RP）」「G（この世界のお金）」', async () => {
     const { TUT } = await import('../src/island/p1/tut');
@@ -317,8 +321,8 @@ describe('C. 数字の説明', () => {
     const m = src('moves.ts');
     expect(m).toContain('const r = base > 0 ? (on - base) / base : ad.boost;');
     expect(m).toContain('if (!(k > 0)) return { need: null, now: Math.round(base) };');
-    expect(src('screens.ts')).toContain('いまは売上が伸びない');
-    expect(src('screens.ts')).toContain('元が取れる月商の目安 ${money(be.need)}〜');
+    expect(ux('biz.ts')).toContain('いまは売上が伸びない');
+    expect(ux('biz.ts')).toContain('元が取れる月商の目安 ${B.money(be.need)}〜');
   });
   it('C-11：たまった知らせが無いとき、待機の文ではなく一覧（hist）の見出しを古い順に繰り返し流す。一覧が空なら「ニュースはまだありません」', async () => {
     const { replayPick, NEWS_LIST } = await import('../src/island/p1/ticker');

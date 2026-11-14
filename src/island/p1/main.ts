@@ -30,7 +30,7 @@ import type { TrophyDef } from './trophy';
 import { autoText, cardInbox, cardsCompany, cardsDay, cardsMonth, demoDraft, diploDraft, stockCard, enqueue, eventDraft, markSeen, nextPop, takeAuto } from './card';
 import { duoPages } from './duo';
 import { cardNav, showCard } from './cardui';
-import { crestEl, openDiplo } from './diploui';
+import { openDiplo } from './diploui';
 import { openProposal } from './proposalui';
 import { reportProposal, type Speech } from './card';
 import type { Plan } from './plan';
@@ -174,12 +174,11 @@ import { gradeName, gradeOf } from './mkt';
 import { taxHint } from './acct';
 import { quitLeft, type HrDay } from './hr';
 import type { Sfx } from './sfx';
-import { uxOn } from '../uix/flag';
 import { ux } from '../uix/hooks';
 import { uxm } from '../uix/screens/mhooks';
 import { uxc } from '../uix/screens/c-slots';
 import { uxr } from '../uix/screens/r-slots';
-import { nextStep, uxLegacy, uxSetVol, uxSfx, uxSound, uxSoundInit, uxVol, type UxScene } from '../uix/sound';
+import { uxLegacy, uxSetVol, uxSfx, uxSound, uxSoundInit, uxVol, type UxScene } from '../uix/sound';
 import { boardDue, boardOf, boardQuarter, closeText } from './board';
 import { openBoard, type BoardHooks } from './boardui';
 import { KNOW_TALK, SLOT_TALK, slotNews, slotsOf, takePolNews } from './policy';
@@ -193,7 +192,7 @@ import { closeDig, debugTablet, digOpen, digRect, extIcon, noteCrewHits, openDig
 import { MEET_FOUND, MEET_LINES, canPresent, chiefHome, digMet, chiefOf, digSummary, letterToGet, lettersLeft, meetReady, meetTip, presentAfter, presentPages } from './digmeet';
 import { BUDGET_TALK, CHIP_SRC, CLEAR_LINE, FOOT_TALK, HIRE_LINES, RP_LINE, DUNGEON_LINE, GATE_LINES, LAND_CLEAR_LINE, MUSEUM_LINE, RANK_LINES, RELIC_LINE, REVIVE_LINE, SIDE_LINES, TOUR, arrivalPages, bubbleKind, chipOf, deptTalkNext, introPages, needsIntro, talkWaits, type ArrivePage, type TalkUi, type TourEv, type TourPhase } from './mine';
 import type { Stage } from './model';
-import { TIER_NOTE, openBooks, openBrand, openLand, openRankUp, startMove } from './landui';
+import { openBooks, openBrand, openLand, openRankUp, startMove } from './landui';
 import { pendingReset, rankUpTier } from './reset';
 import { playDisaster } from './disaster';
 import { brandAdd, sectorDef, sectorState, tierLabel, TIER_NAME } from './company';
@@ -252,10 +251,11 @@ let bgmKey: Bgm = 'bgmCraft';
 const setBgm = (k: Bgm) => void (bgmKey = k);
 // 効果音の呼び出しは、新しい音へ付け替える（uix/audio/legacy.ts の表）
 const sfx = { play: (k: Sfx, gain = 1, rate = 1) => void uxLegacy(k, gain, rate) };
-// 段 UIX2s：新しい画面（工房の札・月次報告ほか）を入れる
-// 段 UIX3a：入口（src/island/main.ts）が束を先に読んであれば、その場で入れる（起動のすぐあとの最初の会話から、新しい画面で出す）
-if (uxOn()) bootUxs();
-if (uxOn()) void loadUxs();
+// 段 UIX2s：新しい画面（工房の札・月次報告ほか）を差し込み口へ入れる
+// 段 UIX3a・UIX5a：入口（src/island/main.ts）が束を本体より先に読むので、その場で入れる（起動のすぐあとの最初の会話から、新しい画面で出す）。
+// loadUxs は念のための 2 回目（束はもう読んであるので、取りに行かない）
+bootUxs();
+void loadUxs();
 // ボタンを押したら軽いクリック音（会話の「次へ」はポン）
 addEventListener(
   'click',
@@ -753,7 +753,7 @@ function renderHud() {
   renderJam();
   renderEv();
   renderInbox();
-  // 段 UIX2m：入のときは、新しい帯（計器・ランプ）へ写す
+  // 段 UIX2m：新しい帯（計器・ランプ）へ写す
   uxm.hud?.();
   // 段 UI4（UI3 の残り）：札が増えて上の帯の行が増えたら、画面（シート）の上端を下げ直す（スマホで「受け箱」の札がシートに半分隠れていた）
   const hb = hud.offsetHeight;
@@ -1279,7 +1279,7 @@ function openBuildSheet() {
       // チュートリアル：建ててもらう場所を大きく
       if (sp) tween = { x0: cam.x, y0: cam.y, x1: (sp[0] - sp[1]) * 100, y1: (sp[0] + sp[1]) * 55, t0: performance.now(), z0: cam.zoom, z1: innerWidth < 600 ? 0.6 : 0.85, dur: 700 };
     };
-    // 段 UIX4r：入のときは、管制卓の札で組む（中身・押した先・チュートリアルの目印は同じ）
+    // 段 UIX4r：管制卓の札で組む（中身・押した先・チュートリアルの目印は同じ）
     if (uxr.build) {
       const seen = (s.flags.buildCats ??= ['base']);
       const fresh: string[] = [];
@@ -1331,79 +1331,6 @@ function openBuildSheet() {
       });
       return;
     }
-    if (buildAt) body.append(h('p', 'isl-dim', t('選んだマスに建てます。建物を選んでください。', 'Choose a building for the selected lot.')));
-    // カテゴリのタブ（建てられる建物が 1 つも無いものはロック。開いたら一度だけロックが外れる演出）
-    const seen = (s.flags.buildCats ??= ['base']);
-    const fresh: string[] = [];
-    const tabs = h('div', 'isl-bcats');
-    for (const c of BUILD_CATS) {
-      // 「遺物」（遺物の展示館）は、荒れ地が初めて復興するまで出さない（チュートリアル・はじめの建築の一覧は今のまま）
-      if (c.id === 'relic' && !revivedSites(s).length && !s.museum?.at) continue;
-      const open = buildCatOpen(s, c.id);
-      const isNew = open && !seen.includes(c.id);
-      if (isNew) fresh.push(c.id);
-      const b = h('button', `isl-bcat ${buildCat === c.id ? 'is-on' : ''} ${open ? '' : 'is-lock'} ${isNew ? 'is-unlocking' : ''}`);
-      b.type = 'button';
-      const known = c.ids.filter((id) => buildKnown(s, id)).length;
-      b.append(h('span', 'isl-bcat-icon', c.icon), h('b', '', c.name), h('small', '', `${known}/${c.ids.length}`));
-      if (!open) b.append(h('span', 'isl-bcat-lock', '🔒'));
-      if (isNew) {
-        b.append(h('span', 'isl-bcat-lock is-open', '🔓'));
-        for (let k = 0; k < 8; k++) {
-          const sp = h('i', 'isl-spark');
-          sp.style.setProperty('--a', `${k * 45}deg`);
-          sp.style.animationDelay = `${0.3 + (k % 2) * 0.12}s`;
-          b.append(sp);
-        }
-      }
-      b.addEventListener('click', () => {
-        buildCat = c.id;
-        sfx.play('tap');
-        refreshSheet();
-      });
-      tabs.append(b);
-    }
-    body.append(tabs);
-    if (fresh.length) {
-      seen.push(...fresh);
-      save();
-      sfx.play('levelup');
-      for (const id of fresh) toast(t(`「${BUILD_CATS.find((c) => c.id === id)?.name}」の建物が建てられるようになりました！`, `New buildings available: ${BUILD_CATS.find((c) => c.id === id)?.name}!`));
-    }
-    const cat = BUILD_CATS.find((c) => c.id === buildCat)!;
-    if (!buildCatOpen(s, cat.id)) body.append(h('p', 'isl-dim isl-bnote', t('このカテゴリの建物は、まだ建てられません。スキルや会社の成長で、ひとつずつ解放されます。', 'Nothing here can be built yet. Skills and company growth unlock them one by one.')));
-    const grid = h('div', 'isl-bgrid');
-    for (const id of cat.ids) {
-      const b = P1B[id];
-      if (!b) continue;
-      const err = canBuild(s, id);
-      if (!buildKnown(s, id)) {
-        // 条件を満たしていない：外観を見せない「？」
-        const c = h('button', 'isl-bcard is-secret');
-        c.type = 'button';
-        c.append(h('div', 'isl-bcard-q', '?'), h('b', '', '???'), h('small', 'isl-dim', secretHint(id)));
-        c.addEventListener('click', () => {
-          sfx.play('error');
-          toast(secretHint(id));
-        });
-        grid.append(c);
-        continue;
-      }
-      const guide = guideId === id;
-      const c = h('button', `isl-bcard ${err === 'money' ? 'is-poor' : ''} ${err && err !== 'money' ? 'is-off' : ''} ${guide ? 'is-guide' : ''}`);
-      c.type = 'button';
-      const im = image(`b/${artId(id)}/rd.png`).cloneNode() as HTMLImageElement;
-      im.alt = '';
-      const cost = err === 'limit' ? t('建設済み', 'Built') : err === 'locked' ? lockNote(id) : b.cost ? money(b.cost) : t('無料', 'Free');
-      c.append(im, h('b', '', DEF[id].name), h('span', `isl-bcost ${err === 'money' ? 'is-short' : ''}`, cost));
-      const note = kindNote(b);
-      if (note) c.append(h('small', 'isl-dim', note));
-      c.append(h('small', 'isl-dim', t(`工期 ${b.days} 日・維持費 ${money(b.upkeep)}/月`, `${b.days} days · upkeep ${money(b.upkeep)}/mo`)));
-      if (err === 'money') c.append(h('small', 'isl-bad', t(`あと ${money(b.cost - s.money)} 足りない`, `${money(b.cost - s.money)} short`)));
-      c.addEventListener('click', () => pickCard(id));
-      grid.append(c);
-    }
-    body.append(grid);
   });
 }
 
@@ -1864,7 +1791,7 @@ function openPop(i: number, j: number) {
   selected = b ? b.uid : null;
   // チュートリアル：地図のお店をタップした
   if (b && b.owner === 'me' && P1B[b.id]?.kind === 'shop') tutSeen.add('shopPop');
-  // 段 UIX2m：入のときは、カメラが建物へ寄る（今の tween で。閉じると戻る）。始まりは前のコマの時刻（進みが負にならないように）
+  // 段 UIX2m：カメラが建物へ寄る（今の tween で。閉じると戻る）。始まりは前のコマの時刻（進みが負にならないように）
   const to = uxm.popCam?.(b ? b.i : i, b ? b.j : j, b ? (DEF[b.id]?.size ?? 1) : 1);
   renderPop();
   if (to) tween = { x0: cam.x, y0: cam.y, z0: cam.zoom, t0: last, ...to };
@@ -1921,7 +1848,7 @@ function renderPop() {
   popActs.hidden = !popActs.childElementCount;
   popBody.scrollTop = y;
   popEl.hidden = false;
-  // 段 UIX2m：入のときは、吹き出しの器と置き場所を新しい画面が受け持つ
+  // 段 UIX2m：吹き出しの器と置き場所を新しい画面が受け持つ
   if (uxm.pop?.(title)) return void (dirty = true);
   popEl.style.width = `${Math.min(400, popRight() - 16)}px`;
   popEl.style.maxHeight = 'none';
@@ -2289,7 +2216,7 @@ function meetAfterDig() {
 }
 
 /** 地図の上の印：荒れ地の上の 📜（手紙）・👆（タップしてもらう）と、町の長の家の上の顔（発表できるときは吹き出し「研究成果を発表する」） */
-/** 段 UIX4a：hidden を、値が変わるときだけ書く（毎コマ同じ値を付け直すと、入のときの着せ替えの見張りが毎コマ動いていた） */
+/** 段 UIX4a：hidden を、値が変わるときだけ書く（毎コマ同じ値を付け直すと、着せ替えの見張りが毎コマ動いていた） */
 const setHidden = (e: HTMLElement, v: boolean) => {
   if (e.hidden !== v) e.hidden = v;
 };
@@ -2466,32 +2393,12 @@ function startPresent() {
  * conquered：この発表で制覇した（1 位を 2 か月続けていた）→ 👑 の帯とファンファーレ、閉じたら「フェーズ 1 クリア！」（初めての制覇）
  */
 function showLetter(rp: number, letter: Tier | null, chief: number | null, left = 0, conquered = false) {
-  // 段 UIX1s：入のとき、制覇は「小太鼓の連打 → 一撃 → 祝いの曲」（切のときは今のまま）
-  if (conquered && uxOn()) uxSfx('conquest');
+  // 段 UIX1s：制覇は「小太鼓の連打 → 一撃 → 祝いの曲」
+  if (conquered) uxSfx('conquest');
   else {
     sfx.play('mining');
     setTimeout(() => sfx.play(conquered ? 'clear' : 'win'), 500);
   }
-  const body = h('div', 'isl-letter');
-  const card = h('div', 'isl-letter-card');
-  const rays = h('div', 'isl-letter-rays');
-  card.append(rays);
-  if (conquered) {
-    const name = sectorDef(s.sector ?? 'c1').name;
-    const crown = h('div', 'isl-letter-crown');
-    crown.append(h('b', '', t(`👑 ${name}を制覇！`, `👑 ${name} conquered!`)), h('small', '', t('2 か月続けて 1 位 ✔／研究成果の発表 ✔', '#1 two months running ✔ / findings presented ✔')));
-    card.append(crown);
-  }
-  if (letter) {
-    // 調査依頼状の仮の絵：MCH のエクステ「スクロール」（Uncommon）・「エリートスクロール」（Rare）・「ウィズダムスクロール」（Epic）・「大唐西域記」（Legendary。段 H1）。docs/ISLAND_ART_TODO.md
-    const icon = letter === 'U' ? 1016 : letter === 'R' ? 2016 : letter === 'E' ? 3016 : 5016;
-    card.append(extIcon(icon, 128), h('b', 'isl-letter-name', t(`${TIER_NAME[letter]} の調査依頼状`, `${TIER_NAME[letter]} survey request`)));
-    if (chief != null) card.append(h('small', 'isl-dim', t(`町の長 ${heroName(chief)}より`, `From town head ${heroName(chief)}`)));
-  }
-  card.append(h('span', 'isl-letter-rp', t(`研究ポイント +${rp}`, `Research points +${rp}`)));
-  const say = h('p', 'isl-letter-say');
-  say.append(rich(presentAfter(letter, left, conquered, sectorDef(s.sector ?? 'c1').tier)));
-  body.append(card, say);
   // 制覇したら、閉じたあとに初めての制覇のお祝い（フェーズ 1 クリア！）
   const then = (f: () => void) => () => {
     if (conquered && s.cleared && !s.flags.clearSeen) clearModal();
@@ -2499,7 +2406,7 @@ function showLetter(rp: number, letter: Tier | null, chief: number | null, left 
   };
   const title = conquered ? t('👑 研究成果を発表して制覇！', '👑 Findings presented — sector conquered!') : letter ? t('📜 調査依頼状を受け取った！', '📜 Survey request received!') : t('研究成果を発表した！', 'Findings presented!');
   const acts: UxwAct[] = letter === 'U' || letter === 'R' || letter === 'E' ? [[t('ランドマップを見る', 'Open land map'), then(() => openLand(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]] : [[t('スキルツリーを開く', 'Open skills'), then(() => openSkills(ctx)), 'is-on'], [t('続ける', 'Keep going'), then(() => renderAll())]];
-  // 段 UIX3w：入のときは、管制卓のカットインと札へ（中身は同じ。切のときは今の窓）
+  // 段 UIX3w：管制卓のカットインと札（段 UIX5a で、前の窓は外した）
   if (uxw.letter) {
     const face = s.staff[0]?.hero ?? chief;
     return uxw.letter({
@@ -2519,9 +2426,6 @@ function showLetter(rp: number, letter: Tier | null, chief: number | null, left 
       fx: () => letterFx(conquered),
     });
   }
-  modal(title, body, acts, true);
-  root.querySelector('.isl-modal:last-of-type')?.classList.add('is-letter');
-  letterFx(conquered);
 }
 /** 発表・制覇の花火（pixelfx）：手紙のまわりに 2 発（制覇は金の 3 発目と紙吹雪）。重ねるだけ・押せば消える */
 function letterFx(conquered: boolean) {
@@ -2678,9 +2582,8 @@ function sectorChecks() {
     save();
     sfx.play('win');
     const acts: UxwAct[] = [[t('ランドマップを見る', 'Open land map'), () => openLand(ctx), 'is-on'], [t('続ける', 'Keep going'), () => renderAll()]];
-    // 段 UIX3w：入のときは、管制卓のお祝いの札（ブランド力は桁の回る数字で）
-    if (uxw.cheer) uxw.cheer({ host: root, kind: 'land', title, say: body, bonus: { label: t('ブランド力', 'Brand'), n: BRAND.landClear }, actions: acts });
-    else modal(`👑 ${title}`, `${body} ${t(`ブランド力 +${BRAND.landClear}`, `Brand +${BRAND.landClear}`)}`, acts, true);
+    // 段 UIX3w：管制卓のお祝いの札（ブランド力は桁の回る数字で）
+    uxw.cheer!({ host: root, kind: 'land', title, say: body, bonus: { label: t('ブランド力', 'Brand'), n: BRAND.landClear }, actions: acts });
     return;
   }
 }
@@ -3502,98 +3405,8 @@ const talkKeys = new WeakMap<HTMLElement, () => void>();
 /** その枚の上に出す絵（新しい画面の会話へ渡す。今の会話は show() の中で同じ物を作る） */
 const talkStage = (pg: TutPage): HTMLElement | null => (pg.show === 'crew' ? crewEl(pg.hero) : pg.show === 'cycle' ? cycleEl() : pg.show === 'gift' ? giftEl(pg.gift) : pg.el ? pg.el() : null);
 function showTalk(pages: TutPage[], ok: string, then: () => void) {
-  // 段 UIX3a：新しい画面（入）の会話（話す人が枠の上に立つ・1 字ずつ喋る）。切のときは、今の会話のまま
-  if (uxc.talk) return uxc.talk({ root, pages, ok, then, stage: talkStage, keys: (m, fn) => talkKeys.set(m, fn), prep: renderNext });
-  const m = h('div', 'isl-modal isl-talk');
-  ux.modal?.(m, 'talk');
-  const stage = h('div', 'isl-talk-stage');
-  const box = h('div', 'isl-talk-box');
-  const mine = h('img', 'isl-talk-mine');
-  mine.alt = '';
-  const name = h('b', 'isl-talk-name', t('マインちゃん', 'Mine-chan'));
-  const text = h('p', 'isl-talk-text');
-  const foot = h('div', 'isl-talk-foot');
-  // 話す人がヒーロー（研究成果の発表の町の長）のときの顔
-  const face = h('div', 'isl-talk-who');
-  face.hidden = true;
-  box.append(mine, face, name, text, foot);
-  m.append(stage, box);
-  let k = 0;
-  /** 画面の中の部分を、金色の枠で囲んで見せる（まわりは暗く） */
-  const ring = h('div', 'isl-talk-focus');
-  // 段 UX1（A-4）：focus も絵も無い 1 枚だけの会話は、暗幕を薄く（画面を覆って止まったように見せない）
-  m.classList.toggle('is-light', pages.length === 1 && !pages[0].focus && !pages[0].show && !pages[0].el);
-  const show = () => {
-    const pg = pages[k];
-    ring.remove();
-    m.classList.toggle('has-focus', !!pg.focus);
-    // 段 UX1（A-3）：懐中時計を囲む案内は、囲む前にボタンを出す（隠れたままだと枠の位置が測れない）
-    if (pg.focus) renderNext();
-    const el = pg.focus ? root.querySelector<HTMLElement>(pg.focus) : null;
-    if (el) {
-      el.scrollIntoView({ block: 'center' });
-      requestAnimationFrame(() => {
-        const r = el.getBoundingClientRect();
-        const pad = 8;
-        Object.assign(ring.style, { left: `${r.left - pad}px`, top: `${r.top - pad}px`, width: `${r.width + pad * 2}px`, height: `${r.height + pad * 2}px` });
-        m.prepend(ring);
-      });
-    }
-    const last = k === pages.length - 1;
-    mine.src = assetUrl(last ? 'mch/Image/Characters/navi_ain_cross_01_smile.png' : 'mch/Image/Characters/navi_ain_speak_00_talk.png');
-    mine.hidden = pg.who != null || pg.crest != null;
-    face.hidden = pg.who == null && pg.crest == null;
-    box.classList.toggle('is-who', pg.who != null || pg.crest != null);
-    if (pg.crest != null) {
-      face.replaceChildren(crestEl(pg.crest));
-      name.textContent = pg.role ?? '';
-    } else if (pg.who != null) {
-      face.replaceChildren(heroIcon(pg.who, innerWidth < 600 ? 72 : 96));
-      name.textContent = pg.role ? `${pg.role} ${heroName(pg.who)}` : heroName(pg.who);
-    } else name.textContent = t('マインちゃん', 'Mine-chan');
-    text.replaceChildren(rich(pg.text));
-    stage.replaceChildren();
-    if (pg.show === 'crew') stage.append(crewEl(pg.hero));
-    else if (pg.show === 'cycle') stage.append(cycleEl());
-    else if (pg.show === 'gift') stage.append(giftEl(pg.gift));
-    else if (pg.el) stage.append(pg.el());
-    stage.hidden = !pg.show && !pg.el;
-    foot.replaceChildren(h('small', 'isl-dim', `${k + 1} / ${pages.length}`));
-    // その枚だけのボタン（到着の案内の「市場データを開く」など）：押すと会話を閉じて、その画面へ
-    const extra = pg.button;
-    if (extra)
-      foot.append(
-        btn(extra[0], () => {
-          m.remove();
-          extra[1]();
-        }, 'is-on isl-talk-extra'),
-      );
-    const go = last
-      ? btn(ok, () => {
-          m.remove();
-          then();
-        }, 'is-on')
-      : btn(t('次へ ▶', 'Next ▶'), () => next());
-    foot.append(go);
-    // スペース・Enter：最後の枚はボタン（「○○を開く」）、ほかは次の枚へ
-    talkKeys.set(m, () => (last ? go.click() : next()));
-  };
-  const next = () => {
-    if (k < pages.length - 1) {
-      k++;
-      show();
-    }
-  };
-  // 箱でも暗幕でも、押すと次へ。段 MAP1：最後の枚もどこを押しても送る（選択肢（その枚だけのボタン）があるときは選択肢だけ）
-  m.addEventListener('click', (e) => {
-    if (e.target instanceof HTMLButtonElement || (e.target instanceof Element && e.target.closest('button, a, input, select'))) return;
-    if (k < pages.length - 1) return next();
-    if (pages[k].button) return;
-    m.remove();
-    then();
-  });
-  show();
-  root.append(m);
+  // 段 UIX3a：新しい画面の会話（話す人が枠の上に立つ・1 字ずつ喋る）
+  return uxc.talk!({ root, pages, ok, then, stage: talkStage, keys: (m, fn) => talkKeys.set(m, fn), prep: renderNext });
 }
 
 /** 前の世界からついてきた 3 人（hero を前に出す） */
@@ -3778,7 +3591,7 @@ function renderAdvisor() {
 
 function modal(title: string, body: string | HTMLElement, actions: [string, () => void, string?][], face = false) {
   const m = h('div', 'isl-modal');
-  // 段 UIX1a：窓の共通の器（入のときだけ。直接作っている 10 か所も、同じ口を通す）
+  // 段 UIX1a：窓の共通の器（直接作っている 10 か所も、同じ口を通す）
   ux.modal?.(m, 'plain');
   const box = h('div');
   const row = h('div', 'isl-row');
@@ -3839,61 +3652,11 @@ const FX_LEVEL_NOTE: Record<FxLevel, () => string> = {
   off: () => t('効果を出さない', 'no effects'),
 };
 function openSettings() {
-  // 段 UIX4r：入のときは、スイッチ・つまみの設定の札（器・押した先・入のときの欄は同じ）
-  if (uxr.settings) return openSettingsUx();
-  sysSheet(t('設定', 'Settings'), t('言語・マインちゃんの案内・音・街の人通りを切り替えます。', 'Language, Mine-chan’s guide, sound and crowd.'), () => [
-    [isEn ? '日本語' : 'English', () => setLang(isEn ? 'ja' : 'en')], // i18n-ja
-    [
-      guideOn ? t('案内を隠す', 'Hide guide') : t('案内を出す', 'Show guide'),
-      () => {
-        guideOn = !guideOn;
-        try {
-          localStorage.setItem(GUIDE, guideOn ? 'on' : 'off');
-        } catch {
-          // 保存できなくても切り替える
-        }
-      },
-    ],
-    // 段 UIX1s：音の欄は音量（5 段）と消音
-    ...uxVolRows(),
-    [
-      t(`街の人通り：${CROWD_LEVELS[crowdLevel].name}`, `Crowd: ${CROWD_LEVELS[crowdLevel].name}`),
-      () => {
-        crowdLevel = (crowdLevel + 1) % CROWD_LEVELS.length;
-        try {
-          localStorage.setItem(CROWD_KEY, CROWD_LEVELS[crowdLevel].key);
-        } catch {
-          // 保存できなくても切り替える
-        }
-        toast(t(`街の人通り：${CROWD_LEVELS[crowdLevel].name}（重いときは少なく）`, `Crowd: ${CROWD_LEVELS[crowdLevel].name} (lower it if the game feels slow)`));
-      },
-    ],
-    // 段 FX2：演出（ドットのエフェクト）の強さ。押すたびに ふつう → 控えめ → なし
-    [
-      t(`演出：${FX_LEVEL_NAME[fxLevel()]()}`, `Effects: ${FX_LEVEL_NAME[fxLevel()]()}`),
-      () => {
-        const next = FX_LEVELS[(FX_LEVELS.indexOf(fxLevel()) + 1) % FX_LEVELS.length];
-        setFxLevel(next);
-        toast(t(`演出：${FX_LEVEL_NAME[next]()}（${FX_LEVEL_NOTE[next]()}）`, `Effects: ${FX_LEVEL_NAME[next]()} (${FX_LEVEL_NOTE[next]()})`));
-        if (next !== 'off') fxAtEl('collect-burst', root.querySelector('.isl-sheet-body .isl-btn.is-fxlevel'), { palette: FX_PAL.gold, dy: 30 });
-      },
-      'is-fxlevel',
-    ],
-    ...(tutOf(s) < TUT_DONE
-      ? [
-          [
-            t('チュートリアルを終える', 'End the tutorial'),
-            () => {
-              s.tut = TUT_DONE;
-              save();
-            },
-          ] as [string, () => void],
-        ]
-      : []),
-  ], (body) => ux.settings?.(body));
+  // 段 UIX4r：スイッチ・つまみの設定の札（段 UIX5a で、前のキーの列の札は外した）
+  return openSettingsUx();
 }
 
-/** 段 UIX4r：入のときの設定の札（今のキーの列と同じ項目・同じ押した先。字の切り替えの代わりにスイッチ・つまみ・選びのキー） */
+/** 段 UIX4r：設定の札（段 UIX5a まであった前のキーの列と同じ項目・同じ押した先。字の切り替えの代わりにスイッチ・つまみ・選びのキー） */
 function openSettingsUx() {
   const done = () => renderAll();
   const crowd = (k: string) => {
@@ -4007,45 +3770,6 @@ function openPace() {
         ];
       }),
   );
-}
-
-/**
- * 段 UIX1s：入のときの音の欄。押すたびに次の段へ（0 → 2 → 4 → 6 → 8 → 10 → 0）。
- * はじめの値は見本と同じ（BGM 7・効果音 8）。古い設定で消していたら 0 から
- */
-function uxVolRows(): [string, () => void, string?][] {
-  const v = uxVol();
-  const meter = (n: number) => '■'.repeat(Math.ceil(n / 2)) + '□'.repeat(5 - Math.ceil(n / 2));
-  return [
-    [
-      t(`BGM の音量：${meter(v.bgm)} ${v.bgm}/10`, `Music volume: ${meter(v.bgm)} ${v.bgm}/10`),
-      () => {
-        const n = nextStep(v.bgm);
-        uxSetVol({ bgm: n });
-        uxSfx('slide', { step: n });
-      },
-      'is-uxs-bgm',
-    ],
-    [
-      t(`効果音の音量：${meter(v.se)} ${v.se}/10`, `Sound effects volume: ${meter(v.se)} ${v.se}/10`),
-      () => {
-        const n = nextStep(v.se);
-        uxSetVol({ se: n });
-        // 大きさが分かるように、つまみの音と入金の音を鳴らす（見本と同じ）
-        uxSfx('slide', { step: n });
-        uxSfx('deposit');
-      },
-      'is-uxs-se',
-    ],
-    [
-      v.mute ? t('消音：入（押すと鳴らす）', 'Muted (tap to unmute)') : t('消音：切（押すと消す）', 'Sound on (tap to mute)'),
-      () => {
-        uxSetVol({ mute: !v.mute });
-        uxSfx('toggle', { step: v.mute ? 1 : 0 });
-      },
-      'is-uxs-mute',
-    ],
-  ];
 }
 
 function openSaveMenu() {
@@ -4351,7 +4075,7 @@ function badgeEl(b: SectorBadge, mini: boolean): HTMLElement {
   el.append(row);
   if (!mini && b.lastRev != null && !gray) el.append(h('small', 'isl-wbadge-rev', t(`先月 ${money(b.lastRev)}`, `Last month ${money(b.lastRev)}`)));
   el.addEventListener('click', () => badgeClick(b));
-  // 段 UIX3w：入のときは、絵文字をドットの絵に（見た目は CSS の着せ替え）
+  // 段 UIX3w：絵文字をドットの絵に（見た目は CSS の着せ替え）
   uxw.deco?.(el, 'badge');
   return el;
 }
@@ -4390,7 +4114,7 @@ function openSectorCard(id: string) {
   const st = s.land ? sectorState(s.land, id) : 'cloud';
   const adv = advanceOf(s, id);
   const facts = sectorFacts(id);
-  // 段 UIX3w：入のときは、管制卓の窓へ（中身と進出の動きは同じ。切のときは今の窓）
+  // 段 UIX3w：管制卓の窓へ（中身と進出の動きは同じ）
   if (uxw.sectorCard) {
     sfx.play('page');
     return uxw.sectorCard({
@@ -4406,55 +4130,6 @@ function openSectorCard(id: string) {
       go: () => advanceGo(adv.k, { go: () => goSector(id), move: () => startMove(ctx, id), rankup: () => openRankUp(ctx, id) }),
     });
   }
-  const m = h('div', 'isl-modal isl-bulk isl-sectm');
-  ux.modal?.(m, 'sectm');
-  m.dataset.sector = id;
-  const p = h('div', 'isl-bulk-panel isl-sectm-panel');
-  p.style.setProperty('--tc', TIERS[d.tier].color);
-  const who = h('div', 'isl-sectm-who');
-  who.append(h('div', 'isl-sectm-face', d.tier));
-  const idb = h('div', 'isl-sectm-id');
-  idb.append(h('span', 'isl-sectm-role', t('🗺 となりの町', '🗺 Next town')), h('b', 'isl-sectm-name', st === 'cloud' ? '???' : d.name), h('small', '', tierLabel(d.tier)));
-  who.append(idb);
-  p.append(who);
-  if (st !== 'cloud') {
-    if (d.profile.tag) p.append(h('p', 'isl-sectm-tag', d.profile.tag));
-    p.append(h('small', 'isl-sectm-note', TIER_NOTE[d.tier]));
-    const fx = h('div', 'isl-sectm-facts');
-    fx.append(h('span', '', t(`🏪 他社 ${facts.rivals} 社`, `🏪 ${facts.rivals} rivals`)));
-    if (facts.hot.length) {
-      const hot = h('span', 'isl-sectm-hot', t('🔥 需要の多い商品：', '🔥 In demand: '));
-      for (const k of facts.hot) hot.append(skuIcon(`${k}:C` as SkuT, 24), h('span', '', PRODUCT[k]?.name ?? k));
-      fx.append(hot);
-    }
-    if (adv.fee > 0 && adv.k !== 'go') fx.append(h('span', '', t(`💴 入国料 ${money(adv.fee)}`, `💴 Permit ${money(adv.fee)}`)));
-    p.append(fx);
-  }
-  const close = () => m.remove();
-  const row = h('div', 'isl-bulk-btns');
-  const why =
-    adv.k === 'short'
-      ? t(`資金が足りません（あと ${money(adv.short)}）`, `Not enough funds (${money(adv.short)} short)`)
-      : adv.k === 'letter'
-        ? letterLockOf(s, id)
-        : adv.k === 'locked'
-          ? `🔒 ${needLine(s, d) ?? ''}`
-          : '';
-  const label = adv.k === 'go' ? t(`${d.name}へ移動`, `Go to ${d.name}`) : adv.k === 'rankup' ? t('進出する（災害と徴収あり）…', 'Expand (disaster & levy)…') : t(`進出する（入国料 ${money(adv.fee)}）`, `Expand (permit ${money(adv.fee)})`);
-  const go = btn(label, () => {
-    close();
-    advanceGo(adv.k, { go: () => goSector(id), move: () => startMove(ctx, id), rankup: () => openRankUp(ctx, id) });
-  }, adv.k === 'go' || adv.k === 'move' || adv.k === 'rankup' ? 'is-on' : '');
-  go.disabled = !(adv.k === 'go' || adv.k === 'move' || adv.k === 'rankup');
-  row.append(go, btn(t('閉じる', 'Close'), close));
-  if (why) p.append(h('small', 'isl-bad isl-sectm-why', why));
-  p.append(row);
-  m.addEventListener('click', (e) => {
-    if (e.target === m) close();
-  });
-  m.append(p);
-  root.append(m);
-  sfx.play('page');
 }
 
 /** 浮く札を作り直し（中身が変わったときだけ）、カメラに合わせて動かす */
@@ -5635,9 +5310,8 @@ function clearModal() {
   s.flags.clearSeen = true;
   save();
   const acts: UxwAct[] = [[t('関所を見る', 'View the gate'), () => ((speed = 1), showGate(), renderHud()), 'is-on'], [t('続ける', 'Keep going'), () => ((speed = 1), renderHud())]];
-  // 段 UIX3w：入のときは、管制卓のお祝いの札（中身は同じ）
-  if (uxw.cheer) return uxw.cheer({ host: root, kind: 'clear', title: t('フェーズ 1 クリア！', 'Phase 1 cleared!'), say: CLEAR_LINE(gateToll(s)), actions: acts });
-  modal(t('フェーズ 1 クリア！', 'Phase 1 cleared!'), plain(CLEAR_LINE(gateToll(s))), acts, true);
+  // 段 UIX3w：管制卓のお祝いの札（中身は同じ）
+  return uxw.cheer!({ host: root, kind: 'clear', title: t('フェーズ 1 クリア！', 'Phase 1 cleared!'), say: CLEAR_LINE(gateToll(s)), actions: acts });
 }
 
 /**
@@ -5691,7 +5365,7 @@ function frame(now: number) {
     advance(1);
   }
   if (moneyAnim) {
-    // 段 UIX1s：数字が回るあいだの「チチチ」（入のときだけ鳴る）
+    // 段 UIX1s：数字が回るあいだの「チチチ」
     uxSfx('tick');
     const k = Math.min(1, (now - moneyAnim.t0) / 700);
     shownMoney = moneyAnim.from + (moneyAnim.to - moneyAnim.from) * (1 - (1 - k) ** 2);
@@ -5748,8 +5422,8 @@ function frame(now: number) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-// 段 UIX2m：入のときだけ、上と下の帯・建物の吹き出しを新しい画面（方向 C）に入れ替える（切のときは読まない）
-if (uxOn()) void import('../uix/screens/mapui').then((m) => m.installMapUi({ s: () => s, root, hud, foot, pop: popEl, news: ticker.el, cam, size: () => ({ W, H }), unpaid: () => tourUnpaid, speed: () => speed, frac: () => anim.frac, hudBottom: newsBottom, sel: () => (selected != null ? (s.buildings.find((b) => b.uid === selected) ?? null) : null), popAt: () => pop, popSector: () => !!popSector, refresh: renderAll, api: { DAYS, date, daysToClose, monthRevenue, moveCost, chipOf, activeFx, sectorDef, tierLabel, tierColor: (tier) => TIERS[tier].color } }));
+// 段 UIX2m：上と下の帯・建物の吹き出しを新しい画面（方向 C）に入れ替える
+void import('../uix/screens/mapui').then((m) => m.installMapUi({ s: () => s, root, hud, foot, pop: popEl, news: ticker.el, cam, size: () => ({ W, H }), unpaid: () => tourUnpaid, speed: () => speed, frac: () => anim.frac, hudBottom: newsBottom, sel: () => (selected != null ? (s.buildings.find((b) => b.uid === selected) ?? null) : null), popAt: () => pop, popSector: () => !!popSector, refresh: renderAll, api: { DAYS, date, daysToClose, monthRevenue, moveCost, chipOf, activeFx, sectorDef, tierLabel, tierColor: (tier) => TIERS[tier].color } }));
 // ドット絵のエフェクトを暇なときに温めておく（初めて鳴らしたときに引っかからないように）
 window.setTimeout(() => warmFx(), 3000);
 

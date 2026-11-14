@@ -7,7 +7,7 @@
  * 決まりは docs/ISLAND_UX_CHARTER.md「2-7. 数字の報告は、文字よりグラフ」と「2-8. 段 UI8 の棚卸し」。表示だけ（ゲームの数字・自動プレイには効かない）。
  */
 import { t } from '../../i18n';
-import { CS, DEPT, MORALE, PRODUCT, type DeptId } from './data';
+import { DEPT, PRODUCT, type DeptId } from './data';
 import { pl, quarters, type Balance, type Books, type Ledger, type SectorRec } from './company';
 import type { P1State, Rank, Report } from './model';
 
@@ -203,15 +203,6 @@ export function satHist(rs: Report[], n = 12): { month: number; v: number }[] {
     .slice(-n)
     .map((r) => ({ month: r.month, v: r.cs!.sat }));
 }
-/** 帯の基準線（士気：速くなる・遅くなる。満足度：ブランド力 +1・−1） */
-export const MORALE_REFS = () => [
-  { v: MORALE.band.hi, label: t(`${MORALE.band.hi} 速くなる`, `${MORALE.band.hi} faster`), cls: 'is-hi' },
-  { v: MORALE.band.lo, label: t(`${MORALE.band.lo} 遅くなる`, `${MORALE.band.lo} slower`), cls: 'is-lo' },
-];
-export const SAT_REFS = () => [
-  { v: CS.brandHi, label: t(`${CS.brandHi} ブランド +1`, `${CS.brandHi} brand +1`), cls: 'is-hi' },
-  { v: CS.brandLo, label: t(`${CS.brandLo} ブランド −1`, `${CS.brandLo} brand −1`), cls: 'is-lo' },
-];
 
 /** 部門 × 月のヒートマップ：使った ÷ 月の予算（%）。予算の記録（Report.budget）のある月だけ */
 export interface Heat {

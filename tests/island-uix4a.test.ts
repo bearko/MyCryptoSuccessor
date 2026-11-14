@@ -122,12 +122,12 @@ describe('絵文字 → ドットの絵：表は 1 つ（EMOJI_DOT）', () => {
 });
 
 describe('まとめた画面（openTogether）と下に貼りつく帯', () => {
-  it('入のときは、部分の箱を先に画面へ入れてから描く（「画面に入っていなければ描かない」画面が空にならない）。切のときは今のまま', () => {
+  it('部分の箱を先に画面へ入れてから描く（「画面に入っていなければ描かない」画面が空にならない。段 UIX5a から、いつも）', () => {
     const s = src('src/island/p1/screens.ts');
     const fn = /export function openTogether[\s\S]*?\n\}/.exec(s)?.[0] ?? '';
-    expect(fn).toMatch(/const live = document\.documentElement\.classList\.contains\('is-uxc'\);/);
-    expect(fn).toMatch(/if \(live\) body\.append\(sec\);\s*p\.render\(sec\);/);
-    expect(fn).toMatch(/if \(!live\) body\.append\(jump, \.\.\.secs\);/);
+    expect(fn).not.toContain("classList.contains('is-uxc')");
+    expect(fn).toMatch(/body\.append\(jump\);/);
+    expect(fn).toMatch(/body\.append\(sec\);\s*p\.render\(sec\);/);
   });
   it('まとめた画面の中では、決めるキーの帯（uxpFoot）は貼りつかせず、節の終わりに置く', () => {
     expect(noComment(src('src/island/uix/sparts.css'))).toMatch(/html\.is-uxc \.isl-together \.uxp-foot \{\s*position: relative;\s*bottom: auto;/);

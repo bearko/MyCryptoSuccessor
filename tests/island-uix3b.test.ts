@@ -58,8 +58,8 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
     for (const [, k] of ENTRIES) expect(boot, k).toContain(`uxb.${k} = `);
     expect(boot).toContain('uxb.together = ');
   });
-  it('入口：どの画面も、差し込み口が入っているときだけ新しい画面へ渡す（関数の頭の 1 行）。切のときの中身は今のまま', () => {
-    for (const [f, k] of ENTRIES) expect(src(f), `${f}: ${k}`).toMatch(new RegExp(`if \\(uxb\\.${k}\\) return uxb\\.${k}\\(`));
+  it('入口：どの画面も、差し込み口の新しい画面へ渡すだけ（段 UIX5a で、切のときだけ通っていた今の中身は外した）', () => {
+    for (const [f, k] of ENTRIES) expect(src(f), `${f}: ${k}`).toMatch(new RegExp(`return uxb\\.${k}!\\([^\\n]*\\);\\n\\}`));
     expect(src('p1/screens.ts')).toContain('uxb.together?.(body, focus);');
     // 本体から新しい画面を直接読んでいる所は無い（読んでよいのは、空の差し込み口だけ）
     for (const f of ['p1/screens.ts', 'p1/scm.ts', 'p1/sales.ts', 'p1/csui.ts', 'p1/tradeui.ts', 'p1/tariffui.ts', 'p1/stockui.ts', 'p1/uxb.ts']) expect(src(f), f).not.toMatch(/from '\.\.\/uix\/screens\/(?![a-z]-slots')/);
@@ -117,11 +117,8 @@ describe('主役のキーは前の層・動きを減らす', () => {
 describe('在庫と倉庫の引き出し（在庫を優先して売りさばく・棚が 1 段のお店・ランクアップ）', () => {
   const ST = src('uix/screens/stock.ts');
   const STOCKUI = src('p1/stockui.ts');
-  it('押した先の処理は、今の画面と同じ関数（clearChoose・shelfOpts・rankDev）。切のときの選択肢の目印は今のまま', () => {
-    expect(STOCKUI).toContain("clearChoose(ctx, uid, hero, cut, done);");
-    expect(STOCKUI).toContain('const opts = shelfOpts(s, plan, gate, mainNm);');
-    expect(STOCKUI).toContain('rankDev(ctx, r, finish);');
-    expect(STOCKUI).toContain("h('button', `isl-clear-opt ");
+  it('押した先の処理は、今の画面と同じ関数（clearChoose・shelfOpts・rankDev）', () => {
+    for (const f of ['export function clearChoose(', 'export function shelfOpts(', 'export function rankDev(']) expect(STOCKUI, f).toContain(f);
     expect(ST).toContain('B.clearChoose(ctx, uid, hero, r.cut, done)');
     expect(ST).toContain('B.shelfOpts(s, plan, gate, mainNm)');
     expect(ST).toContain('B.rankDev(ctx, r!');

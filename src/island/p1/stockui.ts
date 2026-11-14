@@ -4,15 +4,14 @@
  * 仕様は docs/ISLAND_PHASE1.md「在庫の売りさばき（段 UI5c）」。
  */
 import { t } from '../../i18n';
-import { CLEAR, UNCOMMON, skuPrice, type Sku } from './data';
+import { type Sku } from './data';
 import { DEF } from '../defs';
-import { FX_PAL, fxAtEl } from '../fx/layer';
 import { develop, sellNow, staffOf, type P1State } from './model';
 import { afterOf, applyPlan, manualPlan, type Plan } from './plan';
-import { clearInfo, clearUnits, cutName, gatePlan, growBlock, rankUp, shelfGate, storeFull, upPrice, type OneShelf, type RankUp, type ShelfPick } from './stock';
-import { drawer, pickExt } from './heroui';
+import { clearInfo, clearUnits, cutName, gatePlan, growBlock, shelfGate, type OneShelf, type RankUp, type ShelfPick } from './stock';
+import { pickExt } from './heroui';
 import { after, chooseMake, type Ctx } from './screens';
-import { btn, h, heroName, money, recLine, skuIcon, skuName } from './ui';
+import { heroName, money, skuName } from './ui';
 import { uxb } from '../uix/screens/b-slots';
 
 // ---------------------------------------------------------------- 在庫を優先して売りさばく（お店の方針）
@@ -29,42 +28,8 @@ export function clearOutlook(s: P1State, uid: number, cut: number | null): { uni
  * 選ぶとすぐそのお店の方針に（applyPlan）。在庫品のアイコンと数を上に
  */
 export function pickClear(ctx: Ctx, uid: number, hero: number | null, done: () => void) {
-  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/stock.ts）
-  if (uxb.clear) return uxb.clear(ctx, uid, hero, done);
-  const s = ctx.s();
-  const sh = s.shops[uid];
-  if (!sh) return;
-  const info = clearInfo(s);
-  drawer(ctx.root, t('在庫を優先して売りさばく', 'Clear stock first'), t('売れ残り・発掘で出た品・いまの素材で使い切りに作った品を、作っている商品より先に棚へ並べます。値引きは在庫品だけ（そのぶん目に留まって売れやすく、1 個あたりの売上は下がります）。', 'Puts leftovers, dug-up goods and use-it-up batches on the shelves before what you make. The discount is on stock items only (they sell faster, at less per piece).'), (body, close) => {
-    const top = h('div', 'isl-clear-top');
-    top.append(h('b', '', t(`倉庫 ${Math.round(info.rate * 100)}%（${info.used} / ${info.cap} 個：素材 ${info.mats}・商品 ${info.goods}）`, `Storage ${Math.round(info.rate * 100)}% (${info.used} / ${info.cap}: ${info.mats} materials, ${info.goods} goods)`)));
-    const chips = h('div', 'isl-clear-items');
-    if (!info.items.length) chips.append(h('small', 'isl-dim', t('いま売りさばく在庫品はありません（作っている商品だけ）', 'No stock items to clear right now')));
-    for (const y of info.items.slice(0, 8)) {
-      const c = h('span', 'isl-chip');
-      c.append(skuIcon(y.x, 26), h('span', '', `${skuName(y.x)} ×${y.n}`));
-      chips.append(c);
-    }
-    top.append(chips);
-    body.append(top);
-    const opts: (number | null)[] = [null, ...CLEAR.cuts.map((_, k) => k)];
-    for (const cut of opts) {
-      const on = (sh.clear ?? null) === cut;
-      const o = info.items.length ? clearOutlook(s, uid, cut) : { units: 0, sales: 0 };
-      const b = h('button', `isl-clear-opt ${on ? 'is-on' : ''} ${cut === CLEAR.def && sh.clear == null && storeFull(s) ? 'is-rec' : ''}`);
-      b.type = 'button';
-      b.dataset.cut = cut == null ? 'off' : String(cut);
-      const name = cut == null ? t('オフ（作っている商品から並べる）', 'Off (what we make goes first)') : t(`オン：${cutName(cut)}`, `On: ${cutName(cut)}`);
-      const sub = cut == null ? t('いまのまま', 'As now') : [t(`在庫品 月 ${Math.round(o.units)} 個ほど売れていく`, `~${Math.round(o.units)} stock items sell a month`), t(`売上 ${o.sales >= 0 ? '+' : '−'}${money(Math.abs(o.sales))}／月`, `Sales ${o.sales >= 0 ? '+' : '−'}${money(Math.abs(o.sales))}/mo`)].join(t('・', ' · '));
-      b.append(recLine(name + (on ? t('（いま）', ' (now)') : ''), cut === CLEAR.def && sh.clear == null && storeFull(s)), h('small', '', sub));
-      b.addEventListener('click', () => {
-        close();
-        if (on) return;
-        clearChoose(ctx, uid, hero, cut, done);
-      });
-      body.append(b);
-    }
-  });
+  // 段 UIX3b：新しい画面（uix/screens/stock.ts）
+  return uxb.clear!(ctx, uid, hero, done);
 }
 /** 売りさばきの段を選んだあと（選んだ段がいまの方針と違うとき）：お店の方針に入れる。棚が 1 段のお店は 3 択の窓へ（段 UIX3b：新しい画面と共通） */
 export function clearChoose(ctx: Ctx, uid: number, hero: number | null, cut: number | null, done: () => void) {
@@ -155,46 +120,8 @@ export function shelfOpts(s: P1State, plan: Plan, gate: OneShelf[], mainNm: stri
  * 選ぶと go(作り直した plan, 選んだもの)。✕・外を押したら何もしない
  */
 export function openShelfChoice(ctx: Ctx, plan: Plan, gate: OneShelf[], go: (p: Plan | null, pick: ShelfPick) => void) {
-  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/stock.ts）
-  if (uxb.shelfChoice) return uxb.shelfChoice(ctx, plan, gate, go);
-  const s = ctx.s();
-  const info = clearInfo(s);
-  const { names, mainNm } = shelfNames(s, gate);
-  drawer(ctx.root, t('棚が 1 段のお店です', 'This shop has one shelf'), t(`${names}の棚は 1 段だけです。在庫品を先に並べると、主力の${mainNm}が棚から外れます。`, `${names} has a single shelf. Putting stock items first takes ${mainNm} (the main item) off it.`), (body, close) => {
-    body.parentElement?.classList.add('isl-gate');
-    const top = h('div', 'isl-gate-top');
-    const row = h('div', 'isl-clear-items');
-    for (const x of gate) {
-      if (!x.main) continue;
-      const c = h('span', 'isl-chip is-main');
-      c.append(skuIcon(x.main, 26), h('span', '', t(`主力：${skuName(x.main)}`, `Main: ${skuName(x.main)}`)));
-      row.append(c);
-    }
-    for (const y of info.items.slice(0, 5)) {
-      const c = h('span', 'isl-chip');
-      c.append(skuIcon(y.x, 26), h('span', '', `${skuName(y.x)} ×${y.n}`));
-      row.append(c);
-    }
-    top.append(row);
-    body.append(top);
-    const opts = shelfOpts(s, plan, gate, mainNm);
-    for (const o of opts) {
-      const b = h('button', `isl-clear-opt isl-gate-opt ${o.rec ? 'is-rec' : ''}`);
-      b.type = 'button';
-      b.dataset.pick = o.pick;
-      b.disabled = !!o.off;
-      b.append(recLine(o.name, o.rec), h('small', '', o.sub));
-      if (o.off) b.append(h('small', 'isl-bad isl-gate-why', o.off));
-      b.addEventListener('click', () => {
-        if (o.off) return;
-        // 棚を拡張する：小さな手応え（効果の層。1 秒に 1 つまで）
-        if (o.pick === 'grow') fxAtEl('collect-burst', b, { palette: FX_PAL.gold, dy: 30, thin: 'shelf-gate' });
-        close();
-        go(o.plan(), o.pick);
-      });
-      body.append(b);
-    }
-  });
+  // 段 UIX3b：新しい画面（uix/screens/stock.ts）
+  return uxb.shelfChoice!(ctx, plan, gate, go);
 }
 
 // ---------------------------------------------------------------- ランクアップ（Common → Uncommon）
@@ -204,54 +131,8 @@ export function openShelfChoice(ctx: Ctx, plan: Plan, gate: OneShelf[], go: (p: 
  * （スキルツリーで魔法の釜を見る・開発を始める・アンコモンを作る）。できない理由は 1 行で
  */
 export function openRankUp(ctx: Ctx, x: Sku, worker: number | null, onMake: (u: Sku) => void, closeParent?: () => void) {
-  // 段 UIX3b：新しい画面（入のときだけ。uix/screens/stock.ts）
-  if (uxb.rankUp) return uxb.rankUp(ctx, x, worker, onMake, closeParent);
-  const s = ctx.s();
-  const r = rankUp(s, x, worker);
-  if (!r) return;
-  drawer(ctx.root, t(`⬆ ランクアップ：${skuName(r.from)} → ${skuName(r.to)}`, `⬆ Rank up: ${skuName(r.from)} → ${skuName(r.to)}`), '', (body, close) => {
-    const head = h('div', 'isl-rank-head');
-    head.append(skuIcon(r.from, 44), h('span', 'isl-rank-arrow', '→'), skuIcon(r.to, 52));
-    const p = h('div');
-    p.append(h('b', '', `${money(skuPrice(r.from))} → ${money(upPrice(r.from))}`), h('small', 'isl-dim', t(`アンコモン：値段 ${UNCOMMON.price} 倍・売り場の強さ ${UNCOMMON.pull} 倍`, `Uncommon: ${UNCOMMON.price}× price, ${UNCOMMON.pull}× pull`)));
-    head.append(p);
-    body.append(head);
-    const ul = h('ul', 'isl-rank-needs');
-    for (const n of r.needs) {
-      const li = h('li', n.ok ? 'is-ok' : 'is-ng');
-      li.append(h('b', '', n.ok ? '✓' : '✕'), h('span', '', n.label), h('small', '', n.now ?? ''));
-      ul.append(li);
-    }
-    body.append(ul);
-    if (r.why) body.append(h('p', 'isl-bad isl-rank-why', r.why));
-    const row = h('div', 'isl-row isl-rank-acts');
-    const finish = () => {
-      close();
-      closeParent?.();
-    };
-    if (r.next === 'pot')
-      row.append(
-        btn(t('スキルツリーで見る', 'Open the skill tree'), () => {
-          finish();
-          ctx.skills?.('pot');
-        }, 'is-on'),
-      );
-    else if (r.next === 'dev')
-      row.append(
-        btn(t(`開発を始める（${money(r.cost)}・${r.days} 日）`, `Start development (${money(r.cost)}, ${r.days} d)`), () => {
-          rankDev(ctx, r, finish);
-        }, 'is-on'),
-      );
-    else if (r.next === 'make')
-      row.append(
-        btn(t(`${skuName(r.to)}を作る`, `Make ${skuName(r.to)}`), () => {
-          finish();
-          onMake(r.to);
-        }, 'is-on'),
-      );
-    row.append(btn(t('閉じる', 'Close'), close));
-    body.append(row);
-  });
+  // 段 UIX3b：新しい画面（uix/screens/stock.ts）
+  return uxb.rankUp!(ctx, x, worker, onMake, closeParent);
 }
 
 /** ランクアップの開発を始める（段 UIX3b：新しい画面と共通）。始められたら finish（閉じる）→ 描き直し。始められなければ false */

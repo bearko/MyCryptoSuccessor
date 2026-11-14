@@ -4,24 +4,20 @@
  */
 import { t } from '../../i18n';
 import { assetUrl } from '../../render/images';
-import { BRAND, BRAND_CAP, DIG_SITES, MANAGER, RESET, RIVAL_TUNE, SECTORS, SKILLS, TIERS, aptitude, fundsOf, grantOf, type SectorDef } from './data';
-import { costCard } from './acctui';
+import { BRAND, BRAND_CAP, SECTORS, SKILLS, type SectorDef } from './data';
 import { gradeName, gradeNext, gradeOf } from './mkt';
 import { flameCard } from './csui';
-import { quarterNow } from './acct';
-import { CAPITAL, TIER_NAME, brandCap, brandPull, topTierOf, delegateCostOf, emptyLedger, managerRate, pl, quarters, revivePerMonth, RUIN, sectorDef, sectorState, sumLedger, tierLabel, type Balance, type Ledger, type RuinLike, type SectorState } from './company';
-import { crowned, letterLockOf, hasBusiness, lastRank, letterLocked, moveTo, recOf, type MoveErr } from './land';
-import { antiquesHeld, delegate, delegateLock, fundShort, rankUpTier, reviveView } from './reset';
-import { balance, clearGoal, clearWaiting, date, lvMul, setSectorHead, staffOf, type P1State } from './model';
+import { TIER_NAME, brandCap, brandPull, topTierOf, sectorDef, sectorState, tierLabel, type SectorState } from './company';
+import { letterLockOf, hasBusiness, moveTo, type MoveErr } from './land';
+import { reviveView } from './reset';
+import { date, lvMul, type P1State } from './model';
 import { sectorHeadOk } from './deleg';
-import { clearCondText } from './digmeet';
-import { pickHero, rankEl } from './heroui';
+import { pickHero } from './heroui';
 import { adjacent } from './world';
-import { after, open, type Ctx } from './screens';
-import { btn, h, heroIcon, heroName, money, rich, signed } from './ui';
-import { DONATE_LINE } from './mine';
-import { arw, cvBox, donutEl, fallEl, fallLegend, histBox, shortN, trendEl, trendLegend, vbarsEl, type TSer } from './chartkit';
-import { brandHist, bsParts, plFall, quarterTrend, sectorBars, sectorHist } from './dash';
+import { open, type Ctx } from './screens';
+import { h, heroName, money, signed } from './ui';
+import { arw, histBox, type TSer } from './chartkit';
+import { brandHist } from './dash';
 import { uxw } from '../uix/screens/w-slots';
 import { uxk } from '../uix/screens/k-slots';
 import { uxr } from '../uix/screens/r-slots';
@@ -57,8 +53,6 @@ export const TIER_NOTE: Record<SectorDef['tier'], string> = {
   E: t('Rare よりさらに大きな商売敵が店を並べる大きな市場（商圏の取り合いもある）。Epic の復刻品と、ダンジョンで掘ってきた骨董がよく売れる。法務の部門が開き、他社を M&A で買収できる町。', 'A big market where even larger rivals line up their stores (trade areas too). Epic revivals and antiques from your dungeon digs sell well. The Legal department opens, and you can acquire rivals through M&A.'),
   L: t('ブランド力で売る総力戦。街そのものを作り変える（準備中）。', 'A brand-power showdown where you reshape the city (coming soon).'),
 };
-
-let sel: string | null = null;
 
 export const stateText = (s: P1State, d: SectorDef, st: SectorState): string => {
   switch (st) {
@@ -114,12 +108,11 @@ export function startMove(ctx: Ctx, target: string) {
       ctx.sfx?.('error');
       return;
     }
-    sel = null;
     ctx.save();
     ctx.moved?.(target, fresh, hero);
     const opened = gated.filter((id) => sectorState(s.land!, id) !== 'locked');
-    // 段 UIX3w：入のときは、管制卓のお知らせの帯で出す（文は同じ。切のときは今のトースト）
-    const road = (text: string) => (uxw.road ? uxw.road({ host: ctx.root, text, names: opened.map((id) => sectorDef(id).name) }) : ctx.toast(text));
+    // 段 UIX3w：管制卓のお知らせの帯で出す（文は同じ）
+    const road = (text: string) => uxw.road!({ host: ctx.root, text, names: opened.map((id) => sectorDef(id).name) });
     if (opened.length === 1) road(t(`${sectorDef(opened[0]).name}への道が開いた！（遊びは次の更新で）`, `The road to ${sectorDef(opened[0]).name} is open! (Playable in a future update)`));
     else if (opened.length) {
       const tier = tierLabel(sectorDef(opened[0]).tier);
@@ -161,567 +154,36 @@ export function reviveLine(rv: NonNullable<ReturnType<typeof reviveView>>): stri
  * 進出すると、いまのセクタのマネージャーを選んで（いまの流れ）、災害と徴収の演出（disaster.ts）へ
  */
 export function openRankUp(ctx: Ctx, target: string) {
-  // 段 UIX3w：入のときは、管制卓の画面へ（切のときは今の画面）
-  if (uxw.rankUp) return uxw.rankUp(ctx, target);
-  const d = sectorDef(target);
-  open(ctx, t(`${TIER_NAME[d.tier]} への進出`, `Expanding into ${TIER_NAME[d.tier]}`), (body) => {
-    const s = ctx.s();
-    body.classList.add('isl-rankup');
-    const head = h('div', 'isl-rankup-head');
-    const big = h('img', 'isl-land-dico');
-    big.src = sectorIcon(d.tier);
-    big.alt = '';
-    // 2 回目からは「2 回目の」（Rare の町 ①：Uncommon → Rare）
-    const nth = (s.resets?.length ?? 0) + 1;
-    head.append(
-      big,
-      h(
-        'b',
-        '',
-        nth > 1
-          ? t(`${TIER_NAME[d.tier]} へ進出すると、ランドの復興のため ${nth} 回目の大きな災害と徴収が起きます`, `Expanding into ${TIER_NAME[d.tier]} brings great disaster no. ${nth} and a levy for the land’s recovery`)
-          : t(`${TIER_NAME[d.tier]} へ進出すると、ランドの復興のため大きな災害と徴収が起きます`, `Expanding into ${TIER_NAME[d.tier]} brings a great disaster and a levy for the land’s recovery`),
-      ),
-    );
-    body.append(head);
-    const cols = h('div', 'isl-rankup-cols');
-    const lose = h('div', 'isl-card2 isl-rankup-lose');
-    lose.append(h('h3', '', t('失うもの', 'You lose')));
-    const ul1 = h('ul');
-    for (const x of [
-      t(`所持金（全部。いま ${money(Math.max(0, Math.round(s.money)))}）`, `All funds (now ${money(Math.max(0, Math.round(s.money)))})`),
-      t('すべてのセクタの建物（お店・工房・倉庫・展示館など。中の在庫・素材も）', 'Buildings in every sector (shops, workshops, warehouses, museum… with their stock and materials)'),
-      t('お金で開けたパネル（菱形）', 'Panels bought with funds (diamonds)'),
-      t('設備投資・アルバイト', 'Upgrades and part-timers'),
-    ])
-      ul1.append(h('li', '', x));
-    lose.append(ul1);
-    const keep = h('div', 'isl-card2 isl-rankup-keep');
-    keep.append(h('h3', '', t('残るもの', 'You keep')));
-    const ul2 = h('ul');
-    for (const x of [
-      t(`研究ポイント（いま ${Math.round(s.rp ?? 0).toLocaleString('en-US')} RP）`, `Research points (now ${Math.round(s.rp ?? 0).toLocaleString('en-US')} RP)`),
-      t('RP で開けたパネル（研究パネル・無限パネル）', 'Panels opened with RP (research and ∞ panels)'),
-      t('ヒーロー（能力値も）', 'Heroes (and their stats)'),
-      t('研究ノートと研究 Lv・復刻品のレシピ', 'Research notes, research Lv and revival recipes'),
-      t('制覇とエンブレム・ブランド力・調査依頼状', 'Conquests, emblems, brand and survey requests'),
-      t('ダンジョンの最深記録・研究への寄付の回数', 'Deepest dungeon record and donation count'),
-    ])
-      ul2.append(h('li', '', x));
-    // 段 H1：行き先のランクで骨董として売れる復刻品は、倉庫ごと新しい町へ運ぶ（災害で失わない）
-    const ant = antiquesHeld(s, d.tier);
-    if (ant.n > 0) ul2.append(h('li', 'isl-good', t(`倉庫の骨董 ${ant.n} 個（${ant.kinds} 種）：新しい町の倉庫へ運ぶ。${TIER_NAME[d.tier]} の町でそのまま並べられる`, `${ant.n} antiques in storage (${ant.kinds} kinds): moved to the new town’s storage, ready for ${TIER_NAME[d.tier]}-town shelves`)));
-    else if (d.tier === 'E') ul2.append(h('li', 'isl-dim', t('骨董（ダンジョンの Rare 以上の復刻品）は、作って倉庫に置いておけば失わずに運べる（いまは 0 個）', 'Antiques (revivals of dungeon Rare-and-up relics) kept in storage come along safely (none now)')));
-    keep.append(ul2);
-    cols.append(lose, keep);
-    body.append(cols);
-    const n = (s.land?.mine ?? []).length;
-    const tiers = [...new Set((s.land?.mine ?? []).map((x) => TIER_NAME[sectorDef(x).tier]))].join(t('・', ', '));
-    body.append(h('p', 'isl-dim', t(`新しい町は、ランドからの復興の支度金 ${money(grantOf(d.tier))} で始めます。被災するのは、いままで出店した ${n} つの町すべて（${tiers}）。被災した町は、手で直すか、ヒーローに復興を任せられます。出店許可申請の費用はかかりません。`, `You start the new town with a ${money(grantOf(d.tier))} recovery grant from the land. All ${n} towns you have opened (${tiers}) are hit. Ruined towns can be repaired by hand or left to a hero. No permit fee.`)));
-    // マインちゃんの一言
-    const say = h('div', 'isl-rankup-say');
-    const mi = h('img', 'isl-dock-mine');
-    mi.src = assetUrl('mch/Image/Characters/navi_ain_speak_00_talk.png');
-    mi.alt = '';
-    const p = h('p');
-    // 段 UI2：1 行・30 字まで
-    p.append(rich(DONATE_LINE()));
-    say.append(mi, p, btn(t('寄付パネルを開く', 'Open the donation panel'), () => ctx.skills?.('dig_donate')));
-    body.append(say);
-    const row = h('div', 'isl-row isl-rankup-acts');
-    row.append(
-      btn(t('進出する', 'Expand'), () => startMove(ctx, target), 'is-on is-danger'),
-      btn(t('まだやめておく', 'Not yet'), () => openLand(ctx)),
-    );
-    body.append(row);
-  });
+  // 段 UIX3w：管制卓の画面へ
+  return uxw.rankUp!(ctx, target);
 }
 
 /**
  * 被災した町（ほかのセクタ）の復興の箱：進み・支援金・担当・「復興を任せる」（ヒーローと支援金）。お題と出土品は手で掘る
  */
 export function reviveBox(ctx: Ctx, s: P1State, id: string): HTMLElement {
-  // 段 UIX4r：入のときは、管制卓の箱へ（切のときは今の箱）
-  if (uxr.reviveBox) return uxr.reviveBox(ctx, s, id);
-  const rv = reviveView(s, id)!;
-  const box = h('div', 'isl-land-mgr isl-revive-box');
-  box.append(h('p', rv.out ? 'isl-bad' : 'isl-warn', reviveLine(rv)));
-  const bar0 = h('div', 'isl-revive-bar');
-  const fill = h('span');
-  fill.style.width = `${Math.round((rv.fixed / Math.max(1, rv.all)) * 100)}%`;
-  bar0.append(fill);
-  box.append(bar0);
-  if (rv.hero != null && (rv.fund > 0 || rv.rec.revive!.spent > 0)) {
-    const st = staffOf(s, rv.hero);
-    const per = st ? revivePerMonth(st.stats) : 1;
-    box.append(h('small', 'isl-dim', t(`${heroName(rv.hero)}が毎月の締めで 1 か月に ${per} 軒ずつ直していく（1 軒は手で直す値段の ${RESET.delegate.costMul} 倍）。直ったお店の割合で、セクター長の売上が戻る。`, `${heroName(rv.hero)} rebuilds ${per} per month at each close (${RESET.delegate.costMul}× the hand-repair price). The sector head’s sales return as shops come back.`)));
-  } else box.append(h('small', 'isl-dim', t('ヒーローに復興支援金を送ると、毎月の締めで廃墟を直していってくれる（手で直すより割高だけど、自動で進む）。', 'Send recovery funds to a hero and they rebuild the ruins at each monthly close (pricier than by hand, but automatic).')));
-  box.append(h('small', 'isl-gold', t('⛏ お題と出土品は手で掘ろう（任せた町でも、荒れ地はまた掘れる）', '⛏ Dig the targets and finds yourself (the wastelands can be dug again)')));
-  const row = h('div', 'isl-row');
-  row.append(btn(rv.fund > 0 || rv.rec.revive!.spent > 0 ? t('支援金を送る・担当を替える', 'Send funds / change hero') : t('🏗 復興を任せる', '🏗 Leave the recovery'), () => openDelegate(ctx, id), 'is-on'));
-  box.append(row);
-  return box;
+  // 段 UIX4r：管制卓の箱へ
+  return uxr.reviveBox!(ctx, s, id);
 }
 
 /** 復興を任せる画面：担当（いまの担当 or ほかのヒーロー）と、送る支援金（3 つの額） */
 export function openDelegate(ctx: Ctx, id: string, hero0?: number) {
-  if (uxr.delegate) return uxr.delegate(ctx, id, hero0);
-  const d = sectorDef(id);
-  open(ctx, t(`「${d.name}」の復興を任せる`, `Leave ${d.name}’s recovery`), (body) => {
-    const s = ctx.s();
-    const rv = reviveView(s, id);
-    if (!rv) {
-      body.append(h('p', 'isl-dim', t('この町は被災していません。', 'This town was not hit.')));
-      return;
-    }
-    const hero = hero0 ?? rv.hero ?? (recOf(s, id).manager ?? null);
-    body.append(h('p', '', reviveLine(rv)));
-    // 担当
-    const who = h('div', 'isl-card2 isl-delegate-who');
-    who.append(h('h3', '', t('担当のヒーロー', 'Hero in charge')));
-    const st = hero != null ? staffOf(s, hero) : null;
-    if (st) {
-      const per = revivePerMonth(st.stats);
-      const r = h('div', 'isl-row');
-      r.append(heroIcon(st.hero, 48), h('b', '', heroName(st.hero)), rankEl(aptitude(st.stats, 'manager')), h('small', 'isl-dim', t(`1 か月に ${per} 軒`, `${per} per month`)));
-      who.append(r);
-      who.append(h('small', 'isl-good', t('復興の担当は、毎月 能力値が大きく伸びる（2 つが +2〜3）', 'The hero in charge grows a lot each month (two stats +2–3)')));
-    } else who.append(h('p', 'isl-warn', t('担当を選んでください', 'Pick a hero')));
-    who.append(
-      btn(t('ヒーローを選ぶ', 'Pick a hero'), () =>
-        pickHero(ctx.root, s, {
-          title: t(`「${d.name}」の復興の担当`, `Recovery lead for ${d.name}`),
-          task: 'manager',
-          current: null,
-          note: t('能力値の平均が高いほど、1 か月に直せる数が多い（1〜3 軒）。担当になったヒーローは、能力値が大きく伸びます。', 'Higher average stats rebuild more per month (1–3). The hero in charge grows a lot.'),
-          onPick: (h0) => h0 != null && openDelegate(ctx, id, h0),
-        }),
-      ),
-    );
-    body.append(who);
-    // 支援金
-    const fundBox = h('div', 'isl-card2 isl-delegate-fund');
-    fundBox.append(h('h3', '', t('復興支援金を送る（所持金から）', 'Send recovery funds (from your funds)')));
-    const short = fundShort(s, id);
-    const bs = ((recOf(s, id).snap?.buildings as RuinLike[] | undefined) ?? []).filter((b) => b.owner === RUIN);
-    const cheap = bs.map((b) => delegateCostOf(b.id)).sort((a, b) => a - b);
-    fundBox.append(h('small', 'isl-dim', t(`残り ${bs.length} 軒を直しきるには、あと ${money(short)}（1 軒 ${money(cheap[0] ?? 0)}〜）`, `${money(short)} more to rebuild the last ${bs.length} (from ${money(cheap[0] ?? 0)} each)`)));
-    const grid = h('div', 'isl-delegate-grid');
-    for (const v of fundsOf(d.tier)) {
-      // この額で直せる見込み（安い順）
-      let left = v + rv.fund;
-      let n = 0;
-      for (const c of cheap) {
-        if (left < c) break;
-        left -= c;
-        n++;
-      }
-      const e = hero != null ? delegateLock(s, id, hero, v) : 'hero';
-      const b = btn('', () => {
-        if (hero == null) return;
-        const r = delegate(s, id, hero, v);
-        if (r) {
-          ctx.toast(r === 'money' ? t('資金が足りません', 'Not enough funds') : t('いまは任せられません', 'Cannot assign now'));
-          ctx.sfx?.('error');
-          return;
-        }
-        ctx.sfx?.('spend');
-        ctx.toast(t(`${heroName(hero)}に「${d.name}」の復興を任せた（支援金 ${money(v)}）`, `${heroName(hero)} now leads ${d.name}’s recovery (${money(v)})`));
-        openLand(ctx);
-        ctx.delegated?.(id);
-      }, e ? '' : 'is-on');
-      b.classList.add('isl-delegate-amt');
-      b.append(h('b', '', money(v)), h('small', '', t(`${n} 軒ぶんの見込み`, `about ${n} buildings`)));
-      if (e === 'money') b.append(h('small', 'isl-bad', t(`あと ${money(v - s.money)}`, `${money(v - s.money)} short`)));
-      b.disabled = !!e;
-      grid.append(b);
-    }
-    fundBox.append(grid);
-    body.append(fundBox);
-    body.append(h('small', 'isl-gold', t('⛏ 自動でやってくれるのは、お店の復興と売上まで。お題と出土品は自分で掘りに行こう。', '⛏ The hero handles shops and sales. Dig the targets and finds yourself.')));
-  });
-}
-
-/** セクタのランクの札 */
-function tierPill(tier: SectorDef['tier']): HTMLElement {
-  const p = h('span', `isl-tier is-${tier.toLowerCase()}`, tier);
-  p.style.setProperty('--tc', TIERS[tier].color);
-  return p;
+  return uxr.delegate!(ctx, id, hero0);
 }
 
 export function openLand(ctx: Ctx) {
-  // 段 UIX3w：入のときは、管制卓の航路図へ（切のときは今の画面）
-  if (uxw.land) return uxw.land(ctx);
-  open(ctx, t('ランドマップ', 'Land map'), (body) => {
-    const s = ctx.s();
-    const land = s.land;
-    if (!land) {
-      body.append(h('p', 'isl-dim', t('ランドのふちの関所を開くと、ほかのランドセクタへ行けるようになります。', 'Open the gate at the edge of the land to reach other sectors.')));
-      return;
-    }
-    sel ??= land.cur;
-    const intro = h('p', 'isl-dim', t('いまいるランドの全体図。ほかのセクタに出店すると、いまのセクタはセクター長が運営し、利益の一部が本社に入ります。', 'The whole land. When you open in another sector, a sector head runs this one and sends part of the profit to HQ.'));
-    const map = h('div', 'isl-land');
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('viewBox', '0 0 100 100');
-    svg.setAttribute('preserveAspectRatio', 'none');
-    svg.classList.add('isl-land-svg');
-    // 島の形
-    const isle = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    isle.setAttribute('d', 'M4,62 C0,48 6,36 14,32 C14,18 30,12 42,10 C46,2 58,2 62,8 C76,10 88,16 88,30 C96,36 100,50 97,62 C100,76 98,94 86,97 C66,100 34,100 14,97 C2,95 0,76 4,62 Z');
-    isle.setAttribute('class', 'isl-land-isle');
-    svg.append(isle);
-    for (const [a, b] of ROADS) {
-      const A = sectorDef(a).at;
-      const B = sectorDef(b).at;
-      const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      l.setAttribute('x1', `${A[0]}`);
-      l.setAttribute('y1', `${A[1]}`);
-      l.setAttribute('x2', `${B[0]}`);
-      l.setAttribute('y2', `${B[1]}`);
-      const on = land.mine.includes(a) && land.mine.includes(b);
-      l.setAttribute('class', `isl-land-road ${on ? 'is-on' : ''}`);
-      svg.append(l);
-    }
-    map.append(svg);
-    // 雲（Epic・Legendary のあたり）
-    for (const d of SECTORS.filter((x) => x.cloud && sectorState(land, x.id) === 'cloud')) {
-      const c = h('div', 'isl-land-cloud');
-      c.style.left = `${d.at[0]}%`;
-      c.style.top = `${d.at[1]}%`;
-      map.append(c);
-    }
-    for (const d of SECTORS) {
-      const st = sectorState(land, d.id);
-      const n = h('button', `isl-land-node is-${st} ${sel === d.id ? 'is-sel' : ''}`);
-      n.type = 'button';
-      n.style.left = `${d.at[0]}%`;
-      n.style.top = `${d.at[1]}%`;
-      n.style.setProperty('--tc', TIERS[d.tier].color);
-      // 札：アイコン（左上にランクの丸い札）＋その下に名前
-      const ico = h('span', 'isl-land-ico');
-      const img = h('img');
-      img.src = sectorIcon(d.tier);
-      img.alt = '';
-      img.draggable = false;
-      ico.append(img, h('span', `isl-land-rank is-${d.tier.toLowerCase()}`, d.tier));
-      const name = st === 'cloud' ? '???' : d.name;
-      n.append(ico, h('b', 'isl-land-name', name));
-      n.setAttribute('aria-label', name);
-      // KGI（2 か月続けてエリア 1 位＝制覇）の達成と、最新の順位
-      if (st === 'here' || st === 'mine') {
-        const rk = lastRank(s, d.id);
-        const crown = crowned(s, d.id);
-        // 札の右上：KGI（1 位）を達成したセクタは 👑 だけ、まだなら最新の順位
-        // 1 位を 2 か月続けたのに発表がまだ（いまいるセクタ）：「👑 発表待ち」
-        const wait = st === 'here' && clearWaiting(s);
-        if (rk || crown) ico.append(h('small', `isl-land-kgi ${crown ? 'is-crown' : ''}`, crown ? t('👑 達成', '👑 Done') : wait ? t('👑 発表待ち', '👑 Present') : t(`${rk} 位`, `#${rk}`)));
-      }
-      if (st === 'here') n.append(h('span', 'isl-land-pin', '📍'));
-      // 被災した町（ランクアップの災害。発掘 v2 の 7 段目）：札に「🏚 被災」・復興の進み
-      const rv = st === 'here' || st === 'mine' ? reviveView(s, d.id) : null;
-      if (rv && rv.ruins > 0) n.append(h('span', 'isl-land-ruin', rv.hero != null && rv.fund > 0 ? t(`🏗 ${rv.fixed}/${rv.all}`, `🏗 ${rv.fixed}/${rv.all}`) : t('🏚 被災', '🏚 Hit')));
-      const noLetter = letterLocked(s, d.id);
-      if (st === 'locked' || noLetter) ico.append(h('span', 'isl-land-lock', '🔒'));
-      // マウスを乗せると一言の特徴・状態・開放の条件（PC。スマホは押すと下の説明に）
-      // 上の段は下に、端の札は内側に出す（地図の外で切れないように）
-      const tip = h('span', `isl-land-tip ${d.at[1] < 35 ? 'is-below' : ''} ${d.at[0] < 20 ? 'is-l' : d.at[0] > 80 ? 'is-r' : ''}`);
-      if (st === 'cloud') tip.append(h('span', '', t('雲に覆われていて、まだ行けない', 'Hidden under clouds')));
-      else {
-        tip.append(h('b', '', d.name), h('small', 'isl-dim', stateText(s, d, st)));
-        if (d.profile.tag) tip.append(h('span', 'isl-land-tag', d.profile.tag));
-        if (st === 'locked') tip.append(h('span', 'isl-warn', needText(s, d)));
-        if (noLetter) tip.append(h('span', 'isl-warn', letterLockOf(s, d.id)));
-        if (rv && rv.ruins > 0) tip.append(h('span', 'isl-warn', reviveLine(rv)));
-        if (st === 'open' && !noLetter && rankUpTier(s, d.id)) tip.append(h('span', 'isl-warn', t('⚠ 進出すると、ランドの復興のため災害と徴収が起きる', '⚠ Expanding here brings a disaster and a levy')));
-      }
-      n.append(tip);
-      n.addEventListener('click', () => {
-        sel = d.id;
-        ctx.sfx?.('tap');
-        after(ctx);
-      });
-      map.append(n);
-    }
-    body.append(intro, map, detail(ctx, s, sel));
-    // 段 UI8c：出店したセクタの先月の売上の比べ（横棒。いまの町は金と「📍 いま」・セクター長のいない町は ⚠ の札）
-    if (s.land && s.land.mine.length >= 2) {
-      const bars = sectorBars({ id: s.land.cur, rev: s.reports[s.reports.length - 1]?.revenue ?? null }, s.land.recs, s.land.mine, (id) => sectorDef(id).name);
-      const box = cvBox(t('セクタごとの先月の売上', 'Last month’s sales by sector'), t(`いちばんは${bars[0].name}`, `Top: ${bars[0].name}`));
-      // 段 UI9：比較は縦棒（いまの町は金・ほかは灰）。札（締めの記録なし・セクター長なし）は下に字で
-      box.body.append(vbarsEl(bars.map((b) => ({ name: b.me ? t(`📍 ${b.name}`, `📍 ${b.name}`) : b.name, v: b.v, cls: b.me ? 'is-gold' : 'is-grey' })), { aria: t('セクタごとの先月の売上', 'Last month’s sales by sector') }));
-      const tags = bars.filter((b) => b.none || !b.head).map((b) => t(`${b.name}：${b.none ? '締めの記録なし' : '⚠ セクター長なし'}`, `${b.name}: ${b.none ? 'no close yet' : '⚠ no head'}`));
-      if (tags.length) box.body.append(h('small', 'isl-dim', tags.join(t('・', ' · '))));
-      body.append(box.el);
-    }
-  });
-}
-
-function detail(ctx: Ctx, s: P1State, id: string): HTMLElement {
-  const land = s.land!;
-  const d = sectorDef(id);
-  const st = sectorState(land, id);
-  const T = TIERS[d.tier];
-  const box = h('div', 'isl-card2 isl-land-detail');
-  const top = h('div', 'isl-row');
-  const big = h('img', 'isl-land-dico');
-  big.src = sectorIcon(d.tier);
-  big.alt = '';
-  big.style.setProperty('--tc', TIERS[d.tier].color);
-  top.append(big, tierPill(d.tier), h('b', 'isl-land-dname', st === 'cloud' ? '???' : d.name), h('small', 'isl-dim', tierLabel(d.tier)));
-  box.append(top);
-  if (st === 'cloud') {
-    box.append(h('p', '', t('雲に覆われていて、まだ移動できない。', 'Covered in clouds. You cannot go there yet.')));
-    return box;
-  }
-  if (d.profile.tag) box.append(h('p', 'isl-land-dtag', d.profile.tag));
-  box.append(h('p', '', TIER_NOTE[d.tier]));
-  if (d.teaser) box.append(h('p', 'isl-gold', d.teaser));
-  if (st === 'here' || st === 'mine') {
-    const rk = lastRank(s, id);
-    box.append(h('p', crowned(s, id) ? 'isl-good' : 'isl-dim', crowned(s, id) ? t(`👑 このセクタを制覇しました（2 か月続けて 1 位＋研究成果の発表。最新 ${rk ?? 1} 位）`, `👑 Conquered: #1 two months running + findings (latest #${rk ?? 1})`) : rk ? t(`目標：2 か月続けてエリア 1 位＋研究成果の発表（最新 ${rk} 位）`, `Goal: #1 in the area two months running + present findings (latest #${rk})`) : t('目標：2 か月続けてエリア 1 位＋研究成果の発表（まだ月の締めがありません）', 'Goal: #1 in the area two months running + present findings (no monthly close yet)')));
-    // 制覇の条件の進み（発掘 v2 の 5 段目）：いまいるセクタは「1 位を 2 か月 ✔／研究成果の発表 1 / 3 お題」、ほかのセクタは発表済みか
-    if (!crowned(s, id)) {
-      if (st === 'here') {
-        const g = clearGoal(s);
-        if (g.all > 0) box.append(h('p', g.top && !g.present ? 'isl-gold' : 'isl-dim', clearCondText(g.streak, g)[0]));
-      } else if (DIG_SITES[id]) box.append(h('p', 'isl-dim', s.presented.includes(id) ? t('研究成果の発表 ✔（あとは 1 位を 2 か月）', 'Findings presented ✔ (now #1 for 2 months)') : t('研究成果の発表：まだ（このセクタのお題をそろえよう）', 'Findings: not yet (find this sector’s targets)')));
-    }
-  }
-  const grid = h('div', 'isl-land-stats');
-  const stat = (k: string, v: string) => {
-    const c = h('div', 'isl-pop-stat');
-    c.append(h('small', '', k), h('b', '', v));
-    grid.append(c);
-  };
-  stat(t('地図', 'Map'), t(`${T.n}×${T.n} マス`, `${T.n}×${T.n}`));
-  // Uncommon・Rare（発掘 v2 の 8 段目・Rare の町 ①）：エクステ以外の売上はさらに大きい（町の倍率も）。巻き返し（セール）もある
-  const tune = RIVAL_TUNE[d.tier];
-  const rb = tune ? Math.round(T.rival * tune.base * (tune.town[id] ?? 1) * 10) / 10 : null;
-  stat(t('商売敵の規模', 'Rivals'), rb ? t(`×${T.rival}（売上 ×${rb}）`, `×${T.rival} (sales ×${rb})`) : `×${T.rival}`);
-  stat(t('お客さん', 'Customers'), `×${T.demand}`);
-  stat(t('Common の売れやすさ', 'Common goods'), `×${T.commonPull}`);
-  box.append(grid);
-  const row = h('div', 'isl-row');
-  if (st === 'here') {
-    box.append(h('p', 'isl-good', t('いまこのセクタを経営しています。', 'You are running this sector now.')));
-    const rv = reviveView(s, id);
-    if (rv && rv.ruins > 0) box.append(h('p', 'isl-warn', t(`🏚 この町は被災しています（廃墟 ${rv.ruins} 軒）。廃墟をタップして修繕しよう。ほかの町へ移るときは、ヒーローに復興を任せられます。`, `🏚 This town was hit (${rv.ruins} ruins). Tap a ruin to repair it. When you move on, you can leave the recovery to a hero.`)));
-  } else if (st === 'open' && letterLocked(s, id)) {
-    // 調査依頼状が無い（Uncommon 以上）：押せず、理由
-    const b = btn(t(`出店する（出店許可申請 ${money(d.fee)}）`, `Open here (permit ${money(d.fee)})`), () => undefined);
-    b.disabled = true;
-    row.append(b);
-    box.append(h('p', 'isl-warn', letterLockOf(s, id)));
-  } else if (st === 'open' && rankUpTier(s, id)) {
-    // 会社として初めて上のランクへ（発掘 v2 の 7 段目）：先に確認の画面（失うもの・残るもの）。出店許可申請の費用は取らない
-    row.append(btn(t(`${TIER_NAME[d.tier]} へ進出する…`, `Expand into ${TIER_NAME[d.tier]}…`), () => openRankUp(ctx, id), 'is-on'));
-    box.append(h('p', 'isl-warn', t(`⚠ ${TIER_NAME[d.tier]} へ進出すると、ランドの復興のため大きな災害と徴収が起きます（出店許可申請の費用はかかりません）。`, `⚠ Expanding into ${TIER_NAME[d.tier]} brings a great disaster and a levy for the land’s recovery (no permit fee).`)));
-  } else if (st === 'open') {
-    const b = btn(t(`出店する（出店許可申請 ${money(d.fee)}）`, `Open here (permit ${money(d.fee)})`), () => startMove(ctx, id), 'is-on');
-    b.disabled = s.money < d.fee;
-    row.append(b);
-    if (s.money < d.fee) box.append(h('small', 'isl-warn', t(`あと ${money(d.fee - s.money)} 足りません。`, `${money(d.fee - s.money)} short.`)));
-    if (hasBusiness(s)) box.append(h('small', 'isl-dim', t('いまのセクタは、セクター長に任せます（次に選びます）。', 'You will pick a sector head for the current sector next.')));
-  } else if (st === 'mine') {
-    const rv = reviveView(s, id);
-    if (rv && rv.ruins > 0) box.append(reviveBox(ctx, s, id));
-    else box.append(managerBox(ctx, s, id));
-    row.append(btn(t('このセクタへ移動する', 'Go to this sector'), () => startMove(ctx, id), 'is-on'));
-  } else if (st === 'locked') {
-    box.append(h('p', 'isl-warn', needText(s, d)));
-  } else if (st === 'soon') {
-    box.append(h('p', 'isl-dim', t('開放されました！ このセクタの遊びは準備中です。', 'Unlocked! This sector is coming soon.')));
-  }
-  if (row.childElementCount) box.append(row);
-  return box;
+  // 段 UIX3w：管制卓の航路図へ
+  return uxw.land!(ctx);
 }
 
 /** マネージャーが運営しているセクタ：担当・先月の結果・投資の割合 */
 export function managerBox(ctx: Ctx, s: P1State, id: string): HTMLElement {
-  if (uxr.managerBox) return uxr.managerBox(ctx, s, id);
-  const rec = recOf(s, id);
-  const box = h('div', 'isl-land-mgr');
-  if (!rec.snap) {
-    box.append(h('p', 'isl-dim', t('まだお店がありません。', 'No business here yet.')));
-    return box;
-  }
-  const m = rec.manager != null ? staffOf(s, rec.manager) : null;
-  const who = h('div', 'isl-row');
-  if (m && m.task === 'manager') {
-    const apt = aptitude(m.stats, 'manager');
-    who.append(heroIcon(m.hero, 44), h('b', '', heroName(m.hero)), rankEl(apt), h('small', 'isl-dim', t(`売上の目安 ×${managerRate(apt).toFixed(2)}`, `Sales ×${managerRate(apt).toFixed(2)}`)));
-  } else who.append(h('b', 'isl-warn', t('セクター長が不在（売上が大きく下がります）', 'No sector head (sales drop a lot)')));
-  who.append(
-    btn(t('替える', 'Change'), () =>
-      pickHero(ctx.root, s, {
-        title: t(`「${sectorDef(id).name}」のセクター長`, `Sector head for ${sectorDef(id).name}`),
-        task: 'manager',
-        current: null,
-        onPick: (hero) => {
-          if (hero == null) return;
-          // 段 UI5b：組織図と同じ関数（役職は兼任しない：事業部長の役職は外れる。固有の能力 multiRole のヒーローは残る）
-          if (setSectorHead(s, id, hero)) ctx.toast(t('いまの仕事・役目を外して、セクター長にしました', 'Moved from their current job or role'));
-          after(ctx);
-        },
-      }),
-    ),
-  );
-  box.append(who);
-  if (rec.base) box.append(h('small', 'isl-dim', t(`離れたときの月の売上 ${money(rec.base.rev)}・投資の合計 ${money(rec.capital)}`, `Sales when you left ${money(rec.base.rev)} · invested ${money(rec.capital)}`)));
-  else box.append(h('small', 'isl-warn', t('離れる前に月の締めが無かったので、売上はまだ立ちません。戻って 1 か月営業しましょう。', 'No monthly close before you left, so it earns nothing yet. Come back and run it for a month.')));
-  const last = rec.log[rec.log.length - 1];
-  if (last) {
-    const r = h('div', 'isl-land-stats');
-    const stat = (k: string, v: string, cls = '') => {
-      const c = h('div', `isl-pop-stat ${cls}`);
-      c.append(h('small', '', k), h('b', '', v));
-      r.append(c);
-    };
-    stat(t('先月の売上', 'Last sales'), money(last.rev));
-    stat(t('利益', 'Profit'), money(last.profit), last.profit < 0 ? 'is-bad' : 'is-good');
-    stat(t('このセクタへ投資', 'Reinvested'), money(last.invest));
-    stat(t('本社へ', 'To HQ'), money(last.toHQ), last.toHQ < 0 ? 'is-bad' : '');
-    box.append(r);
-    // 段 UI8b：セクター長の月ごとの結果（売上の線・利益の棒）
-    const lg = sectorHist(rec);
-    const sx = histBox({
-      title: t('セクター長の月ごとの結果', 'Sector head, month by month'),
-      note: t(`先月の売上 ${money(last.rev)}`, `Last sales ${money(last.rev)}`),
-      months: lg.map((x) => x.m),
-      series: [
-        { name: t('利益', 'Profit'), kind: 'bar', cls: 'is-teal', vals: lg.map((x) => x.profit) },
-        { name: t('売上', 'Sales'), kind: 'line', cls: 'is-gold', vals: lg.map((x) => x.rev) },
-      ],
-      aria: t(`${sectorDef(id).name}の月ごとの売上と利益`, `${sectorDef(id).name}: sales and profit by month`),
-    });
-    if (sx) box.append(sx);
-  }
-  // 投資の割合
-  const inv = h('div', 'isl-row isl-land-invest');
-  inv.append(h('small', 'isl-dim', t('利益のうち、このセクタへ投資する割合', 'Share of profit reinvested here')));
-  for (const v of MANAGER.choices) {
-    const b = btn(`${Math.round(v * 100)}%`, () => {
-      rec.invest = v;
-      after(ctx);
-    }, rec.invest === v ? 'is-on' : '');
-    inv.append(b);
-  }
-  box.append(inv, h('small', 'isl-dim', t(`投資 1 G で、このセクタの月の売上が ${MANAGER.roi} G 伸びます（戻ってきたときは、お客さんが増えています）。`, `Each 1 G reinvested raises monthly sales by ${MANAGER.roi} G (and brings more customers when you return).`)));
-  return box;
+  return uxr.managerBox!(ctx, s, id);
 }
-
-// ---------------------------------------------------------------- 決算書（四半期の P/L・B/S）
-
-let qSel: number | null = null;
 
 export function openBooks(ctx: Ctx) {
-  // 段 UIX3k：入のときは、新しい画面（uix/screens/books.ts）へ
-  if (uxk.books) return uxk.books(ctx);
-  open(ctx, t('決算書', 'Financial statements'), (body) => {
-    const s = ctx.s();
-    const books = s.books;
-    const qs = books ? quarters(books) : [];
-    // いまの四半期（途中）：締めた月のうち同じ四半期のもの ＋ 今月のここまで（段 F：会社の月 m で束ねる）
-    const now = quarterNow(s);
-    const curQ = now.q;
-    const inQ = now.inQ - 1;
-    const curL = sumLedger([...(books?.months.filter((x) => Math.ceil(Math.max(1, x.m) / 3) === curQ).map((x) => x.l) ?? []), books?.cur ?? emptyLedger()]);
-    const list = [...qs.filter((q) => q.done && q.q !== curQ).map((q) => ({ q: q.q, l: q.l, bs: q.bs, label: t(`第 ${q.q} 四半期`, `Q${q.q}`), done: true })), { q: curQ, l: curL, bs: balance(s) as Balance, label: t(`第 ${curQ} 四半期（途中）`, `Q${curQ} (in progress)`), done: false }];
-    if (qSel == null || !list.some((x) => x.q === qSel)) qSel = list[list.length - 1].q;
-    body.append(h('p', 'isl-dim', t('会社ぜんたいの決算書（簡易版）。会社の月はゲームの最初から 30 日ごとに締め、3 か月で 1 四半期です。ほかのセクタの利益は「他セクタからの利益」に入ります。', 'Company-wide statements (simplified). Company months close every 30 days from the start; 3 months make a quarter. Profit from managed sectors is listed separately.')));
-    const chips = h('div', 'isl-books-chips');
-    for (const x of list.slice(-8)) chips.append(btn(x.label, () => ((qSel = x.q), after(ctx)), x.q === qSel ? 'is-on' : ''));
-    body.append(chips);
-    const idx = list.findIndex((x) => x.q === qSel);
-    const cur = list[idx];
-    const p = pl(cur.l);
-    // 段 UI8：決算書をグラフに（P/L の差し引き＝ウォーターフォール・B/S の資産の中身＝ドーナツ・四半期の推移＝線と棒）。表は「表で見る」に
-    const pair = h('div', 'isl-cv-pair');
-    const f = cvBox(t(`P/L：売上高から当期の利益まで（${cur.label}）`, `P/L: sales to net profit (${cur.label})`), p.sales > 0 ? t(`売上高の ${Math.round((p.net / p.sales) * 100)}% が当期の利益`, `Net margin ${Math.round((p.net / p.sales) * 100)}%`) : '');
-    f.body.append(fallEl(plFall(cur.l), t(`売上高 ${money(p.sales)}・当期の利益 ${money(p.net)}`, `Sales ${money(p.sales)}, net ${money(p.net)}`)), fallLegend());
-    const bsv = cur.bs ?? (balance(s) as Balance);
-    const parts = bsParts(bsv);
-    const assets = parts.reduce((a, x) => a + x.v, 0);
-    const d = cvBox(t('B/S：資産の中身', 'B/S: what you own'), parts.length ? t(`いちばん大きいのは${parts.slice().sort((a, b) => b.v - a.v)[0].name}・借入なし`, `Largest: ${parts.slice().sort((a, b) => b.v - a.v)[0].name} · no loans`) : '');
-    d.body.append(donutEl(parts, { big: shortN(assets), small: t('資産の合計', 'Total assets') }, t(`資産の合計 ${money(assets)}`, `Total assets ${money(assets)}`)));
-    pair.append(f.el, d.el);
-    body.append(pair);
-    const qt = quarterTrend(books);
-    if (qt.length >= 2) {
-      const g = cvBox(t('四半期ごとの売上高と当期の利益', 'Sales and net profit by quarter'), t('最後の四半期は途中まで', 'The last quarter is still in progress'));
-      const series: TSer[] = [
-        { name: t('当期の利益', 'Net profit'), kind: 'bar', cls: 'is-teal', vals: qt.map((x) => x.net) },
-        { name: t('売上高', 'Sales'), kind: 'line', cls: 'is-gold', vals: qt.map((x) => x.sales) },
-      ];
-      g.body.append(trendEl({ labels: qt.map((x) => (x.done ? `Q${x.q}` : t(`Q${x.q} 途中`, `Q${x.q}…`))), heads: qt.map((x) => (x.done ? t(`第 ${x.q} 四半期`, `Q${x.q}`) : t(`第 ${x.q} 四半期（途中）`, `Q${x.q} (in progress)`))), series, aria: t('四半期ごとの売上高と当期の利益', 'Sales and net profit by quarter'), ends: true }), trendLegend(series));
-      body.append(g.el);
-    }
-    const tbl = h('details', 'isl-rp-detail isl-books-more');
-    tbl.append(h('summary', '', t('表で見る（P/L・B/S）', 'As tables (P/L, B/S)')));
-    const wrap = h('div', 'isl-books');
-    wrap.append(plTable(p), bsTable(cur.bs, s));
-    tbl.append(wrap);
-    body.append(tbl);
-    // 経理（段 F）：コストの大きい順と経理からの助言（前の四半期と比べる）
-    const prev = idx > 0 ? list[idx - 1] : null;
-    body.append(costCard(s, cur.l, prev && prev.q === cur.q - 1 ? prev.l : null, cur.label, cur.q));
-    if (!cur.done) body.append(h('small', 'isl-dim', t(`いまは ${inQ + 1} か月目の途中です。四半期が終わると、マインちゃんが知らせます。`, `Month ${inQ + 1} of this quarter is in progress.`)));
-  });
-}
-
-function row(tbl: HTMLElement, k: string, v: number, cls = '') {
-  const r = h('div', `isl-books-row ${cls}`);
-  r.append(h('span', '', k), h('b', v < 0 ? 'isl-bad' : '', money(v || 0)));
-  tbl.append(r);
-}
-
-function plTable(p: ReturnType<typeof pl>): HTMLElement {
-  const l: Ledger = p.l;
-  const tbl = h('div', 'isl-card2 isl-books-tbl');
-  tbl.append(h('h3', '', t('損益計算書（P/L）', 'Income statement (P/L)')));
-  row(tbl, t('売上高', 'Sales'), p.sales, 'is-head');
-  row(tbl, t('売上原価（素材）', 'Cost of goods (materials)'), -p.cogs, 'is-sub');
-  row(tbl, t('売上総利益', 'Gross profit'), p.gross, 'is-sum');
-  row(tbl, t('販売費・一般管理費', 'SG&A'), -p.sga, 'is-head');
-  row(tbl, t('　給料', '  Wages'), -l.wages, 'is-sub');
-  row(tbl, t('　アルバイト', '  Part-timers'), -l.part, 'is-sub');
-  row(tbl, t('　維持費', '  Upkeep'), -l.upkeep, 'is-sub');
-  row(tbl, t('　宣伝', '  Advertising'), -l.ads, 'is-sub');
-  row(tbl, t('営業利益', 'Operating profit'), p.op, 'is-sum');
-  row(tbl, t('営業外の収入', 'Other income'), p.nonop, 'is-head');
-  row(tbl, t('　他店でバイト', '  Part-time work'), l.side, 'is-sub');
-  row(tbl, t('　依頼の報酬', '  Request rewards'), l.other, 'is-sub');
-  row(tbl, t('　他セクタからの利益', '  From managed sectors'), l.managed, 'is-sub');
-  if (l.museum) row(tbl, t('　展示館の入館料', '  Museum admissions'), l.museum, 'is-sub');
-  row(tbl, t('投資・特別な支出', 'Investment & special'), -p.special, 'is-head');
-  row(tbl, t('　建物・スキル・設備', '  Buildings, skills, upgrades'), -l.build, 'is-sub');
-  row(tbl, t('　通行料・出店許可申請', '  Tolls & permits'), -l.fees, 'is-sub');
-  // 発掘 v2 の 7 段目：ランクアップの災害（特別損失・特別利益）
-  if (l.levy) row(tbl, t('　特別損失：復興の徴収', '  Special loss: recovery levy'), -l.levy, 'is-sub');
-  if (l.grant) row(tbl, t('　特別利益：復興の支度金', '  Special gain: recovery grant'), l.grant, 'is-sub');
-  // 段 F：法人税（四半期の締めの月に）
-  if (p.tax) row(tbl, t('法人税', 'Corporate tax'), -p.tax, 'is-head');
-  row(tbl, t('当期の利益', 'Net profit'), p.net, 'is-total');
-  return tbl;
-}
-
-function bsTable(bs: Balance | null, s: P1State): HTMLElement {
-  const b = bs ?? balance(s);
-  const tbl = h('div', 'isl-card2 isl-books-tbl');
-  tbl.append(h('h3', '', t('貸借対照表（B/S）', 'Balance sheet (B/S)')));
-  const assets = b.cash + b.stock + b.buildings + b.invest;
-  row(tbl, t('資産', 'Assets'), assets, 'is-head');
-  row(tbl, t('　現金', '  Cash'), b.cash, 'is-sub');
-  row(tbl, t('　在庫（素材・商品）', '  Inventory'), b.stock, 'is-sub');
-  row(tbl, t('　建物', '  Buildings'), b.buildings, 'is-sub');
-  row(tbl, t('　他セクタへの投資', '  Invested in sectors'), b.invest, 'is-sub');
-  row(tbl, t('負債（借入金）', 'Liabilities (loans)'), 0, 'is-head');
-  row(tbl, t('純資産', 'Equity'), assets, 'is-head');
-  row(tbl, t('　資本金', '  Capital'), CAPITAL, 'is-sub');
-  row(tbl, t('　利益剰余金', '  Retained earnings'), assets - CAPITAL, 'is-sub');
-  tbl.append(h('small', 'isl-dim', t('建物は買った値段のまま（減価償却なし）。借入はまだありません。', 'Buildings at cost (no depreciation). No loans yet.')));
-  return tbl;
+  // 段 UIX3k：新しい画面（uix/screens/books.ts）へ
+  return uxk.books!(ctx);
 }
 
 // ---------------------------------------------------------------- ブランド力

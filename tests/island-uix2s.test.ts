@@ -40,9 +40,9 @@ function town(): P1State {
 const fakeCtx = (s: P1State): Ctx => ({ s: () => s, root: {} as HTMLElement, save: () => undefined, refresh: () => undefined, toast: () => undefined });
 
 describe('切り替え：入のときだけ新しい画面に分かれる（切のときは今の画面のまま）', () => {
-  it('差し込み口は、はじめは空。入のときだけ s-boot.ts を動的に読む（切のときは読まない）', () => {
+  it('差し込み口は、はじめは空。s-boot.ts は動的に読む（段 UIX5a から、入口が本体より先に読み、本体は起動のその場で差し込む）', () => {
     expect(Object.keys(uxs)).toEqual([]);
-    expect(src('p1/main.ts')).toContain('if (uxOn()) void loadUxs();');
+    expect(src('p1/main.ts')).toContain('\nvoid loadUxs();\n');
     expect(src('p1/uxs.ts')).toMatch(/export const loadUxs = \(\) => import\('\.\.\/uix\/screens\/s-boot'\)\.then\(\(m\) => m\.install\(uxsDeps\)\);/);
     // 入口のほかに、本体から新しい画面を直接読んでいる所は無い（切のときに読み込まれない）。
     // 読んでよいのは、空の差し込み口だけ（この段の s-slots と、上と下の帯・吹き出しの段の mhooks）
@@ -131,10 +131,8 @@ describe('今の目印が残る（チュートリアル・BGM の場面・撮影
 });
 
 describe('出す中身が、今の画面とそろう（主な項目）', () => {
-  it('工房：今の画面の言葉と操作が、新しい画面にもある', () => {
-    const now = src('p1/screens.ts');
+  it('工房：段 UIX5a までの今の画面の言葉と操作が、新しい画面にもある', () => {
     for (const k of ['素材があるかぎり作り続けます。', '素材が足りないので、いまは作れません。', 'いま作っている 1 ロットのあとに、この数だけ作ります。', '主力にする', '工房の倉庫（運ぶ前の商品）', 'できた商品は、物流の担当がお店へ運びます。', 'まだありません', '押すと作業台 1 で作ります。', '作業台は全部ふさがっています。', '市場データで選んだ', '建物ごと（セクタごと）の設備なので、新しいセクタでは入れ直します。', 'この 1 ロットで止める', 'に戻る']) {
-      expect(now, k).toContain(k);
       expect(WS, k).toContain(k);
     }
     // 操作：職人の入れ替え・作る物の選択・作る数・自動製造・主力にする・設備投資・建て替え
@@ -146,10 +144,8 @@ describe('出す中身が、今の画面とそろう（主な項目）', () => {
       expect(WS, k).toContain(k);
     }
   });
-  it('月次報告：今の報告の項目と導線が、新しい画面にもある', () => {
-    const now = src('p1/report.ts');
+  it('月次報告：段 UIX5a までの今の報告の項目と導線が、新しい画面にもある', () => {
     for (const k of ['投資：スキルツリー', '目標確認：企業ランキング', '分析：サプライチェーンの画面', '担当者からの提案', '研究ノート', '育成', '給与', '問い合わせ', '外交', '営業', '利益との差', 'うち復刻品', '月次 PDCA', '売上の内訳（商品ごとの割合・費用・売上から利益まで）', '商品ごとの売上の割合', '費用の内訳', '売上から利益まで', '商圏の取り分', '巻き返し', '課題あり', '今月の出土品', '今月のレベルアップ', '担当の報告', '士気と給与', 'お客さんの声', '来月も守り切れたら[[制覇]]だよ！', '利益＝売上 − その月の費用。資金にはこのほかの入出金も入る', '期間の売上', '今回の出土', 'いまの課題', 'くわしい報告を見る', '続ける']) {
-      expect(now, k).toContain(k);
       expect(RP, k).toContain(k);
     }
     // 導線は、今と同じ口へ
@@ -349,7 +345,6 @@ describe('月次報告の決まり（DOM なしの芯）', () => {
   });
   it('推移の期間は、今の月次報告と同じ鍵で覚える（3・6・12 か月・全期間。はじめは 6 か月）', () => {
     expect(RANGE_KEY).toBe('isl.chartRange');
-    expect(src('p1/report.ts')).toContain("localStorage.getItem('isl.chartRange')");
     expect(readRange(() => null)).toBe(6);
     expect(readRange(() => '3')).toBe(3);
     expect(readRange(() => '0')).toBe(0);

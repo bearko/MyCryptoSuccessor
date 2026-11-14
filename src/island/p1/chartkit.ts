@@ -411,15 +411,6 @@ export function candleEl(cs: Candle[], labels: string[], heads: string[], aria: 
   responsive(wrap, draw);
   return wrap;
 }
-export function candleLegend(cs: Candle[]): HTMLElement {
-  const keys = [
-    { cls: 'is-cup', name: t('増えた月（中抜き）', 'Up month (hollow)') },
-    { cls: 'is-cdown', name: t('減った月（塗り）', 'Down month (filled)') },
-    { cls: 'is-cwick', name: t('ヒゲ＝高い・安い', 'Wick = high/low') },
-  ];
-  if (cs.some((c) => c.est)) keys.push({ cls: 'is-cest', name: t('記録なしの月（点線）', 'No record (dotted)') });
-  return legendEl(keys);
-}
 
 // ---------------------------------------------------------------- 割合：ドーナツ・100% の積み上げ棒
 
@@ -584,52 +575,6 @@ export function fallEl(rows: Step[], aria: string, fmt: (v: number) => string = 
     ol.append(li);
   });
   wrap.append(ol);
-  return wrap;
-}
-/**
- * 段 UI9：縦棒の比較（横に並べる。名前は棒の下、値は棒の上）。比較は縦棒、横棒はランキングだけ（決まり）。cls：is-gold・is-grey・is-teal・is-blue
- */
-export function vbarsEl(items: { name: string; v: number; cls?: string }[], o: { aria: string; fmt?: (v: number) => string; axis?: (v: number) => string; height?: number }): HTMLElement {
-  const wrap = h('div', 'isl-cv-chart isl-cv-vbars');
-  const svg = sv('svg', { role: 'img', 'aria-label': o.aria }) as SVGSVGElement;
-  wrap.append(svg);
-  const tip = tipOf(wrap);
-  const f = o.fmt ?? money;
-  const draw = () => {
-    const W = Math.max(240, Math.round(wrap.clientWidth || 300));
-    const H = o.height ?? (W < 420 ? 172 : 188);
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    svg.setAttribute('width', String(W));
-    svg.setAttribute('height', String(H));
-    svg.replaceChildren();
-    const L = 46;
-    const R = 8;
-    const T = 20;
-    const B = 22;
-    const { lo, hi } = spanOf(items.map((x) => x.v));
-    const py = (v: number) => T + (H - T - B) * (1 - (v - lo) / (hi - lo || 1));
-    vgrid(svg, L, R, W, py, lo, hi, o.axis ?? shortN);
-    const n = Math.max(1, items.length);
-    const bw = (W - L - R) / n;
-    const barW = Math.max(10, Math.min(48, bw * 0.55));
-    items.forEach((x, k) => {
-      const cx = L + bw * (k + 0.5);
-      const y0 = py(0);
-      const y1 = py(x.v);
-      const top = Math.min(y0, y1);
-      const rect = sv('rect', { x: cx - barW / 2, y: top, width: barW, height: Math.max(1, Math.abs(y0 - y1)), class: `isl-cv-bar ${x.cls ?? 'is-gold'} ${x.v < 0 ? 'is-neg' : ''}` });
-      svg.append(rect);
-      if (n <= 6) svg.append(sv('text', { x: cx, y: top - 4, 'text-anchor': 'middle', class: 'isl-cv-fv' }, f(x.v)));
-      svg.append(sv('text', { x: cx, y: H - 6, 'text-anchor': 'middle', class: 'isl-cv-axis' }, clip(x.name, Math.max(3, Math.floor(bw / 12)))));
-      const say = () => tip.show([h('b', '', x.name), f(x.v)], (cx / W) * (wrap.clientWidth || W), top);
-      rect.addEventListener('pointerenter', say);
-      rect.addEventListener('pointerdown', say);
-      rect.addEventListener('pointerleave', (ev) => (ev as PointerEvent).pointerType === 'mouse' && tip.hide());
-    });
-  };
-  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => draw()) : null;
-  ro?.observe(wrap);
-  requestAnimationFrame(draw);
   return wrap;
 }
 export const fallLegend = () =>
@@ -805,12 +750,6 @@ export function kpiCardEl(o: { icon: string; label: string; v: string; d?: numbe
     e.append(h('span', `isl-cv-kd ${r === 0 ? 'is-even' : good ? 'is-good' : 'is-bad'}`, `${arw(o.d)} ${df(o.d)}${o.dLab ? ` ${o.dLab}` : ''}`));
   }
   if (o.sub) e.append(h('small', 'isl-cv-ksub', o.sub));
-  return e;
-}
-/** KPI のカードを横に並べる（スマホは 2 列） */
-export function kpiRow(xs: HTMLElement[]): HTMLElement {
-  const e = h('div', 'isl-cv-kpis');
-  e.append(...xs);
   return e;
 }
 

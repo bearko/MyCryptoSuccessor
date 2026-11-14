@@ -178,14 +178,15 @@ describe('4. ポップアップと会話', () => {
     // 「ここに建てる」「通行料を払って開通」「空き店舗に出店」も固定のボタンに
     expect((src('tile.ts').match(/isl-row isl-pop-acts/g) ?? []).length).toBeGreaterThanOrEqual(11);
   });
-  it('会話の暗幕のどこを押しても次へ。最後の枚もどこを押しても閉じる（選択肢があるときは選択肢だけ）。「次へ」ボタンは残す', () => {
-    const m = src('main.ts');
+  it('会話の暗幕のどこを押しても次へ。最後の枚もどこを押しても閉じる（選択肢があるときは選択肢だけ）。「次へ」のキーは残す', () => {
+    // 段 UIX5a：会話は新しい画面（uix/screens/talk.ts）だけ。暗幕を押したときの決まりは tapAct（段 UIX3a のテストが中身を確かめる）
+    const m = readFileSync(new URL('../src/island/uix/screens/talk.ts', import.meta.url), 'utf8');
     const i = m.indexOf("m.addEventListener('click', (e) => {");
-    const body = m.slice(i, m.indexOf('});', i));
-    expect(body).toContain('if (k < pages.length - 1) return next();');
-    expect(body).toContain('if (pages[k].button) return;');
-    expect(body).toContain('then();');
-    expect(m).toContain("btn(t('次へ ▶', 'Next ▶'), () => next())");
+    expect(i).toBeGreaterThan(0);
+    expect(m.slice(i, m.indexOf('});', i))).toContain('tap(false);');
+    expect(m).toContain("if (o.k < o.n - 1) return 'next';");
+    expect(m).toContain("return o.button ? 'stay' : 'done';");
+    expect(m).toContain("t('つぎへ', 'Next')");
   });
 });
 

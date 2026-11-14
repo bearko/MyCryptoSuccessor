@@ -100,13 +100,12 @@ describe('切り替え：入のときだけ新しい画面に分かれる（切�
 
 describe('スキルツリー（回路図）', () => {
   it('入口：openSkills が、差し込み口が入っているときだけ新しい画面へ渡す（見ている場所・選んだパネルは同じ物）', () => {
-    expect(TREE).toMatch(/if \(uxk\.tree\) \{\s*const lift = liftOnce;\s*liftOnce = false;\s*return uxk\.tree\(ctx, \{ lift, focus \}\);\s*\}\s*open\(ctx, t\('スキルツリー', 'Skill tree'\)/);
+    // 段 UIX5a：切のときの今の作り（選ぶたびに描き直す木）は外した。関数は差し込み口へ渡して終わる
+    expect(TREE).toMatch(/if \(uxk\.tree\) \{\s*const lift = liftOnce;\s*liftOnce = false;\s*return uxk\.tree\(ctx, \{ lift, focus \}\);\s*\}\n\}/);
     expect(src('uix/screens/k-boot.ts')).toContain('uxk.tree = openSkillsUx;');
     expect(uxkDeps.tree.view).toBeDefined();
     expect(uxkDeps.tree.DOUBLE_MS).toBe(420);
-    // 切のときの作りは、そのまま残っている（選ぶたびに描き直す今の画面）
-    expect(TREE).toContain("const n = h('button', `isl-tree-node ${shape} is-${st}");
-    expect(TREE).toContain('view.sel = k.id;\n          after(ctx);');
+    expect(TREE).not.toContain("const n = h('button', `isl-tree-node ${shape} is-${st}");
   });
   it('今の目印：.isl-tree・.isl-tree-root・.isl-tree-node（is-hot・is-sel・is-done）・.isl-tree-detail .isl-btn.is-on。2 度押しで研究・ほかのパネルはマインちゃんが止める', () => {
     expect(TR).toContain('div.isl-tree.uxk-tree');
@@ -253,7 +252,7 @@ describe('企業ランキング', () => {
   const SCR = src('p1/screens.ts');
   const UXK = src('p1/uxk.ts');
   it('入口：openRanking が、差し込み口が入っているときだけ新しい画面へ渡す（はじめのタブも渡す）。器は今の札（open）', () => {
-    expect(SCR).toContain('if (uxk.ranking) return uxk.ranking(ctx, tab);');
+    expect(SCR).toContain('return uxk.ranking!(ctx, tab);\n}');
     expect(src('uix/screens/k-boot.ts')).toContain('uxk.ranking = openRankingUx;');
     expect(RK).toContain("K.open(ctx, t('企業ランキング（月の売上）', 'Company ranking (monthly sales)')");
   });
@@ -300,7 +299,7 @@ describe('設備投資', () => {
   const IV = src('uix/screens/invest.ts');
   const UXK = src('p1/uxk.ts');
   it('入口：openInvest が、差し込み口が入っているときだけ新しい画面へ渡す。器は今の札（open・keep：作り直さずに値だけ合わせる）', () => {
-    expect(src('p1/screens.ts')).toContain('if (uxk.invest) return uxk.invest(ctx);');
+    expect(src('p1/screens.ts')).toContain('return uxk.invest!(ctx);\n}');
     expect(src('uix/screens/k-boot.ts')).toContain('uxk.invest = openInvestUx;');
     expect(IV).toMatch(/K\.open\(\s*ctx,\s*t\('設備投資', 'Capital investment'\),[\s\S]*?undefined,\s*true,\s*\);/);
   });
@@ -343,26 +342,18 @@ describe('決算書', () => {
   const LAND = src('p1/landui.ts');
   const UXK = src('p1/uxk.ts');
   it('入口：openBooks が、差し込み口が入っているときだけ新しい画面へ渡す。器は今の札（open・keep）', () => {
-    expect(LAND).toContain('if (uxk.books) return uxk.books(ctx);');
+    expect(LAND).toContain('return uxk.books!(ctx);\n}');
     expect(src('uix/screens/k-boot.ts')).toContain('uxk.books = openBooksUx;');
     expect(BK).toContain("K.open(ctx, t('決算書', 'Financial statements'), (body) => render(ctx, body), undefined, true);");
   });
-  it('P/L・B/S の行は今の表（plTable・bsTable）と同じ名前・同じ並び', () => {
+  it('P/L・B/S の行は今の表（段 UIX5a で外した plTable・bsTable）と同じ名前・同じ並び', () => {
     const l = { ...emptyLedger(), sales: 1000, mats: 200, wages: 100, museum: 5, levy: 30, grant: 10, tax: 20 };
-    const names = plRows(l).map((r) => r.k);
-    let at = 0;
-    for (const n of names) {
-      const i = LAND.indexOf(`'${n}'`, at);
-      expect(i, n).toBeGreaterThan(0);
-      at = i;
-    }
+    // 段 UIX5a まで p1/landui.ts の plTable が出していた行（同じ並び）
+    const PL = ['売上高', '売上原価（素材）', '売上総利益', '販売費・一般管理費', '　給料', '　アルバイト', '　維持費', '　宣伝', '営業利益', '営業外の収入', '　他店でバイト', '　依頼の報酬', '　他セクタからの利益', '　展示館の入館料', '投資・特別な支出', '　建物・スキル・設備', '　通行料・出店許可申請', '　特別損失：復興の徴収', '　特別利益：復興の支度金', '法人税', '当期の利益'];
+    expect(plRows(l).map((r) => r.k)).toEqual(PL);
     expect(plRows(l).at(-1)).toMatchObject({ cls: 'is-total' });
-    at = 0;
-    for (const r of bsRows({ cash: 1, stock: 2, buildings: 3, invest: 4 } as never)) {
-      const i = LAND.indexOf(`'${r.k}'`, at);
-      expect(i, r.k).toBeGreaterThan(0);
-      at = i;
-    }
+    const BS = ['資産', '　現金', '　在庫（素材・商品）', '　建物', '　他セクタへの投資', '負債（借入金）', '純資産', '　資本金', '　利益剰余金'];
+    expect(bsRows({ cash: 1, stock: 2, buildings: 3, invest: 4 } as never).map((r) => r.k)).toEqual(BS);
   });
   it('中身は今の画面と同じ計算（四半期の一覧・いまの四半期の途中・うしろの 8 つ・コストの大きい順 7 つ・法人税・助言は前の四半期と比べる）', () => {
     for (const k of ['quarterNow(s)', 'list.slice(-8)', 'costRank(s, cur.l).slice(0, 7)', 'taxLine(s, cur.l, cur.q)', 'acctAdvice(s, cur.l, prevL)', 'prev && prev.q === cur.q - 1 ? prev.l : null', 'quarterTrend(books)', 'bsParts(bs)', 'plFall(cur.l)']) expect(UXK, k).toContain(k);
@@ -394,8 +385,8 @@ describe('税と節税・疲れと職場の環境', () => {
   const TX = src('uix/screens/tax.ts');
   const ACCT = src('p1/acctui.ts');
   it('入口：openTax・openGa が、差し込み口が入っているときだけ新しい画面へ渡す（押す先 hooks も渡す）。器は今の札（open・keep）', () => {
-    expect(ACCT).toContain('if (uxk.tax) return uxk.tax(ctx, hooks);');
-    expect(ACCT).toContain('if (uxk.ga) return uxk.ga(ctx, hooks);');
+    expect(ACCT).toContain('return uxk.tax!(ctx, hooks);\n}');
+    expect(ACCT).toContain('return uxk.ga!(ctx, hooks);\n}');
     expect(src('uix/screens/k-boot.ts')).toContain('uxk.tax = openTaxUx;');
     expect(src('uix/screens/k-boot.ts')).toContain('uxk.ga = openGaUx;');
     expect(TX).toMatch(/K\.open\(\s*ctx,\s*title,[\s\S]*?undefined,\s*true,\s*\)/);
@@ -403,15 +394,10 @@ describe('税と節税・疲れと職場の環境', () => {
   it('今の目印（経理・総務の案内が指す所）：tax-plan・tax-tip・fatigue・env・data-hero', () => {
     for (const k of ["'data-focus': 'tax-plan'", "'data-focus': 'tax-tip'", "'data-focus': 'fatigue'", "'data-focus': 'env'", "'data-hero': String(st.hero)"]) expect(TX, k).toContain(k);
   });
-  it('出す中身は今の画面と同じ：見込み（利益・区分ごと・差し引ける額・上限・減る税）・あと N G・前の四半期の報告・これまで・しくみ・奥義の予告', () => {
-    for (const k of ['ここまでの課税の対象の利益', '差し引ける額', '節税で減る税', '研究開発なら', '課税の対象の利益', '繰越の損失', '節税の差し引き', '課税される額', '払った税', '節税で減らした税', '繰り越している損失', '払いきれていない税', '節税のしくみ', '奥義と掛け合わせ（予告）', '決算書を見る', '経理のパネル']) {
-      expect(TX, k).toContain(k);
-      expect(ACCT, k).toContain(k);
-    }
-    for (const k of ['疲れの平均', '休憩をやめる', '休ませる', '職場の環境', '総務のパネル', '設備投資', '未取得（総務のパネル）', '未設置（設備投資）', '工房に付いている']) {
-      expect(TX, k).toContain(k);
-      expect(ACCT, k).toContain(k);
-    }
+  it('出す中身（段 UIX5a までの今の画面と同じ）：見込み（利益・区分ごと・差し引ける額・上限・減る税）・あと N G・前の四半期の報告・これまで・しくみ・奥義の予告', () => {
+    // 段 UIX5a：今の画面（p1/acctui.ts）は外したので、新しい画面の側だけを見る
+    for (const k of ['ここまでの課税の対象の利益', '差し引ける額', '節税で減る税', '研究開発なら', '課税の対象の利益', '繰越の損失', '節税の差し引き', '課税される額', '払った税', '節税で減らした税', '繰り越している損失', '払いきれていない税', '節税のしくみ', '奥義と掛け合わせ（予告）', '決算書を見る', '経理のパネル']) expect(TX, k).toContain(k);
+    for (const k of ['疲れの平均', '休憩をやめる', '休ませる', '職場の環境', '総務のパネル', '設備投資', '未取得（総務のパネル）', '未設置（設備投資）', '工房に付いている']) expect(TX, k).toContain(k);
     expect(DED_KINDS).toEqual(['capex', 'rnd', 'env']);
     expect(Object.keys(BAND_NAME)).toEqual(['fresh', 'ok', 'tired', 'worn']);
     expect(BAND_LAMP.worn).toBe('bad');
@@ -425,7 +411,6 @@ describe('税と節税・疲れと職場の環境', () => {
     expect(restHot(false, 0.7, 0.6)).toBe(true);
     expect(restHot(true, 0.9, 0.6)).toBe(false);
     expect(restHot(false, 0.5, 0.6)).toBe(false);
-    expect(ACCT).toContain("!st.resting && f >= FATIGUE.show ? 'is-on' : ''");
   });
   it('主役のキーは 1 つ（下に貼りつく帯の主のキー＝前の層）：税は「決算書を見る」・総務は「総務のパネル」', () => {
     expect(TX).toContain("kind: 'main', ico: null, cls: 'uxk-tx-books'");
@@ -446,18 +431,16 @@ describe('予算と部門', () => {
   const BD = src('uix/screens/budget.ts');
   const OLD = src('p1/budgetui.ts');
   it('入口：openBudget が、差し込み口が入っているときだけ新しい画面へ渡す。器は今の札（open・keep）', () => {
-    expect(OLD).toContain('if (uxk.budget) return uxk.budget(ctx);');
+    expect(OLD).toContain('return uxk.budget!(ctx);\n}');
     expect(src('uix/screens/k-boot.ts')).toContain('uxk.budget = openBudgetUx;');
     expect(BD).toMatch(/K\.open\(\s*ctx,\s*t\('予算と部門', 'Budgets'\),[\s\S]*?undefined,\s*true,\s*\)/);
   });
-  it('出す中身と押す先は今の画面と同じ（同じ関数を同じ引数で呼ぶ）', () => {
+  it('出す中身と押す先（段 UIX5a までの今の画面と同じ関数を同じ引数で呼ぶ）', () => {
     for (const k of ['budgetOpen(s)', 'budgetDepts(s)', 'setBudgets(s, Object.fromEntries(ds.map((d) => [d, { lv }])))', 'setBudget(s, d, lv)', "setBudget(s, d, 'X', v)", 'setCrewCap(s, d, B.cap - 1)', 'setCrewCap(s, d, B.cap + 1)', 'setCrewCap(s, d, B.cap + 2)', 'setBudget(s, d, up.lv, up.amt)', 'nextUp(s, d, ', 'approve(s, p.id)', 'nextMoves(s, d, 2, ifs)', 'openGrowth(ctx, H.hero)', 'pickHead(ctx, d, null)', 'setHead(s, d, hero)', 'setHead(s, d, null)', 'laborCap(s, d)', 'effParts(s, d)', 'askText(s, d, ', 'resultText(s, x)', 'budgetHeat(s.reports)']) {
       expect(BD, k).toContain(k);
-      expect(OLD, k).toContain(k.replace(/^K\./, ''));
     }
     for (const k of ['今月の予算（部長のいる部門）', '部長からの頼み', '全部門の予算を', '部長なし（あなた）', '今月の施策（実行済み）', '予算の外：承認を待っている施策', '次に打ちたい施策（月の締めで部長が実行）', '先月の施策の成果', 'いま打てる施策はありません。', '部長を置くと、予算の中で施策を選んで実行します。', 'ほかに、お店の従業員', '月の予算（G）', '0 以上の数を入れてください']) {
       expect(BD, k).toContain(k);
-      expect(OLD, k).toContain(k);
     }
     expect(BD).toContain("'data-dept': d");
     expect(BD).toContain("k.setAttribute('data-lv', K.BUDGET_LVS[i])");
@@ -498,14 +481,13 @@ describe('部門のパネルへ寄る・輸入の箱', () => {
     expect(src('uix/screens/tree.css')).toMatch(/\.uxk-head\.is-arrive \{\s*animation: uxk-arrive/);
   });
   it('輸入の箱：feedBox が、差し込み口が入っているときだけ新しい箱へ渡す', () => {
-    expect(OLD).toContain('if (uxk.feed) return uxk.feed(s, b, done);');
+    expect(OLD).toContain('return uxk.feed!(s, b, done);\n}');
     expect(src('uix/screens/k-boot.ts')).toContain('uxk.feed = feedBoxUx;');
   });
   it('輸入の箱：中身と押す先は今の箱と同じ（境の拠点・止まる理由・部長の提案と承認・需要・週の数・値段・選ぶ／外す）', () => {
     for (const k of ['nb.opened && K.borderDepots(s, nb.id).some(', 'K.feedBlock(s, nb.id)', "why !== 'depot'", 'K.feedSuggest(s, nb.id)', 'K.approveFeed(s, sg)', 'K.feedItems(s, nb.id)', 'K.toggleFeed(s, nb.id, it.sku)', "r === 'full'", "r === 'block'"]) expect(FD, k).toContain(k);
     for (const k of ['止まっている品：', 'となり町の工房の商品を、毎週トラックでここへ', '（物流の部長）', 'を輸入に足すと この町の売上 月 +', 'に入れ替えると この町の売上 月 +', 'まだ誰も売っていない', 'この町の需要 ×', '（拠点の置き場所で頭打ち）', '（関税 ', 'の輸入をやめました', 'いまは輸入できません', '相手の工房が作っている商品がありません']) {
       expect(FD, k).toContain(k);
-      expect(OLD, k).toContain(k);
     }
     expect(Object.keys(FEED_WHY)).toEqual(['unopened', 'workshop', 'ruin', 'units']);
     expect(demandHot(1.1, false)).toBe(true);
