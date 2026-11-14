@@ -1,6 +1,6 @@
 /*
- * 段 UIX3d：任せる（任せ先を選ぶ引き出し・部門の担当・部長の提案の受け箱・役目の列）と、部長との対話の着せ替え。
- * 入のときだけ読む（deleg.ts・headtalk.ts）。すべて html.is-uxc の内側・class は uxd-。角は丸めない・日本語 16px から。
+ * 段 UIX3d：任せる（任せ先を選ぶ引き出し・部門の担当・部長の提案の受け箱・役目の列）。部長との対話は段 UIX5t で組み直した（t-talk.css）。
+ * 入のときだけ読む（deleg.ts）。すべて html.is-uxc の内側・class は uxd-。角は丸めない・日本語 16px から。
  */
 html.is-uxc .uxd-dl {
   display: flex;
@@ -216,96 +216,6 @@ html.is-uxc .uxd-role-tape {
   flex: none;
 }
 
-/* ==================================================================== 部長との対話（今の画面の着せ替え） */
-html.is-uxc #isl-ui .uxd-ht *:not(svg):not(svg *):not(.ux-ico) {
-  border-radius: 0 !important;
-}
-html.is-uxc #isl-ui .uxd-ht small,
-html.is-uxc #isl-ui .uxd-ht .isl-ht-kpi small,
-html.is-uxc #isl-ui .uxd-ht .isl-tag,
-html.is-uxc #isl-ui .uxd-ht .isl-ht-role,
-html.is-uxc #isl-ui .uxd-ht .isl-ht-line,
-html.is-uxc #isl-ui .uxd-ht p,
-html.is-uxc #isl-ui .uxd-ht .isl-btn,
-html.is-uxc #isl-ui .uxd-ht b {
-  font-size: 1rem;
-}
-/* 会話の箱：紙の吹き出し。話す人は枠の上に立つ */
-html.is-uxc #isl-ui .uxd-ht .isl-ht-talk.uxd-ht-talk {
-  position: relative;
-  margin-top: 28px;
-  padding: 10px 12px 12px;
-  border-top: 0;
-  background: var(--ux-k2);
-  box-shadow: inset 0 0 0 2px var(--ux-k0), inset 4px 4px 0 0 var(--ux-k4);
-}
-html.is-uxc #isl-ui .uxd-ht .uxd-ht-talk .isl-ht-who {
-  align-items: flex-end;
-}
-/* 話す人は、枠の上の縁から立ち上がる（息をする） */
-html.is-uxc #isl-ui .uxd-ht .uxd-ht-talk .isl-ht-who > :first-child {
-  position: relative;
-  margin-top: -34px;
-  background: var(--ux-k0);
-  box-shadow: inset 0 0 0 2px var(--ux-k3);
-  animation: uxd-breathe 2400ms steps(2, end) infinite;
-}
-@keyframes uxd-breathe {
-  50% {
-    transform: translate3d(0, -2px, 0);
-  }
-}
-html.is-uxc #isl-ui .uxd-ht .uxd-ht-talk .isl-ht-name {
-  align-self: flex-start;
-  padding: 0 6px;
-  background: var(--ux-k0);
-  color: var(--ux-paper);
-  font-weight: 400;
-}
-html.is-uxc #isl-ui .uxd-ht h3 {
-  font-size: 1rem;
-  font-weight: 400;
-}
-html.is-uxc #isl-ui .uxd-ht .uxd-ht-talk .isl-ht-text {
-  margin: 4px 0;
-  padding: 10px 12px;
-  background: var(--ux-paper);
-  color: var(--ux-ink);
-  font-family: var(--ux-jp);
-  line-height: 1.6;
-  box-shadow: inset 0 -2px 0 var(--ux-paper2), 2px 2px 0 rgba(4, 6, 14, 0.5);
-}
-html.is-uxc #isl-ui .uxd-ht .uxd-ht-talk .isl-ht-quip {
-  color: var(--ux-paper2);
-}
-html.is-uxc #isl-ui .uxd-ht .isl-ht-opts .isl-btn {
-  min-height: 44px;
-}
-/* 決める所（確認事項の 1 件）：この段の札 */
-html.is-uxc #isl-ui .uxd-ht .isl-ht-item.uxd-ht-item {
-  border: 0;
-  background: var(--ux-k1);
-  box-shadow: inset 4px 0 0 var(--ux-amber), inset 0 0 0 2px var(--ux-k0);
-}
-html.is-uxc #isl-ui .uxd-ht .uxd-ht-item .isl-ht-count {
-  display: inline-block;
-  padding: 0 6px;
-  background: var(--ux-amber);
-  color: var(--ux-ink);
-}
-html.is-uxc #isl-ui .uxd-ht .uxd-ht-item .isl-ht-say {
-  padding: 8px 10px;
-  background: var(--ux-paper);
-  color: var(--ux-ink);
-}
-html.is-uxc #isl-ui .uxd-ht .uxd-ht-item .isl-ht-choice {
-  border: 0;
-  background: var(--ux-k2);
-  box-shadow: inset 0 0 0 2px var(--ux-k3);
-}
-html.is-uxc #isl-ui .uxd-ht .uxd-ht-item .isl-ht-choice.is-rec {
-  box-shadow: inset 0 0 0 2px var(--ux-amber);
-}
 html.is-uxc .uxd-dl-q > :first-child {
   flex: none;
   width: 6rem;
@@ -313,22 +223,4 @@ html.is-uxc .uxd-dl-q > :first-child {
 html.is-uxc .uxd-dl p,
 html.is-uxc .uxd-dl small {
   font-size: 1rem;
-}
-
-/* 部長との対話の士気の札：人と管理の画面の士気の札（.uxh-mor）と同じ形（角・字の大きさを新しい見た目に） */
-html.is-uxc #isl-ui .uxd-ht .isl-morale.uxd-mor {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  color: var(--ux-ink);
-  font-size: 16px;
-}
-html.is-uxc #isl-ui .uxd-ht .isl-morale.uxd-mor.is-bad {
-  color: var(--ux-bad);
-}
-html.is-uxc #isl-ui .uxd-ht .isl-morale.uxd-mor.is-high {
-  color: var(--ux-cyan);
 }
