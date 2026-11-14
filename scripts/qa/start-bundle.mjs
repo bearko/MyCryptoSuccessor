@@ -13,7 +13,9 @@
  * さらに、本体の CSS（入口が本体を読むときに連れてくる CSS。`main.css` ほか）に、
  *   - 新しい画面の CSS（`is-uxc`・`ux-`/`uxp-` の部品の class）が入っていないこと（入ると、新しい画面の CSS が本体の CSS のあとに当たり、重なりの順が変わる）
  *   - 本体の CSS（`src/island/**\/*.css` のうち、本体が読むもの）が、全部入っていること（別の束へ抜けていない）
- * を確かめる。あとから読みうる束（起動の束の中の動的な import）も基準とくらべる。
+ * を確かめる。本体の CSS の中の、もとの CSS ファイルの並び（bodyOrder）も基準とくらべる：import を消す・足すと、モジュールをたどる順が変わり、
+ * 同じ名前の束の中でファイルの並び（当たる順）だけが変わることがある（段 UIX5a で起きた。p1/main.ts の頭で並びを決めて直した）。
+ * あとから読みうる束（起動の束の中の動的な import）も基準とくらべる。
  *
  * 分かれ方が変わる典型（段 UIX3 で 2 回起きた）：新しい画面の束が、本体のモジュールを `import * as` で束ねて読む／CSS を持つ `p1/` のモジュールを読む。
  * 意図して変えるときは `node scripts/qa/start-bundle.mjs --write` で基準を書き直し、差分をコミットに入れる（手順は docs）。
@@ -157,6 +159,12 @@ function main() {
   for (const re of FORBID) if (re.test(cssText)) problems.push(`本体の CSS に新しい画面の CSS が入っている：${re}`);
   const flat = squash(cssText);
   const marks = cssMarks();
+  // 本体の CSS の中の、もとの CSS ファイルの並び（ファイルごとのはじめの規則の位置の順）
+  names.bodyOrder = marks
+    .map((m) => ({ f: m.file.replace(/^src\/island\//, ''), at: flat.indexOf(squash(m.sel)) }))
+    .filter((m) => m.at >= 0)
+    .sort((a, b) => a.at - b.at)
+    .map((m) => m.f);
   // 本体が読む CSS か：p1/ のどれかの .ts（または入口の main.ts）が import しているものだけ
   const imported = new Set();
   for (const d of ['src/island/p1', 'src/island']) {
@@ -189,8 +197,9 @@ function main() {
     const minus = [...a].filter((x) => !b.has(x));
     if (plus.length || minus.length) problems.push(`起動のときに${k === 'lazy' ? 'あとから読みうる束' : '読む JS'}の分かれ方が基準と違う：増えた [${plus.join(', ')}]・減った [${minus.join(', ')}]`);
   }
-  for (const k of ['css', 'body'])
-    if (JSON.stringify(base[k]) !== JSON.stringify(names[k])) problems.push(`${k === 'css' ? '起動のときに当てる CSS（順も）' : '本体の CSS'}が基準と違う：基準 [${(base[k] ?? []).join(', ')}]・いま [${names[k].join(', ')}]`);
+  const label = { css: '起動のときに当てる CSS（順も）', body: '本体の CSS', bodyOrder: '本体の CSS の中のファイルの並び（当たる順）' };
+  for (const k of ['css', 'body', 'bodyOrder'])
+    if (JSON.stringify(base[k]) !== JSON.stringify(names[k])) problems.push(`${label[k]}が基準と違う：基準 [${(base[k] ?? []).join(', ')}]・いま [${names[k].join(', ')}]`);
   if (problems.length) {
     console.error('start-bundle: だめ');
     for (const p of problems) console.error(`  - ${p}`);

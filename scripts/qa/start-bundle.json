@@ -32,9 +32,23 @@
   ],
   "lazy": [
     "duotalk.js",
-    "growthui.js",
     "lesson.js",
     "plan.js",
     "voice.js"
+  ],
+  "bodyOrder": [
+    "island.css",
+    "p1/lesson.css",
+    "p1/p2.css",
+    "p1/factory.css",
+    "p1/ui8.css",
+    "p1/pol.css",
+    "p1/p1.css",
+    "p1/ui6.css",
+    "p1/ticker.css",
+    "p1/i1.css",
+    "p1/board.css",
+    "p1/policycards.css",
+    "p1/mapset.css"
   ]
 }

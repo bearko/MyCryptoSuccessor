@@ -2,6 +2,14 @@
  * フェーズ 1「新天地で実績を上げろ」の画面。地図・上の帯・事業別メニュー（下の帯）・マスの吹き出し・マインちゃんの案内・時間。
  * 仕様は docs/ISLAND_PHASE1.md。
  */
+// 段 UIX5a：本体の CSS の当たる順（本番の束 main-*.css の中のファイルの並び）を、古い描き方を消す前と同じにする。
+// 消した import でモジュールをたどる順が変わり、この 5 つが p1.css より後ろへ回っていた（重なりの順が変わると、同じ CSS でも見た目が変わりうる）。
+// scripts/qa/start-bundle.mjs が、この並び（cssOrder）を基準とくらべて守る
+import './lesson.css';
+import './p2.css';
+import './factory.css';
+import './ui8.css';
+import './pol.css';
 import '../island.css';
 import './p1.css';
 import type { Bgm } from '../../audio';

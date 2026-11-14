@@ -149,6 +149,14 @@ describe('サービスワーカーと起動で読む束', () => {
     expect(V).toContain("rel: 'preload', as: 'style'");
     expect(V).toMatch(/plugins: \[uxFonts\(\), pwa\(\), siteUrl\(\), startPreload\(\)\]/);
   });
+  it('本体の CSS の中のファイルの並び（当たる順）は、古い描き方を消す前と同じ（p1/main.ts の頭で決める・基準 bodyOrder で守る）', () => {
+    const main = read(`${P1}/main.ts`);
+    const css = [...main.matchAll(/^import '(\.{1,2}\/[^']+\.css)';$/gm)].map((m) => m[1]);
+    expect(css).toEqual(['./lesson.css', './p2.css', './factory.css', './ui8.css', './pol.css', '../island.css', './p1.css']);
+    const base = JSON.parse(read('scripts/qa/start-bundle.json'));
+    expect(base.bodyOrder.slice(0, 7)).toEqual(['island.css', 'p1/lesson.css', 'p1/p2.css', 'p1/factory.css', 'p1/ui8.css', 'p1/pol.css', 'p1/p1.css']);
+    expect(read('scripts/qa/start-bundle.mjs')).toContain("for (const k of ['css', 'body', 'bodyOrder'])");
+  });
   it('毎晩の本番の確かめは、新しい画面が出ること・失敗の表示が出ないことを見る（前の ?uix=1 の場合分けは無い）', () => {
     const smoke = read('scripts/qa/prod-smoke.mjs');
     expect(smoke).toContain("waitForSelector('.uxm-hud'");
