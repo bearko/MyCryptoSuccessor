@@ -451,6 +451,8 @@ html.is-uxc #isl-ui .uxt-quip-top {
 html.is-uxc #isl-ui .uxt-keys {
   display: flex;
   flex-wrap: wrap;
+  align-content: flex-end;
+  align-items: flex-end;
   gap: 6px;
   min-width: 0;
 }
