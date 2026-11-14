@@ -499,3 +499,52 @@ html.is-uxc #isl-ui .uxt-talk.has-lever .uxt-bub,
 html.is-uxc #isl-ui .uxt-talk.has-lever .uxt-keys {
   grid-column: 1;
 }
+/* せまい画面の小さいレバー（高さ 92px＝8＋つまみ 36＋引く距離 40＋8。t-talk.ts の SMALL_TRAVEL と組）。
+   レバーは吹き出しの右、選択肢のキーは下の 1 段に横いっぱい */
+html.is-uxc #isl-ui .uxt-talk.is-small .uxt-lever {
+  grid-row: 1;
+  align-self: start;
+  /* 名前の札（枠の上の縁にまたがる）の下から */
+  margin-top: 16px;
+}
+/* 下の一行は、レバーの幅（88px）に収める（矢印の絵は外す・長い字は折り返す） */
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-cap {
+  max-width: 88px;
+  justify-content: center;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-cap > canvas {
+  display: none;
+}
+html.is-uxc #isl-ui .uxt-talk.is-small .uxt-keys {
+  grid-column: 1 / -1;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-box {
+  min-width: 88px;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever {
+  width: 88px;
+  height: 92px;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-slot {
+  left: 38px;
+  top: 8px;
+  bottom: 8px;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-scale {
+  top: 16px;
+  bottom: 16px;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-hint {
+  display: none;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-knob {
+  width: 72px;
+  height: 36px;
+}
+html.is-uxc #isl-ui .uxt-lever--s .ux-lever-grip {
+  bottom: 4px;
+  height: 4px;
+}

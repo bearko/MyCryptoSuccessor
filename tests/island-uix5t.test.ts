@@ -10,6 +10,7 @@ import { charismaLine, moraleAvg, payroll, wantsToQuit } from '../src/island/p1/
 import { orgChart } from '../src/island/p1/org';
 import { DEPT_DUTIES } from '../src/island/p1/data';
 import { uxt } from '../src/island/uix/screens/t-slots';
+import { LEVER, leverCore } from '../src/island/uix/parts';
 
 const src = (f: string) => readFileSync(new URL(`../src/island/${f}`, import.meta.url), 'utf8');
 const T_FILES = ['t-talk.ts', 't-boot.ts', 't-deps.ts', 't-slots.ts'];
@@ -144,5 +145,37 @@ describe('出す中身：今の画面と同じ計算', () => {
       expect(v.cost).toBe(500);
       expect(v.money).toBe(s.money);
     }
+  });
+});
+
+describe('せまい画面の小さいレバー（引く距離 40px・高さ 92px）', () => {
+  it('土台のレバーは、引く距離を渡せる（既定は今と同じ 104px）', () => {
+    let n = 0;
+    const big = leverCore({ engage: () => n++ });
+    big.down(0);
+    big.move(60);
+    expect(big.engaged).toBe(false);
+    big.move(LEVER.travel);
+    expect(big.pos).toBe(LEVER.travel);
+    const small = leverCore({ engage: () => n++ }, () => false, 40);
+    small.down(0);
+    small.move(16);
+    small.up();
+    expect(small.engaged).toBe(false);
+    const s2 = leverCore({ engage: () => n++ }, () => false, 40);
+    s2.down(0);
+    s2.move(40);
+    expect(s2.engaged).toBe(true);
+    expect(s2.pos).toBe(40);
+    expect(n).toBe(2);
+  });
+  it('せまい札（幅 480px 未満）だけ、小さい形の class と引く距離を渡す。高さは CSS で 8＋36＋40＋8＝92px', () => {
+    const U = src('uix/screens/t-talk.ts');
+    expect(U).toContain('travel: small ? SMALL_TRAVEL : undefined,');
+    expect(U).toContain("const small = body.clientWidth > 0 && body.clientWidth < SMALL_W;");
+    const css = src('uix/screens/t-talk.css');
+    expect(css).toContain('html.is-uxc #isl-ui .uxt-lever--s .ux-lever {\n  width: 88px;\n  height: 92px;');
+    // 土台の CSS（ほかの画面のレバー）は変えていない
+    expect(src('uix/parts.css')).toContain('  width: 108px;\n  height: 172px;');
   });
 });

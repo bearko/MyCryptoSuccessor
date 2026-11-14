@@ -28,6 +28,10 @@ import type { HtGrade } from '../../p1/uxt';
 export const STAMP_HOLD_MS = 420;
 /** レバーの「承認済」が点いてから、本体の承認を呼ぶまで（ms。土台の口 ux.lever と同じ間） */
 export const LEVER_WAIT_MS = 260;
+/** せまい画面の小さいレバーの引く距離（px。土台の既定は 104。高さは 8＋つまみ 36＋40＋8＝92px：t-talk.css の .uxt-lever--s） */
+export const SMALL_TRAVEL = 40;
+/** この幅より札の中身がせまいとき（390 の形）、承認のレバーを小さくする */
+export const SMALL_W = 480;
 /** 案内役の立ち絵：胸から上だけ（96×128 の上 72px を等倍で） */
 export const MINE_CROP = { w: 96, h: 72 };
 
@@ -367,6 +371,8 @@ export function headTalkUx(body: HTMLElement, c: HtCall) {
 
   // ---- 選択肢（最後の枚のとき。途中の枚は「つぎへ」）
   const keys = el('div.uxt-keys');
+  // せまい画面（390 の形）：承認のレバーは小さい形（高さ 92px）にして、データの欄（提案の中身の札）を見えるようにする
+  const small = body.clientWidth > 0 && body.clientWidth < SMALL_W;
   let lever: HTMLElement | null = null;
   if (!c.last) keys.append(uxKey(t('つぎへ', 'Next'), () => c.more(), { kind: 'main', ico: 'next', cls: 'uxt-next', attrs: { 'data-ux-quiet': '' } }));
   for (const o of c.opts) {
@@ -387,8 +393,9 @@ export function headTalkUx(body: HTMLElement, c: HtCall) {
             decide(body, c, o);
           }, isCalm() ? 0 : LEVER_WAIT_MS),
         shakeEl: () => body.querySelector('.uxt-deal'),
+        travel: small ? SMALL_TRAVEL : undefined,
       });
-      lever = el('div.uxt-lever', { 'data-uxt-opt': o.k }, lv.el);
+      lever = el(`div.uxt-lever${small ? '.uxt-lever--s' : ''}`, { 'data-uxt-opt': o.k }, lv.el);
       // 承認のランプと「未承認 → 承認済」は、決める札（データの側）の上の帯に
       const side = data.querySelector('.uxt-lv-side');
       if (side) side.append(lv.lamps, lv.done);
@@ -406,7 +413,7 @@ export function headTalkUx(body: HTMLElement, c: HtCall) {
     keys.append(k);
   }
   keys.classList.toggle('is-one', keys.childElementCount === 1);
-  const talk = el(`div.uxt-talk${lever ? '.has-lever' : ''}${fresh && !isCalm() ? '.is-fresh' : ''}`, el('div.uxt-bub', bubble.el), keys, lever);
+  const talk = el(`div.uxt-talk${lever ? '.has-lever' : ''}${lever && small ? '.is-small' : ''}${fresh && !isCalm() ? '.is-fresh' : ''}`, el('div.uxt-bub', bubble.el), keys, lever);
   body.append(data, talk);
   const head = body.closest('.isl-sheet')?.querySelector<HTMLElement>(':scope > .isl-sheet-box > .isl-sheet-head');
   head?.querySelectorAll(':scope > .uxt-detail').forEach((x) => x.remove());
