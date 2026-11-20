@@ -7,6 +7,7 @@ import type { P1State } from './model';
 import { type Ctx } from './screens';
 import { checkTrophies, loadTrophies, saveTrophies, type TrophyBook, type TrophyDef } from './trophy';
 import { uxh } from '../uix/screens/h-slots';
+import { platformOn, sendTrophy } from '../platform';
 
 /** 手元の記録（はじめに 1 回だけ読む。書けなくても、このセッションのあいだは覚えておく） */
 let book: TrophyBook | null = null;
@@ -20,6 +21,36 @@ export function trophyTick(s: P1State): TrophyDef[] {
   const got = checkTrophies(s, b);
   if (got.length) saveTrophies(b);
   return got;
+}
+
+let syncing = false;
+/**
+ * 手元に貯めたアチーブメントのうち、まだ共通基盤に送っていないものを送る（つながったとき・新しく取ったとき）。
+ * 受け付けられたものだけ sent にする（共通基盤に定義がまだ無いあいだは受け付けられず、次に送り直す。未ログインでも仮アカウントに付く）
+ */
+export function syncTrophies(): void {
+  if (syncing || !platformOn()) return;
+  const b = trophyBook();
+  const ids = Object.entries(b.got)
+    .filter(([, r]) => !r.sent)
+    .map(([id]) => id);
+  if (!ids.length) return;
+  syncing = true;
+  Promise.all(
+    ids.map((id) =>
+      sendTrophy(id).then((ok) => {
+        if (ok && b.got[id]) b.got[id].sent = true;
+        return ok;
+      }),
+    ),
+  )
+    .then((oks) => {
+      if (oks.some(Boolean)) saveTrophies(b);
+    })
+    .catch(() => undefined)
+    .finally(() => {
+      syncing = false;
+    });
 }
 
 /**

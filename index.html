@@ -27,6 +27,8 @@
     <meta name="twitter:title" content="My Crypto Successor" />
     <meta name="twitter:description" content="ランド「Lime」で工房と店を営み、荒れ地を発掘して町を復興させよう。ブラウザで無料プレイ（非公式二次創作）" />
     <meta name="twitter:image" content="__SITE_URL__og-image.jpg" />
+    <!-- bearko.games の共通基盤（ログイン・アチーブメント・全体チャット）。ゲームの本体（Vite が head に入れる module）より前に置く。読めなくても遊べる（src/island/platform.ts） -->
+    <script defer src="https://bearko.games/sdk/v1.js"></script>
   </head>
   <body class="isl">
     <canvas id="isl-map"></canvas>

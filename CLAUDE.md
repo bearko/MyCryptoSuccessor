@@ -5,6 +5,7 @@
 - このリポジトリは独立したゲーム「My Crypto Successor」（もとは My Crypto Workshop の試作モード「アイランド」）。サイトを開くと `index.html` → `src/island/main.ts` でアイランドが始まる。公開は https://successor.bearko.games（Cloudflare Workers の静的配信）。本番のブランチは `main`。
 - ゲームの全体像は `docs/SUCCESSOR_VISION.md`、ロードマップと各機能の設計は `docs/SUCCESSOR_ROADMAP.md`。新しい機能はこの方向に沿って作る。
 - 画面は `docs/ISLAND_UIX.md` の部品（管制卓の見た目）で `src/island/uix/screens/` に作り、本体（`src/island/p1/`）の入口からは差し込み口へ渡す 1 行（`return ux<x>.<名前>!(…)`）にする。本体の DOM や CSS で新しい画面を直接描かない。
+- bearko.games の共通基盤（ログイン・アチーブメント・チュートリアルの段・全体チャット）は `src/island/platform.ts` だけが `window.BearkoGames` を触る。SDK が無くても遊べること、チュートリアルの段の番号と id を公開後に変えないこと（`docs/PLATFORM.md`）。
 - チェック：`npx tsc --noEmit`・`npm test`・`npm run i18n:check`・`npm run build`・`npm run pixel:lint`・`npm run island:audit`（反映されない投資が 0）・`npm run island:sim`（1 台だと 1 時間ほど。`docs/ISLAND_BALANCE.md` を書き直す）。
 - テストは 3 段で回す（public なので無料）：
   - **PR ごと**（`CI`）：型・英訳・絵・ビルド、軽いテストを 4 台で全部、重いテスト（`tests/heavy.txt`）は PR が触ったファイルに関係するものだけ。
