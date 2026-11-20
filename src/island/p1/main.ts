@@ -28,7 +28,7 @@ import { bandText } from './deleg';
 import { headHooks, openDeleg, openProps } from './delegui';
 import { openHeadTalk } from './headtalkui';
 import { HEAD_OPEN_TALK, HEAD_PICK_TALK, headTalkDue, talkMode } from './headtalk';
-import { openTrophies, trophyEl, trophyTick } from './trophyui';
+import { openTrophies, syncTrophies, trophyEl, trophyTick } from './trophyui';
 import { lessonPopEl, openLessons } from './lessonui';
 import { takeFresh } from './lesson';
 import { craftedText, makeTicker, type NewsOpt } from './ticker';
@@ -215,6 +215,7 @@ import { mapSetOn, openMapSet } from './mapsetui';
 import { borderAt, crossRoute, tradeNeighbors } from './tariff';
 import { activeFeeds, feedNext, feedPrice, feedReady, feedRoute, feedSkus, weekPlan } from './feed';
 import { TRADE } from './data';
+import { onChatToggle, onPlatformReady, openChat, platformOn, startPlatform, toastPlace, tutStep as pfStep } from '../platform';
 
 const q = new URLSearchParams(location.search);
 const TEST = q.get('test') === '2';
@@ -286,6 +287,21 @@ let dirty = true;
 const pendingShutter: number[] = [];
 const cam: Camera = { x: 0, y: (s.n - 1) * 55, zoom: innerWidth < 600 ? 0.3 : 0.5 };
 let speed = 1;
+// 共通基盤（bearko.games）：つなぐ。読めなくても遊べる（src/island/platform.ts）。全体チャットの窓を開いているあいだは時間を止める
+startPlatform();
+// 手元に貯めたアチーブメント（p1/trophy.ts）を、つながったら送る
+onPlatformReady(() => syncTrophies());
+let chatPrevSpeed = 0;
+onChatToggle((open) => {
+  if (open && speed > 0) {
+    chatPrevSpeed = speed;
+    speed = 0;
+  } else if (!open && chatPrevSpeed > 0 && speed === 0) {
+    speed = chatPrevSpeed;
+    chatPrevSpeed = 0;
+  }
+  renderHud();
+});
 /** 建てる（move があれば移転） */
 /** up：段 FACTORY1a の工房の建て替え（新しい段。move は工房の uid） */
 let placing: { id: string; dir: Dir; i: number; j: number; move?: number; up?: 1 | 2 } | null = null;
@@ -867,6 +883,15 @@ goalStrip.hidden = true;
 let goalShown = false;
 panel.append(deptBand, goalStrip, subRow, cards);
 const tabbar = h('nav', 'isl-tabbar');
+/** 共通基盤の通知（アチーブメントなど）は画面の下。下の帯が画面の下に横に並ぶとき（せまい画面）は、その上に出す */
+function placeToast() {
+  const r = tabbar.getBoundingClientRect();
+  const along = r.width > innerWidth / 2 && r.top > innerHeight / 2;
+  toastPlace(along ? innerHeight - r.top + 8 : 16);
+}
+// 本体はページの load のあとに読まれるので、帯が画面に入って大きさが決まったとき（と画面の大きさが変わったとき）に合わせる
+addEventListener('resize', () => requestAnimationFrame(placeToast));
+if (typeof ResizeObserver === 'function') new ResizeObserver(() => placeToast()).observe(tabbar);
 let tabBtns = {} as Partial<Record<Menu, HTMLButtonElement>>;
 /** グループの引き出し（部門が 7 つ以上のとき。いまは器だけ） */
 let drawer: DeptGroup | null = null;
@@ -2959,8 +2984,27 @@ function tutTip(screen: string): string | null {
 const tutFree = () => !placing && !sheetOpen() && !pop && !root.querySelector('.isl-modal');
 
 /** 段の条件を見て進める。新しい段に説明の札があれば、画面が空いたときに出す */
+/**
+ * 共通基盤へ、チュートリアルの段に着いたことを送る（表は docs/PLATFORM.md・番号は platform.ts の TUT_STEPS）。
+ * 手引きつきで最初から始めたセーブだけ（古いセーブ・途中のセーブは送らない）。同じ段はページの中で 1 回
+ */
+function tutReport(k: number) {
+  if (!s.flags.pfTut) {
+    if (s.tut !== 0 || s.reports.length > 0 || s.buildings.some((b) => b.owner === 'me' && b.id === 'workshop')) return;
+    s.flags.pfTut = true;
+    save();
+  }
+  pfStep('start');
+  if (k >= TUT_DONE) {
+    pfStep('done');
+    return;
+  }
+  for (let i = 1; i <= k && i < TUT.length; i++) pfStep(TUT[i].id);
+}
+
 function tutTick() {
   let k = tutOf(s);
+  tutReport(k);
   if (k >= TUT_DONE) {
     sideIntro();
     return;
@@ -3057,6 +3101,7 @@ function tutTick() {
       pages.splice(Math.max(0, pages.length - 1), 0, { text: RP_LINE(rp), show: 'gift', gift: { icon: '📜', title: `${rp} RP`, note: t('マインちゃんの研究ノート', 'Mine-chan’s research notes') } });
     }
     talk(pages, st.intro.ok, () => {
+      if (k === 0 && s.flags.pfTut) pfStep('intro');
       const a = actOf(st, s);
       if (a && !st.lesson) tutGo(a[1]);
       else renderAll();
@@ -3687,6 +3732,20 @@ function openSettingsUx() {
           ico: 'globe',
           rows: [
             { k: 'seg', id: 'lang', label: t('言語', 'Language'), opts: [{ value: 'ja', label: '日本語' }, { value: 'en', label: 'English' }], value: isEn ? 'en' : 'ja', set: (x) => setLang(x === 'en' ? 'en' : 'ja') }, // i18n-ja
+            ...(platformOn()
+              ? [
+                  {
+                    k: 'key' as const,
+                    id: 'chat',
+                    label: t('全体チャットを開く', 'Open the chat'),
+                    note: t('bearko.games のみんなと話す（開いているあいだ時間は止まる）', 'Talk with everyone on bearko.games (time stops while it is open)'),
+                    fn: () => {
+                      closeSheet();
+                      openChat();
+                    },
+                  },
+                ]
+              : []),
             {
               k: 'switch',
               id: 'guide',
@@ -4277,7 +4336,9 @@ function trophyCheck() {
   const key = `${s.day}|${!!s.flags.headEver}|${!!s.flags.landEpic}|${!!s.cleared}|${Object.keys(s.duo?.found ?? {}).length}`;
   if (key === trophyKey) return;
   trophyKey = key;
-  trophyQ.push(...trophyTick(s));
+  const gotTrophies = trophyTick(s);
+  trophyQ.push(...gotTrophies);
+  if (gotTrophies.length) syncTrophies();
   trophyFlush();
 }
 /** 取ったトロフィーの帯の順番待ち：そのときのトースト・カード・会話・発掘画面が消えてから 1 つずつ（トーストの列に入れるので、あとのトーストとも重ならない） */

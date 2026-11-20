@@ -454,6 +454,8 @@ export interface Flags {
   side?: boolean;
   /** チュートリアルの「初売上までの流れ」を見た */
   tour?: boolean;
+  /** 共通基盤（src/island/platform.ts）：このセーブは最初から手引きつきで始めた（チュートリアルの段を送ってよい。古いセーブ・途中から入ったセーブは送らない） */
+  pfTut?: boolean;
   /** スキルツリーの本社パネルを開放した */
   hq?: boolean;
   /** はじめて売れた（ブランド力） */
