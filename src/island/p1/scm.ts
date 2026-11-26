@@ -217,6 +217,7 @@ export function whatIfUp(ctx: Ctx, s: P1State, w: WhatIf): { label: string; sub:
     case 'known':
       return { label: t('認知を 100% に', 'Make items fully known'), sub: t('宣伝（マーケ）', 'Advertising (marketing)'), go: () => openAds(ctx) };
     case 'part':
+      if (w.unmanned) return { label: t(`${at}の売り場に人を置く`, `Staff the floor at ${at}`), sub: t(`アルバイト 1 人（${at}のお店の画面）`, `One part-timer (${at} shop screen)`), go: () => w.uid != null && openShop(ctx, w.uid) };
       return { label: t('アルバイト +1', 'One more part-timer'), sub: t(`${at}（お店の画面）`, `${at} (shop screen)`), go: () => w.uid != null && openShop(ctx, w.uid) };
     case 'fixtures':
       return { label: t('陳列の什器 +1', 'Display fixtures +1'), sub: t(`${at}（お店の設備投資）`, `${at} (shop investment)`), go: () => w.uid != null && openShop(ctx, w.uid) };
@@ -271,6 +272,7 @@ export function sellBigUp(ctx: Ctx, s: P1State, m: SellMove): Up {
     case 'shop':
       return { label: myShops(s).length >= 2 ? t('次のお店を建てる', 'Build another shop') : t('2 軒目のお店を建てる', 'Build a 2nd shop'), sub: t(`${gain}・建築 ${cost}＋毎月 ${money(m.monthly)}（食い合いあり）`, `${gain} · build ${cost} + ${money(m.monthly)}/mo (shares customers)`), short: s.money < m.cost, go: run('') };
     case 'part':
+      if (m.w?.unmanned) return { label: t(`${at}の売り場に人を置く`, `Staff the floor at ${at}`), sub: t(`${gain}・アルバイト 1 人`, `${gain} · one part-timer`), go: run(t(`${at}にアルバイトを置きました。お店が開きます`, `Put a part-timer at ${at}. The shop opens`)) };
       return { label: t('アルバイト +1', 'One more part-timer'), sub: t(`${gain}・${at}`, `${gain} · ${at}`), go: run(t('アルバイトを 1 人増やしました', 'Added a part-timer')) };
     case 'fixtures':
       return { label: t('陳列の什器 +1', 'Display fixtures +1'), sub: t(`${gain}・${at}の設備投資 ${cost}`, `${gain} · invest ${cost} at ${at}`), buy: true, short: s.money < m.cost, go: run(t(`「${INVEST.fixtures.name}」を導入しました（${at}）`, `Installed: ${INVEST.fixtures.name} (${at})`)) };

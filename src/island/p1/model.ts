@@ -6027,6 +6027,8 @@ export interface WhatIf {
   hot?: boolean;
   /** shelf：設備投資の値段 */
   cost?: number;
+  /** part：棚は決まっているのに売り場に人がいないお店（休業中）に、はじめての人を置く */
+  unmanned?: boolean;
 }
 
 /** 販売の数字と売上（処理力で頭打ちなら、その割合で売上も縮める） */
@@ -6053,6 +6055,13 @@ export function sellWhatIf(s: P1State): WhatIf[] {
   };
   const shops = myShops(s).filter((b) => s.shops[b.uid]?.shelves.some((x) => x));
   const served = shops.filter((b) => s.shops[b.uid].staff != null || s.shops[b.uid].part > 0);
+  // 棚は決まっているのに売り場に人がいないお店（休業中。SCM の詰まりの理由「売り場に人がいません」）：
+  // アルバイトを 1 人置けば開く。詰まりの理由と打ち手をそろえるため、ほかの手より先に見る
+  for (const b of shops) {
+    const sh = s.shops[b.uid];
+    if (sh.staff != null || sh.part > 0 || partMax(s, b.uid) < 1) continue;
+    add({ kind: 'part', uid: b.uid, unmanned: true }, sellNow(withShops(s, { [b.uid]: { ...sh, part: 1 } })));
+  }
   if (!served.length) return out;
   const { list } = sources(s);
   // いちばん強いお店：商圏の家（来やすさの重み）× 売り場に人がいる
