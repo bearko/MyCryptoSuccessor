@@ -43,6 +43,8 @@ export interface SellMove {
   w?: WhatIf;
   /** 入れ替えで外す商品 */
   replace?: Sku | null;
+  /** 休業中のお店（売り場に人がいない）を開く手：いちばんの改善案で先に出す */
+  fix?: boolean;
 }
 
 /** 売上のうち粗利の割合（先月の報告。無ければ 0.8） */
@@ -184,7 +186,7 @@ export function sellMoves(s: P1State): SellMove[] {
       }
       case 'part':
         if (w.uid == null) break;
-        push({ kind: 'part', act: { k: 'part', uid: w.uid }, units: w.units, gross, monthly: partMonthly(), cost: 0, uid: w.uid, w });
+        push({ kind: 'part', act: { k: 'part', uid: w.uid }, units: w.units, gross, monthly: partMonthly(), cost: 0, uid: w.uid, w, fix: !!w.unmanned });
         break;
       case 'fixtures': {
         const b = w.uid != null ? s.buildings.find((x) => x.uid === w.uid) : undefined;
@@ -231,7 +233,9 @@ export function sellMoves(s: P1State): SellMove[] {
 }
 /** いちばん見込みの大きい販売の手（毎月の費用を引いた利益がプラスで、打てるもの。無ければ打てるものの先頭） */
 export function bestSell(s: P1State, list = sellMoves(s)): SellMove | null {
-  return list.find((m) => m.net > 0 && m.units > unitsX(0.5)) ?? null;
+  // 休業中のお店に人を置く手（fix）は、建てる手より先に（詰まりの理由「売り場に人がいません」と打ち手をそろえる）
+  const ok = (m: SellMove) => m.net > 0 && m.units > unitsX(0.5);
+  return list.find((m) => m.fix && ok(m)) ?? list.find(ok) ?? null;
 }
 /** 品の名前（商品の key か Sku） */
 export const goodsName = (key: string) => PRODUCT[skuParts(key as Sku)[0]]?.name ?? PRODUCT[key]?.name ?? key;

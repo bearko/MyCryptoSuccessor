@@ -147,6 +147,27 @@ describe('SCM の大きいボタン', () => {
   });
 });
 
+describe('SCM の大きいボタン：売り場に人がいないお店', () => {
+  it('棚は決まっているのに人がいないお店があれば、いちばんの改善案は「そのお店の売り場に人を置く」（建てる手より先）', () => {
+    const s = sellJam();
+    // 人のいるお店から、店員とアルバイトを外す（休業中のお店にする）
+    const b = myShops(s).find((x) => s.shops[x.uid].shelves.some((y) => y))!;
+    expect(b).toBeTruthy();
+    const sh = s.shops[b.uid];
+    sh.staff = null;
+    sh.part = 0;
+    const ms = sellMoves(s);
+    const fix = ms.find((m) => m.fix);
+    expect(fix?.kind).toBe('part');
+    expect(fix?.uid).toBe(b.uid);
+    expect(fix!.units).toBeGreaterThan(0);
+    const best = bestSell(s, ms)!;
+    expect(best.fix).toBe(true);
+    expect(best.uid).toBe(b.uid);
+    expect(best.kind).not.toBe('shop');
+  });
+});
+
 describe('口調の型（属性・陣営から）とセリフ・一言', () => {
   const heroes = raw.heroes as { id: number; attributes: string[] }[];
   it('386 体すべてに型があり、8 種類とも使われている。性格の一言もある', () => {
