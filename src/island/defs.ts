@@ -170,7 +170,7 @@ const ALL: Def[] = [
 ];
 
 /** 絵がまだ無い建物（生成の回数が尽きたため。scripts/island/generate.py で作れば外す） */
-export const PENDING_ART = ['elephant_works', 'g9_hall', 'robot_lab'];
+export const PENDING_ART: string[] = [];
 
 export const DEFS: Def[] = ALL.filter((d) => !PENDING_ART.includes(d.id));
 
