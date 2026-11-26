@@ -74,7 +74,7 @@ describe('形：2×2（cells・frontCell）', () => {
       expect(frontCell(d, 3, 4, dir)).toEqual([4, 5]);
     }
     expect(wsDef(1).size).toBe(2);
-    expect(wsDef(1).art).toBe('factory');
+    expect(wsDef(1).art).toBe('workshop_lv1');
     expect(wsDef(0)).toBe(DEF.workshop);
     // 段の無い建物はそのまま（島づくりの DEF）
     expect(defOf({ id: 'general_store' })).toBe(DEF.general_store);

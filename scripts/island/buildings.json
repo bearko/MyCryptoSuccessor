@@ -717,7 +717,8 @@
   "name": "関所",
   "base": "1",
   "desc": "a traditional checkpoint gate at the edge of a town: a wooden gatehouse with a tiled roof, a heavy closed wooden gate across a paved road, a striped barrier pole, a small guard booth and a toll sign with a coin icon",
-  "back": "the same gatehouse seen from behind, gate closed, with a road leading away"
+  "back": "the same gatehouse seen from behind, gate closed, with a road leading away",
+  "artOnly": "建物の id ではなく、場面で替える絵（p1/render.ts の artLook：町の関所）"
  },
  {
   "id": "chief_home",
@@ -725,7 +726,8 @@
   "name": "町の長（セクター長）の家",
   "base": "1",
   "desc": "a stately two-story town head's residence with a dark tiled roof, a small clock or bell on the roof ridge, a wooden signboard with a scroll icon by the door, flower boxes and a stone path, paved front",
-  "back": "the same house seen from behind with a plain wall, a back door and a small garden"
+  "back": "the same house seen from behind with a plain wall, a back door and a small garden",
+  "artOnly": "場面で替える絵（artLook：町の長の家）"
  },
  {
   "id": "museum",
@@ -741,7 +743,8 @@
   "name": "町工場（工房の段 1）",
   "base": "2",
   "desc": "a small town factory grown from the craftsman's workshop: the same brick ground floor and wooden upper floor extended into a long two-bay building, a low sawtooth roof over the new bay, two chimneys, wide windows showing several workbenches, a hanging sign with a hammer and gear icon, stacked crates and a hand cart by a loading door, paved front",
-  "back": "remove the windows, the sign and the loading door, and show the brick back wall with pipes, a back door and stacked lumber"
+  "back": "remove the windows, the sign and the loading door, and show the brick back wall with pipes, a back door and stacked lumber",
+  "artOnly": "工房の段の絵（data.ts の FACTORY.art）"
  },
  {
   "id": "workshop_lv2",
@@ -749,6 +752,7 @@
   "name": "大工場（工房の段 2）",
   "base": "4",
   "desc": "a large factory complex grown from the same craftsman's workshop brand: a big brick main hall with a long sawtooth roof, a taller brick and wood office block with a hanging sign with a hammer and gear icon, three chimneys, a covered conveyor bridge between two halls, a loading yard with a small truck and stacked pallets, paved yard",
-  "back": "remove the sign, the conveyor bridge and the truck, and show the same complex from behind with plain brick walls, water tanks, pipes and a back gate"
+  "back": "remove the sign, the conveyor bridge and the truck, and show the same complex from behind with plain brick walls, water tanks, pipes and a back gate",
+  "artOnly": "工房の段の絵（FACTORY.art。2×2）"
  }
 ]

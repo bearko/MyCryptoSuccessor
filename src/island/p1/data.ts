@@ -3704,7 +3704,8 @@ export const SECTOR_CHIEF: Record<string, number> = {
  * 段 DIG3：発掘隊（名前のない隊員・シャドーヒーロー）の仮の絵：セクター長と同じ区分（replica の Common：RepC）のヒーローを 5 人ぶん。
  * 隊員 n 番の絵は [n]。差し替えはここだけ（docs/ISLAND_ART_TODO.md「発掘隊の隊員」）
  */
-export const DIG_CREW_HEROES: number[] = [12013, 12002, 12017, 12040, 12037];
+/** 発掘隊の隊員（段 ART1 で PixelLab で作った名前のない隊員。p1/walkers.ts の CREW_IDS） */
+export const DIG_CREW_HEROES: number[] = [90001, 90002, 90003, 90004, 90005];
 
 /** 到着の案内の「この町の地層には[[〇〇]]が眠っているはず」（docs/ISLAND_PHASE1.md「お題・発表・調査依頼状」） */
 export const DIG_THEME: Record<string, string> = {

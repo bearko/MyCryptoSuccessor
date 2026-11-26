@@ -3,6 +3,7 @@ import { allSeries, extensionById, heroById } from '../../game/catalog';
 import { isEn, t } from '../../i18n';
 import { icon } from '../../ui/dom';
 import { ux } from '../uix/hooks';
+import { WALKER_ART } from './walkers';
 import { PRODUCT, skuParts, type Mat, type Sku } from './data';
 
 export function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = ''): HTMLElementTagNameMap[K] {
@@ -68,11 +69,12 @@ export const plain = (text: string) => text.replace(/\[\[(.+?)\]\]/g, '$1');
 
 export function heroName(id: number): string {
   const x = heroById.get(id);
-  return x ? (isEn ? x.nameEn : x.name) : `#${id}`;
+  if (!x) return WALKER_ART.get(id)?.name() ?? `#${id}`;
+  return isEn ? x.nameEn : x.name;
 }
 
 export function heroIcon(id: number, size = 48): HTMLElement {
-  const x = heroById.get(id);
+  const x = heroById.get(id) ?? WALKER_ART.get(id);
   const e = icon(x?.image ?? '', 'px isl-hero');
   e.style.width = `${size}px`;
   e.style.height = `${size}px`;
