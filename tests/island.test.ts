@@ -15,8 +15,8 @@ const grassCell = (s: State, size = 1): [number, number] => {
 describe('島づくり：建物の一覧', () => {
   it('どの建物にも正面と背面の絵があり、生成の一覧とそろっている', () => {
     for (const d of DEFS) for (const k of ['rd', 'lu']) expect(existsSync(`public/island/b/${d.id}/${k}.png`), `${d.id}/${k}`).toBe(true);
-    const gen = JSON.parse(readFileSync('scripts/island/buildings.json', 'utf8')) as { id: string }[];
-    for (const g of gen) expect(!!DEF[g.id] || PENDING_ART.includes(g.id), g.id).toBe(true);
+    const gen = JSON.parse(readFileSync('scripts/island/buildings.json', 'utf8')) as { id: string; artOnly?: string }[];
+    for (const g of gen) expect(!!DEF[g.id] || PENDING_ART.includes(g.id) || !!g.artOnly, g.id).toBe(true);
   });
 
   it('id が重ならず、2 マスは 2 マス', () => {

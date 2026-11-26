@@ -134,6 +134,7 @@ import {
   type PromoItem,
   SIGN,
 } from './data';
+import { PORTER_ID } from './walkers';
 import { addXp, baseStats, heroRarityOf, initGrowth, levelForXp, passiveMul, passiveSum, promoteStaff, syncGrowth, type LevelUp, type PromoErr } from './hero';
 import { delegDay, delegMiss, delegMonth, headFx, newDeleg, roleXp, sectorApprove, type DelegReport, type DelegState } from './deleg';
 import { cardsCompany, cardsDay, cardsMonth, type CardReport, type CardState } from './card';
@@ -2271,7 +2272,7 @@ export function importOrder(s: P1State, m: Mat, qty: number, from: string, gain 
   procExp(s, (qty * gain + PROC.perBuy) * (1 + 0.5 * lvMul(s, 'eye')));
   const days = importLead(s, from);
   const id = (s.orders ?? []).reduce((a, o) => Math.max(a, o.id), 0) + 1;
-  (s.orders ??= []).push({ id, m, qty, left: days, total: days, courier: COURIERS[(id - 1) % COURIERS.length], from, duty: p.duty * qty, save: (unitPrice(s, m) - p.base - p.duty) * qty });
+  (s.orders ??= []).push({ id, m, qty, left: days, total: days, courier: PORTER_ID, from, duty: p.duty * qty, save: (unitPrice(s, m) - p.base - p.duty) * qty });
   return null;
 }
 /** 段 TRADE1a：となり町に lots ロット取り寄せる（手の注文） */

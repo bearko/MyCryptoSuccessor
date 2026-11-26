@@ -9,11 +9,14 @@ import { artOf, center, depthOf, diamond, drawArt, drawBuilding, drawCell, image
 import { cells, frontCell, type Dir } from '../sim';
 import { PRODUCT, skuParts, type Sku } from './data';
 import { COIN_KEEP, COIN_MS, PLUS_MS, along, drawRing, drawWalker, floatText, type Anim } from './anim';
-import { DUNGEON, cellsOf, craftDays, defOf, doorOf, wsDef, facilityStatus, ground, isRoad, isVacant, myDepots, myWorkshop, roadPath, siteProgress, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
+import { DUNGEON, cellsOf, craftDays, defOf, isGate, doorOf, wsDef, facilityStatus, ground, isRoad, isVacant, myDepots, myWorkshop, roadPath, siteProgress, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
 import { areaPaint, companyColor } from './trade';
 import { bounds, cacheScale, covered, drawBorders, drawWorld, roadAt, type World } from './worldrender';
 import { standing } from './digview';
 import { RUIN } from './company';
+import { chiefHome } from './digmeet';
+import { WALKER_ART } from './walkers';
+import { borderAt } from './tariff';
 import { MAPVIZ_COLOR, areaCells, routeLines, type Heat } from './mapviz';
 
 import { extImage } from './ui';
@@ -253,9 +256,10 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
 
   type Item = { depth: number; draw: () => void };
   const items: Item[] = [];
+  const look = artLook(s);
   for (const b of s.buildings) {
-    // 段 FACTORY1a：工房は段の形（町工場 1×2・大工場 2×2）
-    const def = defOf(b);
+    // 段 FACTORY1a：工房は段の形（町工場 1×2・大工場 2×2）。関所・町の長の家・境の拠点は専用の絵（artLook）
+    const def = look(b, defOf(b));
     const [fi, fj] = frontCell(def, b.i, b.j, b.dir);
     // 建て替えの途中：新しい形のマス（いまの形と重ならないマス）に足場。工房は前の形のまま動く（足場は演出。マスは予約）
     if (b.up && !overview) {
@@ -652,6 +656,24 @@ const SHUTTER_MS = 2200;
  * 空き店舗：もとの店の絵を暗くして、入口の前にシャッター（灰色の横じま）を重ね、上に「空き店舗」の札（仮の絵。docs/ISLAND_ART_TODO.md）。
  * t0（撤退した時刻）から SHUTTER_MS のあいだは、シャッターが上から下りてくる
  */
+/**
+ * 同じ建物の id でも、場面で絵を替える（段 ART1。docs/ISLAND_ART_TODO.md の「済」）：
+ * 町の関所（guard を置いている）は関所の絵（開通したら開いた絵）・町の長の家（町の住宅のうち公園にいちばん近いもの）は専用の家・
+ * 境界から近い自社の物流拠点（境の拠点）は番所と荷台のついた絵。1 コマに 1 回、判定をまとめて作る
+ */
+export function artLook(s: P1State): (b: P1State['buildings'][number], def: (typeof DEF)[string]) => (typeof DEF)[string] {
+  const home = chiefHome(s)?.uid ?? -1;
+  const hubs = new Set<number>();
+  for (const d of myDepots(s)) if (d.id === 'logistics' && borderAt(s, d.i, d.j, d.dir).length) hubs.add(d.uid);
+  return (b, def) => {
+    if (def.art) return def;
+    if (isGate(b)) return { ...def, art: s.gateOpen ? 'gate_open' : 'gate' };
+    if (b.uid === home && def.size !== 2 && def.size !== 4) return { ...def, art: 'chief_home' };
+    if (hubs.has(b.uid)) return { ...def, art: 'border_hub' };
+    return def;
+  };
+}
+
 export function drawVacant(ctx: CanvasRenderingContext2D, b: { uid: number; id: string; i: number; j: number; dir: Dir; left: number; owner: string }, def: (typeof DEF)[string], now: number, t0: number | null) {
   const cs = cells(def, b.i, b.j, b.dir);
   ctx.save();
@@ -810,6 +832,12 @@ function drawRoutes(ctx: CanvasRenderingContext2D, s: P1State, zoom: number, now
  * 段 TRADE1a：境界の番所。i, j は境界のいまの町の側の道路のマス・d はとなり町の向き。道の脇に小屋、道をふさぐ赤白の遮断機（up で上がる）。
  * 仮の絵（コードで描く）。docs/ISLAND_ART_TODO.md「段 TRADE1a：境の番所」
  */
+/** 段 ART1：PixelLab で作った地図の小物（public/island/props）。読めていなければ null（今のコードの絵で描く） */
+function prop(name: string): HTMLImageElement | null {
+  const im = image(`props/${name}.png`);
+  return im.complete && im.naturalWidth > 0 ? im : null;
+}
+
 function borderGate(ctx: CanvasRenderingContext2D, i: number, j: number, d: [number, number], up: boolean) {
   // 境界の線の上（道の真ん中）と、道を横切る向き
   const p: [number, number] = [Math.abs(d[1]), Math.abs(d[0])];
@@ -819,20 +847,24 @@ function borderGate(ctx: CanvasRenderingContext2D, i: number, j: number, d: [num
   const pivot = center(ei - p[0] * 0.38, ej - p[1] * 0.38);
   const tip = center(ei + p[0] * 0.42, ej + p[1] * 0.42);
   ctx.save();
-  // 小屋（1 マスの 3 割ほど）
-  ctx.fillStyle = '#1d1a24';
-  ctx.fillRect(hut.x - 26, hut.y - 58, 52, 50);
-  ctx.fillStyle = '#c98a4a';
-  ctx.fillRect(hut.x - 23, hut.y - 46, 46, 36);
-  ctx.fillStyle = '#7a3b2a';
-  ctx.beginPath();
-  ctx.moveTo(hut.x - 32, hut.y - 44);
-  ctx.lineTo(hut.x, hut.y - 70);
-  ctx.lineTo(hut.x + 32, hut.y - 44);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = '#ffd65a';
-  ctx.fillRect(hut.x - 8, hut.y - 38, 16, 12);
+  // 小屋（1 マスの 3 割ほど）。段 ART1 の絵があればそれ（足もとを小屋の位置に）
+  const booth = prop('border_booth');
+  if (booth) ctx.drawImage(booth, Math.round(hut.x - booth.naturalWidth / 2), Math.round(hut.y - booth.naturalHeight + 6));
+  else {
+    ctx.fillStyle = '#1d1a24';
+    ctx.fillRect(hut.x - 26, hut.y - 58, 52, 50);
+    ctx.fillStyle = '#c98a4a';
+    ctx.fillRect(hut.x - 23, hut.y - 46, 46, 36);
+    ctx.fillStyle = '#7a3b2a';
+    ctx.beginPath();
+    ctx.moveTo(hut.x - 32, hut.y - 44);
+    ctx.lineTo(hut.x, hut.y - 70);
+    ctx.lineTo(hut.x + 32, hut.y - 44);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#ffd65a';
+    ctx.fillRect(hut.x - 8, hut.y - 38, 16, 12);
+  }
   // 柱
   ctx.fillStyle = '#1d1a24';
   ctx.fillRect(pivot.x - 6, pivot.y - 34, 12, 34);
@@ -862,6 +894,13 @@ function truck(ctx: CanvasRenderingContext2D, x: number, y: number, di: number, 
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(right ? k : -k, k);
+  // 段 ART1：PixelLab の絵（右下へ走る向き。左へは反転）。足もと（車輪の下）を (x, y) に
+  const im = prop(full ? 'truck_full' : 'truck_empty');
+  if (im) {
+    ctx.drawImage(im, -Math.round(im.naturalWidth / 2), 4 - im.naturalHeight);
+    ctx.restore();
+    return;
+  }
   ctx.fillStyle = '#1d1a24';
   ctx.fillRect(-34, -40, 70, 34);
   // 荷台（青）
@@ -896,16 +935,20 @@ function tollCoin(ctx: CanvasRenderingContext2D, i: number, j: number, amt: numb
   ctx.save();
   ctx.globalAlpha = Math.max(0, Math.min(1, (1 - k) / 0.35));
   const r = 18;
-  ctx.fillStyle = '#1d1a24';
-  ctx.beginPath();
-  ctx.arc(c.x - 46, y, r + 3, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#ffd65a';
-  ctx.beginPath();
-  ctx.arc(c.x - 46, y, r, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#b8862a';
-  ctx.fillRect(c.x - 50, y - 9, 8, 18);
+  const coin = prop('toll_coin');
+  if (coin) ctx.drawImage(coin, Math.round(c.x - 46 - coin.naturalWidth / 2), Math.round(y - coin.naturalHeight / 2));
+  else {
+    ctx.fillStyle = '#1d1a24';
+    ctx.beginPath();
+    ctx.arc(c.x - 46, y, r + 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffd65a';
+    ctx.beginPath();
+    ctx.arc(c.x - 46, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#b8862a';
+    ctx.fillRect(c.x - 50, y - 9, 8, 18);
+  }
   const fs = Math.max(30, 13 / Math.max(0.05, zoom));
   ctx.font = `900 ${fs}px ${FONT}`;
   ctx.textAlign = 'left';
@@ -956,6 +999,14 @@ function digWorker(ctx: CanvasRenderingContext2D, hero: number, i: number, j: nu
   const sw = (Math.sin(ph) + 1) / 2;
   drawWalker(ctx, hero, i, j, 1, 0, sw > 0.85 ? (sw - 0.85) * 4 : 0);
   const c = center(i, j);
+  // 段 ART1：発掘隊の絵（walkers.ts）はつるはしを担いでいるので、コードの振りは描かず、跳ねたときの土ぼこりだけ
+  if (WALKER_ART.has(hero)) {
+    if (sw > 0.8) {
+      ctx.fillStyle = `rgba(190,150,96,${((sw - 0.8) * 4).toFixed(2)})`;
+      for (let k = 0; k < 4; k++) ctx.fillRect(Math.round(c.x - 22 + k * 10), Math.round(c.y + 2 - (k % 2) * 5), 4, 4);
+    }
+    return;
+  }
   const hx = c.x + 16;
   const hy = c.y - 34;
   const a = -1.9 + sw * 2.2;
@@ -1181,11 +1232,31 @@ function reviveGround(ctx: CanvasRenderingContext2D, i: number, j: number, k: nu
     }
   }
 }
-/** 「復興」の立て札（仮の絵）：木の杭と板・緑の文字の帯 */
+/** 「復興」の立て札：木の杭と板・緑のリボン（段 ART1 の絵。読めていなければコードの仮の絵）。字はゲームが書く */
 function reviveSign(ctx: CanvasRenderingContext2D, i: number, j: number, t0: number | null, now: number) {
   const p = wastePt(i, j, 0.3, 0.3);
   const rise = t0 == null ? 1 : Math.min(1, Math.max(0, (now - t0 - 1200) / 500));
   if (rise <= 0) return;
+  const sign = prop('revive_sign');
+  if (sign) {
+    // 地面から立ち上がる（下から見えていく）
+    const w = sign.naturalWidth;
+    const h = sign.naturalHeight;
+    const shown = Math.max(1, Math.round(h * rise));
+    const x0 = Math.round(p.x - w / 2);
+    const y0 = Math.round(p.y + 6 - shown);
+    ctx.drawImage(sign, 0, 0, w, shown, x0, y0, w, shown);
+    if (rise >= 1) {
+      ctx.save();
+      ctx.fillStyle = '#4a2f14';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(t('復興', 'Revived'), x0 + w * 0.5, y0 + h * 0.24);
+      ctx.restore();
+    }
+    return;
+  }
   const y = p.y - 40 * rise;
   ctx.fillStyle = '#3a2a1a';
   ctx.fillRect(Math.round(p.x - 2), Math.round(y), 4, Math.round(40 * rise) + 2);
@@ -1205,6 +1276,21 @@ function dungeonGate(ctx: CanvasRenderingContext2D, i: number, j: number, t0: nu
   const c = wastePt(i, j, 0.5, 0.5);
   const rise = t0 == null ? 1 : Math.min(1, Math.max(0, (now - t0 - 800) / 900));
   if (rise <= 0) return;
+  // 段 ART1：PixelLab の絵（石畳のひし形の真ん中を荒れ地の真ん中に。せり上がるあいだは下から現れる）
+  const gate = prop('dungeon_gate');
+  if (gate) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, rise * 1.4);
+    ctx.drawImage(gate, Math.round(c.x - 160), Math.round(c.y - 134 + (1 - rise) * 24));
+    ctx.restore();
+    if (inside) {
+      // 潜っているあいだは奥が光る（階段の底）
+      const a = 0.3 + 0.25 * Math.sin(now / 200);
+      ctx.fillStyle = `rgba(255,200,90,${a.toFixed(2)})`;
+      ctx.fillRect(Math.round(c.x + 6), Math.round(c.y + 12), 28, 10);
+    }
+    return;
+  }
   const h0 = 70 * rise;
   // 階段の穴（暗い菱形）
   const hole = [wastePt(i, j, 0.25, 0.3), wastePt(i, j, 0.75, 0.3), wastePt(i, j, 0.75, 0.7), wastePt(i, j, 0.25, 0.7)];

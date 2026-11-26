@@ -3193,8 +3193,8 @@ export const MOVE = { rate: 0.5, min: 2000, days: 0.5, refund: 0.3 };
 export const FACTORY = {
   /** 段ごとの形（cells の size：1×1・1×2・2×2） */
   size: [1, 2, 4] as const,
-  /** 段ごとの地図の絵（段 0 は工房の絵。段 2 は 2×2 の絵が無いので工場の絵を 2 棟並べる仮の絵。docs/ISLAND_ART_TODO.md） */
-  art: [null, 'factory', 'factory'] as const,
+  /** 段ごとの地図の絵（段 0 は工房の絵。段 1 は町工場 1×2・段 2 は大工場 2×2。段 ART1 で PixelLab で作った） */
+  art: [null, 'workshop_lv1', 'workshop_lv2'] as const,
   /** 作業台の上積み（作業台の設備投資 2 段目のあと。段 0 は 3 台＝いまのまま） */
   bench: [0, 1, 2],
   /** 物置の上積み（poolCap） */
@@ -3704,7 +3704,8 @@ export const SECTOR_CHIEF: Record<string, number> = {
  * 段 DIG3：発掘隊（名前のない隊員・シャドーヒーロー）の仮の絵：セクター長と同じ区分（replica の Common：RepC）のヒーローを 5 人ぶん。
  * 隊員 n 番の絵は [n]。差し替えはここだけ（docs/ISLAND_ART_TODO.md「発掘隊の隊員」）
  */
-export const DIG_CREW_HEROES: number[] = [12013, 12002, 12017, 12040, 12037];
+/** 発掘隊の隊員（段 ART1 で PixelLab で作った名前のない隊員。p1/walkers.ts の CREW_IDS） */
+export const DIG_CREW_HEROES: number[] = [90001, 90002, 90003, 90004, 90005];
 
 /** 到着の案内の「この町の地層には[[〇〇]]が眠っているはず」（docs/ISLAND_PHASE1.md「お題・発表・調査依頼状」） */
 export const DIG_THEME: Record<string, string> = {

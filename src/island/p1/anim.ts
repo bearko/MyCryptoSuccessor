@@ -7,6 +7,7 @@ import { heroById, heroFacesRight } from '../../game/catalog';
 import { drawRef } from '../../render/images';
 import { center } from '../render';
 import type { Mat } from './data';
+import { WALKER_ART } from './walkers';
 
 export interface Walker {
   hero: number;
@@ -86,7 +87,8 @@ const HERO = 74;
  * 絵は左向きが基本（facesRight の絵は逆）。体の中心（cx）を足もとに合わせる。
  */
 export function drawWalker(ctx: CanvasRenderingContext2D, hero: number, i: number, j: number, di: number, dj: number, bob: number, alpha = 1, carry?: HTMLImageElement | null) {
-  const h = heroById.get(hero);
+  // 段 ART1：名前のない歩く人（発掘隊・となり町の問屋の人）は walkers.ts の絵
+  const h = heroById.get(hero) ?? WALKER_ART.get(hero);
   if (!h) return;
   const c = center(i, j);
   const facing = (di - dj) * 100 < 0 ? -1 : 1;

@@ -30,6 +30,7 @@ BASES = {
     '1T': ('empty_1x1_tall.png', 200, 280),
     '2': ('empty_2x1.png', 300, 255),
     '2T': ('empty_2x1_tall.png', 300, 340),
+    '4': ('empty_2x2.png', 400, 340),  # 2×2（scripts/island/base2x2.py で作った土台）
 }
 
 # ---------------------------------------------------------------- API
@@ -115,6 +116,9 @@ def prompt(it):
     b = it['base']
     if it['cat'] == '住宅' and b == '1':
         return 'house', f"Replace the house and the lawn with {it['desc']}." + END
+    if b == '4':
+        s = f"On this empty square 2x2 lot, build {it['desc']}, as one large complex filling the whole square lot. No bare soil should remain on the lot."
+        return b, s + END
     if b.startswith('2'):
         s = f"On this empty two-tile lot, build {it['desc']}, as one building filling the whole lot. No bare soil should remain on the lot."
     else:

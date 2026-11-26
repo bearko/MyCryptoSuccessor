@@ -170,7 +170,7 @@ const ALL: Def[] = [
 ];
 
 /** 絵がまだ無い建物（生成の回数が尽きたため。scripts/island/generate.py で作れば外す） */
-export const PENDING_ART = ['elephant_works', 'g9_hall', 'robot_lab'];
+export const PENDING_ART: string[] = [];
 
 export const DEFS: Def[] = ALL.filter((d) => !PENDING_ART.includes(d.id));
 
@@ -219,11 +219,11 @@ export const POLICIES: Policy[] = [
 
 /**
  * フェーズ 1（アイランド）だけの建物：島づくりの一覧（DEFS）には入れない。
- * 遺物の展示館（発掘 v2 の 4 段目。復興した土地にだけ建てる 2 × 2）。絵はまだ無いので、ホールの絵を流用（ART。docs/ISLAND_ART_TODO.md）
+ * 遺物の展示館（発掘 v2 の 4 段目。復興した土地にだけ建てる 2 × 2）。絵は段 ART1 で PixelLab で作った（public/island/b/museum）
  */
 DEF.museum = D('museum', t('遺物の展示館', 'Relic museum'), 'culture', { size: 2, jobs: 6, cost: 15000, days: 10, upkeep: 600, appeal: 3 });
 
 /** 絵を流用している建物（id → 絵の id）。PixelLab で作ったら外す */
-export const ART: Record<string, string> = { museum: 'concert_hall' };
+export const ART: Record<string, string> = {};
 /** 建物の絵の id（流用していればその絵） */
 export const artId = (id: string) => ART[id] ?? id;

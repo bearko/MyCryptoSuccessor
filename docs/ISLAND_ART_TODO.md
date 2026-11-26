@@ -12,20 +12,12 @@
 
 | id | 名前 | 使う場所 | いまの状態 | 大きさ | PixelLab への指示（正面 / 背面） |
 |---|---|---|---|---|---|
-| warehouse | 倉庫 | フェーズ 1 の建築（置き場所 +200） | `scripts/island/warehouse.py` でコードで描いた煉瓦の倉庫 | 1 マス | 正面：a brick warehouse with a dark gable roof, a wide gray roller shutter door on the front, stacked wooden crates and a pallet by the door, paved front ／ 背面：replace the roller shutter with a plain brick wall with a small wooden door and two small windows |
-| gate（いまは guard を流用） | 関所 | ランドのふち（東）。通行料を払うと開通して、となりのランドセクタへ行ける | 「警備の詰所」（guard）の絵を流用。開通しても絵は変わらない（吹き出しだけ変わる） | 1 マス | 正面：a traditional checkpoint gate at the edge of a town: a wooden gatehouse with a tiled roof, a heavy closed wooden gate across a paved road, a striped barrier pole, a small guard booth and a toll sign with a coin icon ／ 背面：the same gatehouse seen from behind, gate closed, with a road leading away. 開通後の差分：gate doors wide open and the barrier pole raised |
-| wholesale | 卸問屋 | 区画の端（調達係が歩いて買い付けに行く） | 商社（trading）の絵を流用 | 1 マス・高い | 正面：an old three-story wholesale merchant house with a dark tiled roof, a wide open ground floor stacked with sacks, barrels and crates of raw materials (iron ingots, lumber, clay, glass), a large hanging sign with a scale icon, paved front ／ 背面：remove the open front and the sign, and show a plain wall with a loading door and stacked lumber |
-| chief_home（いまは町の住宅を流用） | 町の長（セクター長）の家 | 発掘場のあるセクタ（Common 8・Uncommon 5・Rare 4。Rare の町 ①で Rare も）の地図。お題をそろえたら研究成果を発表する家（`src/island/p1/digmeet.ts` の `chiefHome`：町の住宅のうち公園にいちばん近いもの） | 町の住宅の絵をそのまま流用。家の上に町の長の顔の小さな札（`.isl-chief`）を浮かべて見分ける | 1 マス | 正面：a stately two-story town head's residence with a dark tiled roof, a small clock or bell on the roof ridge, a wooden signboard with a scroll icon by the door, flower boxes and a stone path, paved front ／ 背面：the same house seen from behind with a plain wall, a back door and a small garden |
 | chief（いまは replica のヒーローを流用） | 町の長（シャドーヒーロー） | 地図の町の長の家の上の顔・町の長の家の吹き出し・研究成果の発表の会話（`main.ts` の talk の `who`）・依頼状の「町の長 ○○より」（`data.ts` の `SECTOR_CHIEF`） | MCH のヒーローのデータに「シャドー」の区分が無いので、セクタごとに replica のヒーローの絵（64×64）を割り当て（c1 ミケランジェロ・c2 アルキメデス・c3 ビスマルク・c4 豊臣秀吉・c5 出雲阿国・c6 金太郎・c7 樋口一葉・c8 ベンジャミン・フランクリン・u1 マゼラン・u2 武蔵坊弁慶・u3 平賀源内・u4 小野小町・u5 徳川家康・Rare の町 ①で足した r1 マルコ・ポーロ・r2 マルクス・r3 トーマス・エジソン・r4 フランシス・ドレーク（Rare は RepA）） | 64×64（地図の札は 32、会話は 64） | セクタごとの町の長の顔 20 枚（段 H1 で Epic の 3 枚を足した）（シャドーヒーローらしく、影のかかった紫の縁取りの肖像）。町の個性（湖・丘の鍛冶・祭り・港・織物など）に合う装い。差し替えは `SECTOR_CHIEF` の 1 か所 |
-| museum（いまは concert_hall を流用） | 遺物の展示館（発掘 v2 の 4 段目） | 復興した土地にだけ建てる 2 マスの建物（`data.ts` の `P1B.museum`・`defs.ts` の `DEF.museum` と `ART`）。地図・建築の一覧・置くときの影 | ホール（`concert_hall`）の絵をそのまま流用（`artId`）。看板は無い（吹き出しと建築の一覧の名前で見分ける） | 2 マス | 正面：a small stately museum of an old kingdom in a revived town: pale stone walls with columns, a green copper roof, a wide entrance with a banner showing a relic (an old pickaxe and a gem), a signboard reading MUSEUM style with a lime-leaf crest, glass display windows with relics inside, a tidy stone plaza with flower beds ／ 背面：the same building from behind with a plain stone wall, a small service door and stacked crates of excavated relics |
-| revived_land（復興した土地）・revive_sign（「復興」の立て札） | 掘りきって復興した荒れ地（2 × 2）の地面と、建物が建っていないときの立て札 | `render.ts` の `reviveGround`（明るい草地・むら・小さな花をコードで）・`reviveSign`（木の杭と板・緑の帯・文字「復興」） | コードで描いた菱形の草地と四角い板 | 2 × 2 マス（400×220）／立て札は 1 マスの上に 60×70 ほど | 地面：a 2x2 isometric patch of freshly leveled new grass land, bright green, neat with a few tiny flowers and faint rake lines, edges blending into the surrounding grass ／ 立て札：a small wooden signpost with a light board and a green ribbon, a sprout icon on it (text is drawn by the game), 1 枚。差分：土 → 草地へ変わる 4 コマ（町に戻ったときの演出） |
-| dungeon_gate（ダンジョンの入り口） | セクタで最後に掘りきった荒れ地（2 × 2）の底で見つかる入り口。タップで「⛏ ダンジョンに潜る」 | `render.ts` の `dungeonGate`（石畳・暗い穴・4 段の階段・左右の柱と横石をコードで。潜っているあいだは奥が光る）。見つかった演出は地面から門が立ち上がる | コードで描いた石の門 | 2 × 2 マス（400×220＋高さ 120 ほど） | an ancient stone gate standing over stone stairs that lead down into darkness, set in a 2x2 isometric patch of worn paving stones; mossy pillars and a heavy lintel with faded carvings of the old kingdom, a faint warm glow deep inside ／ 差分：中で人が掘っているとき（奥の光が強い）・門が地面からせり上がる 4 コマ |
 
 ### 段 DIG3（なぞって掘る。2026-11-06）
 
 | id | 名前 | 使う場所 | いまの状態 | 大きさ | PixelLab への指示 |
 |---|---|---|---|---|---|
-| dig_crew（いまは replica のヒーローを流用） | 発掘隊の隊員（名前のないシャドーヒーロー。5 人ぶん） | 発掘の画面の壁の上（`digui.ts` の `paintCrew`：打ったマスへ歩いてツルハシを振る）・地図の荒れ地の常駐の作業員（`render.ts` の `digWorker`）・発掘の画面の下の帯の「発掘隊 N 人」の顔 | `data.ts` の `DIG_CREW_HEROES`（RepC の 5 人）＋ 絵文字の ⛏ | 32px（画面）・歩く人の大きさ（地図） | a small nameless miner in a dark hooded work coat and a helmet with a lamp, pixel art, 4-direction walk and a pickaxe swing (2 frames), muted brown and gray so the real heroes stand out; make 5 colour variants of the scarf |
 | dig_pick | ツルハシ（打っているマスの上の振り） | 発掘の画面（`.isl-dig-pick`：カーソル・指の下のマスの上で 170 ms ごとに振る） | 絵文字 ⛏ を CSS で回している | 24〜32px | a pixel-art pickaxe with a worn wooden handle and a steel head, 3-frame swing (raised, mid, struck) with a small spark on the struck frame, transparent background |
 | dig_bomb | 地中の爆弾（掘り出すと爆発） | 発掘の画面：爆弾の層をはがした瞬間（`bombFx`：いまは pixelfx の花火（橙）と煙と「💥 爆発！」）。帯の「💣 N」 | 絵は無い（はがれた瞬間に爆発するので、爆弾そのものは見えない）。帯は絵文字 💣 | 24px（帯）・48px（はがれた瞬間に 1 コマ見せるなら） | a round black iron bomb with a short lit fuse, pixel art, 24px icon and a 48px version with a bright flash frame |
 | dig_badge | 荒れ地の進捗の札「⛏ N%」 | 地図の荒れ地の上（`render.ts` の `wasteBadge`） | コードで描いた黒い札と金色のバー | 60×22px | a small wooden signboard with a tiny pickaxe icon and room for a number, pixel art, isometric town scale |
@@ -44,27 +36,20 @@
 
 | id | 名前 | 使う場所 | いまの状態 | 大きさ | PixelLab への指示 |
 |---|---|---|---|---|---|
-| border_gate | 境の番所（遮断機と小屋） | 地図の境界の道（となり町ごとに、取り寄せの道が境界をこえる所。`render.ts` の `borderGate`・`main.ts` の `tradeAnim`）。荷が通るあいだ遮断機が上がる | コードで描いた四角い小屋（茶色の壁・赤い三角屋根・黄色の窓）と、赤白の縞の棒（上がると斜め上へ回す） | 1 マスの 3 割ほど（小屋 60×70・棒は道幅） | a tiny wooden border booth beside a road with a red tiled roof and a small lit window, plus a red-and-white striped barrier pole across the road, isometric pixel art, transparent background; 2 frames: barrier down (closed) and barrier raised up (open). Same scale as the walking heroes |
-| toll_coin | 関税の金貨のアイコン | 荷が境界を通った瞬間に弾ける「−58 G」の横（`render.ts` の `tollCoin`）。帳簿・月次報告の「🛃 関税」の行（いまは絵文字 🛃） | コードで描いた金の丸と四角い穴 ＋ 絵文字 🛃 | 16×16（行）・36×36（地図の弾ける金貨） | a small gold coin with a customs stamp mark (a simple gate icon) on it, dark 1px outline, pixel art, transparent background; a 16px version for text rows and a 36px version with a little shine frame |
+| toll_coin | 関税の金貨のアイコン | 荷が境界を通った瞬間に弾ける「−58 G」の横（`render.ts` の `tollCoin`）。帳簿・月次報告の「🛃 関税」の行（いまは絵文字 🛃） | 地図の弾ける金貨は段 ART1 で済（`props/toll_coin.png`）。帳簿・月次報告の行の 16px は絵文字 🛃 のまま | 16×16（行）・36×36（地図の弾ける金貨） | a small gold coin with a customs stamp mark (a simple gate icon) on it, dark 1px outline, pixel art, transparent background; a 16px version for text rows and a 36px version with a little shine frame |
 | panel_customs・panel_bonded・panel_lane | 関税を下げるパネル 3 枚（通関の手続き・保税の置き場・関所の優先レーン） | スキルツリーの物流の ③ 運搬の束（`tree.ts` の `ICON`：Common の物流拠点のあと・Uncommon・Rare の外周）・詳細カード | 絵文字 🛃・📦・🚧 | 32×32（札の中）・36（詳細） | 3 small pixel-art icons on transparent background, dark 1px outline: a stamped document with a gate icon (customs paperwork), a sealed crate inside a locked cage (bonded storage), a raised barrier pole with a green arrow lane (priority border lane). Same style as the other skill-tree emoji-replacement icons |
-| courier_import（いまは問屋の人を流用） | となり町の問屋の人（荷を担いで境界をこえてくる） | 地図（`main.ts` の `tradeAnim` → `render.ts` の couriers）。隣の問屋から境界をこえて工房（か境の拠点）まで歩く | この町の卸問屋の人（`COURIERS` のヒーロー）と素材のアイコンをそのまま流用 | 歩く人の大きさ | a traveling porter in a straw hat and travel cloak carrying a large bundle on the back, pixel art, 4-direction walk (2 frames), so imports from the next town look different from local deliveries |
 | tradecmp_tag | 「🗺 となり町」の札 | 卸問屋の吹き出しの指示・調達の画面の素材の行（`tariffui.ts` の `tradeCmpEl`・`p1.css` の `.isl-tradecmp`） | 橙の四角い札に絵文字 🗺 | 16×16（札の 12px の字の横） | a tiny folded map icon with an orange route line crossing a dashed border, dark 1px outline, pixel art, transparent background |
-| border_hub（いまは物流拠点のまま） | 境の拠点（境界から 3 マス以内の物流拠点） | 置くときの下見の「🛃 境の拠点」の行（`main.ts` の siteCard）。地図の絵は物流拠点のまま（見分けは吹き出しと下見だけ） | 物流拠点（logistics）の絵をそのまま | 1 マス | 物流拠点の差分：add a small border booth with a striped barrier and a stack of crates with customs seals beside the hub building（次の段 TRADE1b の輸入でも使う） |
 
 ### 段 TRADE1b（隣町の工房の商品を境の拠点へ輸入する。2026-11-09）
 
 | id | 名前 | 使う場所 | いまの状態 | 大きさ | PixelLab への指示 |
 |---|---|---|---|---|---|
-| border_hub（TRADE1a の行と同じ） | 境の拠点の差分（番所と積み替えの荷台） | 地図の物流拠点（境界から 3 マス以内）・拠点の吹き出しの「📦 輸入」（`feedui.ts`）・置くときの下見の「📦 輸入」（`main.ts` の siteCard・`.isl-feed-site`） | 物流拠点（logistics）の絵をそのまま。見分けは吹き出しと下見と、境界をこえる太い青の線だけ | 1 マス | isometric pixel-art logistics hub building with a small customs booth, a red-and-white barrier and a loading platform with stacked wooden crates on one side, transparent background, same scale and palette as the existing logistics hub tile |
-| trunk_truck | 幹線のトラック（輸入の便） | 地図：週の到着の日に隣町の工房 → 境界の番所 → 境の拠点を走る（`render.ts` の `truck`・`main.ts` の `tradeAnim`）。縮小した地図では町と町のあいだを往復する | コードで描いた四角（青い荷台・白い運転席・黒い車輪。荷を積んでいる行きは木箱を 2 つ載せる）。左右の 2 向きだけ（斜めの向きは無い） | 荷車の 2 倍ほど（70×50） | a small blue cargo truck with a white cab and two wooden crates on the flatbed, isometric pixel art, transparent background; 2 diagonal directions (down-right and up-right; mirror for the others), loaded and empty variants |
 | feed_crate | 輸入中の木箱のアイコン | 縮小した地図の町の札の「📦 輸入中」「→ 品」（`main.ts` の badgeEl・`.isl-feed-badge`）・拠点の吹き出しの見出し・月次報告の「📦 輸入」の行（`report.ts` の importLine） | 絵文字 📦 と「→」の字 | 16×16（札・行）・24×24（吹き出しの見出し） | a tiny wooden shipping crate with a blue arrow stamp pointing right, dark 1px outline, pixel art, transparent background; 16px and 24px versions |
 
 ### 段 FACTORY1a（工房を 1×2 の町工場・2×2 の大工場へ建て替える。2026-11-10）
 
 | id | 名前 | 使う場所 | いまの状態 | 大きさ | PixelLab への指示 |
 |---|---|---|---|---|---|
-| workshop_lv1（いまは factory を流用） | 町工場（工房の段 1） | 地図の工房（`PBuilding.lv` が 1。`data.ts` の `FACTORY.art`・`model.ts` の `wsDef`）・建て替えの置き方の影・隣のセクタと縮小した地図 | 工場（factory）の絵（300×255）をそのまま。工房（煉瓦と木の店）とのつながりが弱く、「同じ店が大きくなった」と見えない | 2 マス（1×2・300×255・base "2"） | 工房と同じ看板（ハンマーと歯車）・同じ煉瓦と木の色で、同じ店が横に広がった町工場：a small town factory grown from the craftsman's workshop: the same brick ground floor and wooden upper floor extended into a long two-bay building, a low sawtooth roof over the new bay, two chimneys, wide windows showing several workbenches, the same hanging sign with a hammer and gear icon, stacked crates and a hand cart by a loading door, paved front ／ 背面：remove the windows, the sign and the loading door, and show the brick back wall with pipes, a back door and stacked lumber |
-| workshop_lv2（いまは factory を 2 棟並べる） | 大工場（工房の段 2） | 同上（`PBuilding.lv` が 2。2×2 は `Def.size` 4） | 工場の絵（1×2）を奥と手前に 2 棟並べて描く（`src/island/render.ts` の `drawArt`：幅 400 未満の絵を 2×2 に置くとき） | 2×2 マス（**400×340**。基準点は下から 31・横の真ん中 x = 200。`docs/ISLAND_MVP.md`）。生成の土台 `scripts/island/bases/empty_2x2*.png` と `generate.py` の `'4'` が要る（まだ無い） | 町工場がさらに大きくなった大工場：a large factory complex grown from the same workshop brand on a 2x2 lot: a big brick main hall with a long sawtooth roof, a taller office block with the hammer and gear sign, three chimneys, a conveyor bridge between two halls, a loading yard with a small truck and stacked pallets, paved yard filling the whole 2x2 diamond ／ 背面：the same complex from behind with plain brick walls, water tanks, pipes and a back gate |
 | fac_scaffold（いまは足場の流用） | 建て替えの足場 | 建て替えのあいだ、新しい形のマス（いまの形と重ならないマス）に組む（`p1/render.ts`。`scaffoldAt`） | 工事の足場（`fx/scaffold4.png`・更地 `fx/lot.png`）をそのまま。前の建物は横で動いている | 1 マスごと（足場 4 段） | コードのままでよい（足場が外れる土ぼこり・光は pixelfx の poof・sunburst）。作るなら：the same scaffold frames with a green safety net and a small crane arm, 12 frames |
 | fac_shapes | 段の形のアイコン（1×1 → 1×2 → 2×2） | 工房の吹き出しと工房の画面の「建て替え」の欄（`factoryui.ts` の `.isl-fac-shape`） | CSS の四角（いまの段は金色・次の段は点線） | 12px の四角を 1・2・4 個 | コードのままでよい（作るなら、各段の地図の絵を 32×32 に縮めたアイコン） |
 
@@ -259,9 +244,6 @@
 
 | id | 名前 | いまの状態 |
 |---|---|---|
-| elephant_works | 象王の大工房（2 マス・高い） | 絵が無い（`PENDING_ART`。建てられない） |
-| g9_hall | G9 の会議場（2 マス・高い） | 絵が無い（`PENDING_ART`） |
-| robot_lab | 巨大ロボの研究所（2 マス・高い） | 絵が無い（`PENDING_ART`） |
 | department | デパート | 背面（lu）が仮（生成回数が尽きたときの代わりの絵） |
 | demon_castle | 魔王の城 | 背面（lu）が正面と同じ絵 |
 
@@ -274,7 +256,33 @@
 
 ## 済
 
-（まだ無し）
+### 段 ART1（2026-11-26。PixelLab の Pro で生成）
+
+| 何を | ファイル | 作り方 | 使う所 |
+|---|---|---|---|
+| 象王の大工房・G9 の会議場・巨大ロボの研究所（自由建築） | `public/island/b/{elephant_works,g9_hall,robot_lab}/` | `generate.py`（2 マス・高い）。`PENDING_ART` は空にした | 自由建築の建物（建てられるようになった） |
+| 倉庫（作り直し）・卸問屋（作り直し） | `b/warehouse/`・`b/wholesale/` | `generate.py` | 地図・建築の一覧 |
+| 関所（閉じた・開いた） | `b/gate/`・`b/gate_open/` | `generate.py`＋開いた差分は同じ絵の edit（背面は配置を保つ指示で作り直し） | 町の関所（`guard` を置いている）。`p1/render.ts` の `artLook` が `s.gateOpen` で替える |
+| 町の長（セクター長）の家 | `b/chief_home/` | `generate.py` | `artLook`：`digmeet.ts` の `chiefHome` の家（1 マスの家のとき） |
+| 遺物の展示館 | `b/museum/` | `generate.py`（2 マス）。`defs.ts` の `ART` の流用をやめた | 復興した土地の展示館 |
+| 町工場（工房の段 1）・大工場（工房の段 2・2×2） | `b/workshop_lv1/`・`b/workshop_lv2/` | `generate.py`。2×2 は新しい土台 `bases/empty_2x2.png`（`scripts/island/base2x2.py`）。大工場の背面は上に余白を足して作った | `data.ts` の `FACTORY.art` |
+| 境の拠点（物流拠点の差分：番所と荷） | `b/border_hub/` | 物流拠点の絵の edit | `artLook`：境界から近い自社の物流拠点 |
+| 境の番所の小屋 | `public/island/props/border_booth.png` | `generate-image-v2`（建物の絵を画風の手本に）。遮断機はコードのまま（上がる・下がる） | `p1/render.ts` の `borderGate` |
+| 幹線のトラック（荷あり・空） | `props/truck_full.png`・`props/truck_empty.png` | 同上。右下へ走る向き（左は反転） | `truck` |
+| 関税の金貨（地図で弾ける 36px） | `props/toll_coin.png` | 同上 | `tollCoin` |
+| 「復興」の立て札 | `props/revive_sign.png` | 同上。字はゲームが板に書く | `reviveSign`（地面から立ち上がる） |
+| ダンジョンの入り口 | `props/dungeon_gate.png` | 同上（320×212・石畳のひし形の真ん中を荒れ地の真ん中に） | `dungeonGate`（潜っているあいだは奥が光る） |
+| 発掘隊の隊員 5 人（スカーフの色違い） | `public/island/char/miner_{1..5}.png` | `generate-with-style-v2`（MCH のヒーロー 4 人を画風の手本に。64×64） | `p1/walkers.ts`（`CREW_IDS`。ヒーローの一覧には入れない）。地図の常駐・発掘の画面の顔 |
+| となり町の問屋の人 | `char/porter.png` | 同上 | `walkers.ts` の `PORTER_ID`。輸入の注文の運び手 |
+
+絵が読めないあいだは、どれも今のコードの絵（または流用の絵）で描く。
+
+### 段 ART1 で作らなかったもの（理由）
+
+- 復興した土地の地面（`reviveGround`）：コードの草むらと花で十分に見える（立て札とダンジョンの入り口だけ作った）。
+- 町の長の顔（`chief`）：MCH の replica のヒーローの絵が、もともとセピアの「影のかかった」見た目で、シャドーヒーローに見える。名前のあるヒーローの顔を作り替えると別人になるので、そのまま。
+- 新しい画面の 12×12 のアイコン（段 UIX2m・UIX2s・UIX3 の表）：PixelLab の最小は 32px 前後で、12px に縮めるとつぶれる。コードで描いたドット絵のまま。
+- 地図の印の札と絵文字のアイコン（段 L0・TRADE1a の 16〜32px のもの）：新しい見た目では 12px のドットのアイコン（`MARK_ICO` ほか）に置き換わっている。
 
 ## 新しい画面のアイコン（世界の場面。段 UIX3w）
 
