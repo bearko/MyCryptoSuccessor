@@ -3193,8 +3193,8 @@ export const MOVE = { rate: 0.5, min: 2000, days: 0.5, refund: 0.3 };
 export const FACTORY = {
   /** 段ごとの形（cells の size：1×1・1×2・2×2） */
   size: [1, 2, 4] as const,
-  /** 段ごとの地図の絵（段 0 は工房の絵。段 2 は 2×2 の絵が無いので工場の絵を 2 棟並べる仮の絵。docs/ISLAND_ART_TODO.md） */
-  art: [null, 'factory', 'factory'] as const,
+  /** 段ごとの地図の絵（段 0 は工房の絵。段 1 は町工場 1×2・段 2 は大工場 2×2。段 ART1 で PixelLab で作った） */
+  art: [null, 'workshop_lv1', 'workshop_lv2'] as const,
   /** 作業台の上積み（作業台の設備投資 2 段目のあと。段 0 は 3 台＝いまのまま） */
   bench: [0, 1, 2],
   /** 物置の上積み（poolCap） */

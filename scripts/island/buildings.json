@@ -701,8 +701,7 @@
   "name": "倉庫",
   "base": "1",
   "desc": "a brick warehouse with a dark gable roof, a wide gray roller shutter door on the front, stacked wooden crates and a pallet by the door, paved front",
-  "back": "replace the roller shutter with a plain brick wall with a small wooden door and two small windows",
-  "note": "PixelLab の生成回数が尽きていたので、いまの絵は scripts/island/warehouse.py で描いたもの。回数が戻ったらこの指示で作り直す"
+  "back": "replace the roller shutter with a plain brick wall with a small wooden door and two small windows"
  },
  {
   "id": "wholesale",
@@ -710,7 +709,46 @@
   "name": "卸問屋",
   "base": "1T",
   "desc": "an old three-story wholesale merchant house with a dark tiled roof, a wide open ground floor stacked with sacks, barrels and crates of raw materials (iron ingots, lumber, clay, glass), a large hanging sign with a scale icon, paved front",
-  "back": "remove the open front and the sign, and show a plain wall with a loading door and stacked lumber",
-  "note": "いまの絵は商社（trading）の絵を流用。PixelLab の回数が戻ったらこの指示で作る"
+  "back": "remove the open front and the sign, and show a plain wall with a loading door and stacked lumber"
+ },
+ {
+  "id": "gate",
+  "cat": "会社の施設",
+  "name": "関所",
+  "base": "1",
+  "desc": "a traditional checkpoint gate at the edge of a town: a wooden gatehouse with a tiled roof, a heavy closed wooden gate across a paved road, a striped barrier pole, a small guard booth and a toll sign with a coin icon",
+  "back": "the same gatehouse seen from behind, gate closed, with a road leading away"
+ },
+ {
+  "id": "chief_home",
+  "cat": "住宅",
+  "name": "町の長（セクター長）の家",
+  "base": "1",
+  "desc": "a stately two-story town head's residence with a dark tiled roof, a small clock or bell on the roof ridge, a wooden signboard with a scroll icon by the door, flower boxes and a stone path, paved front",
+  "back": "the same house seen from behind with a plain wall, a back door and a small garden"
+ },
+ {
+  "id": "museum",
+  "cat": "地域への投資",
+  "name": "遺物の展示館",
+  "base": "2",
+  "desc": "a small stately museum of an old kingdom in a revived town: pale stone walls with columns, a green copper roof, a wide entrance with a banner showing a relic (an old pickaxe and a gem), a lime-leaf crest over the door, glass display windows with relics inside, a tidy stone plaza with flower beds",
+  "back": "remove the entrance, the banner and the display windows, and show a plain stone wall with a small service door and stacked crates of excavated relics"
+ },
+ {
+  "id": "workshop_lv1",
+  "cat": "物販・本業",
+  "name": "町工場（工房の段 1）",
+  "base": "2",
+  "desc": "a small town factory grown from the craftsman's workshop: the same brick ground floor and wooden upper floor extended into a long two-bay building, a low sawtooth roof over the new bay, two chimneys, wide windows showing several workbenches, a hanging sign with a hammer and gear icon, stacked crates and a hand cart by a loading door, paved front",
+  "back": "remove the windows, the sign and the loading door, and show the brick back wall with pipes, a back door and stacked lumber"
+ },
+ {
+  "id": "workshop_lv2",
+  "cat": "物販・本業",
+  "name": "大工場（工房の段 2）",
+  "base": "4",
+  "desc": "a large factory complex grown from the same craftsman's workshop brand: a big brick main hall with a long sawtooth roof, a taller brick and wood office block with a hanging sign with a hammer and gear icon, three chimneys, a covered conveyor bridge between two halls, a loading yard with a small truck and stacked pallets, paved yard",
+  "back": "remove the sign, the conveyor bridge and the truck, and show the same complex from behind with plain brick walls, water tanks, pipes and a back gate"
  }
 ]

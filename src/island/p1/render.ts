@@ -9,11 +9,13 @@ import { artOf, center, depthOf, diamond, drawArt, drawBuilding, drawCell, image
 import { cells, frontCell, type Dir } from '../sim';
 import { PRODUCT, skuParts, type Sku } from './data';
 import { COIN_KEEP, COIN_MS, PLUS_MS, along, drawRing, drawWalker, floatText, type Anim } from './anim';
-import { DUNGEON, cellsOf, craftDays, defOf, doorOf, wsDef, facilityStatus, ground, isRoad, isVacant, myDepots, myWorkshop, roadPath, siteProgress, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
+import { DUNGEON, cellsOf, craftDays, defOf, isGate, doorOf, wsDef, facilityStatus, ground, isRoad, isVacant, myDepots, myWorkshop, roadPath, siteProgress, speed, staffOf, wasteSpots, type P1State, type Stop } from './model';
 import { areaPaint, companyColor } from './trade';
 import { bounds, cacheScale, covered, drawBorders, drawWorld, roadAt, type World } from './worldrender';
 import { standing } from './digview';
 import { RUIN } from './company';
+import { chiefHome } from './digmeet';
+import { borderAt } from './tariff';
 import { MAPVIZ_COLOR, areaCells, routeLines, type Heat } from './mapviz';
 
 import { extImage } from './ui';
@@ -253,9 +255,10 @@ export function drawP1(ctx: CanvasRenderingContext2D, s: P1State, cam: Camera, w
 
   type Item = { depth: number; draw: () => void };
   const items: Item[] = [];
+  const look = artLook(s);
   for (const b of s.buildings) {
-    // 段 FACTORY1a：工房は段の形（町工場 1×2・大工場 2×2）
-    const def = defOf(b);
+    // 段 FACTORY1a：工房は段の形（町工場 1×2・大工場 2×2）。関所・町の長の家・境の拠点は専用の絵（artLook）
+    const def = look(b, defOf(b));
     const [fi, fj] = frontCell(def, b.i, b.j, b.dir);
     // 建て替えの途中：新しい形のマス（いまの形と重ならないマス）に足場。工房は前の形のまま動く（足場は演出。マスは予約）
     if (b.up && !overview) {
@@ -652,6 +655,24 @@ const SHUTTER_MS = 2200;
  * 空き店舗：もとの店の絵を暗くして、入口の前にシャッター（灰色の横じま）を重ね、上に「空き店舗」の札（仮の絵。docs/ISLAND_ART_TODO.md）。
  * t0（撤退した時刻）から SHUTTER_MS のあいだは、シャッターが上から下りてくる
  */
+/**
+ * 同じ建物の id でも、場面で絵を替える（段 ART1。docs/ISLAND_ART_TODO.md の「済」）：
+ * 町の関所（guard を置いている）は関所の絵（開通したら開いた絵）・町の長の家（町の住宅のうち公園にいちばん近いもの）は専用の家・
+ * 境界から近い自社の物流拠点（境の拠点）は番所と荷台のついた絵。1 コマに 1 回、判定をまとめて作る
+ */
+export function artLook(s: P1State): (b: P1State['buildings'][number], def: (typeof DEF)[string]) => (typeof DEF)[string] {
+  const home = chiefHome(s)?.uid ?? -1;
+  const hubs = new Set<number>();
+  for (const d of myDepots(s)) if (d.id === 'logistics' && borderAt(s, d.i, d.j, d.dir).length) hubs.add(d.uid);
+  return (b, def) => {
+    if (def.art) return def;
+    if (isGate(b)) return { ...def, art: s.gateOpen ? 'gate_open' : 'gate' };
+    if (b.uid === home && def.size !== 2 && def.size !== 4) return { ...def, art: 'chief_home' };
+    if (hubs.has(b.uid)) return { ...def, art: 'border_hub' };
+    return def;
+  };
+}
+
 export function drawVacant(ctx: CanvasRenderingContext2D, b: { uid: number; id: string; i: number; j: number; dir: Dir; left: number; owner: string }, def: (typeof DEF)[string], now: number, t0: number | null) {
   const cs = cells(def, b.i, b.j, b.dir);
   ctx.save();
